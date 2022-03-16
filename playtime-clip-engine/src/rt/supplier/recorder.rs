@@ -16,7 +16,7 @@ use crate::rt::{
 };
 use crate::source_util::create_empty_midi_source;
 use crate::timeline::{clip_timeline, Timeline};
-use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
+use crate::{ClipEngineResult, HybridTimeline, Laziness, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
 use playtime_api::{
@@ -675,8 +675,11 @@ impl RecordingState {
                         audio_request_props,
                         self.kind_state.is_midi(),
                     );
-                    let quantized_start_pos =
-                        timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+                    let quantized_start_pos = timeline.next_quantized_pos_at(
+                        timeline_cursor_pos,
+                        quantization,
+                        Laziness::EagerForNextPos,
+                    );
                     debug!("Calculated quantized start pos {:?}", quantized_start_pos);
                     let start_pos = timeline.pos_of_quantized_pos(quantized_start_pos);
                     let frames_from_start_pos = calc_distance_from_pos(start_pos, equipment);
@@ -1333,7 +1336,11 @@ fn calculate_scheduled_end(
     is_midi: bool,
     is_predefined: bool,
 ) -> ScheduledEnd {
-    let quantized_end_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+    let quantized_end_pos = timeline.next_quantized_pos_at(
+        timeline_cursor_pos,
+        quantization,
+        Laziness::EagerForNextPos,
+    );
     debug!("Calculated quantized end pos {:?}", quantized_end_pos);
     let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
         timeline,

@@ -17,7 +17,7 @@ use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
 use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
-use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
+use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
@@ -574,8 +574,14 @@ impl ReadyState {
         match start_timing {
             Immediately => VirtualPosition::Now,
             Quantized(q) => {
-                let quantized_pos =
-                    QuantizedPosition::from_quantization(q, play_args.timeline, play_args.ref_pos);
+                let ref_pos = play_args
+                    .ref_pos
+                    .unwrap_or_else(|| play_args.timeline.cursor_pos());
+                let quantized_pos = play_args.timeline.next_quantized_pos_at(
+                    ref_pos,
+                    q,
+                    Laziness::DwellingOnCurrentPos,
+                );
                 VirtualPosition::Quantized(quantized_pos)
             }
         }
@@ -628,8 +634,11 @@ impl ReadyState {
                                 Quantized(q) => {
                                     let ref_pos =
                                         args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-                                    let quantized_pos =
-                                        args.timeline.next_quantized_pos_at(ref_pos, q);
+                                    let quantized_pos = args.timeline.next_quantized_pos_at(
+                                        ref_pos,
+                                        q,
+                                        Laziness::DwellingOnCurrentPos,
+                                    );
                                     Playing(PlayingState {
                                         stop_request: Some(StopRequest::Quantized(quantized_pos)),
                                         ..s

@@ -80,6 +80,12 @@ impl ReaperTimeline {
     }
 }
 
+/// Defines how the next quantized position is determined.
+pub enum Laziness {
+    EagerForNextPos,
+    DwellingOnCurrentPos,
+}
+
 impl Timeline for ReaperTimeline {
     fn cursor_pos(&self) -> PositionInSeconds {
         Reaper::get()
@@ -91,11 +97,12 @@ impl Timeline for ReaperTimeline {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        laziness: Laziness,
     ) -> QuantizedPosition {
         // TODO-medium Handle in-measure tempo changes correctly (also for pos_of_quantized_pos).
         //  Time signature changes (always start a new measure) and on-measure tempo changes are
         //  handled correctly already.
-        get_next_quantized_pos_at(timeline_pos, quantization, self.project_context)
+        get_next_quantized_pos_at(timeline_pos, quantization, self.project_context, laziness)
     }
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
@@ -127,6 +134,7 @@ pub trait Timeline {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        laziness: Laziness,
     ) -> QuantizedPosition;
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds;
@@ -262,6 +270,7 @@ impl SteadyTimelineState {
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
         time_sig_denominator: u32,
+        laziness: Laziness,
     ) -> QuantizedPosition {
         let sample_rate = self.sample_rate();
         let timeline_frame = convert_position_in_seconds_to_frames(timeline_pos, sample_rate);
@@ -280,7 +289,7 @@ impl SteadyTimelineState {
         // The time signature denominator defines what one beat "means" (e.g. a quarter note).
         let ratio = quantization.denominator() as f64 / time_sig_denominator as f64;
         let accurate_pos = accurate_beat * ratio;
-        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
+        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization, laziness)
     }
 
     fn pos_of_quantized_pos(
@@ -342,11 +351,13 @@ impl<'a> Timeline for SteadyTimeline<'a> {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        laziness: Laziness,
     ) -> QuantizedPosition {
         self.state.next_quantized_pos_at(
             timeline_pos,
             quantization,
             self.time_signature().denominator.get(),
+            laziness,
         )
     }
 
@@ -357,10 +368,6 @@ impl<'a> Timeline for SteadyTimeline<'a> {
 
     fn is_running(&self) -> bool {
         true
-    }
-
-    fn follows_reaper_transport(&self) -> bool {
-        false
     }
 
     fn tempo_at(&self, _timeline_pos: PositionInSeconds) -> Bpm {
@@ -376,15 +383,17 @@ fn get_next_quantized_pos_at(
     cursor_pos: PositionInSeconds,
     quantization: EvenQuantization,
     proj_context: ProjectContext,
+    laziness: Laziness,
 ) -> QuantizedPosition {
     let reaper = Reaper::get().medium_reaper();
     if quantization.denominator() == 1 {
         // We are looking for one of the next bars.
         let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
-        let next_position = next_quantized_pos_sloppy(
+        let next_position = next_quantized_pos(
             res.measure_index as i64,
             res.beats_since_measure.get(),
             quantization.numerator(),
+            laziness,
         );
         QuantizedPosition::new(next_position, 1).unwrap()
     } else {
@@ -394,34 +403,41 @@ fn get_next_quantized_pos_at(
         let ratio = quantization.denominator() as f64 / 4.0;
         // Current position in desired target unit (158.4 16th's).
         let accurate_pos = qn.get() * ratio;
-        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
+        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization, laziness)
     }
 }
 
 fn calc_quantized_pos_from_accurate_pos(
     accurate_pos: f64,
     quantization: EvenQuantization,
+    laziness: Laziness,
 ) -> QuantizedPosition {
     // Current position quantized (e.g. 158 16th's).
     let quantized_pos = accurate_pos.floor() as i64;
     // Difference (0.4 16th's).
     let within = accurate_pos - quantized_pos as f64;
-    let next_position = next_quantized_pos_sloppy(quantized_pos, within, quantization.numerator());
+    let next_position =
+        next_quantized_pos(quantized_pos, within, quantization.numerator(), laziness);
     QuantizedPosition::new(next_position, quantization.denominator()).unwrap()
 }
 
-fn next_quantized_pos_sloppy(current_quantized_pos: i64, within: f64, numerator: u32) -> i64 {
-    // TODO-high CONTINUE Switch this on again at least for triggering start (important for
-    //  reacting to transport changes).
-    // At the moment, we don't have the sloppy behavior enabled. Let's try without. If we activate
-    // it again, be aware that there's some logic that can't work with the sloppy logic, so we
-    // would need make a clear distinction then.
-    // if within < BASE_EPSILON {
-    //     // Just a tiny bit away from quantized position. Pretty sure the user meant to start now.
-    //     return current_quantized_pos;
-    // }
-    // Enough distance from quantized position.
-    current_quantized_pos + numerator as i64
+fn next_quantized_pos(
+    current_quantized_pos: i64,
+    within: f64,
+    numerator: u32,
+    laziness: Laziness,
+) -> i64 {
+    match laziness {
+        Laziness::EagerForNextPos => current_quantized_pos + numerator as i64,
+        Laziness::DwellingOnCurrentPos => {
+            if within < BASE_EPSILON {
+                // Just a tiny bit away from quantized position. Pretty sure the user meant to start now.
+                return current_quantized_pos;
+            }
+            // Enough distance from quantized position.
+            current_quantized_pos + numerator as i64
+        }
+    }
 }
 
 fn get_pos_of_quantized_pos(
@@ -451,8 +467,9 @@ impl<T: Timeline> Timeline for &T {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        laziness: Laziness,
     ) -> QuantizedPosition {
-        (*self).next_quantized_pos_at(timeline_pos, quantization)
+        (*self).next_quantized_pos_at(timeline_pos, quantization, laziness)
     }
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
@@ -498,10 +515,15 @@ impl Timeline for HybridTimeline {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        laziness: Laziness,
     ) -> QuantizedPosition {
         match self {
-            HybridTimeline::ReaperProject(t) => t.next_quantized_pos_at(timeline_pos, quantization),
-            HybridTimeline::GlobalSteady(t) => t.next_quantized_pos_at(timeline_pos, quantization),
+            HybridTimeline::ReaperProject(t) => {
+                t.next_quantized_pos_at(timeline_pos, quantization, laziness)
+            }
+            HybridTimeline::GlobalSteady(t) => {
+                t.next_quantized_pos_at(timeline_pos, quantization, laziness)
+            }
         }
     }
 
@@ -557,15 +579,6 @@ impl QuantizedPosition {
             denominator,
         };
         Ok(p)
-    }
-
-    pub fn from_quantization(
-        quantization: EvenQuantization,
-        timeline: &HybridTimeline,
-        ref_pos: Option<PositionInSeconds>,
-    ) -> Self {
-        let ref_pos = ref_pos.unwrap_or_else(|| timeline.cursor_pos());
-        timeline.next_quantized_pos_at(ref_pos, quantization)
     }
 
     /// The position, that is the number of intervals from timeline zero.
