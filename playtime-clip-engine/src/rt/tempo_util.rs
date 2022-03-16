@@ -42,3 +42,10 @@ pub fn determine_tempo_from_beat_time_base(beat_time_base: &BeatTimeBase, is_mid
         Bpm::new(tempo.get())
     }
 }
+
+pub fn calc_tempo_factor(clip_tempo: Bpm, timeline_tempo: Bpm) -> f64 {
+    let timeline_tempo_factor = timeline_tempo.get() / clip_tempo.get();
+    timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+}
+
+const MIN_TEMPO_FACTOR: f64 = 0.0000000001;

@@ -214,7 +214,7 @@ impl Column {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        let rt_clip = clip.create_and_connect_real_time_clip(
+        let rt_clip = clip.create_real_time_clip(
             permanent_project,
             chain_equipment,
             recorder_request_sender,
@@ -222,7 +222,7 @@ impl Column {
             &self.rt_settings,
         )?;
         let slot = get_slot_mut_insert(&mut self.slots, row);
-        slot.fill_with(clip);
+        slot.fill_with(clip, &rt_clip);
         let args = ColumnFillSlotArgs {
             slot_index: row,
             clip: rt_clip,
@@ -241,8 +241,8 @@ impl Column {
                     slot_index,
                     play_state,
                 } => {
-                    if let Ok(clip) = get_clip_mut_insert_slot(&mut self.slots, slot_index) {
-                        let _ = clip.update_play_state(play_state);
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        let _ = slot.update_play_state(play_state);
                     }
                     Some((slot_index, ClipChangedEvent::PlayState(play_state)))
                 }
@@ -250,8 +250,8 @@ impl Column {
                     slot_index,
                     material_info,
                 } => {
-                    if let Ok(clip) = get_clip_mut_insert_slot(&mut self.slots, slot_index) {
-                        let _ = clip.update_material_info(material_info);
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        let _ = slot.update_material_info(material_info);
                     }
                     None
                 }
@@ -299,9 +299,8 @@ impl Column {
         }
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
-            let clip = slot.clip()?;
-            if clip.play_state().ok()?.is_advancing() {
-                let proportional_pos = clip.proportional_pos().unwrap_or(UnitValue::MIN);
+            if slot.play_state().ok()?.is_advancing() {
+                let proportional_pos = slot.proportional_pos().unwrap_or(UnitValue::MIN);
                 let event = ClipChangedEvent::ClipPosition(proportional_pos);
                 Some((row, event))
             } else {
@@ -343,13 +342,13 @@ impl Column {
         Ok(ClipChangedEvent::ClipLooped(looped))
     }
 
-    pub fn clip_position_in_seconds(
+    pub fn slot_position_in_seconds(
         &self,
         slot_index: usize,
     ) -> ClipEngineResult<PositionInSeconds> {
-        let clip = get_clip(&self.slots, slot_index)?;
+        let slot = get_slot(&self.slots, slot_index)?;
         let timeline = clip_timeline(self.project, false);
-        clip.position_in_seconds(&timeline)
+        slot.position_in_seconds(&timeline)
     }
 
     pub fn clip_volume(&self, slot_index: usize) -> ClipEngineResult<Db> {
@@ -357,7 +356,7 @@ impl Column {
         Ok(clip.volume())
     }
 
-    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
+    pub fn slot_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
         let slot = get_slot(&self.slots, slot_index)?;
         slot.play_state()
     }
@@ -367,8 +366,8 @@ impl Column {
         Ok(clip.looped())
     }
 
-    pub fn proportional_clip_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
-        let clip = get_clip(&self.slots, slot_index)?;
+    pub fn proportional_slot_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
+        let clip = get_slot(&self.slots, slot_index)?;
         clip.proportional_pos()
     }
 
@@ -397,7 +396,7 @@ impl Column {
                 if clip.recording_requested() {
                     return Err("recording requested already (with existing clip)");
                 }
-                if clip
+                if slot
                     .play_state()
                     .map(|ps| ps.is_somehow_recording())
                     .unwrap_or(false)
@@ -409,7 +408,7 @@ impl Column {
                     Normal => false,
                     Overdub => {
                         // Only allow MIDI overdub is existing clip is a MIDI clip already.
-                        clip.material_info().map(|i| i.is_midi()).unwrap_or(false)
+                        slot.material_info().map(|i| i.is_midi()).unwrap_or(false)
                     }
                     Replace => todo!(),
                 };

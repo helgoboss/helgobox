@@ -1,24 +1,15 @@
-use crate::conversion_util::{
-    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
-};
-use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, MaterialInfo, RecorderRequest,
-};
-use crate::rt::tempo_util::determine_tempo_from_time_base;
-use crate::rt::{
-    calc_tempo_factor, ClipPlayState, CommittedRecording, OverridableMatrixSettings,
-    ProcessingRelevantClipSettings, SharedPos,
-};
+use crate::rt::supplier::{ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest};
+use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
+use crate::rt::{OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
 };
-use crate::{rt, source_util, ClipEngineResult, HybridTimeline, Timeline};
+use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
-use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{ClipColor, Db};
 use reaper_high::{OwnedSource, Project};
-use reaper_medium::{Bpm, OwnedPcmSource, PositionInSeconds};
+use reaper_medium::{Bpm, OwnedPcmSource};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
@@ -26,30 +17,9 @@ pub struct Clip {
     // unnecessary data inside.
     source: api::Source,
     processing_relevant_settings: ProcessingRelevantClipSettings,
-    runtime_data: Option<ClipRuntimeData>,
     /// `true` for the short moment while recording was requested (using the chain of an existing
     /// clip) but has not yet been acknowledged from a real-time thread.
     recording_requested: bool,
-}
-
-#[derive(Clone, Debug)]
-struct ClipRuntimeData {
-    play_state: ClipPlayState,
-    pos: SharedPos,
-    material_info: MaterialInfo,
-}
-
-impl ClipRuntimeData {
-    pub fn mod_frame(&self) -> isize {
-        let frame = self.pos.get();
-        if frame < 0 {
-            frame
-        } else if self.material_info.frame_count() > 0 {
-            frame % self.material_info.frame_count() as isize
-        } else {
-            0
-        }
-    }
 }
 
 impl Clip {
@@ -57,17 +27,17 @@ impl Clip {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
             source: api_clip.source,
-            runtime_data: None,
             recording_requested: false,
         }
     }
 
     pub fn from_recording(
-        recording: CommittedRecording,
+        kind_specific_outcome: KindSpecificRecordingOutcome,
+        clip_settings: ProcessingRelevantClipSettings,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
-        let api_source = match recording.kind_specific {
+        let api_source = match kind_specific_outcome {
             Midi { mirror_source } => {
                 create_api_source_from_mirror_source(mirror_source, temporary_project)?
             }
@@ -75,16 +45,8 @@ impl Clip {
         };
         let clip = Self {
             source: api_source,
-            runtime_data: {
-                let rd = ClipRuntimeData {
-                    play_state: recording.play_state,
-                    pos: recording.shared_pos,
-                    material_info: recording.material_info,
-                };
-                Some(rd)
-            },
             recording_requested: false,
-            processing_relevant_settings: recording.clip_settings,
+            processing_relevant_settings: clip_settings,
         };
         Ok(clip)
     }
@@ -107,13 +69,6 @@ impl Clip {
     pub fn notify_recording_requested(&mut self) -> ClipEngineResult<()> {
         if self.recording_requested {
             return Err("recording has already been requested");
-        }
-        if self
-            .play_state()
-            .map(|ps| ps.is_as_good_as_recording())
-            .unwrap_or(false)
-        {
-            return Err("already recording");
         }
         self.recording_requested = true;
         Ok(())
@@ -138,7 +93,7 @@ impl Clip {
         self.recording_requested = false;
     }
 
-    pub fn create_and_connect_real_time_clip(
+    pub fn create_real_time_clip(
         &mut self,
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
@@ -146,7 +101,7 @@ impl Clip {
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
-        let rt_clip = rt::Clip::ready(
+        rt::Clip::ready(
             &self.source,
             matrix_settings,
             column_settings,
@@ -154,14 +109,7 @@ impl Clip {
             permanent_project,
             chain_equipment,
             recorder_request_sender,
-        )?;
-        let runtime_data = ClipRuntimeData {
-            play_state: Default::default(),
-            pos: rt_clip.shared_pos(),
-            material_info: rt_clip.material_info().unwrap(),
-        };
-        self.runtime_data = Some(runtime_data);
-        Ok(rt_clip)
+        )
     }
 
     pub fn create_mirror_source_for_midi_overdub(
@@ -169,19 +117,6 @@ impl Clip {
         permanent_project: Option<Project>,
     ) -> ClipEngineResult<OwnedPcmSource> {
         create_pcm_source_from_api_source(&self.source, permanent_project)
-    }
-
-    fn runtime_data(&self) -> ClipEngineResult<&ClipRuntimeData> {
-        get_runtime_data(&self.runtime_data)
-    }
-
-    fn runtime_data_mut(&mut self) -> ClipEngineResult<&mut ClipRuntimeData> {
-        get_runtime_data_mut(&mut self.runtime_data)
-    }
-
-    pub fn material_info(&self) -> Option<&MaterialInfo> {
-        let runtime_data = self.runtime_data.as_ref()?;
-        Some(&runtime_data.material_info)
     }
 
     pub fn looped(&self) -> bool {
@@ -206,84 +141,19 @@ impl Clip {
         self.recording_requested
     }
 
-    pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
-        if self.recording_requested {
-            return Ok(ClipPlayState::ScheduledForRecordingStart);
-        }
-        Ok(self.runtime_data()?.play_state)
-    }
-
-    pub fn update_play_state(&mut self, play_state: ClipPlayState) -> ClipEngineResult<()> {
-        self.runtime_data_mut()?.play_state = play_state;
-        Ok(())
-    }
-
-    pub fn update_material_info(&mut self, material_info: MaterialInfo) -> ClipEngineResult<()> {
-        self.runtime_data_mut()?.material_info = material_info;
-        Ok(())
-    }
-
-    pub fn proportional_pos(&self) -> ClipEngineResult<UnitValue> {
-        let runtime_data = self.runtime_data()?;
-        let pos = runtime_data.pos.get();
-        if pos < 0 {
-            return Err("count-in phase");
-        }
-        let frame_count = runtime_data.material_info.frame_count();
-        if frame_count == 0 {
-            return Err("frame count is zero");
-        }
-        let mod_pos = pos as usize % frame_count;
-        let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
-        Ok(proportional)
-    }
-
-    pub fn position_in_seconds(
-        &self,
-        timeline: &HybridTimeline,
-    ) -> ClipEngineResult<PositionInSeconds> {
-        let runtime_data = self.runtime_data()?;
-        let pos_in_source_frames = runtime_data.mod_frame();
-        let pos_in_secs = convert_position_in_frames_to_seconds(
-            pos_in_source_frames,
-            runtime_data.material_info.frame_rate(),
-        );
-        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
-        let tempo_factor = self.tempo_factor(timeline_tempo);
-        Ok(adjust_pos_in_secs_anti_proportionally(
-            pos_in_secs,
-            tempo_factor,
-        ))
-    }
-
-    fn tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
-        if let Some(tempo) = self.tempo() {
+    pub fn tempo_factor(&self, timeline_tempo: Bpm, is_midi: bool) -> f64 {
+        if let Some(tempo) = self.tempo(is_midi) {
             calc_tempo_factor(tempo, timeline_tempo)
         } else {
             1.0
         }
     }
 
-    /// Returns `None` if time base is not "Beat" or if no runtime data is available.
-    fn tempo(&self) -> Option<Bpm> {
-        determine_tempo_from_time_base(
-            &self.processing_relevant_settings.time_base,
-            self.runtime_data().ok()?.material_info.is_midi(),
-        )
+    /// Returns `None` if time base is not "Beat".
+    fn tempo(&self, is_midi: bool) -> Option<Bpm> {
+        determine_tempo_from_time_base(&self.processing_relevant_settings.time_base, is_midi)
     }
 }
-
-fn get_runtime_data(runtime_data: &Option<ClipRuntimeData>) -> ClipEngineResult<&ClipRuntimeData> {
-    runtime_data.as_ref().ok_or(CLIP_RUNTIME_DATA_UNAVAILABLE)
-}
-
-fn get_runtime_data_mut(
-    runtime_data: &mut Option<ClipRuntimeData>,
-) -> ClipEngineResult<&mut ClipRuntimeData> {
-    runtime_data.as_mut().ok_or(CLIP_RUNTIME_DATA_UNAVAILABLE)
-}
-
-const CLIP_RUNTIME_DATA_UNAVAILABLE: &str = "clip runtime data unavailable";
 
 fn create_api_source_from_mirror_source(
     mirror_source: OwnedPcmSource,

@@ -310,14 +310,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         &self,
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<PositionInSeconds> {
-        get_column(&self.columns, coordinates.column())?.clip_position_in_seconds(coordinates.row())
+        get_column(&self.columns, coordinates.column())?.slot_position_in_seconds(coordinates.row())
     }
 
     pub fn clip_play_state(
         &self,
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<ClipPlayState> {
-        get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
+        get_column(&self.columns, coordinates.column())?.slot_play_state(coordinates.row())
     }
 
     pub fn clip_looped(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
@@ -382,7 +382,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<UnitValue> {
         get_column(&self.columns, coordinates.column())?
-            .proportional_clip_position(coordinates.row())
+            .proportional_slot_position(coordinates.row())
     }
 }
 

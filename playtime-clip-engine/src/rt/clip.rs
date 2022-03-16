@@ -13,7 +13,7 @@ use crate::rt::supplier::{
     SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
     WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::rt::tempo_util::determine_tempo_from_time_base;
+use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
 use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
@@ -62,19 +62,6 @@ enum ClipState {
     Ready(ReadyState),
     /// Recording from scratch, not MIDI overdub.
     Recording(RecordingState),
-}
-
-impl ClipState {
-    fn is_playing(&self) -> bool {
-        use ClipState::*;
-        matches!(
-            self,
-            Ready(ReadyState {
-                state: ReadySubState::Playing(_),
-                ..
-            })
-        )
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1502,8 +1489,6 @@ struct LogNaturalDeviationArgs<T: Timeline> {
     clip_tempo: Bpm,
 }
 
-const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
-
 /// Play state of a clip.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ClipPlayState {
@@ -1619,11 +1604,6 @@ impl Default for Go {
             new_seek_pos: None,
         }
     }
-}
-
-pub fn calc_tempo_factor(clip_tempo: Bpm, timeline_tempo: Bpm) -> f64 {
-    let timeline_tempo_factor = timeline_tempo.get() / clip_tempo.get();
-    timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
 }
 
 #[derive(Default)]
