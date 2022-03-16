@@ -405,25 +405,23 @@ impl Column {
         slot_index: usize,
         instruction: SlotRecordInstruction,
         audio_request_props: BasicAudioRequestProps,
-    ) {
+    ) -> ClipEngineResult<()> {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         let result = slot.record_clip(instruction, &self.matrix_settings, &self.settings);
-        let (successful, instruction) = match result {
+        let (result, instruction) = match result {
             Ok(_) => {
                 if self.settings.play_mode.is_exclusive() {
                     let timeline = clip_timeline(self.project, false);
                     let ref_pos = timeline.cursor_pos();
                     self.stop_other_clips(audio_request_props, ref_pos, &timeline, slot_index);
                 }
-                (true, None)
+                (Ok(()), None)
             }
-            Err(e) => {
-                debug!("Error recording clip: {}", e.message);
-                (false, Some(e.payload))
-            }
+            Err(e) => (Err(e.message), Some(e.payload)),
         };
         self.event_sender
-            .record_request_acknowledged(slot_index, successful, instruction);
+            .record_request_acknowledged(slot_index, result.is_ok(), instruction);
+        result
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -510,7 +508,9 @@ impl Column {
                     self.set_clip_looped(args).unwrap();
                 }
                 RecordClip(args) => {
-                    self.record_clip(args.slot_index, args.instruction, audio_request_props);
+                    let result =
+                        self.record_clip(args.slot_index, args.instruction, audio_request_props);
+                    self.notify_user_about_failed_interaction(result);
                 }
             }
         }
