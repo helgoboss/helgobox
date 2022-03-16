@@ -4,7 +4,7 @@ use crate::conversion_util::{
 };
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
-use crate::rt::schedule_util::calc_distance_from_quantized_pos;
+use crate::rt::schedule_util::{calc_distance_from_pos, calc_distance_from_quantized_pos};
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
@@ -636,17 +636,30 @@ impl RecordingState {
             // Recording not started yet. Do it now.
             let timeline = clip_timeline(self.project, false);
             let timeline_cursor_pos = timeline.cursor_pos();
-            let num_count_in_frames = calc_num_count_in_frames(
-                self.start_timing,
-                &timeline,
-                timeline_cursor_pos,
-                timeline.tempo_at(timeline_cursor_pos),
-                audio_request_props,
-                self.kind_state.is_midi(),
-            );
+            let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+            let (start_pos, frames_to_start_pos) = match self.start_timing {
+                RecordInteractionTiming::Immediately => (timeline_cursor_pos, 0),
+                RecordInteractionTiming::Quantized(quantization) => {
+                    let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
+                        &timeline,
+                        timeline_cursor_pos,
+                        timeline_tempo,
+                        audio_request_props,
+                        self.kind_state.is_midi(),
+                    );
+                    let quantized_start_pos =
+                        timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+                    debug!("Calculated quantized start pos {:?}", quantized_start_pos);
+                    let start_pos = timeline.pos_of_quantized_pos(quantized_start_pos);
+                    let frames_from_start_pos = calc_distance_from_pos(start_pos, equipment);
+                    assert!(frames_from_start_pos < 0);
+                    let frames_to_start_pos = (-frames_from_start_pos) as usize;
+                    (start_pos, frames_to_start_pos)
+                }
+            };
             let recording = Recording {
                 total_frame_offset: 0,
-                num_count_in_frames,
+                num_count_in_frames: frames_to_start_pos,
                 frame_rate: if self.kind_state.is_midi() {
                     MIDI_FRAME_RATE
                 } else {
@@ -657,8 +670,9 @@ impl RecordingState {
             self.recording = Some(recording);
             self.scheduled_end = self.calculate_initial_scheduled_end(
                 &timeline,
-                timeline_cursor_pos,
                 audio_request_props,
+                start_pos,
+                frames_to_start_pos,
             );
             (
                 PollRecordingOutcome::PleaseContinuePolling,
@@ -761,18 +775,19 @@ impl RecordingState {
     fn calculate_initial_scheduled_end(
         &self,
         timeline: &HybridTimeline,
-        timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
+        start_pos: PositionInSeconds,
+        frames_to_start_pos: usize,
     ) -> Option<ScheduledEnd> {
         match self.length {
             RecordLength::OpenEnd => None,
             RecordLength::Quantized(q) => {
                 let end = calculate_scheduled_end(
                     timeline,
-                    timeline_cursor_pos,
+                    start_pos,
                     audio_request_props,
                     q,
-                    0,
+                    frames_to_start_pos,
                     self.kind_state.is_midi(),
                 );
                 Some(end)
@@ -1144,32 +1159,6 @@ impl RecordInteractionTiming {
     }
 }
 
-fn calc_num_count_in_frames(
-    timing: RecordInteractionTiming,
-    timeline: &HybridTimeline,
-    timeline_cursor_pos: PositionInSeconds,
-    timeline_tempo: Bpm,
-    audio_request_props: BasicAudioRequestProps,
-    is_midi: bool,
-) -> usize {
-    match timing {
-        RecordInteractionTiming::Immediately => 0,
-        RecordInteractionTiming::Quantized(quantization) => {
-            let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
-                timeline,
-                timeline_cursor_pos,
-                timeline_tempo,
-                audio_request_props,
-                is_midi,
-            );
-            let quantized_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
-            let distance_from_start = calc_distance_from_quantized_pos(quantized_pos, equipment);
-            assert!(distance_from_start < 0);
-            (-distance_from_start) as usize
-        }
-    }
-}
-
 trait RecorderRequestSender {
     fn finish_audio_recording(
         &self,
@@ -1330,6 +1319,7 @@ fn calculate_scheduled_end(
     is_midi: bool,
 ) -> ScheduledEnd {
     let quantized_end_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+    debug!("Calculated quantized end pos {:?}", quantized_end_pos);
     let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
         timeline,
         timeline_cursor_pos,

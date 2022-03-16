@@ -462,10 +462,13 @@ fn calc_quantized_pos_from_accurate_pos(
 }
 
 fn next_quantized_pos_sloppy(current_quantized_pos: i64, within: f64, numerator: u32) -> i64 {
-    if within < BASE_EPSILON {
-        // Just a tiny bit away from quantized position. Pretty sure the user meant to start now.
-        return current_quantized_pos;
-    }
+    // At the moment, we don't have the sloppy behavior enabled. Let's try without. If we activate
+    // it again, be aware that there's some logic that can't work with the sloppy logic, so we
+    // would need make a clear distinction then.
+    // if within < BASE_EPSILON {
+    //     // Just a tiny bit away from quantized position. Pretty sure the user meant to start now.
+    //     return current_quantized_pos;
+    // }
     // Enough distance from quantized position.
     current_quantized_pos + numerator as i64
 }

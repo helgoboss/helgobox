@@ -1237,12 +1237,13 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
         shared_pos: &SharedPos,
-    ) -> ClipRecordingStopOutcome {
+    ) -> ClipEngineResult<ClipRecordingStopOutcome> {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-        match supplier_chain
-            .stop_recording(args.timeline, ref_pos, args.audio_request_props)
-            .unwrap()
-        {
+        let outcome = match supplier_chain.stop_recording(
+            args.timeline,
+            ref_pos,
+            args.audio_request_props,
+        )? {
             StopRecordingOutcome::Committed(outcome) => {
                 let ready_state = self.finish_recording(
                     outcome,
@@ -1269,7 +1270,8 @@ impl RecordingState {
                 }
             }
             StopRecordingOutcome::EndScheduled => ClipRecordingStopOutcome::KeepState,
-        }
+        };
+        Ok(outcome)
     }
 
     fn finish_recording<H: HandleStopEvent>(

@@ -4,6 +4,7 @@ use crate::conversion_util::{
 };
 use crate::rt::QuantizedPosCalcEquipment;
 use crate::{QuantizedPosition, Timeline};
+use reaper_medium::PositionInSeconds;
 
 /// So, this is how we do play scheduling. Whenever the preview register
 /// calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
@@ -46,6 +47,14 @@ pub fn calc_distance_from_quantized_pos(
 ) -> isize {
     // Essential calculation
     let quantized_timeline_pos = equipment.timeline.pos_of_quantized_pos(quantized_pos);
+    calc_distance_from_pos(quantized_timeline_pos, equipment)
+}
+
+pub fn calc_distance_from_pos(
+    quantized_timeline_pos: PositionInSeconds,
+    equipment: QuantizedPosCalcEquipment,
+) -> isize {
+    // Essential calculation
     let rel_pos_from_quant_in_secs = equipment.timeline_cursor_pos - quantized_timeline_pos;
     let rel_pos_from_quant_in_source_frames = convert_position_in_seconds_to_frames(
         rel_pos_from_quant_in_secs,
@@ -81,6 +90,7 @@ pub fn calc_distance_from_quantized_pos(
         block_length_in_source_frames,
     )
 }
+
 /// It can make a difference if we apply a factor once on a large integer x and then round or
 /// n times on x/n and round each time. Latter is what happens in practice because we advance
 /// frames step by step in n blocks.
