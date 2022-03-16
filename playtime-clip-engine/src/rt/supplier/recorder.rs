@@ -420,7 +420,7 @@ impl Recorder {
                                     request.left_buffer.data_as_slice().as_ptr() as _,
                                     request.right_buffer.data_as_slice().as_ptr() as _,
                                 ];
-                                // TODO-high Write only part of the block until scheduled end
+                                // TODO-high-record-audio Write only part of the block until scheduled end
                                 unsafe {
                                     sink.WriteDoubles(
                                         &mut channels as *mut _,
@@ -553,7 +553,7 @@ impl Recorder {
                             Ready(ready_state)
                         }
                         Err(msg) => {
-                            // TODO-high-record We should handle this more gracefully, not just let it
+                            // TODO-high-record-audio We should handle this more gracefully, not just let it
                             //  stuck in Finishing state. First by trying to roll back to the old
                             //  clip. If there's no old clip, either by making it possible to return
                             //  an instruction to clear the slot or by letting the worker not just
@@ -914,13 +914,19 @@ pub struct AudioRecordingEquipment {
     file_clone_2: PathBuf,
 }
 
+// This combination requires ~3 MB for stereo. With 64 channels it would be ~100 MB.
+const TEMP_BUF_MAX_FRAME_RATE: usize = 96_000;
+const TEMP_BUF_SECONDS: usize = 2;
+
 impl AudioRecordingEquipment {
     pub fn new(project: Option<Project>, channel_count: usize) -> Self {
         let sink_outcome = create_audio_sink(project);
         Self {
             pcm_sink: sink_outcome.sink,
-            // TODO-high Choose size wisely and explain
-            temporary_audio_buffer: OwnedAudioBuffer::new(channel_count, 48000 * 10),
+            temporary_audio_buffer: OwnedAudioBuffer::new(
+                channel_count,
+                TEMP_BUF_MAX_FRAME_RATE * TEMP_BUF_SECONDS,
+            ),
             file: sink_outcome.file.clone(),
             file_clone: sink_outcome.file.clone(),
             file_clone_2: sink_outcome.file,
