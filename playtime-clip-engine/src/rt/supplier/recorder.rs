@@ -139,6 +139,18 @@ impl Recording {
     pub fn is_still_in_count_in_phase(&self) -> bool {
         self.total_frame_offset < self.num_count_in_frames
     }
+
+    pub fn downbeat_frame(&self) -> usize {
+        if let Some(first_play_frame) = self.first_play_frame {
+            assert!(self.num_count_in_frames > first_play_frame);
+            // We detected material that should play at count-in phase
+            // (also called pick-up beat or anacrusis). So the position of the downbeat in
+            // the material is greater than zero.
+            self.num_count_in_frames - first_play_frame
+        } else {
+            0
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -676,12 +688,7 @@ impl RecordingState {
             recording.total_frame_offset = next_frame_offset;
             // Commit recording if end exceeded
             if let Some(scheduled_end) = self.scheduled_end {
-                let end_frame = if let Some(first_play_frame) = recording.first_play_frame {
-                    assert!(scheduled_end.complete_length > first_play_frame);
-                    scheduled_end.complete_length - first_play_frame
-                } else {
-                    scheduled_end.complete_length
-                };
+                let end_frame = scheduled_end.complete_length - recording.downbeat_frame();
                 if next_frame_offset > end_frame {
                     // Exceeded scheduled end.
                     let recording = *recording;
@@ -817,36 +824,19 @@ impl RecordingState {
                 (outcome, State::Ready(ready_state))
             }
         };
-        let quantized_end_pos = self.scheduled_end.map(|end| end.quantized_end_pos);
-        let section_length = self.scheduled_end.map(|end| {
-            assert!(recording.num_count_in_frames < end.complete_length);
-            end.complete_length - recording.num_count_in_frames
-        });
-        let section_and_downbeat_data = match recording.first_play_frame {
-            None => {
-                // Either no play material arrived or too late, right of the scheduled start
-                // position. This is not a pick-up beat. Ignore it.
-                SectionAndDownbeatData {
-                    section_bounds: SectionBounds::new(
-                        recording.num_count_in_frames,
-                        section_length,
-                    ),
-                    quantized_end_pos,
-                    downbeat_frame: 0,
-                }
-            }
-            Some(first_play_frame) => {
-                assert!(recording.num_count_in_frames > first_play_frame);
-                // We detected material that should play at count-in phase
-                // (also called pick-up beat or anacrusis). So the position of the downbeat in
-                // the material is greater than zero.
-                let downbeat_frame = recording.num_count_in_frames - first_play_frame;
-                SectionAndDownbeatData {
-                    section_bounds: SectionBounds::new(first_play_frame, section_length),
-                    quantized_end_pos,
-                    downbeat_frame,
-                }
-            }
+        let section_and_downbeat_data = SectionAndDownbeatData {
+            section_bounds: {
+                let start = recording
+                    .first_play_frame
+                    .unwrap_or(recording.num_count_in_frames);
+                let length = self.scheduled_end.map(|end| {
+                    assert!(recording.num_count_in_frames < end.complete_length);
+                    end.complete_length - recording.num_count_in_frames
+                });
+                SectionBounds::new(start, length)
+            },
+            quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
+            downbeat_frame: recording.downbeat_frame(),
         };
         let recording_outcome = RecordingOutcome {
             data: CompleteRecordingData {
