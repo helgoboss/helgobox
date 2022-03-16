@@ -945,9 +945,11 @@ impl AudioSupplier for Recorder {
                     }
                     _ => {
                         if let Some(s) = &mut s.old_source {
+                            // Particularly important if the clip is suspending to switch to recording.
+                            debug!("Querying old source audio");
                             s.supply_audio(request, dest_buffer)
                         } else {
-                            panic!("attempt to play back audio material while recording with no previous source")
+                            panic!("attempt to play back audio while recording with no previous source")
                         }
                     }
                 }
@@ -962,14 +964,18 @@ impl MidiSupplier for Recorder {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let source = match self.state.as_mut().unwrap() {
-            State::Ready(s) => &mut s.source,
-            State::Recording(s) => s
-                .old_source
-                .as_mut()
-                .expect("attempt to play back MIDI without source"),
-        };
-        source.supply_midi(request, event_list)
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => s.source.supply_midi(request, event_list),
+            State::Recording(s) => {
+                if let Some(old_source) = &mut s.old_source {
+                    // Particularly important if the clip is suspending to switch to recording.
+                    debug!("Querying old source MIDI");
+                    old_source.supply_midi(request, event_list)
+                } else {
+                    panic!("attempt to play back MIDI while recording without previous source");
+                }
+            }
+        }
     }
 }
 
@@ -977,28 +983,34 @@ impl WithMaterialInfo for Recorder {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => s.source.material_info(),
-            State::Recording(s) => {
-                let recording = match s.recording.as_ref() {
-                    None => return Err(
-                        "attempt to query material info although recording hasn't even started yet",
-                    ),
-                    Some(r) => r,
-                };
-                match &s.kind_state {
-                    KindState::Audio(RecordingAudioState::Finishing(finishing_state)) => {
-                        let info = AudioMaterialInfo {
-                            channel_count: finishing_state
-                                .temporary_audio_buffer
-                                .to_buf()
-                                .channel_count(),
-                            frame_count: recording.total_frame_offset,
-                            frame_rate: recording.frame_rate,
-                        };
-                        Ok(MaterialInfo::Audio(info))
-                    }
-                    _ => Err("attempt to query material info while recording"),
+            State::Recording(s) => match &s.kind_state {
+                KindState::Audio(RecordingAudioState::Finishing(finishing_state)) => {
+                    // Audio recording is being finished. In that case we prefer playing the first
+                    // blocks of the new material (from temporary audio buffer).
+                    let recording = s
+                        .recording
+                        .as_ref()
+                        .expect("recording data must be available if audio recording is finishing");
+                    let info = AudioMaterialInfo {
+                        channel_count: finishing_state
+                            .temporary_audio_buffer
+                            .to_buf()
+                            .channel_count(),
+                        frame_count: recording.total_frame_offset,
+                        frame_rate: recording.frame_rate,
+                    };
+                    Ok(MaterialInfo::Audio(info))
                 }
-            }
+                _ => {
+                    // In any other case we see if we have an old source to be played.
+                    if let Some(s) = &s.old_source {
+                        // Particularly important if the clip is suspending to switch to recording.
+                        s.material_info()
+                    } else {
+                        Err("attempt to query material info while recording with no previous source")
+                    }
+                }
+            },
         }
     }
 }
@@ -1083,7 +1095,11 @@ impl WithSource for Recorder {
     fn source(&self) -> Option<&OwnedPcmSource> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => Some(&s.source),
-            State::Recording(_) => None,
+            State::Recording(_) => {
+                // The "current source" during recording state can change quickly. We don't want
+                // any caching be based on this.
+                None
+            }
         }
     }
 }
