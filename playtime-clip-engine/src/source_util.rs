@@ -104,7 +104,7 @@ pub fn create_pcm_source_from_api_source(
             OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)?
         }
         MidiChunk(api::MidiChunkSource { chunk }) => {
-            let mut source = OwnedSource::from_type("MIDI")?;
+            let mut source = OwnedSource::from_type("MIDI").unwrap();
             let mut chunk = chunk.clone();
             chunk += ">\n";
             source.set_state_chunk("<SOURCE MIDI\n", chunk)?;
@@ -121,7 +121,9 @@ pub fn create_pcm_source_from_api_source(
             //      transfer.set_force_bpm(MIDI_BASE_BPM);
             //      transfer.set_absolute_time_s(PositionInSeconds::ZERO);
             //
-            // However,
+            // However, now we set the constant preview tempo at source creation time, which makes
+            // the source completely project tempo/pos-independent, also when doing recording via
+            // midi_realtime_write_struct_t. So that's not necessary anymore.
             source
                 .set_preview_tempo(MIDI_BASE_BPM)
                 .map_err(|e| e.message())?;
@@ -129,6 +131,24 @@ pub fn create_pcm_source_from_api_source(
         }
     };
     Ok(pcm_source.into_raw())
+}
+
+/// Returns an empty MIDI source prepared for recording.
+pub fn create_empty_midi_source() -> OwnedPcmSource {
+    let mut source = OwnedSource::from_type("MIDI").unwrap();
+    // The following seems to be the absolute minimum to create the shortest possible MIDI clip
+    // (which still is longer than zero).
+    let chunk = "\
+        HASDATA 1 960 QN\n\
+        E 1 b0 7b 00\n\
+    >\n\
+    ";
+    source
+        .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
+        .unwrap();
+    // Super important to set the preview tempo, see create_pcm_source_from_api_source().
+    source.set_preview_tempo(MIDI_BASE_BPM).unwrap();
+    source.into_raw()
 }
 
 fn make_relative(project: Option<Project>, file: &Path) -> PathBuf {

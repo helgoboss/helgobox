@@ -9,6 +9,8 @@ mod metrics_util;
 mod timeline;
 pub use timeline::*;
 
+mod source_util;
+
 mod file_util;
 
 mod conversion_util;

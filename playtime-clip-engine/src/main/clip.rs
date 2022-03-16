@@ -1,9 +1,6 @@
 use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
-use crate::main::{
-    create_file_api_source, create_pcm_source_from_api_source, source_util, CreateApiSourceMode,
-};
 use crate::rt::supplier::{
     ChainEquipment, KindSpecificRecordingOutcome, MaterialInfo, RecorderRequest,
 };
@@ -12,7 +9,10 @@ use crate::rt::{
     calc_tempo_factor, ClipPlayState, CommittedRecording, OverridableMatrixSettings,
     ProcessingRelevantClipSettings, SharedPos,
 };
-use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
+use crate::source_util::{
+    create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
+};
+use crate::{rt, source_util, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;

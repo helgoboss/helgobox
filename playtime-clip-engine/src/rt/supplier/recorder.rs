@@ -14,6 +14,7 @@ use crate::rt::supplier::{
 use crate::rt::{
     BasicAudioRequestProps, ColumnSettings, OverridableMatrixSettings, QuantizedPosCalcEquipment,
 };
+use crate::source_util::create_empty_midi_source;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
@@ -872,22 +873,6 @@ impl AudioRecordingEquipment {
             file_clone_2: sink_outcome.file,
         }
     }
-}
-
-/// Returns an empty MIDI source prepared for recording.
-fn create_empty_midi_source() -> OwnedPcmSource {
-    let mut source = OwnedSource::from_type("MIDI").unwrap();
-    // The following seems to be the absolute minimum to create the shortest possible MIDI clip
-    // (which still is longer than zero).
-    let chunk = "\
-        HASDATA 1 960 QN\n\
-        E 1 b0 7b 00\n\
-    >\n\
-    ";
-    source
-        .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
-        .unwrap();
-    source.into_raw()
 }
 
 /// Project is necessary to create the sink.

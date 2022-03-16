@@ -2,7 +2,7 @@ use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
-use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
+use crate::main::ClipSlotCoordinates;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
@@ -15,6 +15,7 @@ use crate::rt::supplier::{
 };
 use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
+use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
 use crossbeam_channel::Sender;
