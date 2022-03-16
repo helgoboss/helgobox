@@ -168,6 +168,8 @@ pub trait ColumnEventSender {
 
     fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome);
 
+    fn interaction_failed(&self, failure: InteractionFailure);
+
     fn dispose(&self, garbage: ColumnGarbage);
 
     fn send_event(&self, event: ColumnEvent);
@@ -222,6 +224,10 @@ impl ColumnEventSender for Sender<ColumnEvent> {
 
     fn dispose(&self, garbage: ColumnGarbage) {
         self.send_event(ColumnEvent::Dispose(garbage));
+    }
+
+    fn interaction_failed(&self, failure: InteractionFailure) {
+        self.send_event(ColumnEvent::InteractionFailed(failure));
     }
 
     fn send_event(&self, event: ColumnEvent) {
@@ -456,7 +462,7 @@ impl Column {
         };
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
-            slot.process_transport_change(&args, &event_handler, &self.event_sender);
+            let _ = slot.process_transport_change(&args, &event_handler, &self.event_sender);
         }
     }
 
@@ -484,10 +490,12 @@ impl Column {
                         .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
                 }
                 PlayClip(args) => {
-                    let _ = self.play_clip(args, audio_request_props);
+                    let result = self.play_clip(args, audio_request_props);
+                    self.notify_user_about_failed_interaction(result);
                 }
                 StopClip(args) => {
-                    let _ = self.stop_clip(args, audio_request_props);
+                    let result = self.stop_clip(args, audio_request_props);
+                    self.notify_user_about_failed_interaction(result);
                 }
                 PauseClip(args) => {
                     self.pause_clip(args.index).unwrap();
@@ -505,6 +513,13 @@ impl Column {
                     self.record_clip(args.slot_index, args.instruction, audio_request_props);
                 }
             }
+        }
+    }
+
+    fn notify_user_about_failed_interaction<T>(&self, result: ClipEngineResult<T>) {
+        if let Err(message) = result {
+            let failure = InteractionFailure { message };
+            self.event_sender.interaction_failed(failure);
         }
     }
 
@@ -844,6 +859,12 @@ pub enum ColumnEvent {
         outcome: NormalRecordingOutcome,
     },
     Dispose(ColumnGarbage),
+    InteractionFailed(InteractionFailure),
+}
+
+#[derive(Debug)]
+pub struct InteractionFailure {
+    pub message: &'static str,
 }
 
 #[derive(Debug)]

@@ -65,7 +65,7 @@ impl Slot {
         event_sender: &Sender<ColumnEvent>,
     ) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        let instruction = self.clip_mut_internal()?.stop(args, event_handler);
+        let instruction = self.clip_mut_internal()?.stop(args, event_handler)?;
         self.process_stop_instruction(instruction, event_sender);
         Ok(())
     }
@@ -179,10 +179,10 @@ impl Slot {
         args: &SlotProcessTransportChangeArgs,
         event_handler: &H,
         event_sender: &Sender<ColumnEvent>,
-    ) {
+    ) -> ClipEngineResult<()> {
         let instruction = {
             let clip = match &mut self.clip {
-                None => return,
+                None => return Ok(()),
                 Some(c) => c,
             };
             match args.column_args.change {
@@ -213,7 +213,7 @@ impl Slot {
                                         args,
                                         false,
                                         event_handler,
-                                    )
+                                    )?
                                 }
                             }
                         }
@@ -225,7 +225,7 @@ impl Slot {
                                     args,
                                     true,
                                     event_handler,
-                                )
+                                )?
                             }
                             _ => {
                                 // Stop and forget
@@ -234,7 +234,7 @@ impl Slot {
                                     args,
                                     false,
                                     event_handler,
-                                )
+                                )?
                             }
                         },
                         StopAfterPause => self.runtime_data.stop_clip_by_transport(
@@ -242,7 +242,7 @@ impl Slot {
                             args,
                             false,
                             event_handler,
-                        ),
+                        )?,
                     }
                 }
                 TransportChange::PlayCursorJump => {
@@ -250,20 +250,20 @@ impl Slot {
                     let play_state = clip.play_state();
                     use ClipPlayState::*;
                     if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
-                        return;
+                        return Ok(());
                     }
                     clip.play(ClipPlayArgs {
                         timeline: args.column_args.timeline,
                         ref_pos: Some(args.column_args.timeline_cursor_pos),
                         matrix_settings: args.matrix_settings,
                         column_settings: args.column_settings,
-                    })
-                    .unwrap();
+                    })?;
                     KeepSlot
                 }
             }
         };
-        self.process_stop_instruction(instruction, event_sender)
+        self.process_stop_instruction(instruction, event_sender);
+        Ok(())
     }
 
     pub fn process<H: HandleStopEvent>(
@@ -301,14 +301,13 @@ impl Slot {
 }
 
 impl RuntimeData {
-    #[must_use]
     fn stop_clip_by_transport<H: HandleStopEvent>(
         &mut self,
         clip: &mut Clip,
         args: &SlotProcessTransportChangeArgs,
         keep_starting_with_transport: bool,
         event_handler: &H,
-    ) -> StopSlotInstruction {
+    ) -> ClipEngineResult<StopSlotInstruction> {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
         let args = ClipStopArgs {
             stop_timing: Some(ClipPlayStopTiming::Immediately),

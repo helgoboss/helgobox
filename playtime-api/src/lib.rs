@@ -17,6 +17,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// TODO-medium Add start time detection
 // TODO-medium Add legato
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]

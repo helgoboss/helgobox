@@ -24,8 +24,9 @@ use playtime_api::{
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, MeasureAlignment,
-    OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue, RecordingInput,
+    create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, HelpMode,
+    MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue,
+    RecordingInput,
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -274,7 +275,7 @@ impl Column {
                         .unwrap();
                     None
                 }
-                ColumnEvent::NormalRecordingFinished {
+                NormalRecordingFinished {
                     slot_index,
                     outcome,
                 } => {
@@ -283,6 +284,13 @@ impl Column {
                         .notify_normal_recording_finished(outcome, self.project)
                         .unwrap();
                     event.map(|e| (slot_index, e))
+                }
+                InteractionFailed(failure) => {
+                    let formatted = format!("Playtime: Interaction failed ({})", failure.message);
+                    Reaper::get()
+                        .medium_reaper()
+                        .help_set(formatted, HelpMode::Temporary);
+                    None
                 }
             };
             if let Some(evt) = change_event {

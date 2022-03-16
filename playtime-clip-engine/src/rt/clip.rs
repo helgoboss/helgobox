@@ -245,14 +245,13 @@ impl Clip {
     }
 
     /// Stops the clip playing or recording.
-    #[must_use]
     pub fn stop<H: HandleStopEvent>(
         &mut self,
         args: ClipStopArgs,
         event_handler: &H,
-    ) -> StopSlotInstruction {
+    ) -> ClipEngineResult<StopSlotInstruction> {
         use ClipState::*;
-        match &mut self.state {
+        let instruction = match &mut self.state {
             Ready(s) => {
                 s.stop(args, &mut self.supplier_chain, event_handler);
                 StopSlotInstruction::KeepSlot
@@ -264,7 +263,7 @@ impl Clip {
                     &mut self.supplier_chain,
                     event_handler,
                     &self.shared_pos,
-                ) {
+                )? {
                     KeepState => StopSlotInstruction::KeepSlot,
                     TransitionToReady(ready_state) => {
                         self.state = Ready(ready_state);
@@ -273,7 +272,8 @@ impl Clip {
                     ClearSlot => StopSlotInstruction::ClearSlot,
                 }
             }
-        }
+        };
+        Ok(instruction)
     }
 
     pub fn set_looped(&mut self, looped: bool) -> ClipEngineResult<()> {
