@@ -203,11 +203,15 @@ impl SupplierChain {
     fn set_time_base(&mut self, time_base: &ClipTimeBase, is_midi: bool) -> ClipEngineResult<()> {
         match time_base {
             ClipTimeBase::Time => {
-                self.set_time_stretching_enabled(false);
+                debug!("Disable tempo adjustments");
+                self.time_stretcher_mut().set_enabled(false);
+                self.resampler_mut().set_tempo_adjustments_enabled(false);
                 self.clear_downbeat();
             }
             ClipTimeBase::Beat(b) => {
-                self.set_time_stretching_enabled(true);
+                debug!("Enable tempo adjustments");
+                self.time_stretcher_mut().set_enabled(true);
+                self.resampler_mut().set_tempo_adjustments_enabled(true);
                 let tempo = determine_tempo_from_beat_time_base(b, is_midi);
                 self.set_downbeat_in_beats(b.downbeat, tempo)?;
             }
@@ -376,13 +380,9 @@ impl SupplierChain {
             }
         };
         self.resampler_mut()
-            .set_responsible_for_audio_time_stretching(use_vari_speed);
+            .set_responsible_for_audio_tempo_adjustments(use_vari_speed);
         self.time_stretcher_mut()
             .set_responsible_for_audio_time_stretching(!use_vari_speed);
-    }
-
-    fn set_time_stretching_enabled(&mut self, enabled: bool) {
-        self.time_stretcher_mut().set_enabled(enabled);
     }
 
     pub fn set_looped(&mut self, looped: bool) {

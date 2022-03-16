@@ -17,8 +17,10 @@ use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct Resampler<S> {
+    /// If enabled in general.
     enabled: bool,
-    responsible_for_audio_time_stretching: bool,
+    tempo_adjustments_enabled: bool,
+    responsible_for_audio_tempo_adjustments: bool,
     supplier: S,
     api: OwnedReaperResample,
     tempo_factor: f64,
@@ -29,7 +31,8 @@ impl<S> Resampler<S> {
         let api = Reaper::get().medium_reaper().resampler_create();
         Self {
             enabled: false,
-            responsible_for_audio_time_stretching: false,
+            tempo_adjustments_enabled: false,
+            responsible_for_audio_tempo_adjustments: false,
             supplier,
             api,
             tempo_factor: 1.0,
@@ -68,10 +71,19 @@ impl<S> Resampler<S> {
         }
     }
 
+    /// If the part of the resampler is enabled that modifies the tempo of the material.
+    pub fn set_tempo_adjustments_enabled(&mut self, enabled: bool) {
+        self.tempo_adjustments_enabled = enabled;
+    }
+
     /// Decides whether the resampler should also take the tempo factor into account for audio
     /// (VariSpeed).
-    pub fn set_responsible_for_audio_time_stretching(&mut self, responsible: bool) {
-        self.responsible_for_audio_time_stretching = responsible;
+    ///
+    /// Usually, it only takes care of adjusting the MIDI tempo.
+    ///
+    /// This only has an effect if tempo adjustments are enabled in general.
+    pub fn set_responsible_for_audio_tempo_adjustments(&mut self, responsible: bool) {
+        self.responsible_for_audio_tempo_adjustments = responsible;
     }
 
     /// Only has an effect if tempo changing enabled.
@@ -94,11 +106,12 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
         let dest_frame_rate = request
             .dest_sample_rate
             .unwrap_or_else(|| source_frame_rate);
-        let dest_frame_rate = if self.responsible_for_audio_time_stretching {
-            Hz::new(dest_frame_rate.get() / self.tempo_factor)
-        } else {
-            dest_frame_rate
-        };
+        let dest_frame_rate =
+            if self.tempo_adjustments_enabled && self.responsible_for_audio_tempo_adjustments {
+                Hz::new(dest_frame_rate.get() / self.tempo_factor)
+            } else {
+                dest_frame_rate
+            };
         if source_frame_rate == dest_frame_rate {
             return self.supplier.supply_audio(request, dest_buffer);
         }
@@ -212,10 +225,13 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         }
         let num_frames_to_be_written = request.dest_frame_count;
         let request_ratio = num_frames_to_be_written as f64 / request.dest_sample_rate.get();
-        let num_frames_to_be_consumed = adjust_proportionally_positive(
-            source_frame_rate.get(),
-            request_ratio * self.tempo_factor,
-        );
+        let final_ratio = if self.tempo_adjustments_enabled {
+            request_ratio * self.tempo_factor
+        } else {
+            request_ratio
+        };
+        let num_frames_to_be_consumed =
+            adjust_proportionally_positive(source_frame_rate.get(), final_ratio);
         let inner_request = SupplyMidiRequest {
             start_frame: request.start_frame,
             dest_frame_count: num_frames_to_be_consumed,
