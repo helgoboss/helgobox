@@ -7,11 +7,11 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, Recorder,
-    RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome, StopRecordingOutcome,
-    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, RecordState,
+    Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome,
+    StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
@@ -423,10 +423,20 @@ impl Clip {
     }
 
     pub fn play_state(&self) -> ClipPlayState {
-        use ClipState::*;
         match &self.state {
-            Ready(s) => s.play_state(),
-            Recording(_) => ClipPlayState::Recording,
+            ClipState::Ready(s) => s.play_state(),
+            ClipState::Recording(_) => {
+                use RecordState::*;
+                match self
+                    .supplier_chain
+                    .record_state()
+                    .expect("recorder not recording while clip recording")
+                {
+                    ScheduledForStart => ClipPlayState::ScheduledForRecordingStart,
+                    Recording => ClipPlayState::Recording,
+                    ScheduledForStop => ClipPlayState::ScheduledForRecordingStop,
+                }
+            }
         }
     }
 
@@ -1198,18 +1208,18 @@ impl ReadyState {
                 if s.overdubbing {
                     ClipPlayState::Recording
                 } else if s.stop_request.is_some() {
-                    ClipPlayState::ScheduledForStop
+                    ClipPlayState::ScheduledForPlayStop
                 } else if let Some(pos) = s.pos {
                     // It's correct that we don't consider the downbeat here. We want to expose
                     // the count-in phase as count-in phase, even some pickup beats are playing
                     // already.
                     if pos < 0 {
-                        ClipPlayState::ScheduledForPlay
+                        ClipPlayState::ScheduledForPlayStart
                     } else {
                         ClipPlayState::Playing
                     }
                 } else {
-                    ClipPlayState::ScheduledForPlay
+                    ClipPlayState::ScheduledForPlayStart
                 }
             }
             Suspending(s) => match s.next_state {
@@ -1496,11 +1506,13 @@ const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ClipPlayState {
     Stopped,
-    ScheduledForPlay,
+    ScheduledForPlayStart,
     Playing,
     Paused,
-    ScheduledForStop,
+    ScheduledForPlayStop,
+    ScheduledForRecordingStart,
     Recording,
+    ScheduledForRecordingStop,
 }
 
 impl ClipPlayState {
@@ -1509,17 +1521,38 @@ impl ClipPlayState {
         use ClipPlayState::*;
         match self {
             Stopped => UnitValue::new(0.1),
-            ScheduledForPlay => UnitValue::new(0.75),
+            ScheduledForPlayStart => UnitValue::new(0.75),
             Playing => UnitValue::MAX,
             Paused => UnitValue::new(0.5),
-            ScheduledForStop => UnitValue::new(0.25),
+            ScheduledForPlayStop => UnitValue::new(0.25),
             Recording => UnitValue::new(0.60),
+            ScheduledForRecordingStart => UnitValue::new(0.9),
+            ScheduledForRecordingStop => UnitValue::new(0.4),
         }
     }
 
+    /// If you want to know if it's worth to push out position updates.
     pub fn is_advancing(&self) -> bool {
         use ClipPlayState::*;
-        matches!(self, ScheduledForPlay | Playing | ScheduledForStop)
+        matches!(self, ScheduledForPlayStart | Playing | ScheduledForPlayStop)
+    }
+
+    pub fn is_somehow_recording(&self) -> bool {
+        use ClipPlayState::*;
+        matches!(
+            self,
+            ScheduledForRecordingStart | Recording | ScheduledForRecordingStop
+        )
+    }
+
+    pub fn is_as_good_as_playing(&self) -> bool {
+        use ClipPlayState::*;
+        matches!(self, ScheduledForPlayStart | Playing)
+    }
+
+    pub fn is_as_good_as_recording(&self) -> bool {
+        use ClipPlayState::*;
+        matches!(self, ScheduledForRecordingStart | Recording)
     }
 }
 

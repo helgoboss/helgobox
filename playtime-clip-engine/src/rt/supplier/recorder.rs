@@ -256,6 +256,32 @@ impl Recorder {
         }
     }
 
+    pub fn record_state(&self) -> Option<RecordState> {
+        match self.state.as_ref().unwrap() {
+            State::Ready(_) => None,
+            State::Recording(s) => {
+                use RecordState::*;
+                let state = match s.recording {
+                    None => ScheduledForStart,
+                    Some(r) => {
+                        if r.total_frame_offset < r.num_count_in_frames {
+                            ScheduledForStart
+                        } else if let Some(end) = s.scheduled_end {
+                            if end.is_predefined {
+                                Recording
+                            } else {
+                                ScheduledForStop
+                            }
+                        } else {
+                            Recording
+                        }
+                    }
+                };
+                Some(state)
+            }
+        }
+    }
+
     pub fn register_midi_overdub_mirror_source(
         &mut self,
         mirror_source: OwnedPcmSource,
@@ -581,6 +607,7 @@ impl RecordingState {
             quantization,
             total_frame_offset,
             self.kind_state.is_midi(),
+            false,
         );
         self.scheduled_end = Some(scheduled_end);
     }
@@ -668,7 +695,7 @@ impl RecordingState {
                 first_play_frame: None,
             };
             self.recording = Some(recording);
-            self.scheduled_end = self.calculate_initial_scheduled_end(
+            self.scheduled_end = self.calculate_predefined_scheduled_end(
                 &timeline,
                 audio_request_props,
                 start_pos,
@@ -772,7 +799,7 @@ impl RecordingState {
         (recording_outcome, new_state)
     }
 
-    fn calculate_initial_scheduled_end(
+    fn calculate_predefined_scheduled_end(
         &self,
         timeline: &HybridTimeline,
         audio_request_props: BasicAudioRequestProps,
@@ -789,6 +816,7 @@ impl RecordingState {
                     q,
                     frames_to_start_pos,
                     self.kind_state.is_midi(),
+                    true,
                 );
                 Some(end)
             }
@@ -992,6 +1020,7 @@ struct ScheduledEnd {
     quantized_end_pos: QuantizedPosition,
     /// This is the length from start of material, not from the scheduled start point.
     complete_length: usize,
+    is_predefined: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1317,6 +1346,7 @@ fn calculate_scheduled_end(
     quantization: EvenQuantization,
     total_frame_offset: usize,
     is_midi: bool,
+    is_predefined: bool,
 ) -> ScheduledEnd {
     let quantized_end_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
     debug!("Calculated quantized end pos {:?}", quantized_end_pos);
@@ -1334,5 +1364,12 @@ fn calculate_scheduled_end(
     ScheduledEnd {
         quantized_end_pos,
         complete_length,
+        is_predefined,
     }
+}
+
+pub enum RecordState {
+    ScheduledForStart,
+    Recording,
+    ScheduledForStop,
 }

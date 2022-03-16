@@ -462,6 +462,8 @@ fn calc_quantized_pos_from_accurate_pos(
 }
 
 fn next_quantized_pos_sloppy(current_quantized_pos: i64, within: f64, numerator: u32) -> i64 {
+    // TODO-high CONTINUE Switch this on again at least for triggering start (important for
+    //  reacting to transport changes).
     // At the moment, we don't have the sloppy behavior enabled. Let's try without. If we activate
     // it again, be aware that there's some logic that can't work with the sloppy logic, so we
     // would need make a clear distinction then.

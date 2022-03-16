@@ -397,7 +397,11 @@ impl Column {
                 if clip.recording_requested() {
                     return Err("recording requested already (with existing clip)");
                 }
-                if clip.play_state() == Ok(ClipPlayState::Recording) {
+                if clip
+                    .play_state()
+                    .map(|ps| ps.is_somehow_recording())
+                    .unwrap_or(false)
+                {
                     return Err("recording already (with existing clip)");
                 }
                 use MidiClipRecordMode::*;

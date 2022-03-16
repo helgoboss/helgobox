@@ -108,7 +108,11 @@ impl Clip {
         if self.recording_requested {
             return Err("recording has already been requested");
         }
-        if self.play_state() == Ok(ClipPlayState::Recording) {
+        if self
+            .play_state()
+            .map(|ps| ps.is_as_good_as_recording())
+            .unwrap_or(false)
+        {
             return Err("already recording");
         }
         self.recording_requested = true;
@@ -204,8 +208,7 @@ impl Clip {
 
     pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
         if self.recording_requested {
-            // Report optimistically that we are recording already.
-            return Ok(ClipPlayState::Recording);
+            return Ok(ClipPlayState::ScheduledForRecordingStart);
         }
         Ok(self.runtime_data()?.play_state)
     }

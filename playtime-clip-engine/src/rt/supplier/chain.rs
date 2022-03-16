@@ -3,9 +3,10 @@ use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
     LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome,
     PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingArgs, Resampler,
-    Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState, Recorder, RecordingArgs,
+    Resampler, Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -311,6 +312,10 @@ impl SupplierChain {
             .recorder()
             .write_audio(request)
             .unwrap();
+    }
+
+    pub fn record_state(&self) -> Option<RecordState> {
+        self.pre_buffer_wormhole().recorder().record_state()
     }
 
     pub fn poll_recording(

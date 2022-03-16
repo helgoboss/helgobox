@@ -202,11 +202,15 @@ impl Slot {
                                     // stop. Play the clip!
                                     play_clip_by_transport(clip, args)
                                 }
-                                ScheduledForPlay | Playing | ScheduledForStop => {
+                                ScheduledForPlayStart | Playing | ScheduledForPlayStop => {
                                     // Retrigger (timeline switch)
                                     play_clip_by_transport(clip, args)
                                 }
-                                Stopped | Paused | Recording => {
+                                Stopped
+                                | Paused
+                                | Recording
+                                | ScheduledForRecordingStart
+                                | ScheduledForRecordingStop => {
                                     // Stop and forget.
                                     self.runtime_data.stop_clip_by_transport(
                                         clip,
@@ -218,7 +222,12 @@ impl Slot {
                             }
                         }
                         StopAfterPlay => match state {
-                            ScheduledForPlay | Playing | ScheduledForStop | Recording => {
+                            ScheduledForPlayStart
+                            | Playing
+                            | ScheduledForPlayStop
+                            | Recording
+                            | ScheduledForRecordingStart
+                            | ScheduledForRecordingStop => {
                                 // Stop and memorize
                                 self.runtime_data.stop_clip_by_transport(
                                     clip,
@@ -227,7 +236,8 @@ impl Slot {
                                     event_handler,
                                 )?
                             }
-                            _ => {
+
+                            Stopped | Paused => {
                                 // Stop and forget
                                 self.runtime_data.stop_clip_by_transport(
                                     clip,
@@ -249,7 +259,10 @@ impl Slot {
                     // The play cursor was repositioned.
                     let play_state = clip.play_state();
                     use ClipPlayState::*;
-                    if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
+                    if !matches!(
+                        play_state,
+                        ScheduledForPlayStart | Playing | ScheduledForPlayStop
+                    ) {
                         return Ok(());
                     }
                     clip.play(ClipPlayArgs {

@@ -34,7 +34,10 @@ impl Slot {
         use SlotState::*;
         match &self.state {
             Empty => Err("slot empty"),
-            RecordingFromScratchRequested | RecordingFromScratch => Ok(ClipPlayState::Recording),
+            RecordingFromScratchRequested => Ok(ClipPlayState::ScheduledForRecordingStart),
+            // TODO-high CONTINUE It would be nice if we could get real state updates from the clip
+            //  already. For this, the clip must already be sent here at the time of acknowledgement.
+            RecordingFromScratch => Ok(ClipPlayState::Recording),
             Filled(clip) => clip.play_state(),
         }
     }
