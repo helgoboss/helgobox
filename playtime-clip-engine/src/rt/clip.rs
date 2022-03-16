@@ -1307,7 +1307,7 @@ impl RecordingState {
         let ready_state = ReadyState {
             state: if clip_settings.looped {
                 ReadySubState::Playing(PlayingState {
-                    virtual_pos: match outcome.data.quantized_end_pos {
+                    virtual_pos: match outcome.data.section_and_downbeat_data.quantized_end_pos {
                         None => VirtualPosition::Now,
                         Some(qp) => VirtualPosition::Quantized(qp),
                     },

@@ -26,8 +26,8 @@ use playtime_api::{
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiImportBehavior,
-    OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
+    BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
+    MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
 use std::cmp;
 use std::ffi::CString;
@@ -133,6 +133,12 @@ struct Recording {
     num_count_in_frames: usize,
     frame_rate: Hz,
     first_play_frame: Option<usize>,
+}
+
+impl Recording {
+    pub fn is_still_in_count_in_phase(&self) -> bool {
+        self.total_frame_offset < self.num_count_in_frames
+    }
 }
 
 #[derive(Debug)]
@@ -265,7 +271,7 @@ impl Recorder {
                 let state = match s.recording {
                     None => ScheduledForStart,
                     Some(r) => {
-                        if r.total_frame_offset < r.num_count_in_frames {
+                        if r.is_still_in_count_in_phase() {
                             ScheduledForStart
                         } else if let Some(end) = s.scheduled_end {
                             if end.is_predefined {
@@ -468,7 +474,32 @@ impl Recorder {
                     KindState::Midi(midi_state) => {
                         let recording = s
                             .recording
+                            .as_mut()
                             .ok_or("recording not started yet ... not polling?")?;
+                        // Detect first play frame if downbeat detection enabled
+                        if s.detect_downbeat
+                            && recording.first_play_frame.is_none()
+                            && recording.is_still_in_count_in_phase()
+                        {
+                            if let Some(evt) = request
+                                .events
+                                .into_iter()
+                                .find(|e| crate::midi_util::is_play_message(e.message()))
+                            {
+                                let block_start_frame = recording.total_frame_offset;
+                                let block_offset = convert_duration_in_frames_to_other_frame_rate(
+                                    evt.frame_offset().get() as usize,
+                                    MidiFrameOffset::REFERENCE_FRAME_RATE,
+                                    MIDI_FRAME_RATE,
+                                );
+                                let event_frame = block_start_frame + block_offset;
+                                debug!(
+                                    "Detected first-play frame during count-in phase: {} with block offset {}",
+                                    event_frame, block_offset
+                                );
+                                recording.first_play_frame = Some(event_frame);
+                            }
+                        }
                         write_midi(
                             request,
                             &mut midi_state.new_source,
@@ -555,7 +586,7 @@ impl RecordingState {
                 }
                 let rollback = match self.recording {
                     None => true,
-                    Some(r) => r.total_frame_offset < r.num_count_in_frames,
+                    Some(r) => r.is_still_in_count_in_phase(),
                 };
                 if rollback {
                     // Zero point of recording hasn't even been reached yet. Cancel.
@@ -645,7 +676,13 @@ impl RecordingState {
             recording.total_frame_offset = next_frame_offset;
             // Commit recording if end exceeded
             if let Some(scheduled_end) = self.scheduled_end {
-                if next_frame_offset > scheduled_end.complete_length {
+                let end_frame = if let Some(first_play_frame) = recording.first_play_frame {
+                    assert!(scheduled_end.complete_length > first_play_frame);
+                    scheduled_end.complete_length - first_play_frame
+                } else {
+                    scheduled_end.complete_length
+                };
+                if next_frame_offset > end_frame {
                     // Exceeded scheduled end.
                     let recording = *recording;
                     let (recording_outcome, next_state) =
@@ -780,6 +817,37 @@ impl RecordingState {
                 (outcome, State::Ready(ready_state))
             }
         };
+        let quantized_end_pos = self.scheduled_end.map(|end| end.quantized_end_pos);
+        let section_length = self.scheduled_end.map(|end| {
+            assert!(recording.num_count_in_frames < end.complete_length);
+            end.complete_length - recording.num_count_in_frames
+        });
+        let section_and_downbeat_data = match recording.first_play_frame {
+            None => {
+                // Either no play material arrived or too late, right of the scheduled start
+                // position. This is not a pick-up beat. Ignore it.
+                SectionAndDownbeatData {
+                    section_bounds: SectionBounds::new(
+                        recording.num_count_in_frames,
+                        section_length,
+                    ),
+                    quantized_end_pos,
+                    downbeat_frame: 0,
+                }
+            }
+            Some(first_play_frame) => {
+                assert!(recording.num_count_in_frames > first_play_frame);
+                // We detected material that should play at count-in phase
+                // (also called pick-up beat or anacrusis). So the position of the downbeat in
+                // the material is greater than zero.
+                let downbeat_frame = recording.num_count_in_frames - first_play_frame;
+                SectionAndDownbeatData {
+                    section_bounds: SectionBounds::new(first_play_frame, section_length),
+                    quantized_end_pos,
+                    downbeat_frame,
+                }
+            }
+        };
         let recording_outcome = RecordingOutcome {
             data: CompleteRecordingData {
                 frame_rate: recording.frame_rate,
@@ -787,15 +855,7 @@ impl RecordingState {
                 tempo: self.tempo,
                 time_signature: self.time_signature,
                 is_midi,
-                section_bounds: SectionBounds::new(
-                    recording.num_count_in_frames,
-                    self.scheduled_end.map(|end| {
-                        assert!(recording.num_count_in_frames < end.complete_length);
-                        end.complete_length - recording.num_count_in_frames
-                    }),
-                ),
-                quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
-                normalized_downbeat_frame: 0,
+                section_and_downbeat_data,
                 initial_play_start_timing: self.initial_play_start_timing,
             },
             kind_specific: kind_specific_outcome,
@@ -1059,24 +1119,33 @@ pub struct CompleteRecordingData {
     pub tempo: Bpm,
     pub time_signature: TimeSignature,
     pub is_midi: bool,
-    pub section_bounds: SectionBounds,
-    pub normalized_downbeat_frame: usize,
-    pub quantized_end_pos: Option<QuantizedPosition>,
+    pub section_and_downbeat_data: SectionAndDownbeatData,
     pub initial_play_start_timing: ClipPlayStartTiming,
+}
+
+#[derive(Clone, Debug)]
+pub struct SectionAndDownbeatData {
+    pub section_bounds: SectionBounds,
+    pub quantized_end_pos: Option<QuantizedPosition>,
+    pub downbeat_frame: usize,
 }
 
 impl CompleteRecordingData {
     pub fn effective_frame_count(&self) -> usize {
-        self.section_bounds
+        self.section_and_downbeat_data
+            .section_bounds
             .calculate_frame_count(self.total_frame_count)
     }
 
     pub fn section_start_pos_in_seconds(&self) -> DurationInSeconds {
-        convert_duration_in_frames_to_seconds(self.section_bounds.start_frame(), self.frame_rate)
+        convert_duration_in_frames_to_seconds(
+            self.section_and_downbeat_data.section_bounds.start_frame(),
+            self.frame_rate,
+        )
     }
 
     pub fn section_length_in_seconds(&self) -> Option<DurationInSeconds> {
-        let section_frame_count = self.section_bounds.length()?;
+        let section_frame_count = self.section_and_downbeat_data.section_bounds.length()?;
         Some(convert_duration_in_frames_to_seconds(
             section_frame_count,
             self.frame_rate,
@@ -1084,8 +1153,10 @@ impl CompleteRecordingData {
     }
 
     pub fn downbeat_in_beats(&self) -> DurationInBeats {
-        let downbeat_in_secs =
-            convert_duration_in_frames_to_seconds(self.normalized_downbeat_frame, self.frame_rate);
+        let downbeat_in_secs = convert_duration_in_frames_to_seconds(
+            self.section_and_downbeat_data.downbeat_frame,
+            self.frame_rate,
+        );
         let bps = self.tempo.get() / 60.0;
         DurationInBeats::new(downbeat_in_secs.get() * bps)
     }

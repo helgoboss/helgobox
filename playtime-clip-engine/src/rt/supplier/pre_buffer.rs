@@ -477,7 +477,7 @@ where
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         if !self.enabled {
-            return return self.supplier.supply_audio(request, dest_buffer);
+            return self.supplier.supply_audio(request, dest_buffer);
         }
         let state = match &mut self.state {
             State::Inactive => {
