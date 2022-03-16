@@ -519,6 +519,7 @@ impl Column {
     fn notify_user_about_failed_interaction<T>(&self, result: ClipEngineResult<T>) {
         if let Err(message) = result {
             let failure = InteractionFailure { message };
+            debug!("Failed clip interaction: {}", message);
             self.event_sender.interaction_failed(failure);
         }
     }
@@ -533,6 +534,9 @@ impl Column {
         let _ = std::thread::current().id();
         assert_no_alloc(|| {
             let request_props = BasicAudioRequestProps::from_transfer(args.block);
+            // Super important that commands are processed before getting samples from clips.
+            // That's what guarantees that we act immediately to changes and also don't miss any
+            // samples after finishing recording.
             self.process_commands(request_props);
             // Make sure that in any case, we are only queried once per time, without retries.
             // TODO-medium This mechanism of advancing the position on every call by
@@ -616,8 +620,7 @@ impl Column {
                     matrix_settings: &self.matrix_settings,
                     column_settings: &self.settings,
                 };
-                let event_handler = ClipEventHandler::new(&self.event_sender, row);
-                if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
+                if let Ok(outcome) = slot.process(&mut inner_args) {
                     if outcome.num_audio_frames_written > 0 {
                         output_buffer
                             .slice_mut(0..outcome.num_audio_frames_written)

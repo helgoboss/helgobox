@@ -441,37 +441,24 @@ impl Clip {
         }
     }
 
-    pub fn process<H: HandleStopEvent>(
-        &mut self,
-        args: &mut ClipProcessArgs,
-        event_handler: &H,
-    ) -> ClipPlayingOutcome {
-        // TODO-high Simplify
+    pub fn process(&mut self, args: &mut ClipProcessArgs) -> ClipPlayingOutcome {
         use ClipState::*;
-        let (outcome, changed_state) = match &mut self.state {
+        match &mut self.state {
             Ready(s) => {
                 let (outcome, changed_state) =
                     s.process(args, &mut self.supplier_chain, &mut self.shared_pos);
-                (Some(outcome), changed_state.map(Recording))
+                if let Some(s) = changed_state {
+                    debug!("Changing to recording state {:?}", &s);
+                    self.state = Recording(s);
+                }
+                outcome
             }
             Recording(_) => {
                 // Recording is not driven by the preview register processing but uses a separate
                 // record polling which is driven by the code that provides the input material.
-                (None, None)
+                ClipPlayingOutcome::default()
             }
-        };
-        let outcome = if let Some(s) = changed_state {
-            self.state = s;
-            if s.is_playing() {
-                // Changed from record to playing. Don't miss any samples!
-                Some(self.process(args, event_handler))
-            } else {
-                outcome
-            }
-        } else {
-            outcome
-        };
-        outcome.unwrap_or_default()
+        }
     }
 }
 
@@ -1116,6 +1103,7 @@ impl ReadyState {
             Playing(s) => {
                 if let Some(pos) = s.pos {
                     if supplier_chain.is_playing_already(pos) {
+                        debug!("Suspending play in order to start recording");
                         self.state = Suspending(SuspendingState {
                             next_state: StateAfterSuspension::Recording(recording_state),
                             pos,
@@ -1342,6 +1330,10 @@ impl RecordingState {
         event_handler
             .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
         // Return ready state
+        // Finishing recording happens in the call stack of either record polling or stopping.
+        // Both of these things happen *before* get_samples() by the preview register is called.
+        // So get_samples() for the same block as the one we are in now will be called a moment
+        // later. That's what guarantees us that we don't miss any samples.
         ready_state
     }
 }
