@@ -18,6 +18,7 @@ pub struct TimeStretcher<S> {
     api: OwnedReaperPitchShift,
     supplier: S,
     enabled: bool,
+    active: bool,
     responsible_for_audio_time_stretching: bool,
     tempo_factor: f64,
 }
@@ -32,6 +33,7 @@ impl<S> TimeStretcher<S> {
             api,
             supplier,
             enabled: false,
+            active: false,
             responsible_for_audio_time_stretching: false,
             tempo_factor: 1.0,
         }
@@ -53,6 +55,10 @@ impl<S> TimeStretcher<S> {
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 
     pub fn set_mode(&mut self, mode: VirtualTimeStretchMode) {
@@ -82,7 +88,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        if !self.enabled || !self.responsible_for_audio_time_stretching {
+        if !self.enabled || !self.active || !self.responsible_for_audio_time_stretching {
             return self.supplier.supply_audio(request, dest_buffer);
         }
         let material_info = self.supplier.material_info().unwrap();

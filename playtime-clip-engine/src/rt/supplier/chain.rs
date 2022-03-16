@@ -169,7 +169,7 @@ impl SupplierChain {
         downbeat.set_enabled(true);
         // Configure pre-buffer
         let pre_buffer = chain.pre_buffer_mut();
-        let _ = pre_buffer.enable();
+        let _ = pre_buffer.set_enabled(true);
         Ok(chain)
     }
 
@@ -204,13 +204,13 @@ impl SupplierChain {
         match time_base {
             ClipTimeBase::Time => {
                 debug!("Disable tempo adjustments");
-                self.time_stretcher_mut().set_enabled(false);
+                self.time_stretcher_mut().set_active(false);
                 self.resampler_mut().set_tempo_adjustments_enabled(false);
                 self.clear_downbeat();
             }
             ClipTimeBase::Beat(b) => {
                 debug!("Enable tempo adjustments");
-                self.time_stretcher_mut().set_enabled(true);
+                self.time_stretcher_mut().set_active(true);
                 self.resampler_mut().set_tempo_adjustments_enabled(true);
                 let tempo = determine_tempo_from_beat_time_base(b, is_midi);
                 self.set_downbeat_in_beats(b.downbeat, tempo)?;
@@ -364,9 +364,9 @@ impl SupplierChain {
         // complete source material in memory already).
         let pre_buffer = self.pre_buffer_mut();
         if pre_buffer_enabled {
-            let _ = pre_buffer.enable();
+            let _ = pre_buffer.activate();
         } else {
-            pre_buffer.disable();
+            pre_buffer.deactivate();
         }
     }
 

@@ -24,6 +24,7 @@ use twox_hash::XxHash64;
 #[derive(Debug)]
 pub struct PreBuffer<S, F, C> {
     id: PreBufferInstanceId,
+    enabled: bool,
     state: State,
     request_sender: Sender<PreBufferRequest<S, C>>,
     supplier: S,
@@ -40,23 +41,23 @@ pub trait CommandProcessor {
 
 #[derive(Debug)]
 enum State {
-    Disabled,
-    Enabled(EnabledState),
+    Inactive,
+    Active(ActiveState),
 }
 
 impl State {
-    pub fn is_enabled(&self) -> bool {
-        matches!(self, State::Enabled(_))
+    pub fn is_active(&self) -> bool {
+        matches!(self, State::Active(_))
     }
 }
 
 #[derive(Debug)]
-struct EnabledState {
+struct ActiveState {
     consumer: Consumer<PreBufferedBlock>,
     cached_material_info: AudioMaterialInfo,
 }
 
-impl EnabledState {
+impl ActiveState {
     /// A successful result means that the complete request could be satisfied using pre-buffered
     /// blocks. An error means that some frames are left to be filled. It contains the frame offset.
     pub fn use_pre_buffers_as_far_as_possible<S, C>(
@@ -319,7 +320,8 @@ where
     ) -> Self {
         Self {
             id: PreBufferInstanceId::next(),
-            state: State::Disabled,
+            enabled: false,
+            state: State::Inactive,
             request_sender,
             supplier,
             options,
@@ -332,13 +334,18 @@ where
     }
 
     pub fn send_command(&self, command: C) {
+        if !self.enabled {
+            self.command_processor
+                .process_command(command, &self.supplier);
+            return;
+        }
         match &self.state {
-            State::Disabled => {
-                // When disabled, we process the command synchronously. Fast and straightforward.
+            State::Inactive => {
+                // When inactive, we process the command synchronously. Fast and straightforward.
                 self.command_processor
                     .process_command(command, &self.supplier);
             }
-            State::Enabled(_) => {
+            State::Active(_) => {
                 // When enabled, we let a worker thread to the work because accessing the supplier
                 // might take too long for doing it in a real-time thread (either because the
                 // operation itself is expensive or because we might need to obtain a lock in a
@@ -348,32 +355,39 @@ where
         }
     }
 
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
     /// # Errors
     ///
     /// Returns an error if the material can't or doesn't need to be buffered. In that case
     /// it just leaves the pre-buffer disabled.
-    pub fn enable(&mut self) -> ClipEngineResult<()> {
-        if self.state.is_enabled() {
-            return Ok(());
+    pub fn activate(&mut self) -> ClipEngineResult<()> {
+        if !self.enabled {
+            return Err("disabled");
+        }
+        if !self.state.is_active() {
+            return Err("inactive");
         }
         let audio_material_info = require_audio_material_info(self.supplier.material_info()?)?;
         let (producer, consumer) = RingBuffer::new(RING_BUFFER_BLOCK_COUNT);
         self.request_sender
             .register_instance(self.id, producer, self.supplier.clone());
-        let enabled_state = EnabledState {
+        let enabled_state = ActiveState {
             consumer,
             cached_material_info: audio_material_info,
         };
-        self.state = State::Enabled(enabled_state);
+        self.state = State::Active(enabled_state);
         Ok(())
     }
 
-    pub fn disable(&mut self) {
-        if !self.state.is_enabled() {
+    pub fn deactivate(&mut self) {
+        if !self.enabled || !self.state.is_active() {
             return;
         }
         self.request_sender.unregister_instance(self.id);
-        self.state = State::Disabled;
+        self.state = State::Inactive;
     }
 
     /// Invalidates the material info cache.
@@ -382,9 +396,12 @@ where
     /// accesses the supplier and therefore should be used with care (especially if the supplier
     /// is a mutex).
     pub fn invalidate_material_info_cache(&mut self) -> ClipEngineResult<()> {
+        if !self.enabled {
+            return Err("disabled");
+        }
         match &mut self.state {
-            State::Disabled => Err("disabled"),
-            State::Enabled(s) => {
+            State::Inactive => Err("inactive"),
+            State::Active(s) => {
                 let audio_material_info =
                     require_audio_material_info(self.supplier.material_info()?)?;
                 s.cached_material_info = audio_material_info;
@@ -425,9 +442,12 @@ where
     C: Debug,
 {
     fn pre_buffer(&mut self, args: PreBufferFillRequest) {
+        if !self.enabled {
+            return;
+        }
         match &mut self.state {
-            State::Disabled => {}
-            State::Enabled(s) => {
+            State::Inactive => {}
+            State::Active(s) => {
                 s.pre_buffer(args, self.id, &self.request_sender);
             }
         }
@@ -456,12 +476,15 @@ where
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
+        if !self.enabled {
+            return return self.supplier.supply_audio(request, dest_buffer);
+        }
         let state = match &mut self.state {
-            State::Disabled => {
-                // Not enabled means we may access the supplier directly.
+            State::Inactive => {
+                // Inactive means we may access the supplier directly.
                 return self.supplier.supply_audio(request, dest_buffer);
             }
-            State::Enabled(s) => s,
+            State::Active(s) => s,
         };
         #[cfg(debug_assertions)]
         {
@@ -550,9 +573,12 @@ impl<S: MidiSupplier, F: Debug, C: Debug> MidiSupplier for PreBuffer<S, F, C> {
 
 impl<S: WithMaterialInfo, F, C> WithMaterialInfo for PreBuffer<S, F, C> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        if !self.enabled {
+            return self.supplier.material_info();
+        }
         match &self.state {
-            State::Disabled => self.supplier.material_info(),
-            State::Enabled(s) => Ok(MaterialInfo::Audio(s.cached_material_info.clone())),
+            State::Inactive => self.supplier.material_info(),
+            State::Active(s) => Ok(MaterialInfo::Audio(s.cached_material_info.clone())),
         }
     }
 }
