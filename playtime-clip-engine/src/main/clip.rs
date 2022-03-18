@@ -17,9 +17,6 @@ pub struct Clip {
     // unnecessary data inside.
     source: api::Source,
     processing_relevant_settings: ProcessingRelevantClipSettings,
-    /// `true` for the short moment while recording was requested (using the chain of an existing
-    /// clip) but has not yet been acknowledged from a real-time thread.
-    recording_requested: bool,
 }
 
 impl Clip {
@@ -27,7 +24,6 @@ impl Clip {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
             source: api_clip.source,
-            recording_requested: false,
         }
     }
 
@@ -45,7 +41,6 @@ impl Clip {
         };
         let clip = Self {
             source: api_source,
-            recording_requested: false,
             processing_relevant_settings: clip_settings,
         };
         Ok(clip)
@@ -66,18 +61,6 @@ impl Clip {
         }
     }
 
-    pub fn notify_recording_requested(&mut self) -> ClipEngineResult<()> {
-        if self.recording_requested {
-            return Err("recording has already been requested");
-        }
-        self.recording_requested = true;
-        Ok(())
-    }
-
-    pub fn notify_recording_request_acknowledged(&mut self) {
-        self.recording_requested = false;
-    }
-
     pub fn notify_midi_overdub_finished(
         &mut self,
         mirror_source: OwnedPcmSource,
@@ -86,11 +69,6 @@ impl Clip {
         let api_source = create_api_source_from_mirror_source(mirror_source, temporary_project)?;
         self.source = api_source;
         Ok(())
-    }
-
-    pub fn notify_recording_canceled(&mut self) {
-        // Just in case it hasn't been acknowledged yet.
-        self.recording_requested = false;
     }
 
     pub fn create_real_time_clip(
@@ -114,9 +92,9 @@ impl Clip {
 
     pub fn create_mirror_source_for_midi_overdub(
         &self,
-        permanent_project: Option<Project>,
+        permanent_project: Project,
     ) -> ClipEngineResult<OwnedPcmSource> {
-        create_pcm_source_from_api_source(&self.source, permanent_project)
+        create_pcm_source_from_api_source(&self.source, Some(permanent_project))
     }
 
     pub fn looped(&self) -> bool {
@@ -135,10 +113,6 @@ impl Clip {
 
     pub fn volume(&self) -> Db {
         self.processing_relevant_settings.volume
-    }
-
-    pub fn recording_requested(&self) -> bool {
-        self.recording_requested
     }
 
     pub fn tempo_factor(&self, timeline_tempo: Bpm, is_midi: bool) -> f64 {

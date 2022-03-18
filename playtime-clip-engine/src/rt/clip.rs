@@ -14,7 +14,7 @@ use crate::rt::supplier::{
     WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{ColumnSettings, OverridableMatrixSettings, SlotRuntimeData};
+use crate::rt::{ColumnSettings, OverridableMatrixSettings};
 use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
@@ -149,7 +149,7 @@ impl SharedPos {
         self.0.load(Ordering::Relaxed)
     }
 
-    pub fn set(&self, pos: isize) {
+    fn set(&self, pos: isize) {
         self.0.store(pos, Ordering::Relaxed);
     }
 }
@@ -1521,7 +1521,15 @@ impl ClipPlayState {
     /// If you want to know if it's worth to push out position updates.
     pub fn is_advancing(&self) -> bool {
         use ClipPlayState::*;
-        matches!(self, ScheduledForPlayStart | Playing | ScheduledForPlayStop)
+        matches!(
+            self,
+            ScheduledForPlayStart
+                | Playing
+                | ScheduledForPlayStop
+                | ScheduledForRecordingStart
+                | Recording
+                | ScheduledForRecordingStop
+        )
     }
 
     pub fn is_somehow_recording(&self) -> bool {

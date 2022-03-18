@@ -233,6 +233,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.rt_command_sender.clear_columns();
     }
 
+    /// Definitely returns a slot as long as it is within the current matrix bounds (even if empty).
+    ///
+    /// Returns `None` if out of current matrix bounds.
     pub fn slot(&mut self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
         let row_count = self.row_count();
         let column = get_column_mut(&mut self.columns, coordinates.column).ok()?;

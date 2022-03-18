@@ -2,8 +2,8 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordingPollArgs,
-    ClipStopArgs, ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
+    ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
     ColumnSettings, HandleStopEvent, OverridableMatrixSettings, SharedPos, SlotRecordInstruction,
     StopSlotInstruction,
 };
@@ -119,13 +119,7 @@ impl Slot {
                     ));
                 }
                 let clip = Clip::recording(instruction);
-                let runtime_data = SlotRuntimeData {
-                    play_state: clip.play_state(),
-                    pos: clip.shared_pos(),
-                    material_info: clip
-                        .recording_material_info()
-                        .expect("recording clip should return recording material info"),
-                };
+                let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
                 self.clip = Some(clip);
                 Ok(Some(runtime_data))
             }
@@ -138,7 +132,10 @@ impl Slot {
                     Some(c) => c,
                 };
                 match clip.record(args, matrix_settings, column_settings) {
-                    Ok(_) => Ok(None),
+                    Ok(_) => {
+                        let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
+                        Ok(Some(runtime_data))
+                    }
                     Err(e) => Err(e.map_payload(ExistingClip)),
                 }
             }
@@ -409,6 +406,16 @@ pub struct SlotRuntimeData {
 }
 
 impl SlotRuntimeData {
+    pub fn from_recording_clip(clip: &Clip) -> Self {
+        Self {
+            play_state: clip.play_state(),
+            pos: clip.shared_pos(),
+            material_info: clip
+                .recording_material_info()
+                .expect("recording clip should return recording material info"),
+        }
+    }
+
     pub fn mod_frame(&self) -> isize {
         let frame = self.pos.get();
         if frame < 0 {

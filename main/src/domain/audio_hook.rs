@@ -12,7 +12,7 @@ use playtime_clip_engine::main::{
     VirtualClipRecordHardwareMidiInput,
 };
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, ClipPlayState, Column};
+use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,

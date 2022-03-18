@@ -1,32 +1,23 @@
-use crate::main::{
-    Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordFxInput, ClipRecordHardwareInput,
-    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot, SlotState,
-    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
-};
-use crate::rt::supplier::{
-    ChainEquipment, Recorder, RecorderRequest, RecordingArgs, SupplierChain,
-};
+use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
+use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
-    MidiOverdubInstruction, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
-    SlotRecordInstruction, WeakColumn,
+    ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
+    ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
-use crate::{clip_timeline, rt, ClipEngineResult, Timeline};
+use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ChannelRange, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
-    Db, MatrixClipRecordSettings, MidiClipRecordMode, RecordOrigin,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
+    MatrixClipRecordSettings, RecordOrigin,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, HelpMode,
     MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue,
-    RecordingInput,
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -139,14 +130,8 @@ impl Column {
 
     /// Is mutable because empty slots are created lazily up to `row_count`.
     pub(super) fn slot(&mut self, index: usize, row_count: usize) -> Option<&Slot> {
-        self.upsize_if_necessary(row_count);
+        upsize_if_necessary(&mut self.slots, row_count);
         self.slots.get(index)
-    }
-
-    fn upsize_if_necessary(&mut self, row_count: usize) {
-        if self.slots.len() < row_count {
-            self.slots.resize_with(row_count, Default::default);
-        }
     }
 
     /// Returns the actual number of slots in this column.
@@ -180,22 +165,7 @@ impl Column {
                 origin: RecordOrigin::TrackInput,
             },
             slots: {
-                let slots = self
-                    .slots
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, s)| {
-                        if let Some(clip) = s.clip() {
-                            let api_slot = api::Slot {
-                                row: i,
-                                clip: Some(clip.save()),
-                            };
-                            Some(api_slot)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                let slots = self.slots.iter().filter_map(|slot| slot.save()).collect();
                 Some(slots)
             },
         }
@@ -259,28 +229,33 @@ impl Column {
                 RecordRequestAcknowledged {
                     slot_index, result, ..
                 } => {
-                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    slot.notify_recording_request_acknowledged(result).unwrap();
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        slot.notify_recording_request_acknowledged(result).unwrap();
+                    }
                     None
                 }
                 MidiOverdubFinished {
                     slot_index,
                     mirror_source,
                 } => {
-                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    slot.notify_midi_overdub_finished(mirror_source, self.project)
-                        .unwrap();
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        slot.notify_midi_overdub_finished(mirror_source, self.project)
+                            .unwrap();
+                    }
                     None
                 }
                 NormalRecordingFinished {
                     slot_index,
                     outcome,
                 } => {
-                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    let event = slot
-                        .notify_normal_recording_finished(outcome, self.project)
-                        .unwrap();
-                    event.map(|e| (slot_index, e))
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        let event = slot
+                            .notify_normal_recording_finished(outcome, self.project)
+                            .unwrap();
+                        event.map(|e| (slot_index, e))
+                    } else {
+                        None
+                    }
                 }
                 InteractionFailed(failure) => {
                     let formatted = format!("Playtime: Interaction failed ({})", failure.message);
@@ -325,47 +300,42 @@ impl Column {
     }
 
     pub fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
-        let clip = get_clip_mut_insert_slot(&mut self.slots, slot_index)?;
-        clip.set_volume(volume);
-        self.rt_command_sender.set_clip_volume(slot_index, volume);
-        Ok(())
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        slot.set_clip_volume(volume, &self.rt_command_sender)
     }
 
     pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
-        let clip = get_clip_mut_insert_slot(&mut self.slots, slot_index)?;
-        let looped = clip.toggle_looped();
-        let args = ColumnSetClipLoopedArgs { slot_index, looped };
-        self.rt_command_sender.set_clip_looped(args);
-        Ok(ClipChangedEvent::ClipLooped(looped))
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        slot.toggle_clip_looped(&self.rt_command_sender)
     }
 
     pub fn slot_position_in_seconds(
         &self,
         slot_index: usize,
     ) -> ClipEngineResult<PositionInSeconds> {
-        let slot = get_slot(&self.slots, slot_index)?;
+        let slot = self.get_slot(slot_index)?;
         let timeline = clip_timeline(self.project, false);
         slot.position_in_seconds(&timeline)
     }
 
+    fn get_slot(&self, index: usize) -> ClipEngineResult<&Slot> {
+        self.slots.get(index).ok_or(SLOT_DOESNT_EXIST)
+    }
+
     pub fn clip_volume(&self, slot_index: usize) -> ClipEngineResult<Db> {
-        let clip = get_clip(&self.slots, slot_index)?;
-        Ok(clip.volume())
+        self.get_slot(slot_index)?.clip_volume()
     }
 
     pub fn slot_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
-        let slot = get_slot(&self.slots, slot_index)?;
-        slot.play_state()
+        self.get_slot(slot_index)?.play_state()
     }
 
     pub fn clip_looped(&self, slot_index: usize) -> ClipEngineResult<bool> {
-        let clip = get_clip(&self.slots, slot_index)?;
-        Ok(clip.looped())
+        self.get_slot(slot_index)?.clip_looped()
     }
 
     pub fn proportional_slot_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
-        let clip = get_slot(&self.slots, slot_index)?;
-        clip.proportional_pos()
+        self.get_slot(slot_index)?.proportional_pos()
     }
 
     pub fn record_clip<H: ClipMatrixHandler>(
@@ -380,108 +350,24 @@ impl Column {
     ) -> ClipEngineResult<()> {
         // Insert slot if it doesn't exist already.
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        // Check preconditions.
-        let (has_existing_clip, midi_overdub_mirror_source) = match slot.state() {
-            SlotState::Empty => (false, None),
-            SlotState::RecordingFromScratchRequested => {
-                return Err("recording requested already (from scratch)");
-            }
-            SlotState::RecordingFromScratch => {
-                return Err("recording already (from scratch)");
-            }
-            SlotState::Filled(clip) => {
-                if clip.recording_requested() {
-                    return Err("recording requested already (with existing clip)");
-                }
-                if slot
-                    .play_state()
-                    .map(|ps| ps.is_somehow_recording())
-                    .unwrap_or(false)
-                {
-                    return Err("recording already (with existing clip)");
-                }
-                use MidiClipRecordMode::*;
-                let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
-                    Normal => false,
-                    Overdub => {
-                        // Only allow MIDI overdub is existing clip is a MIDI clip already.
-                        slot.material_info().map(|i| i.is_midi()).unwrap_or(false)
-                    }
-                    Replace => todo!(),
-                };
-                let mirror_source = if want_midi_overdub {
-                    Some(clip.create_mirror_source_for_midi_overdub(self.project)?)
-                } else {
-                    None
-                };
-                (true, mirror_source)
-            }
-        };
-        // Prepare tasks, equipment, instructions.
-        let record_task = create_clip_record_task(
-            slot_index,
+        slot.record_clip(
+            matrix_record_settings,
+            &self.settings.clip_record_settings,
+            &self.rt_settings,
+            chain_equipment,
+            recorder_request_sender,
+            handler,
             containing_track,
-            &self.settings,
-            self.project,
-            self.preview_register.as_ref(),
+            overridable_matrix_settings,
+            self.preview_register
+                .as_ref()
+                .ok_or("column inactive")?
+                .track
+                .as_ref()
+                .ok_or("no playback track set")?,
             &self.rt_column,
-        )?;
-        let recording_equipment = record_task.input.create_recording_equipment(self.project);
-        let input_is_midi = recording_equipment.is_midi();
-        let midi_overdub_mirror_source = if input_is_midi {
-            midi_overdub_mirror_source
-        } else {
-            // Want overdub but we have a audio input, so don't use overdub mode after all.
-            None
-        };
-        let instruction = if let Some(mirror_source) = midi_overdub_mirror_source {
-            // We can do MIDI overdub. This is the easiest thing and needs almost no preparation.
-            let args = MidiOverdubInstruction { mirror_source };
-            SlotRecordInstruction::MidiOverdub(args)
-        } else {
-            // We record completely new material.
-            let args = ClipRecordArgs {
-                recording_equipment,
-                settings: matrix_record_settings.clone(),
-            };
-            if has_existing_clip {
-                // There's a clip already. That makes it easy because we have the clip struct
-                // already, including the complete clip supplier chain, and can reuse it.
-                SlotRecordInstruction::ExistingClip(args)
-            } else {
-                // There's no clip yet so we need to create the clip including the complete supplier
-                // chain from scratch. We need to do create much of the stuff here already because
-                // we must not allocate in the real-time thread. However, we can't create the
-                // complete clip because we don't have enough information (block length, timeline
-                // frame rate) available at this point to resolve the initial recording position.
-                let recording_args = RecordingArgs::from_stuff(
-                    self.project,
-                    &self.rt_settings,
-                    overridable_matrix_settings,
-                    &args.settings,
-                    args.recording_equipment,
-                );
-                let timeline = clip_timeline(self.project, false);
-                let timeline_cursor_pos = timeline.cursor_pos();
-                let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
-                let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
-                let new_clip_instruction = RecordNewClipInstruction {
-                    supplier_chain,
-                    project: self.project,
-                    shared_pos: Default::default(),
-                    timeline,
-                    timeline_cursor_pos,
-                    settings: matrix_record_settings.clone(),
-                };
-                SlotRecordInstruction::NewClip(new_clip_instruction)
-            }
-        };
-        // Above code was only for checking preconditions and preparing stuff.
-        // Here we do the actual state changes and distribute tasks.
-        slot.notify_recording_requested()?;
-        self.rt_command_sender.record_clip(slot_index, instruction);
-        handler.request_recording_input(record_task);
-        Ok(())
+            &self.rt_command_sender,
+        )
     }
 }
 
@@ -554,123 +440,24 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_clip(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Clip> {
-    get_slot(slots, slot_index)?.clip().ok_or(SLOT_NOT_FILLED)
-}
-
-fn get_slot(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Slot> {
-    slots.get(slot_index).ok_or(SLOT_DOESNT_EXIST)
-}
-
-fn get_clip_mut_insert_slot(
-    slots: &mut Vec<Slot>,
-    slot_index: usize,
-) -> ClipEngineResult<&mut Clip> {
-    get_slot_mut_insert(slots, slot_index)
-        .clip_mut()
-        .ok_or(SLOT_NOT_FILLED)
+fn get_slot_mut(slots: &mut Vec<Slot>, slot_index: usize) -> ClipEngineResult<&mut Slot> {
+    slots.get_mut(slot_index).ok_or(SLOT_DOESNT_EXIST)
 }
 
 fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
-    if slot_index >= slots.len() {
-        slots.resize_with(slot_index + 1, Default::default);
-    }
+    upsize_if_necessary(slots, slot_index + 1);
     slots.get_mut(slot_index).unwrap()
 }
 
-const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
-const SLOT_NOT_FILLED: &str = "slot not filled";
-
-fn translate_track_input_to_hw_input(
-    track_input: RecordingInput,
-) -> ClipEngineResult<ClipRecordHardwareInput> {
-    let hw_input = match track_input {
-        RecordingInput::Mono(i) => {
-            let range = ChannelRange {
-                first_channel_index: i,
-                channel_count: 1,
-            };
-            ClipRecordHardwareInput::Audio(VirtualClipRecordAudioInput::Specific(range))
-        }
-        RecordingInput::Stereo(i) => {
-            let range = ChannelRange {
-                first_channel_index: i,
-                channel_count: 2,
-            };
-            ClipRecordHardwareInput::Audio(VirtualClipRecordAudioInput::Specific(range))
-        }
-        RecordingInput::Midi { device_id, channel } => {
-            let input = ClipRecordHardwareMidiInput { device_id, channel };
-            ClipRecordHardwareInput::Midi(VirtualClipRecordHardwareMidiInput::Specific(input))
-        }
-        _ => return Err(""),
-    };
-    Ok(hw_input)
-}
-
-fn create_clip_record_task(
-    slot_index: usize,
-    containing_track: Option<&Track>,
-    column_settings: &ColumnSettings,
-    project: Option<Project>,
-    preview_register: Option<&PlayingPreviewRegister>,
-    column_source: &SharedColumn,
-) -> ClipEngineResult<ClipRecordTask> {
-    let task = ClipRecordTask {
-        input: {
-            use RecordOrigin::*;
-            match &column_settings.clip_record_settings.origin {
-                TrackInput => {
-                    let track =
-                        resolve_recording_track(column_settings, project, preview_register)?;
-                    let track_input = track
-                        .recording_input()
-                        .ok_or("track doesn't have any recording input")?;
-                    let hw_input = translate_track_input_to_hw_input(track_input)?;
-                    ClipRecordInput::HardwareInput(hw_input)
-                }
-                TrackAudioOutput => {
-                    let track =
-                        resolve_recording_track(column_settings, project, preview_register)?;
-                    let containing_track = containing_track.ok_or("can't recording track audio output if Playtime runs in monitoring FX chain")?;
-                    track.add_send_to(containing_track);
-                    let channel_range = ChannelRange {
-                        first_channel_index: 0,
-                        channel_count: track.channel_count(),
-                    };
-                    ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                        VirtualClipRecordAudioInput::Specific(channel_range),
-                    ))
-                }
-                FxAudioInput(range) => ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                    VirtualClipRecordAudioInput::Specific(*range),
-                )),
-                FxMidiInput => ClipRecordInput::FxInput(ClipRecordFxInput::Midi),
-            }
-        },
-        destination: ClipRecordDestination {
-            column_source: column_source.downgrade(),
-            slot_index,
-        },
-    };
-    Ok(task)
-}
-
-fn resolve_recording_track(
-    column_settings: &ColumnSettings,
-    project: Option<Project>,
-    preview_register: Option<&PlayingPreviewRegister>,
-) -> ClipEngineResult<Track> {
-    if let Some(track_id) = &column_settings.clip_record_settings.track {
-        let track_guid = Guid::from_string_without_braces(track_id.get())?;
-        let track = project.or_current_project().track_by_guid(&track_guid);
-        if track.is_available() {
-            Ok(track)
-        } else {
-            Err("track not available")
-        }
-    } else {
-        let register = preview_register.ok_or("column inactive")?;
-        register.track.clone().ok_or("no playback track set")
+fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
+    let mut current_row_count = slots.len();
+    if current_row_count < row_count {
+        slots.resize_with(row_count, || {
+            let slot = Slot::new(current_row_count);
+            current_row_count += 1;
+            slot
+        });
     }
 }
+
+const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";

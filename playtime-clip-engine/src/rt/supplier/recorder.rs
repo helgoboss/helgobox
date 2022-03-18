@@ -639,7 +639,7 @@ impl RecordingState {
     }
 
     pub fn stop_recording(
-        mut self,
+        self,
         timeline: &HybridTimeline,
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
