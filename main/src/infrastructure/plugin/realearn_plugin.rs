@@ -5,9 +5,10 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::base::Global;
 use crate::domain::{
-    BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, MainProcessor,
-    NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
-    RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
+    MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
+    ProcessorContext, RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -90,6 +91,7 @@ pub struct RealearnPlugin {
     session_state: SharedSessionState,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
+    sample_rate: Hz,
 }
 
 impl Default for RealearnPlugin {
@@ -149,6 +151,7 @@ impl Plugin for RealearnPlugin {
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
                 session_state,
+                sample_rate: Default::default(),
             }
         })
         .unwrap_or_default()
@@ -250,19 +253,21 @@ impl Plugin for RealearnPlugin {
         });
     }
 
-    fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
+    fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
         assert_no_alloc(|| {
             // Get current time information so we can detect changes in play state reliably
             // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
             self.was_playing_in_last_cycle = self.is_now_playing();
+            let block_props = AudioBlockProps::from_vst(buffer, self.sample_rate);
             self.real_time_processor
                 .lock_recover()
-                .run_from_vst(buffer.samples(), &self.host);
+                .run_from_vst(buffer, block_props, &self.host);
         });
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
         firewall(|| {
+            self.sample_rate = Hz::new(rate as _);
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
             // If task queue is full or audio not running, spamming the user with error messages,

@@ -8,8 +8,9 @@ use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    BackboneState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingCompartment, MappingId,
-    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
+    BackboneState, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask, InstanceId,
+    MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId,
+    RealTimeSender, Tag,
 };
 use playtime_clip_engine::main::{
     ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -79,6 +80,7 @@ pub enum ClipMatrixRef {
 pub struct RealearnClipMatrixHandler {
     instance_id: InstanceId,
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
     event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
 }
 
@@ -92,11 +94,13 @@ impl RealearnClipMatrixHandler {
     fn new(
         instance_id: InstanceId,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
         event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
     ) -> Self {
         Self {
             instance_id,
             audio_hook_task_sender,
+            real_time_processor_sender,
             event_sender,
         }
     }
@@ -114,8 +118,14 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
                     .send(NormalAudioHookTask::StartClipRecording(hw_task))
                     .unwrap()
             }
-            ClipRecordInput::FxInput(_) => {
-                todo!()
+            ClipRecordInput::FxInput(input) => {
+                let fx_task = FxInputClipRecordTask {
+                    input,
+                    destination: task.destination,
+                };
+                self.real_time_processor_sender
+                    .send(NormalRealTimeTask::StartClipRecording(fx_task))
+                    .unwrap();
             }
         }
     }
@@ -214,6 +224,7 @@ impl InstanceState {
         let clip_matrix_handler = RealearnClipMatrixHandler::new(
             self.instance_id,
             self.audio_hook_task_sender.clone(),
+            self.real_time_processor_sender.clone(),
             self.clip_matrix_event_sender.clone(),
         );
         Matrix::new(clip_matrix_handler, self.this_track.clone())

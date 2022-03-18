@@ -88,6 +88,42 @@ impl<'a> AudioBuf<'a> {
             channel_count,
         }
     }
+
+    /// # Panics
+    ///
+    /// Panics if requested frame count is zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the size of the given data chunk isn't large enough.
+    pub fn from_slice(
+        chunk: &'a [f64],
+        channel_count: usize,
+        frame_count: usize,
+    ) -> Result<Self, &'static str> {
+        let required_slice_length = required_slice_length(chunk.len(), channel_count, frame_count)?;
+        let buf = AudioBuf {
+            data: &chunk[0..required_slice_length],
+            frame_count,
+            channel_count,
+        };
+        Ok(buf)
+    }
+}
+
+fn required_slice_length(
+    chunk_len: usize,
+    channel_count: usize,
+    frame_count: usize,
+) -> ClipEngineResult<usize> {
+    if frame_count == 0 {
+        panic!("attempt to create buffer from sliced data with a frame count of zero");
+    }
+    let required_slice_length = channel_count * frame_count;
+    if chunk_len < required_slice_length {
+        return Err("given slice not large enough");
+    }
+    Ok(required_slice_length)
 }
 
 impl<'a> AudioBufMut<'a> {
@@ -103,13 +139,7 @@ impl<'a> AudioBufMut<'a> {
         channel_count: usize,
         frame_count: usize,
     ) -> Result<Self, &'static str> {
-        if frame_count == 0 {
-            panic!("attempt to create buffer from sliced data with a frame count of zero");
-        }
-        let required_slice_length = channel_count * frame_count;
-        if chunk.len() < required_slice_length {
-            return Err("given slice not large enough");
-        }
+        let required_slice_length = required_slice_length(chunk.len(), channel_count, frame_count)?;
         let buf = AudioBufMut {
             data: &mut chunk[0..required_slice_length],
             frame_count,

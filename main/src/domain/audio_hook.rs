@@ -229,7 +229,7 @@ impl RealearnAudioHook {
         }
     }
 
-    fn process_clip_record_tasks(&mut self, args: &OnAudioBufferArgs) {
+    fn process_clip_record_task(&mut self, args: &OnAudioBufferArgs) {
         if let Some(t) = &mut self.clip_record_task {
             if !process_clip_record_task(args, t) {
                 tracing_debug!("Clearing clip record task from audio hook");
@@ -312,6 +312,7 @@ impl RealearnAudioHook {
                     }
                 }
                 StartClipRecording(task) => {
+                    tracing_debug!("Audio hook received clip record task");
                     self.clip_record_task = Some(task);
                 }
             }
@@ -356,7 +357,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             };
             self.process_feedback_tasks();
             self.call_real_time_processors(block_props, might_be_rebirth);
-            self.process_clip_record_tasks(&args);
+            self.process_clip_record_task(&args);
             self.process_normal_tasks();
         });
     }
@@ -463,15 +464,9 @@ fn process_clip_record_task(
             }
         }
         ClipRecordHardwareInput::Audio(input) => unsafe {
-            let channel_offset = match input {
-                VirtualClipRecordAudioInput::Specific(channel_range) => {
-                    channel_range.first_channel_index
-                }
-                VirtualClipRecordAudioInput::Detect { .. } => {
-                    unimplemented!("audio input detection not yet implemented")
-                }
-            };
-            let write_audio_request = AudioHookWriteAudioRequest::new(args, channel_offset as _);
+            let channel_offset = input.channel_offset().unwrap();
+            let write_audio_request =
+                AudioHookWriteAudioRequest::new(args.reg, block_props, channel_offset as _);
             src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
                 .unwrap();
         },
@@ -524,22 +519,26 @@ fn write_midi_to_clip_slot(
 struct AudioHookWriteAudioRequest<'a> {
     channel_offset: usize,
     register: &'a AudioHookRegister,
-    audio_request_props: BasicAudioRequestProps,
+    block_props: BasicAudioRequestProps,
 }
 
 impl<'a> AudioHookWriteAudioRequest<'a> {
-    pub fn new(args: &'a OnAudioBufferArgs, channel_offset: usize) -> Self {
+    pub fn new(
+        register: &'a AudioHookRegister,
+        block_props: BasicAudioRequestProps,
+        channel_offset: usize,
+    ) -> Self {
         Self {
             channel_offset,
-            register: args.reg,
-            audio_request_props: BasicAudioRequestProps::from_on_audio_buffer_args(args),
+            register,
+            block_props,
         }
     }
 }
 
 impl<'a> WriteAudioRequest for AudioHookWriteAudioRequest<'a> {
     fn audio_request_props(&self) -> BasicAudioRequestProps {
-        self.audio_request_props
+        self.block_props
     }
 
     fn get_channel_buffer(&self, channel_index: usize) -> Option<AudioBuf> {
@@ -553,7 +552,7 @@ impl<'a> WriteAudioRequest for AudioHookWriteAudioRequest<'a> {
         if buf.is_null() {
             return None;
         }
-        let buf = unsafe { AudioBuf::from_raw(buf, 1, self.audio_request_props.block_length) };
+        let buf = unsafe { AudioBuf::from_raw(buf, 1, self.block_props.block_length) };
         Some(buf)
     }
 }
