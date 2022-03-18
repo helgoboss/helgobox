@@ -494,9 +494,6 @@ impl ReadyState {
                     if let Some(pos) = s.pos {
                         if supplier_chain.is_playing_already(pos) {
                             // Already playing. Retrigger!
-                            // TODO-high We should pre-buffer here but currently we can't do it
-                            //  accurately because the position is not ready yet. However, as soon
-                            //  as we resolve the position already here, let's use that one!
                             supplier_chain.pre_buffer_simple(0);
                             self.state = Suspending(SuspendingState {
                                 next_state: StateAfterSuspension::Playing(PlayingState {

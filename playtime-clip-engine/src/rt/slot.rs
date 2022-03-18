@@ -274,7 +274,7 @@ impl Slot {
                         return Ok(());
                     }
                     clip.play(ClipPlayArgs {
-                        timeline: args.column_args.timeline,
+                        timeline: &args.column_args.timeline,
                         ref_pos: Some(args.column_args.timeline_cursor_pos),
                         matrix_settings: args.matrix_settings,
                         column_settings: args.column_settings,
@@ -331,7 +331,7 @@ impl InternalRuntimeData {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
         let args = ClipStopArgs {
             stop_timing: Some(ClipPlayStopTiming::Immediately),
-            timeline: args.column_args.timeline,
+            timeline: &args.column_args.timeline,
             ref_pos: Some(args.column_args.timeline_cursor_pos),
             enforce_play_stop: true,
             matrix_settings: args.matrix_settings,
@@ -344,7 +344,7 @@ impl InternalRuntimeData {
 
 #[derive(Clone, Debug)]
 pub struct SlotProcessTransportChangeArgs<'a> {
-    pub column_args: ColumnProcessTransportChangeArgs<'a>,
+    pub column_args: &'a ColumnProcessTransportChangeArgs,
     pub matrix_settings: &'a OverridableMatrixSettings,
     pub column_settings: &'a ColumnSettings,
 }
@@ -389,7 +389,7 @@ fn play_clip_by_transport(
     args: &SlotProcessTransportChangeArgs,
 ) -> StopSlotInstruction {
     let args = ClipPlayArgs {
-        timeline: args.column_args.timeline,
+        timeline: &args.column_args.timeline,
         ref_pos: Some(args.column_args.timeline_cursor_pos),
         matrix_settings: args.matrix_settings,
         column_settings: args.column_settings,

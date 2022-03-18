@@ -142,9 +142,6 @@ impl<S> Section<S> {
         //                 start_frame: 1_024_000,
         //                 length: Some(1_024_000),
         //             }
-        //  Let's deal with that as soon as we add support for customizable downbeats.
-        //  MAYBE was caused by the fact that we didn't upscale to MIDI frame rate before?
-        //  (which we now do in resampler)
         // Determine source range
         let start_frame_in_source = self.bounds.start_frame as isize + request.start_frame();
         let (phase_two, num_frames_to_be_written) = match self.bounds.length {

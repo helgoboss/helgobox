@@ -9,7 +9,6 @@ use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
-use std::borrow::BorrowMut;
 use std::mem;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
@@ -140,18 +139,12 @@ impl Matrix {
         {
             let args = ColumnProcessTransportChangeArgs {
                 change: TransportChange::PlayState(relevant),
-                timeline: &timeline,
+                timeline: timeline.clone(),
                 timeline_cursor_pos: timeline.cursor_pos(),
                 audio_request_props,
             };
-            for column in self
-                .column_handles
-                .iter()
-                .filter_map(|c| c.pointer.upgrade())
-            {
-                // TODO-high For the sake of uniformity, we should probably use the sender here
-                //  as well. It doesn't make any difference really, I guess.
-                column.lock().process_transport_change(args.clone());
+            for handle in &self.column_handles {
+                handle.command_sender.process_transport_change(args.clone());
             }
             true
         } else {
@@ -169,16 +162,12 @@ impl Matrix {
         let timeline = clip_timeline(self.project, true);
         let args = ColumnProcessTransportChangeArgs {
             change: TransportChange::PlayCursorJump,
-            timeline: &timeline,
+            timeline: timeline.clone(),
             timeline_cursor_pos: timeline.cursor_pos(),
             audio_request_props,
         };
-        for column in self
-            .column_handles
-            .iter()
-            .filter_map(|c| c.pointer.upgrade())
-        {
-            column.lock().process_transport_change(args.clone());
+        for handle in &self.column_handles {
+            handle.command_sender.process_transport_change(args.clone());
         }
     }
 
@@ -215,8 +204,8 @@ impl Matrix {
     }
 
     pub fn pause_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        let column = self.column_internal(coordinates.column())?;
-        column.lock().borrow_mut().pause_clip(coordinates.row())?;
+        let handle = self.column_handle(coordinates.column())?;
+        handle.command_sender.pause_clip(coordinates.row());
         Ok(())
     }
 

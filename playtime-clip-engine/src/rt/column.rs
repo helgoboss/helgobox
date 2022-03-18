@@ -81,46 +81,50 @@ impl ColumnCommandSender {
     }
 
     pub fn clear_slots(&self) {
-        self.send_source_task(ColumnCommand::ClearSlots);
+        self.send_task(ColumnCommand::ClearSlots);
     }
 
     pub fn update_settings(&self, settings: ColumnSettings) {
-        self.send_source_task(ColumnCommand::UpdateSettings(settings));
+        self.send_task(ColumnCommand::UpdateSettings(settings));
     }
 
     pub fn update_matrix_settings(&self, settings: OverridableMatrixSettings) {
-        self.send_source_task(ColumnCommand::UpdateMatrixSettings(settings));
+        self.send_task(ColumnCommand::UpdateMatrixSettings(settings));
     }
 
     pub fn fill_slot(&self, args: Box<Option<ColumnFillSlotArgs>>) {
-        self.send_source_task(ColumnCommand::FillSlot(args));
+        self.send_task(ColumnCommand::FillSlot(args));
+    }
+
+    pub fn process_transport_change(&self, args: ColumnProcessTransportChangeArgs) {
+        self.send_task(ColumnCommand::ProcessTransportChange(args));
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
-        self.send_source_task(ColumnCommand::PlayClip(args));
+        self.send_task(ColumnCommand::PlayClip(args));
     }
 
     pub fn stop_clip(&self, args: ColumnStopClipArgs) {
-        self.send_source_task(ColumnCommand::StopClip(args));
+        self.send_task(ColumnCommand::StopClip(args));
     }
 
     pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
-        self.send_source_task(ColumnCommand::SetClipLooped(args));
+        self.send_task(ColumnCommand::SetClipLooped(args));
     }
 
     pub fn pause_clip(&self, index: usize) {
         let args = ColumnPauseClipArgs { index };
-        self.send_source_task(ColumnCommand::PauseClip(args));
+        self.send_task(ColumnCommand::PauseClip(args));
     }
 
     pub fn seek_clip(&self, index: usize, desired_pos: UnitValue) {
         let args = ColumnSeekClipArgs { index, desired_pos };
-        self.send_source_task(ColumnCommand::SeekClip(args));
+        self.send_task(ColumnCommand::SeekClip(args));
     }
 
     pub fn set_clip_volume(&self, slot_index: usize, volume: Db) {
         let args = ColumnSetClipVolumeArgs { slot_index, volume };
-        self.send_source_task(ColumnCommand::SetClipVolume(args));
+        self.send_task(ColumnCommand::SetClipVolume(args));
     }
 
     pub fn record_clip(&self, slot_index: usize, instruction: SlotRecordInstruction) {
@@ -128,10 +132,10 @@ impl ColumnCommandSender {
             slot_index,
             instruction,
         };
-        self.send_source_task(ColumnCommand::RecordClip(args));
+        self.send_task(ColumnCommand::RecordClip(args));
     }
 
-    fn send_source_task(&self, task: ColumnCommand) {
+    fn send_task(&self, task: ColumnCommand) {
         self.command_sender.try_send(task).unwrap();
     }
 }
@@ -143,6 +147,7 @@ pub enum ColumnCommand {
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
     FillSlot(Box<Option<ColumnFillSlotArgs>>),
+    ProcessTransportChange(ColumnProcessTransportChangeArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
     PauseClip(ColumnPauseClipArgs),
@@ -446,9 +451,9 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, slot_index).set_clip_volume(volume)
     }
 
-    pub fn process_transport_change(&mut self, args: ColumnProcessTransportChangeArgs) {
+    fn process_transport_change(&mut self, args: ColumnProcessTransportChangeArgs) {
         let args = SlotProcessTransportChangeArgs {
-            column_args: args,
+            column_args: &args,
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
         };
@@ -484,6 +489,9 @@ impl Column {
                 PlayClip(args) => {
                     let result = self.play_clip(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
+                }
+                ProcessTransportChange(args) => {
+                    self.process_transport_change(args);
                 }
                 StopClip(args) => {
                     let result = self.stop_clip(args, audio_request_props);
@@ -897,9 +905,9 @@ impl<'a> HandleStopEvent for ClipEventHandler<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ColumnProcessTransportChangeArgs<'a> {
+pub struct ColumnProcessTransportChangeArgs {
     pub change: TransportChange,
-    pub timeline: &'a HybridTimeline,
+    pub timeline: HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub audio_request_props: BasicAudioRequestProps,
 }
