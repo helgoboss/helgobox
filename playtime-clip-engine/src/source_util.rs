@@ -1,7 +1,8 @@
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::supplier::MIDI_BASE_BPM;
-use crate::ClipEngineResult;
+use crate::{rt, ClipEngineResult};
 use playtime_api as api;
+use playtime_api::{FileSource, MidiChunkSource};
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, ReaperSource};
 use reaper_medium::{MidiImportBehavior, OwnedPcmSource};
 use std::error::Error;
@@ -79,62 +80,58 @@ fn create_midi_chunk_source(chunk: String) -> api::Source {
 ///
 /// If no project is given, the path will not be relative.
 pub fn create_pcm_source_from_api_source(
-    source: &api::Source,
+    api_source: &api::Source,
     project_for_relative_path: Option<Project>,
 ) -> ClipEngineResult<OwnedPcmSource> {
     use api::Source::*;
-    let pcm_source = match source {
-        File(api::FileSource { path }) => {
-            let absolute_file = if path.is_relative() {
-                project_for_relative_path
-                    .ok_or("slot source given as relative file but without project")?
-                    .make_path_absolute(path)
-                    .ok_or("couldn't make clip source path absolute")?
-            } else {
-                path.clone()
-            };
-            // TODO-high-record Maybe we should enforce in-project MIDI to not get recording
-            //  problems? Not sure how REAPER behaves when trying to overdub onto a file-based
-            //  MIDI source. Check! If it doesn't work, we must convert to MIDI chunk here or
-            //  latest when the MIDI source gets overdubbed (latter probably better!). If it does,
-            //  then all good but it raises the question if we have to worry about real-time thread
-            //  file access. Related preference: Media => MIDI => Import existing MIDI files
-            //  Anyway, take care of it as soon as we implement saving modifications
-            //  (through recording or editing). Before it doesn't matter.
-            OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)?
-        }
-        MidiChunk(api::MidiChunkSource { chunk }) => {
-            let mut source = OwnedSource::from_type("MIDI").unwrap();
-            let mut chunk = chunk.clone();
-            chunk += ">\n";
-            source.set_state_chunk("<SOURCE MIDI\n", chunk)?;
-            // Make sure we don't have any association to some item on the timeline (or in
-            // another slot) because that could lead to unpleasant surprises.
-            source.remove_from_midi_pool().map_err(|e| e.message())?;
-            // Setting the source preview tempo is absolutely essential. It decouples the playing
-            // of the source from REAPER's project position and tempo. We set it to a constant tempo
-            // because we control the tempo on-the-fly by modifying the frame rate when requesting
-            // material.
-            // There are alternatives to setting the preview tempo, in particular doing the
-            // following when playing the material:
-            //
-            //      transfer.set_force_bpm(MIDI_BASE_BPM);
-            //      transfer.set_absolute_time_s(PositionInSeconds::ZERO);
-            //
-            // However, now we set the constant preview tempo at source creation time, which makes
-            // the source completely project tempo/pos-independent, also when doing recording via
-            // midi_realtime_write_struct_t. So that's not necessary anymore.
-            source
-                .set_preview_tempo(MIDI_BASE_BPM)
-                .map_err(|e| e.message())?;
-            source
-        }
+    let pcm_source = match api_source {
+        File(s) => create_pcm_source_from_file_based_api_source(project_for_relative_path, s)?,
+        MidiChunk(s) => create_pcm_source_from_midi_chunk_based_api_source(s.clone())?,
     };
     Ok(pcm_source.into_raw())
 }
 
+pub fn create_pcm_source_from_midi_chunk_based_api_source(
+    MidiChunkSource { mut chunk }: MidiChunkSource,
+) -> ClipEngineResult<OwnedSource> {
+    let mut source = OwnedSource::from_type("MIDI").unwrap();
+    chunk += ">\n";
+    source.set_state_chunk("<SOURCE MIDI\n", chunk)?;
+    // Make sure we don't have any association to some item on the timeline (or in
+    // another slot) because that could lead to unpleasant surprises.
+    source.remove_from_midi_pool().map_err(|e| e.message())?;
+    source
+        .set_preview_tempo(MIDI_BASE_BPM)
+        .map_err(|e| e.message())?;
+    post_process_midi_source(&source);
+    Ok(source)
+}
+
+pub fn create_pcm_source_from_file_based_api_source(
+    project_for_relative_path: Option<Project>,
+    FileSource { path }: &FileSource,
+) -> ClipEngineResult<OwnedSource> {
+    let absolute_file = if path.is_relative() {
+        project_for_relative_path
+            .ok_or("slot source given as relative file but without project")?
+            .make_path_absolute(path)
+            .ok_or("couldn't make clip source path absolute")?
+    } else {
+        path.clone()
+    };
+    // We don't import as in-project events, otherwise we would end up with a MIDI chunk
+    // source on save, which would be unexpected. It's worth to point out that MIDI overdub
+    // is not possible with file-based MIDI sources. So as soon as the user does MIDI
+    // overdub, we need to go "MIDI chunk".
+    let source = OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)?;
+    if rt::source_util::pcm_source_is_midi(source.as_ref().as_raw()) {
+        post_process_midi_source(&source);
+    }
+    Ok(source)
+}
+
 /// Returns an empty MIDI source prepared for recording.
-pub fn create_empty_midi_source() -> OwnedPcmSource {
+pub fn create_empty_midi_source() -> OwnedSource {
     let mut source = OwnedSource::from_type("MIDI").unwrap();
     // The following seems to be the absolute minimum to create the shortest possible MIDI clip
     // (which still is longer than zero).
@@ -146,9 +143,25 @@ pub fn create_empty_midi_source() -> OwnedPcmSource {
     source
         .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
         .unwrap();
-    // Super important to set the preview tempo, see create_pcm_source_from_api_source().
+    post_process_midi_source(&source);
+    source
+}
+
+fn post_process_midi_source(source: &BorrowedSource) {
+    // Setting the source preview tempo is absolutely essential. It decouples the playing
+    // of the source from REAPER's project position and tempo. We set it to a constant tempo
+    // because we control the tempo on-the-fly by modifying the frame rate when requesting
+    // material.
+    // There are alternatives to setting the preview tempo, in particular doing the
+    // following when playing the material:
+    //
+    //      transfer.set_force_bpm(MIDI_BASE_BPM);
+    //      transfer.set_absolute_time_s(PositionInSeconds::ZERO);
+    //
+    // However, now we set the constant preview tempo at source creation time, which makes
+    // the source completely project tempo/pos-independent, also when doing recording via
+    // midi_realtime_write_struct_t. So that's not necessary anymore.
     source.set_preview_tempo(MIDI_BASE_BPM).unwrap();
-    source.into_raw()
 }
 
 fn make_relative(project: Option<Project>, file: &Path) -> PathBuf {

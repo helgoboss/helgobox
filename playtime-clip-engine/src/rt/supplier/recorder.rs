@@ -29,10 +29,10 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
     MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
-use std::cmp;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
+use std::{cmp, mem};
 
 // TODO-high-prebuffer In addition we should deploy a start-buffer that always keeps the start completely in
 //  memory. Because sudden restarts (e.g. retriggers) are the main reason why we could still run
@@ -347,14 +347,21 @@ impl Recorder {
         }
     }
 
-    pub fn register_midi_overdub_mirror_source(
+    pub fn start_midi_overdub(
         &mut self,
+        in_project_midi_source: Option<OwnedPcmSource>,
         mirror_source: OwnedPcmSource,
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => {
                 if s.midi_overdub_mirror_source.is_some() {
                     return Err("recorder already has MIDI overdub mirror source");
+                }
+                if let Some(in_project_midi_source) = in_project_midi_source {
+                    // We can only record with an in-project MIDI source, so before overdubbing
+                    // we need to replace the current file-based one with the given in-project one.
+                    let obsolete_source = mem::replace(&mut s.source, in_project_midi_source);
+                    self.request_sender.discard_source(obsolete_source);
                 }
                 s.midi_overdub_mirror_source = Some(mirror_source);
                 Ok(())
@@ -969,8 +976,8 @@ pub struct MidiRecordingEquipment {
 impl MidiRecordingEquipment {
     pub fn new() -> Self {
         Self {
-            empty_midi_source: create_empty_midi_source(),
-            empty_midi_source_mirror: create_empty_midi_source(),
+            empty_midi_source: create_empty_midi_source().into_raw(),
+            empty_midi_source_mirror: create_empty_midi_source().into_raw(),
         }
     }
 }

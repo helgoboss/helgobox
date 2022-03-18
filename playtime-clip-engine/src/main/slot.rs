@@ -92,7 +92,7 @@ impl Slot {
                 return Err("recording already");
             }
         };
-        let (has_existing_clip, midi_overdub_mirror_source) = match &self.content {
+        let (has_existing_clip, midi_overdub_instruction) = match &self.content {
             None => (false, None),
             Some(content) => {
                 if content.runtime_data.play_state.is_somehow_recording() {
@@ -107,15 +107,15 @@ impl Slot {
                     }
                     Replace => todo!(),
                 };
-                let mirror_source = if want_midi_overdub {
-                    let mirror_source = content
+                let midi_overdub_instruction = if want_midi_overdub {
+                    let midi_overdub_instruction = content
                         .clip
-                        .create_mirror_source_for_midi_overdub(playback_track.project())?;
-                    Some(mirror_source)
+                        .create_midi_overdub_instruction(playback_track.project())?;
+                    Some(midi_overdub_instruction)
                 } else {
                     None
                 };
-                (true, mirror_source)
+                (true, midi_overdub_instruction)
             }
         };
         // Prepare tasks, equipment, instructions.
@@ -130,16 +130,15 @@ impl Slot {
             .input
             .create_recording_equipment(Some(playback_track.project()));
         let input_is_midi = recording_equipment.is_midi();
-        let midi_overdub_mirror_source = if input_is_midi {
-            midi_overdub_mirror_source
+        let midi_overdub_instruction = if input_is_midi {
+            midi_overdub_instruction
         } else {
             // Want overdub but we have a audio input, so don't use overdub mode after all.
             None
         };
-        let instruction = if let Some(mirror_source) = midi_overdub_mirror_source {
+        let instruction = if let Some(midi_overdub_instruction) = midi_overdub_instruction {
             // We can do MIDI overdub. This is the easiest thing and needs almost no preparation.
-            let args = MidiOverdubInstruction { mirror_source };
-            SlotRecordInstruction::MidiOverdub(args)
+            SlotRecordInstruction::MidiOverdub(midi_overdub_instruction)
         } else {
             // We record completely new material.
             let args = ClipRecordArgs {

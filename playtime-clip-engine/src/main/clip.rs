@@ -1,13 +1,17 @@
 use crate::rt::supplier::{ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest};
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{OverridableMatrixSettings, ProcessingRelevantClipSettings};
+use crate::rt::{
+    MidiOverdubInstruction, OverridableMatrixSettings, ProcessingRelevantClipSettings,
+};
 use crate::source_util::{
-    create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
+    create_file_api_source, create_pcm_source_from_api_source,
+    create_pcm_source_from_file_based_api_source,
+    create_pcm_source_from_midi_chunk_based_api_source, CreateApiSourceMode,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
-use playtime_api::{ClipColor, Db};
+use playtime_api::{ClipColor, Db, Source};
 use reaper_high::{OwnedSource, Project};
 use reaper_medium::{Bpm, OwnedPcmSource};
 
@@ -90,11 +94,35 @@ impl Clip {
         )
     }
 
-    pub fn create_mirror_source_for_midi_overdub(
+    pub fn create_midi_overdub_instruction(
         &self,
         permanent_project: Project,
-    ) -> ClipEngineResult<OwnedPcmSource> {
-        create_pcm_source_from_api_source(&self.source, Some(permanent_project))
+    ) -> ClipEngineResult<MidiOverdubInstruction> {
+        let instruction = match &self.source {
+            Source::File(file_based_api_source) => {
+                // We have a file-based MIDI source only. In the real-time clip, we need to replace
+                // it with an equivalent in-project MIDI source first. Create it!
+                let file_based_source = create_pcm_source_from_file_based_api_source(
+                    Some(permanent_project),
+                    file_based_api_source,
+                )?;
+                // TODO-high-wait Asked Justin how to convert into in-project MIDI source.
+                let in_project_source = file_based_source;
+                MidiOverdubInstruction {
+                    in_project_midi_source: Some(in_project_source.clone().into_raw()),
+                    mirror_source: in_project_source.into_raw(),
+                }
+            }
+            Source::MidiChunk(s) => {
+                // We have an in-project MIDI source already. Great!
+                MidiOverdubInstruction {
+                    in_project_midi_source: None,
+                    mirror_source: create_pcm_source_from_midi_chunk_based_api_source(s.clone())?
+                        .into_raw(),
+                }
+            }
+        };
+        Ok(instruction)
     }
 
     pub fn looped(&self) -> bool {

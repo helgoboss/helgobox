@@ -280,11 +280,15 @@ impl SupplierChain {
             .recording_material_info()
     }
 
-    pub fn register_midi_overdub_mirror_source(&mut self, mirror_source: OwnedPcmSource) {
+    pub fn start_midi_overdub(
+        &mut self,
+        in_project_midi_source: Option<OwnedPcmSource>,
+        mirror_source: OwnedPcmSource,
+    ) {
         // With MIDI, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .register_midi_overdub_mirror_source(mirror_source)
+            .start_midi_overdub(in_project_midi_source, mirror_source)
             .unwrap();
     }
 

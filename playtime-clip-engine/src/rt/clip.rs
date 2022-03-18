@@ -1050,7 +1050,7 @@ impl ReadyState {
         use ReadySubState::*;
         // TODO-medium Maybe we should start to play if not yet playing
         if let Playing(s) = self.state {
-            supplier_chain.register_midi_overdub_mirror_source(args.mirror_source);
+            supplier_chain.start_midi_overdub(args.in_project_midi_source, args.mirror_source);
             self.state = Playing(PlayingState {
                 overdubbing: true,
                 ..s
@@ -1432,7 +1432,12 @@ pub struct RecordNewClipInstruction {
 
 #[derive(Debug)]
 pub struct MidiOverdubInstruction {
-    /// A clone of the current source into which the same overdub events are going to be written.
+    /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
+    /// one, this field will contain an in-project MIDI source. The current real-time source needs
+    /// to be replaced with this one before overdubbing can work.
+    pub in_project_midi_source: Option<OwnedPcmSource>,
+    /// A (in-project) clone of the current source into which the same overdub events are going to
+    /// be written.
     ///
     /// Can then be sent back to the main thread so it can be saved correctly (without having to
     /// interfere with the real-time threads).  
