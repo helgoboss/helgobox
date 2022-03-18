@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 use crossbeam_channel::{Receiver, Sender};
 use playtime_api::AudioCacheBehavior;
@@ -58,7 +59,20 @@ pub enum CacheResponse {
 #[derive(Debug)]
 pub struct CachedData {
     material_info: AudioMaterialInfo,
+    file_path: PathBuf,
     content: OwnedAudioBuffer,
+}
+
+impl CachedData {
+    fn is_still_valid(&self, source: &OwnedPcmSource) -> bool {
+        source.get_file_name(|path| {
+            if let Some(path) = path {
+                path == &self.file_path
+            } else {
+                false
+            }
+        })
+    }
 }
 
 impl<S: WithSource> Cache<S> {
@@ -79,7 +93,6 @@ impl<S: WithSource> Cache<S> {
         &mut self.supplier
     }
 
-    // TODO-high Don't forget to disable the cache / rebuild it after recording new audio material.
     pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
         use AudioCacheBehavior::*;
         let cache_enabled = match cache_behavior {
@@ -99,30 +112,28 @@ impl<S: WithSource> Cache<S> {
     /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
     /// in advance.
     fn enable(&mut self) {
-        if self.cached_data.is_some() {
-            return;
-        }
         let source = match self.supplier.source() {
             None => return,
             Some(s) => s,
         };
+        if let Some(cached_data) = self.cached_data.take() {
+            if cached_data.is_still_valid(source) {
+                self.cached_data = Some(cached_data);
+                return;
+            }
+            self.request_sender.discard_cached_data(cached_data);
+        }
         if pcm_source_is_midi(source) {
             return;
         }
-        let request = CacheRequest::CacheSource {
-            source: source.clone(),
-            response_sender: self.response_channel.sender.clone(),
-        };
         self.request_sender
-            .try_send(request)
-            .expect("couldn't send request to finish audio recording");
+            .cache_source(source.clone(), self.response_channel.sender.clone());
     }
 
     /// Disables the cache and clears it, releasing the consumed memory.
     fn disable(&mut self) {
         if let Some(cached_data) = self.cached_data.take() {
-            let request = CacheRequest::DiscardCachedData(cached_data);
-            self.request_sender.try_send(request).unwrap();
+            self.request_sender.discard_cached_data(cached_data);
         }
     }
 
@@ -139,6 +150,7 @@ impl<S: WithSource> Cache<S> {
         }
     }
 }
+
 pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
     while let Ok(request) = receiver.recv() {
         use CacheRequest::*;
@@ -147,36 +159,76 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
                 mut source,
                 response_sender,
             } => {
-                let audio_material_info = match source.material_info() {
-                    Ok(MaterialInfo::Audio(i)) => i,
-                    _ => continue,
-                };
-                let mut content = OwnedAudioBuffer::new(
-                    audio_material_info.channel_count,
-                    audio_material_info.frame_count,
-                );
-                let request = SupplyAudioRequest {
-                    start_frame: 0,
-                    dest_sample_rate: None,
-                    info: SupplyRequestInfo {
-                        audio_block_frame_offset: 0,
-                        requester: "cache",
-                        note: "",
-                        is_realtime: false,
-                    },
-                    parent_request: None,
-                    general_info: &Default::default(),
-                };
-                source.supply_audio(&request, &mut content.to_buf_mut());
-                let cached_data = CachedData {
-                    material_info: audio_material_info,
-                    content,
-                };
-                // If the clip is not interested in the cached data anymore, so what.
-                let _ = response_sender.try_send(CacheResponse::CachedSource(cached_data));
+                let _ = cache_source(&mut source, response_sender);
             }
             DiscardCachedData(_) => {}
         }
+    }
+}
+
+fn cache_source(
+    source: &mut OwnedPcmSource,
+    response_sender: Sender<CacheResponse>,
+) -> ClipEngineResult<()> {
+    let audio_material_info = match source.material_info() {
+        Ok(MaterialInfo::Audio(i)) => i,
+        _ => return Err("no audio source"),
+    };
+    let file_path = source
+        .get_file_name(|path| path.map(|p| p.to_path_buf()))
+        .ok_or("source without file name")?;
+    let mut content = OwnedAudioBuffer::new(
+        audio_material_info.channel_count,
+        audio_material_info.frame_count,
+    );
+    let request = SupplyAudioRequest {
+        start_frame: 0,
+        dest_sample_rate: None,
+        info: SupplyRequestInfo {
+            audio_block_frame_offset: 0,
+            requester: "cache",
+            note: "",
+            is_realtime: false,
+        },
+        parent_request: None,
+        general_info: &Default::default(),
+    };
+    source.supply_audio(&request, &mut content.to_buf_mut());
+    let cached_data = CachedData {
+        material_info: audio_material_info,
+        file_path,
+        content,
+    };
+    response_sender
+        .try_send(CacheResponse::CachedSource(cached_data))
+        .map_err(|_| "clip not interested in cached data anymore")?;
+    Ok(())
+}
+
+trait CacheRequestSender {
+    fn cache_source(&self, source: OwnedPcmSource, response_sender: Sender<CacheResponse>);
+
+    fn discard_cached_data(&self, data: CachedData);
+
+    fn send_request(&self, request: CacheRequest);
+}
+
+impl CacheRequestSender for Sender<CacheRequest> {
+    fn cache_source(&self, source: OwnedPcmSource, response_sender: Sender<CacheResponse>) {
+        let request = CacheRequest::CacheSource {
+            source,
+            response_sender,
+        };
+        self.send_request(request);
+    }
+
+    fn discard_cached_data(&self, data: CachedData) {
+        let request = CacheRequest::DiscardCachedData(data);
+        self.send_request(request);
+    }
+
+    fn send_request(&self, request: CacheRequest) {
+        self.try_send(request).unwrap();
     }
 }
 
