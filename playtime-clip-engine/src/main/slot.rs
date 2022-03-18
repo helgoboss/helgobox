@@ -52,8 +52,6 @@ impl Slot {
         match &self.state {
             Empty => Err("slot empty"),
             RecordingFromScratchRequested => Ok(ClipPlayState::ScheduledForRecordingStart),
-            // TODO-high CONTINUE It would be nice if we could get real state updates from the clip
-            //  already. For this, the clip must already be sent here at the time of acknowledgement.
             RecordingFromScratch | Filled(_) => Ok(self.runtime_data()?.play_state),
         }
     }
@@ -155,15 +153,29 @@ impl Slot {
                     Ok(runtime_data) => {
                         // Important to set runtime data here, mainly for the shared position,
                         // so we are "connected" to the new clip already while it's being recorded.
-                        self.runtime_data = runtime_data;
+                        // But also for the material info.
+                        self.runtime_data = Some(
+                            runtime_data
+                                .expect("runtime data must be given when recording from scratch"),
+                        );
                         RecordingFromScratch
                     }
-                    Err(_) => Empty,
+                    _ => Empty,
                 };
                 Ok(())
             }
             RecordingFromScratch => Err("recording already"),
             Filled(clip) => {
+                // Overdub or record with existing clip
+                match result {
+                    Ok(Some(runtime_data)) => {
+                        // Recording with existing clip. Important to set runtime data here as well,
+                        // mainly to reflect the material info of the clip that's being recorded.
+                        // (As for the shared position, we are connected already anyway.)
+                        self.runtime_data = Some(runtime_data);
+                    }
+                    _ => {}
+                }
                 clip.notify_recording_request_acknowledged();
                 Ok(())
             }
@@ -195,7 +207,10 @@ impl Slot {
                     temporary_project,
                 )?;
                 debug!("Fill slot with clip: {:#?}", &clip);
-                // Runtime should already have been filled when recording start was acknowledged.
+                self.runtime_data
+                    .as_mut()
+                    .expect("runtime data must be set already")
+                    .material_info = recording.material_info;
                 self.state = SlotState::Filled(clip);
                 Ok(None)
             }
@@ -204,6 +219,7 @@ impl Slot {
                 use SlotState::*;
                 match &mut self.state {
                     Filled(clip) => {
+                        // TODO-high We must restore the old material info!!!
                         clip.notify_recording_canceled();
                         Ok(None)
                     }

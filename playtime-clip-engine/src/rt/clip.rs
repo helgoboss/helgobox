@@ -14,7 +14,7 @@ use crate::rt::supplier::{
     WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{ColumnSettings, OverridableMatrixSettings};
+use crate::rt::{ColumnSettings, OverridableMatrixSettings, SlotRuntimeData};
 use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
@@ -366,7 +366,10 @@ impl Clip {
                         self.state = Ready(ready_state);
                         false
                     }
-                    PleaseContinuePolling => true,
+                    PleaseContinuePolling { pos } => {
+                        self.shared_pos.set(pos);
+                        true
+                    }
                 }
             }
         }
@@ -1305,14 +1308,11 @@ impl RecordingState {
             play_settings: clip_settings.create_play_settings(),
         };
         // Send event
-        // TODO-high The main slot runtime data is already to connected to the slot but we should
-        //  probably push the final frame count as event. But THIS material info is not well suited
-        //  for this. Use the one from the chain because this contains the section info. So we
-        //  don't need the outcome material info at all actually.
         let material_info = outcome.material_info();
         let committed_recording = CommittedRecording {
             kind_specific: outcome.kind_specific,
             clip_settings,
+            material_info,
         };
         event_handler
             .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
@@ -1635,6 +1635,7 @@ pub enum NormalRecordingOutcome {
 pub struct CommittedRecording {
     pub kind_specific: KindSpecificRecordingOutcome,
     pub clip_settings: ProcessingRelevantClipSettings,
+    pub material_info: MaterialInfo,
 }
 
 /// All settings of a clip that affect processing.

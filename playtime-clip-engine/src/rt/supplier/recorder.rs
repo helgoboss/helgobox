@@ -123,8 +123,6 @@ struct RecordingState {
     recording: Option<Recording>,
     length: RecordLength,
     committed: bool,
-    // TODO-high Make this a property of Recording! Without recording, its values don't make sense.
-    scheduled_end: Option<ScheduledEnd>,
     initial_play_start_timing: ClipPlayStartTiming,
 }
 
@@ -134,11 +132,28 @@ struct Recording {
     num_count_in_frames: usize,
     frame_rate: Hz,
     first_play_frame: Option<usize>,
+    scheduled_end: Option<ScheduledEnd>,
 }
 
 impl Recording {
     pub fn is_still_in_count_in_phase(&self) -> bool {
         self.total_frame_offset < self.num_count_in_frames
+    }
+
+    pub fn effective_pos(&self) -> isize {
+        self.total_frame_offset as isize - self.num_count_in_frames as isize
+    }
+
+    /// Returns the current frame count or even the final one if an end is scheduled already.
+    ///
+    /// Doesn't count the count-in phase frames.
+    pub fn effective_frame_count(&self) -> usize {
+        let total_frame_count = if let Some(end) = self.scheduled_end {
+            end.complete_length
+        } else {
+            self.total_frame_offset
+        };
+        total_frame_count.saturating_sub(self.num_count_in_frames)
     }
 
     pub fn downbeat_frame(&self) -> usize {
@@ -166,6 +181,15 @@ enum RecordingAudioState {
     Finishing(RecordingAudioFinishingState),
 }
 
+impl RecordingAudioState {
+    pub fn temporary_audio_buffer(&self) -> &OwnedAudioBuffer {
+        match self {
+            RecordingAudioState::Active(s) => &s.temporary_audio_buffer,
+            RecordingAudioState::Finishing(s) => &s.temporary_audio_buffer,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct RecordingAudioActiveState {
     file: PathBuf,
@@ -185,14 +209,11 @@ impl RecordingAudioFinishingState {
     /// Produces a material info that *doesn't*. Appropriate for producing the final info that will
     /// go through the whole chain!
     pub fn material_info(&self, recording: &Option<Recording>) -> AudioMaterialInfo {
-        let recording =recording
+        let recording = recording
             .as_ref()
             .expect("recording data must be available if audio recording is finishing");
         AudioMaterialInfo {
-            channel_count: self
-                .temporary_audio_buffer
-                .to_buf()
-                .channel_count(),
+            channel_count: self.temporary_audio_buffer.to_buf().channel_count(),
             frame_count: recording.total_frame_offset,
             frame_rate: recording.frame_rate,
         }
@@ -280,7 +301,6 @@ impl Recorder {
             recording: None,
             length: args.length,
             committed: false,
-            scheduled_end: None,
             initial_play_start_timing: args.initial_play_start_timing,
         };
         Self::new(State::Recording(recording_state), request_sender)
@@ -297,9 +317,7 @@ impl Recorder {
     pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
         match self.state.as_ref().unwrap() {
             State::Ready(_) => Err("not recording"),
-            State::Recording(s) => {
-                s.recording_material_info()
-            }
+            State::Recording(s) => Ok(s.recording_material_info()),
         }
     }
 
@@ -313,7 +331,7 @@ impl Recorder {
                     Some(r) => {
                         if r.is_still_in_count_in_phase() {
                             ScheduledForStart
-                        } else if let Some(end) = s.scheduled_end {
+                        } else if let Some(end) = r.scheduled_end {
                             if end.is_predefined {
                                 Recording
                             } else {
@@ -371,7 +389,6 @@ impl Recorder {
                     recording: None,
                     length: args.length,
                     committed: false,
-                    scheduled_end: None,
                     initial_play_start_timing: args.initial_play_start_timing,
                 };
                 (Ok(()), Recording(recording_state))
@@ -602,49 +619,22 @@ impl Recorder {
     }
 }
 impl RecordingState {
-    pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        if let Some(recording) = self.recording {
-            let total_length = if let Some(scheduled_end) = self.scheduled_end {
-                scheduled_end.complete_length
-            } else {
-                recording.total_frame_offset
-            };
-            total_length.saturating_sub(recording.num_count_in_frames)
-        }
-        let frame_count = if let Some(scheduled_end) = self.scheduled_end {
-            scheduled_end.complete_length.saturating_sub(recording)
-        } else if let Some(recording) = self.recording {
-            recording.total_frame_offset.saturating_sub(recording.num_count_in_frames)
+    pub fn recording_material_info(&self) -> MaterialInfo {
+        let (frame_rate, frame_count) = if let Some(r) = self.recording {
+            (r.frame_rate, r.effective_frame_count())
+        } else {
+            (Default::default(), 0)
         };
         match &self.kind_state {
             KindState::Audio(s) => {
-                let audio_material_info = match s {
-                    RecordingAudioState::Active(active) => {
-                        AudioMaterialInfo {
-                            channel_count: active.temporary_audio_buffer.to_buf().channel_count(),
-                            frame_count,
-                            frame_rate: Default::default()
-                        }
-                    }
-                    RecordingAudioState::Finishing(finishing) => {
-                        AudioMaterialInfo {
-                            channel_count: finishing.temporary_audio_buffer.to_buf().channel_count(),
-                            frame_count,
-                            frame_rate: finishing.)
-                        }
-                    }
+                let audio_material_info = AudioMaterialInfo {
+                    channel_count: { s.temporary_audio_buffer().to_buf().channel_count() },
+                    frame_count,
+                    frame_rate,
                 };
                 MaterialInfo::Audio(audio_material_info)
             }
-            KindState::Midi(_) => {
-                MaterialInfo::Midi(MidiMaterialInfo {
-                    frame_count: if let Some(recording) = self.recording {
-                        if recording.
-                    } else {
-                        0
-                    }
-                })
-            }
+            KindState::Midi(_) => MaterialInfo::Midi(MidiMaterialInfo { frame_count }),
         }
     }
 
@@ -667,12 +657,14 @@ impl RecordingState {
                 )
             }
             RecordInteractionTiming::Quantized(quantization) => {
-                if self.scheduled_end.is_some() {
-                    return (Err("end scheduled already"), State::Recording(self));
-                }
                 let rollback = match self.recording {
                     None => true,
-                    Some(r) => r.is_still_in_count_in_phase(),
+                    Some(r) => {
+                        if r.scheduled_end.is_some() {
+                            return (Err("end scheduled already"), State::Recording(self));
+                        }
+                        r.is_still_in_count_in_phase()
+                    }
                 };
                 if rollback {
                     // Zero point of recording hasn't even been reached yet. Cancel.
@@ -697,10 +689,6 @@ impl RecordingState {
                         timeline_cursor_pos,
                         audio_request_props,
                         quantization,
-                    );
-                    (
-                        Ok(StopRecordingOutcome::EndScheduled),
-                        State::Recording(self),
                     )
                 }
             }
@@ -708,26 +696,30 @@ impl RecordingState {
     }
 
     pub fn schedule_end(
-        &mut self,
+        mut self,
         timeline: &HybridTimeline,
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
         quantization: EvenQuantization,
-    ) {
-        let total_frame_offset = match self.recording {
-            None => 0,
-            Some(r) => r.total_frame_offset,
+    ) -> (ClipEngineResult<StopRecordingOutcome>, State) {
+        let r = match &mut self.recording {
+            None => return (Err("no material arrived yet"), State::Recording(self)),
+            Some(r) => r,
         };
         let scheduled_end = calculate_scheduled_end(
             timeline,
             timeline_cursor_pos,
             audio_request_props,
             quantization,
-            total_frame_offset,
+            r.total_frame_offset,
             self.kind_state.is_midi(),
             false,
         );
-        self.scheduled_end = Some(scheduled_end);
+        r.scheduled_end = Some(scheduled_end);
+        (
+            Ok(StopRecordingOutcome::EndScheduled),
+            State::Recording(self),
+        )
     }
 
     pub fn poll_recording(
@@ -761,7 +753,7 @@ impl RecordingState {
             let next_frame_offset = recording.total_frame_offset + num_source_frames;
             recording.total_frame_offset = next_frame_offset;
             // Commit recording if end exceeded
-            if let Some(scheduled_end) = self.scheduled_end {
+            if let Some(scheduled_end) = recording.scheduled_end {
                 let end_frame = scheduled_end.complete_length - recording.downbeat_frame();
                 if next_frame_offset > end_frame {
                     // Exceeded scheduled end.
@@ -775,7 +767,9 @@ impl RecordingState {
                 }
             }
             (
-                PollRecordingOutcome::PleaseContinuePolling,
+                PollRecordingOutcome::PleaseContinuePolling {
+                    pos: recording.effective_pos(),
+                },
                 State::Recording(self),
             )
         } else {
@@ -815,16 +809,18 @@ impl RecordingState {
                     audio_request_props.frame_rate
                 },
                 first_play_frame: None,
+                scheduled_end: self.calculate_predefined_scheduled_end(
+                    &timeline,
+                    audio_request_props,
+                    start_pos,
+                    frames_to_start_pos,
+                ),
             };
             self.recording = Some(recording);
-            self.scheduled_end = self.calculate_predefined_scheduled_end(
-                &timeline,
-                audio_request_props,
-                start_pos,
-                frames_to_start_pos,
-            );
             (
-                PollRecordingOutcome::PleaseContinuePolling,
+                PollRecordingOutcome::PleaseContinuePolling {
+                    pos: recording.effective_pos(),
+                },
                 State::Recording(self),
             )
         }
@@ -903,13 +899,13 @@ impl RecordingState {
                 let start = recording
                     .first_play_frame
                     .unwrap_or(recording.num_count_in_frames);
-                let length = self.scheduled_end.map(|end| {
+                let length = recording.scheduled_end.map(|end| {
                     assert!(recording.num_count_in_frames < end.complete_length);
                     end.complete_length - recording.num_count_in_frames
                 });
                 SectionBounds::new(start, length)
             },
-            quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
+            quantized_end_pos: recording.scheduled_end.map(|end| end.quantized_end_pos),
             downbeat_frame: recording.downbeat_frame(),
         };
         let recording_outcome = RecordingOutcome {
@@ -1153,7 +1149,7 @@ impl RecordingOutcome {
         use KindSpecificRecordingOutcome::*;
         match &self.kind_specific {
             Midi { .. } => MaterialInfo::Midi(MidiMaterialInfo {
-                frame_count: self.data.total_frame_count,
+                frame_count: self.data.effective_frame_count(),
             }),
             Audio { channel_count, .. } => MaterialInfo::Audio(AudioMaterialInfo {
                 channel_count: *channel_count,
@@ -1464,7 +1460,7 @@ pub enum StopRecordingOutcome {
 pub enum PollRecordingOutcome {
     PleaseStopPolling,
     CommittedRecording(RecordingOutcome),
-    PleaseContinuePolling,
+    PleaseContinuePolling { pos: isize },
 }
 
 impl PositionTranslationSkill for Recorder {
