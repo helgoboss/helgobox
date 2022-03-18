@@ -4,8 +4,7 @@ use crate::rt::{
     MidiOverdubInstruction, OverridableMatrixSettings, ProcessingRelevantClipSettings,
 };
 use crate::source_util::{
-    create_file_api_source, create_pcm_source_from_api_source,
-    create_pcm_source_from_file_based_api_source,
+    create_file_api_source, create_pcm_source_from_file_based_api_source,
     create_pcm_source_from_midi_chunk_based_api_source, CreateApiSourceMode,
 };
 use crate::{rt, source_util, ClipEngineResult};

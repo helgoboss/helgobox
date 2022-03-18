@@ -161,6 +161,17 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
         self.data.as_ref()
     }
 
+    pub fn data_as_mut_ptr(&self) -> *mut f64 {
+        self.data.as_ref().as_ptr() as *mut _
+    }
+
+    pub fn sample_value_at(&self, index: SampleIndex) -> Option<f64> {
+        self.data
+            .as_ref()
+            .get(index.frame * self.channel_count + index.channel)
+            .copied()
+    }
+
     pub fn slice(&self, bounds: impl RangeBounds<usize>) -> AudioBuf {
         let desc = self.prepare_slice(bounds);
         if desc.new_frame_count == 0 {
@@ -212,10 +223,6 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
         self.data.as_mut()
     }
 
-    pub fn data_as_mut_ptr(&mut self) -> *mut f64 {
-        self.data.as_mut().as_mut_ptr()
-    }
-
     pub fn slice_mut(&mut self, bounds: impl RangeBounds<usize>) -> AudioBufMut {
         let desc = self.prepare_slice(bounds);
         AudioBufMut {
@@ -223,13 +230,6 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
             frame_count: desc.new_frame_count,
             channel_count: desc.channel_count,
         }
-    }
-
-    pub fn sample_value_at(&self, index: SampleIndex) -> Option<f64> {
-        self.data
-            .as_ref()
-            .get(index.frame * self.channel_count + index.channel)
-            .copied()
     }
 
     pub fn modify_frames(&mut self, mut f: impl FnMut(SampleDescriptor) -> f64) {
@@ -267,6 +267,12 @@ pub struct SampleDescriptor {
 
 #[derive(Copy, Clone)]
 pub struct SampleIndex {
-    pub frame: usize,
     pub channel: usize,
+    pub frame: usize,
+}
+
+impl SampleIndex {
+    pub fn new(channel: usize, frame: usize) -> Self {
+        Self { channel, frame }
+    }
 }

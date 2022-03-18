@@ -253,7 +253,7 @@ pub struct OverridableMatrixSettings {
     pub audio_cache_behavior: AudioCacheBehavior,
 }
 
-const MAX_CHANNEL_COUNT: usize = 64;
+const MAX_AUDIO_CHANNEL_COUNT: usize = 64;
 const MAX_BLOCK_SIZE: usize = 2048;
 
 /// At the time of this writing, a slot is just around 900 byte, so 100 slots take roughly 90 kB.
@@ -275,7 +275,8 @@ impl Column {
             event_sender,
             // Sized to hold pretty any audio block imaginable. Vastly oversized for the majority
             // of use cases but 1 MB memory per column ... okay for now, on the safe side.
-            mix_buffer_chunk: OwnedAudioBuffer::new(MAX_CHANNEL_COUNT, MAX_BLOCK_SIZE).into_inner(),
+            mix_buffer_chunk: OwnedAudioBuffer::new(MAX_AUDIO_CHANNEL_COUNT, MAX_BLOCK_SIZE)
+                .into_inner(),
             timeline_was_paused_in_last_block: false,
         }
     }
@@ -441,10 +442,10 @@ impl Column {
 
     pub fn write_clip_audio(
         &mut self,
-        index: usize,
-        request: WriteAudioRequest,
+        slot_index: usize,
+        request: impl WriteAudioRequest,
     ) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, index).write_clip_audio(request)
+        get_slot_mut_insert(&mut self.slots, slot_index).write_clip_audio(request)
     }
 
     fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {

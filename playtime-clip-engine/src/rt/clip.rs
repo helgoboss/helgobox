@@ -396,7 +396,7 @@ impl Clip {
     ///
     /// Also drives processing during recording because it's called exactly once per audio block
     /// anyway.
-    pub fn write_audio(&mut self, request: WriteAudioRequest) {
+    pub fn write_audio(&mut self, request: impl WriteAudioRequest) {
         self.supplier_chain.write_audio(request);
     }
 

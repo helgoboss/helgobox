@@ -9,14 +9,14 @@ use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::{
     ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
-    VirtualClipRecordHardwareMidiInput,
+    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
-    SendMidiTime,
+    AudioHookRegister, MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
+    OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -463,26 +463,16 @@ fn process_clip_record_task(
             }
         }
         ClipRecordHardwareInput::Audio(input) => unsafe {
-            let reg = args.reg.get().as_ref();
-            let get_buffer = match reg.GetBuffer {
-                None => return true,
-                Some(f) => f,
+            let channel_offset = match input {
+                VirtualClipRecordAudioInput::Specific(channel_range) => {
+                    channel_range.first_channel_index
+                }
+                VirtualClipRecordAudioInput::Detect { .. } => {
+                    unimplemented!("audio input detection not yet implemented")
+                }
             };
-            // TODO-high-record Support particular channels, mono and multi-channel
-            let _input_channel_count = args.reg.input_nch();
-            let left_buffer = (get_buffer)(false, 6);
-            let right_buffer = (get_buffer)(false, 7);
-            if left_buffer.is_null() || right_buffer.is_null() {
-                return true;
-            }
-            let left_buffer = AudioBuf::from_raw(left_buffer, 1, args.len as _);
-            let right_buffer = AudioBuf::from_raw(right_buffer, 1, args.len as _);
-            let req = WriteAudioRequest {
-                audio_request_props: BasicAudioRequestProps::from_on_audio_buffer_args(args),
-                left_buffer,
-                right_buffer,
-            };
-            src.write_clip_audio(record_task.destination.slot_index, req)
+            let write_audio_request = AudioHookWriteAudioRequest::new(args, channel_offset as _);
+            src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
                 .unwrap();
         },
     }
@@ -528,4 +518,42 @@ fn write_midi_to_clip_slot(
         };
         src.write_clip_midi(slot_index, req).unwrap();
     });
+}
+
+#[derive(Copy, Clone)]
+struct AudioHookWriteAudioRequest<'a> {
+    channel_offset: usize,
+    register: &'a AudioHookRegister,
+    audio_request_props: BasicAudioRequestProps,
+}
+
+impl<'a> AudioHookWriteAudioRequest<'a> {
+    pub fn new(args: &'a OnAudioBufferArgs, channel_offset: usize) -> Self {
+        Self {
+            channel_offset,
+            register: args.reg,
+            audio_request_props: BasicAudioRequestProps::from_on_audio_buffer_args(args),
+        }
+    }
+}
+
+impl<'a> WriteAudioRequest for AudioHookWriteAudioRequest<'a> {
+    fn audio_request_props(&self) -> BasicAudioRequestProps {
+        self.audio_request_props
+    }
+
+    fn get_channel_buffer(&self, channel_index: usize) -> Option<AudioBuf> {
+        let reg = unsafe { self.register.get().as_ref() };
+        let get_buffer = match reg.GetBuffer {
+            None => return None,
+            Some(f) => f,
+        };
+        let effective_channel_index = self.channel_offset + channel_index;
+        let buf = unsafe { (get_buffer)(false, effective_channel_index as _) };
+        if buf.is_null() {
+            return None;
+        }
+        let buf = unsafe { AudioBuf::from_raw(buf, 1, self.audio_request_props.block_length) };
+        Some(buf)
+    }
 }

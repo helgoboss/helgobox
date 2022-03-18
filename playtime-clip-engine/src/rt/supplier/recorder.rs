@@ -264,11 +264,12 @@ pub struct WriteMidiRequest<'a> {
     pub channel_filter: Option<Channel>,
 }
 
-#[derive(Copy, Clone)]
-pub struct WriteAudioRequest<'a> {
-    pub audio_request_props: BasicAudioRequestProps,
-    pub left_buffer: AudioBuf<'a>,
-    pub right_buffer: AudioBuf<'a>,
+pub trait WriteAudioRequest {
+    /// Returns the basic request properties.
+    fn audio_request_props(&self) -> BasicAudioRequestProps;
+
+    /// Returns the input samples on the given channel.
+    fn get_channel_buffer(&self, channel_index: usize) -> Option<AudioBuf>;
 }
 
 impl Drop for Recorder {
@@ -450,7 +451,7 @@ impl Recorder {
         outcome
     }
 
-    pub fn write_audio(&mut self, request: WriteAudioRequest) -> ClipEngineResult<()> {
+    pub fn write_audio(&mut self, request: impl WriteAudioRequest) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
             State::Ready(_) => Err("not recording"),
             State::Recording(s) => {
@@ -465,41 +466,49 @@ impl Recorder {
                                 let recording = s
                                     .recording
                                     .ok_or("recording not started yet ... not polling?")?;
+                                let mut temp_buf = active_state.temporary_audio_buffer.to_buf_mut();
                                 // Write into sink
                                 let sink = active_state.sink.as_ref().as_ref();
-                                const NCH: usize = 2;
-                                let mut channels: [*mut f64; NCH] = [
-                                    request.left_buffer.data_as_slice().as_ptr() as _,
-                                    request.right_buffer.data_as_slice().as_ptr() as _,
-                                ];
+                                let mut channels: [*mut f64; MAX_AUDIO_CHANNEL_COUNT] =
+                                    [null_mut(); MAX_AUDIO_CHANNEL_COUNT];
+                                let out_channel_count = temp_buf.channel_count();
+                                for ch in 0..out_channel_count {
+                                    channels[ch] = request
+                                        .get_channel_buffer(ch)
+                                        .map(|buf| buf.data_as_mut_ptr())
+                                        .unwrap_or(null_mut());
+                                }
+                                //
+                                //     request.left_buffer.data_as_slice().as_ptr() as _,
+                                //     request.right_buffer.data_as_slice().as_ptr() as _,
+                                // ];
                                 // TODO-high-record-audio Write only part of the block until scheduled end
                                 unsafe {
                                     sink.WriteDoubles(
                                         &mut channels as *mut _,
-                                        request.audio_request_props.block_length as _,
-                                        NCH as _,
+                                        request.audio_request_props().block_length as _,
+                                        out_channel_count as _,
                                         0,
                                         1,
                                     );
                                 }
                                 // Write into temporary buffer
                                 let start_frame = recording.total_frame_offset;
-                                let mut out_buf = active_state.temporary_audio_buffer.to_buf_mut();
-                                let out_channel_count = out_buf.channel_count();
                                 let ideal_end_frame =
-                                    start_frame + request.audio_request_props.block_length;
-                                let end_frame = cmp::min(ideal_end_frame, out_buf.frame_count());
+                                    start_frame + request.audio_request_props().block_length;
+                                let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
                                 let num_frames_written = end_frame - start_frame;
-                                let out_buf_slice = out_buf.data_as_mut_slice();
-                                let left_buf_slice = request.left_buffer.data_as_slice();
-                                let right_buf_slice = request.right_buffer.data_as_slice();
-                                for i in 0..num_frames_written {
-                                    out_buf_slice
-                                        [start_frame * out_channel_count + i * out_channel_count] =
-                                        left_buf_slice[i];
-                                    out_buf_slice[start_frame * out_channel_count
-                                        + i * out_channel_count
-                                        + 1] = right_buf_slice[i];
+                                let temp_buf_slice = temp_buf.data_as_mut_slice();
+                                for ch in 0..out_channel_count {
+                                    if let Some(channel_buf) = request.get_channel_buffer(ch) {
+                                        for i in 0..num_frames_written {
+                                            let temp_index = start_frame * out_channel_count
+                                                + i * out_channel_count
+                                                + ch;
+                                            temp_buf_slice[temp_index] =
+                                                channel_buf.data_as_slice()[i];
+                                        }
+                                    }
                                 }
                                 Ok(())
                             }
@@ -1514,3 +1523,5 @@ pub enum RecordState {
     Recording,
     ScheduledForStop,
 }
+
+const MAX_AUDIO_CHANNEL_COUNT: usize = 64;

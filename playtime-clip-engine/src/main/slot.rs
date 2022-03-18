@@ -13,8 +13,8 @@ use crate::rt::supplier::{
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
-    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
-    RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
+    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
+    SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;

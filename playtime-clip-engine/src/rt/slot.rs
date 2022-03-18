@@ -172,7 +172,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn write_clip_audio(&mut self, request: WriteAudioRequest) -> ClipEngineResult<()> {
+    pub fn write_clip_audio(&mut self, request: impl WriteAudioRequest) -> ClipEngineResult<()> {
         self.clip_mut_internal()?.write_audio(request);
         Ok(())
     }

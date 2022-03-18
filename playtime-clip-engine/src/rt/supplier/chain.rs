@@ -321,7 +321,7 @@ impl SupplierChain {
             .write_midi(request, translated_play_pos)
     }
 
-    pub fn write_audio(&mut self, request: WriteAudioRequest) {
+    pub fn write_audio(&mut self, request: impl WriteAudioRequest) {
         // When recording, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
