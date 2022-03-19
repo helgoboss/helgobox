@@ -89,17 +89,12 @@ pub struct MatrixClipPlayAudioSettings {
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordSettings {
     pub start_timing: ClipRecordStartTiming,
-    // TODO-clip-implement
     pub stop_timing: ClipRecordStopTiming,
     pub duration: RecordLength,
-    // TODO-clip-implement
     pub play_start_timing: ClipSettingOverrideAfterRecording<ClipPlayStartTiming>,
-    // TODO-clip-implement
     pub play_stop_timing: ClipSettingOverrideAfterRecording<ClipPlayStopTiming>,
-    // TODO-clip-implement
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
-    // TODO-clip-implement
     // TODO-medium Remove play_after alias
     #[serde(alias = "play_after")]
     pub looped: bool,
@@ -204,11 +199,9 @@ impl Default for MatrixClipRecordSettings {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
-    // TODO-clip-implement
     pub record_mode: MidiClipRecordMode,
     /// If `true`, attempts to detect the actual start of the recorded MIDI material and derives
     /// the downbeat position from that.
-    // TODO-clip-implement
     pub detect_downbeat: bool,
     /// Makes the global record button work for MIDI by allowing global input detection.
     // TODO-clip-implement
@@ -370,6 +363,7 @@ pub enum MidiClipRecordMode {
     /// Records more material onto an existing clip, overwriting existing material.
     ///
     /// Falls back to Normal when used on an empty slot.
+    // TODO-clip-implement
     Replace,
 }
 
@@ -576,10 +570,8 @@ impl ColumnPlayMode {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
-    // TODO-clip-implement
     pub origin: RecordOrigin,
     /// By default, Playtime records from the play track but this settings allows to override that.
-    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackId>,
 }
@@ -971,7 +963,6 @@ pub struct BeatTimeBase {
     /// The time signature of this clip.
     ///
     /// If provided, This information is used for certain aspects of the user interface.
-    // TODO-clip-implement (at the moment only for deviation logging)
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
     pub downbeat: PositiveBeat,
