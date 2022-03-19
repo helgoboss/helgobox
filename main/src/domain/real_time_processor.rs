@@ -21,9 +21,7 @@ use slog::{debug, trace};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::main::{
-    ClipRecordDestination, ClipRecordFxInput, VirtualClipRecordAudioInput,
-};
+use playtime_clip_engine::main::{ClipRecordDestination, VirtualClipRecordAudioInput};
 use playtime_clip_engine::rt::supplier::WriteAudioRequest;
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakMatrix};
 use std::convert::TryInto;
@@ -31,7 +29,6 @@ use std::mem;
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, SysExEvent};
-use vst::buffer::AudioBuffer;
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
@@ -76,7 +73,7 @@ pub struct RealTimeProcessor {
 
 #[derive(Debug)]
 pub struct FxInputClipRecordTask {
-    pub input: ClipRecordFxInput,
+    pub input: VirtualClipRecordAudioInput,
     pub destination: ClipRecordDestination,
 }
 
@@ -1815,18 +1812,11 @@ fn process_clip_record_task(
     if !src.recording_poll(record_task.destination.slot_index, block_props) {
         return false;
     }
-    match &mut record_task.input {
-        ClipRecordFxInput::Midi => {
-            // MIDI is handled in another method.
-        }
-        ClipRecordFxInput::Audio(input) => {
-            let channel_offset = input.channel_offset().unwrap();
-            let write_audio_request =
-                RealTimeProcessorWriteAudioRequest::new(inputs, block_props, channel_offset as _);
-            src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
-                .unwrap();
-        }
-    }
+    let channel_offset = record_task.input.channel_offset().unwrap();
+    let write_audio_request =
+        RealTimeProcessorWriteAudioRequest::new(inputs, block_props, channel_offset as _);
+    src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
+        .unwrap();
     true
 }
 

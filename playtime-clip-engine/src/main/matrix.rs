@@ -434,7 +434,7 @@ pub struct ClipRecordDestination {
 #[derive(Debug)]
 pub enum ClipRecordInput {
     HardwareInput(ClipRecordHardwareInput),
-    FxInput(ClipRecordFxInput),
+    FxInput(VirtualClipRecordAudioInput),
 }
 
 impl ClipRecordInput {
@@ -442,11 +442,11 @@ impl ClipRecordInput {
     pub fn create_recording_equipment(&self, project: Option<Project>) -> RecordingEquipment {
         use ClipRecordInput::*;
         match &self {
-            HardwareInput(ClipRecordHardwareInput::Midi(_)) | FxInput(ClipRecordFxInput::Midi) => {
+            HardwareInput(ClipRecordHardwareInput::Midi(_)) => {
                 RecordingEquipment::Midi(MidiRecordingEquipment::new())
             }
             HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
-            | FxInput(ClipRecordFxInput::Audio(virtual_input)) => {
+            | FxInput(virtual_input) => {
                 let channel_count = match virtual_input {
                     VirtualClipRecordAudioInput::Specific(range) => range.channel_count,
                     VirtualClipRecordAudioInput::Detect { channel_count } => *channel_count,
@@ -461,12 +461,6 @@ impl ClipRecordInput {
 #[derive(Debug)]
 pub enum ClipRecordHardwareInput {
     Midi(VirtualClipRecordHardwareMidiInput),
-    Audio(VirtualClipRecordAudioInput),
-}
-
-#[derive(Debug)]
-pub enum ClipRecordFxInput {
-    Midi,
     Audio(VirtualClipRecordAudioInput),
 }
 

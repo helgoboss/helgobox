@@ -2,7 +2,7 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{
-    Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordFxInput, ClipRecordHardwareInput,
+    Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordHardwareInput,
     ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, VirtualClipRecordAudioInput,
     VirtualClipRecordHardwareMidiInput,
 };
@@ -474,19 +474,13 @@ fn create_clip_record_task(
                     first_channel_index: 0,
                     channel_count: track.channel_count(),
                 };
-                let fx_input =
-                    ClipRecordFxInput::Audio(VirtualClipRecordAudioInput::Specific(channel_range));
+                let fx_input = VirtualClipRecordAudioInput::Specific(channel_range);
                 (ClipRecordInput::FxInput(fx_input), Some(route))
             }
             FxAudioInput(range) => {
                 debug!("Input: FX audio input");
-                let fx_input =
-                    ClipRecordFxInput::Audio(VirtualClipRecordAudioInput::Specific(*range));
+                let fx_input = VirtualClipRecordAudioInput::Specific(*range);
                 (ClipRecordInput::FxInput(fx_input), None)
-            }
-            FxMidiInput => {
-                debug!("Input: FX MIDI input");
-                (ClipRecordInput::FxInput(ClipRecordFxInput::Midi), None)
             }
         }
     };

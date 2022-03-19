@@ -9,7 +9,7 @@ use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::{
     ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
-    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+    VirtualClipRecordHardwareMidiInput,
 };
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};

@@ -697,8 +697,6 @@ pub enum RecordOrigin {
     TrackAudioOutput,
     /// Records audio flowing into the FX input.
     FxAudioInput(ChannelRange),
-    /// Records MIDI flowing into the FX input.
-    FxMidiInput,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

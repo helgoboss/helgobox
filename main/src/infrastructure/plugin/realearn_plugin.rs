@@ -18,7 +18,7 @@ use assert_no_alloc::*;
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
-use reaper_medium::{Hz, VstPluginContext};
+use reaper_medium::Hz;
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -35,9 +35,7 @@ use crate::infrastructure::plugin::app::App;
 
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
-use playtime_clip_engine::rt::AudioBufMut;
 use std::convert::TryInto;
-use std::ptr::NonNull;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
