@@ -18,7 +18,7 @@ use assert_no_alloc::*;
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
-use reaper_medium::Hz;
+use reaper_medium::{Hz, VstPluginContext};
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -37,6 +37,7 @@ use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use playtime_clip_engine::rt::AudioBufMut;
 use std::convert::TryInto;
+use std::ptr::NonNull;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -221,6 +222,7 @@ impl Plugin for RealearnPlugin {
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         firewall(|| {
+            tracing_debug!("VST vendor specific (index = {})", index);
             let opcode: plugin::OpCode = match index.try_into() {
                 Ok(c) => c,
                 Err(_) => return 0,
@@ -271,6 +273,7 @@ impl Plugin for RealearnPlugin {
 
     fn set_sample_rate(&mut self, rate: f32) {
         firewall(|| {
+            tracing_debug!("VST set sample rate");
             self.sample_rate = Hz::new(rate as _);
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
@@ -280,6 +283,26 @@ impl Plugin for RealearnPlugin {
                 .normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
+    }
+
+    fn suspend(&mut self) {
+        tracing_debug!("VST suspend");
+    }
+
+    fn resume(&mut self) {
+        tracing_debug!("VST resume");
+    }
+
+    fn set_block_size(&mut self, size: i64) {
+        tracing_debug!("VST set block size");
+    }
+
+    fn start_process(&mut self) {
+        tracing_debug!("VST start process");
+    }
+
+    fn stop_process(&mut self) {
+        tracing_debug!("VST stop process");
     }
 }
 

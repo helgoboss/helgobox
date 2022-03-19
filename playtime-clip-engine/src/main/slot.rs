@@ -454,6 +454,22 @@ fn create_clip_record_task(
                     "can't recording track audio output if Playtime runs in monitoring FX chain",
                 )?;
                 let route = track.add_send_to(containing_track);
+                // TODO-medium At the moment, we support stereo routes only. In order to support
+                //  multi-channel routes, the user must increase the ReaLearn track channel count.
+                //  And we have to:
+                //  1. Create multi-channel sends (I_SRCCHAN, I_DSTCHAN)
+                //  2. Make sure our ReaLearn instance has enough input pins. Roughly like this:
+                // // In VST plug-in
+                // let low_context = reaper_low::VstPluginContext::new(self.host.raw_callback().unwrap());
+                // let context = VstPluginContext::new(&low_context);
+                // let channel_count = unsafe {
+                //     context.request_containing_track_channel_count(
+                //         NonNull::new(self.host.raw_effect()).unwrap(),
+                //     )
+                // };
+                // unsafe {
+                //     (*self.host.raw_effect()).numInputs = channel_count;
+                // }
                 let channel_range = ChannelRange {
                     first_channel_index: 0,
                     channel_count: track.channel_count(),
