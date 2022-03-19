@@ -155,7 +155,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
             };
             api.BufferDone(num_inner_frames_written as _);
             // Get output material.
-            let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
+            let offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
                 api.GetSamples(
                     offset_buffer.frame_count() as _,

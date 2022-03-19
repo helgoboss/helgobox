@@ -24,7 +24,7 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Guid, Project, Track};
+use reaper_high::{Guid, Project, Track, TrackRoute};
 use reaper_medium::{OwnedPcmSource, PositionInSeconds, RecordingInput};
 use std::mem;
 
@@ -41,6 +41,8 @@ pub struct Slot {
     index: usize,
     content: Option<Content>,
     state: SlotState,
+    /// Route which is just created temporarily for recording.
+    temporary_route: Option<TrackRoute>,
 }
 
 #[derive(Clone, Debug)]
@@ -55,6 +57,7 @@ impl Slot {
             index,
             content: None,
             state: Default::default(),
+            temporary_route: None,
         }
     }
 
@@ -119,14 +122,15 @@ impl Slot {
             }
         };
         // Prepare tasks, equipment, instructions.
-        let record_task = create_clip_record_task(
+        let record_task_creation_outcome = create_clip_record_task(
             self.index,
             containing_track,
             column_record_settings,
             playback_track,
             rt_column,
         )?;
-        let recording_equipment = record_task
+        let recording_equipment = record_task_creation_outcome
+            .task
             .input
             .create_recording_equipment(Some(playback_track.project()));
         let input_is_midi = recording_equipment.is_midi();
@@ -181,8 +185,15 @@ impl Slot {
         // Here we do the actual state changes and distribute tasks.
         self.state = SlotState::RecordingOrOverdubbingRequested;
         column_command_sender.record_clip(self.index, instruction);
-        handler.request_recording_input(record_task);
+        self.temporary_route = record_task_creation_outcome.temporary_route;
+        handler.request_recording_input(record_task_creation_outcome.task);
         Ok(())
+    }
+
+    fn remove_temporary_route(&mut self) {
+        if let Some(route) = self.temporary_route.take() {
+            route.delete().unwrap();
+        }
     }
 
     fn get_content(&self) -> ClipEngineResult<&Content> {
@@ -334,6 +345,7 @@ impl Slot {
                     }
                     Err(_) => {
                         debug!("Recording request acknowledged with negative result");
+                        self.remove_temporary_route();
                         SlotState::Normal
                     }
                 };
@@ -348,6 +360,7 @@ impl Slot {
         mirror_source: OwnedPcmSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
+        self.remove_temporary_route();
         get_content_mut(&mut self.content)?
             .clip
             .notify_midi_overdub_finished(mirror_source, temporary_project)
@@ -358,6 +371,7 @@ impl Slot {
         outcome: NormalRecordingOutcome,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<Option<ClipChangedEvent>> {
+        self.remove_temporary_route();
         match outcome {
             NormalRecordingOutcome::Committed(recording) => match mem::take(&mut self.state) {
                 SlotState::Normal => Err("slot was not recording"),
@@ -409,49 +423,69 @@ fn get_content_mut(content: &mut Option<Content>) -> ClipEngineResult<&mut Conte
     content.as_mut().ok_or(SLOT_NOT_FILLED)
 }
 
+struct ClipRecordTaskCreationOutcome {
+    task: ClipRecordTask,
+    temporary_route: Option<TrackRoute>,
+}
+
 fn create_clip_record_task(
     slot_index: usize,
     containing_track: Option<&Track>,
     column_settings: &ColumnClipRecordSettings,
     playback_track: &Track,
     column_source: &SharedColumn,
-) -> ClipEngineResult<ClipRecordTask> {
-    let task = ClipRecordTask {
-        input: {
-            use RecordOrigin::*;
-            match &column_settings.origin {
-                TrackInput => {
-                    let track = resolve_recording_track(column_settings, playback_track)?;
-                    let track_input = track
-                        .recording_input()
-                        .ok_or("track doesn't have any recording input")?;
-                    let hw_input = translate_track_input_to_hw_input(track_input)?;
-                    ClipRecordInput::HardwareInput(hw_input)
-                }
-                TrackAudioOutput => {
-                    let track = resolve_recording_track(column_settings, playback_track)?;
-                    let containing_track = containing_track.ok_or("can't recording track audio output if Playtime runs in monitoring FX chain")?;
-                    track.add_send_to(containing_track);
-                    let channel_range = ChannelRange {
-                        first_channel_index: 0,
-                        channel_count: track.channel_count(),
-                    };
-                    ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                        VirtualClipRecordAudioInput::Specific(channel_range),
-                    ))
-                }
-                FxAudioInput(range) => ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                    VirtualClipRecordAudioInput::Specific(*range),
-                )),
-                FxMidiInput => ClipRecordInput::FxInput(ClipRecordFxInput::Midi),
+) -> ClipEngineResult<ClipRecordTaskCreationOutcome> {
+    let (input, temporary_route) = {
+        use RecordOrigin::*;
+        match &column_settings.origin {
+            TrackInput => {
+                debug!("Input: track input");
+                let track = resolve_recording_track(column_settings, playback_track)?;
+                let track_input = track
+                    .recording_input()
+                    .ok_or("track doesn't have any recording input")?;
+                let hw_input = translate_track_input_to_hw_input(track_input)?;
+                (ClipRecordInput::HardwareInput(hw_input), None)
             }
-        },
+            TrackAudioOutput => {
+                debug!("Input: track audio output");
+                let track = resolve_recording_track(column_settings, playback_track)?;
+                let containing_track = containing_track.ok_or(
+                    "can't recording track audio output if Playtime runs in monitoring FX chain",
+                )?;
+                let route = track.add_send_to(containing_track);
+                let channel_range = ChannelRange {
+                    first_channel_index: 0,
+                    channel_count: track.channel_count(),
+                };
+                let fx_input =
+                    ClipRecordFxInput::Audio(VirtualClipRecordAudioInput::Specific(channel_range));
+                (ClipRecordInput::FxInput(fx_input), Some(route))
+            }
+            FxAudioInput(range) => {
+                debug!("Input: FX audio input");
+                let fx_input =
+                    ClipRecordFxInput::Audio(VirtualClipRecordAudioInput::Specific(*range));
+                (ClipRecordInput::FxInput(fx_input), None)
+            }
+            FxMidiInput => {
+                debug!("Input: FX MIDI input");
+                (ClipRecordInput::FxInput(ClipRecordFxInput::Midi), None)
+            }
+        }
+    };
+    let task = ClipRecordTask {
+        input,
         destination: ClipRecordDestination {
             column_source: column_source.downgrade(),
             slot_index,
         },
     };
-    Ok(task)
+    let outcome = ClipRecordTaskCreationOutcome {
+        task,
+        temporary_route,
+    };
+    Ok(outcome)
 }
 
 fn resolve_recording_track(

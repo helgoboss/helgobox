@@ -122,6 +122,7 @@ impl RealTimeProcessor {
             sample_rate: Hz::new(1.0),
             clip_matrix: None,
             clip_matrix_is_owned: false,
+            clip_record_task: None,
         }
     }
 
@@ -151,7 +152,7 @@ impl RealTimeProcessor {
 
     pub fn run_from_vst(
         &mut self,
-        buffer: &vst::buffer::AudioBuffer<f64>,
+        buffer: &mut vst::buffer::AudioBuffer<f64>,
         block_props: AudioBlockProps,
         host: &HostCallback,
     ) {
@@ -1815,11 +1816,13 @@ fn process_clip_record_task(
         return false;
     }
     match &mut record_task.input {
-        ClipRecordFxInput::Midi => {}
+        ClipRecordFxInput::Midi => {
+            // MIDI is handled in another method.
+        }
         ClipRecordFxInput::Audio(input) => {
             let channel_offset = input.channel_offset().unwrap();
             let write_audio_request =
-                RealTimeProcessorWriteAudioRequest::new(args.reg, block_props, channel_offset as _);
+                RealTimeProcessorWriteAudioRequest::new(inputs, block_props, channel_offset as _);
             src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
                 .unwrap();
         }
@@ -1828,13 +1831,13 @@ fn process_clip_record_task(
 }
 
 #[derive(Copy, Clone)]
-struct VstWriteAudioRequest<'a> {
+struct RealTimeProcessorWriteAudioRequest<'a> {
     channel_offset: usize,
     inputs: vst::buffer::Inputs<'a, f64>,
     block_props: BasicAudioRequestProps,
 }
 
-impl<'a> VstWriteAudioRequest<'a> {
+impl<'a> RealTimeProcessorWriteAudioRequest<'a> {
     pub fn new(
         inputs: vst::buffer::Inputs<'a, f64>,
         block_props: BasicAudioRequestProps,
@@ -1848,7 +1851,7 @@ impl<'a> VstWriteAudioRequest<'a> {
     }
 }
 
-impl<'a> WriteAudioRequest for VstWriteAudioRequest<'a> {
+impl<'a> WriteAudioRequest for RealTimeProcessorWriteAudioRequest<'a> {
     fn audio_request_props(&self) -> BasicAudioRequestProps {
         self.block_props
     }

@@ -491,7 +491,7 @@ pub enum VirtualClipRecordAudioInput {
 impl VirtualClipRecordAudioInput {
     pub fn channel_offset(&self) -> ClipEngineResult<u32> {
         use VirtualClipRecordAudioInput::*;
-        match input {
+        match self {
             Specific(channel_range) => Ok(channel_range.first_channel_index),
             Detect { .. } => Err("audio input detection not yet implemented"),
         }

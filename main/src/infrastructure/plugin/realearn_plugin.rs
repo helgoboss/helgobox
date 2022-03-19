@@ -167,6 +167,7 @@ impl Plugin for RealearnPlugin {
                 preset_chunks: true,
                 category: Category::Synth,
                 parameters: PLUGIN_PARAMETER_COUNT as i32,
+                f64_precision: true,
                 ..Default::default()
             }
         })
@@ -270,8 +271,8 @@ impl Plugin for RealearnPlugin {
             self.sample_rate = Hz::new(rate as _);
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-            // If task queue is full or audio not running, spamming the user with error messages,
-            // so what. Don't spam the user with error messages.
+            // If task queue is full or audio not running, so what. Don't spam the user with error
+            // messages.
             let _ = self
                 .normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));

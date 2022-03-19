@@ -174,7 +174,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
             }
             total_num_frames_consumed += inner_response.num_frames_consumed;
             // Get output material.
-            let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
+            let offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
                 api.ResampleOut(
                     offset_buffer.data_as_mut_ptr(),

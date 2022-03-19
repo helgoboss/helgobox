@@ -11,7 +11,7 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
-    MatrixClipRecordSettings, RecordOrigin,
+    MatrixClipRecordSettings,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -91,6 +91,7 @@ impl Column {
         };
         self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
         // Settings
+        self.settings.clip_record_settings = api_column.clip_record_settings;
         self.rt_settings.audio_resample_mode =
             api_column.clip_play_settings.audio_settings.resample_mode;
         self.rt_settings.audio_time_stretch_mode = api_column
@@ -160,10 +161,7 @@ impl Column {
                     cache_behavior: self.rt_settings.audio_cache_behavior.clone(),
                 },
             },
-            clip_record_settings: ColumnClipRecordSettings {
-                track: None,
-                origin: RecordOrigin::TrackInput,
-            },
+            clip_record_settings: self.settings.clip_record_settings.clone(),
             slots: {
                 let slots = self.slots.iter().filter_map(|slot| slot.save()).collect();
                 Some(slots)
