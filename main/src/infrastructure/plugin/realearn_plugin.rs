@@ -35,6 +35,7 @@ use crate::infrastructure::plugin::app::App;
 
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
+use playtime_clip_engine::rt::AudioBufMut;
 use std::convert::TryInto;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
@@ -168,6 +169,8 @@ impl Plugin for RealearnPlugin {
                 category: Category::Synth,
                 parameters: PLUGIN_PARAMETER_COUNT as i32,
                 f64_precision: true,
+                inputs: 2,
+                outputs: 0,
                 ..Default::default()
             }
         })
