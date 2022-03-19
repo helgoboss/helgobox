@@ -215,6 +215,7 @@ impl Clip {
             rollback_data: None,
             settings: instruction.settings,
         };
+        instruction.supplier_chain.emit_audio_recording_task();
         Self {
             supplier_chain: instruction.supplier_chain,
             state: ClipState::Recording(recording_state),
@@ -310,9 +311,11 @@ impl Clip {
                     matrix_settings,
                     column_settings,
                 );
+                self.supplier_chain.emit_audio_recording_task();
                 if let Some(recording_state) = new_state {
                     self.state = Recording(recording_state);
                 }
+
                 Ok(())
             }
             Recording(_) => Err(ErrorWithPayload::new("already recording", args)),

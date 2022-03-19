@@ -64,6 +64,7 @@ impl ResponseChannel {
 
 #[derive(Debug)]
 pub enum RecorderRequest {
+    StartAudioRecording(AudioRecordingTask),
     FinishAudioRecording(FinishAudioRecordingRequest),
     DiscardSource(OwnedPcmSource),
     DiscardAudioRecordingFinishingData {
@@ -195,8 +196,9 @@ struct RecordingAudioActiveState {
     file: PathBuf,
     file_clone: PathBuf,
     file_clone_2: PathBuf,
-    sink: OwnedPcmSink,
+    producer: rtrb::Producer<f64>,
     temporary_audio_buffer: OwnedAudioBuffer,
+    task: Option<AudioRecordingTask>,
 }
 
 #[derive(Debug)]
@@ -242,8 +244,12 @@ impl KindState {
                     file: equipment.file,
                     file_clone: equipment.file_clone,
                     file_clone_2: equipment.file_clone_2,
-                    sink: equipment.pcm_sink,
                     temporary_audio_buffer: equipment.temporary_audio_buffer,
+                    producer: equipment.producer,
+                    task: Some(AudioRecordingTask {
+                        pcm_sink: equipment.pcm_sink,
+                        consumer: equipment.consumer,
+                    }),
                 };
                 let recording_audio_state = RecordingAudioState::Active(active_state);
                 Self::Audio(recording_audio_state)
@@ -305,6 +311,24 @@ impl Recorder {
             initial_play_start_timing: args.initial_play_start_timing,
         };
         Self::new(State::Recording(recording_state), request_sender)
+    }
+
+    pub fn emit_audio_recording_task(&mut self) {
+        match self.state.as_mut().unwrap() {
+            State::Recording(RecordingState {
+                kind_state:
+                    KindState::Audio(RecordingAudioState::Active(RecordingAudioActiveState {
+                        task,
+                        ..
+                    })),
+                ..
+            }) => {
+                if let Some(task) = task.take() {
+                    self.request_sender.start_audio_recording(task);
+                }
+            }
+            _ => {}
+        }
     }
 
     fn new(state: State, request_sender: Sender<RecorderRequest>) -> Self {
@@ -478,20 +502,8 @@ impl Recorder {
                                         .map(|buf| buf.data_as_mut_ptr())
                                         .unwrap_or(null_mut());
                                 }
-                                //
-                                //     request.left_buffer.data_as_slice().as_ptr() as _,
-                                //     request.right_buffer.data_as_slice().as_ptr() as _,
-                                // ];
                                 // TODO-high-record-audio Write only part of the block until scheduled end
-                                unsafe {
-                                    sink.WriteDoubles(
-                                        &mut channels as *mut _,
-                                        request.audio_request_props().block_length as _,
-                                        out_channel_count as _,
-                                        0,
-                                        1,
-                                    );
-                                }
+
                                 // Write into temporary buffer
                                 let start_frame = recording.total_frame_offset;
                                 let ideal_end_frame =
@@ -994,6 +1006,8 @@ impl MidiRecordingEquipment {
 #[derive(Debug)]
 pub struct AudioRecordingEquipment {
     pcm_sink: OwnedPcmSink,
+    producer: rtrb::Producer<f64>,
+    consumer: rtrb::Consumer<f64>,
     temporary_audio_buffer: OwnedAudioBuffer,
     file: PathBuf,
     file_clone: PathBuf,
@@ -1335,6 +1349,8 @@ impl RecordInteractionTiming {
 }
 
 trait RecorderRequestSender {
+    fn start_audio_recording(&self, task: AudioRecordingTask);
+
     fn finish_audio_recording(
         &self,
         sink: OwnedPcmSink,
@@ -1355,6 +1371,11 @@ trait RecorderRequestSender {
 }
 
 impl RecorderRequestSender for Sender<RecorderRequest> {
+    fn start_audio_recording(&self, task: AudioRecordingTask) {
+        let request = RecorderRequest::StartAudioRecording(task);
+        self.send_request(request);
+    }
+
     fn finish_audio_recording(
         &self,
         sink: OwnedPcmSink,
@@ -1393,10 +1414,48 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
     }
 }
 
+struct RecorderWorker {
+    audio_recording_task: Option<AudioRecordingTask>,
+}
+
+struct AudioRecordingTask {
+    pcm_sink: OwnedPcmSink,
+    consumer: rtrb::Consumer<f64>,
+}
+
+impl RecorderWorker {
+    pub fn start_recording_audio(&mut self, task: AudioRecordingTask) {
+        self.audio_recording_task = Some(task);
+    }
+
+    pub fn write_audio(&mut self) {
+        let task = match &mut self.audio_recording_task {
+            None => return,
+            Some(t) => t,
+        };
+        let sink = task.pcm_sink.as_ref().as_ref();
+        unsafe {
+            sink.WriteDoubles(
+                &mut channels as *mut _,
+                request.audio_request_props().block_length as _,
+                out_channel_count as _,
+                0,
+                1,
+            );
+        }
+    }
+}
+
 pub fn keep_processing_recorder_requests(receiver: Receiver<RecorderRequest>) {
+    let mut worker = RecorderWorker {
+        audio_recording_task: None,
+    };
     while let Ok(request) = receiver.recv() {
         use RecorderRequest::*;
         match request {
+            StartAudioRecording(task) => {
+                worker.start_recording_audio(task);
+            }
             FinishAudioRecording(r) => {
                 let response = finish_audio_recording(r.sink, &r.file);
                 // If the clip is not interested in the recording anymore, so what.

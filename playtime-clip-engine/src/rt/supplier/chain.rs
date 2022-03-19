@@ -189,6 +189,13 @@ impl SupplierChain {
         Ok(())
     }
 
+    pub fn emit_audio_recording_task(&self) {
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .emit_audio_recording_task()
+    }
+
     pub fn pre_buffer_simple(&mut self, next_expected_pos: isize) {
         if self.material_info().map(|i| i.is_midi()).unwrap_or(false) {
             // MIDI doesn't need pre-buffering
