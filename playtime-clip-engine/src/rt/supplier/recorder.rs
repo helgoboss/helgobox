@@ -24,15 +24,18 @@ use playtime_api::{
     MatrixClipRecordSettings, RecordLength,
 };
 use reaper_high::{OwnedSource, Project, Reaper};
+use reaper_low::raw::PCM_sink;
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
     MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
+use rtrb::chunks::{ChunkError, ReadChunk};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
-use std::{cmp, mem};
+use std::time::Duration;
+use std::{cmp, mem, thread};
 
 // TODO-high-prebuffer In addition we should deploy a start-buffer that always keeps the start completely in
 //  memory. Because sudden restarts (e.g. retriggers) are the main reason why we could still run
@@ -64,21 +67,13 @@ impl ResponseChannel {
 
 #[derive(Debug)]
 pub enum RecorderRequest {
-    StartAudioRecording(AudioRecordingTask),
-    FinishAudioRecording(FinishAudioRecordingRequest),
+    RecordAudio(AudioRecordingTask),
     DiscardSource(OwnedPcmSource),
     DiscardAudioRecordingFinishingData {
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
         old_source: Option<OwnedPcmSource>,
     },
-}
-
-#[derive(Debug)]
-pub struct FinishAudioRecordingRequest {
-    sink: OwnedPcmSink,
-    file: PathBuf,
-    response_sender: Sender<RecorderResponse>,
 }
 
 #[derive(Debug)]
@@ -193,7 +188,6 @@ impl RecordingAudioState {
 
 #[derive(Debug)]
 struct RecordingAudioActiveState {
-    file: PathBuf,
     file_clone: PathBuf,
     file_clone_2: PathBuf,
     producer: rtrb::Producer<f64>,
@@ -229,7 +223,7 @@ struct RecordingMidiState {
 }
 
 impl KindState {
-    fn new(equipment: RecordingEquipment) -> Self {
+    fn new(equipment: RecordingEquipment, response_sender: &Sender<RecorderResponse>) -> Self {
         use RecordingEquipment::*;
         match equipment {
             Midi(equipment) => {
@@ -241,15 +235,17 @@ impl KindState {
             }
             Audio(equipment) => {
                 let active_state = RecordingAudioActiveState {
-                    file: equipment.file,
+                    task: Some(AudioRecordingTask {
+                        pcm_sink: equipment.pcm_sink,
+                        consumer: equipment.consumer,
+                        channel_count: equipment.temporary_audio_buffer.to_buf().channel_count(),
+                        file: equipment.file,
+                        response_sender: response_sender.clone(),
+                    }),
                     file_clone: equipment.file_clone,
                     file_clone_2: equipment.file_clone_2,
                     temporary_audio_buffer: equipment.temporary_audio_buffer,
                     producer: equipment.producer,
-                    task: Some(AudioRecordingTask {
-                        pcm_sink: equipment.pcm_sink,
-                        consumer: equipment.consumer,
-                    }),
                 };
                 let recording_audio_state = RecordingAudioState::Active(active_state);
                 Self::Audio(recording_audio_state)
@@ -291,11 +287,16 @@ impl Recorder {
             source,
             midi_overdub_mirror_source: None,
         };
-        Self::new(State::Ready(ready_state), request_sender)
+        Self {
+            state: Some(State::Ready(ready_state)),
+            request_sender,
+            response_channel: ResponseChannel::new(),
+        }
     }
 
     pub fn recording(args: RecordingArgs, request_sender: Sender<RecorderRequest>) -> Self {
-        let kind_state = KindState::new(args.equipment);
+        let response_channel = ResponseChannel::new();
+        let kind_state = KindState::new(args.equipment, &response_channel.sender);
         let recording_state = RecordingState {
             kind_state,
             old_source: None,
@@ -310,7 +311,11 @@ impl Recorder {
             committed: false,
             initial_play_start_timing: args.initial_play_start_timing,
         };
-        Self::new(State::Recording(recording_state), request_sender)
+        Self {
+            state: Some(State::Recording(recording_state)),
+            request_sender,
+            response_channel,
+        }
     }
 
     pub fn emit_audio_recording_task(&mut self) {
@@ -328,14 +333,6 @@ impl Recorder {
                 }
             }
             _ => {}
-        }
-    }
-
-    fn new(state: State, request_sender: Sender<RecorderRequest>) -> Self {
-        Self {
-            state: Some(state),
-            request_sender,
-            response_channel: ResponseChannel::new(),
         }
     }
 
@@ -410,7 +407,7 @@ impl Recorder {
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => {
                 let recording_state = RecordingState {
-                    kind_state: KindState::new(args.equipment),
+                    kind_state: KindState::new(args.equipment, &self.response_channel.sender),
                     old_source: Some(s.source),
                     project: args.project,
                     detect_downbeat: args.detect_downbeat,
@@ -439,13 +436,9 @@ impl Recorder {
     ) -> ClipEngineResult<StopRecordingOutcome> {
         let (res, next_state) = match self.state.take().unwrap() {
             State::Ready(s) => (Err("was not recording"), State::Ready(s)),
-            State::Recording(s) => s.stop_recording(
-                timeline,
-                timeline_cursor_pos,
-                audio_request_props,
-                &self.request_sender,
-                &self.response_channel.sender,
-            ),
+            State::Recording(s) => {
+                s.stop_recording(timeline, timeline_cursor_pos, audio_request_props)
+            }
         };
         self.state = Some(next_state);
         res
@@ -465,11 +458,7 @@ impl Recorder {
         use State::*;
         let (outcome, next_state) = match self.state.take().unwrap() {
             Ready(s) => (PollRecordingOutcome::PleaseStopPolling, Ready(s)),
-            Recording(s) => s.poll_recording(
-                audio_request_props,
-                &self.request_sender,
-                &self.response_channel.sender,
-            ),
+            Recording(s) => s.poll_recording(audio_request_props),
         };
         self.state = Some(next_state);
         outcome
@@ -491,32 +480,44 @@ impl Recorder {
                                     .recording
                                     .ok_or("recording not started yet ... not polling?")?;
                                 let mut temp_buf = active_state.temporary_audio_buffer.to_buf_mut();
-                                // Write into sink
-                                let sink = active_state.sink.as_ref().as_ref();
-                                let mut channels: [*mut f64; MAX_AUDIO_CHANNEL_COUNT] =
-                                    [null_mut(); MAX_AUDIO_CHANNEL_COUNT];
-                                let out_channel_count = temp_buf.channel_count();
-                                for ch in 0..out_channel_count {
-                                    channels[ch] = request
-                                        .get_channel_buffer(ch)
-                                        .map(|buf| buf.data_as_mut_ptr())
-                                        .unwrap_or(null_mut());
-                                }
+                                let channel_count = temp_buf.channel_count();
+                                let block_length = request.audio_request_props().block_length;
                                 // TODO-high-record-audio Write only part of the block until scheduled end
-
+                                // Write into ring buffer
+                                let mut write_chunk = active_state
+                                    .producer
+                                    .write_chunk(channel_count * block_length)
+                                    .map_err(|_| "ring buffer too small for writing block")?;
+                                let (slice_one, slice_two) = write_chunk.as_mut_slices();
+                                for ch in 0..channel_count {
+                                    let offset = channel_count * block_length;
+                                    let channel_slice = if offset < slice_one.len() {
+                                        &mut slice_one[offset..offset + block_length]
+                                    } else {
+                                        let slice_two_offset = offset - slice_one.len();
+                                        &mut slice_two
+                                            [slice_two_offset..slice_two_offset + block_length]
+                                    };
+                                    if let Some(channel_buf) = request.get_channel_buffer(ch) {
+                                        for i in 0..block_length {
+                                            channel_slice[i] = channel_buf.data_as_slice()[i];
+                                        }
+                                    } else {
+                                        channel_slice.fill(0.0);
+                                    }
+                                }
+                                write_chunk.commit_all();
                                 // Write into temporary buffer
                                 let start_frame = recording.total_frame_offset;
-                                let ideal_end_frame =
-                                    start_frame + request.audio_request_props().block_length;
+                                let ideal_end_frame = start_frame + block_length;
                                 let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
-                                let num_frames_written = end_frame - start_frame;
+                                let num_frames_writable = end_frame - start_frame;
                                 let temp_buf_slice = temp_buf.data_as_mut_slice();
-                                for ch in 0..out_channel_count {
+                                for ch in 0..channel_count {
                                     if let Some(channel_buf) = request.get_channel_buffer(ch) {
-                                        for i in 0..num_frames_written {
-                                            let temp_index = start_frame * out_channel_count
-                                                + i * out_channel_count
-                                                + ch;
+                                        let offset = start_frame * channel_count;
+                                        for i in 0..num_frames_writable {
+                                            let temp_index = offset + i * channel_count + ch;
                                             temp_buf_slice[temp_index] =
                                                 channel_buf.data_as_slice()[i];
                                         }
@@ -671,14 +672,11 @@ impl RecordingState {
         timeline: &HybridTimeline,
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
-        request_sender: &Sender<RecorderRequest>,
-        response_sender: &Sender<RecorderResponse>,
     ) -> (ClipEngineResult<StopRecordingOutcome>, State) {
         match self.stop_timing {
             RecordInteractionTiming::Immediately => {
                 // Commit immediately
-                let (commit_result, next_state) =
-                    self.commit_recording(request_sender, response_sender);
+                let (commit_result, next_state) = self.commit_recording();
                 (
                     commit_result.map(StopRecordingOutcome::Committed),
                     next_state,
@@ -753,8 +751,6 @@ impl RecordingState {
     pub fn poll_recording(
         mut self,
         audio_request_props: BasicAudioRequestProps,
-        request_sender: &Sender<RecorderRequest>,
-        response_sender: &Sender<RecorderResponse>,
     ) -> (PollRecordingOutcome, State) {
         if self.committed {
             return (
@@ -786,8 +782,7 @@ impl RecordingState {
                 if next_frame_offset > end_frame {
                     // Exceeded scheduled end.
                     let recording = *recording;
-                    let (recording_outcome, next_state) =
-                        self.commit_recording_internal(request_sender, response_sender, recording);
+                    let (recording_outcome, next_state) = self.commit_recording_internal(recording);
                     return (
                         PollRecordingOutcome::CommittedRecording(recording_outcome),
                         next_state,
@@ -855,11 +850,7 @@ impl RecordingState {
     }
 
     // May be called in real-time thread.
-    pub fn commit_recording(
-        self,
-        request_sender: &Sender<RecorderRequest>,
-        response_sender: &Sender<RecorderResponse>,
-    ) -> (ClipEngineResult<RecordingOutcome>, State) {
+    pub fn commit_recording(self) -> (ClipEngineResult<RecordingOutcome>, State) {
         if self.committed {
             return (Err("already committed"), State::Recording(self));
         }
@@ -867,17 +858,11 @@ impl RecordingState {
             None => return (Err("no input arrived yet"), State::Recording(self)),
             Some(r) => r,
         };
-        let (recording_outcome, new_state) =
-            self.commit_recording_internal(request_sender, response_sender, recording);
+        let (recording_outcome, new_state) = self.commit_recording_internal(recording);
         (Ok(recording_outcome), new_state)
     }
 
-    fn commit_recording_internal(
-        self,
-        request_sender: &Sender<RecorderRequest>,
-        response_sender: &Sender<RecorderResponse>,
-        recording: Recording,
-    ) -> (RecordingOutcome, State) {
+    fn commit_recording_internal(self, recording: Recording) -> (RecordingOutcome, State) {
         let is_midi = self.kind_state.is_midi();
         let (kind_specific_outcome, new_state) = match self.kind_state {
             KindState::Audio(audio_state) => {
@@ -889,11 +874,6 @@ impl RecordingState {
                         );
                     }
                 };
-                request_sender.finish_audio_recording(
-                    active_state.sink,
-                    active_state.file,
-                    response_sender.clone(),
-                );
                 let outcome = KindSpecificRecordingOutcome::Audio {
                     path: active_state.file_clone,
                     channel_count: active_state.temporary_audio_buffer.to_buf().channel_count(),
@@ -1018,11 +998,19 @@ pub struct AudioRecordingEquipment {
 const TEMP_BUF_MAX_FRAME_RATE: usize = 96_000;
 const TEMP_BUF_SECONDS: usize = 2;
 
+const RING_BUF_MAX_BLOCK_SIZE: usize = 2048;
+const RING_BUF_MAX_BLOCK_COUNT: usize = 100;
+
 impl AudioRecordingEquipment {
     pub fn new(project: Option<Project>, channel_count: usize) -> Self {
         let sink_outcome = create_audio_sink(project);
+        let (producer, consumer) = rtrb::RingBuffer::new(
+            RING_BUF_MAX_BLOCK_COUNT * channel_count * RING_BUF_MAX_BLOCK_SIZE,
+        );
         Self {
             pcm_sink: sink_outcome.sink,
+            producer,
+            consumer,
             temporary_audio_buffer: OwnedAudioBuffer::new(
                 channel_count,
                 TEMP_BUF_MAX_FRAME_RATE * TEMP_BUF_SECONDS,
@@ -1351,13 +1339,6 @@ impl RecordInteractionTiming {
 trait RecorderRequestSender {
     fn start_audio_recording(&self, task: AudioRecordingTask);
 
-    fn finish_audio_recording(
-        &self,
-        sink: OwnedPcmSink,
-        file: PathBuf,
-        response_sender: Sender<RecorderResponse>,
-    );
-
     fn discard_source(&self, source: OwnedPcmSource);
 
     fn discard_audio_recording_finishing_data(
@@ -1372,24 +1353,9 @@ trait RecorderRequestSender {
 
 impl RecorderRequestSender for Sender<RecorderRequest> {
     fn start_audio_recording(&self, task: AudioRecordingTask) {
-        let request = RecorderRequest::StartAudioRecording(task);
+        let request = RecorderRequest::RecordAudio(task);
         self.send_request(request);
     }
-
-    fn finish_audio_recording(
-        &self,
-        sink: OwnedPcmSink,
-        file: PathBuf,
-        response_sender: Sender<RecorderResponse>,
-    ) {
-        let request = RecorderRequest::FinishAudioRecording(FinishAudioRecordingRequest {
-            sink,
-            file,
-            response_sender,
-        });
-        self.send_request(request);
-    }
-
     fn discard_source(&self, source: OwnedPcmSource) {
         let request = RecorderRequest::DiscardSource(source);
         self.send_request(request);
@@ -1414,58 +1380,94 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
     }
 }
 
-struct RecorderWorker {
-    audio_recording_task: Option<AudioRecordingTask>,
-}
+struct RecorderWorker;
 
-struct AudioRecordingTask {
+#[derive(Debug)]
+pub struct AudioRecordingTask {
     pcm_sink: OwnedPcmSink,
     consumer: rtrb::Consumer<f64>,
+    channel_count: usize,
+    file: PathBuf,
+    response_sender: Sender<RecorderResponse>,
+}
+
+impl AudioRecordingTask {
+    fn write_audio(&mut self) {
+        let slot_count = self.consumer.slots();
+        if slot_count == 0 {
+            return;
+        }
+        let read_chunk = match self.consumer.read_chunk(slot_count) {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        let sink = self.pcm_sink.as_mut().as_mut();
+        let (slice_one, slice_two) = read_chunk.as_slices();
+        write_slice_to_sink(slice_one, sink, self.channel_count);
+        write_slice_to_sink(slice_two, sink, self.channel_count);
+        read_chunk.commit_all();
+    }
 }
 
 impl RecorderWorker {
-    pub fn start_recording_audio(&mut self, task: AudioRecordingTask) {
-        self.audio_recording_task = Some(task);
-    }
-
-    pub fn write_audio(&mut self) {
-        let task = match &mut self.audio_recording_task {
-            None => return,
-            Some(t) => t,
-        };
-        let sink = task.pcm_sink.as_ref().as_ref();
-        unsafe {
-            sink.WriteDoubles(
-                &mut channels as *mut _,
-                request.audio_request_props().block_length as _,
-                out_channel_count as _,
-                0,
-                1,
-            );
-        }
-    }
-}
-
-pub fn keep_processing_recorder_requests(receiver: Receiver<RecorderRequest>) {
-    let mut worker = RecorderWorker {
-        audio_recording_task: None,
-    };
-    while let Ok(request) = receiver.recv() {
+    pub fn process_request(&mut self, request: RecorderRequest) {
         use RecorderRequest::*;
         match request {
-            StartAudioRecording(task) => {
-                worker.start_recording_audio(task);
-            }
-            FinishAudioRecording(r) => {
-                let response = finish_audio_recording(r.sink, &r.file);
-                // If the clip is not interested in the recording anymore, so what.
-                let _ = r
-                    .response_sender
-                    .try_send(RecorderResponse::AudioRecordingFinished(response));
+            RecordAudio(task) => {
+                self.record_audio(task);
             }
             DiscardSource(_) => {}
             DiscardAudioRecordingFinishingData { .. } => {}
         }
+    }
+
+    fn record_audio(&mut self, mut task: AudioRecordingTask) {
+        loop {
+            if task.consumer.is_abandoned() {
+                let response = finish_audio_recording(task.pcm_sink, &task.file);
+                // If the clip is not interested in the recording anymore, so what.
+                let _ = task
+                    .response_sender
+                    .try_send(RecorderResponse::AudioRecordingFinished(response));
+                break;
+            }
+            task.write_audio();
+            // Don't spin like crazy
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+/// Writes the given slice to the sink.
+///
+/// The slice must contain all channels in sequence.
+fn write_slice_to_sink(slice: &[f64], sink: &mut PCM_sink, channel_count: usize) {
+    if slice.len() == 0 {
+        return;
+    }
+    debug_assert!(slice.len() % channel_count == 0);
+    let block_length = slice.len() / channel_count;
+    let mut channels: [*mut f64; MAX_AUDIO_CHANNEL_COUNT] = [null_mut(); MAX_AUDIO_CHANNEL_COUNT];
+    for ch in 0..channel_count {
+        let offset = ch * block_length;
+        let channel_slice = &slice[offset..offset + block_length];
+        channels[ch] = channel_slice.as_ptr() as *mut _;
+    }
+    unsafe {
+        sink.WriteDoubles(
+            &mut channels as *mut _,
+            block_length as _,
+            channel_count as _,
+            0,
+            1,
+        );
+    }
+}
+
+pub fn keep_processing_recorder_requests(receiver: Receiver<RecorderRequest>) {
+    let mut worker = RecorderWorker;
+    while let Ok(request) = receiver.recv() {
+        worker.process_request(request);
     }
 }
 
