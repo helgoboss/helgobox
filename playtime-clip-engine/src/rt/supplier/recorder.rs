@@ -490,7 +490,7 @@ impl Recorder {
                                     .map_err(|_| "ring buffer too small for writing block")?;
                                 let (slice_one, slice_two) = write_chunk.as_mut_slices();
                                 for ch in 0..channel_count {
-                                    let offset = channel_count * block_length;
+                                    let offset = ch * block_length;
                                     let channel_slice = if offset < slice_one.len() {
                                         &mut slice_one[offset..offset + block_length]
                                     } else {
