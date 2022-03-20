@@ -7,10 +7,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Track};
 use reaper_low::raw;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
-    DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz,
-    LoadStateArgs, MeasureAlignment, MidiEvent, MidiImportBehavior, OwnedPcmSource,
-    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInSeconds,
+    create_custom_owned_pcm_source, BorrowedMidiEventList, BufferingBehavior, CustomPcmSource,
+    DurationInBeats, DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs,
+    GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MidiEvent, MidiImportBehavior,
+    OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInSeconds,
     PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue,
     SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
@@ -922,9 +922,9 @@ impl CustomPcmSource for DecoratedPcmSource {
         unsafe { self.inner.properties_window(args.parent_window) }
     }
 
-    fn get_samples(&mut self, args: GetSamplesArgs) {
+    fn get_samples(&mut self, mut args: GetSamplesArgs) {
         if self.send_all_notes_off {
-            send_all_notes_off(&args);
+            send_all_notes_off(&mut args);
             self.send_all_notes_off = false;
         }
         use DecoratedPcmSourceState::*;
@@ -933,7 +933,7 @@ impl CustomPcmSource for DecoratedPcmSource {
                 self.inner.get_samples(args.block);
             },
             AllNotesOffRequested => {
-                send_all_notes_off(&args);
+                send_all_notes_off(&mut args);
                 self.state = AllNotesOffSent;
             }
             AllNotesOffSent => {}
@@ -1064,7 +1064,11 @@ fn attempt_to_send_all_notes_off_with_guard(
     }
 }
 
-fn send_all_notes_off(args: &GetSamplesArgs) {
+fn send_all_notes_off(args: &mut GetSamplesArgs) {
+    let list = match args.block.midi_event_list_mut() {
+        None => return,
+        Some(l) => l,
+    };
     for ch in 0..16 {
         let msg = RawShortMessage::control_change(
             Channel::new(ch),
@@ -1073,6 +1077,6 @@ fn send_all_notes_off(args: &GetSamplesArgs) {
         );
         let mut event = MidiEvent::default();
         event.set_message(msg);
-        args.block.midi_event_list().add_item(&event);
+        list.add_item(&event);
     }
 }
