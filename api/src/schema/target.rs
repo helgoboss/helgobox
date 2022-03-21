@@ -32,6 +32,7 @@ pub enum Target {
     TrackSoloState(TrackSoloStateTarget),
     CycleThroughFx(CycleThroughFxTarget),
     FxOnOffState(FxOnOffStateTarget),
+    FxOnlineOfflineState(FxOnlineOfflineStateTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
     CycleThroughFxPresets(CycleThroughFxPresetsTarget),
     FxVisibility(FxVisibilityTarget),
@@ -354,6 +355,15 @@ pub struct CycleThroughFxTarget {
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxOnOffStateTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fx: Option<FxDescriptor>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FxOnlineOfflineStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

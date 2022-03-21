@@ -16,7 +16,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
+    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, FxOnlineTarget,
     HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
     RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
     TrackPhaseTarget, TrackToolTarget,
@@ -102,6 +102,7 @@ pub enum ReaperTarget {
     Playrate(PlayrateTarget),
     AutomationModeOverride(AutomationModeOverrideTarget),
     FxEnable(FxEnableTarget),
+    FxOnline(FxOnlineTarget),
     FxOpen(FxOpenTarget),
     FxPreset(FxPresetTarget),
     SelectedTrack(SelectedTrackTarget),
@@ -560,6 +561,7 @@ impl<'a> Target<'a> for ReaperTarget {
             Playrate(t) => t.current_value(context),
             AutomationModeOverride(t) => t.current_value(context),
             FxEnable(t) => t.current_value(context),
+            FxOnline(t) => t.current_value(context),
             FxOpen(t) => t.current_value(context),
             // Discrete
             FxPreset(t) => t.current_value(context),
@@ -1023,6 +1025,10 @@ pub fn playrate_unit_value(playrate: PlayRate) -> UnitValue {
 
 pub fn fx_enable_unit_value(is_enabled: bool) -> UnitValue {
     convert_bool_to_unit_value(is_enabled)
+}
+
+pub fn fx_online_unit_value(is_online: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_online)
 }
 
 pub fn all_track_fx_enable_unit_value(is_enabled: bool) -> UnitValue {

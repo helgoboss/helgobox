@@ -23,14 +23,15 @@ use realearn_api::schema::{
     BookmarkRef, ClipDescriptor, ClipOutput, ClipSeekTarget, ClipTransportActionTarget,
     ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
     CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
-    EnableMappingsTarget, FxOnOffStateTarget, FxParameterValueTarget, FxVisibilityTarget,
-    GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget,
-    PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
-    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekTarget,
-    SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget, FxParameterValueTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget,
+    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
+    TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -437,6 +438,10 @@ fn convert_real_target(
             },
         }),
         FxEnable => T::FxOnOffState(FxOnOffStateTarget {
+            commons,
+            fx: convert_fx_descriptor(data, style),
+        }),
+        FxOnline => T::FxOnlineOfflineState(FxOnlineOfflineStateTarget {
             commons,
             fx: convert_fx_descriptor(data, style),
         }),
