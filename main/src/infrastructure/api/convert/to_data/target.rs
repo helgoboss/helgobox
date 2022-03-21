@@ -446,6 +446,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 fx_parameter_data: fx_parameter_desc.fx_parameter_data,
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
