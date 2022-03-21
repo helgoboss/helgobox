@@ -41,11 +41,7 @@ pub struct FxPresetTarget {
 impl RealearnTarget for FxPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<no preset>" is also a possible value.
-        let preset_count = self
-            .fx
-            .preset_index_and_count()
-            .map(|res| res.count)
-            .unwrap_or(0);
+        let preset_count = self.fx.preset_index_and_count().count;
         (
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(preset_count + 1),
@@ -159,7 +155,7 @@ impl RealearnTarget for FxPresetTarget {
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let index = self.fx.preset_index_and_count().ok()?.index?;
+        let index = self.fx.preset_index_and_count().index?;
         Some(NumericValue::Discrete(index as i32 + 1))
     }
 
@@ -172,7 +168,7 @@ impl<'a> Target<'a> for FxPresetTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let res = self.fx.preset_index_and_count().ok()?;
+        let res = self.fx.preset_index_and_count();
         // Because we count "<No preset>" as a possible value, this is equal.
         let max_value = res.count;
         let actual_value = res.index.map(|i| i + 1).unwrap_or(0);
