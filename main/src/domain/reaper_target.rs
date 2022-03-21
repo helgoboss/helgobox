@@ -28,8 +28,8 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget,
-    ControlContext, FxEnableTarget, FxNavigateTarget, FxOpenTarget, FxParameterTarget,
-    FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
+    ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
+    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
     RealTimeClipTransportTarget, RealTimeControlContext, RouteMuteTarget, RoutePanTarget,
     RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
