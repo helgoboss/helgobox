@@ -1466,9 +1466,7 @@ impl Session {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        MappingCompartment::enum_iter()
-            .map(move |compartment| self.mappings(compartment))
-            .flatten()
+        MappingCompartment::enum_iter().flat_map(move |compartment| self.mappings(compartment))
     }
 
     pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {

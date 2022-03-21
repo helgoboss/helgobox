@@ -2964,7 +2964,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     content.push_str(hint);
                     content.push('\n');
                 }
-                let subject = format!("Help: {}", mode_parameter.to_string());
+                let subject = format!("Help: {}", mode_parameter);
                 self.view
                     .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
                     .set_text(subject);

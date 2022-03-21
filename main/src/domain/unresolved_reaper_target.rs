@@ -289,7 +289,7 @@ impl TrackRouteSelector {
             ById(guid) => {
                 let related_track = track.project().track_by_guid(guid);
                 let route = find_route_by_related_track(track, &related_track, route_type)?;
-                route.ok_or_else(|| TrackRouteResolveError::TrackRouteNotFound {
+                route.ok_or(TrackRouteResolveError::TrackRouteNotFound {
                     guid: Some(*guid),
                     name: None,
                     index: None,

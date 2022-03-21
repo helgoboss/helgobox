@@ -12,7 +12,7 @@ pub struct AdditionalEelTransformationInput {
 struct EelUnit {
     // Declared above VM in order to be dropped before VM is dropped.
     program: eel::Program,
-    vm: eel::Vm,
+    _vm: eel::Vm,
     x: eel::Variable,
     y: eel::Variable,
     y_last: eel::Variable,
@@ -48,7 +48,7 @@ impl EelTransformation {
         let y_last = vm.register_variable("y_last");
         let eel_unit = EelUnit {
             program,
-            vm,
+            _vm: vm,
             x,
             y,
             y_last,
