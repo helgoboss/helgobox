@@ -1,0 +1,585 @@
+{
+  "version": "2.11.1",
+  "name": "Behringer FCB1010 Bank0",
+  "defaultGroup": {},
+  "mappings": [
+    {
+      "id": "ACem2RMt5ETpj4spcUtY0",
+      "name": "Exp A",
+      "source": {
+        "channel": 0,
+        "number": 7,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "dCuO5aEBQPCOBeoY8sQIe",
+      "name": "Exp B",
+      "source": {
+        "channel": 0,
+        "number": 11,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ZxIyg7FuiAKbJIgwFHofM",
+      "name": "1 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 1,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ne0f2D6Iejv6V9cxZFNZ1",
+      "name": "2 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 2,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "EzVXX1bITQrcLlRT4Yaln",
+      "name": "3 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 3,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "_tiA912Jnux4xDwyZNO2L",
+      "name": "4 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 4,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 3,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "uzpI2rSjFGlTkjG0jNnjJ",
+      "name": "5 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 5,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 4,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "Pxr5QbrMBiCWQtqrUUKNp",
+      "name": "6 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 6,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 5,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "t6Q-0Z3t0CPqf6XEG_HWl",
+      "name": "7 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 8,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 6,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "HoE4MAUIgRK7msHFuoJoI",
+      "name": "8 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 9,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 7,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "Guhr_tEUsvJxQqiDJqA99",
+      "name": "9 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 10,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 8,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "wdElnWwlkF7vRc7WheJgU",
+      "name": "10 Bank0",
+      "source": {
+        "channel": 0,
+        "number": 12,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 9,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    }
+  ],
+  "customData": {
+    "companion": {
+      "controls": [
+        {
+          "height": 64,
+          "id": "97e2533f-ae77-42b8-90bf-5e88c23b76b9",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ZxIyg7FuiAKbJIgwFHofM"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 0,
+          "y": 96
+        },
+        {
+          "height": 64,
+          "id": "5ec21e82-6d9b-4758-89e7-1e4a022460d3",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ne0f2D6Iejv6V9cxZFNZ1"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 64,
+          "y": 96
+        },
+        {
+          "height": 64,
+          "id": "19c8a0a4-1cd3-45b8-9608-e26be31d724f",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "EzVXX1bITQrcLlRT4Yaln"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 128,
+          "y": 96
+        },
+        {
+          "height": 64,
+          "id": "a19dc5ed-7781-472c-b5ff-ed144f61a2d0",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "_tiA912Jnux4xDwyZNO2L"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 192,
+          "y": 96
+        },
+        {
+          "height": 64,
+          "id": "6ee31e5d-cdda-421b-9aa9-559aed1951b6",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "uzpI2rSjFGlTkjG0jNnjJ"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 256,
+          "y": 96
+        },
+        {
+          "height": 64,
+          "id": "6bfdebf5-896c-4313-aeff-ea3a9931d80d",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "Pxr5QbrMBiCWQtqrUUKNp"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 32,
+          "y": 0
+        },
+        {
+          "height": 64,
+          "id": "b486d7a6-84ea-48a4-8346-500e9582f197",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "t6Q-0Z3t0CPqf6XEG_HWl"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 96,
+          "y": 0
+        },
+        {
+          "height": 64,
+          "id": "99ca5a80-6e20-4876-984f-7f48e20662e8",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "HoE4MAUIgRK7msHFuoJoI"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 160,
+          "y": 0
+        },
+        {
+          "height": 64,
+          "id": "4e4d2525-0ba7-4a33-be7a-de3ecd68bef2",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "Guhr_tEUsvJxQqiDJqA99"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 224,
+          "y": 0
+        },
+        {
+          "height": 64,
+          "id": "64b3bedd-0796-4495-b384-7762f4d62057",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "wdElnWwlkF7vRc7WheJgU"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 288,
+          "y": 0
+        },
+        {
+          "height": 160,
+          "id": "edaef1ec-9c27-4bc2-9e03-f6b367edfbe9",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ACem2RMt5ETpj4spcUtY0"
+          ],
+          "shape": "rectangle",
+          "width": 48,
+          "x": 352,
+          "y": 0
+        },
+        {
+          "height": 160,
+          "id": "3f33899f-a6f8-4a54-911a-f4692a6891bb",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "dCuO5aEBQPCOBeoY8sQIe"
+          ],
+          "shape": "rectangle",
+          "width": 48,
+          "x": 416,
+          "y": 0
+        }
+      ],
+      "gridDivisionCount": 2,
+      "gridSize": 32
+    }
+  }
+}

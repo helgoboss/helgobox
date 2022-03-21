@@ -34,6 +34,9 @@ pub use fx_parameter_target::*;
 mod fx_enable_target;
 pub use fx_enable_target::*;
 
+mod fx_online_target;
+pub use fx_online_target::*;
+
 mod fx_open_target;
 pub use fx_open_target::*;
 

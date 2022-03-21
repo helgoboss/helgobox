@@ -11,7 +11,7 @@ use crate::domain::{
     ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
     AUTOMATION_TOUCH_STATE_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET,
     ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET,
-    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
+    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
     LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
     NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
@@ -522,13 +522,14 @@ pub enum ReaperTargetType {
     FxNavigate = 28,
     // FX targets
     FxEnable = 12,
+    FxOnline = 42,
     LoadFxSnapshot = 19,
     FxPreset = 13,
     FxOpen = 27,
     FxParameter = 1,
 
     // Send targets
-    TrackSendAutomationMode = 42,
+    TrackSendAutomationMode = 45,
     TrackSendMono = 41,
     TrackSendMute = 18,
     TrackSendPhase = 40,
@@ -619,6 +620,7 @@ impl ReaperTargetType {
             TrackSolo => &TRACK_SOLO_TARGET,
             FxNavigate => &FX_NAVIGATE_TARGET,
             FxEnable => &FX_ENABLE_TARGET,
+            FxOnline => &FX_ONLINE_TARGET,
             LoadFxSnapshot => &LOAD_FX_SNAPSHOT_TARGET,
             FxPreset => &FX_PRESET_TARGET,
             FxOpen => &FX_OPEN_TARGET,

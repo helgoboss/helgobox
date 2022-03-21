@@ -203,7 +203,7 @@ impl RealearnTarget for FxParameterTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.param.formatted_value().into_string())
+        Some(self.param.formatted_value().ok()?.into_string())
     }
 
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {

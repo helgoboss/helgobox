@@ -67,6 +67,7 @@ pub enum UnresolvedReaperTarget {
     Playrate(UnresolvedPlayrateTarget),
     AutomationModeOverride(UnresolvedAutomationModeOverrideTarget),
     FxEnable(UnresolvedFxEnableTarget),
+    FxOnline(UnresolvedFxOnlineTarget),
     FxOpen(UnresolvedFxOpenTarget),
     FxPreset(UnresolvedFxPresetTarget),
     SelectedTrack(UnresolvedSelectedTrackTarget),

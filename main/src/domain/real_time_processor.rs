@@ -37,7 +37,7 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
-    instance_id: InstanceId,
+    _instance_id: InstanceId,
     logger: slog::Logger,
     // Synced processing settings
     control_mode: ControlMode,
@@ -91,7 +91,7 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
-            instance_id,
+            _instance_id: instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,

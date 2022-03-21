@@ -206,6 +206,12 @@ impl Plugin for RealearnPlugin {
                 Other(s) => match s.as_str() {
                     "hasCockosViewAsConfig" => Custom(0xbeef_0000),
                     "hasCockosExtensions" => Custom(0xbeef_0000),
+                    // This is necessary for REAPER 6.48 - 6.51 on macOS to not let the background
+                    // turn black. These REAPER versions introduced a change putting third-party
+                    // VSTs into a container window. The following line prevents that. For
+                    // REAPER v6.52+ it's not necessary anymore because it also reacts to
+                    // "hasCockosViewAsConfig".
+                    "hasCockosNoScrollUI" => Custom(0xbeef_0000),
                     _ => Maybe,
                 },
                 _ => Maybe,

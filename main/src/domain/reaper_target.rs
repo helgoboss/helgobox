@@ -105,6 +105,7 @@ pub enum ReaperTarget {
     Playrate(PlayrateTarget),
     AutomationModeOverride(AutomationModeOverrideTarget),
     FxEnable(FxEnableTarget),
+    FxOnline(FxOnlineTarget),
     FxOpen(FxOpenTarget),
     FxPreset(FxPresetTarget),
     SelectedTrack(SelectedTrackTarget),
@@ -564,6 +565,7 @@ impl<'a> Target<'a> for ReaperTarget {
             Playrate(t) => t.current_value(context),
             AutomationModeOverride(t) => t.current_value(context),
             FxEnable(t) => t.current_value(context),
+            FxOnline(t) => t.current_value(context),
             FxOpen(t) => t.current_value(context),
             // Discrete
             FxPreset(t) => t.current_value(context),
@@ -713,7 +715,7 @@ pub fn format_bool_as_on_off(value: bool) -> &'static str {
 }
 
 pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
-    convert_unit_to_discrete_value_with_none(value, fx.preset_index_and_count().ok()?.count)
+    convert_unit_to_discrete_value_with_none(value, fx.preset_index_and_count().count)
 }
 
 pub fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Option<u32> {
@@ -765,12 +767,7 @@ pub fn shown_fx_unit_value(fx_chain: &FxChain, index: Option<u32>) -> UnitValue 
 }
 
 pub fn fx_preset_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
-    convert_discrete_to_unit_value_with_none(
-        index,
-        fx.preset_index_and_count()
-            .map(|res| res.count)
-            .unwrap_or(0),
-    )
+    convert_discrete_to_unit_value_with_none(index, fx.preset_index_and_count().count)
 }
 
 fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
@@ -1054,6 +1051,10 @@ pub fn playrate_unit_value(playrate: PlayRate) -> UnitValue {
 
 pub fn fx_enable_unit_value(is_enabled: bool) -> UnitValue {
     convert_bool_to_unit_value(is_enabled)
+}
+
+pub fn fx_online_unit_value(is_online: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_online)
 }
 
 pub fn all_track_fx_enable_unit_value(is_enabled: bool) -> UnitValue {

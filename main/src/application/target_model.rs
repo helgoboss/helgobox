@@ -26,9 +26,9 @@ use crate::domain::{
     UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
     UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
-    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxPresetTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
@@ -1730,6 +1730,9 @@ impl TargetModel {
                         },
                     ),
                     FxEnable => UnresolvedReaperTarget::FxEnable(UnresolvedFxEnableTarget {
+                        fx_descriptor: self.fx_descriptor()?,
+                    }),
+                    FxOnline => UnresolvedReaperTarget::FxOnline(UnresolvedFxOnlineTarget {
                         fx_descriptor: self.fx_descriptor()?,
                     }),
                     FxOpen => UnresolvedReaperTarget::FxOpen(UnresolvedFxOpenTarget {

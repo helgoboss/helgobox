@@ -426,6 +426,10 @@ fn convert_real_target(
             commons,
             fx: convert_fx_descriptor(data, style),
         }),
+        FxOnline => T::FxOnlineOfflineState(FxOnlineOfflineStateTarget {
+            commons,
+            fx: convert_fx_descriptor(data, style),
+        }),
         LoadFxSnapshot => T::LoadFxSnapshot(LoadFxSnapshotTarget {
             commons,
             snapshot: {

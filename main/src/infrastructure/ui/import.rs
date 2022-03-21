@@ -16,6 +16,7 @@ use crate::infrastructure::data::{
     TargetModelData,
 };
 use crate::infrastructure::ui::lua_serializer;
+use mlua::{Lua, LuaSerdeExt, Value};
 use realearn_api::schema;
 use realearn_api::schema::{ApiObject, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
@@ -215,9 +216,9 @@ pub fn serialize_data_object_to_lua(
 }
 
 pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
-    use mlua::{Lua, LuaSerdeExt, Value};
     let lua = Lua::new();
     let instant = Instant::now();
+    // Try to prevent code from taking too long to execute.
     lua.set_hook(
         HookTriggers::every_nth_instruction(10),
         move |_lua, _debug| {
@@ -230,21 +231,8 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
             }
         },
     )?;
-    let env = {
-        let new_env = lua.create_table()?;
-        let original_env = lua.globals();
-        new_env
-            .set("table", {
-                let new_table = lua.create_table()?;
-                let original_table: Table = original_env.get("table")?;
-                new_table
-                    .set::<_, Value>("insert", original_table.get("insert")?)
-                    .unwrap();
-                new_table
-            })
-            .unwrap();
-        new_env
-    };
+    // Make sure we execute in a sort of sandbox.
+    let env = build_safe_lua_env(&lua)?;
     let lua_chunk = lua
         .load(text)
         .set_name("Import")?
@@ -267,3 +255,111 @@ enum RealearnScriptError {
 }
 
 impl Error for RealearnScriptError {}
+
+/// Creates a Lua environment in which we can't execute potentially malicious code
+/// (by only including safe functions according to http://lua-users.org/wiki/SandBoxes).
+fn build_safe_lua_env(lua: &Lua) -> Result<Table, Box<dyn Error>> {
+    let original_env = lua.globals();
+    let safe_env = lua.create_table()?;
+    for var in SAFE_LUA_VARS {
+        copy_var_to_table(lua, &safe_env, &original_env, var)?;
+    }
+    Ok(safe_env)
+}
+
+fn copy_var_to_table(
+    lua: &Lua,
+    dest_table: &Table,
+    src_table: &Table,
+    var: &str,
+) -> Result<(), Box<dyn Error>> {
+    if let Some(dot_index) = var.find('.') {
+        // Nested variable
+        let parent_var = &var[0..dot_index];
+        let nested_dest_table = if let Ok(t) = dest_table.get::<_, Table>(parent_var) {
+            t
+        } else {
+            let new_table = lua.create_table()?;
+            dest_table.set(parent_var, new_table.clone())?;
+            new_table
+        };
+        let nested_src_table: Table = src_table.get(parent_var)?;
+        let child_var = &var[dot_index + 1..];
+        copy_var_to_table(lua, &nested_dest_table, &nested_src_table, child_var)?;
+        Ok(())
+    } else {
+        // Leaf variable
+        let original_value: Value = src_table.get(var)?;
+        dest_table.set(var, original_value)?;
+        Ok(())
+    }
+}
+
+/// Safe Lua vars according to http://lua-users.org/wiki/SandBoxes.
+///
+/// Even a bit more restrictive because we don't include `io` and `coroutine`.
+const SAFE_LUA_VARS: &[&str] = &[
+    "assert",
+    "error",
+    "ipairs",
+    "next",
+    "pairs",
+    "pcall",
+    "print",
+    "select",
+    "tonumber",
+    "tostring",
+    "type",
+    "unpack",
+    "_VERSION",
+    "xpcall",
+    "string.byte",
+    "string.char",
+    "string.find",
+    "string.format",
+    "string.gmatch",
+    "string.gsub",
+    "string.len",
+    "string.lower",
+    "string.match",
+    "string.rep",
+    "string.reverse",
+    "string.sub",
+    "string.upper",
+    "table.insert",
+    "table.maxn",
+    "table.remove",
+    "table.sort",
+    "math.abs",
+    "math.acos",
+    "math.asin",
+    "math.atan",
+    "math.atan2",
+    "math.ceil",
+    "math.cos",
+    "math.cosh",
+    "math.deg",
+    "math.exp",
+    "math.floor",
+    "math.fmod",
+    "math.frexp",
+    "math.huge",
+    "math.ldexp",
+    "math.log",
+    "math.log10",
+    "math.max",
+    "math.min",
+    "math.modf",
+    "math.pi",
+    "math.pow",
+    "math.rad",
+    "math.random",
+    "math.sin",
+    "math.sinh",
+    "math.sqrt",
+    "math.tan",
+    "math.tanh",
+    "os.clock",
+    "os.difftime",
+    "os.time",
+];

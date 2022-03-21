@@ -1,0 +1,6497 @@
+{
+  "version": "2.10.4",
+  "name": "NanoKontrol2Map",
+  "defaultGroup": {},
+  "groups": [
+    {
+      "id": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "name": "Bank2",
+      "activationType": "program",
+      "programCondition": {
+        "paramIndex": 0,
+        "programIndex": 1
+      }
+    },
+    {
+      "id": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "name": "Bank1",
+      "activationType": "program"
+    },
+    {
+      "id": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "name": "Control Set Pressed",
+      "feedbackIsEnabled": false,
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "name": "Bank3",
+      "activationType": "program",
+      "programCondition": {
+        "paramIndex": 0,
+        "programIndex": 2
+      }
+    },
+    {
+      "id": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "name": "Bank4",
+      "activationType": "program",
+      "programCondition": {
+        "paramIndex": 0,
+        "programIndex": 3
+      }
+    },
+    {
+      "id": "b6326824-c268-4e3a-afdc-68442f0b2840",
+      "name": "Control Set & Cycle pressed",
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": true
+      }
+    }
+  ],
+  "mappings": [
+    {
+      "id": "86734e11-8165-422a-bf21-a7ddedcab047",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 16
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5072aed3-afab-43f0-926f-65ee6d8ec626",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 17
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 1,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "92eaaaeb-aa12-415a-8117-e80eaead94e2",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 2,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "91d8945e-a4c2-42df-8784-f64652aa6c08",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 3,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b7dfb906-0ae6-4181-9cc2-88b80d3a2478",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 20
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 4,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "4fa63823-b942-4c86-9d31-1cbb2a3f5bdf",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 21
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 5,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b0d7ca88-10b0-45ef-b3e0-e4db8823188e",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 22
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 6,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "0c8d0840-1b16-4c2f-89c3-bdce9657cfd0",
+      "name": "Solo",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 23
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 7,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f1d64cea-6a90-4a89-90f5-a912ed2d7502",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b2cd418b-c8d1-4c48-a74b-fd5ad6694af0",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 1,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f1360679-b729-4ec5-b75a-eb2163b3b990",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 2,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "cac700d3-a4fa-45e5-8ab7-6c3ae8aa316a",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 3,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "caa2840a-6197-483d-8d98-ee6867b5109b",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 4,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "c33b1477-03e0-420c-92b0-a77cecc01c16",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 5,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "efb41dab-8b44-4995-80e4-4edd4c623c95",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 6,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "896d1fed-cbc1-451c-a528-177c6523a39c",
+      "name": "Mute",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 7,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "66305916-b50b-4111-ac45-f1843c00ba56",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button"
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1c1bf206-fc19-43f3-a78d-33d7ef1a64f6",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 65,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 1,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "eb24e907-721c-4de5-8aa8-0db0645808fd",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 66,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 2,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "49c79afe-8c3a-4c1f-8733-c33c13002d4e",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 3,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f1259c15-c7e6-4c6b-83c8-9279d4915e0a",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 4,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "06b1a76f-f6ee-4cf7-8d3f-10766da4f867",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 5,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "29096850-aeeb-45f5-a98b-fd61cdbf4274",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 6,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "980b7c4a-1599-4e7e-8ab1-61bb42a75f23",
+      "name": "Arm",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 7,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "48c307a5-d015-4d74-9335-a2b7ee795d59",
+      "name": "[ - >",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 33
+      },
+      "mode": {
+        "type": 1,
+        "maxTargetValue": 0.03,
+        "maxStepSize": 0.05,
+        "reverseIsEnabled": true
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2ec487e2-cc86-4eb8-9fd8-11dd82ebdfd5",
+      "name": "< - ]",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 34
+      },
+      "mode": {
+        "type": 1,
+        "maxTargetValue": 0.03,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ebf56483-cec7-43b1-9da3-6781ca6a45ce",
+      "name": "Alt",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 30
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "paramIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "e8ab36c1-069c-46d8-84e5-bcf718d27479",
+      "name": "Ctrl",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 29
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "paramIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "83c05add-bd1b-426a-9499-57474a1d44ed",
+      "name": "Cycle",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 29
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 16,
+        "commandName": "40605",
+        "invocationType": 0,
+        "fxAnchor": "this",
+        "paramIndex": 2,
+        "transportAction": "repeat",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "702a2b39-c2f5-408a-bbd2-fd157177119a",
+      "name": "Play",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 27
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 16,
+        "fxAnchor": "id",
+        "transportAction": "playPause",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7f345a6a-ddcd-4091-a43d-790a1616a086",
+      "name": "Rec",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 28
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 16,
+        "fxAnchor": "id",
+        "transportAction": "record",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ce8d1c68-21c9-429d-b545-fb4742116584",
+      "name": "1",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "951e6471-5652-4839-824f-c99ccaf4291f",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1219eb72-8116-4954-bee9-f20c2e1c62b4",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 1,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "e5534c59-42e9-48c8-9d71-b423042ce0cb",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "type": 4,
+        "trackIndex": 2,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7ae0a541-2a63-4dbc-b2d3-725f70fcfa03",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 3,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ecb378c9-d6c4-44dc-91a1-05458685c6ef",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 4,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8a1d8575-8553-4ebf-8b0c-4f597fb6544b",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 5,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "89bd12d3-abd4-4ab6-9169-a466b24ebef6",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 6,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a5ce2e4a-0d26-4933-bf49-ac5ba63473af",
+      "name": "Pan",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 7,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7a94864d-e91a-4fc9-a51e-e60a1d42dca6",
+      "name": "2",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 1,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "391b0a9f-575a-4ae2-a167-e086059e3284",
+      "name": "3",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 2,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f2e39b71-97fc-48b4-a480-1da44ef80b1a",
+      "name": "4",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 3,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7f773dbd-7746-41f6-8130-1051b6654e22",
+      "name": "5",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 4,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "044bdb0d-d1c9-46fa-8d10-9721eec60422",
+      "name": "6",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 5,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "c5cde370-b3ae-4438-9e21-57bf1f2ff586",
+      "name": "7",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 6,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9cd45263-edf0-4be0-8a2c-1f71b4cf0248",
+      "name": "8",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 7,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "80159abb-5ef0-4ed6-a851-29d5c6f93b27",
+      "name": "1-8",
+      "groupId": "10ca62c6-adb3-4ce3-a50c-2bd9d3c1f6b8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxTargetValue": 0.0,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 1,
+        "isOn": true
+      },
+      "modifierCondition2": {
+        "paramIndex": 2,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b4098065-9679-4833-9ea0-bfce83e849dd",
+      "name": "<<",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 24
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "min"
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40042",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false,
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "beac12f3-a856-4a81-841e-4ec91235c9bb",
+      "name": ">>",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 25
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "min"
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40043",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false,
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2bc43419-e8a7-45d8-b4fe-d188222952d7",
+      "name": "Stop",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 26
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 16,
+        "fxAnchor": "id",
+        "transportAction": "stop",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false,
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b5404d85-5737-4e7f-abad-4373b944c0a7",
+      "name": "Go1",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxTargetValue": 0.0,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "59afc3a6-3a19-4d55-88be-30770d667a11",
+      "name": "Go2",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.01,
+        "maxTargetValue": 0.01,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "a25e9033-d149-42d0-8617-132d8908d346",
+      "name": "Go3",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.02,
+        "maxTargetValue": 0.02,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "7fb36082-88c0-4759-9bf5-6a264983aab3",
+      "name": "Go4",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.03,
+        "maxTargetValue": 0.03,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    },
+    {
+      "id": "563b0657-4260-4749-bd05-f55e0fe28cbe",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 16
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 8,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "002dba1a-7ad5-4462-9583-bed63913c617",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 17
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 9,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "55c81031-2b85-445d-8872-0b00697289df",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 10,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "01b7f62e-8a65-411c-ab66-6cbb9613a7c4",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 11,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a56c2add-6633-4efa-b8bf-5bec30fd7ae8",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 20
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 12,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a4fabfa2-a726-4f8e-9999-ae9e567f1ef9",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 21
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 13,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "69d93d18-55fe-4580-a10a-a20b6911cd73",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 22
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 14,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8f3ba9a0-0b0a-4f6a-a50e-22383fc0ef3d",
+      "name": "Solo",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 23
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 15,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9c32e490-8699-4cbf-8f8b-06ea30a0af93",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 8,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "addf998e-b0c9-483a-a233-2ec788aea3d0",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 9,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "c4833956-dae4-4b9d-9d51-b08049fe5a25",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 10,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "64f3d58a-d89a-47ab-b3be-d9021fd54fc1",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 11,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7e48a249-2901-4140-ab3a-062b3dab0369",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 12,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "91c40411-07fd-4739-a33a-8b2b7a4b8ad6",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 13,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "05759255-f95a-4ccf-af01-f7c95fc70ec0",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 14,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7405c09e-f14b-421b-bb01-d1351e4a3438",
+      "name": "Mute",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 15,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "bac8097f-b81b-4ad1-a46b-923cffc9d513",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button"
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 8,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "6ce290c9-0d55-4963-93a4-f2e5902250a1",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 65,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 9,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7fd71d2d-cf2f-4d8b-8da7-bcfa643f0b9c",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 66,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 10,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a59b0696-9a95-43ed-89ea-6d5d5fd79cc3",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 11,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "383c8659-ff42-4f57-b16f-0343b6eead59",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 12,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "dbacc85f-25e9-4d62-8e1f-04908b73770c",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 13,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f066aa19-1fce-4447-b031-bb517481fd97",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 14,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f6aaff3b-1ac6-4906-8275-60db34597184",
+      "name": "Arm",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 15,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "30811957-b28b-4ab7-8f06-b1c20b879d6f",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 8,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5367e59f-3aed-4631-a4bb-be76a7fdf6ad",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 9,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f79fc785-17f2-4b6e-8711-1051d3645145",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "type": 4,
+        "trackIndex": 10,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "6b1dd7aa-2c2d-4543-9390-5cedc7386fc9",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 11,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "6ad4ab8f-0b6f-4cdd-befb-9ee49d35028a",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 12,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "be813f7f-7a2e-49e7-a9ab-7b2237ae8765",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 13,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2dcd4dd1-06b6-4214-8489-ee7484041e57",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 14,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "cc9b0b01-4768-4c91-9f69-e0dbad496af4",
+      "name": "Pan",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 15,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "82b6fefc-c65b-4abc-b082-eb83ce371fb3",
+      "name": "9",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 8,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "bc7a35bd-728b-4152-9594-6290e21d0dcc",
+      "name": "10",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 9,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "56cb46be-8989-4d18-be85-1a813491b28b",
+      "name": "11",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 10,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5d3a9ceb-a85d-430a-bf20-36650125d4ed",
+      "name": "12",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 11,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "855a24e6-5c3f-4e10-bc74-81375eab43db",
+      "name": "13",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 12,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "e7e91202-059f-4c0c-9359-84cea1d8def5",
+      "name": "14",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 13,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "622d2b91-6ac5-4a8a-b4e7-a34f06da0170",
+      "name": "15",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 14,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5e199122-3bbb-412c-97a2-254574f6fadd",
+      "name": "16",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 15,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "28fb23b8-b33a-4deb-ad0c-56bcc7ff49fa",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button"
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 16,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "0efbfc21-f297-4b9c-be37-53d0b27df24c",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 16
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 16,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1f4f730f-db9c-4557-8a3f-10732765764a",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 17
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 17,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ced619b0-2474-40ae-b375-6465a27fc3c0",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 18,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "6314cde7-ca45-43aa-b1d3-52cc236085fa",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 19,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9bafb97c-42f9-49ef-8b44-f05b8bb6c831",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 20
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 20,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ab063baf-e8a7-4504-974b-270de37361fe",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 21
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 21,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5e80068b-bf6f-4869-9a59-ef29a91e144b",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 22
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 22,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8849b52f-2789-40c7-8cc4-251a2d313537",
+      "name": "Solo",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 23
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9ca919d9-b3c1-40f9-b652-c5832a44cd1d",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 16,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "51ed9589-ac89-4fd5-8a1e-c2312ca48734",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 17,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ec3392ff-40f0-406a-b8a9-2c6982b3f3c7",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 18,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "3dd1495f-9cd2-49d0-b6f3-02ccb732787a",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 19,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f08ed378-1301-4d67-b266-00f389b2fc53",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 20,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "292dbaaa-2baa-4b39-b5c4-e686f95e2e16",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 21,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "19c98e30-d0a0-47cc-a9c0-d2db050be03e",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 22,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1cab1143-54f9-4f65-bd31-a885d5f7b37b",
+      "name": "Mute",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "249885cf-041f-4cf5-9069-b1ba8cd0cb6a",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 65,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 17,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "eca0063f-e498-47d5-be9f-24c5b51fdd3a",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 66,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 18,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b36ac79f-32d3-48f8-b0f3-b5ab34779332",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 19,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "5c207e8f-1dbf-4647-8321-944147ce584b",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 20,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ecdb85de-1e5b-4253-88de-d6a6b06986cc",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 21,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "bb2162ce-5595-4696-a5bc-84eafb9e8b16",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 22,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "cb591858-790a-4c41-8e1a-9e2966eb19b6",
+      "name": "Arm",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "172b5689-31cc-4dbc-afe2-fcde54a424ff",
+      "name": "17",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 16,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "11735246-089e-4634-a09a-5cb040ce5a35",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 16,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "dcc42e44-3e88-4f3b-b5d7-cf552fea73d8",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 17,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1834e26f-f6ae-41d8-bb4b-ca101c97106e",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "type": 4,
+        "trackIndex": 18,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9fc4f284-a019-4b1d-a368-185897aa902b",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 19,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2eb511b0-5921-4178-ba20-497beedd84b4",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 20,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9d3c2aa7-2834-47b4-9c34-05e58a4f1d1e",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 21,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2ac1b52f-b3fe-46cf-a211-ff9c6fdea2db",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 22,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f79d5eed-0175-4796-a988-54e843ea01b5",
+      "name": "Pan",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "263db7aa-01fc-4da7-96aa-6b9c602d8899",
+      "name": "18",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 17,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7bab537b-48ef-4034-8c2f-5d69380a5b0f",
+      "name": "19",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 18,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b04ccf7e-2aac-48b7-83aa-67e8df6a57d4",
+      "name": "20",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "unit": "percent",
+        "type": 2,
+        "trackIndex": 19,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "be50663b-db9a-403e-ba8a-5e2577b5a16e",
+      "name": "21",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 20,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b312ce05-a0e1-4b44-9824-f0f87e66baa7",
+      "name": "22",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 21,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "62e59164-740a-47e1-8606-611c624a6c8b",
+      "name": "23",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 22,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7e413ede-c9cb-44c9-af66-b17a74fa2a01",
+      "name": "24",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a6ef167b-14aa-4ebd-a5d0-6897f778e197",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button"
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1791102c-2706-4357-b22f-a9d625d7a889",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 16
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "3f4a3df7-fdf2-4364-b7d6-57f114a72a11",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 17
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 25,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "1e3ed3db-3479-4364-9235-bb819389c8e6",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 26,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "7c306ff3-b9ac-404e-9c12-8afb7bd836af",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 27,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8b95e38f-944a-45a9-8f4b-bb546d20e0ee",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 20
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 28,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8cd975f1-60d6-417a-8b8f-d453e48c8d4f",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 21
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 29,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "8f1a865c-9cb0-43c1-9778-1cbfdeacae17",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 22
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 30,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "e5895812-7f43-4960-85da-ec696f0e9d91",
+      "name": "Solo",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 23
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 8,
+        "trackIndex": 31,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "00ec2d7e-f752-4ec4-afef-c3ebbd53cdc4",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "451c0b15-4936-4ce5-bbb9-24716f614a58",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 25,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "19ce65d1-1f2a-45ff-bec7-736239991cec",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 26,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "df622207-609e-4f46-9035-1779c1256e73",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 27,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "fa265460-2a4d-48c8-9e6e-8293da979c48",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 28,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "fb09cf4f-2cf2-4b36-a336-d1f0dabd4bb6",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 29,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f9ad9887-2ea0-41a8-9325-e01b4f34dedd",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 30,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "80e6e623-82ff-4b14-83f7-d7b032b3d0de",
+      "name": "Mute",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 64,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 7,
+        "trackIndex": 31,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "10459234-91f8-4661-babe-9b3051d913e8",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 65,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 25,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "c6a75457-eddd-4ed2-990e-ef1904543282",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 66,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 26,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b3442621-bc53-4b22-acd2-303e39b91b39",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 27,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "36bdb079-9962-46fe-b95f-3c90873e7219",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 28,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "4ac85528-6fc4-4dc2-8da4-10f6e23ac037",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 29,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "909fb530-2e39-41f9-a3e4-8e860382ffb8",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 30,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "772191cc-f0c5-4308-ab53-d7c26d07c252",
+      "name": "Arm",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "channel": 0,
+        "number": 67,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "type": 2,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 5,
+        "trackIndex": 31,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "117c96e4-b56c-4b91-ad57-403cc1605d9a",
+      "name": "25",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "e2839ad5-b2c7-45ab-99de-758986f51151",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "3550e584-5c67-48dc-81f2-9b9a43a9b441",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 25,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "4da9181d-25a8-4769-8157-30b6c90dd8ce",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "type": 4,
+        "trackIndex": 26,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a1a82dc6-bf9b-4ea4-946a-bbdcca8971dc",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 27,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "64301976-1597-43a2-b288-205f64d49c90",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 12
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 28,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "2f14e2c2-f535-490d-b89b-a00e0eafcc14",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 13
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 29,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "30a6006e-c600-424f-b443-7d2dab0c36c3",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 14
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 30,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "a97e50f0-30f8-46d2-9bc5-290324343991",
+      "name": "Pan",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 15
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "outOfRangeBehavior": "ignore",
+        "targetValueSequence": "0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1"
+      },
+      "target": {
+        "unit": "percent",
+        "type": 4,
+        "trackIndex": 31,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "f840f0d4-89f0-4625-bac1-60e3a08bd13a",
+      "name": "26",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 1
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 25,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ebe34f81-daef-4e9c-a341-6d7e0edc29b5",
+      "name": "27",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 2
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 26,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "94e58e17-db32-40a7-a9a4-a199f0163e25",
+      "name": "28",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 3
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 27,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "b1a2df33-66a7-48f7-beff-755bf611cdbe",
+      "name": "29",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 4
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 28,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "9f2c99ed-3da7-4b3f-a120-bf03cd98b2ab",
+      "name": "30",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 5
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 29,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "56f1a2ed-09ae-4aa9-b7c3-72626d8fdcf5",
+      "name": "31",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 6
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 30,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "119b342d-ce36-4613-bdaa-fa0f9649c120",
+      "name": "32",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementIndex": 7
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 2,
+        "trackIndex": 31,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": false
+      }
+    },
+    {
+      "id": "aa3b1767-5b67-4ebf-aec7-d420a2e3b53a",
+      "name": "Go@Bank1",
+      "groupId": "b6326824-c268-4e3a-afdc-68442f0b2840",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "mode": {
+        "type": 2,
+        "maxTargetValue": 0.0,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "188c7a17-533d-40bf-8838-658192894bae",
+      "name": "9-16",
+      "groupId": "80facb0d-1976-4ebd-930e-e9f652c2033a",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.01,
+        "maxTargetValue": 0.01,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 1,
+        "isOn": true
+      },
+      "modifierCondition2": {
+        "paramIndex": 2,
+        "isOn": false
+      }
+    },
+    {
+      "id": "ed3fe394-7fb5-46c4-9a90-bbd4a4646b80",
+      "name": "17-24",
+      "groupId": "ddd4887b-5f8a-4f66-96ed-f3eb2ac631b7",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.02,
+        "maxTargetValue": 0.02,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 1,
+        "isOn": true
+      },
+      "modifierCondition2": {
+        "paramIndex": 2,
+        "isOn": false
+      }
+    },
+    {
+      "id": "83d7cd4f-6355-4ce0-8ed1-11515f704c6a",
+      "name": "25-32",
+      "groupId": "6d129506-b789-4144-8dc7-356b86b5e38f",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.03,
+        "maxTargetValue": 0.03,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 1,
+        "isOn": true
+      },
+      "modifierCondition2": {
+        "paramIndex": 2,
+        "isOn": false
+      }
+    },
+    {
+      "id": "76d19d89-e376-4864-87fc-5d6ed6ce0fb1",
+      "name": "Go@Bank2",
+      "groupId": "b6326824-c268-4e3a-afdc-68442f0b2840",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "mode": {
+        "type": 2,
+        "minTargetValue": 0.01,
+        "maxTargetValue": 0.01,
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "fxAnchor": "this",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "aed205fd-c851-4f87-bf5a-6992d420c30a",
+      "name": "MXR",
+      "groupId": "dcec2e5c-5bb5-42ab-b86f-2e5aa58e0fe8",
+      "source": {
+        "category": "virtual",
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": 26
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40078",
+        "invocationType": 0,
+        "trackIndex": 24,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 2,
+        "isOn": false
+      },
+      "modifierCondition2": {
+        "paramIndex": 1,
+        "isOn": true
+      }
+    }
+  ]
+}
