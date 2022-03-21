@@ -412,8 +412,7 @@ impl<'a> ControlContext<'a> {
         }
         let _ = self
             .feedback_audio_hook_task_sender
-            .send(FeedbackAudioHookTask::SendMidi(dev_id, events))
-            .unwrap();
+            .send_complaining(FeedbackAudioHookTask::SendMidi(dev_id, events));
     }
 }
 

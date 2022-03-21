@@ -18,8 +18,10 @@ use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, SendMidiTime};
 use slog::{debug, trace};
 
+use crate::base::channel_util::{try_send_on_named_channel, NamedChannelTrySendError};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
+use crossbeam_channel::Receiver;
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::main::{ClipRecordDestination, VirtualClipRecordAudioInput};
 use playtime_clip_engine::rt::supplier::WriteAudioRequest;
@@ -52,7 +54,7 @@ pub struct RealTimeProcessor {
     // Inter-thread communication
     normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-    feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    feedback_task_sender: RealTimeSender<FeedbackRealTimeTask>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
     control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     garbage_bin: GarbageBin,
@@ -84,7 +86,7 @@ impl RealTimeProcessor {
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-        feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        feedback_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
         garbage_bin: GarbageBin,
@@ -1080,7 +1082,7 @@ impl RealTimeProcessor {
                 MidiDestination::FxOutput => {
                     // We can't send it now because we don't have safe access to the host callback
                     // because this method is being called from the audio hook.
-                    let _ = self.feedback_task_sender.try_send(
+                    self.feedback_task_sender.send_if_space(
                         FeedbackRealTimeTask::SendLifecycleMidi(m.compartment(), m.id(), phase),
                     );
                 }
@@ -1223,31 +1225,44 @@ enum Caller<'a> {
 
 #[derive(Debug)]
 pub struct RealTimeSender<T> {
+    channel_name: &'static str,
     sender: crossbeam_channel::Sender<T>,
 }
 
 impl<T> Clone for RealTimeSender<T> {
     fn clone(&self) -> Self {
         Self {
+            channel_name: self.channel_name,
             sender: self.sender.clone(),
         }
     }
 }
 
 impl<T> RealTimeSender<T> {
-    pub fn new(sender: crossbeam_channel::Sender<T>) -> Self {
-        assert!(
-            sender.capacity().is_some(),
-            "real-time sender channel must be bounded!"
-        );
-        Self { sender }
+    pub fn new_channel(name: &'static str, capacity: usize) -> (Self, Receiver<T>) {
+        let (sender, receiver) = crossbeam_channel::bounded(capacity);
+        (
+            Self {
+                channel_name: name,
+                sender,
+            },
+            receiver,
+        )
     }
 
-    pub fn send(&self, task: T) -> Result<(), crossbeam_channel::TrySendError<T>> {
+    pub fn send_if_space(&self, task: T) {
+        let _ = self.send(task);
+    }
+
+    pub fn send_complaining(&self, task: T) {
+        self.send(task).unwrap();
+    }
+
+    fn send(&self, task: T) -> Result<(), NamedChannelTrySendError<T>> {
         if Reaper::get().audio_is_running() {
             // Audio is running so sending should always work. If not, it's an unexpected error and
             // we must return it.
-            self.sender.try_send(task)
+            try_send_on_named_channel(&self.sender, self.channel_name, task)
         } else {
             // Audio is not running. Maybe this is just a very temporary outage or a short initial
             // non-running state.

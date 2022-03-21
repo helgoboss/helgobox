@@ -667,10 +667,9 @@ impl Session {
         //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource {
+            .send_complaining(NormalRealTimeTask::StartLearnSource {
                 allow_virtual_sources,
-            })
-            .unwrap();
+            });
         self.normal_main_task_sender
             .try_send(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
@@ -683,9 +682,7 @@ impl Session {
             .clone()
             .finalize(move || {
                 if reenable_control_after_touched {
-                    rt_sender
-                        .send(NormalRealTimeTask::ReturnToControlMode)
-                        .unwrap();
+                    rt_sender.send_complaining(NormalRealTimeTask::ReturnToControlMode);
                     main_sender
                         .try_send(NormalMainTask::ReturnToControlMode)
                         .unwrap();
@@ -1635,8 +1632,7 @@ impl Session {
 
     fn disable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::DisableControl)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::DisableControl);
         self.normal_main_task_sender
             .try_send(NormalMainTask::DisableControl)
             .unwrap();
@@ -1644,10 +1640,9 @@ impl Session {
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::ReturnToControlMode)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::ReturnToControlMode);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::ReturnToControlMode)
+            .send(NormalMainTask::ReturnToControlMode)
             .unwrap();
     }
 
@@ -2027,8 +2022,7 @@ impl Session {
             .try_send(NormalMainTask::LogDebugInfo)
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogDebugInfo)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::LogDebugInfo);
     }
 
     pub fn log_mapping(
@@ -2049,8 +2043,7 @@ impl Session {
             .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogMapping(compartment, mapping_id))
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         Ok(())
     }
 
@@ -2230,7 +2223,7 @@ impl Session {
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
         };
-        self.normal_real_time_task_sender.send(task).unwrap();
+        self.normal_real_time_task_sender.send_complaining(task);
     }
 
     fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {
@@ -2290,8 +2283,7 @@ impl Session {
     fn sync_control_is_globally_enabled(&self) {
         let enabled = self.control_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled));
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
@@ -2301,8 +2293,7 @@ impl Session {
     fn sync_feedback_is_globally_enabled(&self) {
         let enabled = self.feedback_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled));
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
             .unwrap();

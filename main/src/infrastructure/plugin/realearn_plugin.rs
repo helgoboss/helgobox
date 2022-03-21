@@ -106,9 +106,15 @@ impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_REAL_TIME_TASK_QUEUE_SIZE);
+                RealTimeSender::new_channel(
+                    "Normal real-time tasks",
+                    NORMAL_REAL_TIME_TASK_QUEUE_SIZE,
+                );
             let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
-                crossbeam_channel::bounded(FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE);
+                RealTimeSender::new_channel(
+                    "Feedback real-time tasks",
+                    FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE,
+                );
             let (normal_main_task_sender, normal_main_task_receiver) =
                 crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
             let (normal_rt_to_main_task_sender, normal_rt_to_main_task_receiver) =
@@ -142,8 +148,8 @@ impl Plugin for RealearnPlugin {
                 main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
                 _reaper_guard: None,
                 plugin_parameters,
-                normal_real_time_task_sender: RealTimeSender::new(normal_real_time_task_sender),
-                feedback_real_time_task_sender: RealTimeSender::new(feedback_real_time_task_sender),
+                normal_real_time_task_sender,
+                feedback_real_time_task_sender,
                 normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
                 real_time_processor: Arc::new(Mutex::new(real_time_processor)),
                 parameter_main_task_receiver,
@@ -283,9 +289,8 @@ impl Plugin for RealearnPlugin {
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
             // If task queue is full or audio not running, so what. Don't spam the user with error
             // messages.
-            let _ = self
-                .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+            self.normal_real_time_task_sender
+                .send_if_space(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
     }
 

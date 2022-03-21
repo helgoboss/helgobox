@@ -1098,9 +1098,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // In some cases like closing projects, it's possible that this will
                 // fail because the real-time processor is
                 // already gone. But it doesn't matter.
-                let _ = self.basics.channels.normal_real_time_task_sender.send(
-                    NormalRealTimeTask::UpdateTargetsPartially(compartment, target_updates),
-                );
+                self.basics
+                    .channels
+                    .normal_real_time_task_sender
+                    .send_if_space(NormalRealTimeTask::UpdateTargetsPartially(
+                        compartment,
+                        target_updates,
+                    ));
             }
             // Important to send IO event first ...
             self.notify_feedback_dev_usage_might_have_changed(compartment);
@@ -1211,11 +1215,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .channels
             .normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateAllMappings(
+            .send_complaining(NormalRealTimeTask::UpdateAllMappings(
                 compartment,
                 real_time_mappings,
-            ))
-            .unwrap();
+            ));
         // Important to send IO event first ...
         self.notify_feedback_dev_usage_might_have_changed(compartment);
         // ... and then mapping update. Otherwise, if this is an upper-floor instance
@@ -1661,21 +1664,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics
                 .channels
                 .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateMappingsPartially(
+                .send_complaining(NormalRealTimeTask::UpdateMappingsPartially(
                     compartment,
                     mapping_updates,
-                ))
-                .unwrap();
+                ));
         }
         if !target_updates.is_empty() {
             self.basics
                 .channels
                 .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateTargetsPartially(
+                .send_complaining(NormalRealTimeTask::UpdateTargetsPartially(
                     compartment,
                     target_updates,
-                ))
-                .unwrap();
+                ));
         }
         // Update on mappings
         self.update_on_mappings();
@@ -2026,11 +2027,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .channels
             .normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleMapping(
+            .send_complaining(NormalRealTimeTask::UpdateSingleMapping(
                 compartment,
                 Box::new(Some(mapping.splinter_real_time_mapping())),
-            ))
-            .unwrap();
+            ));
         // Update and feedback
         let id = QualifiedMappingId::new(compartment, mapping.id());
         // Important to do this before calculating diff feedback (because we might have
@@ -2061,8 +2061,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .channels
             .normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdatePersistentMappingProcessingState { id, state })
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::UpdatePersistentMappingProcessingState {
+                id,
+                state,
+            });
         // Update
         let (was_on_before, is_on_now) =
             if let Some(m) = self.get_normal_or_virtual_target_mapping_mut(id) {
@@ -2830,8 +2832,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             }
                             self.channels
                                 .feedback_real_time_task_sender
-                                .send(FeedbackRealTimeTask::FxOutputFeedback(v))
-                                .unwrap();
+                                .send_complaining(FeedbackRealTimeTask::FxOutputFeedback(v));
                         }
                         MidiDestination::Device(dev_id) => {
                             // We send to the audio hook in this case (the default case) because there's
@@ -2852,8 +2853,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             }
                             self.channels
                                 .feedback_audio_hook_task_sender
-                                .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
-                                .unwrap();
+                                .send_complaining(FeedbackAudioHookTask::MidiDeviceFeedback(
+                                    dev_id, v,
+                                ));
                         }
                     }
                 }

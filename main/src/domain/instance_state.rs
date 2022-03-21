@@ -115,8 +115,7 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
                     destination: task.destination,
                 };
                 self.audio_hook_task_sender
-                    .send(NormalAudioHookTask::StartClipRecording(hw_task))
-                    .unwrap()
+                    .send_complaining(NormalAudioHookTask::StartClipRecording(hw_task));
             }
             ClipRecordInput::FxInput(input) => {
                 let fx_task = FxInputClipRecordTask {
@@ -124,8 +123,7 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
                     destination: task.destination,
                 };
                 self.real_time_processor_sender
-                    .send(NormalRealTimeTask::StartClipRecording(fx_task))
-                    .unwrap();
+                    .send_complaining(NormalRealTimeTask::StartClipRecording(fx_task));
             }
         }
     }
@@ -247,7 +245,7 @@ impl InstanceState {
             is_owned,
             matrix: real_time_matrix,
         };
-        self.real_time_processor_sender.send(rt_task).unwrap();
+        self.real_time_processor_sender.send_complaining(rt_task);
     }
 
     pub fn slot_contents_changed(

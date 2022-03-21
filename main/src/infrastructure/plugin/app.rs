@@ -206,16 +206,21 @@ impl App {
         let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
             crossbeam_channel::bounded(INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE);
         let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
-            crossbeam_channel::bounded(FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE);
-        let (audio_sender, audio_receiver) =
-            crossbeam_channel::bounded(NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE);
+            RealTimeSender::new_channel(
+                "Feedback audio hook tasks",
+                FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE,
+            );
+        let (audio_hook_task_sender, normal_audio_hook_task_receiver) = RealTimeSender::new_channel(
+            "Normal audio hook tasks",
+            NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
+        );
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             clip_matrix_event_receiver,
             control_surface_server_task_receiver: server_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            normal_audio_hook_task_receiver: audio_receiver,
+            normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
         };
         let prometheus_builder = PrometheusBuilder::new();
@@ -252,9 +257,9 @@ impl App {
             clip_matrix_event_sender,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
-            feedback_audio_hook_task_sender: RealTimeSender::new(feedback_audio_hook_task_sender),
+            feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
-            audio_hook_task_sender: RealTimeSender::new(audio_sender),
+            audio_hook_task_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
             message_panel: Default::default(),
@@ -472,11 +477,10 @@ impl App {
         main_processor: MainProcessor<WeakSession>,
     ) {
         self.audio_hook_task_sender
-            .send(NormalAudioHookTask::AddRealTimeProcessor(
+            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
                 instance_id,
                 real_time_processor,
-            ))
-            .unwrap();
+            ));
         self.control_surface_main_task_sender
             .try_send(RealearnControlSurfaceMainTask::AddMainProcessor(
                 main_processor,
@@ -542,8 +546,7 @@ impl App {
     ///       output.
     fn unregister_real_time_processor(&self, instance_id: InstanceId) {
         self.audio_hook_task_sender
-            .send(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id))
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id));
     }
 
     /// We remove the main processor synchronously because it allows us to keep its fail-fast
@@ -1151,8 +1154,7 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .send(NormalAudioHookTask::StopCapturingMidi)
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::StopCapturingMidi);
         App::get()
             .control_surface_main_task_sender
             .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
@@ -1162,8 +1164,7 @@ impl App {
     fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .send(NormalAudioHookTask::StartCapturingMidi(sender))
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::StartCapturingMidi(sender));
         receiver
     }
 

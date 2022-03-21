@@ -31,3 +31,5 @@ pub mod bindings;
 pub mod default_util;
 
 pub mod hash_util;
+
+pub mod channel_util;
