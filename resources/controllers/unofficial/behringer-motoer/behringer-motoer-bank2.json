@@ -1,0 +1,1425 @@
+{
+  "version": "2.11.1",
+  "name": "Behringer Motör 61/49 Bank 2",
+  "defaultGroup": {},
+  "mappings": [
+    {
+      "id": "2bd046fb-9d28-42c0-9fa8-5c09d90aac13",
+      "name": "Pad1-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 74,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "042295cd-806b-4381-9839-af9f6388b648",
+      "name": "Pad2-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 75,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "c2687838-583f-427b-88dd-b3e8e610c6a0",
+      "name": "Pad3-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 76,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "5b5b6f5a-974a-4aba-8d80-0e4d834f575e",
+      "name": "Pad4-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 77,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 3,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "d8f7bc0c-e10c-4904-9edb-826aeecea250",
+      "name": "Pad5-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 78,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 4,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "0f5809f9-4def-46dc-acda-ed490b5f9b1b",
+      "name": "Pad6-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 79,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 5,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "7b26dce1-d201-453f-8f36-82e45181f77a",
+      "name": "Pad7-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 80,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 6,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "d54564d4-dffe-484d-9162-f9fb13f40d6d",
+      "name": "Pad8-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 81,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 7,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "0f62a4b9-7d35-4dac-8cd6-31fcd44e3082",
+      "name": "Touch1-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 8,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "0a542f6a-43cb-4e01-8cea-260dcb4d9f18",
+      "name": "Touch2-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 9,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 9,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "21f84f11-24d1-413c-bf97-176938f6d5ff",
+      "name": "Touch3-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 10,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 10,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "0efa9510-082f-409b-98c6-2ceb725936da",
+      "name": "Touch4-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 11,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 11,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "8c49c47d-0c13-4ea1-a6e2-e579f5fb39ae",
+      "name": "Touch5-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 12,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 12,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "bf31851b-5369-468e-aaae-64ca7394b087",
+      "name": "Touch6-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 13,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 13,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "a0a56df8-0226-4099-83fd-6fc49be24ce0",
+      "name": "Touch7-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 14,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 14,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "287dde22-0cd2-42a7-be58-ee9d9bc0baf2",
+      "name": "Touch8-Bank2",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 15,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 15,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "138d046b-407d-4b19-9fe9-afd10d80c13a",
+      "name": "Touch9",
+      "source": {
+        "type": 1,
+        "channel": 1,
+        "number": 32,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 16,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "d291942c-8a8e-4695-a908-f81b61bc8e38",
+      "name": "Encoder1-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 79,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "13de315b-dd14-4284-aba7-109408d72384",
+      "name": "Encoder2-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 80,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "85f6c8f0-4e93-4451-ae16-7f41bdc22c4e",
+      "name": "Encoder3-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 81,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "93d0a52e-256e-4ae7-a907-8aa3ffe9076d",
+      "name": "Encoder4-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 82,
+        "character": 1,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 3,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "aa0e9ba2-8d50-4914-81eb-95e3c3f40ff5",
+      "name": "Encoder5-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 83,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 4,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "ed8c3c3f-18fc-40e4-8540-c8f870fb9b48",
+      "name": "Encoder6-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 84,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 5,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "38ac30a9-f877-4618-8f89-683be9bad79e",
+      "name": "Encoder7-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 85,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 6,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "96420e06-5963-4ab1-a99d-76fd68d334e5",
+      "name": "Encoder8-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 86,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 7,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      }
+    },
+    {
+      "id": "9579b345-d066-45ce-8998-8de1092abf26",
+      "name": "Fader1-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 29,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 8,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "3c2db59d-7197-445e-99fa-8f8ea719acc3",
+      "name": "Fader2-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 30,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 9,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "c5712899-3786-468e-b552-8dfc0a055443",
+      "name": "Fader3-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 31,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 10,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "baabee61-a12b-43ac-bb22-434318c6ed47",
+      "name": "Fader4-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 32,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 11,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "03c61f1f-bb76-42b0-a640-67089681f603",
+      "name": "Fader5-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 33,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 12,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "7c2c06f0-ba02-4875-8fd3-c10d9576f9a7",
+      "name": "Fader6-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 34,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 13,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "cc414182-a449-46b2-9761-4b3ce51c73d5",
+      "name": "Fader7-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 35,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 14,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "9a3e113a-105c-46c0-ba79-bae4fc8b94ad",
+      "name": "Fader8-Bank2",
+      "source": {
+        "channel": 1,
+        "number": 36,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 15,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    },
+    {
+      "id": "2b75ef7e-4ed3-43ef-a0a2-28a2b523e882",
+      "name": "Fader9",
+      "source": {
+        "channel": 1,
+        "number": 53,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {
+        "maxStepSize": 0.05,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 16,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0
+      },
+      "preventEchoFeedback": true
+    }
+  ],
+  "customData": {
+    "companion": {
+      "controls": [
+        {
+          "height": 256,
+          "id": "fd62d3e6-da2b-4e89-8466-b74291fd4df1",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "2b75ef7e-4ed3-43ef-a0a2-28a2b523e882",
+            "138d046b-407d-4b19-9fe9-afd10d80c13a"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 1024,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "b8c7acb3-596e-4287-bf8a-1d1fd8e09304",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "9579b345-d066-45ce-8998-8de1092abf26",
+            "0f62a4b9-7d35-4dac-8cd6-31fcd44e3082"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "99b21eda-e752-4393-8160-2f531b185e34",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "3c2db59d-7197-445e-99fa-8f8ea719acc3",
+            "0a542f6a-43cb-4e01-8cea-260dcb4d9f18"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 128,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "13a784ae-707f-48ae-97e4-6847b9458e7c",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "c5712899-3786-468e-b552-8dfc0a055443",
+            "21f84f11-24d1-413c-bf97-176938f6d5ff"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 256,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "74f0773b-72ad-4531-ba97-d80647f7e960",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "baabee61-a12b-43ac-bb22-434318c6ed47",
+            "0efa9510-082f-409b-98c6-2ceb725936da"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 384,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "1457ca52-dec1-41cf-9a1b-18f4f28f905b",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "03c61f1f-bb76-42b0-a640-67089681f603",
+            "8c49c47d-0c13-4ea1-a6e2-e579f5fb39ae"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 512,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "26fd1db9-a033-4998-be9c-314c26dae6b3",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "7c2c06f0-ba02-4875-8fd3-c10d9576f9a7",
+            "bf31851b-5369-468e-aaae-64ca7394b087"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 640,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "10d1ab95-e1a8-42c7-8e88-f23adcbca9e6",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "cc414182-a449-46b2-9761-4b3ce51c73d5",
+            "a0a56df8-0226-4099-83fd-6fc49be24ce0"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 768,
+          "y": 0
+        },
+        {
+          "height": 256,
+          "id": "ab628b81-1b5d-4769-8884-93f329e8dfc7",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": false
+          },
+          "mappings": [
+            "9a3e113a-105c-46c0-ba79-bae4fc8b94ad",
+            "287dde22-0cd2-42a7-be58-ee9d9bc0baf2"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 896,
+          "y": 0
+        },
+        {
+          "height": 32,
+          "id": "7b93c9c2-cec1-4399-9fc5-8a03aa3d1246",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "d291942c-8a8e-4695-a908-f81b61bc8e38"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 0,
+          "y": 352
+        },
+        {
+          "height": 32,
+          "id": "d521b0a1-4b56-4d53-9516-9d709a59ffc2",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "13de315b-dd14-4284-aba7-109408d72384"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 128,
+          "y": 352
+        },
+        {
+          "height": 32,
+          "id": "8b88622d-e3c7-4822-ac27-34774b1899c8",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "85f6c8f0-4e93-4451-ae16-7f41bdc22c4e"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 256,
+          "y": 352
+        },
+        {
+          "height": 32,
+          "id": "90a6db06-33fc-4c67-b5b5-20ab91621298",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "93d0a52e-256e-4ae7-a907-8aa3ffe9076d"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 384,
+          "y": 352
+        },
+        {
+          "height": 32,
+          "id": "1e11b581-f4b6-4c5f-8ef1-a2765cf6d7c3",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "aa0e9ba2-8d50-4914-81eb-95e3c3f40ff5"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 0,
+          "y": 480
+        },
+        {
+          "height": 32,
+          "id": "6eeee6f3-c5f8-4132-b4c7-03a37ae9a0dd",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ed8c3c3f-18fc-40e4-8540-c8f870fb9b48"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 128,
+          "y": 480
+        },
+        {
+          "height": 32,
+          "id": "567963f9-48cd-469a-843a-734d68d2de7a",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "38ac30a9-f877-4618-8f89-683be9bad79e"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 256,
+          "y": 480
+        },
+        {
+          "height": 32,
+          "id": "ad8d3152-2879-4069-bc0a-b1712fa64d36",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "96420e06-5963-4ab1-a99d-76fd68d334e5"
+          ],
+          "shape": "circle",
+          "width": 64,
+          "x": 384,
+          "y": 480
+        },
+        {
+          "height": 64,
+          "id": "46b6e153-7156-43d0-af62-94893ddea4f4",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "2bd046fb-9d28-42c0-9fa8-5c09d90aac13"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 608,
+          "y": 480
+        },
+        {
+          "height": 64,
+          "id": "f47894db-78e5-4abe-bb7e-97bc7a8728a8",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "042295cd-806b-4381-9839-af9f6388b648"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 736,
+          "y": 480
+        },
+        {
+          "height": 64,
+          "id": "96e13a54-2153-4d64-81c5-624ab45b4076",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "c2687838-583f-427b-88dd-b3e8e610c6a0"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 864,
+          "y": 480
+        },
+        {
+          "height": 64,
+          "id": "0405c9a8-b451-4a6e-8be2-6ae49635a077",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "5b5b6f5a-974a-4aba-8d80-0e4d834f575e"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 992,
+          "y": 480
+        },
+        {
+          "height": 64,
+          "id": "f44a7395-b02d-409e-b184-59edbb39db9a",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "d8f7bc0c-e10c-4904-9edb-826aeecea250"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 608,
+          "y": 352
+        },
+        {
+          "height": 64,
+          "id": "bff82a7e-78d1-4b84-8adf-218db02bec11",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "0f5809f9-4def-46dc-acda-ed490b5f9b1b"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 736,
+          "y": 352
+        },
+        {
+          "height": 64,
+          "id": "11546d17-5394-41fa-a1b2-a4c5bf410517",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "7b26dce1-d201-453f-8f36-82e45181f77a"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 864,
+          "y": 352
+        },
+        {
+          "height": 64,
+          "id": "2559008a-d561-4905-b41e-44166e28ab22",
+          "labelOne": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": false
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "d54564d4-dffe-484d-9162-f9fb13f40d6d"
+          ],
+          "shape": "rectangle",
+          "width": 64,
+          "x": 992,
+          "y": 352
+        }
+      ],
+      "gridDivisionCount": 2,
+      "gridSize": 32
+    }
+  }
+}

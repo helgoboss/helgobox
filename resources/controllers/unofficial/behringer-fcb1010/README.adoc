@@ -1,0 +1,18 @@
+= Behringer FCB1010
+
+== Basics
+
+- This comprises a compartment file for each of 10 banks, plus a sysex file for a matching hardware configuration.
+- 10 presets have been used for unclutted projection to ReaLearn companion.
+
+TIP: The term "Banks" in mapping or file names refer to hardware/firmware switched banks, not virtual banks created within ReaLearn.
+
+== Device configuration
+
+As shipped, the FCB1010 offers no feedback possibilities. A replacement PROM is available from EurekaSound that promises programmable feedback. Unfortunately, their fixed midi map is asymmetric and unfriendly for midi-learn (see https://www.eurekasound.com/eurekaprom/io).  I've opted for the shipped version of the FCB1010.
+
+To configure the FCB1010 efficiently, I've used a free utility, "FCB1010 Manager", provided by Mountain Utilities (https://mountainutilities.eu/fcb1010). The attached sysex file link:fcb1010-cc-only.syx[] can be read by this utility.
+
+All "button" pedals are configured as momentary. I would have preferred to use MIDI notes, but the FCB1010 insists on sending a CC prior to the note (default CC0), which defeats midi-learn. Thus, every control has been configured as a unique CC.
+
+The 2 expression pedals have been set to CC 7 & CC 11.  The 10 banks of 10 "button" pedals have been set incrementally from CC1, skipping 7, 11, and bank select CCs 0 & 32.

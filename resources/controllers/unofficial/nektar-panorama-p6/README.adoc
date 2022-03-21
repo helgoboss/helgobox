@@ -1,0 +1,3 @@
+= Nektar Panorama P6
+
+See https://github.com/helgoboss/realearn/issues/374[#374]
