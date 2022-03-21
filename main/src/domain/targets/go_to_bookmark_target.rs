@@ -7,9 +7,9 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, PropValue, RgbColor, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
 };
-use reaper_high::{BookmarkType, ChangeEvent, Project, Reaper};
+use reaper_high::{BookmarkType, ChangeEvent, FindBookmarkResult, Project, Reaper};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef};
 use std::num::NonZeroU32;
 
@@ -64,6 +64,13 @@ pub struct GoToBookmarkTarget {
     pub set_loop_points: bool,
 }
 
+impl GoToBookmarkTarget {
+    fn find_bookmark(&self) -> Option<FindBookmarkResult> {
+        self.project
+            .find_bookmark_by_type_and_index(self.bookmark_type, self.position.get() - 1)
+    }
+}
+
 impl RealearnTarget for GoToBookmarkTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
@@ -90,10 +97,7 @@ impl RealearnTarget for GoToBookmarkTarget {
                     self.project
                         .go_to_region_with_smooth_seek(BookmarkRef::Position(self.position));
                     if self.set_loop_points || self.set_time_selection {
-                        if let Some(bookmark) = self.project.find_bookmark_by_type_and_index(
-                            BookmarkType::Region,
-                            self.position.get() - 1,
-                        ) {
+                        if let Some(bookmark) = self.find_bookmark() {
                             if let Some(end_pos) = bookmark.basic_info.region_end_position {
                                 if self.set_loop_points {
                                     self.project.set_loop_points(
@@ -156,13 +160,29 @@ impl RealearnTarget for GoToBookmarkTarget {
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
         match key {
             "bookmark.color" => {
-                let res = self
-                    .project
-                    .find_bookmark_by_type_and_index(self.bookmark_type, self.position.get() - 1)?;
+                let res = self.find_bookmark()?;
                 let reaper_medium::RgbColor { r, g, b } = Reaper::get()
                     .medium_reaper()
                     .color_from_native(res.basic_info.color);
                 Some(PropValue::Color(RgbColor::new(r, g, b)))
+            }
+            "bookmark.id" => {
+                let res = self.find_bookmark()?;
+                Some(PropValue::Numeric(NumericValue::Discrete(
+                    res.basic_info.id.get() as i32,
+                )))
+            }
+            "bookmark.index" => {
+                let res = self.find_bookmark()?;
+                Some(PropValue::Index(res.index))
+            }
+            "bookmark.index_within_type" => {
+                let res = self.find_bookmark()?;
+                Some(PropValue::Index(res.index_within_type))
+            }
+            "bookmark.name" => {
+                let res = self.find_bookmark()?;
+                Some(PropValue::Text(res.bookmark.name()))
             }
             _ => None,
         }
