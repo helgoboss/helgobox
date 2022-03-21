@@ -91,7 +91,7 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
-            instance_id: instance_id,
+            instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
@@ -1790,7 +1790,7 @@ impl AudioBlockProps {
         }
     }
 
-    pub fn to_playtime(&self) -> playtime_clip_engine::rt::BasicAudioRequestProps {
+    pub fn to_playtime(self) -> playtime_clip_engine::rt::BasicAudioRequestProps {
         playtime_clip_engine::rt::BasicAudioRequestProps {
             block_length: self.block_length,
             frame_rate: self.frame_rate,

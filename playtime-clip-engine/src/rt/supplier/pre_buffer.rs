@@ -269,6 +269,7 @@ struct MatchCriteria {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(clippy::enum_variant_names)]
 enum MatchError {
     /// Start frame of the pre-buffered block is in the future but all of its material would
     /// belong into the requested block.

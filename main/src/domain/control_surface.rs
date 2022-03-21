@@ -176,6 +176,7 @@ pub enum RealearnControlSurfaceServerTask {
 }
 
 impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,

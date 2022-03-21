@@ -103,9 +103,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
         }
         let material_info = self.supplier.material_info().unwrap();
         let source_frame_rate = material_info.frame_rate();
-        let dest_frame_rate = request
-            .dest_sample_rate
-            .unwrap_or_else(|| source_frame_rate);
+        let dest_frame_rate = request.dest_sample_rate.unwrap_or(source_frame_rate);
         let dest_frame_rate =
             if self.tempo_adjustments_enabled && self.responsible_for_audio_tempo_adjustments {
                 Hz::new(dest_frame_rate.get() / self.tempo_factor)

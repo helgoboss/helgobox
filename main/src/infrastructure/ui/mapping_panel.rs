@@ -542,6 +542,7 @@ impl MappingPanel {
         Ok(())
     }
 
+    #[allow(clippy::single_match)]
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();

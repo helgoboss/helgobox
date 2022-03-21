@@ -213,12 +213,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 start_timing: self.settings.overridable.clip_play_start_timing,
                 stop_timing: self.settings.overridable.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.settings.overridable.audio_resample_mode.clone(),
-                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode.clone(),
-                    cache_behavior: self.settings.overridable.audio_cache_behavior.clone(),
+                    resample_mode: self.settings.overridable.audio_resample_mode,
+                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode,
+                    cache_behavior: self.settings.overridable.audio_cache_behavior,
                 },
             },
-            clip_record_settings: self.settings.clip_record_settings.clone(),
+            clip_record_settings: self.settings.clip_record_settings,
             common_tempo_range: self.settings.common_tempo_range,
         }
     }

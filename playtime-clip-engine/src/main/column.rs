@@ -156,9 +156,9 @@ impl Column {
                 start_timing: self.rt_settings.clip_play_start_timing,
                 stop_timing: self.rt_settings.clip_play_stop_timing,
                 audio_settings: ColumnClipPlayAudioSettings {
-                    resample_mode: self.rt_settings.audio_resample_mode.clone(),
-                    time_stretch_mode: self.rt_settings.audio_time_stretch_mode.clone(),
-                    cache_behavior: self.rt_settings.audio_cache_behavior.clone(),
+                    resample_mode: self.rt_settings.audio_resample_mode,
+                    time_stretch_mode: self.rt_settings.audio_time_stretch_mode,
+                    cache_behavior: self.rt_settings.audio_cache_behavior,
                 },
             },
             clip_record_settings: self.settings.clip_record_settings.clone(),
@@ -336,6 +336,7 @@ impl Column {
         self.get_slot(slot_index)?.proportional_pos()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn record_clip<H: ClipMatrixHandler>(
         &mut self,
         slot_index: usize,

@@ -457,6 +457,7 @@ impl Drop for InstanceState {
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
     ActiveMappingWithinGroup {
         compartment: MappingCompartment,

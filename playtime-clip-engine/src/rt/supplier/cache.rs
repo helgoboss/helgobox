@@ -67,7 +67,7 @@ impl CachedData {
     fn is_still_valid(&self, source: &OwnedPcmSource) -> bool {
         source.get_file_name(|path| {
             if let Some(path) = path {
-                path == &self.file_path
+                path == self.file_path
             } else {
                 false
             }

@@ -71,6 +71,7 @@ impl Slot {
         Some(api_slot)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn record_clip<H: ClipMatrixHandler>(
         &mut self,
         matrix_record_settings: &MatrixClipRecordSettings,
@@ -147,7 +148,7 @@ impl Slot {
             // We record completely new material.
             let args = ClipRecordArgs {
                 recording_equipment,
-                settings: matrix_record_settings.clone(),
+                settings: *matrix_record_settings,
             };
             if has_existing_clip {
                 // There's a clip already. That makes it easy because we have the clip struct
@@ -176,7 +177,7 @@ impl Slot {
                     shared_pos: Default::default(),
                     timeline,
                     timeline_cursor_pos,
-                    settings: matrix_record_settings.clone(),
+                    settings: *matrix_record_settings,
                 };
                 SlotRecordInstruction::NewClip(new_clip_instruction)
             }
@@ -299,13 +300,11 @@ impl Slot {
         let is_midi = runtime_data.material_info.is_midi();
         let tempo_factor = if let Ok(content) = self.get_content() {
             content.clip.tempo_factor(timeline_tempo, is_midi)
+        } else if is_midi {
+            calc_tempo_factor(MIDI_BASE_BPM, timeline_tempo)
         } else {
-            if is_midi {
-                calc_tempo_factor(MIDI_BASE_BPM, timeline_tempo)
-            } else {
-                // When recording audio, we have tempo factor 1.0 (original recording tempo).
-                1.0
-            }
+            // When recording audio, we have tempo factor 1.0 (original recording tempo).
+            1.0
         };
         let tempo_adjusted_secs = adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor);
         Ok(tempo_adjusted_secs)

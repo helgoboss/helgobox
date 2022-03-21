@@ -213,7 +213,7 @@ impl BackboneState {
         let other_instance_state = self
             .instance_states
             .borrow()
-            .get(&instance_id)
+            .get(instance_id)
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
@@ -255,7 +255,7 @@ impl BackboneState {
         let other_instance_state = self
             .instance_states
             .borrow()
-            .get(&instance_id)
+            .get(instance_id)
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;

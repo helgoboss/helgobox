@@ -133,7 +133,7 @@ impl Slot {
                 };
                 match clip.record(args, matrix_settings, column_settings) {
                     Ok(_) => {
-                        let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
+                        let runtime_data = SlotRuntimeData::from_recording_clip(clip);
                         Ok(Some(runtime_data))
                     }
                     Err(e) => Err(e.map_payload(ExistingClip)),

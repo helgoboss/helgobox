@@ -297,7 +297,7 @@ impl Plugin for RealearnPlugin {
         tracing_debug!("VST resume");
     }
 
-    fn set_block_size(&mut self, size: i64) {
+    fn set_block_size(&mut self, _size: i64) {
         tracing_debug!("VST set block size");
     }
 

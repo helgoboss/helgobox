@@ -463,13 +463,13 @@ fn process_clip_record_task(
                 }
             }
         }
-        ClipRecordHardwareInput::Audio(input) => unsafe {
+        ClipRecordHardwareInput::Audio(input) => {
             let channel_offset = input.channel_offset().unwrap();
             let write_audio_request =
                 AudioHookWriteAudioRequest::new(args.reg, block_props, channel_offset as _);
             src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
                 .unwrap();
-        },
+        }
     }
     true
 }

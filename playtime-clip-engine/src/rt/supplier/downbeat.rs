@@ -132,7 +132,6 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Downbeat<S> {
         }
         let inner_request = PreBufferFillRequest {
             start_frame: request.start_frame + self.downbeat_frame as isize,
-            ..request
         };
         self.supplier.pre_buffer(inner_request);
     }

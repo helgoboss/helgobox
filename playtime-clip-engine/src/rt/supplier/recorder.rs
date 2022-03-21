@@ -30,7 +30,6 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
     MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
-use rtrb::chunks::{ChunkError, ReadChunk};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
@@ -319,20 +318,17 @@ impl Recorder {
     }
 
     pub fn emit_audio_recording_task(&mut self) {
-        match self.state.as_mut().unwrap() {
-            State::Recording(RecordingState {
-                kind_state:
-                    KindState::Audio(RecordingAudioState::Active(RecordingAudioActiveState {
-                        task,
-                        ..
-                    })),
-                ..
-            }) => {
-                if let Some(task) = task.take() {
-                    self.request_sender.start_audio_recording(task);
-                }
+        if let State::Recording(RecordingState {
+            kind_state:
+                KindState::Audio(RecordingAudioState::Active(RecordingAudioActiveState {
+                    task, ..
+                })),
+            ..
+        }) = self.state.as_mut().unwrap()
+        {
+            if let Some(task) = task.take() {
+                self.request_sender.start_audio_recording(task);
             }
-            _ => {}
         }
     }
 
@@ -499,9 +495,9 @@ impl Recorder {
                                             [slice_two_offset..slice_two_offset + block_length]
                                     };
                                     if let Some(channel_buf) = request.get_channel_buffer(ch) {
-                                        for i in 0..block_length {
-                                            channel_slice[i] = channel_buf.data_as_slice()[i];
-                                        }
+                                        channel_slice[..block_length].clone_from_slice(
+                                            &channel_buf.data_as_slice()[..block_length],
+                                        );
                                     } else {
                                         channel_slice.fill(0.0);
                                     }
@@ -554,7 +550,7 @@ impl Recorder {
                 }
             },
             State::Recording(s) => {
-                assert_eq!(s.committed, false, "MIDI doesn't use the committed state");
+                assert!(s.committed, "MIDI doesn't use the committed state");
                 match &mut s.kind_state {
                     KindState::Audio(_) => Err("recording audio, not MIDI"),
                     KindState::Midi(midi_state) => {
@@ -972,6 +968,12 @@ impl RecordingEquipment {
 pub struct MidiRecordingEquipment {
     empty_midi_source: OwnedPcmSource,
     empty_midi_source_mirror: OwnedPcmSource,
+}
+
+impl Default for MidiRecordingEquipment {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MidiRecordingEquipment {
@@ -1442,20 +1444,21 @@ impl RecorderWorker {
 ///
 /// The slice must contain all channels in sequence.
 fn write_slice_to_sink(slice: &[f64], sink: &mut PCM_sink, channel_count: usize) {
-    if slice.len() == 0 {
+    if slice.is_empty() {
         return;
     }
     debug_assert!(slice.len() % channel_count == 0);
     let block_length = slice.len() / channel_count;
-    let mut channels: [*mut f64; MAX_AUDIO_CHANNEL_COUNT] = [null_mut(); MAX_AUDIO_CHANNEL_COUNT];
-    for ch in 0..channel_count {
+    let mut channel_pointers: [*mut f64; MAX_AUDIO_CHANNEL_COUNT] =
+        [null_mut(); MAX_AUDIO_CHANNEL_COUNT];
+    for (ch, channel_pointer) in channel_pointers.iter_mut().enumerate().take(channel_count) {
         let offset = ch * block_length;
         let channel_slice = &slice[offset..offset + block_length];
-        channels[ch] = channel_slice.as_ptr() as *mut _;
+        *channel_pointer = channel_slice.as_ptr() as *mut _;
     }
     unsafe {
         sink.WriteDoubles(
-            &mut channels as *mut _,
+            &mut channel_pointers as *mut _,
             block_length as _,
             channel_count as _,
             0,
