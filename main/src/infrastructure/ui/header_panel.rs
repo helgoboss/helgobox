@@ -1268,14 +1268,18 @@ impl HeaderPanel {
                 let session = self.session();
                 let session = session.borrow();
                 let compartment = self.active_compartment();
-                let preset_is_active = match compartment {
-                    MappingCompartment::ControllerMappings => {
-                        session.active_controller_preset_id().is_some()
-                    }
-                    MappingCompartment::MainMappings => session.active_main_preset().is_some(),
-                };
+                let preset_is_active_and_exists =
+                    if let Some(preset_id) = session.active_preset_id(compartment) {
+                        App::get().preset_manager(compartment).exists(preset_id)
+                    } else {
+                        false
+                    };
                 let preset_is_dirty = session.compartment_or_preset_is_dirty(compartment);
-                (preset_is_active && preset_is_dirty, true, preset_is_active)
+                (
+                    preset_is_active_and_exists && preset_is_dirty,
+                    true,
+                    preset_is_active_and_exists,
+                )
             }
         };
         save_button.set_enabled(save_button_enabled);

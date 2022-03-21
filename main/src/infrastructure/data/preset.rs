@@ -21,6 +21,9 @@ pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
 }
 
 pub trait ExtendedPresetManager {
+    fn exists(&self, id: &str) -> bool {
+        self.find_index_by_id(id).is_some()
+    }
     fn find_index_by_id(&self, id: &str) -> Option<usize>;
     fn find_id_by_index(&self, index: usize) -> Option<String>;
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
