@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2021-12-30 (v2.12.0-pre.4)`
+|Last update of text: |`2022-03-21 (v2.12.0)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -2239,6 +2239,15 @@ User interface elements specific to this target:
 * *Set time selection:* For regions, this will additionally set the time selection to the region start and end
  position.
 
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.bookmark.id | (Numeric) ID of the bookmark
+|target.bookmark.index | Index of the bookmark (counting both markers and regions)
+|target.bookmark.index_within_type | Index of the bookmark (counting only markers or regions, respectively)
+|target.bookmark.name | Name of the bookmark
+|===
 
 ====== Track
 
@@ -2373,6 +2382,11 @@ To be used with endless rotary encoders or previous/next-style "Incremental butt
 
 Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise
 disables it.
+
+====== FX: Set online/offline
+
+Sets the FX instance online if the incoming absolute control value is greater than 0%, otherwise
+sets it offline.
 
 [#fx-load-snapshot]
 ====== FX: Load snapshot
