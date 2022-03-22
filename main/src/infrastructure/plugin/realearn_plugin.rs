@@ -3,12 +3,11 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::base::Global;
+use crate::base::{Global, RealTimeSender};
 use crate::domain::{
     AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
     MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
-    ProcessorContext, RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor,
-    PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;

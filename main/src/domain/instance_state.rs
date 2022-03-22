@@ -6,11 +6,11 @@ use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::Prop;
+use crate::base::{Prop, RealTimeSender};
 use crate::domain::{
     BackboneState, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask, InstanceId,
     MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId,
-    RealTimeSender, Tag,
+    Tag,
 };
 use playtime_clip_engine::main::{
     ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
