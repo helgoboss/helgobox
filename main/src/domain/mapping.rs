@@ -582,7 +582,7 @@ impl MainMapping {
         self.core.options.target_is_active = is_active;
         // Build real-time target update if necessary
         let activation_changed =
-            self.target_is_effectively_active() == was_effectively_active_before;
+            self.target_is_effectively_active() != was_effectively_active_before;
         if !target_changed && !activation_changed {
             return None;
         }
