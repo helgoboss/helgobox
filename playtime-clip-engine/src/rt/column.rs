@@ -132,7 +132,7 @@ impl ColumnCommandSender {
             slot_index,
             instruction,
         };
-        self.send_task(ColumnCommand::RecordClip(args));
+        self.send_task(ColumnCommand::RecordClip(Box::new(Some(args))));
     }
 
     fn send_task(&self, task: ColumnCommand) {
@@ -154,7 +154,7 @@ pub enum ColumnCommand {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipLooped(ColumnSetClipLoopedArgs),
-    RecordClip(ColumnRecordClipArgs),
+    RecordClip(Box<Option<ColumnRecordClipArgs>>),
 }
 
 pub trait ColumnEventSender {
@@ -485,7 +485,7 @@ impl Column {
                     let args = boxed_args.take().unwrap();
                     self.fill_slot(args);
                     self.event_sender
-                        .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
+                        .dispose(ColumnGarbage::FillSlotArgs(boxed_args));
                 }
                 PlayClip(args) => {
                     let result = self.play_clip(args, audio_request_props);
@@ -510,10 +510,13 @@ impl Column {
                 SetClipLooped(args) => {
                     self.set_clip_looped(args).unwrap();
                 }
-                RecordClip(args) => {
+                RecordClip(mut boxed_args) => {
+                    let args = boxed_args.take().unwrap();
                     let result =
                         self.record_clip(args.slot_index, args.instruction, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
+                    self.event_sender
+                        .dispose(ColumnGarbage::RecordClipArgs(boxed_args));
                 }
             }
         }
@@ -874,9 +877,11 @@ pub struct InteractionFailure {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
     Clip(Clip),
+    RecordClipArgs(Box<Option<ColumnRecordClipArgs>>),
 }
 
 struct ClipEventHandler<'a> {

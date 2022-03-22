@@ -2,9 +2,8 @@ use crate::main::row::Row;
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, AudioRecordingEquipment, ChainEquipment,
+    keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
     ChainPreBufferCommandProcessor, MidiRecordingEquipment, RecorderRequest, RecordingEquipment,
-    StretchWorkerRequest,
 };
 use crate::rt::{
     ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
@@ -31,7 +30,6 @@ pub struct Matrix<H> {
     rt_matrix: rt::SharedMatrix,
     settings: MatrixSettings,
     handler: H,
-    stretch_worker_sender: Sender<StretchWorkerRequest>,
     chain_equipment: ChainEquipment,
     recorder_request_sender: Sender<RecorderRequest>,
     columns: Vec<Column>,
@@ -105,7 +103,6 @@ impl Drop for Worker {
 
 impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn new(handler: H, containing_track: Option<Track>) -> Self {
-        let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
         let (pre_buffer_request_sender, pre_buffer_request_receiver) =
@@ -113,9 +110,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let (rt_command_sender, rt_command_receiver) = crossbeam_channel::bounded(500);
         let (main_command_sender, main_command_receiver) = crossbeam_channel::bounded(500);
         let mut worker_pool = WorkerPool::default();
-        worker_pool.add_worker("Playtime stretch worker", move || {
-            keep_stretching(stretch_worker_receiver);
-        });
         worker_pool.add_worker("Playtime recording worker", move || {
             keep_processing_recorder_requests(recorder_request_receiver);
         });
@@ -134,7 +128,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             rt_matrix: rt::SharedMatrix::new(rt_matrix),
             settings: Default::default(),
             handler,
-            stretch_worker_sender,
             chain_equipment: ChainEquipment {
                 cache_request_sender,
                 pre_buffer_request_sender,

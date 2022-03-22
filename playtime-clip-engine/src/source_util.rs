@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 /// Creates slot content based on the audio/MIDI file used by the given item.
 ///
 /// If the item uses pooled MIDI instead of a file, this method exports the MIDI data to a new
-/// file in the recording directory and uses that one.   
+/// file in the recording directory and uses that one.
+#[allow(dead_code)]
 pub fn create_api_source_from_item(
     item: Item,
     force_export_to_file: bool,
@@ -32,6 +33,7 @@ pub fn create_api_source_from_item(
     create_api_source_from_pcm_source(&root_pcm_source, mode, item.project())
 }
 
+#[allow(dead_code)]
 pub enum CreateApiSourceMode {
     AllowEmbeddedData,
     ForceExportToFile { file_base_name: String },

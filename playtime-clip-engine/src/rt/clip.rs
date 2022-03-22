@@ -1330,6 +1330,7 @@ pub enum StopSlotInstruction {
     ClearSlot,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ClipRecordingStopOutcome {
     KeepState,
     TransitionToReady(ReadyState),
@@ -1637,6 +1638,7 @@ pub trait HandleStopEvent {
 /// Holds the result of a normal (non-overdub) recording.
 ///
 /// Can also be cancelled.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum NormalRecordingOutcome {
     Committed(CommittedRecording),

@@ -92,6 +92,7 @@ enum RecorderResponse {
 /// the Recording state. In that state, the recorder delivers playable material from an in-memory
 /// buffer. Until the PCM source is ready. Then it moves to the Ready state.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum State {
     Ready(ReadyState),
     Recording(RecordingState),

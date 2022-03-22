@@ -72,7 +72,7 @@ pub struct InstanceState {
 
 #[derive(Debug)]
 pub enum ClipMatrixRef {
-    Own(RealearnClipMatrix),
+    Own(Box<RealearnClipMatrix>),
     Foreign(InstanceId),
 }
 
@@ -214,7 +214,7 @@ impl InstanceState {
         }
         let matrix = self.create_owned_clip_matrix();
         self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), true);
-        self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(matrix)));
+        self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(Box::new(matrix))));
         true
     }
 
