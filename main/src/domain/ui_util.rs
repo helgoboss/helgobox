@@ -57,7 +57,7 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
     if db == Db::MINUS_INF {
         "-inf".to_string()
     } else {
-        format!("{:.2}", db.get())
+        format!("{:.4}", db.get())
     }
 }
 
