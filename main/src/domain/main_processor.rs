@@ -2817,7 +2817,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
             // Integration test
             // Test receiver could already be gone (if the test didn't wait long enough).
-            let _ = test_sender.send(source_feedback_value);
+            let _ = test_sender.try_send(source_feedback_value);
         } else {
             // Production
             match (source_feedback_value, feedback_output) {

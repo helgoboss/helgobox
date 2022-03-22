@@ -1642,7 +1642,7 @@ impl Session {
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::ReturnToControlMode);
         self.normal_main_task_sender
-            .send(NormalMainTask::ReturnToControlMode)
+            .try_send(NormalMainTask::ReturnToControlMode)
             .unwrap();
     }
 

@@ -1251,14 +1251,14 @@ impl<T> RealTimeSender<T> {
     }
 
     pub fn send_if_space(&self, task: T) {
-        let _ = self.send(task);
+        let _ = self.send_internal(task);
     }
 
     pub fn send_complaining(&self, task: T) {
-        self.send(task).unwrap();
+        self.send_internal(task).unwrap();
     }
 
-    fn send(&self, task: T) -> Result<(), NamedChannelTrySendError<T>> {
+    fn send_internal(&self, task: T) -> Result<(), NamedChannelTrySendError<T>> {
         if Reaper::get().audio_is_running() {
             // Audio is running so sending should always work. If not, it's an unexpected error and
             // we must return it.
@@ -1270,7 +1270,7 @@ impl<T> RealTimeSender<T> {
                 // Channel still has some headroom, so we send the task in order to support a
                 // temporary outage. This should not fail unless another sender has exhausted the
                 // channel in the meanwhile. Even then, so what. See "else" branch.
-                let _ = self.sender.send(task);
+                let _ = self.sender.try_send(task);
                 Ok(())
             } else {
                 // Channel has already accumulated lots of tasks. Don't send!
