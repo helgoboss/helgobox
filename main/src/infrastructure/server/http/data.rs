@@ -1,6 +1,7 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
 use crate::application::{Preset, PresetManager, Session, SourceCategory, TargetCategory};
+use crate::base::NamedChannelSender;
 use crate::domain::{
     MappingCompartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
 };
@@ -98,11 +99,9 @@ pub async fn obtain_control_surface_metrics_snapshot(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 ) -> Result<Result<String, String>, tokio::sync::oneshot::error::RecvError> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
-    control_surface_task_sender
-        .try_send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
-            sender,
-        ))
-        .unwrap();
+    control_surface_task_sender.send_complaining(
+        RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(sender),
+    );
     receiver.await.map(Ok)
 }
 

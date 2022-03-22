@@ -18,7 +18,7 @@ use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, SendMidiTime};
 use slog::{debug, trace};
 
-use crate::base::{Global, RealTimeSender};
+use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::main::{ClipRecordDestination, VirtualClipRecordAudioInput};
@@ -52,9 +52,9 @@ pub struct RealTimeProcessor {
     // Inter-thread communication
     normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-    feedback_task_sender: RealTimeSender<FeedbackRealTimeTask>,
-    normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
-    control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
+    feedback_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+    normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
+    control_main_task_sender: SenderToNormalThread<ControlMainTask>,
     garbage_bin: GarbageBin,
     // Scanners for more complex MIDI message types
     nrpn_scanner: PollingParameterNumberMessageScanner,
@@ -84,9 +84,9 @@ impl RealTimeProcessor {
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-        feedback_task_sender: RealTimeSender<FeedbackRealTimeTask>,
-        normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
-        control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
+        feedback_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+        normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
+        control_main_task_sender: SenderToNormalThread<ControlMainTask>,
         garbage_bin: GarbageBin,
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
@@ -194,8 +194,7 @@ impl RealTimeProcessor {
     fn request_full_sync_and_discard_tasks_if_successful(&mut self) {
         if self
             .normal_main_task_sender
-            .try_send(NormalRealTimeToMainThreadTask::FullResyncToRealTimeProcessorPlease)
-            .is_ok()
+            .try_to_send(NormalRealTimeToMainThreadTask::FullResyncToRealTimeProcessorPlease)
         {
             // Requesting a full resync was successful so we can safely discard accumulated tasks.
             let discarded_normal_task_count = self
@@ -850,7 +849,7 @@ impl RealTimeProcessor {
         // It's okay to crackle when logging input.
         if let Ok(msg) = permit_alloc(|| msg.try_into_owned()) {
             self.control_main_task_sender
-                .try_send(ControlMainTask::LogControlInput {
+                .send_complaining(ControlMainTask::LogControlInput {
                     value: msg,
                     match_result: if consumed {
                         InputMatchResult::Consumed
@@ -859,8 +858,7 @@ impl RealTimeProcessor {
                     } else {
                         InputMatchResult::Unmatched
                     },
-                })
-                .unwrap();
+                });
         }
     }
 
@@ -869,8 +867,7 @@ impl RealTimeProcessor {
         // It's okay if we crackle when logging input.
         let owned_msg = permit_alloc(|| msg.to_owned());
         self.control_main_task_sender
-            .try_send(ControlMainTask::LogLearnInput { msg: owned_msg })
-            .unwrap();
+            .send_complaining(ControlMainTask::LogLearnInput { msg: owned_msg });
     }
 
     /// Might allocate!
@@ -878,20 +875,18 @@ impl RealTimeProcessor {
         // It's okay to crackle when logging input.
         if let Ok(value) = permit_alloc(|| value.try_into_owned()) {
             self.normal_main_task_sender
-                .try_send(NormalRealTimeToMainThreadTask::LogLifecycleOutput { value })
-                .unwrap();
+                .send_complaining(NormalRealTimeToMainThreadTask::LogLifecycleOutput { value });
         }
     }
 
     fn send_captured_midi(&mut self, scan_result: MidiScanResult, allow_virtual_sources: bool) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
-        let _ =
-            self.normal_main_task_sender
-                .try_send(NormalRealTimeToMainThreadTask::CaptureMidi {
-                    scan_result,
-                    allow_virtual_sources,
-                });
+        self.normal_main_task_sender
+            .send_if_space(NormalRealTimeToMainThreadTask::CaptureMidi {
+                scan_result,
+                allow_virtual_sources,
+            });
     }
 
     /// Returns whether this message matched.
@@ -1349,7 +1344,7 @@ pub enum MidiDestination {
 
 #[allow(clippy::too_many_arguments)]
 fn control_controller_mappings_midi(
-    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    sender: &SenderToNormalThread<ControlMainTask>,
     // Mappings with virtual targets
     controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
@@ -1423,7 +1418,7 @@ fn control_controller_mappings_midi(
 #[allow(clippy::too_many_arguments)]
 fn process_real_mapping(
     mapping: &mut RealTimeMapping,
-    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    sender: &SenderToNormalThread<ControlMainTask>,
     compartment: MappingCompartment,
     value_event: Event<ControlValue>,
     options: ControlOptions,
@@ -1480,7 +1475,7 @@ fn real_time_target_send_midi(
     control_value: ControlValue,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    sender: &SenderToNormalThread<ControlMainTask>,
     value_event: Event<ControlValue>,
 ) -> Result<(), &'static str> {
     let v = control_value.to_absolute_value()?;
@@ -1512,11 +1507,9 @@ fn real_time_target_send_midi(
     };
     if output_logging_enabled && midi_destination.is_some() {
         permit_alloc(|| {
-            sender
-                .try_send(ControlMainTask::LogTargetOutput {
-                    event: Box::new(raw_midi_event),
-                })
-                .unwrap();
+            sender.send_complaining(ControlMainTask::LogTargetOutput {
+                event: Box::new(raw_midi_event),
+            });
         });
     }
     let successful = match midi_destination {
@@ -1543,7 +1536,7 @@ fn real_time_target_send_midi(
 }
 
 fn forward_control_to_main_processor(
-    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    sender: &SenderToNormalThread<ControlMainTask>,
     compartment: MappingCompartment,
     mapping_id: MappingId,
     value: ControlValue,
@@ -1557,13 +1550,13 @@ fn forward_control_to_main_processor(
     };
     // If plug-in dropped, the receiver might be gone already because main processor is
     // unregistered synchronously.
-    let _ = sender.try_send(task);
+    sender.send_if_space(task);
 }
 
 /// Returns whether this source value matched one of the mappings.
 #[allow(clippy::too_many_arguments)]
 fn control_main_mappings_virtual(
-    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    sender: &SenderToNormalThread<ControlMainTask>,
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: Event<VirtualSourceValue>,
     options: ControlOptions,

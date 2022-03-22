@@ -7,7 +7,10 @@ use crate::application::{
     VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
-use crate::base::{prop, when, AsyncNotifier, Global, Prop, RealTimeSender};
+use crate::base::{
+    prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
+    SenderToRealTimeThread,
+};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
@@ -98,8 +101,8 @@ pub struct Session {
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
-    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
+    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
@@ -111,8 +114,8 @@ pub struct Session {
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_state: SharedInstanceState,
-    global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
-    global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
+    global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
+    global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
     /// instance but this instance is not yet loaded.
     unresolved_foreign_clip_matrix_session_id: Option<String>,
@@ -178,8 +181,8 @@ impl Session {
         instance_id: InstanceId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
-        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
-        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+        normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         ui: impl SessionUi + 'static,
         instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
@@ -187,8 +190,10 @@ impl Session {
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
         state: SharedSessionState,
-        global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
-        global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
+        global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
+            FeedbackAudioHookTask,
+        >,
+        global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -377,8 +382,7 @@ impl Session {
     /// Makes all autostart mappings hit the target.
     pub fn notify_realearn_instance_started(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::NotifyRealearnInstanceStarted)
-            .unwrap();
+            .send_complaining(NormalMainTask::NotifyRealearnInstanceStarted);
     }
 
     /// Instructs the main processor to hit the target directly.
@@ -386,8 +390,7 @@ impl Session {
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.
     pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::HitTarget { id, value })
-            .unwrap();
+            .send_complaining(NormalMainTask::HitTarget { id, value });
     }
 
     /// Connects the dots.
@@ -671,11 +674,10 @@ impl Session {
                 allow_virtual_sources,
             });
         self.normal_main_task_sender
-            .try_send(NormalMainTask::StartLearnSource {
+            .send_complaining(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
-            })
-            .unwrap();
+            });
         let rt_sender = self.normal_real_time_task_sender.clone();
         let main_sender = self.normal_main_task_sender.clone();
         self.incoming_msg_captured_subject
@@ -683,9 +685,7 @@ impl Session {
             .finalize(move || {
                 if reenable_control_after_touched {
                     rt_sender.send_complaining(NormalRealTimeTask::ReturnToControlMode);
-                    main_sender
-                        .try_send(NormalMainTask::ReturnToControlMode)
-                        .unwrap();
+                    main_sender.send_complaining(NormalMainTask::ReturnToControlMode);
                 }
             })
     }
@@ -1634,16 +1634,14 @@ impl Session {
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::DisableControl);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::DisableControl)
-            .unwrap();
+            .send_complaining(NormalMainTask::DisableControl);
     }
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::ReturnToControlMode);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::ReturnToControlMode)
-            .unwrap();
+            .send_complaining(NormalMainTask::ReturnToControlMode);
     }
 
     fn stop_learning_target(&mut self) {
@@ -2012,15 +2010,13 @@ impl Session {
 
     pub fn send_all_feedback(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::SendAllFeedback)
-            .unwrap();
+            .send_complaining(NormalMainTask::SendAllFeedback);
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
         self.normal_main_task_sender
-            .try_send(NormalMainTask::LogDebugInfo)
-            .unwrap();
+            .send_complaining(NormalMainTask::LogDebugInfo);
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::LogDebugInfo);
     }
@@ -2040,8 +2036,7 @@ impl Session {
         );
         debug!(self.logger, "{:?}", mapping);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
-            .unwrap();
+            .send_complaining(NormalMainTask::LogMapping(compartment, mapping_id));
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         Ok(())
@@ -2146,11 +2141,10 @@ impl Session {
     /// Good for checking produced feedback when doing integration testing.
     pub fn use_integration_test_feedback_sender(
         &self,
-        sender: crossbeam_channel::Sender<SourceFeedbackValue>,
+        sender: SenderToNormalThread<SourceFeedbackValue>,
     ) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UseIntegrationTestFeedbackSender(sender))
-            .unwrap();
+            .send_complaining(NormalMainTask::UseIntegrationTestFeedbackSender(sender));
     }
 
     /// Notifies listeners async that something in a mapping list has changed.
@@ -2214,7 +2208,7 @@ impl Session {
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
         };
-        self.normal_main_task_sender.try_send(task).unwrap();
+        self.normal_main_task_sender.send_complaining(task);
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
@@ -2227,12 +2221,12 @@ impl Session {
     }
 
     fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {
-        self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdatePersistentMappingProcessingState {
+        self.normal_main_task_sender.send_complaining(
+            NormalMainTask::UpdatePersistentMappingProcessingState {
                 id: mapping.qualified_id(),
                 state: mapping.create_persistent_mapping_processing_state(),
-            })
-            .unwrap();
+            },
+        );
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
@@ -2242,8 +2236,7 @@ impl Session {
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)))
-            .unwrap();
+            .send_complaining(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)));
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
@@ -2285,8 +2278,7 @@ impl Session {
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled));
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
-            .unwrap();
+            .send_complaining(NormalMainTask::UpdateControlIsGloballyEnabled(enabled));
     }
 
     /// Just syncs whether feedback globally enabled or not.
@@ -2295,19 +2287,17 @@ impl Session {
         self.normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled));
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
-            .unwrap();
+            .send_complaining(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled));
     }
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateAllMappings(
+            .send_complaining(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
-            ))
-            .unwrap();
+            ));
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.

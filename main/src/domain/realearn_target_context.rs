@@ -1,3 +1,4 @@
+use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedParameterType,
@@ -9,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
 pub struct RealearnTargetContext {
-    additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
+    additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     // For "Load FX snapshot" target.
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
     // For "Touch automation state" target.
@@ -33,7 +34,7 @@ impl TouchedThing {
 
 impl RealearnTargetContext {
     pub fn new(
-        additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
+        additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     ) -> Self {
         Self {
             fx_snapshot_chunk_hash_by_fx: Default::default(),
@@ -55,11 +56,9 @@ impl RealearnTargetContext {
         fx.set_tag_chunk(chunk)?;
         self.fx_snapshot_chunk_hash_by_fx
             .insert(fx.clone(), chunk_hash);
-        self.additional_feedback_event_sender
-            .try_send(AdditionalFeedbackEvent::FxSnapshotLoaded(
-                FxSnapshotLoadedEvent { fx },
-            ))
-            .unwrap();
+        self.additional_feedback_event_sender.send_complaining(
+            AdditionalFeedbackEvent::FxSnapshotLoaded(FxSnapshotLoadedEvent { fx }),
+        );
         Ok(())
     }
 
@@ -71,17 +70,15 @@ impl RealearnTargetContext {
         self.touched_things
             .insert(TouchedThing::new(track.raw(), parameter_type));
         self.post_process_touch(track, parameter_type);
-        self.additional_feedback_event_sender
-            .try_send(
-                AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
-                    ParameterAutomationTouchStateChangedEvent {
-                        track: track.raw(),
-                        parameter_type,
-                        new_value: true,
-                    },
-                ),
-            )
-            .unwrap();
+        self.additional_feedback_event_sender.send_complaining(
+            AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
+                ParameterAutomationTouchStateChangedEvent {
+                    track: track.raw(),
+                    parameter_type,
+                    new_value: true,
+                },
+            ),
+        );
     }
 
     pub fn untouch_automation_parameter(
@@ -91,17 +88,15 @@ impl RealearnTargetContext {
     ) {
         self.touched_things
             .remove(&TouchedThing::new(track.raw(), parameter_type));
-        self.additional_feedback_event_sender
-            .try_send(
-                AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
-                    ParameterAutomationTouchStateChangedEvent {
-                        track: track.raw(),
-                        parameter_type,
-                        new_value: false,
-                    },
-                ),
-            )
-            .unwrap();
+        self.additional_feedback_event_sender.send_complaining(
+            AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
+                ParameterAutomationTouchStateChangedEvent {
+                    track: track.raw(),
+                    parameter_type,
+                    new_value: false,
+                },
+            ),
+        );
     }
 
     fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedParameterType) {

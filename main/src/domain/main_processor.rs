@@ -25,7 +25,7 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 
-use crate::base::RealTimeSender;
+use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
     format_raw_midi, log_control_input, log_feedback_output, log_learn_input, log_lifecycle_output,
@@ -212,8 +212,8 @@ struct Collections {
 
 #[derive(Debug)]
 struct Channels {
-    self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
-    self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
+    self_feedback_sender: SenderToNormalThread<FeedbackMainTask>,
+    self_normal_sender: SenderToNormalThread<NormalMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     normal_real_time_to_main_thread_task_receiver:
         crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
@@ -221,13 +221,13 @@ struct Channels {
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
-    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
-    feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
-    osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
-    additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
-    instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-    integration_test_feedback_sender: Option<crossbeam_channel::Sender<SourceFeedbackValue>>,
+    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+    feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
+    osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
+    additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+    instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+    integration_test_feedback_sender: Option<SenderToNormalThread<SourceFeedbackValue>>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -235,7 +235,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn new(
         instance_id: InstanceId,
         parent_logger: &slog::Logger,
-        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
+        self_normal_sender: SenderToNormalThread<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         normal_real_time_to_main_thread_task_receiver: crossbeam_channel::Receiver<
             NormalRealTimeToMainThreadTask,
@@ -243,19 +243,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
-        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
-        feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
-        additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
-        instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-        osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
+        normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+        feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
+        additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+        instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+        osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
         instance_state: SharedInstanceState,
         instance_container: &'static dyn InstanceContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
-            crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
+            SenderToNormalThread::new_bounded_channel(
+                "feedback main tasks",
+                FEEDBACK_TASK_QUEUE_SIZE,
+            );
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             basics: Basics {
@@ -833,15 +836,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics
                 .channels
                 .additional_feedback_event_sender
-                .try_send(
+                .send_complaining(
                     AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
                         RealearnMonitoringFxParameterValueChangedEvent {
                             parameter,
                             new_value: ReaperNormalizedFxParamValue::new(value as _),
                         },
                     ),
-                )
-                .unwrap();
+                );
         }
         // Update own value (important to do first)
         let previous_value = self.collections.parameters[index as usize];
@@ -1036,7 +1038,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let event = IoUpdatedEvent {
                         ..self.basic_io_changed_event()
                     };
-                    self.send_io_update(event).unwrap();
+                    self.send_io_update_complaining(event);
                 }
                 UseIntegrationTestFeedbackSender(sender) => {
                     self.basics.channels.integration_test_feedback_sender = Some(sender);
@@ -1066,7 +1068,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.clear_all_feedback_allowing_source_takeover();
         };
         let event = self.feedback_output_usage_might_have_changed_event();
-        self.send_io_update(event).unwrap();
+        self.send_io_update_complaining(event);
     }
 
     fn refresh_all_targets(&mut self) {
@@ -1132,8 +1134,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics.control_input = control_input;
         self.basics.feedback_output = feedback_output;
         let changed_event = self.feedback_output_usage_might_have_changed_event();
-        self.send_io_update(released_event).unwrap();
-        self.send_io_update(changed_event).unwrap();
+        self.send_io_update_complaining(released_event);
+        self.send_io_update_complaining(changed_event);
     }
 
     fn update_all_mappings(
@@ -1317,18 +1319,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.logger,
                 "IO event. Feedback output used: {:?}", event.feedback_output_used
             );
-            self.send_io_update(event).unwrap();
+            self.send_io_update_complaining(event);
         }
     }
 
-    fn send_io_update(
-        &self,
-        event: IoUpdatedEvent,
-    ) -> Result<(), crossbeam_channel::TrySendError<InstanceOrchestrationEvent>> {
+    fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
         self.basics
             .channels
             .instance_orchestration_event_sender
-            .try_send(InstanceOrchestrationEvent::IoUpdated(event))
+            .send_complaining(InstanceOrchestrationEvent::IoUpdated(event))
+    }
+
+    fn send_io_update_if_space(&self, event: IoUpdatedEvent) {
+        self.basics
+            .channels
+            .instance_orchestration_event_sender
+            .send_if_space(InstanceOrchestrationEvent::IoUpdated(event));
     }
 
     fn get_normal_or_virtual_target_mapping(
@@ -1418,8 +1424,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics
                 .channels
                 .self_normal_sender
-                .try_send(NormalMainTask::RefreshAllTargets)
-                .unwrap();
+                .send_complaining(NormalMainTask::RefreshAllTargets);
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
@@ -1468,8 +1473,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .channels
             .self_feedback_sender
-            .try_send(FeedbackMainTask::TargetTouched)
-            .unwrap();
+            .send_complaining(FeedbackMainTask::TargetTouched);
     }
 
     pub fn receives_osc_from(&self, device_id: &OscDeviceId) -> bool {
@@ -1484,11 +1488,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.feedback_output
             {
                 if payload.output_devices.contains(&dev_id) {
-                    let _ = self
-                        .basics
+                    self.basics
                         .channels
                         .self_normal_sender
-                        .try_send(NormalMainTask::SendAllFeedback);
+                        .send_if_space(NormalMainTask::SendAllFeedback);
                 }
             }
         }
@@ -2296,7 +2299,7 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
-    UseIntegrationTestFeedbackSender(crossbeam_channel::Sender<SourceFeedbackValue>),
+    UseIntegrationTestFeedbackSender(SenderToNormalThread<SourceFeedbackValue>),
 }
 
 /// A task which is sent from time to time from real-time to main processor.
@@ -2378,7 +2381,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
             // Other instances can take over the feedback output afterwards.
             self.clear_all_feedback_preventing_source_takeover();
         }
-        let _ = self.send_io_update(self.io_released_event());
+        self.send_io_update_if_space(self.io_released_event());
     }
 }
 
@@ -2818,7 +2821,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
             // Integration test
             // Test receiver could already be gone (if the test didn't wait long enough).
-            let _ = test_sender.try_send(source_feedback_value);
+            test_sender.send_if_space(source_feedback_value);
         } else {
             // Production
             match (source_feedback_value, feedback_output) {
@@ -2866,8 +2869,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                     self.channels
                         .osc_feedback_task_sender
-                        .try_send(OscFeedbackTask::new(dev_id, msg))
-                        .unwrap();
+                        .send_complaining(OscFeedbackTask::new(dev_id, msg));
                 }
                 _ => {}
             }
@@ -2896,8 +2898,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             });
                         self.channels
                             .instance_orchestration_event_sender
-                            .try_send(event)
-                            .unwrap();
+                            .send_complaining(event);
                     } else {
                         // Send feedback right now.
                         self.send_direct_source_feedback(

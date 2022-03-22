@@ -1,4 +1,4 @@
-use crate::base::Global;
+use crate::base::{Global, SenderToNormalThread};
 use crate::domain::{SourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
@@ -134,7 +134,8 @@ async fn setup() -> RealearnTestInstance {
     let session = App::get()
         .find_session_by_containing_fx(&fx)
         .expect("couldn't find session associated with ReaLearn FX instance");
-    let (feedback_sender, feedback_receiver) = crossbeam_channel::unbounded();
+    let (feedback_sender, feedback_receiver) =
+        SenderToNormalThread::new_unbounded_channel("test feedback");
     session
         .borrow()
         .use_integration_test_feedback_sender(feedback_sender);

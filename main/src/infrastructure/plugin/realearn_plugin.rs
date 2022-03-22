@@ -3,7 +3,7 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::base::{Global, RealTimeSender};
+use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
     MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
@@ -68,7 +68,7 @@ pub struct RealearnPlugin {
     _reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
     normal_main_task_channel: (
-        crossbeam_channel::Sender<NormalMainTask>,
+        SenderToNormalThread<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
     // Will be cloned to session as soon as it gets created.
@@ -78,9 +78,9 @@ pub struct RealearnPlugin {
     // Will be cloned to session as soon as it gets created.
     parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     // Will be cloned to session as soon as it gets created.
-    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     // Will be cloned to session as soon as it gets created.
-    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
+    feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // and drive its processing without detour. Well, almost. We share it with the global ReaLearn
@@ -105,23 +105,35 @@ impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
-                RealTimeSender::new_channel(
-                    "Normal real-time tasks",
+                SenderToRealTimeThread::new_channel(
+                    "normal real-time tasks",
                     NORMAL_REAL_TIME_TASK_QUEUE_SIZE,
                 );
             let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
-                RealTimeSender::new_channel(
-                    "Feedback real-time tasks",
+                SenderToRealTimeThread::new_channel(
+                    "feedback real-time tasks",
                     FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE,
                 );
             let (normal_main_task_sender, normal_main_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "normal main tasks",
+                    NORMAL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (normal_rt_to_main_task_sender, normal_rt_to_main_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "normal real-time to main tasks",
+                    NORMAL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (control_main_task_sender, control_main_task_receiver) =
-                crossbeam_channel::bounded(CONTROL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "control main tasks",
+                    CONTROL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (parameter_main_task_sender, parameter_main_task_receiver) =
-                crossbeam_channel::bounded(PARAMETER_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "parameter main tasks",
+                    PARAMETER_MAIN_TASK_QUEUE_SIZE,
+                );
             let instance_id = InstanceId::random();
             let logger = App::logger().new(o!("instance" => instance_id.to_string()));
             let session_state: SharedSessionState = Default::default();
@@ -380,7 +392,10 @@ impl RealearnPlugin {
                 };
                 // Instance state (domain - shared)
                 let (instance_feedback_event_sender, instance_feedback_event_receiver) =
-                    crossbeam_channel::bounded(INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE);
+                    SenderToNormalThread::new_bounded_channel(
+                        "instance state change events",
+                        INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE,
+                    );
                 let instance_state = BackboneState::get().create_instance(
                     instance_id,
                     instance_feedback_event_sender,

@@ -1,4 +1,4 @@
-use crate::base::Global;
+use crate::base::{Global, NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     BackboneState, CompoundMappingSource, DeviceChangeDetector, DeviceControlInput,
     DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput,
@@ -714,12 +714,12 @@ impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
 /// For pushing deallocation to main thread (vs. doing it in the audio thread).
 #[derive(Clone, Debug)]
 pub struct GarbageBin {
-    sender: crossbeam_channel::Sender<Garbage>,
+    sender: SenderToNormalThread<Garbage>,
 }
 impl GarbageBin {
-    pub fn new(sender: crossbeam_channel::Sender<Garbage>) -> Self {
+    pub fn new(sender: SenderToNormalThread<Garbage>) -> Self {
         assert!(
-            sender.capacity().is_some(),
+            sender.is_bounded(),
             "garbage bin sender channel must be bounded!"
         );
         Self { sender }
@@ -727,7 +727,7 @@ impl GarbageBin {
 
     /// Pushes deallocation to the main thread.
     pub fn dispose(&self, garbage: Garbage) {
-        self.sender.try_send(garbage).unwrap();
+        self.sender.send_complaining(garbage);
     }
 
     pub fn dispose_real_time_mapping(&self, m: RealTimeMapping) {

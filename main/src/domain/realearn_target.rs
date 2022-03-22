@@ -1,4 +1,4 @@
-use crate::base::RealTimeSender;
+use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_raw_midi, log_output,
     parse_unit_value_from_percentage, OutputReason,
@@ -365,8 +365,8 @@ pub struct EnableInstancesArgs<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
-    pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
-    pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
+    pub feedback_audio_hook_task_sender: &'a SenderToRealTimeThread<FeedbackAudioHookTask>,
+    pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub instance_container: &'a dyn InstanceContainer,
     pub instance_state: &'a SharedInstanceState,

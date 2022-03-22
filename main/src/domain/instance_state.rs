@@ -6,7 +6,7 @@ use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::{Prop, RealTimeSender};
+use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     BackboneState, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask, InstanceId,
     MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId,
@@ -28,10 +28,10 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 pub struct InstanceState {
     instance_id: InstanceId,
     clip_matrix_ref: Option<ClipMatrixRef>,
-    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
-    clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
-    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+    instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+    clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     this_track: Option<Track>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
@@ -79,9 +79,9 @@ pub enum ClipMatrixRef {
 #[derive(Debug)]
 pub struct RealearnClipMatrixHandler {
     instance_id: InstanceId,
-    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
-    event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
 }
 
 #[derive(Debug)]
@@ -93,9 +93,9 @@ pub struct QualifiedClipMatrixEvent {
 impl RealearnClipMatrixHandler {
     fn new(
         instance_id: InstanceId,
-        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
-        event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
     ) -> Self {
         Self {
             instance_id,
@@ -133,7 +133,7 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
             instance_id: self.instance_id,
             event,
         };
-        self.event_sender.try_send(event).unwrap();
+        self.event_sender.send_complaining(event);
     }
 }
 
@@ -145,10 +145,10 @@ pub struct MappingInfo {
 impl InstanceState {
     pub(super) fn new(
         instance_id: InstanceId,
-        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
-        clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
-        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         this_track: Option<Track>,
     ) -> Self {
         Self {
@@ -304,8 +304,7 @@ impl InstanceState {
     fn notify_active_mapping_tags_changed(&mut self, compartment: MappingCompartment) {
         let instance_event = InstanceStateChanged::ActiveMappingTags { compartment };
         self.instance_feedback_event_sender
-            .try_send(instance_event)
-            .unwrap();
+            .send_complaining(instance_event);
     }
 
     pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
@@ -340,8 +339,7 @@ impl InstanceState {
 
     fn notify_active_instance_tags_changed(&mut self) {
         self.instance_feedback_event_sender
-            .try_send(InstanceStateChanged::ActiveInstanceTags)
-            .unwrap();
+            .send_complaining(InstanceStateChanged::ActiveInstanceTags);
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
@@ -401,8 +399,7 @@ impl InstanceState {
             mapping_id: Some(mapping_id),
         };
         self.instance_feedback_event_sender
-            .try_send(instance_event)
-            .unwrap();
+            .send_complaining(instance_event);
     }
 
     /// Gets the ID of the currently active mapping within the given group.
@@ -428,7 +425,7 @@ impl InstanceState {
                     group_id: *group_id,
                     mapping_id: None,
                 };
-                self.instance_feedback_event_sender.try_send(event).unwrap();
+                self.instance_feedback_event_sender.send_complaining(event);
             }
         }
         self.mappings_by_group[compartment] = mappings_by_group;

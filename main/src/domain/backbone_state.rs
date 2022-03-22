@@ -1,4 +1,4 @@
-use crate::base::RealTimeSender;
+use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
     InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
@@ -73,10 +73,10 @@ impl BackboneState {
     pub fn create_instance(
         &self,
         id: InstanceId,
-        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
-        clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
-        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         this_track: Option<Track>,
     ) -> SharedInstanceState {
         let instance_state = InstanceState::new(

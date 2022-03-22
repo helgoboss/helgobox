@@ -1,3 +1,4 @@
+use crate::base::NamedChannelSender;
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     ControlContext, ExtendedProcessorContext, FeedbackOutput, HitInstructionReturnValue,
@@ -145,8 +146,7 @@ impl RealearnTarget for OscSendTarget {
         context
             .control_context
             .osc_feedback_task_sender
-            .try_send(OscFeedbackTask::new(effective_dev_id, msg))
-            .unwrap();
+            .send_complaining(OscFeedbackTask::new(effective_dev_id, msg));
         self.artificial_value = AbsoluteValue::Continuous(value);
         Ok(None)
     }
