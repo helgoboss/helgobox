@@ -1455,6 +1455,8 @@ fn process_real_mapping(
                 value_event,
             ),
             RealTimeReaperTarget::ClipTransport(t) => t.hit(control_value, control_context),
+            // TODO-high CONTINUE Do this only if rendering offline AND messages come from VST!!!
+            RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
         }
     } else {
         forward_control_to_main_processor(

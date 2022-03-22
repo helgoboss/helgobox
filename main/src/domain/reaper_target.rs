@@ -31,11 +31,11 @@ use crate::domain::{
     ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
     FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
-    RealTimeClipTransportTarget, RealTimeControlContext, RouteMuteTarget, RoutePanTarget,
-    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
+    RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -369,6 +369,7 @@ impl ReaperTarget {
             }
             FxEnabledChanged(e) => FxEnable(FxEnableTarget { fx: e.fx }),
             FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
+                fx_is_on_same_track_like_realearn: false,
                 param: e.parameter,
                 poll_for_feedback: true,
             }),
@@ -406,6 +407,7 @@ impl ReaperTarget {
         observable::empty()
             .merge(csurf_rx.fx_parameter_touched().map(move |param| {
                 FxParameter(FxParameterTarget {
+                    fx_is_on_same_track_like_realearn: false,
                     param,
                     poll_for_feedback: true,
                 })
@@ -608,6 +610,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
             ClipTransport(t) => t.current_value(ctx),
+            FxParameter(t) => t.current_value(ctx),
         }
     }
 
@@ -616,6 +619,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         match self {
             SendMidi(t) => t.control_type(()),
             ClipTransport(t) => t.control_type(ctx),
+            FxParameter(t) => t.control_type(ctx),
         }
     }
 }
@@ -1344,6 +1348,7 @@ pub fn change_track_prop(
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
     ClipTransport(RealTimeClipTransportTarget),
+    FxParameter(RealTimeFxParameterTarget),
 }
 
 pub fn get_control_type_and_character_for_track_exclusivity(
