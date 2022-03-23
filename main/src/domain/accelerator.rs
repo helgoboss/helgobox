@@ -1,19 +1,21 @@
+use crate::domain::{DomainEventHandler, SharedMainProcessors};
 use reaper_high::Reaper;
-use reaper_low::raw;
 use reaper_medium::{
     Accel, AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult,
 };
 
 #[derive(Debug)]
-pub struct RealearnAccelerator;
+pub struct RealearnAccelerator<EH: DomainEventHandler> {
+    main_processors: SharedMainProcessors<EH>,
+}
 
-impl RealearnAccelerator {
-    pub fn new() -> Self {
-        Self
+impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
+    pub fn new(main_processors: SharedMainProcessors<EH>) -> Self {
+        Self { main_processors }
     }
 }
 
-impl TranslateAccel for RealearnAccelerator {
+impl<EH: DomainEventHandler> TranslateAccel for RealearnAccelerator<EH> {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
         if args.msg.message != AccelMsgKind::KeyDown {
             return TranslateAccelResult::NotOurWindow;

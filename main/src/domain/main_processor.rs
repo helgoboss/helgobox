@@ -44,6 +44,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -57,6 +58,8 @@ pub const COMPARTMENT_PARAMETER_COUNT: u32 = 100;
 pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
 pub type ParameterSlice = [f32];
 pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
+
+pub type SharedMainProcessors<EH> = Rc<RefCell<Vec<MainProcessor<EH>>>>;
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {

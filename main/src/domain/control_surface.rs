@@ -5,7 +5,7 @@ use crate::domain::{
     FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor, MidiCaptureSender,
     MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget, SharedMainProcessors,
     SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
@@ -43,7 +43,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     logger: slog::Logger,
     change_detection_middleware: ChangeDetectionMiddleware,
     rx_middleware: ControlSurfaceRxMiddleware,
-    main_processors: Vec<MainProcessor<EH>>,
+    main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
@@ -186,6 +186,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         garbage_receiver: crossbeam_channel::Receiver<Garbage>,
         control_surface_metrics_enabled: bool,
+        main_processors: SharedMainProcessors<EH>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         let mut device_change_detector = DeviceChangeDetector::new();
@@ -196,7 +197,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
-            main_processors: Default::default(),
+            main_processors,
             main_task_receiver,
             clip_matrix_event_receiver,
             server_task_receiver,
@@ -225,7 +226,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     pub fn remove_main_processor(&mut self, id: &InstanceId) {
-        self.main_processors.retain(|p| p.instance_id() != id);
+        self.main_processors
+            .borrow_mut()
+            .retain(|p| p.instance_id() != id);
     }
 
     pub fn set_osc_input_devices(&mut self, devs: Vec<OscInputDevice>) {
@@ -239,7 +242,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     /// Called when waking up ReaLearn (first instance appears again or the first time).
     pub fn wake_up(&self) {
         self.change_detection_middleware.reset(|e| {
-            for m in &self.main_processors {
+            for m in &*self.main_processors.borrow() {
                 m.process_control_surface_change_event(&e);
             }
             self.rx_middleware.handle_change(e);
@@ -286,7 +289,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use RealearnControlSurfaceMainTask::*;
             match t {
                 AddMainProcessor(p) => {
-                    self.main_processors.push(p);
+                    self.main_processors.borrow_mut().push(p);
                 }
                 LogDebugInfo => {
                     self.log_debug_info();
@@ -303,7 +306,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     self.state = State::CapturingOsc(sender);
                 }
                 SendAllFeedback => {
-                    for m in &self.main_processors {
+                    for m in &*self.main_processors.borrow() {
                         m.send_all_feedback();
                     }
                 }
@@ -350,12 +353,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn poll_clip_matrixes(&mut self) {
-        for processor in &self.main_processors {
+        for processor in &*self.main_processors.borrow() {
             let events = processor.poll_owned_clip_matrix();
             if events.is_empty() {
                 continue;
             }
-            for other_processor in &self.main_processors {
+            for other_processor in &*self.main_processors.borrow() {
                 other_processor.process_clip_matrix_events(*processor.instance_id(), &events);
             }
         }
@@ -364,13 +367,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn run_main_processors(&mut self) {
         match &self.state {
             State::Normal => {
-                for p in &mut self.main_processors {
+                for p in &mut *self.main_processors.borrow_mut() {
                     p.run_essential();
                     p.run_control();
                 }
             }
             State::CapturingOsc(_) | State::LearningTarget(_) => {
-                for p in &mut self.main_processors {
+                for p in &mut *self.main_processors.borrow_mut() {
                     p.run_essential();
                 }
             }
@@ -392,7 +395,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     .borrow_mut()
                     .next(e.parameter.clone());
             }
-            for p in &mut self.main_processors {
+            for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event)
             }
         }
@@ -404,7 +407,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             .try_iter()
             .take(CLIP_MATRIX_EVENT_BULK_SIZE)
         {
-            for p in &mut self.main_processors {
+            for p in &mut *self.main_processors.borrow_mut() {
                 p.process_clip_matrix_event(&event);
             }
         }
@@ -426,11 +429,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     // preset changes.
                     let other_instance_took_over = self
                         .main_processors
+                        .borrow()
                         .iter()
                         .any(|p| p.maybe_takeover_source(&e));
                     if !other_instance_took_over {
                         if let Some(p) = self
                             .main_processors
+                            .borrow()
                             .iter()
                             .find(|p| p.instance_id() == &e.instance_id)
                         {
@@ -470,6 +475,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         if let Some(feedback_output) = e.feedback_output {
                             // Give lower-floor instances the chance to cancel or reactivate.
                             self.main_processors
+                                .borrow()
                                 .iter()
                                 .filter(|p| p.instance_id() != &e.instance_id)
                                 .for_each(|p| {
@@ -490,7 +496,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     project,
                     new_value: reference_pos,
                 });
-                for p in &mut self.main_processors {
+                for p in &mut *self.main_processors.borrow_mut() {
                     p.process_additional_feedback_event(&event);
                 }
             }
@@ -527,7 +533,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 };
                 msgs.push(ReaperMessage::MidiDevicesDisconnected(payload));
             }
-            for p in &mut self.main_processors {
+            for p in &mut *self.main_processors.borrow_mut() {
                 for msg in &msgs {
                     p.process_reaper_message(msg);
                 }
@@ -563,7 +569,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         for (dev_id, packets) in packets_by_device {
             match &self.state {
                 State::Normal => {
-                    for proc in &mut self.main_processors {
+                    for proc in &mut *self.main_processors.borrow_mut() {
                         if proc.receives_osc_from(&dev_id) {
                             for packet in &packets {
                                 proc.process_incoming_osc_packet(packet);
@@ -588,7 +594,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match &self.state {
                 State::Normal => {
                     // This is for feedback processing. No Rx!
-                    for m in &self.main_processors {
+                    for m in &*self.main_processors.borrow() {
                         m.process_control_surface_change_event(&e);
                     }
                     // The rest is only for upper layers (e.g. UI), not for processing.
@@ -599,7 +605,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         //  touching for "Last touched" target and global learning (see
                         //  LearningTarget state)! Connect the dots!
                         BackboneState::get().set_last_touched_target(target);
-                        for p in &self.main_processors {
+                        for p in &*self.main_processors.borrow() {
                             p.notify_target_touched();
                         }
                     }

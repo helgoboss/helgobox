@@ -13,7 +13,7 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
     RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
-    SharedRealTimeProcessor, Tag,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -69,6 +69,8 @@ const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
+
+pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession>;
 
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
@@ -147,14 +149,14 @@ struct UninitializedState {
 struct SleepingState {
     control_surface: Box<RealearnControlSurface>,
     audio_hook: Box<RealearnAudioHook>,
-    accelerator: Box<RealearnAccelerator>,
+    accelerator: Box<RealearnSessionAccelerator>,
 }
 
 #[derive(Debug)]
 struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
-    accelerator_handle: RegistrationHandle<RealearnAccelerator>,
+    accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
 }
 
 impl Default for App {
@@ -334,6 +336,7 @@ impl App {
             .subscribe(move |fx| {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
+        let shared_main_processors = SharedMainProcessors::default();
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
@@ -343,13 +346,14 @@ impl App {
             uninit_state.instance_orchestration_event_receiver,
             Self::garbage_channel().1.clone(),
             Self::control_surface_metrics_enabled(),
+            shared_main_processors.clone(),
         ));
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
             Self::garbage_bin().clone(),
         );
-        let accelerator = RealearnAccelerator::new();
+        let accelerator = RealearnAccelerator::new(shared_main_processors);
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
