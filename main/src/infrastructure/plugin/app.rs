@@ -10,8 +10,8 @@ use crate::domain::{
     FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
     InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAudioHook,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
+    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
     SharedRealTimeProcessor, Tag,
 };
@@ -147,12 +147,14 @@ struct UninitializedState {
 struct SleepingState {
     control_surface: Box<RealearnControlSurface>,
     audio_hook: Box<RealearnAudioHook>,
+    accelerator: Box<RealearnAccelerator>,
 }
 
 #[derive(Debug)]
 struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
+    accelerator_handle: RegistrationHandle<RealearnAccelerator>,
 }
 
 impl Default for App {
@@ -347,9 +349,11 @@ impl App {
             uninit_state.feedback_audio_hook_task_receiver,
             Self::garbage_bin().clone(),
         );
+        let accelerator = RealearnAccelerator::new();
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
+            accelerator: Box::new(accelerator),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
@@ -440,10 +444,15 @@ impl App {
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
+        // Accelerator
+        let accelerator_handle = session
+            .plugin_register_add_accelerator_register(sleeping_state.accelerator)
+            .expect("couldn't register ReaLearn accelerator");
         // Awake state
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle,
+            accelerator_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -461,14 +470,17 @@ impl App {
             App::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
-        let (mut control_surface, audio_hook) = unsafe {
+        let (accelerator, mut control_surface, audio_hook) = unsafe {
+            let accelerator = session
+                .plugin_register_remove_accelerator(awake_state.accelerator_handle)
+                .expect("accelerator was not registered");
             let control_surface = session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered");
             let audio_hook = session
                 .audio_reg_hardware_hook_remove(awake_state.audio_hook_handle)
                 .expect("control surface was not registered");
-            (control_surface, audio_hook)
+            (accelerator, control_surface, audio_hook)
         };
         // Close OSC connections
         let middleware = control_surface.middleware_mut();
@@ -484,6 +496,7 @@ impl App {
         let sleeping_state = SleepingState {
             control_surface,
             audio_hook,
+            accelerator,
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
@@ -635,6 +648,7 @@ impl App {
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
+            accelerator_handle: awake_state.accelerator_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
     }

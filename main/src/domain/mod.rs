@@ -101,3 +101,6 @@ pub use organization::*;
 
 mod props;
 pub use props::*;
+
+mod accelerator;
+pub use accelerator::*;
