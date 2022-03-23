@@ -15,12 +15,12 @@ use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
     GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
-    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
-    ZEROED_PLUGIN_PARAMETERS,
+    InstanceState, MainMapping, MainSettings, MappingCompartment, MappingId, MappingKey,
+    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
+    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
+    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -28,7 +28,6 @@ use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
 use rx_util::Notifier;
-use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
@@ -371,8 +370,6 @@ impl Session {
         // won't arrive!
         self.sync_settings();
         self.sync_upper_floor_membership();
-        self.sync_control_is_globally_enabled();
-        self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
         for compartment in MappingCompartment::enum_iter() {
             self.sync_all_mappings_full(compartment);
@@ -422,36 +419,6 @@ impl Session {
             .do_async(move |session, (compartment, _)| {
                 session.borrow_mut().sync_all_mappings_full(compartment);
             });
-        // Whenever something changes that determines if feedback is enabled in general, let the
-        // processors know.
-        when(
-            // There are several global conditions which affect whether feedback will be enabled in
-            // general.
-            self.midi_feedback_output
-                .changed()
-                .merge(self.osc_output_device_id.changed())
-                .merge(self.containing_track_armed_or_disarmed())
-                .merge(self.send_feedback_only_if_armed.changed())
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            session.borrow_mut().sync_feedback_is_globally_enabled();
-        });
-        // Whenever containing FX is disabled or enabled, we need to completely disable/enable
-        // control/feedback.
-        when(
-            self.containing_fx_enabled_or_disabled()
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            let session = session.borrow_mut();
-            session.sync_control_is_globally_enabled();
-            session.sync_feedback_is_globally_enabled();
-        });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
         when(self.settings_changed())
@@ -1923,28 +1890,6 @@ impl Session {
         self.notify_parameter_settings_changed(compartment);
     }
 
-    fn containing_fx_enabled_or_disabled(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        let containing_fx = self.context.containing_fx().clone();
-        Global::control_surface_rx()
-            .fx_enabled_changed()
-            .filter(move |fx| *fx == containing_fx)
-            .map_to(())
-    }
-
-    fn containing_track_armed_or_disarmed(&self) -> LocalBoxOp<'static, (), ()> {
-        if let Some(track) = self.context.containing_fx().track().cloned() {
-            Global::control_surface_rx()
-                .track_arm_changed()
-                .filter(move |t| *t == track)
-                .map_to(())
-                .box_it()
-        } else {
-            observable::never().box_it()
-        }
-    }
-
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
     ///
     /// The session itself shouldn't subscribe to this.
@@ -2202,13 +2147,15 @@ impl Session {
     }
 
     fn sync_settings(&self) {
-        let task = NormalMainTask::UpdateSettings {
+        let settings = MainSettings {
             control_input: self.control_input(),
             feedback_output: self.feedback_output(),
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
+            send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
         };
-        self.normal_main_task_sender.send_complaining(task);
+        self.normal_main_task_sender
+            .send_complaining(NormalMainTask::UpdateSettings(settings));
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
@@ -2250,44 +2197,6 @@ impl Session {
         } else {
             self.find_group_by_id(mapping.compartment(), group_id)
         }
-    }
-
-    fn control_is_globally_enabled(&self) -> bool {
-        self.context.containing_fx().is_enabled()
-    }
-
-    fn feedback_is_globally_enabled(&self) -> bool {
-        (self.midi_feedback_output.get().is_some() || self.osc_output_device_id.get_ref().is_some())
-            && self.context.containing_fx().is_enabled()
-            && self.track_arm_conditions_are_met()
-    }
-
-    fn track_arm_conditions_are_met(&self) -> bool {
-        if !self.containing_fx_is_in_input_fx_chain() && !self.send_feedback_only_if_armed.get() {
-            return true;
-        }
-        match self.context.track() {
-            None => true,
-            Some(t) => t.is_available() && t.is_armed(false),
-        }
-    }
-
-    /// Just syncs whether control globally enabled or not.
-    fn sync_control_is_globally_enabled(&self) {
-        let enabled = self.control_is_globally_enabled();
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled));
-        self.normal_main_task_sender
-            .send_complaining(NormalMainTask::UpdateControlIsGloballyEnabled(enabled));
-    }
-
-    /// Just syncs whether feedback globally enabled or not.
-    fn sync_feedback_is_globally_enabled(&self) {
-        let enabled = self.feedback_is_globally_enabled();
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled));
-        self.normal_main_task_sender
-            .send_complaining(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled));
     }
 
     /// Does a full mapping sync.

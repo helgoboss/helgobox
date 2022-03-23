@@ -71,18 +71,15 @@ struct Basics<EH: DomainEventHandler> {
     instance_id: InstanceId,
     instance_container: &'static dyn InstanceContainer,
     logger: slog::Logger,
+    settings: MainSettings,
+    control_is_globally_enabled: bool,
     // TODO-medium Now that we communicate the feedback output separately, we could limit the scope
     //  of its meaning to "instance enabled etc."
     feedback_is_globally_enabled: bool,
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
-    control_is_globally_enabled: bool,
-    control_input: ControlInput,
-    feedback_output: Option<FeedbackOutput>,
     instance_state: SharedInstanceState,
-    input_logging_enabled: bool,
-    output_logging_enabled: bool,
     channels: Channels,
     // Using RefCell in the processing layer is an exception. We do it here because we can't
     // safely make feedback processing mutable. I tried (see branch
@@ -264,17 +261,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             basics: Basics {
                 instance_id,
                 logger: logger.clone(),
+                settings: Default::default(),
+                control_is_globally_enabled: true,
                 feedback_is_globally_enabled: false,
                 event_handler,
                 context,
                 control_mode: ControlMode::Controlling,
-                control_is_globally_enabled: true,
-                control_input: Default::default(),
-                feedback_output: Default::default(),
                 instance_state,
                 instance_container,
-                input_logging_enabled: false,
-                output_logging_enabled: false,
                 channels: Channels {
                     self_feedback_sender,
                     self_normal_sender,
@@ -317,7 +311,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
     pub fn maybe_takeover_source(&self, released_event: &SourceReleasedEvent) -> bool {
-        if Some(released_event.feedback_output) != self.basics.feedback_output {
+        if Some(released_event.feedback_output) != self.basics.settings.feedback_output {
             // Difference feedback device. No source takeover of course.
             return false;
         }
@@ -379,7 +373,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
     pub fn run_control(&mut self) {
-        let control_is_effectively_enabled = self.control_is_effectively_enabled();
+        let control_is_effectively_enabled = self.basics.instance_control_is_effectively_enabled();
         // Collect control tasks (we do that in any case to not let get channels full).
         let mut count = 0;
         while let Ok(task) = self.basics.channels.control_task_receiver.try_recv() {
@@ -971,18 +965,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         while let Ok(task) = self.basics.channels.normal_task_receiver.try_recv() {
             use NormalMainTask::*;
             match task {
-                UpdateSettings {
-                    control_input,
-                    feedback_output,
-                    input_logging_enabled,
-                    output_logging_enabled,
-                } => {
-                    self.update_settings(
-                        control_input,
-                        feedback_output,
-                        input_logging_enabled,
-                        output_logging_enabled,
-                    );
+                UpdateSettings(settings) => {
+                    self.update_settings(settings);
                 }
                 UpdateAllMappings(compartment, mappings) => {
                     self.update_all_mappings(compartment, mappings);
@@ -1012,9 +996,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 LogMapping(compartment, mapping_id) => {
                     self.log_mapping(compartment, mapping_id);
                 }
-                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
-                    self.update_feedback_is_globally_enabled(is_enabled);
-                }
                 StartLearnSource {
                     allow_virtual_sources,
                     osc_arg_index_hint,
@@ -1033,15 +1014,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     debug!(self.basics.logger, "Return to control mode");
                     self.basics.control_mode = ControlMode::Controlling;
                 }
-                UpdateControlIsGloballyEnabled(is_enabled) => {
-                    self.basics.control_is_globally_enabled = is_enabled;
-                    let event = IoUpdatedEvent {
-                        ..self.basic_io_changed_event()
-                    };
-                    self.send_io_update_complaining(event);
-                }
                 UseIntegrationTestFeedbackSender(sender) => {
                     self.basics.channels.integration_test_feedback_sender = Some(sender);
+                }
+                PotentiallyEnableOrDisableControlOrFeedback => {
+                    let any_main_mapping_is_effectively_on =
+                        self.any_main_mapping_is_effectively_on();
+                    self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
+                    self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
                 }
             }
             count += 1;
@@ -1051,24 +1031,35 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn update_feedback_is_globally_enabled(&mut self, is_enabled: bool) {
-        debug!(
-            self.basics.logger,
-            "Updating feedback_is_globally_enabled to {}", is_enabled
-        );
-        self.basics.clear_last_feedback();
-        self.basics.feedback_is_globally_enabled = is_enabled;
-        if is_enabled {
-            for compartment in MappingCompartment::enum_iter() {
-                self.handle_feedback_after_having_updated_all_mappings(compartment, HashMap::new());
-            }
-        } else {
-            // Clear it completely. Other instances that might take over maybe don't use
-            // all control elements and we don't want to leave traces.
-            self.clear_all_feedback_allowing_source_takeover();
-        };
-        let event = self.feedback_output_usage_might_have_changed_event();
-        self.send_io_update_complaining(event);
+    pub fn potentially_enable_or_disable_control(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+    ) {
+        self.basics
+            .potentially_enable_or_disable_control_internal(any_main_mapping_is_effectively_on);
+    }
+
+    pub fn potentially_enable_or_disable_feedback(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+    ) {
+        let new_feedback_is_enabled = self
+            .basics
+            .potentially_enable_or_disable_feedback_internal(any_main_mapping_is_effectively_on);
+        if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
+            if new_feedback_is_enabled {
+                for compartment in MappingCompartment::enum_iter() {
+                    self.handle_feedback_after_having_updated_all_mappings(
+                        compartment,
+                        HashMap::new(),
+                    );
+                }
+            } else {
+                // Clear it completely. Other instances that might take over maybe don't use
+                // all control elements and we don't want to leave traces.
+                self.clear_all_feedback_allowing_source_takeover();
+            };
+        }
     }
 
     fn refresh_all_targets(&mut self) {
@@ -1120,22 +1111,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.update_on_mappings();
     }
 
-    fn update_settings(
-        &mut self,
-        control_input: ControlInput,
-        feedback_output: Option<FeedbackOutput>,
-        input_logging_enabled: bool,
-        output_logging_enabled: bool,
-    ) {
-        self.basics.clear_last_feedback();
-        self.basics.input_logging_enabled = input_logging_enabled;
-        self.basics.output_logging_enabled = output_logging_enabled;
-        let released_event = self.io_released_event();
-        self.basics.control_input = control_input;
-        self.basics.feedback_output = feedback_output;
-        let changed_event = self.feedback_output_usage_might_have_changed_event();
-        self.send_io_update_complaining(released_event);
-        self.send_io_update_complaining(changed_event);
+    fn update_settings(&mut self, settings: MainSettings) {
+        let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
+        self.basics
+            .update_settings_internal(settings, any_main_mapping_is_effectively_on);
+        self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
     }
 
     fn update_all_mappings(
@@ -1274,39 +1254,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn basic_io_changed_event(&self) -> IoUpdatedEvent {
-        let active = self.collections.mappings[MappingCompartment::MainMappings]
+    fn any_main_mapping_is_effectively_on(&self) -> bool {
+        self.collections.mappings[MappingCompartment::MainMappings]
             .values()
-            .any(|m| m.is_effectively_on());
-        IoUpdatedEvent {
-            instance_id: self.basics.instance_id,
-            control_input: self.basics.control_input.device_input(),
-            control_input_used: self.basics.control_is_globally_enabled && active,
-            feedback_output: self.basics.feedback_output.and_then(|o| o.device_output()),
-            feedback_output_used: self.basics.feedback_is_globally_enabled && active,
-            feedback_output_usage_might_have_changed: false,
-        }
-    }
-
-    fn control_is_effectively_enabled(&self) -> bool {
-        self.basics.control_is_globally_enabled
-            && BackboneState::get()
-                .control_is_allowed(self.instance_id(), self.basics.control_input)
-    }
-
-    fn io_released_event(&self) -> IoUpdatedEvent {
-        IoUpdatedEvent {
-            control_input_used: false,
-            feedback_output_used: false,
-            ..self.feedback_output_usage_might_have_changed_event()
-        }
-    }
-
-    fn feedback_output_usage_might_have_changed_event(&self) -> IoUpdatedEvent {
-        IoUpdatedEvent {
-            feedback_output_usage_might_have_changed: true,
-            ..self.basic_io_changed_event()
-        }
+            .any(|m| m.is_effectively_on())
     }
 
     fn notify_feedback_dev_usage_might_have_changed(&self, compartment: MappingCompartment) {
@@ -1314,20 +1265,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // *main* mapping. It doesn't depend on
         // controller mappings.
         if compartment == MappingCompartment::MainMappings {
-            let event = self.feedback_output_usage_might_have_changed_event();
+            let event = self.basics.feedback_output_usage_might_have_changed_event(
+                self.any_main_mapping_is_effectively_on(),
+            );
             debug!(
                 self.basics.logger,
                 "IO event. Feedback output used: {:?}", event.feedback_output_used
             );
-            self.send_io_update_complaining(event);
+            self.basics.send_io_update_complaining(event);
         }
-    }
-
-    fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
-        self.basics
-            .channels
-            .instance_orchestration_event_sender
-            .send_complaining(InstanceOrchestrationEvent::IoUpdated(event))
     }
 
     fn send_io_update_if_space(&self, event: IoUpdatedEvent) {
@@ -1403,6 +1349,27 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+        // Potentially enable/disable control/feedback
+        let influences_global_control_and_feedback = match event {
+            ChangeEvent::FxEnabledChanged(evt)
+                if &evt.fx == self.basics.context.containing_fx() =>
+            {
+                true
+            }
+            ChangeEvent::TrackArmChanged(evt)
+                if Some(&evt.track) == self.basics.context.containing_fx().track() =>
+            {
+                true
+            }
+            _ => false,
+        };
+        if influences_global_control_and_feedback {
+            self.basics
+                .channels
+                .self_normal_sender
+                .send_complaining(NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback);
+        }
+        // Refresh targets if necessary
         if ReaperTarget::is_potential_change_event(event) {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //
@@ -1477,7 +1444,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn receives_osc_from(&self, device_id: &OscDeviceId) -> bool {
-        self.basics.control_input == ControlInput::Osc(*device_id)
+        self.basics.settings.control_input == ControlInput::Osc(*device_id)
     }
 
     pub fn process_reaper_message(&mut self, msg: &ReaperMessage) {
@@ -1485,7 +1452,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Convenience: Send all feedback whenever a MIDI device is connected.
         if let ReaperMessage::MidiDevicesConnected(payload) = msg {
             if let Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))) =
-                self.basics.feedback_output
+                self.basics.settings.feedback_output
             {
                 if payload.output_devices.contains(&dev_id) {
                     self.basics
@@ -1499,10 +1466,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.control_mode != ControlMode::Controlling {
             return;
         }
-        if self.basics.input_logging_enabled {
+        if self.basics.settings.input_logging_enabled {
             log_control_input(&self.basics.instance_id, msg.to_string());
         }
-        if !self.control_is_effectively_enabled() {
+        if !self.basics.instance_control_is_effectively_enabled() {
             return;
         }
         let msg = MainSourceMessage::Reaper(msg);
@@ -1527,7 +1494,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
-        if self.basics.input_logging_enabled {
+        if self.basics.settings.input_logging_enabled {
             match self.basics.control_mode {
                 ControlMode::Controlling => {
                     log_control_input(&self.basics.instance_id, format_osc_packet(packet));
@@ -1551,7 +1518,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
         match self.basics.control_mode {
             ControlMode::Controlling => {
-                if self.control_is_effectively_enabled() {
+                if self.basics.instance_control_is_effectively_enabled() {
                     let msg = MainSourceMessage::Osc(msg);
                     let results = self
                         .basics
@@ -1701,7 +1668,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn update_on_mappings(&self) {
-        let instance_is_enabled = self.control_is_effectively_enabled()
+        let instance_is_enabled = self.basics.instance_control_is_effectively_enabled()
             && self.basics.instance_feedback_is_effectively_enabled();
         let on_mappings = if instance_is_enabled {
             self.all_mappings()
@@ -1830,6 +1797,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.update_on_mappings();
         if self
             .basics
+            .settings
             .feedback_output
             .and_then(FeedbackOutput::device_output)
             == Some(feedback_output)
@@ -2282,14 +2250,8 @@ pub enum NormalMainTask {
         value: AbsoluteValue,
     },
     RefreshAllTargets,
-    UpdateSettings {
-        control_input: ControlInput,
-        feedback_output: Option<FeedbackOutput>,
-        input_logging_enabled: bool,
-        output_logging_enabled: bool,
-    },
-    UpdateControlIsGloballyEnabled(bool),
-    UpdateFeedbackIsGloballyEnabled(bool),
+    UpdateSettings(MainSettings),
+    PotentiallyEnableOrDisableControlOrFeedback,
     SendAllFeedback,
     LogDebugInfo,
     LogMapping(MappingCompartment, MappingId),
@@ -2300,6 +2262,15 @@ pub enum NormalMainTask {
     DisableControl,
     ReturnToControlMode,
     UseIntegrationTestFeedbackSender(SenderToNormalThread<SourceFeedbackValue>),
+}
+
+#[derive(Debug, Default)]
+pub struct MainSettings {
+    pub control_input: ControlInput,
+    pub feedback_output: Option<FeedbackOutput>,
+    pub input_logging_enabled: bool,
+    pub output_logging_enabled: bool,
+    pub send_feedback_only_if_armed: bool,
 }
 
 /// A task which is sent from time to time from real-time to main processor.
@@ -2381,7 +2352,10 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
             // Other instances can take over the feedback output afterwards.
             self.clear_all_feedback_preventing_source_takeover();
         }
-        self.send_io_update_if_space(self.io_released_event());
+        let released_event = self
+            .basics
+            .io_released_event(self.any_main_mapping_is_effectively_on());
+        self.send_io_update_if_space(released_event);
     }
 }
 
@@ -2433,6 +2407,142 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn update_settings_internal(
+        &mut self,
+        settings: MainSettings,
+        any_main_mapping_is_effectively_on: bool,
+    ) {
+        self.clear_last_feedback();
+        // Send released event (important to create before updating settings)
+        let released_event = self.io_released_event(any_main_mapping_is_effectively_on);
+        self.send_io_update_complaining(released_event);
+        // Update settings and feedback
+        self.settings = settings;
+    }
+
+    pub fn potentially_enable_or_disable_control_internal(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+    ) {
+        let new_control_is_enabled = self.potentially_enable_or_disable_control_very_internal();
+        if let Some(new_control_is_enabled) = new_control_is_enabled {
+            debug!(
+                self.logger,
+                "Updated control_is_globally_enabled to {}", new_control_is_enabled
+            );
+            let event = IoUpdatedEvent {
+                ..self.create_basic_io_changed_event(
+                    any_main_mapping_is_effectively_on,
+                    &self.current_control_feedback_settings(),
+                )
+            };
+            self.send_io_update_complaining(event);
+            self.channels.normal_real_time_task_sender.send_complaining(
+                NormalRealTimeTask::UpdateControlIsGloballyEnabled(new_control_is_enabled),
+            );
+        }
+    }
+
+    /// Returns `Some` with new value if has actually changed.
+    pub fn potentially_enable_or_disable_feedback_internal(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+    ) -> Option<bool> {
+        let new_feedback_is_enabled = self.potentially_enable_or_disable_feedback_very_internal();
+        if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
+            debug!(
+                self.logger,
+                "Updated feedback_is_globally_enabled to {}", new_feedback_is_enabled
+            );
+            self.clear_last_feedback();
+            let changed_event = self
+                .feedback_output_usage_might_have_changed_event(any_main_mapping_is_effectively_on);
+            self.send_io_update_complaining(changed_event);
+            self.channels.normal_real_time_task_sender.send_complaining(
+                NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(new_feedback_is_enabled),
+            );
+        }
+        new_feedback_is_enabled
+    }
+
+    /// Returns `Some` with new value if has actually changed.
+    fn potentially_enable_or_disable_control_very_internal(&mut self) -> Option<bool> {
+        let new_value = determine_control_globally_enabled(&self.context);
+        let changed = new_value != self.control_is_globally_enabled;
+        self.control_is_globally_enabled = new_value;
+        if changed {
+            Some(new_value)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `Some` with new value if has actually changed.
+    fn potentially_enable_or_disable_feedback_very_internal(&mut self) -> Option<bool> {
+        let new_value = determine_feedback_globally_enabled(&self.context, &self.settings);
+        let changed = new_value != self.feedback_is_globally_enabled;
+        self.feedback_is_globally_enabled = new_value;
+        if changed {
+            Some(new_value)
+        } else {
+            None
+        }
+    }
+
+    fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
+        self.channels
+            .instance_orchestration_event_sender
+            .send_complaining(InstanceOrchestrationEvent::IoUpdated(event));
+    }
+
+    fn io_released_event(&self, any_main_mapping_is_effectively_on: bool) -> IoUpdatedEvent {
+        IoUpdatedEvent {
+            control_input_used: false,
+            feedback_output_used: false,
+            ..self
+                .feedback_output_usage_might_have_changed_event(any_main_mapping_is_effectively_on)
+        }
+    }
+
+    fn current_control_feedback_settings(&self) -> ControlFeedbackSettings {
+        ControlFeedbackSettings {
+            control_input: self.settings.control_input,
+            feedback_output: self.settings.feedback_output,
+            control_is_globally_enabled: self.control_is_globally_enabled,
+            feedback_is_globally_enabled: self.feedback_is_globally_enabled,
+        }
+    }
+
+    fn feedback_output_usage_might_have_changed_event(
+        &self,
+        any_main_mapping_is_effectively_on: bool,
+    ) -> IoUpdatedEvent {
+        IoUpdatedEvent {
+            feedback_output_usage_might_have_changed: true,
+            ..self.create_basic_io_changed_event(
+                any_main_mapping_is_effectively_on,
+                &self.current_control_feedback_settings(),
+            )
+        }
+    }
+
+    fn create_basic_io_changed_event(
+        &self,
+        any_main_mapping_is_effectively_on: bool,
+        settings: &ControlFeedbackSettings,
+    ) -> IoUpdatedEvent {
+        IoUpdatedEvent {
+            instance_id: self.instance_id,
+            control_input: settings.control_input.device_input(),
+            control_input_used: settings.control_is_globally_enabled
+                && any_main_mapping_is_effectively_on,
+            feedback_output: settings.feedback_output.and_then(|o| o.device_output()),
+            feedback_output_used: settings.feedback_is_globally_enabled
+                && any_main_mapping_is_effectively_on,
+            feedback_output_usage_might_have_changed: false,
+        }
+    }
+
     pub fn clear_last_feedback(&self) {
         self.last_feedback_checksum_by_address.borrow_mut().clear();
     }
@@ -2441,11 +2551,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
         ControlContext {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
-            feedback_output: self.feedback_output,
+            feedback_output: self.settings.feedback_output,
             instance_container: self.instance_container,
             instance_state: &self.instance_state,
             instance_id: &self.instance_id,
-            output_logging_enabled: self.output_logging_enabled,
+            output_logging_enabled: self.settings.output_logging_enabled,
             processor_context: &self.context,
         }
     }
@@ -2828,7 +2938,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 (SourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
                     match midi_output {
                         MidiDestination::FxOutput => {
-                            if self.output_logging_enabled {
+                            if self.settings.output_logging_enabled {
                                 log_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
@@ -2849,7 +2959,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // thread, in order to support multiple instances with the same device) ...
                             // it won't be useful at all if the real-time processors send the feedback
                             // in the order of instance instantiation.
-                            if self.output_logging_enabled {
+                            if self.settings.output_logging_enabled {
                                 log_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
@@ -2864,7 +2974,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                 }
                 (SourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
-                    if self.output_logging_enabled {
+                    if self.settings.output_logging_enabled {
                         log_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
                     self.channels
@@ -2883,7 +2993,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         is_feedback_after_control: bool,
     ) {
         if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
-            if let Some(feedback_output) = self.feedback_output {
+            if let Some(feedback_output) = self.settings.feedback_output {
                 if let Some(source_feedback_value) = feedback_value.source {
                     // At this point we can be sure that this mapping can't have a
                     // virtual source.
@@ -2917,8 +3027,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    pub fn instance_control_is_effectively_enabled(&self) -> bool {
+        self.control_is_globally_enabled
+            && BackboneState::get()
+                .control_is_allowed(&self.instance_id, self.settings.control_input)
+    }
+
     pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
-        if let Some(fo) = self.feedback_output {
+        if let Some(fo) = self.settings.feedback_output {
             self.feedback_is_globally_enabled
                 && BackboneState::get().feedback_is_allowed(&self.instance_id, fo)
         } else {
@@ -3206,5 +3322,35 @@ impl Fb {
 
     fn normal(value: Option<CompoundFeedbackValue>) -> Self {
         Fb(FeedbackReason::Normal, value)
+    }
+}
+
+struct ControlFeedbackSettings {
+    control_input: ControlInput,
+    feedback_output: Option<FeedbackOutput>,
+    control_is_globally_enabled: bool,
+    feedback_is_globally_enabled: bool,
+}
+
+fn determine_control_globally_enabled(context: &ProcessorContext) -> bool {
+    context.containing_fx().is_enabled()
+}
+
+fn determine_feedback_globally_enabled(
+    context: &ProcessorContext,
+    settings: &MainSettings,
+) -> bool {
+    settings.feedback_output.is_some()
+        && context.containing_fx().is_enabled()
+        && track_arm_conditions_are_met(context, settings)
+}
+
+fn track_arm_conditions_are_met(context: &ProcessorContext, settings: &MainSettings) -> bool {
+    if !context.containing_fx().is_input_fx() && !settings.send_feedback_only_if_armed {
+        return true;
+    }
+    match context.track() {
+        None => true,
+        Some(t) => t.is_available() && t.is_armed(false),
     }
 }
