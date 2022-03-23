@@ -529,10 +529,9 @@ impl RealearnPlugin {
                 self.set_named_config_param(param_name, ptr as *const c_char)
             }
             GetEffectName => {
-                // // TODO-high Do this only if on monitoring FX
-                // self.normal_main_task_channel
-                //     .0
-                //     .send_if_space(NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback);
+                self.normal_main_task_channel
+                    .0
+                    .send_if_space(NormalMainTask::GetEffectNameHasBeenCalled);
                 Err("only partially handled opcode")
             }
             _ => Err("unhandled opcode"),

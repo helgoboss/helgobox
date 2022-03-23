@@ -1018,10 +1018,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.basics.channels.integration_test_feedback_sender = Some(sender);
                 }
                 PotentiallyEnableOrDisableControlOrFeedback => {
-                    let any_main_mapping_is_effectively_on =
-                        self.any_main_mapping_is_effectively_on();
-                    self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
-                    self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
+                    self.potentially_enable_or_disable_control_or_feedback(
+                        self.any_main_mapping_is_effectively_on(),
+                    );
+                }
+                GetEffectNameHasBeenCalled => {
+                    if self.basics.context.is_on_monitoring_fx_chain() {
+                        // We don't get informed about
+                        self.potentially_enable_or_disable_control_or_feedback(
+                            self.any_main_mapping_is_effectively_on(),
+                        );
+                    }
                 }
             }
             count += 1;
@@ -1031,18 +1038,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn potentially_enable_or_disable_control(
+    fn potentially_enable_or_disable_control_or_feedback(
         &mut self,
         any_main_mapping_is_effectively_on: bool,
     ) {
+        self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
+        self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
+    }
+
+    fn potentially_enable_or_disable_control(&mut self, any_main_mapping_is_effectively_on: bool) {
         self.basics
             .potentially_enable_or_disable_control_internal(any_main_mapping_is_effectively_on);
     }
 
-    pub fn potentially_enable_or_disable_feedback(
-        &mut self,
-        any_main_mapping_is_effectively_on: bool,
-    ) {
+    fn potentially_enable_or_disable_feedback(&mut self, any_main_mapping_is_effectively_on: bool) {
         let new_feedback_is_enabled = self
             .basics
             .potentially_enable_or_disable_feedback_internal(any_main_mapping_is_effectively_on);
@@ -1115,8 +1124,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
-        self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
-        self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
+        self.potentially_enable_or_disable_control_or_feedback(any_main_mapping_is_effectively_on);
     }
 
     fn update_all_mappings(
@@ -2252,6 +2260,10 @@ pub enum NormalMainTask {
     },
     RefreshAllTargets,
     UpdateSettings(MainSettings),
+    /// This is a hacky way to notify a ReaLearn instance on the monitoring FX chain
+    /// that it might have been enabled or disabled (unfortunately, REAPER doesn't
+    /// call CSURF_EXT_SETFXENABLED for monitoring FX).
+    GetEffectNameHasBeenCalled,
     PotentiallyEnableOrDisableControlOrFeedback,
     SendAllFeedback,
     LogDebugInfo,
