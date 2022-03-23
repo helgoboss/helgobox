@@ -262,7 +262,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 instance_id,
                 logger: logger.clone(),
                 settings: Default::default(),
-                control_is_globally_enabled: true,
+                control_is_globally_enabled: false,
                 feedback_is_globally_enabled: false,
                 event_handler,
                 context,
@@ -1115,6 +1115,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
+        self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
         self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
     }
 

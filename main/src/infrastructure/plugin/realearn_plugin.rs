@@ -528,6 +528,13 @@ impl RealearnPlugin {
                 let param_name = interpret_as_param_name(value)?;
                 self.set_named_config_param(param_name, ptr as *const c_char)
             }
+            GetEffectName => {
+                // // TODO-high Do this only if on monitoring FX
+                // self.normal_main_task_channel
+                //     .0
+                //     .send_if_space(NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback);
+                Err("only partially handled opcode")
+            }
             _ => Err("unhandled opcode"),
         }
     }
