@@ -14,6 +14,7 @@ pub enum Source {
     // REAPER
     MidiDeviceChanges(MidiDeviceChangesSource),
     RealearnInstanceStart(RealearnInstanceStartSource),
+    Timer(TimerSource),
     // MIDI
     MidiNoteVelocity(MidiNoteVelocitySource),
     MidiNoteKeyNumber(MidiNoteKeyNumberSource),
@@ -162,6 +163,12 @@ mod midi {
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct RealearnInstanceStartSource;
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct TimerSource {
+        pub duration: u64,
+    }
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]

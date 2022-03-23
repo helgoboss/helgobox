@@ -422,8 +422,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn poll_control(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
             for id in self.poll_control_mappings[compartment].iter() {
-                let (control_result, group_interaction) =
-                    if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
+                let (is_source_poll, control_result, group_interaction) = if let Some(m) =
+                    self.collections.mappings[compartment].get_mut(id)
+                {
+                    let control_context = self.basics.control_context();
+                    let processor_context = ExtendedProcessorContext::new(
+                        &self.basics.context,
+                        &self.collections.parameters,
+                        control_context,
+                    );
+                    let mode_poll_result = if m.mode().wants_to_be_polled() {
+                        m.poll_mode(control_context, &self.basics.logger, processor_context)
+                    } else {
+                        Default::default()
+                    };
+                    let (is_source_poll, mut final_poll_result) = if mode_poll_result.successful {
+                        // Mode was polled successfully. This one has precedence.
                         // We poll even if control is effectively off because it might have been
                         // on before and user might have pressed a button which started some
                         // timer - and we still want that timer to fire. This is practical e.g.
@@ -432,36 +446,46 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // release the modifier. If we wouldn't poll anymore in that case, the
                         // single press would be discarded - or worse, fired when the mapping
                         // is enabled again.
-                        let control_context = self.basics.control_context();
-                        let mut control_result = m.poll_mode_control(
-                            control_context,
-                            &self.basics.logger,
-                            ExtendedProcessorContext::new(
-                                &self.basics.context,
+                        (false, mode_poll_result)
+                    } else if m.source().wants_to_be_polled() && m.control_is_effectively_on() {
+                        // Mode was either not polled at all or without result, poll source.
+                        let res = if let Some(source_control_value) = m.poll_source() {
+                            control_mapping_stage_one(
+                                &self.basics,
                                 &self.collections.parameters,
-                                control_context,
-                            ),
-                        );
-                        control_mapping_stage_two(
-                            &self.basics,
-                            &mut control_result,
-                            m,
-                            ManualFeedbackProcessing::On {
-                                mappings_with_virtual_targets: &self
-                                    .collections
-                                    .mappings_with_virtual_targets,
-                            },
-                        );
-                        (control_result, m.group_interaction())
+                                m,
+                                source_control_value,
+                                ControlOptions::default(),
+                            )
+                        } else {
+                            Default::default()
+                        };
+                        (true, res)
                     } else {
-                        continue;
+                        // Mode was either not polled at all or without result, source doesn't
+                        // want to be polled.
+                        (false, mode_poll_result)
                     };
+                    control_mapping_stage_two(
+                        &self.basics,
+                        &mut final_poll_result,
+                        m,
+                        ManualFeedbackProcessing::On {
+                            mappings_with_virtual_targets: &self
+                                .collections
+                                .mappings_with_virtual_targets,
+                        },
+                    );
+                    (is_source_poll, final_poll_result, m.group_interaction())
+                } else {
+                    continue;
+                };
 
-                // We only do target-value based group interaction after polling
-                // (makes sense because control-value based one has been done at control
+                // When this is a mode poll, we only do target-value based group interaction after
+                // polling (makes sense because control-value based one has been done at control
                 // time already).
-                let needs_group_interaction =
-                    control_result.successful && group_interaction.is_target_based();
+                let needs_group_interaction = control_result.successful
+                    && (is_source_poll || group_interaction.is_target_based());
                 control_mapping_stage_three(
                     &self.basics,
                     &mut self.collections,
@@ -1580,7 +1604,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
-                let control_value = if let Some(cv) = m.control(msg) {
+                let control_value = if let Some(cv) = m.control_source(msg) {
                     cv
                 } else {
                     continue;

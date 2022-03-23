@@ -226,7 +226,7 @@ impl MappingPanel {
                                     One(p) => {
                                         use SourceProp as P;
                                         match p {
-                                            P::Category | P::MidiSourceType | P::ControlElementType => {
+                                            P::Category | P::MidiSourceType | P::ReaperSourceType | P::ControlElementType => {
                                                 view.invalidate_source_controls();
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
@@ -270,7 +270,7 @@ impl MappingPanel {
                                                 view.invalidate_source_line_5_combo_box();
                                             }
                                             P::OscAddressPattern |
-                                            P::RawMidiPattern => {
+                                            P::RawMidiPattern | P::TimerMillis => {
                                                 view.invalidate_source_line_3_edit_control(initiator);
                                             }
                                             P::MidiScript | P::OscFeedbackArgs => {
@@ -281,7 +281,6 @@ impl MappingPanel {
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
-                                            P::ReaperSourceType => {}
                                         }
                                     }
                                 }
@@ -1454,7 +1453,17 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(edit_control_id),
                     );
                 }
-                Reaper | Virtual | Never => {}
+                Reaper => match self.mapping.source_model.reaper_source_type() {
+                    ReaperSourceType::Timer => {
+                        let value = value.parse().unwrap_or_default();
+                        self.change_mapping_with_initiator(
+                            MappingCommand::ChangeSource(SourceCommand::SetTimerMillis(value)),
+                            Some(edit_control_id),
+                        )
+                    }
+                    _ => {}
+                },
+                Virtual | Never => {}
             }
         }
     }
@@ -3049,6 +3058,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => None,
             },
             Osc => Some("Address"),
+            Reaper => match self.source.reaper_source_type() {
+                ReaperSourceType::Timer => Some("Millis"),
+                _ => None,
+            },
             _ => None,
         };
         self.view
@@ -3322,10 +3335,14 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let value_text = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some(self.source.raw_midi_pattern()),
+                MidiSourceType::Raw => Some(self.source.raw_midi_pattern().to_owned()),
                 _ => None,
             },
-            Osc => Some(self.source.osc_address_pattern()),
+            Osc => Some(self.source.osc_address_pattern().to_owned()),
+            Reaper => match self.source.reaper_source_type() {
+                ReaperSourceType::Timer => Some(self.source.timer_millis().to_string()),
+                _ => None,
+            },
             _ => None,
         };
         c.set_text_or_hide(value_text);

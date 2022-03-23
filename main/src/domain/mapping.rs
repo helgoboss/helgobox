@@ -556,7 +556,7 @@ impl MainMapping {
     }
 
     pub fn wants_to_be_polled_for_control(&self) -> bool {
-        self.core.mode.wants_to_be_polled()
+        self.core.source.wants_to_be_polled() || self.core.mode.wants_to_be_polled()
     }
 
     /// The boolean return value tells if the resolved target changed in some way, the activation
@@ -676,7 +676,7 @@ impl MainMapping {
 
     /// This makes the button fire modes work (e.g. "Fire after delay").
     #[must_use]
-    pub fn poll_mode_control(
+    pub fn poll_mode(
         &mut self,
         context: ControlContext,
         logger: &slog::Logger,
@@ -1123,10 +1123,21 @@ impl MainMapping {
         }
     }
 
-    pub fn control(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
-        match (msg, &self.core.source) {
+    /// Controls the source only.
+    ///
+    /// Doesn't consider MIDI sources because they are handled completely in the real-time mapping.
+    pub fn control_source(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
+        match (msg, &mut self.core.source) {
             (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
             (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            _ => None,
+        }
+    }
+
+    /// Polls the source.
+    pub fn poll_source(&mut self) -> Option<ControlValue> {
+        match &mut self.core.source {
+            CompoundMappingSource::Reaper(s) => s.poll(),
             _ => None,
         }
     }
@@ -1135,7 +1146,7 @@ impl MainMapping {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = self.control(msg)?;
+        let control_value = self.control_source(msg)?;
         // First target is enough because this does nothing yet.
         match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
@@ -1309,6 +1320,7 @@ pub struct MappingCore {
     pub mode: Mode,
     group_interaction: GroupInteraction,
     options: ProcessorMappingOptions,
+    /// Used for preventing echo feedback.
     time_of_last_control: Option<Instant>,
 }
 
@@ -1369,6 +1381,15 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    /// If this returns `true`, the `poll` method should be called, on a regular basis.
+    pub fn wants_to_be_polled(&self) -> bool {
+        use CompoundMappingSource::*;
+        match self {
+            Reaper(s) => s.wants_to_be_polled(),
+            _ => false,
+        }
+    }
+
     /// Extracts the address of the source control element for feedback purposes.
     ///
     /// Use this if you really need an owned representation of the source address. If you just want

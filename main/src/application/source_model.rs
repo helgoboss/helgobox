@@ -3,8 +3,8 @@ use crate::application::{
 };
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
-    MidiSource, ReaperSource, VirtualControlElement, VirtualControlElementId, VirtualSource,
-    VirtualTarget,
+    MidiSource, ReaperSource, TimerSource, VirtualControlElement, VirtualControlElementId,
+    VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -21,6 +21,7 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
+use std::time::Duration;
 
 #[allow(clippy::enum_variant_names)]
 pub enum SourceCommand {
@@ -44,6 +45,7 @@ pub enum SourceCommand {
     SetOscArgIsRelative(bool),
     SetOscFeedbackArgs(Vec<String>),
     SetReaperSourceType(ReaperSourceType),
+    SetTimerMillis(u64),
     SetControlElementType(VirtualControlElementType),
     SetControlElementId(VirtualControlElementId),
 }
@@ -72,6 +74,7 @@ pub enum SourceProp {
     ReaperSourceType,
     ControlElementType,
     ControlElementId,
+    TimerMillis,
 }
 
 impl GetProcessingRelevance for SourceProp {
@@ -178,6 +181,10 @@ impl<'a> Change<'a> for SourceModel {
                 self.control_element_id = v;
                 One(P::ControlElementId)
             }
+            C::SetTimerMillis(v) => {
+                self.timer_millis = v;
+                One(P::TimerMillis)
+            }
         };
         Some(affected)
     }
@@ -209,6 +216,7 @@ pub struct SourceModel {
     osc_feedback_args: Vec<String>,
     // REAPER
     reaper_source_type: ReaperSourceType,
+    timer_millis: u64,
     // Virtual
     control_element_type: VirtualControlElementType,
     control_element_id: VirtualControlElementId,
@@ -239,6 +247,7 @@ impl Default for SourceModel {
             osc_arg_is_relative: false,
             osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
+            timer_millis: Default::default(),
         }
     }
 }
@@ -322,6 +331,10 @@ impl SourceModel {
 
     pub fn reaper_source_type(&self) -> ReaperSourceType {
         self.reaper_source_type
+    }
+
+    pub fn timer_millis(&self) -> u64 {
+        self.timer_millis
     }
 
     pub fn control_element_type(&self) -> VirtualControlElementType {
@@ -564,11 +577,16 @@ impl SourceModel {
                 let reaper_source = match self.reaper_source_type {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
                     RealearnInstanceStart => ReaperSource::RealearnInstanceStart,
+                    Timer => ReaperSource::Timer(self.create_timer_source()),
                 };
                 CompoundMappingSource::Reaper(reaper_source)
             }
             Never => CompoundMappingSource::Never,
         }
+    }
+
+    fn create_timer_source(&self) -> TimerSource {
+        TimerSource::new(Duration::from_millis(self.timer_millis))
     }
 
     fn display_spec(&self) -> DisplaySpec {
@@ -1021,6 +1039,9 @@ pub enum ReaperSourceType {
     #[serde(rename = "realearn-instance-start")]
     #[display(fmt = "ReaLearn instance start")]
     RealearnInstanceStart,
+    #[serde(rename = "timer")]
+    #[display(fmt = "Timer")]
+    Timer,
 }
 
 impl Default for ReaperSourceType {
@@ -1035,6 +1056,7 @@ impl ReaperSourceType {
         match source {
             MidiDeviceChanges => Self::MidiDeviceChanges,
             RealearnInstanceStart => Self::RealearnInstanceStart,
+            Timer(_) => Self::Timer,
         }
     }
 }

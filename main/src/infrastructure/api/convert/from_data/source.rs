@@ -185,6 +185,9 @@ pub fn convert_source(
                 RealearnInstanceStart => {
                     schema::Source::RealearnInstanceStart(schema::RealearnInstanceStartSource)
                 }
+                Timer => schema::Source::Timer(schema::TimerSource {
+                    duration: data.timer_millis,
+                }),
             }
         }
         Virtual => {
