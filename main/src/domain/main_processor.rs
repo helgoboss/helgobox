@@ -433,7 +433,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // single press would be discarded - or worse, fired when the mapping
                         // is enabled again.
                         let control_context = self.basics.control_context();
-                        let mut control_result = m.poll_control(
+                        let mut control_result = m.poll_mode_control(
                             control_context,
                             &self.basics.logger,
                             ExtendedProcessorContext::new(
@@ -2143,42 +2143,39 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.send_feedback(fb2.0, fb2.1);
     }
 
-    fn update_map_entries(&mut self, compartment: MappingCompartment, mapping: MainMapping) {
-        if mapping.needs_refresh_when_target_touched() {
-            self.collections.target_touch_dependent_mappings[compartment].insert(mapping.id());
+    fn update_map_entries(&mut self, compartment: MappingCompartment, m: MainMapping) {
+        if m.needs_refresh_when_target_touched() {
+            self.collections.target_touch_dependent_mappings[compartment].insert(m.id());
         } else {
-            self.collections.target_touch_dependent_mappings[compartment]
-                .shift_remove(&mapping.id());
+            self.collections.target_touch_dependent_mappings[compartment].shift_remove(&m.id());
         }
-        let influence = mapping.feedback_resolution();
+        let influence = m.feedback_resolution();
         if influence == Some(FeedbackResolution::Beat) {
-            self.collections.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
+            self.collections.beat_dependent_feedback_mappings[compartment].insert(m.id());
         } else {
-            self.collections.beat_dependent_feedback_mappings[compartment]
-                .shift_remove(&mapping.id());
+            self.collections.beat_dependent_feedback_mappings[compartment].shift_remove(&m.id());
         }
         if influence == Some(FeedbackResolution::High) {
-            self.collections.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
+            self.collections.milli_dependent_feedback_mappings[compartment].insert(m.id());
         } else {
-            self.collections.milli_dependent_feedback_mappings[compartment]
-                .shift_remove(&mapping.id());
-            self.collections.previous_target_values[compartment].remove(&mapping.id());
+            self.collections.milli_dependent_feedback_mappings[compartment].shift_remove(&m.id());
+            self.collections.previous_target_values[compartment].remove(&m.id());
         }
-        if mapping.wants_to_be_polled_for_control() {
-            self.poll_control_mappings[compartment].insert(mapping.id());
+        if m.wants_to_be_polled_for_control() {
+            self.poll_control_mappings[compartment].insert(m.id());
         } else {
-            self.poll_control_mappings[compartment].shift_remove(&mapping.id());
+            self.poll_control_mappings[compartment].shift_remove(&m.id());
         }
-        let relevant_map = if mapping.has_virtual_target() {
-            self.collections.mappings[compartment].shift_remove(&mapping.id());
+        let relevant_map = if m.has_virtual_target() {
+            self.collections.mappings[compartment].shift_remove(&m.id());
             &mut self.collections.mappings_with_virtual_targets
         } else {
             self.collections
                 .mappings_with_virtual_targets
-                .shift_remove(&mapping.id());
+                .shift_remove(&m.id());
             &mut self.collections.mappings[compartment]
         };
-        relevant_map.insert(mapping.id(), mapping);
+        relevant_map.insert(m.id(), m);
     }
 
     fn hit_target(&mut self, id: QualifiedMappingId, value: AbsoluteValue) {

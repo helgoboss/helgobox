@@ -674,9 +674,9 @@ impl MainMapping {
         &self.targets
     }
 
-    /// This is for timer-triggered control (e.g. "Fire after delay").
+    /// This makes the button fire modes work (e.g. "Fire after delay").
     #[must_use]
-    pub fn poll_control(
+    pub fn poll_mode_control(
         &mut self,
         context: ControlContext,
         logger: &slog::Logger,
