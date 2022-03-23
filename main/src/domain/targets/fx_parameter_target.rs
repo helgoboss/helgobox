@@ -9,8 +9,8 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
 use reaper_medium::{
-    GetParamExResult, GetParameterStepSizesResult, MediaTrack, ReaperNormalizedFxParamValue,
-    TrackFxLocation,
+    GetParamExResult, GetParameterStepSizesResult, MediaTrack, ProjectRef,
+    ReaperNormalizedFxParamValue, TrackFxLocation,
 };
 use std::convert::TryInto;
 
@@ -27,12 +27,10 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let param = get_fx_param(context, &self.fx_parameter_descriptor, compartment)?;
-        let fx_is_on_same_track_like_realearn = {
-            let realearn_track = context.context.track();
-            realearn_track.is_some() && realearn_track == param.fx().track()
-        };
+        let is_real_time_ready = reaper_is_ready_for_real_time_fx_param_control()
+            && fx_is_on_same_track_as_realearn(context, &param);
         let target = FxParameterTarget {
-            fx_is_on_same_track_like_realearn,
+            is_real_time_ready,
             param,
             poll_for_feedback: self.poll_for_feedback,
         };
@@ -54,7 +52,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxParameterTarget {
-    pub fx_is_on_same_track_like_realearn: bool,
+    pub is_real_time_ready: bool,
     pub param: FxParameter,
     pub poll_for_feedback: bool,
 }
@@ -200,10 +198,8 @@ impl RealearnTarget for FxParameterTarget {
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        if !self.fx_is_on_same_track_like_realearn {
-            // If ReaLearn is not on the same track as the FX whose parameters it should control,
-            // controlling from a real-time thread is unsafe.
-            // See here: https://forum.cockos.com/showpost.php?p=2525657&postcount=2009
+        if !self.is_real_time_ready {
+            // Real-time controlling not possible.
             return None;
         }
         let target = RealTimeFxParameterTarget {
@@ -240,6 +236,30 @@ pub struct RealTimeFxParameterTarget {
 unsafe impl Send for RealTimeFxParameterTarget {}
 
 impl RealTimeFxParameterTarget {
+    pub fn should_control_in_real_time(&self, is_called_from_vst: bool) -> bool {
+        if !is_called_from_vst {
+            // Setting the target FX parameter value in real-time is only safe if we are in the
+            // processing callstack of the target FX track. The resolve step of this target makes
+            // sure that a real-time target doesn't even exist if the ReaLearn track doesn't match
+            // the target FX track. But we still need to make sure here that we are in the same
+            // processing callstack. This is the case if we are in a processing method of the
+            // ReaLearn VST plug-in (control input = FX input). It's not the case if we are called
+            // from the audio hook (control input = MIDI hardware device).
+            return false;
+        }
+        let reaper = Reaper::get().medium_reaper();
+        let audio_is_running = reaper.audio_is_running();
+        let currently_rendering_project = reaper.enum_projects(ProjectRef::CurrentlyRendering, 0);
+        let is_offline_rendering = !audio_is_running && currently_rendering_project.is_some();
+        if !is_offline_rendering {
+            // It's also only safe if we are rendering offline. Otherwise REAPER will call the
+            // control surface methods (FX parameter change notification) and do so in the wrong
+            // thread (not the main thread) ... which is a no go.
+            return false;
+        }
+        true
+    }
+
     pub fn hit(&mut self, value: ControlValue) -> Result<(), &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
@@ -364,4 +384,17 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
         return UnitValue::new_clamped(v);
     }
     UnitValue::new(v)
+}
+
+fn reaper_is_ready_for_real_time_fx_param_control() -> bool {
+    // TODO-high Enable if REAPER version is 6.52+dev or later
+    false
+}
+
+/// If ReaLearn is not on the same track as the FX whose parameters it should control,
+/// controlling from a real-time thread is unsafe.
+/// See here: https://forum.cockos.com/showpost.php?p=2525657&postcount=2009
+fn fx_is_on_same_track_as_realearn(context: ExtendedProcessorContext, param: &FxParameter) -> bool {
+    let realearn_track = context.context.track();
+    realearn_track.is_some() && realearn_track == param.fx().track()
 }

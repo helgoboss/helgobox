@@ -1216,6 +1216,12 @@ enum Caller<'a> {
     AudioHook,
 }
 
+impl<'a> Caller<'a> {
+    pub fn is_vst(&self) -> bool {
+        matches!(self, Self::Vst(_))
+    }
+}
+
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
@@ -1430,7 +1436,7 @@ fn process_real_mapping(
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
-        // Must be processed here in real-time processor.
+        // Try to process directly here in real-time.
         let control_context = RealTimeControlContext { clip_matrix };
         let control_value: Option<ControlValue> = mapping
             .core
@@ -1445,29 +1451,36 @@ fn process_real_mapping(
             .into();
         let control_value = control_value.ok_or("target already has desired value")?;
         match reaper_target {
-            RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
-                t,
-                caller,
-                control_value,
-                midi_feedback_output,
-                output_logging_enabled,
-                sender,
-                value_event,
-            ),
-            RealTimeReaperTarget::ClipTransport(t) => t.hit(control_value, control_context),
-            // TODO-high CONTINUE Do this only if rendering offline AND messages come from VST!!!
-            RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
+            RealTimeReaperTarget::SendMidi(t) => {
+                return real_time_target_send_midi(
+                    t,
+                    caller,
+                    control_value,
+                    midi_feedback_output,
+                    output_logging_enabled,
+                    sender,
+                    value_event,
+                );
+            }
+            RealTimeReaperTarget::ClipTransport(t) => {
+                return t.hit(control_value, control_context);
+            }
+            RealTimeReaperTarget::FxParameter(t) => {
+                if t.should_control_in_real_time(caller.is_vst()) {
+                    return t.hit(control_value);
+                }
+            }
         }
-    } else {
-        forward_control_to_main_processor(
-            sender,
-            compartment,
-            mapping.id(),
-            value_event.payload(),
-            options,
-        );
-        Ok(())
-    }
+    };
+    // If we made it until here, real-time processing was not meant to be or not possible.
+    forward_control_to_main_processor(
+        sender,
+        compartment,
+        mapping.id(),
+        value_event.payload(),
+        options,
+    );
+    Ok(())
 }
 
 // TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.

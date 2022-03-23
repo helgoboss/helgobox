@@ -369,7 +369,7 @@ impl ReaperTarget {
             }
             FxEnabledChanged(e) => FxEnable(FxEnableTarget { fx: e.fx }),
             FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
-                fx_is_on_same_track_like_realearn: false,
+                is_real_time_ready: false,
                 param: e.parameter,
                 poll_for_feedback: true,
             }),
@@ -407,7 +407,7 @@ impl ReaperTarget {
         observable::empty()
             .merge(csurf_rx.fx_parameter_touched().map(move |param| {
                 FxParameter(FxParameterTarget {
-                    fx_is_on_same_track_like_realearn: false,
+                    is_real_time_ready: false,
                     param,
                     poll_for_feedback: true,
                 })
