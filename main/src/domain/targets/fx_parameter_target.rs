@@ -247,14 +247,15 @@ impl RealTimeFxParameterTarget {
             // from the audio hook (control input = MIDI hardware device).
             return false;
         }
-        let reaper = Reaper::get().medium_reaper();
-        let audio_is_running = reaper.audio_is_running();
-        let currently_rendering_project = reaper.enum_projects(ProjectRef::CurrentlyRendering, 0);
-        let is_offline_rendering = !audio_is_running && currently_rendering_project.is_some();
-        if !is_offline_rendering {
-            // It's also only safe if we are rendering offline. Otherwise REAPER will call the
-            // control surface methods (FX parameter change notification) and do so in the wrong
-            // thread (not the main thread) ... which is a no go.
+        let is_rendering = Reaper::get()
+            .medium_reaper()
+            .enum_projects(ProjectRef::CurrentlyRendering, 0)
+            .is_some();
+        if !is_rendering {
+            // We want real-time control only during rendering. Because REAPER won't invoke the
+            // change notifications when called in real-time (ReaLearn and maybe also other
+            // control surface implementations relies on those during normal playing to make
+            // feedback work).
             return false;
         }
         true
