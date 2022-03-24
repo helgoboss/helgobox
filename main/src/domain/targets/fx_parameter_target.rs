@@ -10,7 +10,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Targe
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
 use reaper_medium::{
     GetParamExResult, GetParameterStepSizesResult, MediaTrack, ProjectRef,
-    ReaperNormalizedFxParamValue, TrackFxLocation,
+    ReaperNormalizedFxParamValue, ReaperVersion, TrackFxLocation,
 };
 use std::convert::TryInto;
 
@@ -387,8 +387,7 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
 }
 
 fn reaper_is_ready_for_real_time_fx_param_control() -> bool {
-    // TODO-high Enable if REAPER version is 6.52+dev or later
-    false
+    Reaper::get().version() >= ReaperVersion::new("6.52+dev0323")
 }
 
 /// If ReaLearn is not on the same track as the FX whose parameters it should control,
