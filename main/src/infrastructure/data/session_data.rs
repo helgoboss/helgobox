@@ -4,9 +4,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    BackboneState, ClipMatrixRef, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, Tag,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
+    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
+    Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -136,8 +136,15 @@ impl CompartmentState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ControlDeviceId {
+    Keyboard(KeyboardDevice),
     Osc(OscDeviceId),
     Midi(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum KeyboardDevice {
+    #[serde(rename = "keyboard")]
+    TheKeyboard,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -214,22 +221,27 @@ impl SessionData {
             always_auto_detect_mode: session.auto_correct_settings.get(),
             lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
-            control_device_id: if let Some(osc_dev_id) = session.osc_input_device_id.get() {
-                Some(ControlDeviceId::Osc(osc_dev_id))
-            } else {
-                use MidiControlInput::*;
-                match session.midi_control_input.get() {
-                    FxInput => None,
-                    Device(dev_id) => Some(ControlDeviceId::Midi(dev_id.to_string())),
+            control_device_id: {
+                match session.control_input() {
+                    ControlInput::Midi(MidiControlInput::FxInput) => None,
+                    ControlInput::Midi(MidiControlInput::Device(dev_id)) => {
+                        Some(ControlDeviceId::Midi(dev_id.to_string()))
+                    }
+                    ControlInput::Osc(dev_id) => Some(ControlDeviceId::Osc(dev_id)),
+                    ControlInput::Keyboard => {
+                        Some(ControlDeviceId::Keyboard(KeyboardDevice::TheKeyboard))
+                    }
                 }
             },
-            feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
-                Some(FeedbackDeviceId::Osc(osc_dev_id))
-            } else {
-                use MidiDestination::*;
-                session.midi_feedback_output.get().map(|o| match o {
-                    Device(dev_id) => FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string()),
-                    FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
+            feedback_device_id: {
+                session.feedback_output().map(|output| match output {
+                    FeedbackOutput::Midi(MidiDestination::FxOutput) => {
+                        FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned())
+                    }
+                    FeedbackOutput::Midi(MidiDestination::Device(dev_id)) => {
+                        FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string())
+                    }
+                    FeedbackOutput::Osc(dev_id) => FeedbackDeviceId::Osc(dev_id),
                 })
             },
             default_group: from_group(MappingCompartment::MainMappings),
@@ -300,11 +312,12 @@ impl SessionData {
             &self.groups,
             self.parameters.values().map(|p| &p.settings),
         )?;
-        let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
-            None => (MidiControlInput::FxInput, None),
+        let control_input = match self.control_device_id.as_ref() {
+            None => ControlInput::Midi(MidiControlInput::FxInput),
             Some(dev_id) => {
                 use ControlDeviceId::*;
                 match dev_id {
+                    Keyboard(_) => ControlInput::Keyboard,
                     Midi(midi_dev_id_string) => {
                         let raw_midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
@@ -312,29 +325,30 @@ impl SessionData {
                         let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
                             .try_into()
                             .map_err(|_| "MIDI input device ID out of range")?;
-                        (MidiControlInput::Device(midi_dev_id), None)
+                        ControlInput::Midi(MidiControlInput::Device(midi_dev_id))
                     }
-                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(*osc_dev_id)),
+                    Osc(osc_dev_id) => ControlInput::Osc(*osc_dev_id),
                 }
             }
         };
-        let (midi_feedback_output, osc_feedback_output) = match self.feedback_device_id.as_ref() {
-            None => (None, None),
+        let feedback_output = match self.feedback_device_id.as_ref() {
+            None => None,
             Some(dev_id) => {
                 use FeedbackDeviceId::*;
-                match dev_id {
+                let output = match dev_id {
                     MidiOrFxOutput(s) if s == "fx-output" => {
-                        (Some(MidiDestination::FxOutput), None)
+                        FeedbackOutput::Midi(MidiDestination::FxOutput)
                     }
                     MidiOrFxOutput(midi_dev_id_string) => {
                         let midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map(MidiOutputDeviceId::new)
                             .map_err(|_| "invalid MIDI output device ID")?;
-                        (Some(MidiDestination::Device(midi_dev_id)), None)
+                        FeedbackOutput::Midi(MidiDestination::Device(midi_dev_id))
                     }
-                    Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
-                }
+                    Osc(osc_dev_id) => FeedbackOutput::Osc(*osc_dev_id),
+                };
+                Some(output)
             }
         };
         // Mutation
@@ -350,17 +364,11 @@ impl SessionData {
             .send_feedback_only_if_armed
             .set_without_notification(self.send_feedback_only_if_armed);
         session
-            .midi_control_input
-            .set_without_notification(midi_control_input);
+            .control_input
+            .set_without_notification(control_input);
         session
-            .osc_input_device_id
-            .set_without_notification(osc_control_input);
-        session
-            .midi_feedback_output
-            .set_without_notification(midi_feedback_output);
-        session
-            .osc_output_device_id
-            .set_without_notification(osc_feedback_output);
+            .feedback_output
+            .set_without_notification(feedback_output);
         // Let events through or not
         {
             let is_old_preset = self

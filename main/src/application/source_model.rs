@@ -2,9 +2,9 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
 use crate::domain::{
-    CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
-    MidiSource, ReaperSource, TimerSource, VirtualControlElement, VirtualControlElementId,
-    VirtualSource, VirtualTarget,
+    CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, KeySource, Keystroke,
+    MappingCompartment, MidiSource, ReaperSource, TimerSource, VirtualControlElement,
+    VirtualControlElementId, VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -217,6 +217,8 @@ pub struct SourceModel {
     // REAPER
     reaper_source_type: ReaperSourceType,
     timer_millis: u64,
+    // Key
+    key_stroke: Option<Keystroke>,
     // Virtual
     control_element_type: VirtualControlElementType,
     control_element_id: VirtualControlElementId,
@@ -248,6 +250,7 @@ impl Default for SourceModel {
             osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
             timer_millis: Default::default(),
+            key_stroke: None,
         }
     }
 }
@@ -350,7 +353,7 @@ impl SourceModel {
         match self.category {
             Midi => self.midi_source_type.supports_control(),
             Osc => self.osc_arg_type_tag.supports_control(),
-            Virtual | Reaper => true,
+            Virtual | Keyboard | Reaper => true,
             // Main use case: Group interaction (follow-only).
             Never => true,
         }
@@ -362,7 +365,7 @@ impl SourceModel {
             Midi => self.midi_source_type.supports_feedback(),
             Osc => self.osc_arg_type_tag.supports_feedback(),
             Virtual => true,
-            Reaper | Never => false,
+            Reaper | Keyboard | Never => false,
         }
     }
 
@@ -447,6 +450,10 @@ impl SourceModel {
             Never => {
                 self.category = SourceCategory::Never;
             }
+            Key(s) => {
+                self.category = SourceCategory::Keyboard;
+                self.key_stroke = Some(s.stroke());
+            }
         };
         Some(Affected::Multiple)
     }
@@ -489,13 +496,19 @@ impl SourceModel {
                 DetailedSourceCharacter::RangeControl,
                 DetailedSourceCharacter::Relative,
             ],
+            CompoundMappingSource::Key(_) => vec![DetailedSourceCharacter::MomentaryOnOffButton],
         }
     }
 
     /// Creates a source reflecting this model's current values
     pub fn create_source(&self) -> CompoundMappingSource {
+        self.create_source_internal()
+            .unwrap_or(CompoundMappingSource::Never)
+    }
+
+    fn create_source_internal(&self) -> Option<CompoundMappingSource> {
         use SourceCategory::*;
-        match self.category {
+        let source = match self.category {
             Midi => {
                 use MidiSourceType::*;
                 let channel = self.channel;
@@ -582,7 +595,13 @@ impl SourceModel {
                 CompoundMappingSource::Reaper(reaper_source)
             }
             Never => CompoundMappingSource::Never,
-        }
+            Keyboard => CompoundMappingSource::Key(self.create_key_source()?),
+        };
+        Some(source)
+    }
+
+    pub fn create_key_source(&self) -> Option<KeySource> {
+        Some(KeySource::new(self.key_stroke?))
     }
 
     fn create_timer_source(&self) -> TimerSource {
@@ -756,6 +775,13 @@ impl Display for SourceModel {
                 vec![self.reaper_source_type.to_string().into()]
             }
             Never => vec!["None".into()],
+            Keyboard => {
+                let text = self
+                    .create_key_source()
+                    .map(|s| Cow::Owned(s.to_string()))
+                    .unwrap_or_else(|| Cow::Borrowed("<Key undefined>"));
+                vec![text]
+            }
         };
         let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
         write!(f, "{}", non_empty_lines.join("\n"))
@@ -786,6 +812,9 @@ pub enum SourceCategory {
     #[serde(rename = "osc")]
     #[display(fmt = "OSC")]
     Osc,
+    #[serde(rename = "keyboard")]
+    #[display(fmt = "Keyboard")]
+    Keyboard,
     #[serde(rename = "reaper")]
     #[display(fmt = "REAPER")]
     Reaper,
@@ -811,6 +840,7 @@ impl SourceCategory {
                 Midi => true,
                 Osc => true,
                 Reaper => true,
+                Keyboard => true,
                 Virtual => false,
             },
             MappingCompartment::MainMappings => true,

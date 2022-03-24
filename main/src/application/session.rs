@@ -16,11 +16,11 @@ use crate::domain::{
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
     GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
     InstanceState, MainMapping, MainSettings, MappingCompartment, MappingId, MappingKey,
-    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
+    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
+    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -72,10 +72,8 @@ pub struct Session {
     pub input_logging_enabled: Prop<bool>,
     pub output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
-    pub midi_control_input: Prop<MidiControlInput>,
-    pub midi_feedback_output: Prop<Option<MidiDestination>>,
-    pub osc_input_device_id: Prop<Option<OscDeviceId>>,
-    pub osc_output_device_id: Prop<Option<OscDeviceId>>,
+    pub control_input: Prop<ControlInput>,
+    pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     pub lives_on_upper_floor: Prop<bool>,
     pub tags: Prop<Vec<Tag>>,
@@ -206,10 +204,8 @@ impl Session {
             input_logging_enabled: prop(false),
             output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
-            midi_control_input: prop(MidiControlInput::FxInput),
-            midi_feedback_output: prop(None),
-            osc_input_device_id: prop(None),
-            osc_output_device_id: prop(None),
+            control_input: prop(Default::default()),
+            feedback_output: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             lives_on_upper_floor: prop(false),
             tags: Default::default(),
@@ -277,8 +273,8 @@ impl Session {
 
     pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {
         match input_descriptor {
-            InputDescriptor::Midi { device_id, channel } => match self.midi_control_input.get() {
-                MidiControlInput::FxInput => {
+            InputDescriptor::Midi { device_id, channel } => match self.control_input() {
+                ControlInput::Midi(MidiControlInput::FxInput) => {
                     if let Some(track) = self.context().track() {
                         if !track.is_armed(true) {
                             return false;
@@ -297,11 +293,17 @@ impl Session {
                         false
                     }
                 }
-                MidiControlInput::Device(dev_id) => dev_id == *device_id,
+                ControlInput::Midi(MidiControlInput::Device(dev_id)) => dev_id == *device_id,
+                _ => false,
             },
-            InputDescriptor::Osc { device_id } => {
-                self.osc_input_device_id.get_ref().as_ref() == Some(device_id)
-            }
+            InputDescriptor::Osc { device_id } => match self.control_input() {
+                ControlInput::Osc(dev_id) => dev_id == *device_id,
+                _ => false,
+            },
+            InputDescriptor::Keyboard => match self.control_input() {
+                ControlInput::Keyboard => true,
+                _ => false,
+            },
         }
     }
 
@@ -535,10 +537,8 @@ impl Session {
         self.let_matched_events_through
             .changed()
             .merge(self.let_unmatched_events_through.changed())
-            .merge(self.midi_control_input.changed())
-            .merge(self.midi_feedback_output.changed())
-            .merge(self.osc_input_device_id.changed())
-            .merge(self.osc_output_device_id.changed())
+            .merge(self.control_input.changed())
+            .merge(self.feedback_output.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
@@ -2127,19 +2127,11 @@ impl Session {
     }
 
     pub fn control_input(&self) -> ControlInput {
-        if let Some(osc_dev_id) = self.osc_input_device_id.get() {
-            ControlInput::Osc(osc_dev_id)
-        } else {
-            ControlInput::Midi(self.midi_control_input.get())
-        }
+        self.control_input.get()
     }
 
     pub fn feedback_output(&self) -> Option<FeedbackOutput> {
-        if let Some(osc_dev_id) = self.osc_output_device_id.get() {
-            Some(FeedbackOutput::Osc(osc_dev_id))
-        } else {
-            self.midi_feedback_output.get().map(FeedbackOutput::Midi)
-        }
+        self.feedback_output.get()
     }
 
     pub fn instance_state(&self) -> &SharedInstanceState {
@@ -2153,14 +2145,16 @@ impl Session {
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
             send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
+            let_matched_events_through: self.let_matched_events_through.get(),
+            let_unmatched_events_through: self.let_unmatched_events_through.get(),
         };
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateSettings(settings));
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
-            midi_control_input: self.midi_control_input.get(),
-            midi_feedback_output: self.midi_feedback_output.get(),
+            control_input: self.control_input(),
+            feedback_output: self.feedback_output(),
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
         };

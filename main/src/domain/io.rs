@@ -5,9 +5,18 @@ use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 pub enum ControlInput {
     Midi(MidiControlInput),
     Osc(OscDeviceId),
+    Keyboard,
 }
 
 impl ControlInput {
+    pub fn midi_control_input(self) -> Option<MidiControlInput> {
+        if let ControlInput::Midi(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+
     pub fn device_input(self) -> Option<DeviceControlInput> {
         use ControlInput::*;
         match self {
@@ -19,10 +28,6 @@ impl ControlInput {
 
     pub fn is_midi_device(self) -> bool {
         matches!(self, ControlInput::Midi(MidiControlInput::Device(_)))
-    }
-
-    pub fn is_midi(self) -> bool {
-        matches!(self, ControlInput::Midi(_))
     }
 }
 
@@ -45,6 +50,14 @@ pub enum FeedbackOutput {
 }
 
 impl FeedbackOutput {
+    pub fn midi_destination(&self) -> Option<MidiDestination> {
+        if let Self::Midi(dest) = self {
+            Some(*dest)
+        } else {
+            None
+        }
+    }
+
     pub fn device_output(self) -> Option<DeviceFeedbackOutput> {
         use FeedbackOutput::*;
         match self {

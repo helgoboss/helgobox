@@ -570,7 +570,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match &self.state {
                 State::Normal => {
                     for proc in &mut *self.main_processors.borrow_mut() {
-                        if proc.receives_osc_from(&dev_id) {
+                        if proc.wants_osc_from(&dev_id) {
                             for packet in &packets {
                                 proc.process_incoming_osc_packet(packet);
                             }

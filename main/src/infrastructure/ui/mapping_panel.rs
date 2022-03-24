@@ -137,6 +137,15 @@ impl MappingPanel {
         }
     }
 
+    fn set_invoked_programmatically(&self, value: bool) {
+        self.is_invoked_programmatically.set(value);
+        // I already ran into a borrow error because the mapping header panel was updated
+        // as well as part of a programmatic reaction but didn't have that flag set. So set it
+        // there as well!
+        self.mapping_header_panel
+            .set_invoked_programmatically(value);
+    }
+
     pub fn handle_affected(
         self: &SharedView<Self>,
         affected: &Affected<SessionProp>,
@@ -151,10 +160,10 @@ impl MappingPanel {
                     == self.qualified_mapping_id() =>
             {
                 // At this point we know already it's a prop change for *our* mapping.
-                // Mark as programmatical invocation.
+                // Mark as programmatic invocation.
                 let panel_clone = self.clone();
-                panel_clone.is_invoked_programmatically.set(true);
-                scopeguard::defer! { panel_clone.is_invoked_programmatically.set(false); }
+                panel_clone.set_invoked_programmatically(true);
+                scopeguard::defer! { panel_clone.set_invoked_programmatically(false); }
                 // If the reaction can't be displayed anymore because the mapping is not filled anymore,
                 // so what.
                 let _ = self.clone().read(|view| match affected {
@@ -909,10 +918,10 @@ impl MappingPanel {
     /// process, wrap your function body with this. Basically all pub functions!
     ///
     /// This prevents edit control text change events fired by windows to be processed.
-    fn invoke_programmatically(&self, f: impl FnOnce()) {
-        self.is_invoked_programmatically.set(true);
-        scopeguard::defer! { self.is_invoked_programmatically.set(false); }
-        f();
+    fn invoke_programmatically<R>(&self, f: impl FnOnce() -> R) -> R {
+        self.set_invoked_programmatically(true);
+        scopeguard::defer! { self.set_invoked_programmatically(false); }
+        f()
     }
 
     /// Unregisters listeners.
@@ -1076,11 +1085,11 @@ fn decorate_reaction<I: Send + Sync + Clone + 'static>(
 ) -> impl Fn(Rc<MappingPanel>, I) + Copy {
     move |view, item| {
         let view_mirror = view.clone();
-        view_mirror.is_invoked_programmatically.set(true);
-        scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
-        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
-        // so what.
-        let _ = view.read(move |p| reaction(p, item.clone()));
+        view_mirror.invoke_programmatically(|| {
+            // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+            // so what.
+            let _ = view.read(move |p| reaction(p, item.clone()));
+        })
     }
 }
 
@@ -1229,7 +1238,7 @@ impl<'a> MutableMappingPanel<'a> {
                     SourceCommand::SetOscArgIsRelative(checked),
                 ));
             }
-            Reaper | Virtual | Never => {}
+            Reaper | Virtual | Never | Keyboard => {}
         };
     }
 
@@ -1427,7 +1436,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Reaper | Never => {}
+            Reaper | Never | Keyboard => {}
         };
     }
 
@@ -1463,7 +1472,7 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 },
-                Virtual | Never => {}
+                Virtual | Never | Keyboard => {}
             }
         }
     }
@@ -3062,6 +3071,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperSourceType::Timer => Some("Millis"),
                 _ => None,
             },
+            Keyboard => Some("Keystroke"),
             _ => None,
         };
         self.view
@@ -3333,19 +3343,33 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         let c = self.view.require_control(control_id);
         use SourceCategory::*;
-        let value_text = match self.source.category() {
+        let content = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some(self.source.raw_midi_pattern().to_owned()),
+                MidiSourceType::Raw => Some((self.source.raw_midi_pattern().to_owned(), true)),
                 _ => None,
             },
-            Osc => Some(self.source.osc_address_pattern().to_owned()),
+            Osc => Some((self.source.osc_address_pattern().to_owned(), true)),
             Reaper => match self.source.reaper_source_type() {
-                ReaperSourceType::Timer => Some(self.source.timer_millis().to_string()),
+                ReaperSourceType::Timer => Some((self.source.timer_millis().to_string(), true)),
                 _ => None,
             },
+            Keyboard => {
+                let text = self
+                    .source
+                    .create_key_source()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default();
+                Some((text, false))
+            }
             _ => None,
         };
-        c.set_text_or_hide(value_text);
+        if let Some((value_text, enabled)) = content {
+            c.show();
+            c.set_enabled(enabled);
+            c.set_text(value_text);
+        } else {
+            c.hide();
+        }
     }
 
     fn invalidate_source_line_7_edit_control(&self, initiator: Option<u32>) {
@@ -5454,7 +5478,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
-            Osc | Never => {}
+            Osc | Never | Keyboard => {}
         };
     }
 

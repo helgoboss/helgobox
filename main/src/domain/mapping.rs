@@ -1,12 +1,12 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
     ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
-    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
-    PersistentMappingProcessingState, RealTimeMappingUpdate, RealTimeReaperTarget,
-    RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
-    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue, KeyMessage,
+    KeySource, MappingActivationEffect, MappingControlContext, MappingData, MappingInfo,
+    MessageCaptureEvent, MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult,
+    ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealTimeMappingUpdate,
+    RealTimeReaperTarget, RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource,
+    ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
     VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
     VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
@@ -1159,6 +1159,21 @@ impl MainMapping {
 pub enum MainSourceMessage<'a> {
     Osc(&'a OscMessage),
     Reaper(&'a ReaperMessage),
+    Keyboard(KeyMessage),
+}
+
+impl<'a> MainSourceMessage<'a> {
+    pub fn create_capture_result(&self) -> MessageCaptureResult {
+        use MainSourceMessage::*;
+        match *self {
+            Osc(msg) => MessageCaptureResult::Osc(OscScanResult {
+                message: msg.clone(),
+                dev_id: None,
+            }),
+            Keyboard(msg) => MessageCaptureResult::Keyboard(msg),
+            Reaper(_) => panic!("capturing of incoming MIDI messages not supported"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1348,6 +1363,7 @@ pub enum CompoundMappingSource {
     Osc(OscSource),
     Virtual(VirtualSource),
     Reaper(ReaperSource),
+    Key(KeySource),
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -1454,6 +1470,7 @@ impl CompoundMappingSource {
             (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
             (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
             (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
+            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.control(m),
             _ => None,
         }
     }
@@ -1471,6 +1488,10 @@ impl CompoundMappingSource {
                     OscSource::from_source_value(msg.message, event.osc_arg_index_hint);
                 Self::Osc(osc_source)
             }
+            Keyboard(msg) => {
+                let key_source = KeySource::new(msg.stroke());
+                Self::Key(key_source)
+            }
         };
         Some(res)
     }
@@ -1482,7 +1503,7 @@ impl CompoundMappingSource {
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
             Reaper(s) => s.format_control_value(value),
-            Never => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
+            Never | Key(_) => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
         }
     }
 
@@ -1493,7 +1514,7 @@ impl CompoundMappingSource {
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
             Reaper(s) => s.parse_control_value(text),
-            Never => parse_percentage_without_unit(text)?.try_into(),
+            Never | Key(_) => parse_percentage_without_unit(text)?.try_into(),
         }
     }
 
@@ -1505,6 +1526,7 @@ impl CompoundMappingSource {
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
             Reaper(s) => ExtendedSourceCharacter::Normal(s.character()),
             Never => ExtendedSourceCharacter::VirtualContinuous,
+            Key(_) => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
         }
     }
 
@@ -1520,7 +1542,7 @@ impl CompoundMappingSource {
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
-            Reaper(_) | Never => None,
+            Reaper(_) | Key(_) | Never => None,
         }
     }
 
@@ -1528,7 +1550,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Reaper(_) | Virtual(_) | Osc(_) | Never => false,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => false,
         }
     }
 
@@ -1542,7 +1564,7 @@ impl CompoundMappingSource {
             Midi(s) => s.max_discrete_value(),
             // TODO-medium OSC will also support discrete values as soon as we allow integers and
             //  configuring max values
-            Reaper(_) | Virtual(_) | Osc(_) | Never => None,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => None,
         }
     }
 }
@@ -2300,6 +2322,7 @@ pub type OrderedMappingIdSet = IndexSet<MappingId>;
 pub enum MessageCaptureResult {
     Midi(MidiScanResult),
     Osc(OscScanResult),
+    Keyboard(KeyMessage),
 }
 
 impl MessageCaptureResult {
@@ -2308,6 +2331,7 @@ impl MessageCaptureResult {
         match self {
             Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
             Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
+            Keyboard(res) => IncomingCompoundSourceValue::Key(*res),
         }
     }
 
@@ -2325,6 +2349,7 @@ impl MessageCaptureResult {
             Osc(r) => InputDescriptor::Osc {
                 device_id: r.dev_id?,
             },
+            Keyboard(_) => InputDescriptor::Keyboard,
         };
         Some(res)
     }
@@ -2335,6 +2360,7 @@ pub enum IncomingCompoundSourceValue<'a> {
     Midi(&'a MidiSourceValue<'a, RawShortMessage>),
     Osc(&'a OscMessage),
     Virtual(&'a VirtualSourceValue),
+    Key(KeyMessage),
 }
 
 pub enum InputDescriptor {
@@ -2345,4 +2371,5 @@ pub enum InputDescriptor {
     Osc {
         device_id: OscDeviceId,
     },
+    Keyboard,
 }

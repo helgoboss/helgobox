@@ -197,6 +197,7 @@ pub fn convert_source(
             };
             schema::Source::Virtual(s)
         }
+        Keyboard => todo!(),
     };
     Ok(source)
 }

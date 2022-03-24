@@ -92,6 +92,10 @@ impl MappingHeaderPanel {
         }
     }
 
+    pub fn set_invoked_programmatically(&self, value: bool) {
+        self.is_invoked_programmatically.set(value);
+    }
+
     pub fn clear_item(&self) {
         self.item.replace(None);
     }

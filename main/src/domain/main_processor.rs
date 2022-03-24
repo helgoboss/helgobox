@@ -5,11 +5,11 @@ use crate::domain::{
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, LimitedAsciiString,
-    MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
-    MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
-    MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap,
-    OscDeviceId, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedClipMatrixEvent,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
+    LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
+    MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
+    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedClipMatrixEvent,
     QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeMappingUpdate,
     RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage,
     ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
@@ -43,6 +43,7 @@ use slog::{debug, trace};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -1479,8 +1480,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .send_complaining(FeedbackMainTask::TargetTouched);
     }
 
-    pub fn receives_osc_from(&self, device_id: &OscDeviceId) -> bool {
-        self.basics.settings.control_input == ControlInput::Osc(*device_id)
+    fn wants_messages_in_general(&self) -> bool {
+        match &self.basics.control_mode {
+            ControlMode::Disabled => false,
+            ControlMode::Controlling => self.basics.instance_control_is_effectively_enabled(),
+            ControlMode::LearningSource { .. } => self.basics.control_is_globally_enabled,
+        }
+    }
+
+    pub fn wants_keys(&self) -> bool {
+        self.wants_messages_in_general()
+            && self.basics.settings.control_input == ControlInput::Keyboard
+    }
+
+    pub fn wants_osc_from(&self, device_id: &OscDeviceId) -> bool {
+        self.wants_messages_in_general()
+            && self.basics.settings.control_input == ControlInput::Osc(*device_id)
     }
 
     pub fn process_reaper_message(&mut self, msg: &ReaperMessage) {
@@ -1529,20 +1544,66 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_mappings_with_real_targets(msg);
     }
 
+    fn log_incoming_message<T: Display>(&self, msg: T) {
+        match self.basics.control_mode {
+            ControlMode::Controlling => {
+                log_control_input(&self.basics.instance_id, msg);
+            }
+            ControlMode::LearningSource { .. } => {
+                log_learn_input(&self.basics.instance_id, msg);
+            }
+            ControlMode::Disabled => {}
+        }
+    }
+
+    /// Returns whether this message should be filtered out from the keyboard processing chain.
+    ///
+    /// This doesn't check if control enabled! You need to check before.
+    pub fn process_incoming_key_msg(&mut self, msg: KeyMessage) -> bool {
+        if self.basics.settings.input_logging_enabled {
+            self.log_incoming_message(msg);
+        }
+        let matched = self.process_incoming_message_internal(MainSourceMessage::Keyboard(msg));
+        let let_through = (matched && self.basics.settings.let_matched_events_through)
+            || (!matched && self.basics.settings.let_unmatched_events_through);
+        !let_through
+    }
+
+    /// Returns if matched (used to decide whether to filter out keyboard event from the
+    /// keyboard processing queue).
+    fn process_incoming_msg_for_controlling(&mut self, msg: MainSourceMessage) -> bool {
+        let results = self
+            .basics
+            .process_controller_mappings_with_virtual_targets(
+                &mut self.collections.mappings_with_virtual_targets,
+                &mut self.collections.mappings[MappingCompartment::MainMappings],
+                msg,
+                &self.collections.parameters,
+            );
+        let matched_virtual = !results.is_empty();
+        for r in results {
+            control_mapping_stage_three(
+                &self.basics,
+                &mut self.collections,
+                r.compartment,
+                r.control_result,
+                GroupInteractionProcessing::On(r.group_interaction_input),
+            )
+        }
+        let matched_real = self.process_mappings_with_real_targets(msg);
+        matched_virtual || matched_real
+    }
+
+    /// This doesn't check if control enabled! You need to check before.
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
         if self.basics.settings.input_logging_enabled {
-            match self.basics.control_mode {
-                ControlMode::Controlling => {
-                    log_control_input(&self.basics.instance_id, format_osc_packet(packet));
-                }
-                ControlMode::LearningSource { .. } => {
-                    log_learn_input(&self.basics.instance_id, format_osc_packet(packet));
-                }
-                ControlMode::Disabled => {}
-            }
+            self.log_incoming_message(format_osc_packet(packet));
         }
         match packet {
-            OscPacket::Message(msg) => self.process_incoming_osc_message(msg),
+            OscPacket::Message(msg) => {
+                let msg = MainSourceMessage::Osc(msg);
+                self.process_incoming_message_internal(msg);
+            }
             OscPacket::Bundle(bundle) => {
                 for p in bundle.content.iter() {
                     self.process_incoming_osc_packet(p);
@@ -1551,54 +1612,54 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
+    /// Returns if matched (used to decide whether to filter out keyboard event from the
+    /// keyboard processing queue).
+    fn process_incoming_message_internal(&mut self, msg: MainSourceMessage) -> bool {
         match self.basics.control_mode {
-            ControlMode::Controlling => {
-                if self.basics.instance_control_is_effectively_enabled() {
-                    let msg = MainSourceMessage::Osc(msg);
-                    let results = self
-                        .basics
-                        .process_controller_mappings_with_virtual_targets(
-                            &mut self.collections.mappings_with_virtual_targets,
-                            &mut self.collections.mappings[MappingCompartment::MainMappings],
-                            msg,
-                            &self.collections.parameters,
-                        );
-                    for r in results {
-                        control_mapping_stage_three(
-                            &self.basics,
-                            &mut self.collections,
-                            r.compartment,
-                            r.control_result,
-                            GroupInteractionProcessing::On(r.group_interaction_input),
-                        )
-                    }
-                    self.process_mappings_with_real_targets(msg);
-                }
-            }
+            ControlMode::Controlling => self.process_incoming_msg_for_controlling(msg),
             ControlMode::LearningSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             } => {
-                let scan_result = OscScanResult {
-                    message: msg.clone(),
-                    dev_id: None,
-                };
-                let event = MessageCaptureEvent {
-                    result: MessageCaptureResult::Osc(scan_result),
+                self.process_incoming_msg_for_learning(
                     allow_virtual_sources,
                     osc_arg_index_hint,
-                };
-                self.basics
-                    .event_handler
-                    .handle_event(DomainEvent::CapturedIncomingMessage(event));
+                    msg.create_capture_result(),
+                );
+                true
             }
-            ControlMode::Disabled => {}
+            ControlMode::Disabled => {
+                // "Disabled" means we use global learning, which is why we could consider it
+                // as matched. However, global learning for keyboard keys is not supported yet, so
+                // we should not filter the event out! For OSC, we don't need the info at all
+                // because OSC doesn't support filtering out events.
+                false
+            }
         }
     }
 
+    fn process_incoming_msg_for_learning(
+        &mut self,
+        allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
+        result: MessageCaptureResult,
+    ) {
+        let event = MessageCaptureEvent {
+            result,
+            allow_virtual_sources,
+            osc_arg_index_hint,
+        };
+        self.basics
+            .event_handler
+            .handle_event(DomainEvent::CapturedIncomingMessage(event));
+    }
+
     /// Controls mappings with real targets in *both* compartments.
-    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) {
+    ///
+    /// Returns if matched (used to decide whether to filter out keyboard event from the
+    /// keyboard processing queue).
+    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) -> bool {
+        let mut matched = false;
         for compartment in MappingCompartment::enum_iter() {
             let mut enforce_target_refresh = false;
             // Search for 958 to know why we use a for loop here instead of collect().
@@ -1639,6 +1700,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     },
                 };
                 results.push(extended_control_result);
+                matched = true;
             }
             for r in results {
                 control_mapping_stage_three(
@@ -1650,6 +1712,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 )
             }
         }
+        matched
     }
 
     fn process_mapping_updates_due_to_parameter_changes(
@@ -2308,6 +2371,8 @@ pub struct MainSettings {
     pub input_logging_enabled: bool,
     pub output_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
+    pub let_matched_events_through: bool,
+    pub let_unmatched_events_through: bool,
 }
 
 /// A task which is sent from time to time from real-time to main processor.

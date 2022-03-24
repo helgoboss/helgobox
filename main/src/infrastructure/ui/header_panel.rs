@@ -22,8 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    BackboneState, ClipMatrixRef, ControlInput, GroupId, MappingCompartment, MessageCaptureEvent,
-    OscDeviceId, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
+    MessageCaptureEvent, OscDeviceId, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -54,6 +54,7 @@ use std::error::Error;
 use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
+const KEYBOARD_INDEX_OFFSET: isize = 2000;
 const PARAM_BATCH_SIZE: u32 = 5;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -1100,13 +1101,18 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         let controls = [label, matched_box, unmatched_box];
-        let visible = session.control_input().is_midi();
+        let (visible, enabled) = match session.control_input() {
+            ControlInput::Midi(input) => (
+                true,
+                input == MidiControlInput::FxInput || reaper_supports_global_midi_filter(),
+            ),
+            ControlInput::Osc(_) => (false, false),
+            ControlInput::Keyboard => (true, true),
+        };
         for c in controls {
             c.set_visible(visible);
         }
         if visible {
-            let enabled = session.control_input() == ControlInput::Midi(MidiControlInput::FxInput)
-                || reaper_supports_global_midi_filter();
             for c in controls {
                 c.set_enabled(enabled);
             }
@@ -1333,7 +1339,7 @@ impl HeaderPanel {
         let osc_device_manager = osc_device_manager.borrow();
         let osc_devices = osc_device_manager.devices();
         b.fill_combo_box_with_data_small(
-            vec![
+            [
                 (-100isize, generate_midi_device_heading()),
                 (
                     -1isize,
@@ -1355,40 +1361,46 @@ impl HeaderPanel {
                 osc_devices
                     .enumerate()
                     .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(false))),
-            ),
+            )
+            .chain([
+                (-100isize, String::from("----  Keyboard  ----")),
+                (KEYBOARD_INDEX_OFFSET, String::from("Computer keyboard")),
+            ]),
         )
     }
 
     fn invalidate_control_input_combo_box_value(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        use MidiControlInput::*;
-        if let Some(osc_device_id) = self.session().borrow().osc_input_device_id.get_ref() {
-            // We currently don't let the UI set both a MIDI and OSC device. Although internally
-            // this would be perfectly possible, it could be confusing.
-            match App::get()
-                .osc_device_manager()
-                .borrow()
-                .find_index_by_id(osc_device_id)
-            {
-                None => {
-                    b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
+        match self.session().borrow().control_input() {
+            ControlInput::Midi(midi_control_input) => match midi_control_input {
+                MidiControlInput::FxInput => {
+                    b.select_combo_box_item_by_data(-1).unwrap();
                 }
-                Some(i) => b
-                    .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                    .unwrap(),
-            };
-            return;
-        }
-        match self.session().borrow().midi_control_input.get() {
-            FxInput => {
-                b.select_combo_box_item_by_data(-1).unwrap();
+                MidiControlInput::Device(dev_id) => b
+                    .select_combo_box_item_by_data(dev_id.get() as _)
+                    .unwrap_or_else(|_| {
+                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
+                    }),
+            },
+            ControlInput::Osc(osc_device_id) => {
+                match App::get()
+                    .osc_device_manager()
+                    .borrow()
+                    .find_index_by_id(&osc_device_id)
+                {
+                    None => {
+                        b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
+                    }
+                    Some(i) => b
+                        .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
+                        .unwrap(),
+                };
             }
-            Device(dev_id) => b
-                .select_combo_box_item_by_data(dev_id.get() as _)
-                .unwrap_or_else(|_| {
-                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                }),
-        };
+            ControlInput::Keyboard => {
+                b.select_combo_box_item_by_data(KEYBOARD_INDEX_OFFSET)
+                    .unwrap();
+            }
+        }
     }
 
     fn invalidate_feedback_output_combo_box(&self) {
@@ -1432,39 +1444,40 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        use MidiDestination::*;
-        if let Some(osc_device_id) = self.session().borrow().osc_output_device_id.get_ref() {
-            // We currently don't let the UI set both a MIDI and OSC device. Although internally
-            // this would be perfectly possible, it could be confusing.
-            match App::get()
-                .osc_device_manager()
-                .borrow()
-                .find_index_by_id(osc_device_id)
-            {
-                None => {
-                    b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
-                }
-                Some(i) => b
-                    .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                    .unwrap(),
-            };
-            return;
-        }
-        match self.session().borrow().midi_feedback_output.get() {
+        match self.session().borrow().feedback_output() {
             None => {
                 b.select_combo_box_item_by_data(-1).unwrap();
             }
-            Some(o) => match o {
-                FxOutput => {
-                    b.select_combo_box_item_by_data(-2).unwrap();
+            Some(feedback_output) => match feedback_output {
+                FeedbackOutput::Midi(o) => match o {
+                    MidiDestination::FxOutput => {
+                        b.select_combo_box_item_by_data(-2).unwrap();
+                    }
+                    MidiDestination::Device(dev_id) => b
+                        .select_combo_box_item_by_data(dev_id.get() as _)
+                        .unwrap_or_else(|_| {
+                            b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
+                        }),
+                },
+                FeedbackOutput::Osc(osc_device_id) => {
+                    match App::get()
+                        .osc_device_manager()
+                        .borrow()
+                        .find_index_by_id(&osc_device_id)
+                    {
+                        None => {
+                            b.select_new_combo_box_item(format!(
+                                "<Not present> ({})",
+                                osc_device_id
+                            ));
+                        }
+                        Some(i) => b
+                            .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
+                            .unwrap(),
+                    }
                 }
-                Device(dev_id) => b
-                    .select_combo_box_item_by_data(dev_id.get() as _)
-                    .unwrap_or_else(|_| {
-                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                    }),
             },
-        };
+        }
     }
 
     fn update_search_expression(&self) {
@@ -1495,92 +1508,69 @@ impl HeaderPanel {
     }
 
     fn update_control_input(&self) {
-        let selection_was_valid = {
+        let control_input = {
             let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-            let session = self.session();
-            let mut session = session.borrow_mut();
             match b.selected_combo_box_item_data() {
-                -1 => {
-                    session.osc_input_device_id.set(None);
-                    session.midi_control_input.set(MidiControlInput::FxInput);
-                    true
-                }
+                -1 => Ok(ControlInput::Midi(MidiControlInput::FxInput)),
+                KEYBOARD_INDEX_OFFSET => Ok(ControlInput::Keyboard),
                 osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
                     if let Some(dev) = App::get()
                         .osc_device_manager()
                         .borrow()
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
                     {
-                        // TODO-medium We should set this to None as soon as available.
-                        session.midi_control_input.set(MidiControlInput::FxInput);
-                        session.osc_input_device_id.set(Some(*dev.id()));
-                        true
+                        Ok(ControlInput::Osc(*dev.id()))
                     } else {
-                        false
+                        Err(())
                     }
                 }
                 midi_dev_id if midi_dev_id >= 0 => {
                     let dev_id = MidiInputDeviceId::new(midi_dev_id as _);
-                    session.osc_input_device_id.set(None);
-                    session
-                        .midi_control_input
-                        .set(MidiControlInput::Device(dev_id));
-                    true
+                    Ok(ControlInput::Midi(MidiControlInput::Device(dev_id)))
                 }
-                _ => false,
+                _ => Err(()),
             }
         };
-        if !selection_was_valid {
+        if let Ok(control_input) = control_input {
+            self.session().borrow_mut().control_input.set(control_input);
+        } else {
             // This is most likely a section entry. Selection is not allowed.
             self.invalidate_control_input_combo_box_value();
         }
     }
 
     fn update_feedback_output(&self) {
-        let selection_was_valid = {
+        let feedback_output = {
             let b = self
                 .view
                 .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-            let session = self.session();
-            let mut session = session.borrow_mut();
             match b.selected_combo_box_item_data() {
-                -2 => {
-                    session.osc_output_device_id.set(None);
-                    session
-                        .midi_feedback_output
-                        .set(Some(MidiDestination::FxOutput));
-                    true
-                }
-                -1 => {
-                    session.osc_output_device_id.set(None);
-                    session.midi_feedback_output.set(None);
-                    true
-                }
+                -2 => Ok(Some(FeedbackOutput::Midi(MidiDestination::FxOutput))),
+                -1 => Ok(None),
                 osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
                     if let Some(dev) = App::get()
                         .osc_device_manager()
                         .borrow()
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
                     {
-                        session.midi_feedback_output.set(None);
-                        session.osc_output_device_id.set(Some(*dev.id()));
-                        true
+                        Ok(Some(FeedbackOutput::Osc(*dev.id())))
                     } else {
-                        false
+                        Err(())
                     }
                 }
                 midi_dev_id if midi_dev_id >= 0 => {
                     let dev_id = MidiOutputDeviceId::new(midi_dev_id as _);
-                    session.osc_output_device_id.set(None);
-                    session
-                        .midi_feedback_output
-                        .set(Some(MidiDestination::Device(dev_id)));
-                    true
+                    Ok(Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))))
                 }
-                _ => false,
+                _ => Err(()),
             }
         };
-        if !selection_was_valid {
+        if let Ok(feedback_output) = feedback_output {
+            self.session()
+                .borrow_mut()
+                .feedback_output
+                .set(feedback_output);
+        } else {
             // This is most likely a section entry. Selection is not allowed.
             self.invalidate_feedback_output_combo_box_value();
         }
@@ -2256,38 +2246,25 @@ impl HeaderPanel {
         self.when(session.learn_many_state_changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(
-            session
-                .midi_control_input
-                .changed()
-                .merge(session.osc_input_device_id.changed()),
-            |view, _| {
-                view.invalidate_control_input_combo_box();
-                view.invalidate_let_through_controls();
-                let shared_session = view.session();
-                let mut session = shared_session.borrow_mut();
-                if session.control_input().is_midi_device() && !reaper_supports_global_midi_filter()
-                {
-                    session.let_matched_events_through.set(true);
-                    session.let_unmatched_events_through.set(true);
-                }
-                if session.auto_correct_settings.get() {
-                    let osc_control_input = session.osc_input_device_id.get();
-                    let midi_control_input = session.midi_control_input.get();
-                    session.send_feedback_only_if_armed.set(
-                        osc_control_input.is_none()
-                            && midi_control_input == MidiControlInput::FxInput,
-                    );
-                }
-            },
-        );
-        self.when(
-            session
-                .midi_feedback_output
-                .changed()
-                .merge(session.osc_output_device_id.changed()),
-            |view, _| view.invalidate_feedback_output_combo_box(),
-        );
+        self.when(session.control_input.changed(), |view, _| {
+            view.invalidate_control_input_combo_box();
+            view.invalidate_let_through_controls();
+            let shared_session = view.session();
+            let mut session = shared_session.borrow_mut();
+            let control_input = session.control_input();
+            if control_input.is_midi_device() && !reaper_supports_global_midi_filter() {
+                session.let_matched_events_through.set(true);
+                session.let_unmatched_events_through.set(true);
+            }
+            if session.auto_correct_settings.get() {
+                session
+                    .send_feedback_only_if_armed
+                    .set(control_input == ControlInput::Midi(MidiControlInput::FxInput));
+            }
+        });
+        self.when(session.feedback_output.changed(), |view, _| {
+            view.invalidate_feedback_output_combo_box()
+        });
         let main_state = self.main_state.borrow();
         self.when(
             main_state.displayed_group_for_any_compartment_changed(),

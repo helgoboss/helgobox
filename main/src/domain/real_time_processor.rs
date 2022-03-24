@@ -1,9 +1,9 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
-    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
-    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
+    classify_midi_message, CompoundMappingSource, ControlInput, ControlMainTask, ControlMode,
+    ControlOptions, Event, FeedbackOutput, FeedbackSendBehavior, Garbage, GarbageBin,
+    InputMatchResult, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
+    MappingId, MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner,
+    MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
     SampleOffset, SendMidiDestination, VirtualSourceValue,
@@ -389,14 +389,19 @@ impl RealTimeProcessor {
                 UpdateSettings {
                     let_matched_events_through,
                     let_unmatched_events_through,
-                    midi_control_input,
-                    midi_feedback_output,
+                    control_input,
+                    feedback_output,
                     input_logging_enabled,
                     output_logging_enabled,
                 } => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating settings...");
                     });
+                    let midi_control_input = control_input
+                        .midi_control_input()
+                        .unwrap_or(MidiControlInput::FxInput);
+                    let midi_feedback_output =
+                        feedback_output.and_then(|output| output.midi_destination());
                     let feedback_output_changing =
                         midi_feedback_output != self.midi_feedback_output;
                     // Handle deactivation
@@ -1238,8 +1243,8 @@ pub enum NormalRealTimeTask {
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
-        midi_control_input: MidiControlInput,
-        midi_feedback_output: Option<MidiDestination>,
+        control_input: ControlInput,
+        feedback_output: Option<FeedbackOutput>,
         input_logging_enabled: bool,
         output_logging_enabled: bool,
     },

@@ -87,6 +87,9 @@ pub use midi_types::*;
 mod reaper_source;
 pub use reaper_source::*;
 
+mod key_source;
+pub use key_source::*;
+
 mod device_change_detector;
 pub use device_change_detector::*;
 
