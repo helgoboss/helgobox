@@ -60,6 +60,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
     device_change_detector: DeviceChangeDetector,
+    control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
+    control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
 }
 
 pub enum Garbage {
@@ -193,6 +195,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Prevent change messages to be sent on load by polling one time and ignoring result.
         device_change_detector.poll_for_midi_input_device_changes();
         device_change_detector.poll_for_midi_output_device_changes();
+        let (control_surface_event_sender, control_surface_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface events");
         Self {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
@@ -222,6 +226,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             osc_input_devices: vec![],
             garbage_receiver,
             device_change_detector,
+            control_surface_event_sender,
+            control_surface_event_receiver,
         }
     }
 
@@ -277,7 +283,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             self.process_metrics();
         }
         self.drop_garbage();
+        self.process_deferred_control_surface_events();
         self.counter += 1;
+    }
+
+    fn process_deferred_control_surface_events(&self) {
+        while let Ok(event) = self.control_surface_event_receiver.try_recv() {
+            let main_processors = self.main_processors.borrow();
+            self.handle_event_very_internal(&event, &main_processors);
+        }
     }
 
     fn process_main_tasks(&mut self) {
@@ -587,14 +601,32 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn handle_event_internal(&self, event: ControlSurfaceEvent) -> bool {
+    fn handle_event_internal(&self, event: &ControlSurfaceEvent) -> bool {
+        // Reentrancy check (check if we are currently mutably in `run()`)
+        // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
+        //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
+        match self.main_processors.try_borrow() {
+            Ok(p) => self.handle_event_very_internal(event, &p),
+            Err(_) => {
+                self.control_surface_event_sender
+                    .send_complaining(event.clone().into_owned());
+                false
+            }
+        }
+    }
+
+    fn handle_event_very_internal(
+        &self,
+        event: &ControlSurfaceEvent,
+        main_processors: &[MainProcessor<EH>],
+    ) -> bool {
         // We always need to forward to the change detection middleware even if we are in
         // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
                     // This is for feedback processing. No Rx!
-                    for m in &*self.main_processors.borrow() {
+                    for m in main_processors {
                         m.process_control_surface_change_event(&e);
                     }
                     // The rest is only for upper layers (e.g. UI), not for processing.
@@ -657,11 +689,11 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         #[cfg(feature = "realearn-metrics")]
         if self.metrics_enabled {
             let elapsed = reaper_high::MeterMiddleware::measure(|| {
-                self.handle_event_internal(event);
+                self.handle_event_internal(&event);
             });
-            self.meter_middleware.record_event(event, elapsed)
+            self.meter_middleware.record_event(&event, elapsed)
         } else {
-            self.handle_event_internal(event)
+            self.handle_event_internal(&event)
         }
         #[cfg(not(feature = "realearn-metrics"))]
         self.handle_event_internal(event)

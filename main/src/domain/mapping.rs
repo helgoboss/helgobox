@@ -1130,6 +1130,7 @@ impl MainMapping {
         match (msg, &mut self.core.source) {
             (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
             (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            (MainSourceMessage::Key(m), CompoundMappingSource::Key(s)) => s.control(m),
             _ => None,
         }
     }
@@ -1159,7 +1160,7 @@ impl MainMapping {
 pub enum MainSourceMessage<'a> {
     Osc(&'a OscMessage),
     Reaper(&'a ReaperMessage),
-    Keyboard(KeyMessage),
+    Key(KeyMessage),
 }
 
 impl<'a> MainSourceMessage<'a> {
@@ -1170,7 +1171,7 @@ impl<'a> MainSourceMessage<'a> {
                 message: msg.clone(),
                 dev_id: None,
             }),
-            Keyboard(msg) => MessageCaptureResult::Keyboard(msg),
+            Key(msg) => MessageCaptureResult::Keyboard(msg),
             Reaper(_) => panic!("capturing of incoming MIDI messages not supported"),
         }
     }

@@ -1563,7 +1563,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.settings.input_logging_enabled {
             self.log_incoming_message(msg);
         }
-        let matched = self.process_incoming_message_internal(MainSourceMessage::Keyboard(msg));
+        let matched = self.process_incoming_message_internal(MainSourceMessage::Key(msg));
         let let_through = (matched && self.basics.settings.let_matched_events_through)
             || (!matched && self.basics.settings.let_unmatched_events_through);
         !let_through
