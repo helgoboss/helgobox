@@ -2686,6 +2686,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     pub fn control_context(&self) -> ControlContext {
         ControlContext {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
+            feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
             instance_container: self.instance_container,

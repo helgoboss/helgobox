@@ -132,9 +132,6 @@ pub enum OutputReason {
     VirtualFeedback,
     #[display(fmt = "Lifecycle output")]
     Lifecycle,
-    /// E.g. device queries
-    #[display(fmt = "System output")]
-    System,
     #[display(fmt = "Target output")]
     Target,
 }

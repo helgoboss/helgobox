@@ -1,25 +1,25 @@
-use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_raw_midi, log_output,
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
     AdditionalEelTransformationInput, AdditionalFeedbackEvent, DomainEventHandler, Exclusivity,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId,
-    InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
-    OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, ReaperTarget, SharedInstanceState,
-    Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
-    ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, AUTOMATION_TOUCH_STATE_TARGET,
-    CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, ENABLE_INSTANCES_TARGET,
-    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
-    FX_PARAMETER_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET,
-    LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET, NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET,
-    PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
-    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET,
-    TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET,
-    TRACK_PAN_TARGET, TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET,
-    TRACK_SHOW_TARGET, TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_VOLUME_TARGET,
-    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
+    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
+    OrderedMappingMap, OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, ReaperTarget,
+    SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
+    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
+    AUTOMATION_TOUCH_STATE_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET,
+    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET,
+    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
+    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
+    NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
+    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
+    ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET,
+    TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -32,7 +32,7 @@ use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
-use reaper_medium::{CommandId, MidiOutputDeviceId};
+use reaper_medium::CommandId;
 use serde_repr::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -366,6 +366,7 @@ pub struct EnableInstancesArgs<'a> {
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
     pub feedback_audio_hook_task_sender: &'a SenderToRealTimeThread<FeedbackAudioHookTask>,
+    pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub instance_container: &'a dyn InstanceContainer,
@@ -400,20 +401,16 @@ impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
 }
 
 impl<'a> ControlContext<'a> {
-    pub fn send_raw_midi(
-        &self,
-        reason: OutputReason,
-        dev_id: MidiOutputDeviceId,
-        events: Vec<RawMidiEvent>,
-    ) {
+    pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
         if self.output_logging_enabled {
-            for e in &events {
-                log_output(self.instance_id, reason, format_raw_midi(e.bytes()));
+            for e in events {
+                log_output(
+                    self.instance_id,
+                    OutputReason::Target,
+                    format_raw_midi(e.bytes()),
+                );
             }
         }
-        let _ = self
-            .feedback_audio_hook_task_sender
-            .send_complaining(FeedbackAudioHookTask::SendMidi(dev_id, events));
     }
 }
 

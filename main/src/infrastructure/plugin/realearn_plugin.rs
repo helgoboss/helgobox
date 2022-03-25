@@ -424,6 +424,7 @@ impl RealearnPlugin {
                     instance_state.clone(),
                     session_state,
                     App::get().feedback_audio_hook_task_sender(),
+                    feedback_real_time_task_sender.clone(),
                     App::get().osc_feedback_task_sender(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));

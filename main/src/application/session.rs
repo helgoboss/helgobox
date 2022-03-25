@@ -13,13 +13,14 @@ use crate::base::{
 };
 use crate::domain::{
     BackboneState, BasicSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
-    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualSource, VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
+    InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    NormalRealTimeTask, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -113,6 +114,7 @@ pub struct Session {
     main_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_state: SharedInstanceState,
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
+    feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
     /// instance but this instance is not yet loaded.
@@ -191,6 +193,7 @@ impl Session {
         global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
             FeedbackAudioHookTask,
         >,
+        feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     ) -> Session {
         Self {
@@ -246,6 +249,7 @@ impl Session {
             main_preset_link_manager: Box::new(preset_link_manager),
             instance_state,
             global_feedback_audio_hook_task_sender,
+            feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
             unresolved_foreign_clip_matrix_session_id: None,
         }
@@ -706,6 +710,7 @@ impl Session {
     pub fn control_context(&self) -> ControlContext {
         ControlContext {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
+            feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
             instance_container: self.instance_container,

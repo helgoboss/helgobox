@@ -144,7 +144,7 @@ pub enum ReaperTarget {
 #[repr(usize)]
 pub enum SendMidiDestination {
     #[serde(rename = "fx-output")]
-    #[display(fmt = "FX output (with FX input only)")]
+    #[display(fmt = "FX output")]
     FxOutput,
     #[serde(rename = "feedback-output")]
     #[display(fmt = "Feedback output")]
