@@ -63,12 +63,13 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                     ReaperCommand::Name(n) => n,
                 }),
                 invocation_type: {
-                    use ActionInvocationKind::*;
+                    use ActionInvocationKind as K;
                     use ActionInvocationType as T;
                     match d.invocation.unwrap_or_default() {
-                        Trigger => T::Trigger,
-                        Absolute => T::Absolute,
-                        Relative => T::Relative,
+                        K::Trigger => T::Trigger,
+                        K::Absolute14Bit => T::Absolute14Bit,
+                        K::Absolute7Bit => T::Absolute7Bit,
+                        K::Relative => T::Relative,
                     }
                 },
                 with_track: track_desc.is_some(),

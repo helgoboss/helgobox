@@ -81,7 +81,8 @@ fn convert_real_target(
                 use ActionInvocationType::*;
                 let v = match data.invocation_type {
                     Trigger => T::Trigger,
-                    Absolute => T::Absolute,
+                    Absolute14Bit => T::Absolute14Bit,
+                    Absolute7Bit => T::Absolute7Bit,
                     Relative => T::Relative,
                 };
                 style.required_value(v)

@@ -277,7 +277,7 @@ impl TargetModelData {
             if invoke_relative {
                 ActionInvocationType::Relative
             } else {
-                ActionInvocationType::Absolute
+                ActionInvocationType::Absolute14Bit
             }
         } else {
             self.invocation_type

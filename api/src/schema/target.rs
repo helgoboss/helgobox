@@ -609,13 +609,15 @@ pub enum AnyOnParameter {
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum ActionInvocationKind {
     Trigger,
-    Absolute,
+    #[serde(alias = "Absolute")]
+    Absolute14Bit,
+    Absolute7Bit,
     Relative,
 }
 
 impl Default for ActionInvocationKind {
     fn default() -> Self {
-        Self::Absolute
+        Self::Absolute14Bit
     }
 }
 

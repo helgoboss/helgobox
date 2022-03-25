@@ -4007,7 +4007,7 @@ resolution is only 7 bit! Moreover, I've not yet created a controller preset for
 
 
 [#dj-techtools-midi-fighter-twister]
-=== DJ TechTools "Midi Fighter Twister"
+=== DJ TechTools Midi Fighter Twister
 
 This controller works very well with ReaLearn, including feedback and LED color selection. Special feedback features
 such as the indicator type are currently not configurable from the ReaLearn user interface.

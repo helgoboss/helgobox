@@ -861,15 +861,17 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
 pub enum ActionInvocationType {
     #[display(fmt = "Trigger")]
     Trigger = 0,
-    #[display(fmt = "Absolute")]
-    Absolute = 1,
+    #[display(fmt = "Absolute 14-bit")]
+    Absolute14Bit = 1,
     #[display(fmt = "Relative")]
     Relative = 2,
+    #[display(fmt = "Absolute 7-bit")]
+    Absolute7Bit = 3,
 }
 
 impl Default for ActionInvocationType {
     fn default() -> Self {
-        ActionInvocationType::Absolute
+        ActionInvocationType::Absolute14Bit
     }
 }
 
