@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-03-21 (v2.12.0)`
+|Last update of text: |`2022-03-25 (v2.13.0-pre.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -381,13 +381,28 @@ the general hints given in the section <<tested-controllers,Tested controllers>>
 
 === Automation and rendering
 
-Similarly to control surfaces, ReaLearn is meant to be used for controlling targets "live". If you
+Similarly to control surfaces, ReaLearn is primarily meant to be used for controlling targets "live". If you
 want to _persist_ the resulting target value changes, you can do so by writing automation. Just as
 with any other automation, it will be included when you render your project.
 
-It _is_ possible to feed ReaLearn with track MIDI items instead of live MIDI data. This also results
-in a kind of automation. *But be aware: This kind of "automation" will only be rendered in REAPER's
-"Online Render" mode. It will be ignored when using one of the offline modes!*
+It _is_ possible to feed ReaLearn with track MIDI items instead of live MIDI data. This results
+in a kind of _pseudo automation_. Some users call this _MIDI CC based automation_. This feature can be quite interesting and appealing to MIDI fans.
+
+[CAUTION]
+====
+
+*Support for rendering pseudo automation is limited!*
+
+Let's say you finally want to render your project. If you don't watch out, your pseudo automation will simply be ignored!
+
+Pseudo automation will only be rendered if you follow some very distinct rules:
+
+- The target must be <<fx-set-parameter-value>> (all other targets will most likely be ignored).
+- The targeted FX must be on the same track as the ReaLearn instance itself.
+- This only works in REAPER versions >= 6.52+dev0324.
+
+I remember that *Online Render* used to respect all kinds of pseudo automation. However, this must have stopped working at some point (or it works only under particular circumstances or with certain settings, not sure). Anyway, now you need to follow the same rules as with offline rendering to make pseudo automation work.
+====
 
 == Reference
 
@@ -401,17 +416,23 @@ So far we've covered the basics. Now let's look into everything in detail.
 The header panel provides the following user interface elements, no matter if the _main_ or
 _controller_ compartment is shown:
 
-* *Control input:* By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
+[#control-input]
+===== Control input
+
+By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
  consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
- Alternatively, ReaLearn can capture events directly from a MIDI hardware or OSC input. This dropdown lets
- you choose the corresponding MIDI or OSC input device. Be aware that MIDI will only work if _Enable input
+ Alternatively, ReaLearn can capture events from a MIDI device directly, from an OSC device or from your computer keyboard. Be aware that MIDI will only work if _Enable input
  from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
-* *Feedback output:* Here you can choose if and where ReaLearn should send MIDI/OSC feedback. By
+
+[#feedback-output]
+===== Feedback output
+
+Here you can choose if and where ReaLearn should send MIDI/OSC feedback. By
  default it's set to _<None>_ for no feedback. If you want to enable feedback, pick a MIDI or OSC
  output device here. Keep in mind that for MIDI, _Enable output to this device_ must be checked in REAPER's
  MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
  feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
-+
+
 [WARNING]
 ====
 Please note that sending MIDI feedback
@@ -423,8 +444,12 @@ Please note that sending MIDI feedback
 * Project is paused and ReaLearn track is not armed.
 * ReaLearn FX is on input FX chain and track is not armed.
 ====
-* *Export to clipboard:* Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
-** *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. The dump's data format is
+
+===== Export to clipboard
+
+Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
+
+* *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. The dump's data format is
  https://www.json.org/json-en.html[JSON], a wide-spread data exchange format. It's a text format,
  so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing. However, recent versions of ReaLearn provide a much better way of doing that: _ReaLearn Script_. Read about the other export options for learning more about it.
 +
@@ -441,36 +466,56 @@ You can also use the export for some very basic A/B testing:
 ====
 For the programmers and script junkies out there: It's perfectly possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter mechanism] (search for `named_parameter_name`). Parameter name is `set-state`.
 ====
-** *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard. It contains about the same data that a compartment preset would contain.
-** *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua code (ReaLearn Script). This form of Lua export skips properties that correspond to ReaLearn's default values, resulting in a minimal result. Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
-** *Export main/controller compartment as Lua (include default values):*  This Lua export includes even those properties that correspond to ReaLearn's default values, resulting in more text. This gives you the perfect starting point if you want to extensively modify the current compartment (using the Lua programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
-* *Import from clipboard:* Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
-* *Projection:* This is a quite unique feature that allows you to project a schematic representation
+* *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard. It contains about the same data that a compartment preset would contain.
+* *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua code (ReaLearn Script). This form of Lua export skips properties that correspond to ReaLearn's default values, resulting in a minimal result. Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
+* *Export main/controller compartment as Lua (include default values):*  This Lua export includes even those properties that correspond to ReaLearn's default values, resulting in more text. This gives you the perfect starting point if you want to extensively modify the current compartment (using the Lua programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
+
+===== Import from clipboard
+
+Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+
+===== Projection
+
+This is a quite unique feature that allows you to project a schematic representation
  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close
  to your controller in order to see immediately which control element is mapped to which parameter.
  This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control
  element is mapped to which target parameter. If you want to use this feature, just click this button
  and you will see detailed instructions on how to set this up. In order to use this feature, you need the
  _ReaLearn Companion_ app, which has a <<companion-app,dedicated section>> in this user guide.
-* *Let through:* ReaLearn by default "eats" incoming MIDI events for
-which there's at least one active mapping with that source. In other words, it doesn't forward MIDI events which are used to control a target parameter. However, unmatched MIDI events are forwarded! You can change this using these checkboxes. E.g. you can tick "Matched events" if you want to forward even matched events. The exact behavior differs depending on what you choose as _control input_:
-** _Control input_ = `&lt;FX input&gt;`
-*** Here, MIDI events arrive from ReaLearn's FX input. If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX. The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
-** _Control input_ = _some real MIDI hardware device_
-*** Here, MIDI events arrive directly from the MIDI hardware device. If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn. If they don't get forwarded, it means they get filtered and will never make it to the tracks. ReaLearn completely eats them, globally! That means, ReaLearn can act as global MIDI filter.
-*** Please note, with control input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
-*** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
+
+===== Let through
+
+ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source. In other words, it doesn't forward MIDI events which are used to control a target parameter. However, unmatched MIDI events are forwarded!
+
+You can change this using these checkboxes. E.g. you can tick *Matched events* if you want to forward even matched events. The exact behavior differs depending on what you choose as <<control-input>>:
+
+* If control input is set to <FX input>
+** MIDI events arrive from ReaLearn's FX input. If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX. The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
+* If control input is set to a MIDI hardware device
+** MIDI events arrive directly from the MIDI hardware device. If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn. If they don't get forwarded, it means they get filtered and will never make it to the tracks. ReaLearn completely eats them, globally! That means, ReaLearn can act as global MIDI filter.
+** Please note, with control input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
 +
 TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-** _Control input_ = _some OSC device_
-*** You won't see the checkboxes because they don't make sense for OSC.
-* *Show:* This lets you choose which mapping compartment is displayed. A compartment is basically a list of mappings
+* If control input is set to a OSC device
+** You won't see the checkboxes because they don't make sense for OSC.
+* If control input is set to computer keyboard
+** You can control whether key presses are forwarded to REAPER or not.
+** For example, unticking both checkboxes makes sure that only keyboard hotkeys defined in ReaLearn have an effect. This can be interesting for live scenarios in which you temporarily want to lower the risk of pressing the wrong key and messing up the performance. Just unlock the keys you absolutely need.
+
+===== Show
+
+This lets you choose which mapping compartment is displayed. A compartment is basically a list of mappings
  that can be saved as independent preset. Initially, ReaLearn shows the so-called "Main compartment" which contains
  the so-called "Main mappings" - the bread and butter of ReaLearn. However, there's another interesting compartment,
  the "Controller compartment". In a nutshell, this compartment lets you define which hardware controllers you have at
  your disposal and which control elements they have. Learn more about that feature in section
  <<controller-compartment,Controller compartment>>.
-* *Controller preset / Main preset:* This is the list of available presets for that compartment. By default, it's set
+
+===== Controller preset / Main preset
+
+This is the list of available presets for that compartment. By default, it's set
  to "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
  corresponding mappings will be loaded and immediately get active. In the _controller_ compartment, this list
  will essentially represent the list of available hardware controller presets. A few are shipped with ReaLearn itself
@@ -478,7 +523,10 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 * *Save:* If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
  as well but I would strongly recommend against changing them directly. Better use _Save as…_ and choose a custom
  name.
-* *Save as…* This allows you to save all currently visible mappings as a new preset. Please choose a descriptive
+
+===== Save as…
+
+This allows you to save all currently visible mappings as a new preset. Please choose a descriptive
  name.
 ** Saving your mappings as a preset is optional. All controller mappings are saved together
  with your current ReaLearn instance anyway, no worries. But as soon as you want to reuse these
@@ -497,15 +545,30 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
  *&lt;This&gt;* because it doesn't matter anyway.
 *** Track targets are changed to refer to a track via its position instead of its ID.
 ** If this is not what you want, you can choose to say no and make modifications yourself.
-* *Delete:* This permanently deletes the currently chosen preset. You can also delete built-in presets.
+
+===== Delete
+
+This permanently deletes the currently chosen preset. You can also delete built-in presets.
  However, if you use ReaPack for installation, it should restore them on next sync.
-* *Add one:* Adds a new mapping at the end of the current mapping list.
-* *Learn many:* Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
+
+===== Add one
+
+Adds a new mapping at the end of the current mapping list.
+
+===== Learn many
+
+Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
  the on-screen instructions. Click _Stop_ when you are finished with your bulk learning strike.
 [#search]
-* *Search:* Enter some text here in order to display just mappings whose name matches the text. The search expression
+
+===== Search
+
+Enter some text here in order to display just mappings whose name matches the text. The search expression
  also supports wildcards `*` and `?` for doing more blurry searches.
-* *Filter source:* If you work with many mappings and you have problems memorizing them, you
+
+===== Filter source
+
+If you work with many mappings and you have problems memorizing them, you
  will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI/OSC
  events and temporarily disable all target control. You can play around freely on your controller
  without having to worry about messing up target parameters. Whenever ReaLearn detects a valid
@@ -517,11 +580,16 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
  button to the right. _Tip:_ Before you freak out thinking that ReaLearn doesn't work anymore
  because it won't let you control targets, have a quick look at this button. ReaLearn might still
  be in "filter source" mode. Then just calm down and press _Stop_. It's easy to forget.
-* *Filter target:* If you want to find out what mappings exist for a particular target,
+
+===== Filter target
+
+If you want to find out what mappings exist for a particular target,
  press this button and touch something in REAPER. As soon as you have touched a valid target, the
  list will show all mappings with that target. Unlike _Filter source_, ReaLearn will
  automatically stop learning as soon as a target was touched. Press the *X* button to remove the
  filter and show all mappings again.
+
+===== Context menu
 
 Additionally, the header panel provides a context menu (accessible via right-click on Windows and Linux, control-click
 on macOS) with the following entries:
@@ -648,8 +716,7 @@ You can easily find it by pressing the _Projection_ button in ReaLearn and scrol
 * *Log debug info:* Logs some information about ReaLearn's internal state. Can be interesting for
  investigating bugs or understanding how this plug-in works.
 [#log-incoming-messages]
-* *Log incoming messages:* When enabled, all incoming MIDI or OSC messages will be logged to the console. Each log
- entry contains the following information:
+* *Log incoming real messages:* When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
 ** Timestamp in seconds
 ** ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
  restart)
@@ -665,14 +732,15 @@ You can easily find it by pressing the _Projection_ button in ReaLearn and scrol
  there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
  processed. The complete (N)RPN or 14-bit CC message will be.
 [#log-outgoing-messages]
-* *Log outgoing messages:* When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log
- entries look similar to the ones described above, with the following notable differences.
+* *Log incoming virtual messages:* When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
+* *Log outgoing real messages:* When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log entries look similar to the ones described above, with the following notable differences.
 ** Message purpose
 *** *Feedback output:* A message sent to your controller as response to target value changes.
 *** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation
  (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
 *** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
  <<osc-send-message,OSC: Send message>> target.
+* *Log outgoing virtual messages:* When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
 
 [#bottom-panel]
 ==== Bottom panel
@@ -1612,6 +1680,18 @@ Infinity
 Infinity value
 |===
 
+===== Category "Keyboard"
+
+This source reacts to pressing or releasing a key on your computer keyboard. It emits a value of 100% when the key is pressed and 0% when released.
+
+TIP: If you hold a key, it will not keep firing! Use the <<fire-mode>> setting instead.
+
+In order to set the key, simply click the *Learn* button and press the key combination of your choice.
+
+TIP: This only works if <<control-input>> is set to *Computer keyboard*.
+
+====== MIDI device changes
+
 ===== Category "REAPER"
 
 ====== MIDI device changes
@@ -1624,6 +1704,10 @@ preferences).
 ====== ReaLearn instance start
 
 This source fires (emits a value of 100%) when ReaLearn starts. It can be used to execute an actions or restore certain states on REAPER startup or project load.
+
+====== Timer
+
+This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
 
 ===== Category "Virtual"
 
@@ -2063,9 +2147,10 @@ Triggers or sets the value of a particular REAPER action in the main section.
 ** *Trigger:* Invokes the action with the incoming absolute control value, but only if it's
 greater than 0%. Most suitable for simple trigger-like actions that neither have an on/off state
 nor are annotated with "(MIDI CC/OSC only)" or similar.
-** *Absolute:* Invokes the action with the incoming absolute control value, even if it's 0%. Most
+** *Absolute 14-bit:* Invokes the action with the incoming absolute control value, even if it's 0%. Most
 suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC
-only)" or similar.
+only)" or similar. The resolution of the invocation is 14-bit, no matter what's the resolution of your control element).
+** *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution. Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly. In all other circumstances, 14-bit is probably the better default choice.
 ** *Relative:* Invokes the action with the incoming relative control value (absolute ones are
 ignored). Only works for actions that are annotated with ("MIDI CC relative only") or similar.
 * *Pick:* Opens REAPER's action dialog so you can select the desired action.
@@ -2473,93 +2558,17 @@ Sets the track send's volume.
 
 ====== Clip: Invoke transport action
 
-*Clips are a highly experimental feature of ReaLearn and still subject to many changes! Better don't rely on it at
-the moment!*
+CAUTION: Clips are a highly experimental feature of ReaLearn and still subject to many changes! Better don't rely on it at the moment!
 
-Each ReaLearn provides 8 slots which you can fill with MIDI or audio clips. You can use this target to play/pause/stop
-them and invoke other clip-related transport actions.
-
-* *Track:* Defines on which track the clip will be auditioned.
-** Changing the track during playing will not have an effect at the moment. You have to stop the clip first and play
- it again.
-* *Slot:* The dropdown allows you to select the slot that you want to control. Next to it you will see the file name
- of the clip with which this slot is currently filled. The *…* button will offer you further slot-related actions.
- They affect the selected slot, not just this mapping!
-** *Show slot info:* Opens a small window which tells you about the precise file name, type and length of the
- current clip in that slot.
-** *Fill with selected item source:* Fills this slot with a new clip based on the source of the currently selected
- REAPER item.
-*** Please note that item-related settings will not be taken into account! Just the item source. So you
- might want to glue the item first before importing it into the slot.
-*** The resulting clip is completely independent from the original item.
-*** In-project MIDI sources will automatically be converted to files in the same project directory.
-* *Action:* Specifies which transport action should be invoked.
-** *Play/stop:* Starts playing the contained clip if the incoming absolute control value is greater than 0%,
- otherwise stops it.
-** *Play/pause:* Starts playing the contained clip if the incoming absolute control value is greater than 0%,
- otherwise pauses it.
-** *Stop:* Stops the contained clip if the incoming absolute control value is greater than 0%. Useful for
- distinguishing feedback between _paused_ and _stopped_ state.
-** *Pause:* Pauses the contained project if the incoming absolute control value is greater than 0%. Useful for
- distinguishing feedback between _paused_ and _stopped_ state.
-** *Record:* Currently has no effect!
-** *Repeat:* Enables repeat for the contained clip if the incoming absolute control value is greater than 0%,
- otherwise disables it.
-* *Next bar:* Makes the clip start synchronized with REAPER's main timeline. On the next bar to be precise. Of course
- this only works if the REAPER project is playing.
-** When you stop the clip, it will not stop immediately but wait until the clip has finished playing.
-** Nice: If you stop playback in REAPER while a clip is still playing and then start playback in REAPER again, the
- clip will automatically start playing as well. Same with _pause_ but currently this results in behavior that
- doesn't make too much sense from a musical perspective.
-* *Buffered:* This should have an effect on audio clips only, not MIDI. It makes REAPER attempt to buffer the clip
- _right before playing it_ in order to prevent crackling and audio dropouts. This sometimes introduces a notable
- delay - which is often okay for "Next bar" but not for immediate playing. In future this will very likely be improved
- by pre-buffering the complete clip on load.
-
-*Some notes on feedback*
-
-This target emits the following feedback values:
-
-* Clip stopped: 0%
-* Clip scheduled to play but not yet playing: 75%
-* Clip paused: 50%
-* Clip scheduled to stop but still playing: 25%
-* Clip playing: 100%
-
-You can use a feedback formula and/or <<script-source,MIDI script source>> to map this to button LED colors.
-
-*Slots vs. mappings:*
-
-As pointed out above, slots are independent from mappings. They are part of the ReaLearn instance and
-therefore become part of …
-
-* the current project,
-* the VST instrument preset (if you create one)
-* ReaLearn's clipboard export.
-
-They will *not* be saved within ReaLearn's compartment presets.
-
-The following properties belong to the slot, not the mapping:
-
-* Slot content (path to the media file, saved as path relative to the current REAPER project path whenever possible)
-* Slot repeat on/off
-* Slot volume
-
-… and therefore also will be saved as part of the ReaLearn instance.
+_Under construction_
 
 ====== Clip: Seek
 
-Allows you to use faders, knobs, encoders or incremental buttons to seek within this clip while playing or paused.
-Plus, it provides feedback about the clip's current position! Map the current position to a motor fader and fun is
-guaranteed :) But of course it's not only about fun, it can also be very useful from a performance perspective.
-
-* *Feedback:* Determines how frequently ReaLearn sends feedback to your feedback output.
-** *Beat:* Every beat. Only works if REAPER's main timeline is playing.
-** *Fast:* As fast as possible.
+_Under construction_
 
 ====== Clip: Volume
 
-Lets you set the slot's volume.
+_Under construction_
 
 [#midi-send-message]
 ====== MIDI: Send message
@@ -2571,16 +2580,13 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
 ** *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows
  into the FX below ReaLearn, e.g. a VST instrument.
 +
-NOTE: This only works if _control input_ is set to `&lt;FX input&gt;`!
 ** *Feedback output:* Sends the MIDI message to the device which is set as _feedback output_.
-+
-NOTE: This only works if _feedback output_ is set to a MIDI device. If _feedback output_ is set to `<FX output>`, this only works if _control input_ is set to `<FX input>`.
 * *Pattern:* Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation. It also allows you
  to encode the incoming _absolute_ control value as part of the message (after it has been processed by the glue
  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
  used in the <<raw-midi-source,Raw MIDI source>>.
  Please read about it there!
-* *Pick!:* Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
+* *Pick!* Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
  add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
 
 [NOTE]
@@ -3154,7 +3160,8 @@ By checking this box:
 * You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
 * You can still use some of the relative-only features: Step size and rotate!
 
-===== Fire mode (left dropdown)
+[#fire-mode]
+===== Fire mode
 
 Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
 and by changing the values below it, you can change this behavior. This dropdown provides different fire modes that
