@@ -39,7 +39,8 @@
       "type": "string",
       "enum": [
         "Trigger",
-        "Absolute",
+        "Absolute14Bit",
+        "Absolute7Bit",
         "Relative"
       ]
     },
@@ -263,46 +264,67 @@
         "ReleaseOnly"
       ]
     },
-    "ClipDescriptor": {
+    "ClipSlotDescriptor": {
       "oneOf": [
         {
           "type": "object",
           "required": [
-            "address",
-            "index"
+            "address"
           ],
           "properties": {
             "address": {
               "type": "string",
               "enum": [
-                "Slot"
+                "Selected"
               ]
-            },
-            "index": {
-              "type": "integer",
-              "format": "uint32",
-              "minimum": 0.0
             }
           }
-        }
-      ]
-    },
-    "ClipOutput": {
-      "oneOf": [
+        },
         {
           "type": "object",
           "required": [
-            "kind"
+            "address",
+            "column_index",
+            "row_index"
           ],
           "properties": {
-            "kind": {
+            "address": {
               "type": "string",
               "enum": [
-                "Track"
+                "ByIndex"
               ]
             },
-            "track": {
-              "$ref": "#/definitions/TrackDescriptor"
+            "column_index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            },
+            "row_index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "column_expression",
+            "row_expression"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "Dynamic"
+              ]
+            },
+            "column_expression": {
+              "type": "string"
+            },
+            "row_expression": {
+              "type": "string"
             }
           }
         }
@@ -1456,6 +1478,27 @@
         {
           "type": "object",
           "required": [
+            "duration",
+            "kind"
+          ],
+          "properties": {
+            "duration": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Timer"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "kind"
           ],
           "properties": {
@@ -2553,6 +2596,27 @@
             "kind": {
               "type": "string",
               "enum": [
+                "FxOnlineOfflineState"
+              ]
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "fx": {
+              "$ref": "#/definitions/FxDescriptor"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
                 "LoadFxSnapshot"
               ]
             },
@@ -2787,18 +2851,12 @@
           "type": "object",
           "required": [
             "action",
-            "clip",
-            "kind"
+            "kind",
+            "slot"
           ],
           "properties": {
             "action": {
               "$ref": "#/definitions/TransportAction"
-            },
-            "buffered": {
-              "type": "boolean"
-            },
-            "clip": {
-              "$ref": "#/definitions/ClipDescriptor"
             },
             "kind": {
               "type": "string",
@@ -2806,11 +2864,8 @@
                 "ClipTransportAction"
               ]
             },
-            "next_bar": {
-              "type": "boolean"
-            },
-            "output": {
-              "$ref": "#/definitions/ClipOutput"
+            "slot": {
+              "$ref": "#/definitions/ClipSlotDescriptor"
             },
             "unit": {
               "$ref": "#/definitions/TargetUnit"
@@ -2821,13 +2876,10 @@
         {
           "type": "object",
           "required": [
-            "clip",
-            "kind"
+            "kind",
+            "slot"
           ],
           "properties": {
-            "clip": {
-              "$ref": "#/definitions/ClipDescriptor"
-            },
             "feedback_resolution": {
               "$ref": "#/definitions/FeedbackResolution"
             },
@@ -2837,6 +2889,9 @@
                 "ClipSeek"
               ]
             },
+            "slot": {
+              "$ref": "#/definitions/ClipSlotDescriptor"
+            },
             "unit": {
               "$ref": "#/definitions/TargetUnit"
             }
@@ -2846,18 +2901,18 @@
         {
           "type": "object",
           "required": [
-            "clip",
-            "kind"
+            "kind",
+            "slot"
           ],
           "properties": {
-            "clip": {
-              "$ref": "#/definitions/ClipDescriptor"
-            },
             "kind": {
               "type": "string",
               "enum": [
                 "ClipVolume"
               ]
+            },
+            "slot": {
+              "$ref": "#/definitions/ClipSlotDescriptor"
             },
             "unit": {
               "$ref": "#/definitions/TargetUnit"

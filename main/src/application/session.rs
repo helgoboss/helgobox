@@ -307,10 +307,7 @@ impl Session {
                 ControlInput::Osc(dev_id) => dev_id == *device_id,
                 _ => false,
             },
-            InputDescriptor::Keyboard => match self.control_input() {
-                ControlInput::Keyboard => true,
-                _ => false,
-            },
+            InputDescriptor::Keyboard => matches!(self.control_input(), ControlInput::Keyboard),
         }
     }
 

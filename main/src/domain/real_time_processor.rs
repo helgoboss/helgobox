@@ -1439,6 +1439,7 @@ fn process_real_mapping(
 }
 
 // TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
+#[allow(clippy::too_many_arguments)]
 fn real_time_target_send_midi(
     t: &mut MidiSendTarget,
     caller: Caller,
