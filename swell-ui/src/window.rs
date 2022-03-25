@@ -27,6 +27,7 @@ impl Window {
         Point::new(Pixels(point.x as _), Pixels(point.y as _))
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn dark_mode_is_enabled() -> bool {
         #[cfg(target_os = "macos")]
         {
@@ -47,10 +48,6 @@ impl Window {
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
             let luma = rgb.into_luma();
             luma.luma < 0.5
-        }
-        #[cfg(target_os = "linux")]
-        {
-            false
         }
     }
 

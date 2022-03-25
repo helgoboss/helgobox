@@ -147,10 +147,17 @@ pub mod view {
 
     /// Use with care! Should be freed after use.
     fn create_mapping_row_background_brush() -> Option<isize> {
-        if Window::dark_mode_is_enabled() {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            if Window::dark_mode_is_enabled() {
+                None
+            } else {
+                Some(create_brush(SHADED_WHITE))
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
             None
-        } else {
-            Some(create_brush(SHADED_WHITE))
         }
     }
 
