@@ -92,13 +92,13 @@ impl MidiScanResult {
         }
     }
 
-    /// This allocated in the past.
+    /// This allocates!
     pub fn try_from_bytes(
         bytes: &[u8],
         dev_id: Option<MidiInputDeviceId>,
     ) -> Result<Self, &'static str> {
         let raw_event = RawMidiEvent::try_from_slice(0, bytes)?;
-        // This allocated in the past
+        // This allocates!
         let res = MidiScanResult {
             dev_id,
             value: {

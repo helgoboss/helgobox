@@ -8,7 +8,7 @@ use crate::domain::{
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
     SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue};
+use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -572,6 +572,9 @@ impl RealTimeProcessor {
                             caller,
                         );
                     }
+                }
+                NonAllocatingFxOutputFeedback(evt) => {
+                    send_raw_midi_to_fx_output(evt.bytes(), SampleOffset::ZERO, caller);
                 }
             }
         }
@@ -1257,11 +1260,18 @@ pub struct RealTimeMappingUpdate {
 /// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
-    // When it comes to MIDI feedback, the real-time processor is only responsible for FX output
-    // feedback. Direct-device feedback is taken care of by the global audio hook for reasons of
-    // proper ordering.
+    /// When it comes to MIDI feedback, the real-time processor is only responsible for FX output
+    /// feedback. Direct-device feedback is taken care of by the global audio hook for reasons of
+    /// proper ordering.
     FxOutputFeedback(MidiSourceValue<'static, RawShortMessage>),
-    // Used only if feedback output is <FX output>, otherwise done synchronously.
+    /// If we send raw MIDI events from the "MIDI: Send message" target to "FX output" and the input
+    /// is a MIDI device (not FX input), we must very shortly defer sending the message.
+    /// Reason: This message arrives from the audio hook. However, we can't forward to FX output
+    /// from the audio hook, we must wait until the VST process method is invoked. In order to let
+    /// the MIDI event survive, we need to copy it. But we are not allowed to allocate, so the
+    /// usual MidiSourceValue Raw variant is not suited.
+    NonAllocatingFxOutputFeedback(RawMidiEvent),
+    /// Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
 }
 
@@ -1489,9 +1499,9 @@ fn real_time_target_send_midi(
                 Caller::AudioHook => {
                     // We can't send to FX output here directly. Need to wait until VST processing
                     // starts (same processing cycle).
-                    rt_feedback_sender.send_complaining(FeedbackRealTimeTask::FxOutputFeedback(
-                        MidiSourceValue::single_raw(None, raw_midi_event),
-                    ));
+                    rt_feedback_sender.send_complaining(
+                        FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(raw_midi_event),
+                    );
                 }
             }
             true
