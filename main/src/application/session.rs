@@ -331,7 +331,7 @@ impl Session {
             if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtual_source_value) {
                 virtual_source.control(v).is_some()
             } else {
-                mapping_source.control(source_value).is_some()
+                mapping_source.try_control(source_value).is_some()
             }
         })
     }
@@ -583,7 +583,7 @@ impl Session {
             .active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
                 let m = m.borrow();
-                if let Some(cv) = m.source_model.create_source().control(source_value) {
+                if let Some(cv) = m.source_model.create_source().try_control(source_value) {
                     let virtual_source_value =
                         VirtualSourceValue::new(m.target_model.create_control_element(), cv);
                     Some(virtual_source_value)
@@ -1529,7 +1529,7 @@ impl Session {
             .filter(move |capture_event: &MessageCaptureEvent| {
                 !ignore_sources
                     .iter()
-                    .any(|is| is.control(capture_event.result.message()).is_some())
+                    .any(|is| is.try_control(capture_event.result.message()).is_some())
             })
             // We have this explicit stop criteria because we listen to global REAPER
             // events.

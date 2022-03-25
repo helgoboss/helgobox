@@ -1459,19 +1459,21 @@ impl CompoundMappingSource {
         }
     }
 
-    /// Can also be used to check if this mapping would react to the given message.
+    /// Can be used to check if this mapping would react to the given message.
+    ///
+    /// The important difference to controlling is that it doesn't mutate the source.
     ///
     /// Used for:
     ///
     /// - Source learning (including source virtualization)
     /// - Source filtering/finding (including source virtualization)
-    pub fn control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
+    pub fn try_control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
             (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
             (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
             (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
-            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.control(m),
+            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.try_control(m),
             _ => None,
         }
     }

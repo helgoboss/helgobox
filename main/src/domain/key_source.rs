@@ -6,19 +6,33 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct KeySource {
+    currently_pressed: bool,
     stroke: Keystroke,
 }
 
 impl KeySource {
     pub fn new(stroke: Keystroke) -> Self {
-        Self { stroke }
+        Self {
+            currently_pressed: false,
+            stroke,
+        }
     }
 
     pub fn stroke(&self) -> Keystroke {
         self.stroke
     }
 
-    pub fn control(&self, value: KeyMessage) -> Option<ControlValue> {
+    pub fn control(&mut self, value: KeyMessage) -> Option<ControlValue> {
+        if value.pressed() && self.currently_pressed {
+            // We don't want OS-triggered repeated key firing. We have our own fire modes :)
+            return None;
+        }
+        let result = self.try_control(value)?;
+        self.currently_pressed = value.pressed();
+        Some(result)
+    }
+
+    pub fn try_control(&self, value: KeyMessage) -> Option<ControlValue> {
         if value.stroke != self.stroke {
             return None;
         }
