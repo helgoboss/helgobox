@@ -124,9 +124,6 @@ pub mod view {
     use once_cell::sync::Lazy;
     use reaper_low::{raw, Swell};
     use std::ptr::null_mut;
-    use swell_ui::Window;
-
-    const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);
 
     pub fn control_color_static_default(hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
         unsafe {
@@ -149,9 +146,10 @@ pub mod view {
     fn create_mapping_row_background_brush() -> Option<isize> {
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
-            if Window::dark_mode_is_enabled() {
+            if swell_ui::Window::dark_mode_is_enabled() {
                 None
             } else {
+                const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);
                 Some(create_brush(SHADED_WHITE))
             }
         }
@@ -162,10 +160,12 @@ pub mod view {
     }
 
     /// Use with care! Should be freed after use.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn create_brush(color: (u8, u8, u8)) -> isize {
         Swell::get().CreateSolidBrush(rgb(color)) as _
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn rgb((r, g, b): (u8, u8, u8)) -> std::os::raw::c_int {
         Swell::RGB(r, g, b) as _
     }
