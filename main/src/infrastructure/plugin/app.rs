@@ -31,8 +31,8 @@ use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
-    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, ReaProject,
-    RegistrationHandle, SectionContext, WindowContext,
+    AcceleratorPosition, ActionValueChange, CommandId, HookPostCommand, HookPostCommand2,
+    ReaProject, RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -450,7 +450,10 @@ impl App {
             .expect("couldn't register ReaLearn control surface");
         // Accelerator
         let accelerator_handle = session
-            .plugin_register_add_accelerator_register(sleeping_state.accelerator)
+            .plugin_register_add_accelerator_register(
+                sleeping_state.accelerator,
+                AcceleratorPosition::Front,
+            )
             .expect("couldn't register ReaLearn accelerator");
         // Awake state
         let awake_state = AwakeState {
