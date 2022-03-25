@@ -220,8 +220,9 @@ impl HeaderPanel {
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             PasteFromLuaReplaceAllInGroup(String),
             ToggleAutoCorrectSettings,
-            ToggleInputLogging,
-            ToggleOutputLogging,
+            ToggleRealInputLogging,
+            ToggleVirtualInputLogging,
+            ToggleRealOutputLogging,
             ToggleSendFeedbackOnlyIfTrackArmed,
             ToggleUpperFloorMembership,
             ToggleServer,
@@ -548,20 +549,28 @@ impl HeaderPanel {
                 item("Send feedback now", || MenuAction::SendFeedbackNow),
                 item("Log debug info", || MenuAction::LogDebugInfo),
                 item_with_opts(
-                    "Log incoming messages",
+                    "Log incoming real messages",
                     ItemOpts {
                         enabled: true,
                         checked: session.real_input_logging_enabled.get(),
                     },
-                    || MenuAction::ToggleInputLogging,
+                    || MenuAction::ToggleRealInputLogging,
                 ),
                 item_with_opts(
-                    "Log outgoing messages",
+                    "Log incoming virtual messages",
+                    ItemOpts {
+                        enabled: true,
+                        checked: session.virtual_input_logging_enabled.get(),
+                    },
+                    || MenuAction::ToggleVirtualInputLogging,
+                ),
+                item_with_opts(
+                    "Log outgoing real messages",
                     ItemOpts {
                         enabled: true,
                         checked: session.real_output_logging_enabled.get(),
                     },
-                    || MenuAction::ToggleOutputLogging,
+                    || MenuAction::ToggleRealOutputLogging,
                 ),
             ];
             let mut root_menu = root_menu(entries);
@@ -622,8 +631,9 @@ impl HeaderPanel {
                 let _ = edit_compartment_parameter(self.session(), compartment, rel_index);
             }
             MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
-            MenuAction::ToggleInputLogging => self.toggle_input_logging(),
-            MenuAction::ToggleOutputLogging => self.toggle_output_logging(),
+            MenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
+            MenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
+            MenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
@@ -1045,14 +1055,21 @@ impl HeaderPanel {
             .set_with(|prev| !*prev);
     }
 
-    fn toggle_input_logging(&self) {
+    fn toggle_real_input_logging(&self) {
         self.session()
             .borrow_mut()
             .real_input_logging_enabled
             .set_with(|prev| !*prev);
     }
 
-    fn toggle_output_logging(&self) {
+    fn toggle_virtual_input_logging(&self) {
+        self.session()
+            .borrow_mut()
+            .virtual_input_logging_enabled
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_real_output_logging(&self) {
         self.session()
             .borrow_mut()
             .real_output_logging_enabled

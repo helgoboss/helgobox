@@ -946,7 +946,7 @@ impl RealTimeProcessor {
                 value_event,
                 caller,
                 self.settings.midi_destination(),
-                self.settings.real_input_logging_enabled,
+                self.settings.virtual_input_logging_enabled,
                 self.settings.real_output_logging_enabled,
                 self.clip_matrix.as_ref(),
             )

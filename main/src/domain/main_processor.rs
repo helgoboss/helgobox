@@ -2383,6 +2383,7 @@ pub struct BasicSettings {
     pub feedback_output: Option<FeedbackOutput>,
     pub real_input_logging_enabled: bool,
     pub real_output_logging_enabled: bool,
+    pub virtual_input_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
@@ -2960,10 +2961,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     } else {
                         InputMatchResult::Matched
                     };
-                    log_virtual_control_input(
-                        &self.instance_id,
-                        format_control_input_with_match_result(virtual_source_value, match_result),
-                    );
+                    if self.settings.virtual_input_logging_enabled {
+                        log_virtual_control_input(
+                            &self.instance_id,
+                            format_control_input_with_match_result(
+                                virtual_source_value,
+                                match_result,
+                            ),
+                        );
+                    }
                     results
                 } else {
                     vec![]
