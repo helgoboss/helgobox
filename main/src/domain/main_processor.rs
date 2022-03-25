@@ -3016,7 +3016,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 if self.settings.virtual_output_logging_enabled {
                                     log_virtual_feedback_output(&self.instance_id, &value);
                                 }
-                                // TODO-high CONTINUE
                                 let compound_feedback_value = m.feedback_given_target_value(
                                     // This clone is unavoidable because we are producing
                                     // real feedback values and these will be sent to another
