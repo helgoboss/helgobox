@@ -432,11 +432,7 @@ async fn toggle_mode() {
     assert!(realearn.track().is_armed(false));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 127))),
-            // More than necessary
-            Midi(Plain(note_on(0, 64, 127))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 127))),],
         "feedback should be sent on target value change"
     );
     // When
@@ -450,11 +446,7 @@ async fn toggle_mode() {
     assert!(!realearn.track().is_armed(false));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 0))),
-            // More than necessary
-            Midi(Plain(note_on(0, 64, 0))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 0))),],
         "feedback should be sent on target value change"
     );
 }
@@ -481,13 +473,7 @@ async fn send_feedback_after_control_toggle_mode_arm() {
     assert!(realearn.track().is_armed(false));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 127))),
-            // More than necessary
-            Midi(Plain(note_on(0, 64, 127))),
-            // One more because of #396 change
-            Midi(Plain(note_on(0, 64, 127))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 127))),],
         "feedback should be sent on target value change"
     );
     // When
@@ -523,13 +509,7 @@ async fn send_feedback_after_control_normal_mode_arm() {
     assert!(realearn.track().is_armed(false));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 127))),
-            // More than necessary
-            Midi(Plain(note_on(0, 64, 127))),
-            // One more because of #396 change
-            Midi(Plain(note_on(0, 64, 127))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 127))),],
         "feedback should be sent on target value change"
     );
     // When
@@ -538,13 +518,7 @@ async fn send_feedback_after_control_normal_mode_arm() {
     assert!(!realearn.track().is_armed(false));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 0))),
-            // More than necessary
-            Midi(Plain(note_on(0, 64, 0))),
-            // One more because of #396 change
-            Midi(Plain(note_on(0, 64, 0))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 0))),],
         "feedback should be sent on target value change"
     );
     // When
@@ -672,11 +646,7 @@ async fn send_feedback_after_control_normal_mode_volume() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 0))),
-            // One more because of #396 change
-            Midi(Plain(note_on(0, 64, 0)))
-        ],
+        vec![Midi(Plain(note_on(0, 64, 0))),],
         "feedback should be sent on target value change"
     );
     // When
