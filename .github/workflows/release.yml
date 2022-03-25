@@ -95,6 +95,7 @@ jobs:
           args: --release --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
       # Strip debug symbols (Linux and macOS)
+      # TODO-medium We could replace this with Cargo's recent built-in strip function
       - name: Strip debug symbols from Linux binary
         if: matrix.os == 'ubuntu-latest'
         run: |

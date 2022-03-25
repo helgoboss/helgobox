@@ -1,12 +1,13 @@
-use crate::domain::ui_util::OutputReason;
+use crate::base::NamedChannelSender;
 use crate::domain::{
-    ControlContext, ExtendedProcessorContext, FeedbackOutput, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, MidiDestination, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    SendMidiDestination, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
+    create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
+    MidiSourceValue, RawMidiPattern, Target, UnitValue,
 };
 use std::convert::TryInto;
 
@@ -80,6 +81,7 @@ impl MidiSendTarget {
                     (
                         ControlType::AbsoluteDiscrete {
                             atomic_step_size: step_size,
+                            is_retriggerable: true,
                         },
                         TargetCharacter::Discrete,
                     )
@@ -157,30 +159,45 @@ impl RealearnTarget for MidiSendTarget {
         // We arrive here only if controlled via OSC, group interaction (as follower), mapping
         // snapshot or autoload. Sending MIDI in response to incoming MIDI messages is handled
         // directly in the real-time processor.
-        let raw_midi_event = self.pattern.to_concrete_midi_event(value);
-        let result = match self.destination {
-            SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
+        let resolved_destination = match self.destination {
+            SendMidiDestination::FxOutput => MidiDestination::FxOutput,
             SendMidiDestination::FeedbackOutput => {
                 let feedback_output = context
                     .control_context
                     .feedback_output
                     .ok_or("no feedback output set")?;
-                if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
-                    context.control_context.send_raw_midi(
-                        OutputReason::Target,
-                        dev_id,
-                        vec![raw_midi_event],
-                    );
-                    Ok(None)
+                if let FeedbackOutput::Midi(dest) = feedback_output {
+                    dest
                 } else {
-                    Err("feedback output is not a MIDI device")
+                    return Err("feedback output is not MIDI");
                 }
             }
         };
-        if result.is_ok() {
-            self.artificial_value = value;
-        }
-        result
+        self.artificial_value = value;
+        let raw_midi_events =
+            create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(value));
+        context
+            .control_context
+            .log_outgoing_target_midi(&raw_midi_events);
+        match resolved_destination {
+            MidiDestination::FxOutput => {
+                let source_value = MidiSourceValue::Raw {
+                    feedback_address_info: None,
+                    events: raw_midi_events,
+                };
+                context
+                    .control_context
+                    .feedback_real_time_task_sender
+                    .send_complaining(FeedbackRealTimeTask::FxOutputFeedback(source_value));
+            }
+            MidiDestination::Device(dev_id) => {
+                context
+                    .control_context
+                    .feedback_audio_hook_task_sender
+                    .send_complaining(FeedbackAudioHookTask::SendMidi(dev_id, raw_midi_events));
+            }
+        };
+        Ok(None)
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -239,7 +256,6 @@ impl<'a> Target<'a> for MidiSendTarget {
 pub const MIDI_SEND_TARGET: TargetTypeDef = TargetTypeDef {
     name: "MIDI: Send message",
     short_name: "Send MIDI",
-    hint: "Has limitations (see user guide)",
     supports_feedback: false,
     ..DEFAULT_TARGET
 };

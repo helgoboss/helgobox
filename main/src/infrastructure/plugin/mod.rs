@@ -1,5 +1,6 @@
 mod debug_util;
 mod realearn_editor;
+mod tracing_util;
 use realearn_editor::*;
 mod app;
 pub use app::*;

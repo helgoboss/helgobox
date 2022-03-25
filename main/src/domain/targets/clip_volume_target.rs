@@ -1,36 +1,43 @@
 use crate::domain::ui_util::{
-    format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
-    reaper_volume_unit_value, volume_unit_value,
+    db_unit_value, format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
+    volume_unit_value,
 };
 use crate::domain::{
-    ClipChangedEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
+    interpret_current_clip_slot_value, BackboneState, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
+use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use reaper_high::Volume;
+use reaper_medium::Db;
 
 #[derive(Debug)]
 pub struct UnresolvedClipVolumeTarget {
-    pub slot_index: usize,
+    pub slot: VirtualClipSlot,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
     fn resolve(
         &self,
-        _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
-            slot_index: self.slot_index,
+            slot_coordinates: self.slot.resolve(context, compartment)?,
         })])
+    }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipVolumeTarget {
-    pub slot_index: usize,
+    pub slot_coordinates: ClipSlotCoordinates,
 }
 
 impl RealearnTarget for ClipVolumeTarget {
@@ -59,13 +66,17 @@ impl RealearnTarget for ClipVolumeTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state.set_volume(
-            self.slot_index,
-            volume.unwrap_or(Volume::MIN).reaper_value(),
-        )?;
-        Ok(None)
+        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
+            .unwrap_or_default();
+        let db = volume.db();
+        let api_db = playtime_api::Db::new(db.get())?;
+        BackboneState::get().with_clip_matrix_mut(
+            context.control_context.instance_state,
+            |matrix| {
+                matrix.set_clip_volume(self.slot_coordinates, api_db)?;
+                Ok(None)
+            },
+        )?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -80,14 +91,16 @@ impl RealearnTarget for ClipVolumeTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_index: si,
-                event: ClipChangedEvent::ClipVolume(new_value),
-            }) if *si == self.slot_index => (
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                QualifiedClipChangedEvent {
+                    slot_coordinates: si,
+                    event: ClipChangedEvent::ClipVolume(new_value),
+                },
+            )) if *si == self.slot_coordinates => (
                 true,
-                Some(AbsoluteValue::Continuous(reaper_volume_unit_value(
-                    *new_value,
-                ))),
+                Some(AbsoluteValue::Continuous(db_unit_value(Db::new(
+                    new_value.get(),
+                )))),
             ),
             _ => (false, None),
         }
@@ -108,9 +121,12 @@ impl RealearnTarget for ClipVolumeTarget {
 
 impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
-        let instance_state = context.instance_state.borrow();
-        let reaper_volume = instance_state.get_slot(self.slot_index).ok()?.volume();
-        Some(Volume::from_reaper_value(reaper_volume))
+        BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                let db = matrix.clip_volume(self.slot_coordinates).ok()?;
+                Some(Volume::from_db(Db::new(db.get())))
+            })
+            .ok()?
     }
 }
 
@@ -118,8 +134,11 @@ impl<'a> Target<'a> for ClipVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let volume = self.volume(context)?;
-        Some(AbsoluteValue::Continuous(volume_unit_value(volume)))
+        let val = self
+            .volume(context)
+            .map(volume_unit_value)
+            .map(AbsoluteValue::Continuous);
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

@@ -9,8 +9,6 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct GroupPanel {
     view: ViewContext,
-    _session: WeakSession,
-    _group: WeakGroup,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
 }
 
@@ -18,8 +16,6 @@ impl GroupPanel {
     pub fn new(session: WeakSession, group: WeakGroup) -> GroupPanel {
         GroupPanel {
             view: Default::default(),
-            _session: session.clone(),
-            _group: group.clone(),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
                 Point::new(DialogUnits(2), DialogUnits(2)),

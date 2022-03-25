@@ -1,13 +1,12 @@
-use crate::domain::{InstanceId, OwnedIncomingMidiMessage};
+use crate::domain::{InputMatchResult, InstanceId, OwnedIncomingMidiMessage};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
-use reaper_high::{FxParameter, Reaper, Volume};
-use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use reaper_high::{Reaper, Volume};
+use reaper_medium::Db;
 use rosc::{OscMessage, OscPacket};
-use slog::warn;
 use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
 
@@ -57,12 +56,12 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
     if db == Db::MINUS_INF {
         "-inf".to_string()
     } else {
-        format!("{:.2}", db.get())
+        format!("{:.4}", db.get())
     }
 }
 
-pub fn reaper_volume_unit_value(volume: ReaperVolumeValue) -> UnitValue {
-    volume_unit_value(Volume::from_reaper_value(volume))
+pub fn db_unit_value(volume: Db) -> UnitValue {
+    volume_unit_value(Volume::from_db(volume))
 }
 
 pub fn volume_unit_value(volume: Volume) -> UnitValue {
@@ -80,47 +79,37 @@ pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
     }
 }
 
-pub fn fx_parameter_unit_value(
-    param: &FxParameter,
-    value: ReaperNormalizedFxParamValue,
-) -> UnitValue {
-    let v = value.get();
-    if !UnitValue::is_valid(v) {
-        // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
-        // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
-        // know. In future, we might offer further customization possibilities here.
-        // For now, we just report it as 0.0 or 1.0 and log a warning.
-        warn!(
-            Reaper::get().logger(),
-            "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
-            v,
-            param
-        );
-        return UnitValue::new_clamped(v);
-    }
-    UnitValue::new(v)
-}
-
 pub fn format_value_as_db(value: UnitValue) -> String {
     Volume::try_from_soft_normalized_value(value.get())
         .unwrap_or(Volume::MIN)
         .to_string()
 }
 
-pub fn log_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Control input", msg);
+pub fn format_control_input_with_match_result(
+    msg: impl Display,
+    match_result: InputMatchResult,
+) -> String {
+    format!("{} ({})", msg, match_result)
 }
 
-pub fn log_learn_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Learn input", msg);
+pub fn log_virtual_control_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Virtual control input", msg);
 }
 
-pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
-    log(instance_id, reason, msg);
+pub fn log_real_control_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Real control input", msg);
 }
 
-pub fn log_feedback_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::Feedback, msg);
+pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Real learn input", msg);
+}
+
+pub fn log_virtual_feedback_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::VirtualFeedback, msg);
+}
+
+pub fn log_real_feedback_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::RealFeedback, msg);
 }
 
 pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
@@ -131,15 +120,18 @@ pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
     log_output(instance_id, OutputReason::Target, msg);
 }
 
+pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
+    log(instance_id, reason, msg);
+}
+
 #[derive(Copy, Clone, Debug, Display)]
 pub enum OutputReason {
-    #[display(fmt = "Feedback output")]
-    Feedback,
+    #[display(fmt = "Real feedback output")]
+    RealFeedback,
+    #[display(fmt = "Virtual feedback output")]
+    VirtualFeedback,
     #[display(fmt = "Lifecycle output")]
     Lifecycle,
-    /// E.g. device queries
-    #[display(fmt = "System output")]
-    System,
     #[display(fmt = "Target output")]
     Target,
 }

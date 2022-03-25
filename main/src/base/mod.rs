@@ -2,6 +2,9 @@
 mod regex_util;
 
 #[macro_use]
+mod tracing_util;
+
+#[macro_use]
 mod global_macros;
 
 mod global;
@@ -28,3 +31,6 @@ pub mod bindings;
 pub mod default_util;
 
 pub mod hash_util;
+
+mod channels;
+pub use channels::*;

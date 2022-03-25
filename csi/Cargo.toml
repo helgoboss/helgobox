@@ -2,7 +2,7 @@
 name = "realearn-csi"
 version = "0.1.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 nom = "7.0.0"

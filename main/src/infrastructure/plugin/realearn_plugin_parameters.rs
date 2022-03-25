@@ -1,4 +1,4 @@
-use crate::base::{notification, SendOrSyncWhatever};
+use crate::base::{notification, NamedChannelSender, SendOrSyncWhatever, SenderToNormalThread};
 
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
@@ -20,14 +20,14 @@ pub struct RealearnPluginParameters {
     // We may have to cache some data that the host wants us to load because we are not ready
     // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
-    parameter_main_task_sender: crossbeam_channel::Sender<ParameterMainTask>,
+    parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
     parameters: RwLock<ParameterArray>,
     session_state: SendOrSyncWhatever<SharedSessionState>,
 }
 
 impl RealearnPluginParameters {
     pub fn new(
-        parameter_main_task_channel: crossbeam_channel::Sender<ParameterMainTask>,
+        parameter_main_task_channel: SenderToNormalThread<ParameterMainTask>,
         session_state: SharedSessionState,
     ) -> Self {
         Self {
@@ -102,8 +102,7 @@ impl RealearnPluginParameters {
         }
         // Update parameters
         self.parameter_main_task_sender
-            .try_send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
-            .unwrap();
+            .send_complaining(ParameterMainTask::UpdateAllParameters(Box::new(parameters)));
         *self.parameters_mut() = parameters;
         // Notify
         session.notify_everything_has_changed();
@@ -218,11 +217,10 @@ impl PluginParameters for RealearnPluginParameters {
             // aware of this being called in another thread and it led to subtle errors of course
             // (https://github.com/helgoboss/realearn/issues/59).
             self.parameter_main_task_sender
-                .try_send(ParameterMainTask::UpdateParameter {
+                .send_complaining(ParameterMainTask::UpdateParameter {
                     index: index as _,
                     value,
-                })
-                .unwrap();
+                });
             // Also update synchronously so that a subsequent `get_parameter` will immediately
             // return the new value.
             self.parameters_mut()[index as usize] = value;

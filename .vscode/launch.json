@@ -27,7 +27,7 @@
             "cwd": "${workspaceFolder}",
             "environment": [
                 {"name": "REALEARN_LOG", "value": "debug,vst=info,hyper=trace"}
-                // {"name": "REALEARN_METER", "value": "true"}
+                // {"name": "CONTROL_SURFACE_METRICS", "value": "true"}
             ]
         },
         {

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use derive_more::Display;
 use reaper_high::Fx;
-use smallvec::alloc::fmt::Formatter;
 use std::fmt;
+use std::fmt::Formatter;
 
 pub trait PresetLinkManager: fmt::Debug {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String>;

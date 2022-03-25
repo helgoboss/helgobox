@@ -1,11 +1,22 @@
-use crate::base::{notification, when, Prop};
-use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::{
-    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
-};
-use derive_more::Display;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::iter;
+use std::ptr::null;
+use std::rc::Rc;
+use std::time::Duration;
 
+use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
+use helgoboss_midi::{Channel, ShortMessageType, U7};
+use itertools::Itertools;
+use reaper_high::{
+    BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
+};
+use reaper_low::raw;
+use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
+use rxrust::prelude::*;
+
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
@@ -14,20 +25,9 @@ use helgoboss_learn::{
     RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
     ValueSequence, VirtualColor,
 };
-use helgoboss_midi::{Channel, ShortMessageType, U7};
-use reaper_high::{
-    BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
+use swell_ui::{
+    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
-use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
-use rxrust::prelude::*;
-use std::cell::{Cell, RefCell};
-use std::convert::TryInto;
-
-use std::iter;
-
-use std::ptr::null;
-use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, format_osc_feedback_args,
@@ -43,10 +43,11 @@ use crate::application::{
     WeakSession,
 };
 use crate::base::Global;
+use crate::base::{notification, when, Prop};
+use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    control_element_domains, AnyOnParameter, ClipInfo, ControlContext, Exclusivity,
-    FeedbackSendBehavior, ReaperTargetType, SendMidiDestination, SimpleExclusivity, SlotContent,
-    WithControlContext, CLIP_SLOT_COUNT,
+    control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -56,17 +57,13 @@ use crate::domain::{
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
     VirtualControlElementId, VirtualFx,
 };
-use itertools::Itertools;
-
-use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
     format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols,
 };
-use std::collections::HashMap;
-use std::time::Duration;
-use swell_ui::{
-    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+use crate::infrastructure::ui::{
+    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
 
 #[derive(Debug)]
@@ -140,6 +137,15 @@ impl MappingPanel {
         }
     }
 
+    fn set_invoked_programmatically(&self, value: bool) {
+        self.is_invoked_programmatically.set(value);
+        // I already ran into a borrow error because the mapping header panel was updated
+        // as well as part of a programmatic reaction but didn't have that flag set. So set it
+        // there as well!
+        self.mapping_header_panel
+            .set_invoked_programmatically(value);
+    }
+
     pub fn handle_affected(
         self: &SharedView<Self>,
         affected: &Affected<SessionProp>,
@@ -154,10 +160,10 @@ impl MappingPanel {
                     == self.qualified_mapping_id() =>
             {
                 // At this point we know already it's a prop change for *our* mapping.
-                // Mark as programmatical invocation.
+                // Mark as programmatic invocation.
                 let panel_clone = self.clone();
-                panel_clone.is_invoked_programmatically.set(true);
-                scopeguard::defer! { panel_clone.is_invoked_programmatically.set(false); }
+                panel_clone.set_invoked_programmatically(true);
+                scopeguard::defer! { panel_clone.set_invoked_programmatically(false); }
                 // If the reaction can't be displayed anymore because the mapping is not filled anymore,
                 // so what.
                 let _ = self.clone().read(|view| match affected {
@@ -229,7 +235,7 @@ impl MappingPanel {
                                     One(p) => {
                                         use SourceProp as P;
                                         match p {
-                                            P::Category | P::MidiSourceType | P::ControlElementType => {
+                                            P::Category | P::MidiSourceType | P::ReaperSourceType | P::ControlElementType => {
                                                 view.invalidate_source_controls();
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
@@ -273,7 +279,7 @@ impl MappingPanel {
                                                 view.invalidate_source_line_5_combo_box();
                                             }
                                             P::OscAddressPattern |
-                                            P::RawMidiPattern => {
+                                            P::RawMidiPattern | P::TimerMillis => {
                                                 view.invalidate_source_line_3_edit_control(initiator);
                                             }
                                             P::MidiScript | P::OscFeedbackArgs => {
@@ -284,7 +290,6 @@ impl MappingPanel {
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
-                                            P::ReaperSourceType => {}
                                         }
                                     }
                                 }
@@ -420,7 +425,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::SlotIndex => {
+                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::ClipSlot => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -461,10 +466,10 @@ impl MappingPanel {
                                             P::EnableOnlyIfFxHasFocus | P::UseProject => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseRegions  | P::NextBar => {
+                                            P::UseRegions => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseLoopPoints | P::Buffered | P::PollForFeedback => {
+                                            P::UseLoopPoints | P::PollForFeedback => {
                                                 view.invalidate_target_check_boxes();
                                             }
                                             P::UseTimeSelection => {
@@ -545,6 +550,7 @@ impl MappingPanel {
         Ok(())
     }
 
+    #[allow(clippy::single_match)]
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
@@ -558,119 +564,9 @@ impl MappingPanel {
                     ));
                 }
             }
-            t if t.supports_slot() => {
-                if let Some(action) = self.prompt_for_slot_action() {
-                    self.invoke_slot_menu_action(action)?;
-                }
-            }
             _ => {}
         }
         Ok(())
-    }
-
-    fn prompt_for_slot_action(&self) -> Option<SlotMenuAction> {
-        let menu_bar = MenuBar::new_popup_menu();
-        let pure_menu = {
-            use swell_ui::menu_tree::*;
-            let session = self.session();
-            let session = session.borrow();
-            let entries = vec![
-                item("Show slot info", || SlotMenuAction::ShowSlotInfo),
-                item_with_opts(
-                    "Fill with selected item source",
-                    ItemOpts {
-                        enabled: session
-                            .context()
-                            .project_or_current_project()
-                            .first_selected_item()
-                            .is_some(),
-                        checked: false,
-                    },
-                    || SlotMenuAction::FillWithItemSource,
-                ),
-            ];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
-        };
-        let result_index = self
-            .view
-            .require_window()
-            .open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-        let item = pure_menu.find_item_by_id(result_index)?;
-        Some(item.invoke_handler())
-    }
-
-    fn invoke_slot_menu_action(&self, action: SlotMenuAction) -> Result<(), &'static str> {
-        match action {
-            SlotMenuAction::ShowSlotInfo => {
-                struct SlotInfo {
-                    file_name: String,
-                    clip_info: Option<ClipInfo>,
-                }
-                let info = {
-                    let instance_state = self.session().borrow().instance_state().clone();
-                    let instance_state = instance_state.borrow();
-                    let mapping = self.mapping();
-                    let mapping = mapping.borrow();
-                    let slot_index = mapping.target_model.slot_index();
-                    if let Ok(slot) = instance_state.get_slot(slot_index) {
-                        if let Some(content) = &slot.descriptor().content {
-                            let info = SlotInfo {
-                                file_name: content
-                                    .file()
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_default(),
-                                clip_info: slot.clip_info(),
-                            };
-                            Some(info)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                };
-                let msg = if let Some(info) = info {
-                    let suffix = if let Some(clip_info) = info.clip_info {
-                        format!(
-                            "Type: {}\n\nLength: {}",
-                            clip_info.r#type,
-                            clip_info
-                                .length
-                                .map(|l| format!("{} secs", l))
-                                .unwrap_or_default()
-                        )
-                    } else {
-                        "<offline>".to_owned()
-                    };
-                    format!("Source: {}\n\n{}", info.file_name, suffix)
-                } else {
-                    "Slot is empty".to_owned()
-                };
-                self.view.require_window().alert("ReaLearn", msg);
-                Ok(())
-            }
-            SlotMenuAction::FillWithItemSource => {
-                let result = {
-                    let session = self.session();
-                    let session = session.borrow();
-                    let item = session
-                        .context()
-                        .project_or_current_project()
-                        .first_selected_item()
-                        .ok_or("no item selected")?;
-                    let slot_index = self.mapping().borrow().target_model.slot_index();
-                    let mut instance_state = session.instance_state().borrow_mut();
-                    instance_state.fill_slot_with_item_source(slot_index, item)
-                };
-                if let Err(e) = result {
-                    self.view.require_window().alert("ReaLearn", e.to_string());
-                }
-                Ok(())
-            }
-        }
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -1022,10 +918,10 @@ impl MappingPanel {
     /// process, wrap your function body with this. Basically all pub functions!
     ///
     /// This prevents edit control text change events fired by windows to be processed.
-    fn invoke_programmatically(&self, f: impl FnOnce()) {
-        self.is_invoked_programmatically.set(true);
-        scopeguard::defer! { self.is_invoked_programmatically.set(false); }
-        f();
+    fn invoke_programmatically<R>(&self, f: impl FnOnce() -> R) -> R {
+        self.set_invoked_programmatically(true);
+        scopeguard::defer! { self.set_invoked_programmatically(false); }
+        f()
     }
 
     /// Unregisters listeners.
@@ -1189,11 +1085,11 @@ fn decorate_reaction<I: Send + Sync + Clone + 'static>(
 ) -> impl Fn(Rc<MappingPanel>, I) + Copy {
     move |view, item| {
         let view_mirror = view.clone();
-        view_mirror.is_invoked_programmatically.set(true);
-        scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
-        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
-        // so what.
-        let _ = view.read(move |p| reaction(p, item.clone()));
+        view_mirror.invoke_programmatically(|| {
+            // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+            // so what.
+            let _ = view.read(move |p| reaction(p, item.clone()));
+        })
     }
 }
 
@@ -1342,7 +1238,7 @@ impl<'a> MutableMappingPanel<'a> {
                     SourceCommand::SetOscArgIsRelative(checked),
                 ));
             }
-            Reaper | Virtual | Never => {}
+            Reaper | Virtual | Never | Keyboard => {}
         };
     }
 
@@ -1540,7 +1436,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Reaper | Never => {}
+            Reaper | Never | Keyboard => {}
         };
     }
 
@@ -1566,7 +1462,17 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(edit_control_id),
                     );
                 }
-                Reaper | Virtual | Never => {}
+                Reaper => match self.mapping.source_model.reaper_source_type() {
+                    ReaperSourceType::Timer => {
+                        let value = value.parse().unwrap_or_default();
+                        self.change_mapping_with_initiator(
+                            MappingCommand::ChangeSource(SourceCommand::SetTimerMillis(value)),
+                            Some(edit_control_id),
+                        )
+                    }
+                    _ => {}
+                },
+                Virtual | Never | Keyboard => {}
             }
         }
     }
@@ -2193,11 +2099,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseRegions(is_checked),
                     ));
                 }
-                ReaperTargetType::ClipTransport => {
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetNextBar(
-                        is_checked,
-                    )));
-                }
                 t if t.supports_poll_for_feedback() => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetPollForFeedback(is_checked),
@@ -2221,11 +2122,6 @@ impl<'a> MutableMappingPanel<'a> {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetUseLoopPoints(is_checked),
                     ));
-                }
-                ReaperTargetType::ClipTransport => {
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetBuffered(
-                        is_checked,
-                    )));
                 }
                 _ => {}
             },
@@ -2343,12 +2239,6 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => {
-                    let slot_index = combo.selected_combo_box_item_index();
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetSlotIndex(
-                        slot_index,
-                    )));
-                }
                 t if t.supports_fx() => {
                     let fx_type = combo
                         .selected_combo_box_item_index()
@@ -2588,13 +2478,6 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
-                    let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid transport action");
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTransportAction(v),
-                    ));
-                }
                 ReaperTargetType::FxParameter => {
                     if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -3184,6 +3067,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => None,
             },
             Osc => Some("Address"),
+            Reaper => match self.source.reaper_source_type() {
+                ReaperSourceType::Timer => Some("Millis"),
+                _ => None,
+            },
+            Keyboard => Some("Keystroke"),
             _ => None,
         };
         self.view
@@ -3455,15 +3343,33 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         let c = self.view.require_control(control_id);
         use SourceCategory::*;
-        let value_text = match self.source.category() {
+        let content = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some(self.source.raw_midi_pattern()),
+                MidiSourceType::Raw => Some((self.source.raw_midi_pattern().to_owned(), true)),
                 _ => None,
             },
-            Osc => Some(self.source.osc_address_pattern()),
+            Osc => Some((self.source.osc_address_pattern().to_owned(), true)),
+            Reaper => match self.source.reaper_source_type() {
+                ReaperSourceType::Timer => Some((self.source.timer_millis().to_string(), true)),
+                _ => None,
+            },
+            Keyboard => {
+                let text = self
+                    .source
+                    .create_key_source()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default();
+                Some((text, false))
+            }
             _ => None,
         };
-        c.set_text_or_hide(value_text);
+        if let Some((value_text, enabled)) = content {
+            c.show();
+            c.set_enabled(enabled);
+            c.set_text(value_text);
+        } else {
+            c.hide();
+        }
     }
 
     fn invalidate_source_line_7_edit_control(&self, initiator: Option<u32>) {
@@ -3988,7 +3894,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => Some("..."),
                 ReaperTargetType::SendMidi => Some("Pick!"),
                 _ => None,
             },
@@ -4149,7 +4054,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
-                t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
@@ -4168,7 +4072,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
-                ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_tags() => Some("Tags"),
@@ -4188,39 +4091,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_label_2(&self) {
-        let state = match self.target_category() {
-            TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => {
-                    let instance_state = self.session.instance_state().borrow();
-                    let slot = instance_state.get_slot(self.target.slot_index()).ok();
-                    let (label, enabled) = if let Some(slot) = slot {
-                        if let Some(content) = &slot.descriptor().content {
-                            match content {
-                                SlotContent::File { file } => (
-                                    file.to_string_lossy().to_string(),
-                                    slot.clip_info().is_some(),
-                                ),
-                            }
-                        } else {
-                            ("<Slot empty>".to_owned(), false)
-                        }
-                    } else {
-                        ("<Invalid slot>".to_owned(), false)
-                    };
-                    Some((label, enabled))
-                }
-                _ => None,
-            },
-            TargetCategory::Virtual => None,
-        };
         let label = self.view.require_control(root::ID_TARGET_LINE_3_LABEL_2);
-        if let Some((text, enabled)) = state {
-            label.show();
-            label.set_enabled(enabled);
-            label.set_text(text);
-        } else {
-            label.hide();
-        }
+        // Not in use at the moment
+        label.hide();
     }
 
     fn invalidate_target_line_4_label_2(&self) {
@@ -4250,15 +4123,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.target_type() {
-                t if t.supports_slot() => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(
-                        (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
-                    );
-                    combo
-                        .select_combo_box_item_by_index(self.target.slot_index())
-                        .unwrap();
-                }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
@@ -4439,15 +4303,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.transport_action().into(),
-                        )
-                        .unwrap();
-                }
                 ReaperTargetType::FxParameter
                     if self.target.param_type() == VirtualFxParameterType::ById =>
                 {
@@ -4634,16 +4489,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         let state = match self.target.category() {
             TargetCategory::Reaper => match self.target.target_type() {
                 ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions())),
-                ReaperTargetType::ClipTransport
-                    if matches!(
-                        self.target.transport_action(),
-                        TransportAction::PlayStop
-                            | TransportAction::PlayPause
-                            | TransportAction::Stop
-                    ) =>
-                {
-                    Some(("Next bar", self.target.next_bar()))
-                }
                 t if t.supports_poll_for_feedback() => {
                     Some(("Poll for feedback", self.target.poll_for_feedback()))
                 }
@@ -4661,21 +4506,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Seek => Some(("Use loop points", self.target.use_loop_points())),
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points()))
-                }
-                ReaperTargetType::ClipTransport
-                    if matches!(
-                        self.target.transport_action(),
-                        TransportAction::PlayStop | TransportAction::PlayPause
-                    ) =>
-                {
-                    let is_enabled = !self.target.next_bar();
-                    self.view
-                        .require_control(checkbox_id)
-                        .set_enabled(is_enabled);
-                    Some((
-                        "Buffered",
-                        self.target.slot_play_options().is_effectively_buffered(),
-                    ))
                 }
                 _ => None,
             },
@@ -5648,7 +5478,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
-            Osc | Never => {}
+            Osc | Never | Keyboard => {}
         };
     }
 
@@ -6410,11 +6240,20 @@ fn prompt_for_predefined_control_element_name(
                 control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
             }
         };
+        let grid_control_names = match r#type {
+            VirtualControlElementType::Multi => {
+                control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES
+            }
+            VirtualControlElementType::Button => {
+                control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
+            }
+        };
         let entries = vec![
             menu(
                 "DAW control",
                 build_slash_menu_entries(daw_control_names, ""),
             ),
+            menu("Grid", build_slash_menu_entries(grid_control_names, "")),
             menu(
                 "Numbered",
                 chunked_number_menu(100, 10, true, |i| {
@@ -6494,7 +6333,7 @@ fn prompt_for_color(
             };
             menu(
                 color_target.to_string(),
-                IntoIterator::into_iter([
+                [
                     item_with_opts(
                         "<Default color>",
                         ItemOpts {
@@ -6511,8 +6350,8 @@ fn prompt_for_color(
                         },
                         move || OpenColorPicker(color_target),
                     ),
-                ])
-                    .chain(IntoIterator::into_iter(["target.track.color", "target.bookmark.color"]).map(|key| {
+                ].into_iter()
+                    .chain(["target.track.color", "target.bookmark.color"].into_iter().map(|key| {
                         item_with_opts(
                             key,
                             ItemOpts {
@@ -6745,9 +6584,4 @@ fn format_osc_arg_index(index: Option<u32>) -> String {
     } else {
         "".to_owned()
     }
-}
-
-enum SlotMenuAction {
-    ShowSlotInfo,
-    FillWithItemSource,
 }

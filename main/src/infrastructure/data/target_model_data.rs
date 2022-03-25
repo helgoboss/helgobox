@@ -21,6 +21,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
+use realearn_api::schema::ClipSlotDescriptor;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -121,12 +122,6 @@ pub struct TargetModelData {
     pub osc_arg_type: OscTypeTag,
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_dev_id: Option<OscDeviceId>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub slot_index: usize,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub next_bar: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub buffered: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -137,6 +132,18 @@ pub struct TargetModelData {
     pub group_id: GroupKey,
     #[serde(default, skip_serializing_if = "is_default")]
     pub active_mappings_only: bool,
+    /// Replaced with `clip_slot` since v2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub slot_index: usize,
+    /// Not supported anymore since v2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub next_bar: bool,
+    /// Not supported anymore since v2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub buffered: bool,
+    /// New since ReaLearn v2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_slot: Option<ClipSlotDescriptor>,
 }
 
 impl TargetModelData {
@@ -194,9 +201,9 @@ impl TargetModelData {
             osc_arg_index: model.osc_arg_index(),
             osc_arg_type: model.osc_arg_type_tag(),
             osc_dev_id: model.osc_dev_id(),
-            slot_index: model.slot_index(),
-            next_bar: model.next_bar(),
-            buffered: model.buffered(),
+            slot_index: 0,
+            next_bar: false,
+            buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
             tags: model.tags().to_vec(),
             exclusivity: model.exclusivity(),
@@ -204,6 +211,7 @@ impl TargetModelData {
                 .group_key_by_id(model.group_id())
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
+            clip_slot: Some(model.clip_slot().clone()),
         }
     }
 
@@ -269,7 +277,7 @@ impl TargetModelData {
             if invoke_relative {
                 ActionInvocationType::Relative
             } else {
-                ActionInvocationType::Absolute
+                ActionInvocationType::Absolute14Bit
             }
         } else {
             self.invocation_type
@@ -365,9 +373,6 @@ impl TargetModelData {
         model.change(C::SetOscArgIndex(self.osc_arg_index));
         model.change(C::SetOscArgTypeTag(self.osc_arg_type));
         model.change(C::SetOscDevId(self.osc_dev_id));
-        model.change(C::SetSlotIndex(self.slot_index));
-        model.change(C::SetNextBar(self.next_bar));
-        model.change(C::SetBuffered(self.buffered));
         model.change(C::SetPollForFeedback(self.poll_for_feedback));
         model.change(C::SetTags(self.tags.clone()));
         model.change(C::SetExclusivity(self.exclusivity));
@@ -376,6 +381,14 @@ impl TargetModelData {
             .unwrap_or_default();
         model.change(C::SetGroupId(group_id));
         model.change(C::SetActiveMappingsOnly(self.active_mappings_only));
+        let slot_descriptor = self
+            .clip_slot
+            .clone()
+            .unwrap_or(ClipSlotDescriptor::ByIndex {
+                column_index: self.slot_index,
+                row_index: 0,
+            });
+        model.change(C::SetClipSlot(slot_descriptor));
     }
 }
 

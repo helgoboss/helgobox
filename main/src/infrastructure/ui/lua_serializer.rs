@@ -1,14 +1,25 @@
-use derive_more::Display;
 use serde::ser::Impossible;
 use serde::{ser, Serialize};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Debug, PartialEq, Display)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     Message(String),
-    Unsupported,
+    Unsupported(&'static str),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Error::*;
+        match self {
+            Message(m) => f.write_str(m),
+            Unsupported(kind) => {
+                write!(f, "serializing {} is currently not supported", kind)
+            }
+        }
+    }
 }
 
 impl ser::Error for Error {
@@ -23,7 +34,7 @@ pub struct Serializer {
     output: String,
     current_indent: usize,
     has_value: bool,
-    serialize_string_as_identifier: bool,
+    serialize_string_as_map_key: bool,
     indent: &'static str,
 }
 
@@ -35,7 +46,7 @@ where
         output: String::new(),
         current_indent: 0,
         has_value: false,
-        serialize_string_as_identifier: false,
+        serialize_string_as_map_key: false,
         indent: "    ",
     };
     value.serialize(&mut serializer)?;
@@ -108,17 +119,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        if self.serialize_string_as_identifier {
-            fn is_identifier_char(ch: char) -> bool {
-                (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
-            }
-            let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
-            if contains_non_identifier_chars {
-                return Err(Error::Message(format!(
-                    "can't serialize string {:?} as identifier",
-                    v
-                )));
-            }
+        if self.serialize_string_as_map_key {
+            ensure_proper_identifier(v)?;
             self.output += v;
         } else {
             let contains_newlines = v.contains(&['\r', '\n'][..]);
@@ -145,7 +147,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_none(self) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("none"))
     }
 
     fn serialize_some<T>(self, value: &T) -> Result<()>
@@ -156,11 +158,11 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("unit"))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("unit struct"))
     }
 
     fn serialize_unit_variant(
@@ -189,7 +191,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("newtype variant"))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -203,7 +205,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("tuple"))
     }
 
     fn serialize_tuple_struct(
@@ -222,7 +224,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("tuple variant"))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -243,7 +245,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("struct variant"))
     }
 }
 
@@ -272,6 +274,9 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
         } else {
             // It's important to not encode an empty sequence as "{}" because this will
             // be interpreted as map on deserialization.
+            // Error message: "invalid type: map, expected a sequence".
+            // Solution: Use "nil". This requires the sequence (Vec) to be optional! So each
+            // Vec needs to be wrapped in an Optional.
             self.output += "nil";
         }
         Ok(())
@@ -308,9 +313,9 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     {
         self.output += "\n";
         indent(&mut self.output, self.current_indent, self.indent);
-        self.serialize_string_as_identifier = true;
+        self.serialize_string_as_map_key = true;
         key.serialize(&mut **self)?;
-        self.serialize_string_as_identifier = false;
+        self.serialize_string_as_map_key = false;
         self.has_value = true;
         Ok(())
     }
@@ -344,6 +349,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
+        ensure_proper_identifier(key)?;
         self.output += "\n";
         indent(&mut self.output, self.current_indent, self.indent);
         self.output += key;
@@ -370,3 +376,25 @@ fn indent(wr: &mut String, n: usize, s: &str) {
         wr.push_str(s);
     }
 }
+
+fn ensure_proper_identifier(v: &str) -> Result<()> {
+    fn is_identifier_char(ch: char) -> bool {
+        (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
+    }
+    let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
+    if contains_non_identifier_chars {
+        return Err(Error::Message(format!(
+            "can't serialize string {:?} as identifier",
+            v
+        )));
+    }
+    if LUA_KEYWORDS.contains(&v) {
+        return Err(Error::Message(format!("{:?} is a Lua identifier", v)));
+    }
+    Ok(())
+}
+
+const LUA_KEYWORDS: [&str; 21] = [
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local",
+    "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+];

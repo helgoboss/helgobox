@@ -4,9 +4,8 @@ use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
-use smallvec::alloc::fmt::Formatter;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -117,6 +116,16 @@ pub struct VirtualSourceValue {
     control_value: ControlValue,
 }
 
+impl Display for VirtualSourceValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} with value {}",
+            self.control_element, self.control_value
+        )
+    }
+}
+
 impl VirtualSourceValue {
     pub fn new(
         control_element: VirtualControlElement,
@@ -141,6 +150,16 @@ impl VirtualSourceValue {
 pub struct VirtualFeedbackValue {
     control_element: VirtualControlElement,
     feedback_value: FeedbackValue<'static>,
+}
+
+impl Display for VirtualFeedbackValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} with value {}",
+            self.control_element, self.feedback_value
+        )
+    }
 }
 
 impl VirtualFeedbackValue {
@@ -210,7 +229,7 @@ impl Default for VirtualControlElementId {
 }
 
 impl Display for VirtualControlElement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use VirtualControlElement::*;
         match self {
             Multi(id) => write!(f, "Multi {}", id),
@@ -391,6 +410,107 @@ pub mod control_element_domains {
             "cursor-right",
             "cursor-up",
             "cursor-down",
+        ];
+    }
+    pub mod grid {
+        pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &[&str] = &[];
+        pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
+            "row1/play",
+            "row2/play",
+            "row3/play",
+            "row4/play",
+            "row5/play",
+            "row6/play",
+            "row7/play",
+            "row8/play",
+            "col1/row1/pad",
+            "col1/row2/pad",
+            "col1/row3/pad",
+            "col1/row4/pad",
+            "col1/row5/pad",
+            "col1/row6/pad",
+            "col1/row7/pad",
+            "col1/row8/pad",
+            "col2/row1/pad",
+            "col2/row2/pad",
+            "col2/row3/pad",
+            "col2/row4/pad",
+            "col2/row5/pad",
+            "col2/row6/pad",
+            "col2/row7/pad",
+            "col2/row8/pad",
+            "col3/row1/pad",
+            "col3/row2/pad",
+            "col3/row3/pad",
+            "col3/row4/pad",
+            "col3/row5/pad",
+            "col3/row6/pad",
+            "col3/row7/pad",
+            "col3/row8/pad",
+            "col4/row1/pad",
+            "col4/row2/pad",
+            "col4/row3/pad",
+            "col4/row4/pad",
+            "col4/row5/pad",
+            "col4/row6/pad",
+            "col4/row7/pad",
+            "col4/row8/pad",
+            "col5/row1/pad",
+            "col5/row2/pad",
+            "col5/row3/pad",
+            "col5/row4/pad",
+            "col5/row5/pad",
+            "col5/row6/pad",
+            "col5/row7/pad",
+            "col5/row8/pad",
+            "col6/row1/pad",
+            "col6/row2/pad",
+            "col6/row3/pad",
+            "col6/row4/pad",
+            "col6/row5/pad",
+            "col6/row6/pad",
+            "col6/row7/pad",
+            "col6/row8/pad",
+            "col7/row1/pad",
+            "col7/row2/pad",
+            "col7/row3/pad",
+            "col7/row4/pad",
+            "col7/row5/pad",
+            "col7/row6/pad",
+            "col7/row7/pad",
+            "col7/row8/pad",
+            "col8/row1/pad",
+            "col8/row2/pad",
+            "col8/row3/pad",
+            "col8/row4/pad",
+            "col8/row5/pad",
+            "col8/row6/pad",
+            "col8/row7/pad",
+            "col8/row8/pad",
+            "shift",
+            "click",
+            "undo",
+            "delete",
+            "quantize",
+            "duplicate",
+            "double",
+            "record",
+            "record-arm",
+            "track-select",
+            "mute",
+            "solo",
+            "volume",
+            "pan",
+            "sends",
+            "stop-clip",
+            "cursor-up",
+            "cursor-down",
+            "cursor-left",
+            "cursor-right",
+            "session",
+            "note",
+            "device",
+            "user",
         ];
     }
 }

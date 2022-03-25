@@ -70,8 +70,11 @@ pub struct SourceModelData {
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_index: VirtualControlElementIdData,
+    // REAPER
     #[serde(default, skip_serializing_if = "is_default")]
     pub reaper_source_type: ReaperSourceType,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub timer_millis: u64,
 }
 
 impl SourceModelData {
@@ -104,6 +107,7 @@ impl SourceModelData {
                 model.control_element_id(),
             ),
             reaper_source_type: model.reaper_source_type(),
+            timer_millis: model.timer_millis(),
         }
     }
 
@@ -178,6 +182,7 @@ impl SourceModelData {
             self.control_element_index.to_model(),
         ));
         model.change(P::SetReaperSourceType(self.reaper_source_type));
+        model.change(P::SetTimerMillis(self.timer_millis));
     }
 }
 

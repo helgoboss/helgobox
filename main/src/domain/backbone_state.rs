@@ -1,10 +1,16 @@
+use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, InstanceId,
-    RealearnTargetContext, ReaperTarget,
+    ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
+    InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
+    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnTargetContext, ReaperTarget,
+    SharedInstanceState, WeakInstanceState,
 };
+use playtime_clip_engine::rt::WeakMatrix;
+use reaper_high::Track;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::rc::Rc;
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
 
@@ -18,6 +24,10 @@ pub struct BackboneState {
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<InstanceId>>>,
     upper_floor_instances: RefCell<HashSet<InstanceId>>,
+    /// We hold pointers to the instance state of all ReaLearn instances in order to let instance B
+    /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
+    /// control the same clip matrix from different controllers.
+    instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     server_event_sender: tokio::sync::broadcast::Sender<ServerEventType>,
 }
 
@@ -31,6 +41,7 @@ impl BackboneState {
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
+            instance_states: Default::default(),
             server_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
@@ -57,6 +68,210 @@ impl BackboneState {
 
     pub fn remove_from_upper_floor(&self, instance_id: &InstanceId) {
         self.upper_floor_instances.borrow_mut().remove(instance_id);
+    }
+
+    pub fn create_instance(
+        &self,
+        id: InstanceId,
+        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        this_track: Option<Track>,
+    ) -> SharedInstanceState {
+        let instance_state = InstanceState::new(
+            id,
+            instance_feedback_event_sender,
+            clip_matrix_event_sender,
+            audio_hook_task_sender,
+            real_time_processor_sender,
+            this_track,
+        );
+        let shared_instance_state = Rc::new(RefCell::new(instance_state));
+        self.instance_states
+            .borrow_mut()
+            .insert(id, Rc::downgrade(&shared_instance_state));
+        shared_instance_state
+    }
+    //
+    // /// Returns and - if necessary - installs an owned clip matrix.
+    // ///
+    // /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    // /// and installs one, removing a possibly existing foreign matrix reference.
+    // pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut RealearnClipMatrix {
+    //     self.create_and_install_owned_clip_matrix_if_necessary();
+    //     self.owned_clip_matrix_mut().unwrap()
+    // }
+
+    /// Removes the clip matrix from the given instance if one is set.
+    ///
+    /// If this instance owns a matrix, it shuts it down. If it just refers to one, it removes
+    /// the reference.
+    ///
+    /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
+    /// to this one.
+    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut InstanceState) {
+        instance_state.set_clip_matrix_ref(None);
+        self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
+    }
+
+    /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
+    ///
+    /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    /// and installs one, removing a possibly existing foreign matrix reference.
+    ///
+    /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
+    /// to this one.
+    pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a, 'b>(
+        &'b self,
+        instance_state: &'a mut InstanceState,
+    ) -> &'a mut RealearnClipMatrix {
+        let instance_id = instance_state.instance_id();
+        let created = instance_state.create_and_install_owned_clip_matrix_if_necessary();
+        let matrix = instance_state.owned_clip_matrix_mut().unwrap();
+        if created {
+            self.update_rt_clip_matrix_of_referencing_instances(
+                instance_id,
+                Some(matrix.real_time_matrix()),
+            );
+        }
+        matrix
+    }
+
+    fn update_rt_clip_matrix_of_referencing_instances(
+        &self,
+        this_instance_id: InstanceId,
+        real_time_matrix: Option<WeakMatrix>,
+    ) {
+        for (id, is) in self.instance_states.borrow().iter() {
+            if *id == this_instance_id {
+                continue;
+            }
+            let is = match is.upgrade() {
+                None => continue,
+                Some(s) => s,
+            };
+            let is = is.borrow();
+            match is.clip_matrix_ref() {
+                Some(ClipMatrixRef::Foreign(foreign_id)) if *foreign_id == this_instance_id => {
+                    is.update_real_time_clip_matrix(real_time_matrix.clone(), false);
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    /// Removes the current matrix/reference (if any) and sets a new reference.
+    pub fn set_instance_clip_matrix_to_foreign_matrix(
+        &self,
+        instance_state: &mut InstanceState,
+        foreign_instance_id: InstanceId,
+    ) {
+        let matrix_ref = ClipMatrixRef::Foreign(foreign_instance_id);
+        instance_state.set_clip_matrix_ref(Some(matrix_ref));
+        let result = self.with_owned_clip_matrix_from_instance(&foreign_instance_id, |matrix| {
+            instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
+        });
+        if let Err(e) = result {
+            tracing_debug!("waiting for foreign clip matrix instance ({e})");
+        }
+    }
+
+    /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
+    /// if one is defined.
+    ///
+    /// In case the given ReaLearn instance is configured to borrow the clip matrix from another
+    /// referenced instance, the provided matrix will be the one from that other instance.
+    ///
+    /// Provides `None` in the following cases:
+    ///
+    /// - The given instance doesn't have any clip matrix defined.
+    /// - The referenced instance doesn't exist.
+    /// - The referenced instance exists but has no clip matrix defined.   
+    pub fn with_clip_matrix<R>(
+        &self,
+        instance_state: &SharedInstanceState,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_id = match instance_state
+            .borrow()
+            .clip_matrix_ref()
+            .ok_or(NO_CLIP_MATRIX_SET)?
+        {
+            Own(m) => return Ok(f(m)),
+            Foreign(instance_id) => *instance_id,
+        };
+        self.with_owned_clip_matrix_from_instance(&other_instance_id, f)
+    }
+
+    fn with_owned_clip_matrix_from_instance<R>(
+        &self,
+        instance_id: &InstanceId,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_state = self
+            .instance_states
+            .borrow()
+            .get(instance_id)
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .upgrade()
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+        let other_instance_state = other_instance_state.borrow();
+        match other_instance_state
+            .clip_matrix_ref()
+            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+        {
+            Own(m) => Ok(f(m)),
+            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+        }
+    }
+
+    /// Grants mutable access to the clip matrix defined for the given ReaLearn instance,
+    /// if one is defined.
+    pub fn with_clip_matrix_mut<R>(
+        &self,
+        instance_state: &SharedInstanceState,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_id = match instance_state
+            .borrow_mut()
+            .clip_matrix_ref_mut()
+            .ok_or(NO_CLIP_MATRIX_SET)?
+        {
+            Own(m) => return Ok(f(m)),
+            Foreign(instance_id) => *instance_id,
+        };
+        self.with_owned_clip_matrix_from_instance_mut(&other_instance_id, f)
+    }
+
+    fn with_owned_clip_matrix_from_instance_mut<R>(
+        &self,
+        instance_id: &InstanceId,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_state = self
+            .instance_states
+            .borrow()
+            .get(instance_id)
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .upgrade()
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+        let mut other_instance_state = other_instance_state.borrow_mut();
+        match other_instance_state
+            .clip_matrix_ref_mut()
+            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+        {
+            Own(m) => Ok(f(m)),
+            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+        }
+    }
+
+    pub(super) fn unregister_instance_state(&self, id: &InstanceId) {
+        self.instance_states.borrow_mut().remove(id);
     }
 
     pub fn control_is_allowed(
@@ -159,3 +374,8 @@ fn update_io_usage<D: Eq + Hash + Copy>(
     }
     device != previously_used_device
 }
+
+const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
+const REFERENCED_INSTANCE_NOT_AVAILABLE: &str = "other instance not available";
+const REFERENCED_CLIP_MATRIX_NOT_AVAILABLE: &str = "clip matrix of other instance not available";
+const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance also borrows";

@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use derive_more::Display;
 use mlua::{ChunkMode, HookTriggers, Table};
+use playtime_api::Matrix;
 use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
@@ -24,6 +25,7 @@ use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 #[serde(tag = "kind")]
 pub enum DataObject {
     Session(Envelope<Box<SessionData>>),
+    ClipMatrix(Envelope<Box<Option<Matrix>>>),
     MainCompartment(Envelope<Box<CompartmentModelData>>),
     ControllerCompartment(Envelope<Box<CompartmentModelData>>),
     Mappings(Envelope<Vec<MappingModelData>>),
@@ -39,6 +41,7 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let data_object = match api_object {
+            ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
             ApiObject::MainCompartment(Envelope { value: c }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
                 DataObject::MainCompartment(Envelope {
@@ -83,6 +86,8 @@ impl DataObject {
     ) -> Result<ApiObject, Box<dyn Error>> {
         let api_object =
             match self {
+                DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+                DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
                 DataObject::MainCompartment(Envelope { value: c }) => {
                     let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
                     ApiObject::MainCompartment(Envelope {
@@ -95,7 +100,6 @@ impl DataObject {
                         value: Box::new(api_compartment),
                     })
                 }
-                DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
                 DataObject::Mappings(Envelope { value: mappings }) => {
                     let api_mappings: Result<Vec<_>, _> = mappings
                         .into_iter()

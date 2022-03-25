@@ -12,6 +12,7 @@ pub struct AdditionalEelTransformationInput {
 struct EelUnit {
     // Declared above VM in order to be dropped before VM is dropped.
     program: eel::Program,
+    // The existence in memory and the Drop is important.
     _vm: eel::Vm,
     x: eel::Variable,
     y: eel::Variable,

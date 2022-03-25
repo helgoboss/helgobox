@@ -4,9 +4,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
-    MidiDestination, OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
+    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
+    Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -15,6 +15,10 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::App;
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use crate::infrastructure::data::clip_legacy::{
+    create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
+};
+use playtime_api::Matrix;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -85,8 +89,12 @@ pub struct SessionData {
     // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
     controller_parameters: HashMap<String, ParameterData>,
+    // Legacy (ReaLearn <= 2.12.0-pre.4)
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
+    // New since 2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    clip_matrix: Option<ClipMatrixRefData>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -95,6 +103,13 @@ pub struct SessionData {
     main: CompartmentState,
     #[serde(default, skip_serializing_if = "is_default")]
     active_instance_tags: HashSet<Tag>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum ClipMatrixRefData {
+    Own(Matrix),
+    Foreign(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -121,8 +136,15 @@ impl CompartmentState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ControlDeviceId {
+    Keyboard(KeyboardDevice),
     Osc(OscDeviceId),
     Midi(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum KeyboardDevice {
+    #[serde(rename = "keyboard")]
+    TheKeyboard,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -157,6 +179,7 @@ impl Default for SessionData {
             parameters: Default::default(),
             controller_parameters: Default::default(),
             clip_slots: vec![],
+            clip_matrix: None,
             tags: vec![],
             controller: Default::default(),
             main: Default::default(),
@@ -198,22 +221,27 @@ impl SessionData {
             always_auto_detect_mode: session.auto_correct_settings.get(),
             lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
-            control_device_id: if let Some(osc_dev_id) = session.osc_input_device_id.get() {
-                Some(ControlDeviceId::Osc(osc_dev_id))
-            } else {
-                use MidiControlInput::*;
-                match session.midi_control_input.get() {
-                    FxInput => None,
-                    Device(dev_id) => Some(ControlDeviceId::Midi(dev_id.to_string())),
+            control_device_id: {
+                match session.control_input() {
+                    ControlInput::Midi(MidiControlInput::FxInput) => None,
+                    ControlInput::Midi(MidiControlInput::Device(dev_id)) => {
+                        Some(ControlDeviceId::Midi(dev_id.to_string()))
+                    }
+                    ControlInput::Osc(dev_id) => Some(ControlDeviceId::Osc(dev_id)),
+                    ControlInput::Keyboard => {
+                        Some(ControlDeviceId::Keyboard(KeyboardDevice::TheKeyboard))
+                    }
                 }
             },
-            feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
-                Some(FeedbackDeviceId::Osc(osc_dev_id))
-            } else {
-                use MidiDestination::*;
-                session.midi_feedback_output.get().map(|o| match o {
-                    Device(dev_id) => FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string()),
-                    FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
+            feedback_device_id: {
+                session.feedback_output().map(|output| match output {
+                    FeedbackOutput::Midi(MidiDestination::FxOutput) => {
+                        FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned())
+                    }
+                    FeedbackOutput::Midi(MidiDestination::Device(dev_id)) => {
+                        FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string())
+                    }
+                    FeedbackOutput::Osc(dev_id) => FeedbackDeviceId::Osc(dev_id),
                 })
             },
             default_group: from_group(MappingCompartment::MainMappings),
@@ -239,7 +267,20 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: { instance_state.filled_slot_descriptors() },
+            clip_slots: vec![],
+            clip_matrix: {
+                instance_state
+                    .clip_matrix_ref()
+                    .and_then(|matrix_ref| match matrix_ref {
+                        ClipMatrixRef::Own(m) => Some(ClipMatrixRefData::Own(m.save())),
+                        ClipMatrixRef::Foreign(instance_id) => {
+                            let foreign_session = App::get()
+                                .find_session_by_instance_id_ignoring_borrowed_ones(*instance_id)?;
+                            let foreign_id = foreign_session.borrow().id().to_owned();
+                            Some(ClipMatrixRefData::Foreign(foreign_id))
+                        }
+                    })
+            },
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -271,11 +312,12 @@ impl SessionData {
             &self.groups,
             self.parameters.values().map(|p| &p.settings),
         )?;
-        let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
-            None => (MidiControlInput::FxInput, None),
+        let control_input = match self.control_device_id.as_ref() {
+            None => ControlInput::Midi(MidiControlInput::FxInput),
             Some(dev_id) => {
                 use ControlDeviceId::*;
                 match dev_id {
+                    Keyboard(_) => ControlInput::Keyboard,
                     Midi(midi_dev_id_string) => {
                         let raw_midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
@@ -283,29 +325,30 @@ impl SessionData {
                         let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
                             .try_into()
                             .map_err(|_| "MIDI input device ID out of range")?;
-                        (MidiControlInput::Device(midi_dev_id), None)
+                        ControlInput::Midi(MidiControlInput::Device(midi_dev_id))
                     }
-                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(*osc_dev_id)),
+                    Osc(osc_dev_id) => ControlInput::Osc(*osc_dev_id),
                 }
             }
         };
-        let (midi_feedback_output, osc_feedback_output) = match self.feedback_device_id.as_ref() {
-            None => (None, None),
+        let feedback_output = match self.feedback_device_id.as_ref() {
+            None => None,
             Some(dev_id) => {
                 use FeedbackDeviceId::*;
-                match dev_id {
+                let output = match dev_id {
                     MidiOrFxOutput(s) if s == "fx-output" => {
-                        (Some(MidiDestination::FxOutput), None)
+                        FeedbackOutput::Midi(MidiDestination::FxOutput)
                     }
                     MidiOrFxOutput(midi_dev_id_string) => {
                         let midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map(MidiOutputDeviceId::new)
                             .map_err(|_| "invalid MIDI output device ID")?;
-                        (Some(MidiDestination::Device(midi_dev_id)), None)
+                        FeedbackOutput::Midi(MidiDestination::Device(midi_dev_id))
                     }
-                    Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
-                }
+                    Osc(osc_dev_id) => FeedbackOutput::Osc(*osc_dev_id),
+                };
+                Some(output)
             }
         };
         // Mutation
@@ -321,17 +364,11 @@ impl SessionData {
             .send_feedback_only_if_armed
             .set_without_notification(self.send_feedback_only_if_armed);
         session
-            .midi_control_input
-            .set_without_notification(midi_control_input);
+            .control_input
+            .set_without_notification(control_input);
         session
-            .osc_input_device_id
-            .set_without_notification(osc_control_input);
-        session
-            .midi_feedback_output
-            .set_without_notification(midi_feedback_output);
-        session
-            .osc_output_device_id
-            .set_without_notification(osc_feedback_output);
+            .feedback_output
+            .set_without_notification(feedback_output);
         // Let events through or not
         {
             let is_old_preset = self
@@ -438,11 +475,52 @@ impl SessionData {
         }
         // Instance state
         {
-            let mut instance_state = session.instance_state().borrow_mut();
-            instance_state.load_slots(
-                self.clip_slots.clone(),
-                Some(session.context().project_or_current_project()),
-            )?;
+            let instance_state = session.instance_state().clone();
+            let mut instance_state = instance_state.borrow_mut();
+            if let Some(matrix_ref) = &self.clip_matrix {
+                use ClipMatrixRefData::*;
+                match matrix_ref {
+                    Own(m) => {
+                        BackboneState::get()
+                            .get_or_insert_owned_clip_matrix_from_instance_state(
+                                &mut instance_state,
+                            )
+                            .load(m.clone())?;
+                    }
+                    Foreign(session_id) => {
+                        // Check if a session with that ID already exists.
+                        let foreign_instance_id = App::get()
+                            .find_session_by_id_ignoring_borrowed_ones(session_id)
+                            .and_then(|session| {
+                                session.try_borrow().map(|s| *s.instance_id()).ok()
+                            });
+                        if let Some(id) = foreign_instance_id {
+                            // Referenced ReaLearn instance exists already.
+                            BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                                &mut instance_state,
+                                id,
+                            );
+                        } else {
+                            // Referenced ReaLearn instance doesn't exist yet.
+                            session.memorize_unresolved_foreign_clip_matrix_session_id(
+                                session_id.clone(),
+                            );
+                        }
+                    }
+                };
+            } else if !self.clip_slots.is_empty() {
+                let matrix = create_clip_matrix_from_legacy_slots(
+                    &self.clip_slots,
+                    &self.mappings,
+                    &self.controller_mappings,
+                    session.context().track(),
+                )?;
+                BackboneState::get()
+                    .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
+                    .load(matrix)?;
+            } else {
+                BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+            }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific
@@ -462,6 +540,33 @@ impl SessionData {
                 MappingCompartment::MainMappings,
                 self.main.active_mapping_tags.clone(),
             );
+            // Check if some other instances waited for the clip matrix of this instance.
+            App::get().with_sessions(|sessions| {
+                let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
+                    let other_session = other_session.upgrade()?;
+                    if other_session
+                        .try_borrow()
+                        .ok()?
+                        .unresolved_foreign_clip_matrix_session_id()
+                        == self.id.as_ref()
+                    {
+                        Some(other_session)
+                    } else {
+                        None
+                    }
+                });
+                for other_session in relevant_other_sessions {
+                    // Let the other session's instance state reference the clip matrix of this
+                    // session's instance state.
+                    let mut other_session = other_session.borrow_mut();
+                    let other_instance_state = other_session.instance_state();
+                    BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                        &mut other_instance_state.borrow_mut(),
+                        *session.instance_id(),
+                    );
+                    other_session.notify_foreign_clip_matrix_resolved();
+                }
+            });
         }
         Ok(())
     }

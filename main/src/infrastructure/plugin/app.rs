@@ -2,16 +2,18 @@ use crate::application::{
     Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
-use crate::base::{notification, Global};
+use crate::base::{
+    notification, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, EnableInstancesArgs, Exclusivity,
     FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
     InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, RealTimeSender, RealearnAudioHook,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
+    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
-    SharedRealTimeProcessor, Tag,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -23,11 +25,14 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
 
+use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use metrics_exporter_prometheus::PrometheusBuilder;
+use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
-    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, ReaProject,
-    RegistrationHandle, SectionContext, WindowContext,
+    AcceleratorPosition, ActionValueChange, CommandId, HookPostCommand, HookPostCommand2,
+    ReaProject, RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -43,6 +48,7 @@ use swell_ui::{SharedView, View};
 use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
+const CLIP_MATRIX_EVENT_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
 // Probably can get quite much on action invocation
 // (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
@@ -64,14 +70,16 @@ const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
 
+pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession>;
+
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
 
 pub type RealearnControlSurfaceMainTaskSender =
-    crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
+    SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
 
 pub type RealearnControlSurfaceServerTaskSender =
-    crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
+    SenderToNormalThread<RealearnControlSurfaceServerTask>;
 
 #[derive(Debug)]
 pub struct App {
@@ -86,11 +94,12 @@ pub struct App {
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
-    osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
-    additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
-    feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
-    instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-    audio_hook_task_sender: crossbeam_channel::Sender<NormalAudioHookTask>,
+    clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
+    additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+    feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
+    instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
@@ -127,6 +136,7 @@ enum AppState {
 struct UninitializedState {
     control_surface_main_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
+    clip_matrix_event_receiver: crossbeam_channel::Receiver<QualifiedClipMatrixEvent>,
     control_surface_server_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
@@ -139,12 +149,14 @@ struct UninitializedState {
 struct SleepingState {
     control_surface: Box<RealearnControlSurface>,
     audio_hook: Box<RealearnAudioHook>,
+    accelerator: Box<RealearnSessionAccelerator>,
 }
 
 #[derive(Debug)]
 struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
+    accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
 }
 
 impl Default for App {
@@ -174,13 +186,11 @@ impl ListOfRecentlyFocusedFx {
 
 impl App {
     pub fn detailed_version_label() -> &'static str {
-        use once_cell::sync::Lazy;
         static VALUE: Lazy<String> = Lazy::new(build_detailed_version);
         &VALUE
     }
 
     pub fn version() -> &'static Version {
-        use once_cell::sync::Lazy;
         static VALUE: Lazy<Version> = Lazy::new(|| {
             Version::parse(crate::infrastructure::plugin::built_info::PKG_VERSION).unwrap()
         });
@@ -188,28 +198,55 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
-        let (main_sender, main_receiver) =
-            crossbeam_channel::bounded(CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE);
-        let (server_sender, server_receiver) =
-            crossbeam_channel::bounded(CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE);
+        let (main_sender, main_receiver) = SenderToNormalThread::new_bounded_channel(
+            "control surface main tasks",
+            CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE,
+        );
+        let (clip_matrix_event_sender, clip_matrix_event_receiver) =
+            SenderToNormalThread::new_bounded_channel(
+                "clip matrix events",
+                CLIP_MATRIX_EVENT_QUEUE_SIZE,
+            );
+        let (server_sender, server_receiver) = SenderToNormalThread::new_bounded_channel(
+            "control surface server tasks",
+            CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE,
+        );
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
-            crossbeam_channel::bounded(OSC_OUTGOING_QUEUE_SIZE);
+            SenderToNormalThread::new_bounded_channel(
+                "osc feedback tasks",
+                OSC_OUTGOING_QUEUE_SIZE,
+            );
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
-            crossbeam_channel::bounded(ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE);
+            SenderToNormalThread::new_bounded_channel(
+                "additional feedback events",
+                ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE,
+            );
         let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
-            crossbeam_channel::bounded(INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE);
+            SenderToNormalThread::new_bounded_channel(
+                "instance orchestration events",
+                INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE,
+            );
         let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
-            crossbeam_channel::bounded(FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE);
-        let (audio_sender, audio_receiver) =
-            crossbeam_channel::bounded(NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE);
+            SenderToRealTimeThread::new_channel(
+                "feedback audio hook tasks",
+                FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE,
+            );
+        let (audio_hook_task_sender, normal_audio_hook_task_receiver) =
+            SenderToRealTimeThread::new_channel(
+                "normal audio hook tasks",
+                NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
+            );
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
+            clip_matrix_event_receiver,
             control_surface_server_task_receiver: server_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            normal_audio_hook_task_receiver: audio_receiver,
+            normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
         };
+        let prometheus_builder = PrometheusBuilder::new();
+        let prometheus_handle = prometheus_builder.install_recorder().unwrap();
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
             controller_preset_manager: Rc::new(RefCell::new(
@@ -231,17 +268,20 @@ impl App {
                 config.main.server_https_port,
                 App::server_resource_dir_path().join("certificates"),
                 server_sender,
+                Self::control_surface_metrics_enabled(),
+                prometheus_handle,
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
             list_of_recently_focused_fx: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
+            clip_matrix_event_sender,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
-            feedback_audio_hook_task_sender: RealTimeSender::new(feedback_audio_hook_task_sender),
+            feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
-            audio_hook_task_sender: audio_sender,
+            audio_hook_task_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
             message_panel: Default::default(),
@@ -253,6 +293,7 @@ impl App {
 
     /// Executed globally just once when module loaded.
     pub fn init_static(logger: Logger, context: PluginContext) {
+        setup_tracing();
         Swell::make_available_globally(Swell::load(context));
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
@@ -270,6 +311,7 @@ impl App {
 
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
+        playtime_clip_engine::init();
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {
             s
@@ -294,25 +336,35 @@ impl App {
             .subscribe(move |fx| {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
+        let shared_main_processors = SharedMainProcessors::default();
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
+            uninit_state.clip_matrix_event_receiver,
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
             Self::garbage_channel().1.clone(),
-            std::env::var("REALEARN_METER").is_ok(),
+            Self::control_surface_metrics_enabled(),
+            shared_main_processors.clone(),
         ));
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
             Self::garbage_bin().clone(),
         );
+        let accelerator = RealearnAccelerator::new(shared_main_processors);
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
+            accelerator: Box::new(accelerator),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+    }
+
+    fn control_surface_metrics_enabled() -> bool {
+        static ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("CONTROL_SURFACE_METRICS").is_ok());
+        *ENABLED
     }
 
     fn reconnect_osc_devices(&self) {
@@ -396,10 +448,18 @@ impl App {
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
+        // Accelerator
+        let accelerator_handle = session
+            .plugin_register_add_accelerator_register(
+                sleeping_state.accelerator,
+                AcceleratorPosition::Front,
+            )
+            .expect("couldn't register ReaLearn accelerator");
         // Awake state
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle,
+            accelerator_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -417,14 +477,17 @@ impl App {
             App::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
-        let (mut control_surface, audio_hook) = unsafe {
+        let (accelerator, mut control_surface, audio_hook) = unsafe {
+            let accelerator = session
+                .plugin_register_remove_accelerator(awake_state.accelerator_handle)
+                .expect("accelerator was not registered");
             let control_surface = session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered");
             let audio_hook = session
                 .audio_reg_hardware_hook_remove(awake_state.audio_hook_handle)
                 .expect("control surface was not registered");
-            (control_surface, audio_hook)
+            (accelerator, control_surface, audio_hook)
         };
         // Close OSC connections
         let middleware = control_surface.middleware_mut();
@@ -440,6 +503,7 @@ impl App {
         let sleeping_state = SleepingState {
             control_surface,
             audio_hook,
+            accelerator,
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
@@ -451,16 +515,13 @@ impl App {
         main_processor: MainProcessor<WeakSession>,
     ) {
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::AddRealTimeProcessor(
+            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
                 instance_id,
                 real_time_processor,
-            ))
-            .unwrap();
-        self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::AddMainProcessor(
-                main_processor,
-            ))
-            .unwrap();
+            ));
+        self.control_surface_main_task_sender.send_complaining(
+            RealearnControlSurfaceMainTask::AddMainProcessor(main_processor),
+        );
     }
 
     pub fn unregister_processor_couple(&self, instance_id: InstanceId) {
@@ -521,8 +582,7 @@ impl App {
     ///       output.
     fn unregister_real_time_processor(&self, instance_id: InstanceId) {
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id))
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id));
     }
 
     /// We remove the main processor synchronously because it allows us to keep its fail-fast
@@ -539,23 +599,33 @@ impl App {
         });
     }
 
-    pub fn feedback_audio_hook_task_sender(&self) -> &RealTimeSender<FeedbackAudioHookTask> {
+    pub fn feedback_audio_hook_task_sender(
+        &self,
+    ) -> &SenderToRealTimeThread<FeedbackAudioHookTask> {
         &self.feedback_audio_hook_task_sender
+    }
+
+    pub fn clip_matrix_event_sender(&self) -> &SenderToNormalThread<QualifiedClipMatrixEvent> {
+        &self.clip_matrix_event_sender
+    }
+
+    pub fn normal_audio_hook_task_sender(&self) -> &SenderToRealTimeThread<NormalAudioHookTask> {
+        &self.audio_hook_task_sender
     }
 
     pub fn additional_feedback_event_sender(
         &self,
-    ) -> crossbeam_channel::Sender<AdditionalFeedbackEvent> {
+    ) -> SenderToNormalThread<AdditionalFeedbackEvent> {
         self.additional_feedback_event_sender.clone()
     }
 
     pub fn instance_orchestration_event_sender(
         &self,
-    ) -> crossbeam_channel::Sender<InstanceOrchestrationEvent> {
+    ) -> SenderToNormalThread<InstanceOrchestrationEvent> {
         self.instance_orchestration_event_sender.clone()
     }
 
-    pub fn osc_feedback_task_sender(&self) -> &crossbeam_channel::Sender<OscFeedbackTask> {
+    pub fn osc_feedback_task_sender(&self) -> &SenderToNormalThread<OscFeedbackTask> {
         &self.osc_feedback_task_sender
     }
 
@@ -585,6 +655,7 @@ impl App {
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
+            accelerator_handle: awake_state.accelerator_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -679,8 +750,7 @@ impl App {
         self.server.borrow().log_debug_info(session_id);
         self.controller_preset_manager.borrow().log_debug_info();
         self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::LogDebugInfo)
-            .unwrap();
+            .send_complaining(RealearnControlSurfaceMainTask::LogDebugInfo);
     }
 
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -742,7 +812,8 @@ impl App {
     fn garbage_channel() -> &'static (GarbageBin, crossbeam_channel::Receiver<Garbage>) {
         static CHANNEL: once_cell::sync::Lazy<(GarbageBin, crossbeam_channel::Receiver<Garbage>)> =
             once_cell::sync::Lazy::new(|| {
-                let (sender, receiver) = crossbeam_channel::bounded(GARBAGE_QUEUE_SIZE);
+                let (sender, receiver) =
+                    SenderToNormalThread::new_bounded_channel("app garbage", GARBAGE_QUEUE_SIZE);
                 (GarbageBin::new(sender), receiver)
             });
         &CHANNEL
@@ -761,6 +832,47 @@ impl App {
             let session = session.borrow();
             session.id() == session_id
         })
+    }
+
+    pub fn find_session_by_id_ignoring_borrowed_ones(
+        &self,
+        session_id: &str,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            if let Ok(session) = session.try_borrow() {
+                session.id() == session_id
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn find_session_by_instance_id_ignoring_borrowed_ones(
+        &self,
+        instance_id: InstanceId,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            if let Ok(session) = session.try_borrow() {
+                *session.instance_id() == instance_id
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn find_session(
+        &self,
+        predicate: impl FnMut(&SharedSession) -> bool,
+    ) -> Option<SharedSession> {
+        self.sessions
+            .borrow()
+            .iter()
+            .filter_map(|s| s.upgrade())
+            .find(predicate)
+    }
+
+    pub fn with_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
+        f(&self.sessions.borrow())
     }
 
     pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
@@ -891,8 +1003,7 @@ impl App {
             "ReaLearn: Send feedback for all instances",
             move || {
                 control_surface_sender
-                    .try_send(RealearnControlSurfaceMainTask::SendAllFeedback)
-                    .unwrap();
+                    .send_complaining(RealearnControlSurfaceMainTask::SendAllFeedback);
             },
             ActionKind::NotToggleable,
         );
@@ -1081,27 +1192,23 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StopCapturingMidi)
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::StopCapturingMidi);
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
-            .unwrap();
+            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
     }
 
     fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StartCapturingMidi(sender))
-            .unwrap();
+            .send_complaining(NormalAudioHookTask::StartCapturingMidi(sender));
         receiver
     }
 
     fn request_next_osc_messages(&self) -> async_channel::Receiver<OscScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StartCapturingOsc(sender))
-            .unwrap();
+            .send_complaining(RealearnControlSurfaceMainTask::StartCapturingOsc(sender));
         receiver
     }
 
@@ -1118,15 +1225,13 @@ impl App {
     fn stop_learning_targets() {
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
-            .unwrap();
+            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
     }
 
     fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StartLearningTargets(sender))
-            .unwrap();
+            .send_complaining(RealearnControlSurfaceMainTask::StartLearningTargets(sender));
         receiver
     }
 
@@ -1271,14 +1376,6 @@ impl App {
             };
             Some((session, mapping))
         })
-    }
-
-    fn find_session(&self, predicate: impl FnMut(&SharedSession) -> bool) -> Option<SharedSession> {
-        self.sessions
-            .borrow()
-            .iter()
-            .filter_map(|s| s.upgrade())
-            .find(predicate)
     }
 
     fn server_resource_dir_path() -> PathBuf {
@@ -1449,10 +1546,9 @@ impl HookPostCommand for App {
     fn call(command_id: CommandId, _flag: i32) {
         App::get()
             .additional_feedback_event_sender
-            .try_send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+            .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 command_id,
-            }))
-            .unwrap();
+            }));
     }
 }
 
@@ -1469,10 +1565,9 @@ impl HookPostCommand2 for App {
         }
         App::get()
             .additional_feedback_event_sender
-            .try_send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+            .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 command_id,
-            }))
-            .unwrap();
+            }));
     }
 }
 

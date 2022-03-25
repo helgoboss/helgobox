@@ -39,7 +39,7 @@ impl SourceFilter {
     pub fn matches(&self, source: &CompoundMappingSource) -> bool {
         // First try real source matching.
         if source
-            .control(self.message_capture_result.message())
+            .try_control(self.message_capture_result.message())
             .is_some()
         {
             return true;
@@ -47,7 +47,7 @@ impl SourceFilter {
         // Then try virtual source matching (if the message was virtualized before).
         if let Some(v) = self.virtual_source_value {
             if source
-                .control(IncomingCompoundSourceValue::Virtual(&v))
+                .try_control(IncomingCompoundSourceValue::Virtual(&v))
                 .is_some()
             {
                 return true;

@@ -1,30 +1,38 @@
-use crate::base::{AsyncNotifier, Prop};
-use crate::domain::{
-    ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, QualifiedMappingId,
-    SlotContent, SlotDescriptor, SlotPlayOptions, Tag,
-};
-use enum_map::EnumMap;
-use helgoboss_learn::UnitValue;
-use reaper_high::{Item, Project, Track};
-use reaper_medium::{PlayState, ReaperVolumeValue};
-use rx_util::Notifier;
-use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
-pub const CLIP_SLOT_COUNT: usize = 8;
+use enum_map::EnumMap;
+use reaper_high::Track;
+use rxrust::prelude::*;
+
+use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::{
+    BackboneState, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask, InstanceId,
+    MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId,
+    Tag,
+};
+use playtime_clip_engine::main::{
+    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
+};
+use playtime_clip_engine::rt;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
+pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
+
+pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
-    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    instance_id: InstanceId,
+    clip_matrix_ref: Option<ClipMatrixRef>,
+    instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+    clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    this_track: Option<Track>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
@@ -63,17 +71,94 @@ pub struct InstanceState {
 }
 
 #[derive(Debug)]
+pub enum ClipMatrixRef {
+    Own(Box<RealearnClipMatrix>),
+    Foreign(InstanceId),
+}
+
+#[derive(Debug)]
+pub struct RealearnClipMatrixHandler {
+    instance_id: InstanceId,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+}
+
+#[derive(Debug)]
+pub struct QualifiedClipMatrixEvent {
+    pub instance_id: InstanceId,
+    pub event: ClipMatrixEvent,
+}
+
+impl RealearnClipMatrixHandler {
+    fn new(
+        instance_id: InstanceId,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    ) -> Self {
+        Self {
+            instance_id,
+            audio_hook_task_sender,
+            real_time_processor_sender,
+            event_sender,
+        }
+    }
+}
+
+impl ClipMatrixHandler for RealearnClipMatrixHandler {
+    fn request_recording_input(&self, task: ClipRecordTask) {
+        match task.input {
+            ClipRecordInput::HardwareInput(input) => {
+                let hw_task = HardwareInputClipRecordTask {
+                    input,
+                    destination: task.destination,
+                };
+                self.audio_hook_task_sender
+                    .send_complaining(NormalAudioHookTask::StartClipRecording(hw_task));
+            }
+            ClipRecordInput::FxInput(input) => {
+                let fx_task = FxInputClipRecordTask {
+                    input,
+                    destination: task.destination,
+                };
+                self.real_time_processor_sender
+                    .send_complaining(NormalRealTimeTask::StartClipRecording(fx_task));
+            }
+        }
+    }
+
+    fn emit_event(&self, event: ClipMatrixEvent) {
+        let event = QualifiedClipMatrixEvent {
+            instance_id: self.instance_id,
+            event,
+        };
+        self.event_sender.send_complaining(event);
+    }
+}
+
+#[derive(Debug)]
 pub struct MappingInfo {
     pub name: String,
 }
 
 impl InstanceState {
-    pub fn new(
-        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    pub(super) fn new(
+        instance_id: InstanceId,
+        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        this_track: Option<Track>,
     ) -> Self {
         Self {
-            clip_slots: Default::default(),
+            instance_id,
+            clip_matrix_ref: None,
             instance_feedback_event_sender,
+            clip_matrix_event_sender,
+            audio_hook_task_sender,
+            real_time_processor_sender,
+            this_track,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
@@ -82,6 +167,91 @@ impl InstanceState {
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
         }
+    }
+
+    pub fn instance_id(&self) -> InstanceId {
+        self.instance_id
+    }
+
+    pub fn is_interested_in_clip_matrix_events_from(&self, instance_id: InstanceId) -> bool {
+        use ClipMatrixRef::*;
+        let our_instance_id = match self.clip_matrix_ref {
+            None => return false,
+            Some(Own(_)) => self.instance_id,
+            Some(Foreign(id)) => id,
+        };
+        instance_id == our_instance_id
+    }
+
+    pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
+        use ClipMatrixRef::*;
+        match self.clip_matrix_ref.as_ref()? {
+            Own(m) => Some(m),
+            Foreign(_) => None,
+        }
+    }
+
+    pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut RealearnClipMatrix> {
+        use ClipMatrixRef::*;
+        match self.clip_matrix_ref.as_mut()? {
+            Own(m) => Some(m),
+            Foreign(_) => None,
+        }
+    }
+
+    pub fn clip_matrix_ref(&self) -> Option<&ClipMatrixRef> {
+        self.clip_matrix_ref.as_ref()
+    }
+
+    pub fn clip_matrix_ref_mut(&mut self) -> Option<&mut ClipMatrixRef> {
+        self.clip_matrix_ref.as_mut()
+    }
+
+    /// Returns `true` if it installed a clip matrix.
+    pub(super) fn create_and_install_owned_clip_matrix_if_necessary(&mut self) -> bool {
+        if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Own(_))) {
+            return false;
+        }
+        let matrix = self.create_owned_clip_matrix();
+        self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), true);
+        self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(Box::new(matrix))));
+        true
+    }
+
+    fn create_owned_clip_matrix(&self) -> RealearnClipMatrix {
+        let clip_matrix_handler = RealearnClipMatrixHandler::new(
+            self.instance_id,
+            self.audio_hook_task_sender.clone(),
+            self.real_time_processor_sender.clone(),
+            self.clip_matrix_event_sender.clone(),
+        );
+        Matrix::new(clip_matrix_handler, self.this_track.clone())
+    }
+
+    pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
+        if self.clip_matrix_ref.is_some() {
+            tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
+            self.update_real_time_clip_matrix(None, false);
+        }
+        self.clip_matrix_ref = matrix_ref;
+    }
+
+    pub(super) fn update_real_time_clip_matrix(
+        &self,
+        real_time_matrix: Option<rt::WeakMatrix>,
+        is_owned: bool,
+    ) {
+        let rt_task = NormalRealTimeTask::SetClipMatrix {
+            is_owned,
+            matrix: real_time_matrix,
+        };
+        self.real_time_processor_sender.send_complaining(rt_task);
+    }
+
+    pub fn slot_contents_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+        self.slot_contents_changed_subject.clone()
     }
 
     pub fn set_mapping_infos(&mut self, mapping_infos: HashMap<QualifiedMappingId, MappingInfo>) {
@@ -134,8 +304,7 @@ impl InstanceState {
     fn notify_active_mapping_tags_changed(&mut self, compartment: MappingCompartment) {
         let instance_event = InstanceStateChanged::ActiveMappingTags { compartment };
         self.instance_feedback_event_sender
-            .try_send(instance_event)
-            .unwrap();
+            .send_complaining(instance_event);
     }
 
     pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
@@ -170,8 +339,7 @@ impl InstanceState {
 
     fn notify_active_instance_tags_changed(&mut self) {
         self.instance_feedback_event_sender
-            .try_send(InstanceStateChanged::ActiveInstanceTags)
-            .unwrap();
+            .send_complaining(InstanceStateChanged::ActiveInstanceTags);
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
@@ -231,8 +399,7 @@ impl InstanceState {
             mapping_id: Some(mapping_id),
         };
         self.instance_feedback_event_sender
-            .try_send(instance_event)
-            .unwrap();
+            .send_complaining(instance_event);
     }
 
     /// Gets the ID of the currently active mapping within the given group.
@@ -258,7 +425,7 @@ impl InstanceState {
                     group_id: *group_id,
                     mapping_id: None,
                 };
-                self.instance_feedback_event_sender.try_send(event).unwrap();
+                self.instance_feedback_event_sender.send_complaining(event);
             }
         }
         self.mappings_by_group[compartment] = mappings_by_group;
@@ -276,173 +443,17 @@ impl InstanceState {
             .copied()
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
-
-    pub fn process_transport_change(&mut self, new_play_state: PlayState) {
-        for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
-            if let Ok(Some(event)) = slot.process_transport_change(new_play_state) {
-                let instance_event = InstanceStateChanged::Clip { slot_index, event };
-                self.instance_feedback_event_sender
-                    .try_send(instance_event)
-                    .unwrap();
-            }
-        }
-    }
-
-    pub fn slot_contents_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.slot_contents_changed_subject.clone()
-    }
-
-    /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
-    pub fn poll_slot(&mut self, slot_index: usize) -> Option<ClipChangedEvent> {
-        self.clip_slots
-            .get_mut(slot_index)
-            .expect("no such slot")
-            .poll()
-    }
-
-    pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {
-        self.clip_slots
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.is_filled())
-            .map(|(i, s)| QualifiedSlotDescriptor {
-                index: i,
-                descriptor: s.descriptor().clone(),
-            })
-            .collect()
-    }
-
-    pub fn load_slots(
-        &mut self,
-        descriptors: Vec<QualifiedSlotDescriptor>,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        for slot in &mut self.clip_slots {
-            let _ = slot.reset();
-        }
-        for desc in descriptors {
-            let events = {
-                let slot = self.get_slot_mut(desc.index)?;
-                slot.load(desc.descriptor, project)?
-            };
-            for e in events {
-                self.send_clip_changed_event(desc.index, e);
-            }
-        }
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn fill_slot_by_user(
-        &mut self,
-        slot_index: usize,
-        content: SlotContent,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .fill_by_user(content, project)?;
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn fill_slot_with_item_source(
-        &mut self,
-        slot_index: usize,
-        item: Item,
-    ) -> Result<(), Box<dyn Error>> {
-        self.get_slot_mut(slot_index)?
-            .fill_with_source_from_item(item)?;
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn play(
-        &mut self,
-        slot_index: usize,
-        track: Option<Track>,
-        options: SlotPlayOptions,
-    ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.play(track, options)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop(&mut self, slot_index: usize, immediately: bool) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.stop(immediately)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn pause(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.pause()?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn toggle_repeat(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.toggle_repeat();
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn seek_slot(
-        &mut self,
-        slot_index: usize,
-        position: UnitValue,
-    ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.set_position(position)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn set_volume(
-        &mut self,
-        slot_index: usize,
-        volume: ReaperVolumeValue,
-    ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.set_volume(volume);
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn get_slot(&self, slot_index: usize) -> Result<&ClipSlot, &'static str> {
-        self.clip_slots.get(slot_index).ok_or("no such slot")
-    }
-
-    fn get_slot_mut(&mut self, slot_index: usize) -> Result<&mut ClipSlot, &'static str> {
-        self.clip_slots.get_mut(slot_index).ok_or("no such slot")
-    }
-
-    fn send_clip_changed_event(&self, slot_index: usize, event: ClipChangedEvent) {
-        self.send_feedback_event(InstanceStateChanged::Clip { slot_index, event });
-    }
-
-    fn send_feedback_event(&self, event: InstanceStateChanged) {
-        self.instance_feedback_event_sender.try_send(event).unwrap();
-    }
-
-    fn notify_slot_contents_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
-    }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct QualifiedSlotDescriptor {
-    #[serde(rename = "index")]
-    pub index: usize,
-    #[serde(flatten)]
-    pub descriptor: SlotDescriptor,
+impl Drop for InstanceState {
+    fn drop(&mut self) {
+        BackboneState::get().unregister_instance_state(&self.instance_id);
+    }
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
-    Clip {
-        slot_index: usize,
-        event: ClipChangedEvent,
-    },
     ActiveMappingWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
@@ -452,12 +463,4 @@ pub enum InstanceStateChanged {
         compartment: MappingCompartment,
     },
     ActiveInstanceTags,
-}
-
-#[derive(Debug)]
-pub enum ClipChangedEvent {
-    PlayState(ClipPlayState),
-    ClipVolume(ReaperVolumeValue),
-    ClipRepeat(bool),
-    ClipPosition(UnitValue),
 }

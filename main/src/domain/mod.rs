@@ -75,9 +75,6 @@ pub use exclusivity::*;
 mod io;
 pub use io::*;
 
-mod clip_slot;
-pub use clip_slot::*;
-
 mod targets;
 pub use targets::*;
 
@@ -89,6 +86,9 @@ pub use midi_types::*;
 
 mod reaper_source;
 pub use reaper_source::*;
+
+mod key_source;
+pub use key_source::*;
 
 mod device_change_detector;
 pub use device_change_detector::*;
@@ -104,3 +104,6 @@ pub use organization::*;
 
 mod props;
 pub use props::*;
+
+mod accelerator;
+pub use accelerator::*;

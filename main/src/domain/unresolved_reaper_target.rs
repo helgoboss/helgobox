@@ -1,14 +1,14 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackResolution, MappingCompartment, ParameterSlice, ReaperTarget,
-    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
-    UnresolvedFxParameterTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    BackboneState, ExtendedProcessorContext, FeedbackResolution, MappingCompartment,
+    ParameterSlice, ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
+    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget,
+    UnresolvedAutomationTouchStateTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
+    UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxPresetTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
@@ -25,15 +25,16 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_clip_engine::main::ClipSlotCoordinates;
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
 use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
-use smallvec::alloc::fmt::Formatter;
 use std::error::Error;
 use std::fmt;
+use std::fmt::Formatter;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
@@ -121,7 +122,7 @@ impl UnresolvedReaperTarget {
         true
     }
 
-    /// Should return true if the target should be refreshed (reresolved) on parameter changes.
+    /// Should return true if the target should be refreshed (re-resolved) on parameter changes.
     /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
         let descriptors = self.unpack_descriptors();
@@ -157,6 +158,11 @@ impl UnresolvedReaperTarget {
                 return true;
             }
         }
+        if let Some(desc) = descriptors.clip_slot {
+            if matches!(&desc, VirtualClipSlot::Dynamic { .. }) {
+                return true;
+            }
+        }
         false
     }
 
@@ -186,6 +192,12 @@ impl UnresolvedReaperTarget {
         if let Some(d) = self.track_descriptor() {
             return Descriptors {
                 track: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.clip_slot_descriptor() {
+            return Descriptors {
+                clip_slot: Some(d),
                 ..Default::default()
             };
         }
@@ -361,7 +373,7 @@ impl TrackRouteSelector {
 }
 
 impl fmt::Display for VirtualTrackRoute {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use TrackRouteSelector::*;
         match &self.selector {
             Dynamic(_) => f.write_str("<Dynamic>"),
@@ -426,6 +438,70 @@ impl Default for TrackRouteType {
     fn default() -> Self {
         Self::Send
     }
+}
+
+#[derive(Debug)]
+pub enum VirtualClipSlot {
+    Selected,
+    ByIndex {
+        column_index: usize,
+        row_index: usize,
+    },
+    Dynamic {
+        column_evaluator: Box<ExpressionEvaluator>,
+        row_evaluator: Box<ExpressionEvaluator>,
+    },
+}
+
+impl VirtualClipSlot {
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<ClipSlotCoordinates, &'static str> {
+        use VirtualClipSlot::*;
+        let coordinates = match self {
+            Selected => return Err("the concept of a selected slot is not yet supported"),
+            ByIndex {
+                column_index,
+                row_index,
+            } => ClipSlotCoordinates::new(*column_index, *row_index),
+            Dynamic {
+                column_evaluator,
+                row_evaluator,
+            } => {
+                let sliced_params = compartment.slice_params(context.params());
+                let column_index = to_slot_coordinate(column_evaluator.evaluate(sliced_params))?;
+                let row_index = to_slot_coordinate(row_evaluator.evaluate(sliced_params))?;
+                ClipSlotCoordinates::new(column_index, row_index)
+            }
+        };
+        let slot_exists = BackboneState::get()
+            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
+                matrix.slot(coordinates).is_some()
+            })?;
+        if !slot_exists {
+            return Err("slot doesn't exist");
+        }
+        Ok(coordinates)
+    }
+}
+
+/// In clip slot targets, the resolve phase makes sure that the targeted slot actually exists.
+/// So if we get a `None` value from some of the clip slot methods, it's because the slot doesn't
+/// have a clip, which is a valid state and should return *something*. The contract of the target
+/// `current_value()` is that if it returns `None`, it means it can't get a value at the moment,
+/// probably just temporarily. In that case, the feedback is simply not updated.
+pub fn interpret_current_clip_slot_value<T: Default>(value: Option<T>) -> Option<T> {
+    Some(value.unwrap_or_default())
+}
+
+fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {
+    let res = eval_result.map_err(|_| "couldn't evaluate clip slot coordinate")?;
+    if res < 0.0 {
+        return Err("negative clip slot coordinate");
+    }
+    Ok(res.round() as usize)
 }
 
 #[derive(Debug)]
@@ -1380,6 +1456,7 @@ struct Descriptors<'a> {
     fx: Option<&'a FxDescriptor>,
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
+    clip_slot: Option<&'a VirtualClipSlot>,
 }
 
 #[enum_dispatch(UnresolvedReaperTarget)]
@@ -1424,6 +1501,10 @@ pub trait UnresolvedReaperTargetDef {
     }
 
     fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        None
+    }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
         None
     }
 }

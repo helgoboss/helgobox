@@ -1,9 +1,9 @@
-use crate::base::default_util::is_default;
+use std::convert::TryInto;
+use std::rc::Rc;
+
 use derive_more::Display;
+use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
-};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
@@ -14,32 +14,35 @@ use reaper_medium::{
     PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
 use rxrust::prelude::*;
-
-use crate::domain::{
-    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, FxOnlineTarget,
-    HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
-    RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
-    TrackPhaseTarget, TrackToolTarget,
-};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
+};
+use playtime_clip_engine::rt::ClipPlayState;
+
+use crate::base::default_util::is_default;
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
+    AutomationTouchStateTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget,
+    ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
     FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
+    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
     RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
     TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
     TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
     TrackWidthTarget, TransportTarget,
 };
-use enum_dispatch::enum_dispatch;
-use std::convert::TryInto;
-use std::rc::Rc;
+use crate::domain::{
+    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
+    HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
+    RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
+    TrackPhaseTarget, TrackToolTarget,
+};
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
@@ -141,7 +144,7 @@ pub enum ReaperTarget {
 #[repr(usize)]
 pub enum SendMidiDestination {
     #[serde(rename = "fx-output")]
-    #[display(fmt = "FX output (with FX input only)")]
+    #[display(fmt = "FX output")]
     FxOutput,
     #[serde(rename = "feedback-output")]
     #[display(fmt = "Feedback output")]
@@ -196,7 +199,8 @@ pub enum FeedbackResolution {
     #[serde(rename = "beat")]
     #[display(fmt = "Beat")]
     Beat = 0,
-    /// Query for feedback as frequently as possible (main loop).
+    /// Query for feedback as frequently as possible (results in brute-force polling once per
+    /// main loop cycle).
     #[serde(rename = "high")]
     #[display(fmt = "Fast")]
     High = 1,
@@ -365,6 +369,7 @@ impl ReaperTarget {
             }
             FxEnabledChanged(e) => FxEnable(FxEnableTarget { fx: e.fx }),
             FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
+                is_real_time_ready: false,
                 param: e.parameter,
                 poll_for_feedback: true,
             }),
@@ -402,6 +407,7 @@ impl ReaperTarget {
         observable::empty()
             .merge(csurf_rx.fx_parameter_touched().map(move |param| {
                 FxParameter(FxParameterTarget {
+                    is_real_time_ready: false,
                     param,
                     poll_for_feedback: true,
                 })
@@ -591,19 +597,29 @@ impl<'a> Target<'a> for ReaperTarget {
     }
 }
 impl<'a> Target<'a> for RealTimeReaperTarget {
-    type Context = ();
+    type Context = RealTimeControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, ctx: RealTimeControlContext) -> Option<AbsoluteValue> {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
+            // We can safely use a mutex (without contention) if the preview registers get_samples()
+            // and this code here is called in the same real-time thread. If live FX multiprocessing
+            // is enabled, this is not the case and then we can have contention and dropouts! If we
+            // need to support that one day, we can alternatively use senders. The downside is that
+            // we have fire-and-forget then. We can't query the current value (at least not without
+            // more complex logic). So the target itself should support toggle play/stop etc.
+            ClipTransport(t) => t.current_value(ctx),
+            FxParameter(t) => t.current_value(ctx),
         }
     }
 
-    fn control_type(&self, _: ()) -> ControlType {
+    fn control_type(&self, ctx: RealTimeControlContext) -> ControlType {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
+            ClipTransport(t) => t.control_type(ctx),
+            FxParameter(t) => t.control_type(ctx),
         }
     }
 }
@@ -615,12 +631,10 @@ pub(crate) fn clip_play_state_unit_value(
 ) -> UnitValue {
     use TransportAction::*;
     match action {
-        PlayStop | PlayPause | Stop | Pause => match action {
-            PlayStop | PlayPause => play_state.feedback_value(),
-            Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
-            Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
-            _ => unreachable!(),
-        },
+        PlayStop | PlayPause => play_state.feedback_value(),
+        Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
+        Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
+        RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
         _ => panic!("wrong argument"),
     }
 }
@@ -847,15 +861,17 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
 pub enum ActionInvocationType {
     #[display(fmt = "Trigger")]
     Trigger = 0,
-    #[display(fmt = "Absolute")]
-    Absolute = 1,
+    #[display(fmt = "Absolute 14-bit")]
+    Absolute14Bit = 1,
     #[display(fmt = "Relative")]
     Relative = 2,
+    #[display(fmt = "Absolute 7-bit")]
+    Absolute7Bit = 3,
 }
 
 impl Default for ActionInvocationType {
     fn default() -> Self {
-        ActionInvocationType::Absolute
+        ActionInvocationType::Absolute14Bit
     }
 }
 
@@ -887,8 +903,8 @@ pub enum TransportAction {
     #[display(fmt = "Pause")]
     Pause,
     #[serde(rename = "record")]
-    #[display(fmt = "Record")]
-    Record,
+    #[display(fmt = "Record/stop")]
+    RecordStop,
     #[serde(rename = "repeat")]
     #[display(fmt = "Repeat")]
     Repeat,
@@ -897,6 +913,22 @@ pub enum TransportAction {
 impl Default for TransportAction {
     fn default() -> Self {
         TransportAction::PlayStop
+    }
+}
+
+impl TransportAction {
+    pub fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        use TransportAction::*;
+        match self {
+            // Retriggerable because we want to be able to retrigger play!
+            PlayStop | PlayPause => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Switch,
+            ),
+            Stop | Pause | RecordStop | Repeat => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
+        }
     }
 }
 
@@ -916,7 +948,7 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
         // Record button
         1013 => ReaperTarget::Transport(TransportTarget {
             project,
-            action: TransportAction::Record,
+            action: TransportAction::RecordStop,
         }),
         // Repeat button
         1068 => ReaperTarget::Transport(TransportTarget {
@@ -1317,6 +1349,8 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
+    ClipTransport(RealTimeClipTransportTarget),
+    FxParameter(RealTimeFxParameterTarget),
 }
 
 pub fn get_control_type_and_character_for_track_exclusivity(

@@ -92,20 +92,19 @@ impl MidiScanResult {
         }
     }
 
-    /// Allocates!!!
+    /// This allocates!
     pub fn try_from_bytes(
         bytes: &[u8],
         dev_id: Option<MidiInputDeviceId>,
     ) -> Result<Self, &'static str> {
         let raw_event = RawMidiEvent::try_from_slice(0, bytes)?;
-        // This allocates
-        let vec = vec![raw_event];
+        // This allocates!
         let res = MidiScanResult {
             dev_id,
-            value: MidiSourceValue::Raw {
+            value: {
                 // We don't use this as feedback value.
-                feedback_address_info: None,
-                events: vec,
+                let feedback_address_info = None;
+                MidiSourceValue::single_raw(feedback_address_info, raw_event)
             },
             character: None,
         };

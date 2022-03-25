@@ -1,13 +1,14 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
     ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
-    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
-    PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
-    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue, KeyMessage,
+    KeySource, MappingActivationEffect, MappingControlContext, MappingData, MappingInfo,
+    MessageCaptureEvent, MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult,
+    ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealTimeMappingUpdate,
+    RealTimeReaperTarget, RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource,
+    ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
+    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -31,10 +32,10 @@ use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
-use smallvec::alloc::fmt::Formatter;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
+use std::fmt::Formatter;
 use std::ops::Range;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -382,16 +383,19 @@ impl MainMapping {
                 UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetCategory::Virtual,
             }),
             target_is_resolved: !self.targets.is_empty(),
-            resolved_target: self
-                .targets
-                .first()
-                .and_then(|t| t.splinter_real_time_target()),
+            resolved_target: self.splinter_first_real_time_target(),
             lifecycle_midi_data: self
                 .extension
                 .lifecycle_midi_data
                 .take()
                 .unwrap_or_default(),
         }
+    }
+
+    pub fn splinter_first_real_time_target(&self) -> Option<RealTimeCompoundMappingTarget> {
+        self.targets
+            .first()
+            .and_then(|t| t.splinter_real_time_target())
     }
 
     pub fn has_virtual_target(&self) -> bool {
@@ -459,7 +463,7 @@ impl MainMapping {
     pub fn update_activation_from_effect(
         &mut self,
         activation_effect: MappingActivationEffect,
-    ) -> Option<ActivationChange> {
+    ) -> Option<RealTimeMappingUpdate> {
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = activation_effect
             .active_1_effect
@@ -471,9 +475,11 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeMappingUpdate {
             id: self.id(),
-            is_active: now_is_active,
+            activation_change: Some(ActivationChange {
+                is_active: now_is_active,
+            }),
         };
         Some(update)
     }
@@ -550,21 +556,22 @@ impl MainMapping {
     }
 
     pub fn wants_to_be_polled_for_control(&self) -> bool {
-        self.core.mode.wants_to_be_polled()
+        self.core.source.wants_to_be_polled() || self.core.mode.wants_to_be_polled()
     }
 
     /// The boolean return value tells if the resolved target changed in some way, the activation
     /// change says if activation changed from off to on or on to off.
+    #[must_use]
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
         control_context: ControlContext,
-    ) -> (bool, Option<ActivationChange>) {
+    ) -> Option<RealTimeTargetUpdate> {
         match self.unresolved_target.as_ref() {
-            None => return (false, None),
+            None => return None,
             Some(t) => {
                 if !t.can_be_affected_by_change_events() {
-                    return (false, None);
+                    return None;
                 }
             }
         }
@@ -573,17 +580,29 @@ impl MainMapping {
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        if self.target_is_effectively_active() == was_effectively_active_before {
-            return (target_changed, None);
+        // Build real-time target update if necessary
+        let activation_changed =
+            self.target_is_effectively_active() != was_effectively_active_before;
+        if !target_changed && !activation_changed {
+            return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeTargetUpdate {
             id: self.id(),
-            is_active,
+            activation_change: if activation_changed {
+                Some(ActivationChange { is_active })
+            } else {
+                None
+            },
+            target_change: if target_changed {
+                Some(self.splinter_first_real_time_target())
+            } else {
+                None
+            },
         };
-        (target_changed, Some(update))
+        Some(update)
     }
 
-    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
+    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<RealTimeMappingUpdate> {
         let sliced_params = self.core.compartment.slice_params(params);
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
@@ -592,9 +611,11 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeMappingUpdate {
             id: self.id(),
-            is_active: now_is_active,
+            activation_change: Some(ActivationChange {
+                is_active: now_is_active,
+            }),
         };
         Some(update)
     }
@@ -653,9 +674,9 @@ impl MainMapping {
         &self.targets
     }
 
-    /// This is for timer-triggered control (e.g. "Fire after delay").
+    /// This makes the button fire modes work (e.g. "Fire after delay").
     #[must_use]
-    pub fn poll_control(
+    pub fn poll_mode(
         &mut self,
         context: ControlContext,
         logger: &slog::Logger,
@@ -1102,10 +1123,22 @@ impl MainMapping {
         }
     }
 
-    pub fn control(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
-        match (msg, &self.core.source) {
+    /// Controls the source only.
+    ///
+    /// Doesn't consider MIDI sources because they are handled completely in the real-time mapping.
+    pub fn control_source(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
+        match (msg, &mut self.core.source) {
             (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
             (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            (MainSourceMessage::Key(m), CompoundMappingSource::Key(s)) => s.control(m),
+            _ => None,
+        }
+    }
+
+    /// Polls the source.
+    pub fn poll_source(&mut self) -> Option<ControlValue> {
+        match &mut self.core.source {
+            CompoundMappingSource::Reaper(s) => s.poll(),
             _ => None,
         }
     }
@@ -1114,7 +1147,7 @@ impl MainMapping {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = self.control(msg)?;
+        let control_value = self.control_source(msg)?;
         // First target is enough because this does nothing yet.
         match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
@@ -1127,6 +1160,21 @@ impl MainMapping {
 pub enum MainSourceMessage<'a> {
     Osc(&'a OscMessage),
     Reaper(&'a ReaperMessage),
+    Key(KeyMessage),
+}
+
+impl<'a> MainSourceMessage<'a> {
+    pub fn create_capture_result(&self) -> MessageCaptureResult {
+        use MainSourceMessage::*;
+        match *self {
+            Osc(msg) => MessageCaptureResult::Osc(OscScanResult {
+                message: msg.clone(),
+                dev_id: None,
+            }),
+            Key(msg) => MessageCaptureResult::Keyboard(msg),
+            Reaper(_) => panic!("capturing of incoming MIDI messages not supported"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1218,12 +1266,19 @@ impl RealTimeMapping {
         self.core.options.persistent_processing_state = state;
     }
 
-    pub fn update_target_activation(&mut self, is_active: bool) {
-        self.core.options.target_is_active = is_active;
+    pub fn update_target(&mut self, update: &mut RealTimeTargetUpdate) {
+        if let Some(c) = update.activation_change {
+            self.core.options.target_is_active = c.is_active;
+        }
+        if let Some(rt_target) = update.target_change.take() {
+            self.resolved_target = rt_target;
+        }
     }
 
-    pub fn update_activation(&mut self, is_active: bool) {
-        self.is_active = is_active
+    pub fn update(&mut self, update: &RealTimeMappingUpdate) {
+        if let Some(c) = update.activation_change {
+            self.is_active = c.is_active;
+        }
     }
 
     pub fn source(&self) -> &CompoundMappingSource {
@@ -1281,6 +1336,7 @@ pub struct MappingCore {
     pub mode: Mode,
     group_interaction: GroupInteraction,
     options: ProcessorMappingOptions,
+    /// Used for preventing echo feedback.
     time_of_last_control: Option<Instant>,
 }
 
@@ -1308,6 +1364,7 @@ pub enum CompoundMappingSource {
     Osc(OscSource),
     Virtual(VirtualSource),
     Reaper(ReaperSource),
+    Key(KeySource),
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -1341,6 +1398,15 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    /// If this returns `true`, the `poll` method should be called, on a regular basis.
+    pub fn wants_to_be_polled(&self) -> bool {
+        use CompoundMappingSource::*;
+        match self {
+            Reaper(s) => s.wants_to_be_polled(),
+            _ => false,
+        }
+    }
+
     /// Extracts the address of the source control element for feedback purposes.
     ///
     /// Use this if you really need an owned representation of the source address. If you just want
@@ -1393,18 +1459,21 @@ impl CompoundMappingSource {
         }
     }
 
-    /// Can also be used to check if this mapping would react to the given message.
+    /// Can be used to check if this mapping would react to the given message.
+    ///
+    /// The important difference to controlling is that it doesn't mutate the source.
     ///
     /// Used for:
     ///
     /// - Source learning (including source virtualization)
     /// - Source filtering/finding (including source virtualization)
-    pub fn control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
+    pub fn try_control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
             (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
             (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
             (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
+            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.try_control(m),
             _ => None,
         }
     }
@@ -1422,6 +1491,10 @@ impl CompoundMappingSource {
                     OscSource::from_source_value(msg.message, event.osc_arg_index_hint);
                 Self::Osc(osc_source)
             }
+            Keyboard(msg) => {
+                let key_source = KeySource::new(msg.stroke());
+                Self::Key(key_source)
+            }
         };
         Some(res)
     }
@@ -1433,7 +1506,7 @@ impl CompoundMappingSource {
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
             Reaper(s) => s.format_control_value(value),
-            Never => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
+            Never | Key(_) => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
         }
     }
 
@@ -1444,7 +1517,7 @@ impl CompoundMappingSource {
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
             Reaper(s) => s.parse_control_value(text),
-            Never => parse_percentage_without_unit(text)?.try_into(),
+            Never | Key(_) => parse_percentage_without_unit(text)?.try_into(),
         }
     }
 
@@ -1456,6 +1529,7 @@ impl CompoundMappingSource {
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
             Reaper(s) => ExtendedSourceCharacter::Normal(s.character()),
             Never => ExtendedSourceCharacter::VirtualContinuous,
+            Key(_) => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
         }
     }
 
@@ -1471,7 +1545,7 @@ impl CompoundMappingSource {
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
-            Reaper(_) | Never => None,
+            Reaper(_) | Key(_) | Never => None,
         }
     }
 
@@ -1479,7 +1553,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Reaper(_) | Virtual(_) | Osc(_) | Never => false,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => false,
         }
     }
 
@@ -1493,7 +1567,7 @@ impl CompoundMappingSource {
             Midi(s) => s.max_discrete_value(),
             // TODO-medium OSC will also support discrete values as soon as we allow integers and
             //  configuring max values
-            Reaper(_) | Virtual(_) | Osc(_) | Never => None,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => None,
         }
     }
 }
@@ -2251,6 +2325,7 @@ pub type OrderedMappingIdSet = IndexSet<MappingId>;
 pub enum MessageCaptureResult {
     Midi(MidiScanResult),
     Osc(OscScanResult),
+    Keyboard(KeyMessage),
 }
 
 impl MessageCaptureResult {
@@ -2259,6 +2334,7 @@ impl MessageCaptureResult {
         match self {
             Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
             Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
+            Keyboard(res) => IncomingCompoundSourceValue::Key(*res),
         }
     }
 
@@ -2276,6 +2352,7 @@ impl MessageCaptureResult {
             Osc(r) => InputDescriptor::Osc {
                 device_id: r.dev_id?,
             },
+            Keyboard(_) => InputDescriptor::Keyboard,
         };
         Some(res)
     }
@@ -2286,6 +2363,7 @@ pub enum IncomingCompoundSourceValue<'a> {
     Midi(&'a MidiSourceValue<'a, RawShortMessage>),
     Osc(&'a OscMessage),
     Virtual(&'a VirtualSourceValue),
+    Key(KeyMessage),
 }
 
 pub enum InputDescriptor {
@@ -2296,4 +2374,5 @@ pub enum InputDescriptor {
     Osc {
         device_id: OscDeviceId,
     },
+    Keyboard,
 }

@@ -14,12 +14,13 @@
       "mode": {},
       "target": {
         "category": "virtual",
-        "controlElementType": "button"
+        "controlElementType": "button",
+        "controlElementIndex": "col1/row1/pad"
       }
     },
     {
       "id": "7815b452-b5ac-4eec-8af5-cf7eb8837926",
-      "name": "Pad 1/2",
+      "name": "Pad 2/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -31,12 +32,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 1
+        "controlElementIndex": "col2/row1/pad"
       }
     },
     {
       "id": "55976926-22dd-4098-8f73-a9f721fe9111",
-      "name": "Pad 1/3",
+      "name": "Pad 3/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -48,12 +49,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 2
+        "controlElementIndex": "col3/row1/pad"
       }
     },
     {
       "id": "6aa08bb1-8ceb-4046-ad4d-b4feef08c9db",
-      "name": "Pad 1/4",
+      "name": "Pad 4/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -65,12 +66,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 3
+        "controlElementIndex": "col4/row1/pad"
       }
     },
     {
       "id": "2389539b-bc2a-4ac1-9cc0-194408095dd6",
-      "name": "Pad 1/5",
+      "name": "Pad 5/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -82,12 +83,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 4
+        "controlElementIndex": "col5/row1/pad"
       }
     },
     {
       "id": "262a336c-2c2e-4b56-980c-1d88f026ca20",
-      "name": "Pad 1/6",
+      "name": "Pad 6/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -99,12 +100,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 5
+        "controlElementIndex": "col6/row1/pad"
       }
     },
     {
       "id": "e3dedcea-506b-43c6-ab6e-d27eafad4741",
-      "name": "Pad 1/7",
+      "name": "Pad 7/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -116,12 +117,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 6
+        "controlElementIndex": "col7/row1/pad"
       }
     },
     {
       "id": "f69c7f29-6b25-475c-9c62-0bb499be9c64",
-      "name": "Pad 1/8",
+      "name": "Pad 8/1",
       "source": {
         "type": 1,
         "channel": 0,
@@ -133,12 +134,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 7
+        "controlElementIndex": "col8/row1/pad"
       }
     },
     {
       "id": "02f96a4b-19a8-4817-b813-bbd135ec2583",
-      "name": "Pad 2/1",
+      "name": "Pad 1/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -150,7 +151,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 8
+        "controlElementIndex": "col1/row2/pad"
       }
     },
     {
@@ -167,12 +168,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 9
+        "controlElementIndex": "col2/row2/pad"
       }
     },
     {
       "id": "f5c0f80c-1874-4b54-8c0f-78ab13fd83fa",
-      "name": "Pad 2/3",
+      "name": "Pad 3/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -184,12 +185,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 10
+        "controlElementIndex": "col3/row2/pad"
       }
     },
     {
       "id": "30af7ee6-089c-4b22-95c8-41f5f37cf8ed",
-      "name": "Pad 2/4",
+      "name": "Pad 4/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -201,12 +202,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 11
+        "controlElementIndex": "col4/row2/pad"
       }
     },
     {
       "id": "5826b0bf-f70c-4870-b9c9-f4fbceb051c0",
-      "name": "Pad 2/5",
+      "name": "Pad 5/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -218,12 +219,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 12
+        "controlElementIndex": "col5/row2/pad"
       }
     },
     {
       "id": "81bb2342-05ed-4d8e-aefd-13881542c1da",
-      "name": "Pad 2/6",
+      "name": "Pad 6/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -235,12 +236,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 13
+        "controlElementIndex": "col6/row2/pad"
       }
     },
     {
       "id": "e1f9ea59-f7a3-403d-b959-4fc8dcd4af91",
-      "name": "Pad 2/7",
+      "name": "Pad 7/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -252,12 +253,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 14
+        "controlElementIndex": "col7/row2/pad"
       }
     },
     {
       "id": "1837e371-ce49-4669-b9db-22413549f303",
-      "name": "Pad 2/8",
+      "name": "Pad 8/2",
       "source": {
         "type": 1,
         "channel": 0,
@@ -269,12 +270,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 15
+        "controlElementIndex": "col8/row2/pad"
       }
     },
     {
       "id": "b9d9abce-1148-4cf7-a963-60894ea42f2f",
-      "name": "Pad 3/1",
+      "name": "Pad 1/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -286,12 +287,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 16
+        "controlElementIndex": "col1/row3/pad"
       }
     },
     {
       "id": "a663449e-0f8f-4bcb-b66d-6a4584f3ed32",
-      "name": "Pad 3/2",
+      "name": "Pad 2/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -303,7 +304,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 17
+        "controlElementIndex": "col2/row3/pad"
       }
     },
     {
@@ -320,12 +321,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 18
+        "controlElementIndex": "col3/row3/pad"
       }
     },
     {
       "id": "b6ec36ee-4322-4ae9-999c-5001d244a2a1",
-      "name": "Pad 3/4",
+      "name": "Pad 4/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -337,12 +338,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 19
+        "controlElementIndex": "col4/row3/pad"
       }
     },
     {
       "id": "5d4f6f7b-1682-4651-b613-d6746ba5018e",
-      "name": "Pad 3/5",
+      "name": "Pad 5/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -354,12 +355,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 20
+        "controlElementIndex": "col5/row3/pad"
       }
     },
     {
       "id": "a603c302-f923-47b0-b635-79f9380275a7",
-      "name": "Pad 3/6",
+      "name": "Pad 6/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -371,12 +372,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 21
+        "controlElementIndex": "col6/row3/pad"
       }
     },
     {
       "id": "c7e030d7-d770-414d-9751-0a48b37dc82e",
-      "name": "Pad 3/7",
+      "name": "Pad 7/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -388,12 +389,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 22
+        "controlElementIndex": "col7/row3/pad"
       }
     },
     {
       "id": "68f15437-8614-4930-b71f-67071ebb699f",
-      "name": "Pad 3/8",
+      "name": "Pad 8/3",
       "source": {
         "type": 1,
         "channel": 0,
@@ -405,12 +406,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 23
+        "controlElementIndex": "col8/row3/pad"
       }
     },
     {
       "id": "26a63ed9-ccef-46e5-a1ec-0e77a81522a5",
-      "name": "Pad 4/1",
+      "name": "Pad 1/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -422,12 +423,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 24
+        "controlElementIndex": "col1/row4/pad"
       }
     },
     {
       "id": "94b1be44-1514-4c18-af4c-14c3f57fac5d",
-      "name": "Pad 4/2",
+      "name": "Pad 2/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -439,12 +440,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 25
+        "controlElementIndex": "col2/row4/pad"
       }
     },
     {
       "id": "faad0c7a-835e-42a3-a78b-5255203f9683",
-      "name": "Pad 4/3",
+      "name": "Pad 3/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -456,7 +457,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 26
+        "controlElementIndex": "col3/row4/pad"
       }
     },
     {
@@ -473,12 +474,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 27
+        "controlElementIndex": "col4/row4/pad"
       }
     },
     {
       "id": "1a253eea-606d-419e-b01a-de196597c58b",
-      "name": "Pad 4/5",
+      "name": "Pad 5/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -490,12 +491,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 28
+        "controlElementIndex": "col5/row4/pad"
       }
     },
     {
       "id": "57247d74-74c9-488f-92c8-a4fa3ad1465a",
-      "name": "Pad 4/6",
+      "name": "Pad 6/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -507,12 +508,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 29
+        "controlElementIndex": "col6/row4/pad"
       }
     },
     {
       "id": "e6a59d33-4bfc-4006-bcdc-821567987631",
-      "name": "Pad 4/7",
+      "name": "Pad 7/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -524,12 +525,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 30
+        "controlElementIndex": "col7/row4/pad"
       }
     },
     {
       "id": "7e778b41-444c-44f7-b40f-041d171d7fa9",
-      "name": "Pad 4/8",
+      "name": "Pad 8/4",
       "source": {
         "type": 1,
         "channel": 0,
@@ -541,12 +542,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 31
+        "controlElementIndex": "col8/row4/pad"
       }
     },
     {
       "id": "fc9986a7-b221-453a-8930-f62fbbb2e071",
-      "name": "Pad 5/1",
+      "name": "Pad 1/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -558,12 +559,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 32
+        "controlElementIndex": "col1/row5/pad"
       }
     },
     {
       "id": "1c5a5508-c922-40c4-92aa-0630dd917a7d",
-      "name": "Pad 5/2",
+      "name": "Pad 2/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -575,12 +576,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 33
+        "controlElementIndex": "col2/row5/pad"
       }
     },
     {
       "id": "f8cf5ba5-f06f-48a2-a3cf-ec2f763d3fc1",
-      "name": "Pad 5/3",
+      "name": "Pad 3/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -592,12 +593,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 34
+        "controlElementIndex": "col3/row5/pad"
       }
     },
     {
       "id": "dfd51600-c4b7-4806-a391-c2d8f6ed240b",
-      "name": "Pad 5/4",
+      "name": "Pad 4/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -609,7 +610,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 35
+        "controlElementIndex": "col4/row5/pad"
       }
     },
     {
@@ -626,12 +627,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 36
+        "controlElementIndex": "col5/row5/pad"
       }
     },
     {
       "id": "67531f18-d741-41f8-814d-9aa92a508830",
-      "name": "Pad 5/6",
+      "name": "Pad 6/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -643,12 +644,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 37
+        "controlElementIndex": "col6/row5/pad"
       }
     },
     {
       "id": "441c2d23-b2fe-4408-9fb7-685b8c5bd834",
-      "name": "Pad 5/7",
+      "name": "Pad 7/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -660,12 +661,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 38
+        "controlElementIndex": "col7/row5/pad"
       }
     },
     {
       "id": "47f52654-9b07-46c1-a670-ae9e46a4d296",
-      "name": "Pad 5/8",
+      "name": "Pad 8/5",
       "source": {
         "type": 1,
         "channel": 0,
@@ -677,12 +678,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 39
+        "controlElementIndex": "col8/row5/pad"
       }
     },
     {
       "id": "055dcf1c-6461-40db-9ffa-37b425aa73c9",
-      "name": "Pad 6/1",
+      "name": "Pad 1/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -694,12 +695,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 40
+        "controlElementIndex": "col1/row6/pad"
       }
     },
     {
       "id": "460c6ad6-0cba-47ba-9cd9-b9f69d937e1a",
-      "name": "Pad 6/2",
+      "name": "Pad 2/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -711,12 +712,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 41
+        "controlElementIndex": "col2/row6/pad"
       }
     },
     {
       "id": "e7f8b1db-3a19-4e18-a222-295041db1d36",
-      "name": "Pad 6/3",
+      "name": "Pad 3/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -728,12 +729,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 42
+        "controlElementIndex": "col3/row6/pad"
       }
     },
     {
       "id": "8e2227a2-9dce-491a-a4dc-ee1facbc9250",
-      "name": "Pad 6/4",
+      "name": "Pad 4/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -745,12 +746,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 43
+        "controlElementIndex": "col4/row6/pad"
       }
     },
     {
       "id": "bc8743a1-98d0-466f-8a0c-08af2d6c3955",
-      "name": "Pad 6/5",
+      "name": "Pad 5/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -762,7 +763,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 44
+        "controlElementIndex": "col5/row6/pad"
       }
     },
     {
@@ -779,12 +780,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 45
+        "controlElementIndex": "col6/row6/pad"
       }
     },
     {
       "id": "2b676a30-9a46-4597-81ba-60dcdb3f74ba",
-      "name": "Pad 6/7",
+      "name": "Pad 7/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -796,12 +797,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 46
+        "controlElementIndex": "col7/row6/pad"
       }
     },
     {
       "id": "8302ed1b-4fc2-4fc1-b7fc-74faa074cbe6",
-      "name": "Pad 6/8",
+      "name": "Pad 8/6",
       "source": {
         "type": 1,
         "channel": 0,
@@ -813,12 +814,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 47
+        "controlElementIndex": "col8/row6/pad"
       }
     },
     {
       "id": "b0823cb8-d406-45fb-be2d-575459c59cad",
-      "name": "Pad 7/1",
+      "name": "Pad 1/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -830,12 +831,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 48
+        "controlElementIndex": "col1/row7/pad"
       }
     },
     {
       "id": "1c3968f3-253e-4bda-af4c-9ce80293f3eb",
-      "name": "Pad 7/2",
+      "name": "Pad 2/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -847,12 +848,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 49
+        "controlElementIndex": "col2/row7/pad"
       }
     },
     {
       "id": "3a7022b3-e9b8-4f0e-9090-271229288af3",
-      "name": "Pad 7/3",
+      "name": "Pad 3/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -864,12 +865,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 50
+        "controlElementIndex": "col3/row7/pad"
       }
     },
     {
       "id": "4d4eea2c-1871-4c0c-ae8a-12811504f67b",
-      "name": "Pad 7/4",
+      "name": "Pad 4/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -881,12 +882,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 51
+        "controlElementIndex": "col4/row7/pad"
       }
     },
     {
       "id": "754dcb54-df5d-4403-8c22-079f2cee6031",
-      "name": "Pad 7/5",
+      "name": "Pad 5/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -898,12 +899,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 52
+        "controlElementIndex": "col5/row7/pad"
       }
     },
     {
       "id": "e20d8166-3d2c-4a45-b4a7-ca3573682419",
-      "name": "Pad 7/6",
+      "name": "Pad 6/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -915,7 +916,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 53
+        "controlElementIndex": "col6/row7/pad"
       }
     },
     {
@@ -932,12 +933,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 54
+        "controlElementIndex": "col7/row7/pad"
       }
     },
     {
       "id": "76f652c6-aecb-445d-9d14-261b70d7381d",
-      "name": "Pad 7/8",
+      "name": "Pad 8/7",
       "source": {
         "type": 1,
         "channel": 0,
@@ -949,12 +950,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 55
+        "controlElementIndex": "col8/row7/pad"
       }
     },
     {
       "id": "a01c3059-aec3-4aed-9f11-6ad7daa5a27a",
-      "name": "Pad 8/1",
+      "name": "Pad 1/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -966,12 +967,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 56
+        "controlElementIndex": "col1/row8/pad"
       }
     },
     {
       "id": "d3328bf1-6265-4c8d-9414-13d100756e15",
-      "name": "Pad 8/2",
+      "name": "Pad 2/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -983,12 +984,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 57
+        "controlElementIndex": "col2/row8/pad"
       }
     },
     {
       "id": "bf49b58f-cafa-4d70-a44e-dc97882a844c",
-      "name": "Pad 8/3",
+      "name": "Pad 3/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -1000,12 +1001,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 58
+        "controlElementIndex": "col3/row8/pad"
       }
     },
     {
       "id": "688d5dda-3948-4de6-bcb6-c76bfd0a8118",
-      "name": "Pad 8/4",
+      "name": "Pad 4/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -1017,12 +1018,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 59
+        "controlElementIndex": "col4/row8/pad"
       }
     },
     {
       "id": "df690d92-0496-4124-9415-2fd0af894a85",
-      "name": "Pad 8/5",
+      "name": "Pad 5/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -1034,12 +1035,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 60
+        "controlElementIndex": "col5/row8/pad"
       }
     },
     {
       "id": "e1f84f78-dd49-47f3-9a00-408358a16723",
-      "name": "Pad 8/6",
+      "name": "Pad 6/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -1051,12 +1052,12 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 61
+        "controlElementIndex": "col6/row8/pad"
       }
     },
     {
       "id": "d38db2c6-d6d0-470c-b411-92045110b3d6",
-      "name": "Pad 8/7",
+      "name": "Pad 7/8",
       "source": {
         "type": 1,
         "channel": 0,
@@ -1068,7 +1069,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 62
+        "controlElementIndex": "col7/row8/pad"
       }
     },
     {
@@ -1085,7 +1086,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 63
+        "controlElementIndex": "col8/row8/pad"
       }
     },
     {
@@ -1099,7 +1100,8 @@
       },
       "mode": {},
       "target": {
-        "category": "virtual"
+        "category": "virtual",
+        "controlElementIndex": "channel-pressure"
       }
     },
     {
@@ -1116,7 +1118,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 64
+        "controlElementIndex": "row1/play"
       }
     },
     {
@@ -1133,7 +1135,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 65
+        "controlElementIndex": "row2/play"
       }
     },
     {
@@ -1150,7 +1152,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 66
+        "controlElementIndex": "row3/play"
       }
     },
     {
@@ -1167,7 +1169,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 67
+        "controlElementIndex": "row4/play"
       }
     },
     {
@@ -1184,7 +1186,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 68
+        "controlElementIndex": "row5/play"
       }
     },
     {
@@ -1201,7 +1203,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 69
+        "controlElementIndex": "row6/play"
       }
     },
     {
@@ -1218,7 +1220,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 70
+        "controlElementIndex": "row7/play"
       }
     },
     {
@@ -1235,7 +1237,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 71
+        "controlElementIndex": "row8/play"
       }
     },
     {
@@ -1252,7 +1254,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 72
+        "controlElementIndex": "cursor-up"
       }
     },
     {
@@ -1269,7 +1271,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 73
+        "controlElementIndex": "cursor-down"
       }
     },
     {
@@ -1286,7 +1288,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 74
+        "controlElementIndex": "cursor-left"
       }
     },
     {
@@ -1303,7 +1305,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 75
+        "controlElementIndex": "cursor-right"
       }
     },
     {
@@ -1320,7 +1322,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 76
+        "controlElementIndex": "session"
       }
     },
     {
@@ -1337,7 +1339,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 77
+        "controlElementIndex": "note"
       }
     },
     {
@@ -1354,7 +1356,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 78
+        "controlElementIndex": "device"
       }
     },
     {
@@ -1371,7 +1373,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 79
+        "controlElementIndex": "user"
       }
     },
     {
@@ -1388,7 +1390,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 80
+        "controlElementIndex": "shift"
       }
     },
     {
@@ -1405,7 +1407,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 81
+        "controlElementIndex": "click"
       }
     },
     {
@@ -1422,7 +1424,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 82
+        "controlElementIndex": "undo"
       }
     },
     {
@@ -1439,7 +1441,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 83
+        "controlElementIndex": "delete"
       }
     },
     {
@@ -1456,7 +1458,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 84
+        "controlElementIndex": "quantize"
       }
     },
     {
@@ -1473,7 +1475,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 85
+        "controlElementIndex": "duplicate"
       }
     },
     {
@@ -1490,7 +1492,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 86
+        "controlElementIndex": "double"
       }
     },
     {
@@ -1507,7 +1509,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 87
+        "controlElementIndex": "record"
       }
     },
     {
@@ -1524,7 +1526,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 88
+        "controlElementIndex": "record-arm"
       }
     },
     {
@@ -1541,7 +1543,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 89
+        "controlElementIndex": "track-select"
       }
     },
     {
@@ -1558,7 +1560,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 90
+        "controlElementIndex": "mute"
       }
     },
     {
@@ -1575,7 +1577,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 91
+        "controlElementIndex": "solo"
       }
     },
     {
@@ -1592,7 +1594,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 92
+        "controlElementIndex": "volume"
       }
     },
     {
@@ -1609,7 +1611,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 93
+        "controlElementIndex": "pan"
       }
     },
     {
@@ -1626,7 +1628,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 94
+        "controlElementIndex": "sends"
       }
     },
     {
@@ -1643,7 +1645,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": 95
+        "controlElementIndex": "stop-clip"
       }
     }
   ]

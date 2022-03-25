@@ -473,14 +473,8 @@ pub struct RouteVolumeTarget {
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub output: Option<ClipOutput>,
-    pub clip: ClipDescriptor,
+    pub slot: ClipSlotDescriptor,
     pub action: TransportAction,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_bar: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub buffered: Option<bool>,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -488,7 +482,7 @@ pub struct ClipTransportActionTarget {
 pub struct ClipSeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub clip: ClipDescriptor,
+    pub slot: ClipSlotDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_resolution: Option<FeedbackResolution>,
 }
@@ -498,7 +492,7 @@ pub struct ClipSeekTarget {
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub clip: ClipDescriptor,
+    pub slot: ClipSlotDescriptor,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -615,13 +609,15 @@ pub enum AnyOnParameter {
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum ActionInvocationKind {
     Trigger,
-    Absolute,
+    #[serde(alias = "Absolute")]
+    Absolute14Bit,
+    Absolute7Bit,
     Relative,
 }
 
 impl Default for ActionInvocationKind {
     fn default() -> Self {
-        Self::Absolute
+        Self::Absolute14Bit
     }
 }
 
@@ -944,24 +940,23 @@ impl Default for TrackRouteKind {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
-pub enum ClipDescriptor {
-    Slot { index: u32 },
-}
-
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind")]
-pub enum ClipOutput {
-    Track {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        track: Option<TrackDescriptor>,
+pub enum ClipSlotDescriptor {
+    Selected,
+    ByIndex {
+        column_index: usize,
+        row_index: usize,
+    },
+    Dynamic {
+        column_expression: String,
+        row_expression: String,
     },
 }
 
-impl Default for ClipOutput {
+impl Default for ClipSlotDescriptor {
     fn default() -> Self {
-        Self::Track { track: None }
+        Self::Selected
     }
 }
 

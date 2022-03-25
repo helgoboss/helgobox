@@ -1,38 +1,54 @@
-use crate::domain::{
-    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
-};
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_medium::PositionInSeconds;
+
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+
+use crate::domain::{
+    interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+};
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
+use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
-    pub slot_index: usize,
+    pub slot: VirtualClipSlot,
     pub feedback_resolution: FeedbackResolution,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
     fn resolve(
         &self,
-        _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ClipSeek(ClipSeekTarget {
-            slot_index: self.slot_index,
+            slot_coordinates: self.slot.resolve(context, compartment)?,
             feedback_resolution: self.feedback_resolution,
         })])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        // We always report beat resolution, even if feedback resolution is "high", in order to NOT
+        // be continuously queried on each main loop iteration as part of ReaLearn's generic main
+        // loop polling. There's a special clip polling logic in the main processor which detects
+        // if there were any position changes. If there were, process_change_event() will be
+        // called on the clip seek target. We need to do that special clip polling in any case.
+        // If we would doing it a second time in ReaLearn's generic main loop polling, that would be
+        // wasteful, in particular we would have to lock the clip preview register mutex twice
+        // per main loop.
         Some(FeedbackResolution::Beat)
+    }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
-    pub slot_index: usize,
+    pub slot_coordinates: ClipSlotCoordinates,
     pub feedback_resolution: FeedbackResolution,
 }
 
@@ -47,9 +63,10 @@ impl RealearnTarget for ClipSeekTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state.seek_slot(self.slot_index, value)?;
-        Ok(None)
+        BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
+            matrix.seek_clip_legacy(self.slot_coordinates, value)?;
+            Ok(None)
+        })?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -69,24 +86,24 @@ impl RealearnTarget for ClipSeekTarget {
             {
                 (true, None)
             }
-            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
-            // (in order to not lock mutex of playing clips more than once per main loop cycle).
-            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_index: si,
-                event,
-            }) if self.feedback_resolution == FeedbackResolution::High
-                && *si == self.slot_index =>
-            {
-                match event {
-                    ClipChangedEvent::ClipPosition(new_position) => {
-                        (true, Some(AbsoluteValue::Continuous(*new_position)))
-                    }
-                    ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
-                        (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
-                    }
-                    _ => (false, None),
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                QualifiedClipChangedEvent {
+                    slot_coordinates: si,
+                    event,
+                },
+            )) if *si == self.slot_coordinates => match event {
+                // If feedback resolution is high, we use the special ClipChangedEvent to do our job
+                // (in order to not lock mutex of playing clips more than once per main loop cycle).
+                ClipChangedEvent::ClipPosition(new_position)
+                    if self.feedback_resolution == FeedbackResolution::High =>
+                {
+                    (true, Some(AbsoluteValue::Continuous(*new_position)))
                 }
-            }
+                ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
+                    (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
+                }
+                _ => (false, None),
+            },
             _ => (false, None),
         }
     }
@@ -112,12 +129,11 @@ impl RealearnTarget for ClipSeekTarget {
 
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
-        let instance_state = context.instance_state.borrow();
-        let secs = instance_state
-            .get_slot(self.slot_index)
+        BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                matrix.clip_position_in_seconds(self.slot_coordinates).ok()
+            })
             .ok()?
-            .position_in_seconds();
-        Some(secs)
     }
 }
 
@@ -125,13 +141,15 @@ impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        let val = instance_state
-            .get_slot(self.slot_index)
-            .ok()?
-            .position()
+        let val = BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                let val = matrix
+                    .proportional_clip_position(self.slot_coordinates)
+                    .ok()?;
+                Some(AbsoluteValue::Continuous(val))
+            })
             .ok()?;
-        Some(AbsoluteValue::Continuous(val))
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

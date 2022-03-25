@@ -2,7 +2,7 @@ use crate::application::CompartmentModel;
 use std::fmt;
 use std::fmt::Debug;
 
-pub trait Preset: Clone + Debug {
+pub trait Preset: Debug {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
     fn data(&self) -> &CompartmentModel;

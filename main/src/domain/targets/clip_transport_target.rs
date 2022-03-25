@@ -1,18 +1,19 @@
 use crate::domain::{
-    clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
-    transport_is_enabled_unit_value, ClipChangedEvent, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SlotPlayOptions,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef,
+    clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
+    transport_is_enabled_unit_value, BackboneState, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track};
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, SlotPlayOptions};
+use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use reaper_high::Project;
 
 #[derive(Debug)]
 pub struct UnresolvedClipTransportTarget {
-    pub track_descriptor: Option<TrackDescriptor>,
-    pub slot_index: usize,
+    pub slot: VirtualClipSlot,
     pub action: TransportAction,
     pub play_options: SlotPlayOptions,
 }
@@ -23,48 +24,40 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let targets = if let Some(desc) = self.track_descriptor.as_ref() {
-            get_effective_tracks(context, &desc.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::ClipTransport(ClipTransportTarget {
-                        track: Some(track),
-                        slot_index: self.slot_index,
-                        action: self.action,
-                        play_options: self.play_options,
-                    })
-                })
-                .collect()
-        } else {
-            vec![ReaperTarget::ClipTransport(ClipTransportTarget {
-                track: None,
-                slot_index: self.slot_index,
-                action: self.action,
-                play_options: self.play_options,
-            })]
+        let project = context.context.project_or_current_project();
+        let basics = ClipTransportTargetBasics {
+            slot_coordinates: self.slot.resolve(context, compartment)?,
+            action: self.action,
+            play_options: self.play_options,
         };
+        let targets = vec![ReaperTarget::ClipTransport(ClipTransportTarget {
+            project,
+            basics,
+        })];
         Ok(targets)
     }
 
-    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
-        self.track_descriptor.as_ref()
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {
-    pub track: Option<Track>,
-    pub slot_index: usize,
+    pub project: Project,
+    pub basics: ClipTransportTargetBasics,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClipTransportTargetBasics {
+    pub slot_coordinates: ClipSlotCoordinates,
     pub action: TransportAction,
     pub play_options: SlotPlayOptions,
 }
 
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Switch,
-        )
+        self.basics.action.control_type_and_character()
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -77,94 +70,93 @@ impl RealearnTarget for ClipTransportTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use TransportAction::*;
-        let on = !value.to_unit_value()?.is_zero();
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
-        match self.action {
-            PlayStop => {
-                if on {
-                    instance_state.play(self.slot_index, self.track.clone(), self.play_options)?;
-                } else {
-                    instance_state.stop(self.slot_index, !self.play_options.next_bar)?;
-                }
-            }
-            PlayPause => {
-                if on {
-                    instance_state.play(self.slot_index, self.track.clone(), self.play_options)?;
-                } else {
-                    instance_state.pause(self.slot_index)?;
-                }
-            }
-            Stop => {
-                if on {
-                    instance_state.stop(self.slot_index, !self.play_options.next_bar)?;
-                }
-            }
-            Pause => {
-                if on {
-                    instance_state.pause(self.slot_index)?;
-                }
-            }
-            Record => {
-                return Err("not supported at the moment");
-            }
-            Repeat => {
-                instance_state.toggle_repeat(self.slot_index)?;
-            }
-        };
-        Ok(None)
+        let on = value.is_on();
+        BackboneState::get().with_clip_matrix_mut(
+            context.control_context.instance_state,
+            |matrix| {
+                match self.basics.action {
+                    PlayStop => {
+                        if on {
+                            matrix.play_clip(self.basics.slot_coordinates)?;
+                        } else {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    PlayPause => {
+                        if on {
+                            matrix.play_clip(self.basics.slot_coordinates)?;
+                        } else {
+                            matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Stop => {
+                        if on {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Pause => {
+                        if on {
+                            matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    RecordStop => {
+                        if on {
+                            match matrix.record_clip(self.basics.slot_coordinates) {
+                                Ok(_) => {
+                                    tracing_debug!("Record slot");
+                                }
+                                Err(e) => {
+                                    tracing_debug!("Error when recording slot: {}", e);
+                                    return Err(e);
+                                }
+                            }
+                        } else {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Repeat => {
+                        matrix.toggle_looped(self.basics.slot_coordinates)?;
+                    }
+                };
+                Ok(None)
+            },
+        )?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
         // TODO-medium With clip targets we should check the control context (instance state) if
         //  slot filled.
-        if let Some(t) = &self.track {
-            if !t.is_available() {
-                return false;
-            }
-        }
         true
     }
 
     fn project(&self) -> Option<Project> {
-        self.track.as_ref().map(|t| t.project())
-    }
-
-    fn track(&self) -> Option<&Track> {
-        self.track.as_ref()
+        Some(self.project)
     }
 
     fn process_change_event(
         &self,
         evt: CompoundChangeEvent,
-        context: ControlContext,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Reaper(ChangeEvent::PlayStateChanged(e)) => {
-                // Feedback handled from instance-scoped feedback events.
-                let mut instance_state = context.instance_state.borrow_mut();
-                instance_state.process_transport_change(e.new_value);
-                (false, None)
-            }
-            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_index: si,
-                event,
-            }) if *si == self.slot_index => {
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                QualifiedClipChangedEvent {
+                    slot_coordinates: sc,
+                    event,
+                },
+            )) if *sc == self.basics.slot_coordinates => {
                 use TransportAction::*;
-                match self.action {
-                    PlayStop | PlayPause | Stop | Pause => match event {
-                        ClipChangedEvent::PlayState(new_state) => (
-                            true,
-                            Some(AbsoluteValue::Continuous(clip_play_state_unit_value(
-                                self.action,
-                                *new_state,
-                            ))),
-                        ),
+                match event {
+                    ClipChangedEvent::PlayState(new_state) => match self.basics.action {
+                        PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                            let uv = clip_play_state_unit_value(self.basics.action, *new_state);
+                            (true, Some(AbsoluteValue::Continuous(uv)))
+                        }
                         _ => (false, None),
                     },
-                    // Not supported at the moment.
-                    Record => (false, None),
-                    Repeat => match event {
-                        ClipChangedEvent::ClipRepeat(new_state) => (
+                    ClipChangedEvent::ClipLooped(new_state) => match self.basics.action {
+                        Repeat => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                                 *new_state,
@@ -172,6 +164,11 @@ impl RealearnTarget for ClipTransportTarget {
                         ),
                         _ => (false, None),
                     },
+                    ClipChangedEvent::Removed => {
+                        tracing_debug!("Reacting to clip-removed event");
+                        (true, None)
+                    }
+                    _ => (false, None),
                 }
             }
             _ => (false, None),
@@ -185,29 +182,43 @@ impl RealearnTarget for ClipTransportTarget {
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::ClipTransport)
     }
+
+    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        use TransportAction::*;
+        if matches!(self.basics.action, RecordStop | Repeat) {
+            // These are not for real-time usage.
+            return None;
+        }
+        let t = RealTimeClipTransportTarget {
+            project: self.project,
+            basics: self.basics.clone(),
+        };
+        Some(RealTimeReaperTarget::ClipTransport(t))
+    }
 }
 
 impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        use TransportAction::*;
-        let val = match self.action {
-            PlayStop | PlayPause | Stop | Pause => {
-                let play_state = instance_state.get_slot(self.slot_index).ok()?.play_state();
-                clip_play_state_unit_value(self.action, play_state)
-            }
-            Repeat => {
-                let is_looped = instance_state
-                    .get_slot(self.slot_index)
-                    .ok()?
-                    .repeat_is_enabled();
-                transport_is_enabled_unit_value(is_looped)
-            }
-            Record => return None,
-        };
-        Some(AbsoluteValue::Continuous(val))
+        let val = BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                use TransportAction::*;
+                let val = match self.basics.action {
+                    PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                        let play_state =
+                            matrix.clip_play_state(self.basics.slot_coordinates).ok()?;
+                        clip_play_state_unit_value(self.basics.action, play_state)
+                    }
+                    Repeat => {
+                        let is_looped = matrix.clip_looped(self.basics.slot_coordinates).ok()?;
+                        transport_is_enabled_unit_value(is_looped)
+                    }
+                };
+                Some(AbsoluteValue::Continuous(val))
+            })
+            .ok()?;
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -215,11 +226,89 @@ impl<'a> Target<'a> for ClipTransportTarget {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RealTimeClipTransportTarget {
+    pub project: Project,
+    pub basics: ClipTransportTargetBasics,
+}
+
+impl RealTimeClipTransportTarget {
+    pub fn hit(
+        &mut self,
+        value: ControlValue,
+        context: RealTimeControlContext,
+    ) -> Result<(), &'static str> {
+        use TransportAction::*;
+        let on = value.is_on();
+        let matrix = context.clip_matrix()?;
+        let matrix = matrix.lock();
+        match self.basics.action {
+            PlayStop => {
+                if on {
+                    matrix.play_clip(self.basics.slot_coordinates)
+                } else {
+                    matrix.stop_clip(self.basics.slot_coordinates)
+                }
+            }
+            PlayPause => {
+                if on {
+                    matrix.play_clip(self.basics.slot_coordinates)
+                } else {
+                    matrix.pause_clip(self.basics.slot_coordinates)
+                }
+            }
+            Stop => {
+                if on {
+                    matrix.stop_clip(self.basics.slot_coordinates)
+                } else {
+                    Ok(())
+                }
+            }
+            Pause => {
+                if on {
+                    matrix.pause_clip(self.basics.slot_coordinates)
+                } else {
+                    Ok(())
+                }
+            }
+            RecordStop => Err("record not supported for real-time target"),
+            Repeat => Err("setting repeated not supported for real-time target"),
+        }
+    }
+}
+
+impl<'a> Target<'a> for RealTimeClipTransportTarget {
+    type Context = RealTimeControlContext<'a>;
+
+    fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
+        let matrix = context.clip_matrix().ok()?;
+        let matrix = matrix.lock();
+        let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
+        let column = column.lock();
+        let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
+        let clip = match slot.clip() {
+            Ok(c) => c,
+            Err(_) => return interpret_current_clip_slot_value(None),
+        };
+        use TransportAction::*;
+        let val = match self.basics.action {
+            PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                clip_play_state_unit_value(self.basics.action, clip.play_state())
+            }
+            Repeat => transport_is_enabled_unit_value(clip.looped()),
+        };
+        Some(AbsoluteValue::Continuous(val))
+    }
+
+    fn control_type(&self, _: RealTimeControlContext<'a>) -> ControlType {
+        self.basics.action.control_type_and_character().0
+    }
+}
+
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip: Invoke transport action",
     short_name: "Clip transport",
-    hint: "Experimental target, record not supported",
-    supports_track: true,
+    supports_track: false,
     supports_slot: true,
     ..DEFAULT_TARGET
 };

@@ -63,12 +63,13 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                     ReaperCommand::Name(n) => n,
                 }),
                 invocation_type: {
-                    use ActionInvocationKind::*;
+                    use ActionInvocationKind as K;
                     use ActionInvocationType as T;
                     match d.invocation.unwrap_or_default() {
-                        Trigger => T::Trigger,
-                        Absolute => T::Absolute,
-                        Relative => T::Relative,
+                        K::Trigger => T::Trigger,
+                        K::Absolute14Bit => T::Absolute14Bit,
+                        K::Absolute7Bit => T::Absolute7Bit,
+                        K::Relative => T::Relative,
                     }
                 },
                 with_track: track_desc.is_some(),
@@ -550,47 +551,31 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
-        Target::ClipTransportAction(d) => {
-            let clip_desc = convert_clip_desc(d.clip)?;
-            let track_desc = match d.output.unwrap_or_default() {
-                ClipOutput::Track { track } => convert_track_desc(track.unwrap_or_default())?,
-            };
-            TargetModelData {
-                category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::ClipTransport,
-                track_data: track_desc.track_data,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
-                slot_index: clip_desc.slot_index,
-                transport_action: convert_transport_action(d.action),
-                next_bar: d.next_bar.unwrap_or(defaults::TARGET_CLIP_NEXT_BAR),
-                buffered: d.buffered.unwrap_or(defaults::TARGET_CLIP_BUFFERED),
-                ..init(d.commons)
-            }
-        }
-        Target::ClipSeek(d) => {
-            let clip_desc = convert_clip_desc(d.clip)?;
-            TargetModelData {
-                category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::ClipSeek,
-                slot_index: clip_desc.slot_index,
-                seek_options: SeekOptions {
-                    feedback_resolution: convert_feedback_resolution(
-                        d.feedback_resolution.unwrap_or_default(),
-                    ),
-                    ..Default::default()
-                },
-                ..init(d.commons)
-            }
-        }
-        Target::ClipVolume(d) => {
-            let clip_desc = convert_clip_desc(d.clip)?;
-            TargetModelData {
-                category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::ClipVolume,
-                slot_index: clip_desc.slot_index,
-                ..init(d.commons)
-            }
-        }
+        Target::ClipTransportAction(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipTransport,
+            clip_slot: Some(d.slot),
+            transport_action: convert_transport_action(d.action),
+            ..init(d.commons)
+        },
+        Target::ClipSeek(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipSeek,
+            clip_slot: Some(d.slot),
+            seek_options: SeekOptions {
+                feedback_resolution: convert_feedback_resolution(
+                    d.feedback_resolution.unwrap_or_default(),
+                ),
+                ..Default::default()
+            },
+            ..init(d.commons)
+        },
+        Target::ClipVolume(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipVolume,
+            clip_slot: Some(d.slot),
+            ..init(d.commons)
+        },
         Target::SendMidi(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SendMidi,
@@ -732,11 +717,6 @@ struct RouteDesc {
 }
 
 #[derive(Default)]
-struct ClipDesc {
-    slot_index: usize,
-}
-
-#[derive(Default)]
 struct FxDesc {
     chain_desc: FxChainDesc,
     fx_data: FxData,
@@ -747,15 +727,6 @@ struct FxDesc {
 struct FxParameterDesc {
     fx_desc: FxDesc,
     fx_parameter_data: FxParameterData,
-}
-
-fn convert_clip_desc(t: ClipDescriptor) -> ConversionResult<ClipDesc> {
-    let desc = match t {
-        ClipDescriptor::Slot { index } => ClipDesc {
-            slot_index: index as _,
-        },
-    };
-    Ok(desc)
 }
 
 fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
@@ -1082,7 +1053,7 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
         PlayPause => T::PlayPause,
         Stop => T::Stop,
         Pause => T::Pause,
-        Record => T::Record,
+        Record => T::RecordStop,
         Repeat => T::Repeat,
     }
 }

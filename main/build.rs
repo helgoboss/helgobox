@@ -68,6 +68,8 @@ fn compile_eel() {
         .warnings(false)
         // To make it compile for ARM targets (armv7 and aarch64) whose char type is unsigned.
         .define("WDL_ALLOW_UNSIGNED_DEFAULT_CHAR", None)
+        // To make it compile for ARM targets (armv7)
+        .define("_FILE_OFFSET_BITS", "64")
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
         .file("lib/WDL/WDL/eel2/nseel-caltab.c")

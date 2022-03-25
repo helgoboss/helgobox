@@ -1,12 +1,13 @@
+use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_raw_midi, log_output,
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
     AdditionalEelTransformationInput, AdditionalFeedbackEvent, DomainEventHandler, Exclusivity,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId,
-    InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
-    OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, RealTimeSender, ReaperTarget,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
+    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
+    OrderedMappingMap, OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, ReaperTarget,
     SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
     ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
     AUTOMATION_TOUCH_STATE_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET,
@@ -27,8 +28,11 @@ use helgoboss_learn::{
     TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::rt;
+use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
-use reaper_medium::{CommandId, MidiOutputDeviceId};
+use reaper_medium::CommandId;
 use serde_repr::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -320,11 +324,12 @@ pub trait RealearnTarget {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
+    ClipMatrix(&'a ClipMatrixEvent),
 }
 
 pub fn get_track_name(t: &Track) -> String {
@@ -360,8 +365,9 @@ pub struct EnableInstancesArgs<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
-    pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
-    pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
+    pub feedback_audio_hook_task_sender: &'a SenderToRealTimeThread<FeedbackAudioHookTask>,
+    pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
+    pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub instance_container: &'a dyn InstanceContainer,
     pub instance_state: &'a SharedInstanceState,
@@ -370,22 +376,41 @@ pub struct ControlContext<'a> {
     pub processor_context: &'a ProcessorContext,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct RealTimeControlContext<'a> {
+    pub clip_matrix: Option<&'a WeakMatrix>,
+}
+
+impl<'a> RealTimeControlContext<'a> {
+    pub fn clip_matrix(&self) -> Result<rt::SharedMatrix, &'static str> {
+        let weak_matrix = self
+            .clip_matrix
+            .ok_or("real-time clip matrix not yet initialized")?;
+        weak_matrix
+            .upgrade()
+            .ok_or("real-time clip matrix doesn't exist anymore")
+    }
+}
+
+impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
+    for RealTimeControlContext<'a>
+{
+    fn additional_input(&self) -> AdditionalEelTransformationInput {
+        AdditionalEelTransformationInput::default()
+    }
+}
+
 impl<'a> ControlContext<'a> {
-    pub fn send_raw_midi(
-        &self,
-        reason: OutputReason,
-        dev_id: MidiOutputDeviceId,
-        events: Vec<RawMidiEvent>,
-    ) {
+    pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
         if self.output_logging_enabled {
-            for e in &events {
-                log_output(self.instance_id, reason, format_raw_midi(e.bytes()));
+            for e in events {
+                log_output(
+                    self.instance_id,
+                    OutputReason::Target,
+                    format_raw_midi(e.bytes()),
+                );
             }
         }
-        let _ = self
-            .feedback_audio_hook_task_sender
-            .send(FeedbackAudioHookTask::SendMidi(dev_id, events))
-            .unwrap();
     }
 }
 

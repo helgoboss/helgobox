@@ -3,11 +3,11 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::base::Global;
+use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
-    NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
-    RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
+    MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
+    ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -68,7 +68,7 @@ pub struct RealearnPlugin {
     _reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
     normal_main_task_channel: (
-        crossbeam_channel::Sender<NormalMainTask>,
+        SenderToNormalThread<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
     // Will be cloned to session as soon as it gets created.
@@ -78,9 +78,9 @@ pub struct RealearnPlugin {
     // Will be cloned to session as soon as it gets created.
     parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     // Will be cloned to session as soon as it gets created.
-    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     // Will be cloned to session as soon as it gets created.
-    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
+    feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // and drive its processing without detour. Well, almost. We share it with the global ReaLearn
@@ -90,6 +90,7 @@ pub struct RealearnPlugin {
     session_state: SharedSessionState,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
+    sample_rate: Hz,
 }
 
 impl Default for RealearnPlugin {
@@ -104,17 +105,35 @@ impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_REAL_TIME_TASK_QUEUE_SIZE);
+                SenderToRealTimeThread::new_channel(
+                    "normal real-time tasks",
+                    NORMAL_REAL_TIME_TASK_QUEUE_SIZE,
+                );
             let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
-                crossbeam_channel::bounded(FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE);
+                SenderToRealTimeThread::new_channel(
+                    "feedback real-time tasks",
+                    FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE,
+                );
             let (normal_main_task_sender, normal_main_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "normal main tasks",
+                    NORMAL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (normal_rt_to_main_task_sender, normal_rt_to_main_task_receiver) =
-                crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "normal real-time to main tasks",
+                    NORMAL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (control_main_task_sender, control_main_task_receiver) =
-                crossbeam_channel::bounded(CONTROL_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "control main tasks",
+                    CONTROL_MAIN_TASK_QUEUE_SIZE,
+                );
             let (parameter_main_task_sender, parameter_main_task_receiver) =
-                crossbeam_channel::bounded(PARAMETER_MAIN_TASK_QUEUE_SIZE);
+                SenderToNormalThread::new_bounded_channel(
+                    "parameter main tasks",
+                    PARAMETER_MAIN_TASK_QUEUE_SIZE,
+                );
             let instance_id = InstanceId::random();
             let logger = App::logger().new(o!("instance" => instance_id.to_string()));
             let session_state: SharedSessionState = Default::default();
@@ -140,8 +159,8 @@ impl Plugin for RealearnPlugin {
                 main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
                 _reaper_guard: None,
                 plugin_parameters,
-                normal_real_time_task_sender: RealTimeSender::new(normal_real_time_task_sender),
-                feedback_real_time_task_sender: RealTimeSender::new(feedback_real_time_task_sender),
+                normal_real_time_task_sender,
+                feedback_real_time_task_sender,
                 normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
                 real_time_processor: Arc::new(Mutex::new(real_time_processor)),
                 parameter_main_task_receiver,
@@ -149,6 +168,7 @@ impl Plugin for RealearnPlugin {
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
                 session_state,
+                sample_rate: Default::default(),
             }
         })
         .unwrap_or_default()
@@ -164,6 +184,9 @@ impl Plugin for RealearnPlugin {
                 preset_chunks: true,
                 category: Category::Synth,
                 parameters: PLUGIN_PARAMETER_COUNT as i32,
+                f64_precision: true,
+                inputs: 2,
+                outputs: 0,
                 ..Default::default()
             }
         })
@@ -220,6 +243,7 @@ impl Plugin for RealearnPlugin {
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         firewall(|| {
+            tracing_debug!("VST vendor specific (index = {})", index);
             let opcode: plugin::OpCode = match index.try_into() {
                 Ok(c) => c,
                 Err(_) => return 0,
@@ -256,27 +280,49 @@ impl Plugin for RealearnPlugin {
         });
     }
 
-    fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
+    fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
         assert_no_alloc(|| {
             // Get current time information so we can detect changes in play state reliably
             // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
             self.was_playing_in_last_cycle = self.is_now_playing();
+            let block_props = AudioBlockProps::from_vst(buffer, self.sample_rate);
             self.real_time_processor
                 .lock_recover()
-                .run_from_vst(buffer.samples(), &self.host);
+                .run_from_vst(buffer, block_props, &self.host);
         });
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
         firewall(|| {
+            tracing_debug!("VST set sample rate");
+            self.sample_rate = Hz::new(rate as _);
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-            // If task queue is full or audio not running, spamming the user with error messages,
-            // so what. Don't spam the user with error messages.
-            let _ = self
-                .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+            // If task queue is full or audio not running, so what. Don't spam the user with error
+            // messages.
+            self.normal_real_time_task_sender
+                .send_if_space(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
+    }
+
+    fn suspend(&mut self) {
+        tracing_debug!("VST suspend");
+    }
+
+    fn resume(&mut self) {
+        tracing_debug!("VST resume");
+    }
+
+    fn set_block_size(&mut self, _size: i64) {
+        tracing_debug!("VST set block size");
+    }
+
+    fn start_process(&mut self) {
+        tracing_debug!("VST start process");
+    }
+
+    fn stop_process(&mut self) {
+        tracing_debug!("VST stop process");
     }
 }
 
@@ -346,10 +392,18 @@ impl RealearnPlugin {
                 };
                 // Instance state (domain - shared)
                 let (instance_feedback_event_sender, instance_feedback_event_receiver) =
-                    crossbeam_channel::bounded(INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE);
-                let instance_state = Rc::new(RefCell::new(InstanceState::new(
+                    SenderToNormalThread::new_bounded_channel(
+                        "instance state change events",
+                        INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE,
+                    );
+                let instance_state = BackboneState::get().create_instance(
+                    instance_id,
                     instance_feedback_event_sender,
-                )));
+                    App::get().clip_matrix_event_sender().clone(),
+                    App::get().normal_audio_hook_task_sender().clone(),
+                    normal_real_time_task_sender.clone(),
+                    processor_context.track().cloned(),
+                );
                 // Session (application - shared)
                 let session = Session::new(
                     instance_id,
@@ -370,6 +424,7 @@ impl RealearnPlugin {
                     instance_state.clone(),
                     session_state,
                     App::get().feedback_audio_hook_task_sender(),
+                    feedback_real_time_task_sender.clone(),
                     App::get().osc_feedback_task_sender(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
@@ -473,6 +528,12 @@ impl RealearnPlugin {
             SetData if value != 0 => {
                 let param_name = interpret_as_param_name(value)?;
                 self.set_named_config_param(param_name, ptr as *const c_char)
+            }
+            GetEffectName => {
+                self.normal_main_task_channel
+                    .0
+                    .send_if_space(NormalMainTask::GetEffectNameHasBeenCalled);
+                Err("only partially handled opcode")
             }
             _ => Err("unhandled opcode"),
         }

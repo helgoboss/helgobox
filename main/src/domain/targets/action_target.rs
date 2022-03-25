@@ -6,7 +6,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-use helgoboss_midi::U14;
+use helgoboss_midi::{U14, U7};
 use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
 use reaper_medium::{ActionValueChange, CommandId, MasterTrackBehavior, WindowContext};
 use std::convert::TryFrom;
@@ -68,14 +68,16 @@ impl RealearnTarget for ActionTarget {
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Switch,
             ),
-            ActionInvocationType::Absolute => match self.action.character() {
-                ActionCharacter::Toggle => {
-                    (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            ActionInvocationType::Absolute14Bit | ActionInvocationType::Absolute7Bit => {
+                match self.action.character() {
+                    ActionCharacter::Toggle => {
+                        (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+                    }
+                    ActionCharacter::Trigger => {
+                        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+                    }
                 }
-                ActionCharacter::Trigger => {
-                    (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
-                }
-            },
+            }
             ActionInvocationType::Relative => (ControlType::Relative, TargetCharacter::Discrete),
         }
     }
@@ -111,11 +113,14 @@ impl RealearnTarget for ActionTarget {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
                     if !v.is_zero() {
-                        self.invoke_with_unit_value(v);
+                        self.invoke_absolute_with_unit_value(v, false);
                     }
                 }
-                ActionInvocationType::Absolute => {
-                    self.invoke_with_unit_value(v);
+                ActionInvocationType::Absolute14Bit => {
+                    self.invoke_absolute_with_unit_value(v, false);
+                }
+                ActionInvocationType::Absolute7Bit => {
+                    self.invoke_absolute_with_unit_value(v, true);
                 }
                 ActionInvocationType::Relative => {
                     return Err("relative invocation type can't take absolute values");
@@ -123,7 +128,7 @@ impl RealearnTarget for ActionTarget {
             },
             ControlValue::Relative(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
-                    self.action.invoke(i.get() as f64, true, Some(self.project));
+                    self.action.invoke_relative(i.get(), Some(self.project));
                 } else {
                     return Err("relative values need relative invocation type");
                 }
@@ -131,10 +136,15 @@ impl RealearnTarget for ActionTarget {
             ControlValue::AbsoluteDiscrete(f) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
                     if !f.is_zero() {
-                        self.invoke_with_fraction(f)
+                        self.invoke_absolute_with_fraction(f, false)?;
                     }
                 }
-                ActionInvocationType::Absolute => self.invoke_with_fraction(f),
+                ActionInvocationType::Absolute14Bit => {
+                    self.invoke_absolute_with_fraction(f, false)?
+                }
+                ActionInvocationType::Absolute7Bit => {
+                    self.invoke_absolute_with_fraction(f, true)?
+                }
                 ActionInvocationType::Relative => {
                     return Err("relative invocation type can't take absolute values");
                 }
@@ -198,18 +208,29 @@ impl<'a> Target<'a> for ActionTarget {
 }
 
 impl ActionTarget {
-    fn invoke_with_fraction(&self, f: Fraction) {
-        if let Ok(u14) = U14::try_from(f.actual()) {
-            self.action.invoke_directly(
-                ActionValueChange::AbsoluteHighRes(u14),
-                WindowContext::Win(Reaper::get().main_window()),
-                self.project.context(),
-            );
-        }
+    fn invoke_absolute_with_fraction(
+        &self,
+        f: Fraction,
+        enforce_7_bit: bool,
+    ) -> Result<(), &'static str> {
+        let value_change = if enforce_7_bit {
+            let v = U7::try_from(f.actual()).map_err(|_| "couldn't convert to U7")?;
+            ActionValueChange::AbsoluteLowRes(v)
+        } else {
+            let v = U14::try_from(f.actual()).map_err(|_| "couldn't convert to U14")?;
+            ActionValueChange::AbsoluteHighRes(v)
+        };
+        self.action.invoke_directly(
+            value_change,
+            WindowContext::Win(Reaper::get().main_window()),
+            self.project.context(),
+        );
+        Ok(())
     }
 
-    fn invoke_with_unit_value(&self, v: UnitValue) {
-        self.action.invoke(v.get(), false, Some(self.project))
+    fn invoke_absolute_with_unit_value(&self, v: UnitValue, enforce_7_bit: bool) {
+        self.action
+            .invoke_absolute(v.get(), Some(self.project), enforce_7_bit)
     }
 }
 

@@ -26,11 +26,13 @@ See link:ARCHITECTURE.adoc[here].
 |Directory entry |Content 
 
 |`/` |Workspace root 
-|`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script) 
-|`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project 
-|`/doc` |Documentation 
-|`/main` |Main crate (`realearn`) 
-|`/proto` |gRPC / Protocol Buffers schema for communicating with ReaLearn at runtime 
+|`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script)
+|`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
+|`/doc` |Documentation
+|`/main` |Main crate (`realearn`)
+|`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
+|`/playtime-clip-engine` |Playtime clip engine for playing/recording clips
+|`/proto` |gRPC / Protocol Buffers schema for communicating with ReaLearn at runtime
 |`/rx-util` |Utility crate providing primitives for reactive programming (`rx-util`) 
 |`/swell-ui` |Minimalistic UI framework based on https://www.cockos.com/wdl/[SWELL] (`swell-ui`) 
 |`/resources` |REAPER projects for manual testing, controller preset files 
@@ -176,19 +178,13 @@ visible is to execute REAPER with a debugger.
 
 == Metrics
 
-It's possible to make ReaLearn collect execution metrics by building ReaLearn with the feature `realearn-meter` (the
-default) and setting the environment variable `REALEARN_METER`. If this environment variable is set (value doesn't
-matter), ReaLearn will continuously record histograms of control surface (`IReaperControlSurface`) method execution
-times. Control surface metrics are the most relevant metrics for ReaLearn because the processing is done in control
-surface methods for the most part. That also means ReaLearn's logic is largely executed in the main thread, not in the
-audio thread - which is atypical for a VST plug-in. That's also why REAPER's built-in FX performance measuring is not
-too interesting in case of ReaLearn because all it does in the audio thread is processing some MIDI messages.
 
-Metrics will be exposed in the following ways:
+It's possible to make ReaLearn expose execution metrics by building ReaLearn with the feature `realearn-metrics` (the default).
 
-* Whenever response times exceed a certain threshold, they will be logged to `stdout` at warn level.
-* If the projection server is running, metrics will be exposed at `/realearn/metrics` in the popular
- https://prometheus.io/[Prometheus] format. That's great for visualization.
+=== Prometheus endpoint
+
+* If the projection server is running, metrics will then be exposed at `/realearn/metrics` in the popular
+https://prometheus.io/[Prometheus] format. That's great for visualization.
 ** Just add this to your `prometheus.yml` (you might need to adjust the port):
 [source,yaml]
 ----
@@ -199,7 +195,21 @@ scrape_configs:
       - targets: ['localhost:39080']
 ----
 
-** If you don't have the environment variable set, this will show zeros only.
+** If you don't have any metrics enabled, this will show zeros only.
+
+=== Control surface metrics
+
+- Control surface metrics are the most relevant metrics for ReaLearn because the processing is done in control surface methods for the most part.
+- That also means ReaLearn's logic is largely executed in the main thread, not in the
+audio thread - which is atypical for a VST plug-in. REAPER's built-in FX performance measuring is not too interesting in case of ReaLearn because all it does in the audio thread is processing some MIDI messages.
+- Setting the environment variable `CONTROL_SURFACE_METRICS` (value doesn't matter) makes ReaLearn continuously record histograms of control surface (`IReaperControlSurface`) method execution times.
+- In addition to the Prometheus endpoint, response times will be logged to `stdout` at warn level whenever they exceed a certain threshold.
+
+=== Clip engine metrics
+
+- You can turn on clip engine metrics by setting the environment variable `CLIP_ENGINE_METRICS` (value doesn't matter).
+- If this environment variable is set (value doesn't matter), the clip engine will record some metrics and expose them on the Prometheus endpoint mentioned above.
+- Attention: This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.
 
 == Debug
 

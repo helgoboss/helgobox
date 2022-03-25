@@ -52,6 +52,7 @@ impl RealearnTarget for FxNavigateTarget {
         (
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(self.fx_chain.fx_count() + 1),
+                is_retriggerable: false,
             },
             TargetCharacter::Discrete,
         )

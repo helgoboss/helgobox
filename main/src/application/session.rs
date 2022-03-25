@@ -7,17 +7,20 @@ use crate::application::{
     VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
-use crate::base::{prop, when, AsyncNotifier, Global, Prop};
+use crate::base::{
+    prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
+    SenderToRealTimeThread,
+};
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, BasicSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
+    InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    NormalRealTimeTask, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -25,7 +28,6 @@ use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
 use rx_util::Notifier;
-use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
@@ -67,13 +69,13 @@ pub struct Session {
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub auto_correct_settings: Prop<bool>,
-    pub input_logging_enabled: Prop<bool>,
-    pub output_logging_enabled: Prop<bool>,
+    pub real_input_logging_enabled: Prop<bool>,
+    pub real_output_logging_enabled: Prop<bool>,
+    pub virtual_input_logging_enabled: Prop<bool>,
+    pub virtual_output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
-    pub midi_control_input: Prop<MidiControlInput>,
-    pub midi_feedback_output: Prop<Option<MidiDestination>>,
-    pub osc_input_device_id: Prop<Option<OscDeviceId>>,
-    pub osc_output_device_id: Prop<Option<OscDeviceId>>,
+    pub control_input: Prop<ControlInput>,
+    pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     pub lives_on_upper_floor: Prop<bool>,
     pub tags: Prop<Vec<Tag>>,
@@ -98,8 +100,8 @@ pub struct Session {
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
-    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
+    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
@@ -111,8 +113,12 @@ pub struct Session {
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_state: SharedInstanceState,
-    global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
-    global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
+    global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
+    feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+    global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
+    /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
+    /// instance but this instance is not yet loaded.
+    unresolved_foreign_clip_matrix_session_id: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -175,8 +181,8 @@ impl Session {
         instance_id: InstanceId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
-        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
-        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+        normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         ui: impl SessionUi + 'static,
         instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
@@ -184,8 +190,11 @@ impl Session {
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
         state: SharedSessionState,
-        global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
-        global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
+        global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
+            FeedbackAudioHookTask,
+        >,
+        feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
+        global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -196,13 +205,13 @@ impl Session {
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
             auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
-            input_logging_enabled: prop(false),
-            output_logging_enabled: prop(false),
+            real_input_logging_enabled: prop(false),
+            real_output_logging_enabled: prop(false),
+            virtual_input_logging_enabled: prop(false),
+            virtual_output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
-            midi_control_input: prop(MidiControlInput::FxInput),
-            midi_feedback_output: prop(None),
-            osc_input_device_id: prop(None),
-            osc_output_device_id: prop(None),
+            control_input: prop(Default::default()),
+            feedback_output: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             lives_on_upper_floor: prop(false),
             tags: Default::default(),
@@ -240,7 +249,9 @@ impl Session {
             main_preset_link_manager: Box::new(preset_link_manager),
             instance_state,
             global_feedback_audio_hook_task_sender,
+            feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
+            unresolved_foreign_clip_matrix_session_id: None,
         }
     }
 
@@ -252,10 +263,25 @@ impl Session {
         self.id.get_ref()
     }
 
+    pub fn unresolved_foreign_clip_matrix_session_id(&self) -> Option<&String> {
+        self.unresolved_foreign_clip_matrix_session_id.as_ref()
+    }
+
+    pub fn memorize_unresolved_foreign_clip_matrix_session_id(
+        &mut self,
+        foreign_session_id: String,
+    ) {
+        self.unresolved_foreign_clip_matrix_session_id = Some(foreign_session_id);
+    }
+
+    pub fn notify_foreign_clip_matrix_resolved(&mut self) {
+        self.unresolved_foreign_clip_matrix_session_id = None;
+    }
+
     pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {
         match input_descriptor {
-            InputDescriptor::Midi { device_id, channel } => match self.midi_control_input.get() {
-                MidiControlInput::FxInput => {
+            InputDescriptor::Midi { device_id, channel } => match self.control_input() {
+                ControlInput::Midi(MidiControlInput::FxInput) => {
                     if let Some(track) = self.context().track() {
                         if !track.is_armed(true) {
                             return false;
@@ -274,11 +300,14 @@ impl Session {
                         false
                     }
                 }
-                MidiControlInput::Device(dev_id) => dev_id == *device_id,
+                ControlInput::Midi(MidiControlInput::Device(dev_id)) => dev_id == *device_id,
+                _ => false,
             },
-            InputDescriptor::Osc { device_id } => {
-                self.osc_input_device_id.get_ref().as_ref() == Some(device_id)
-            }
+            InputDescriptor::Osc { device_id } => match self.control_input() {
+                ControlInput::Osc(dev_id) => dev_id == *device_id,
+                _ => false,
+            },
+            InputDescriptor::Keyboard => matches!(self.control_input(), ControlInput::Keyboard),
         }
     }
 
@@ -299,7 +328,7 @@ impl Session {
             if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtual_source_value) {
                 virtual_source.control(v).is_some()
             } else {
-                mapping_source.control(source_value).is_some()
+                mapping_source.try_control(source_value).is_some()
             }
         })
     }
@@ -347,8 +376,6 @@ impl Session {
         // won't arrive!
         self.sync_settings();
         self.sync_upper_floor_membership();
-        self.sync_control_is_globally_enabled();
-        self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
         for compartment in MappingCompartment::enum_iter() {
             self.sync_all_mappings_full(compartment);
@@ -358,8 +385,7 @@ impl Session {
     /// Makes all autostart mappings hit the target.
     pub fn notify_realearn_instance_started(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::NotifyRealearnInstanceStarted)
-            .unwrap();
+            .send_complaining(NormalMainTask::NotifyRealearnInstanceStarted);
     }
 
     /// Instructs the main processor to hit the target directly.
@@ -367,8 +393,7 @@ impl Session {
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.
     pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::HitTarget { id, value })
-            .unwrap();
+            .send_complaining(NormalMainTask::HitTarget { id, value });
     }
 
     /// Connects the dots.
@@ -400,36 +425,6 @@ impl Session {
             .do_async(move |session, (compartment, _)| {
                 session.borrow_mut().sync_all_mappings_full(compartment);
             });
-        // Whenever something changes that determines if feedback is enabled in general, let the
-        // processors know.
-        when(
-            // There are several global conditions which affect whether feedback will be enabled in
-            // general.
-            self.midi_feedback_output
-                .changed()
-                .merge(self.osc_output_device_id.changed())
-                .merge(self.containing_track_armed_or_disarmed())
-                .merge(self.send_feedback_only_if_armed.changed())
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            session.borrow_mut().sync_feedback_is_globally_enabled();
-        });
-        // Whenever containing FX is disabled or enabled, we need to completely disable/enable
-        // control/feedback.
-        when(
-            self.containing_fx_enabled_or_disabled()
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            let session = session.borrow_mut();
-            session.sync_control_is_globally_enabled();
-            session.sync_feedback_is_globally_enabled();
-        });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
         when(self.settings_changed())
@@ -546,15 +541,15 @@ impl Session {
         self.let_matched_events_through
             .changed()
             .merge(self.let_unmatched_events_through.changed())
-            .merge(self.midi_control_input.changed())
-            .merge(self.midi_feedback_output.changed())
-            .merge(self.osc_input_device_id.changed())
-            .merge(self.osc_output_device_id.changed())
+            .merge(self.control_input.changed())
+            .merge(self.feedback_output.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
-            .merge(self.input_logging_enabled.changed())
-            .merge(self.output_logging_enabled.changed())
+            .merge(self.real_input_logging_enabled.changed())
+            .merge(self.real_output_logging_enabled.changed())
+            .merge(self.virtual_input_logging_enabled.changed())
+            .merge(self.virtual_output_logging_enabled.changed())
     }
 
     pub fn captured_incoming_message(&mut self, event: MessageCaptureEvent) {
@@ -585,7 +580,7 @@ impl Session {
             .active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
                 let m = m.borrow();
-                if let Some(cv) = m.source_model.create_source().control(source_value) {
+                if let Some(cv) = m.source_model.create_source().try_control(source_value) {
                     let virtual_source_value =
                         VirtualSourceValue::new(m.target_model.create_control_element(), cv);
                     Some(virtual_source_value)
@@ -648,28 +643,22 @@ impl Session {
         //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource {
+            .send_complaining(NormalRealTimeTask::StartLearnSource {
                 allow_virtual_sources,
-            })
-            .unwrap();
+            });
         self.normal_main_task_sender
-            .try_send(NormalMainTask::StartLearnSource {
+            .send_complaining(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
-            })
-            .unwrap();
+            });
         let rt_sender = self.normal_real_time_task_sender.clone();
         let main_sender = self.normal_main_task_sender.clone();
         self.incoming_msg_captured_subject
             .clone()
             .finalize(move || {
                 if reenable_control_after_touched {
-                    rt_sender
-                        .send(NormalRealTimeTask::ReturnToControlMode)
-                        .unwrap();
-                    main_sender
-                        .try_send(NormalMainTask::ReturnToControlMode)
-                        .unwrap();
+                    rt_sender.send_complaining(NormalRealTimeTask::ReturnToControlMode);
+                    main_sender.send_complaining(NormalMainTask::ReturnToControlMode);
                 }
             })
     }
@@ -718,12 +707,13 @@ impl Session {
     pub fn control_context(&self) -> ControlContext {
         ControlContext {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
+            feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
             instance_container: self.instance_container,
             instance_state: self.instance_state(),
             instance_id: self.instance_id(),
-            output_logging_enabled: self.output_logging_enabled.get(),
+            output_logging_enabled: self.real_output_logging_enabled.get(),
             processor_context: &self.context,
         }
     }
@@ -1536,7 +1526,7 @@ impl Session {
             .filter(move |capture_event: &MessageCaptureEvent| {
                 !ignore_sources
                     .iter()
-                    .any(|is| is.control(capture_event.result.message()).is_some())
+                    .any(|is| is.try_control(capture_event.result.message()).is_some())
             })
             // We have this explicit stop criteria because we listen to global REAPER
             // events.
@@ -1616,20 +1606,16 @@ impl Session {
 
     fn disable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::DisableControl)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::DisableControl);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::DisableControl)
-            .unwrap();
+            .send_complaining(NormalMainTask::DisableControl);
     }
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::ReturnToControlMode)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::ReturnToControlMode);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::ReturnToControlMode)
-            .unwrap();
+            .send_complaining(NormalMainTask::ReturnToControlMode);
     }
 
     fn stop_learning_target(&mut self) {
@@ -1911,28 +1897,6 @@ impl Session {
         self.notify_parameter_settings_changed(compartment);
     }
 
-    fn containing_fx_enabled_or_disabled(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        let containing_fx = self.context.containing_fx().clone();
-        Global::control_surface_rx()
-            .fx_enabled_changed()
-            .filter(move |fx| *fx == containing_fx)
-            .map_to(())
-    }
-
-    fn containing_track_armed_or_disarmed(&self) -> LocalBoxOp<'static, (), ()> {
-        if let Some(track) = self.context.containing_fx().track().cloned() {
-            Global::control_surface_rx()
-                .track_arm_changed()
-                .filter(move |t| *t == track)
-                .map_to(())
-                .box_it()
-        } else {
-            observable::never().box_it()
-        }
-    }
-
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
     ///
     /// The session itself shouldn't subscribe to this.
@@ -1998,18 +1962,15 @@ impl Session {
 
     pub fn send_all_feedback(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::SendAllFeedback)
-            .unwrap();
+            .send_complaining(NormalMainTask::SendAllFeedback);
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
         self.normal_main_task_sender
-            .try_send(NormalMainTask::LogDebugInfo)
-            .unwrap();
+            .send_complaining(NormalMainTask::LogDebugInfo);
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogDebugInfo)
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::LogDebugInfo);
     }
 
     pub fn log_mapping(
@@ -2027,11 +1988,9 @@ impl Session {
         );
         debug!(self.logger, "{:?}", mapping);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
-            .unwrap();
+            .send_complaining(NormalMainTask::LogMapping(compartment, mapping_id));
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogMapping(compartment, mapping_id))
-            .unwrap();
+            .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         Ok(())
     }
 
@@ -2134,11 +2093,10 @@ impl Session {
     /// Good for checking produced feedback when doing integration testing.
     pub fn use_integration_test_feedback_sender(
         &self,
-        sender: crossbeam_channel::Sender<SourceFeedbackValue>,
+        sender: SenderToNormalThread<SourceFeedbackValue>,
     ) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UseIntegrationTestFeedbackSender(sender))
-            .unwrap();
+            .send_complaining(NormalMainTask::UseIntegrationTestFeedbackSender(sender));
     }
 
     /// Notifies listeners async that something in a mapping list has changed.
@@ -2176,19 +2134,11 @@ impl Session {
     }
 
     pub fn control_input(&self) -> ControlInput {
-        if let Some(osc_dev_id) = self.osc_input_device_id.get() {
-            ControlInput::Osc(osc_dev_id)
-        } else {
-            ControlInput::Midi(self.midi_control_input.get())
-        }
+        self.control_input.get()
     }
 
     pub fn feedback_output(&self) -> Option<FeedbackOutput> {
-        if let Some(osc_dev_id) = self.osc_output_device_id.get() {
-            Some(FeedbackOutput::Osc(osc_dev_id))
-        } else {
-            self.midi_feedback_output.get().map(FeedbackOutput::Midi)
-        }
+        self.feedback_output.get()
     }
 
     pub fn instance_state(&self) -> &SharedInstanceState {
@@ -2196,31 +2146,30 @@ impl Session {
     }
 
     fn sync_settings(&self) {
-        let task = NormalMainTask::UpdateSettings {
+        let settings = BasicSettings {
             control_input: self.control_input(),
             feedback_output: self.feedback_output(),
-            input_logging_enabled: self.input_logging_enabled.get(),
-            output_logging_enabled: self.output_logging_enabled.get(),
-        };
-        self.normal_main_task_sender.try_send(task).unwrap();
-        let task = NormalRealTimeTask::UpdateSettings {
+            real_input_logging_enabled: self.real_input_logging_enabled.get(),
+            real_output_logging_enabled: self.real_output_logging_enabled.get(),
+            virtual_input_logging_enabled: self.virtual_input_logging_enabled.get(),
+            virtual_output_logging_enabled: self.virtual_output_logging_enabled.get(),
+            send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
-            midi_control_input: self.midi_control_input.get(),
-            midi_feedback_output: self.midi_feedback_output.get(),
-            input_logging_enabled: self.input_logging_enabled.get(),
-            output_logging_enabled: self.output_logging_enabled.get(),
         };
-        self.normal_real_time_task_sender.send(task).unwrap();
+        self.normal_main_task_sender
+            .send_complaining(NormalMainTask::UpdateSettings(settings));
+        self.normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
     }
 
     fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {
-        self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdatePersistentMappingProcessingState {
+        self.normal_main_task_sender.send_complaining(
+            NormalMainTask::UpdatePersistentMappingProcessingState {
                 id: mapping.qualified_id(),
                 state: mapping.create_persistent_mapping_processing_state(),
-            })
-            .unwrap();
+            },
+        );
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
@@ -2230,8 +2179,7 @@ impl Session {
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)))
-            .unwrap();
+            .send_complaining(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)));
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
@@ -2247,57 +2195,14 @@ impl Session {
         }
     }
 
-    fn control_is_globally_enabled(&self) -> bool {
-        self.context.containing_fx().is_enabled()
-    }
-
-    fn feedback_is_globally_enabled(&self) -> bool {
-        (self.midi_feedback_output.get().is_some() || self.osc_output_device_id.get_ref().is_some())
-            && self.context.containing_fx().is_enabled()
-            && self.track_arm_conditions_are_met()
-    }
-
-    fn track_arm_conditions_are_met(&self) -> bool {
-        if !self.containing_fx_is_in_input_fx_chain() && !self.send_feedback_only_if_armed.get() {
-            return true;
-        }
-        match self.context.track() {
-            None => true,
-            Some(t) => t.is_available() && t.is_armed(false),
-        }
-    }
-
-    /// Just syncs whether control globally enabled or not.
-    fn sync_control_is_globally_enabled(&self) {
-        let enabled = self.control_is_globally_enabled();
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
-            .unwrap();
-        self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
-            .unwrap();
-    }
-
-    /// Just syncs whether feedback globally enabled or not.
-    fn sync_feedback_is_globally_enabled(&self) {
-        let enabled = self.feedback_is_globally_enabled();
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
-            .unwrap();
-        self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
-            .unwrap();
-    }
-
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateAllMappings(
+            .send_complaining(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
-            ))
-            .unwrap();
+            ));
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.

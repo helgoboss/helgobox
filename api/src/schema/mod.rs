@@ -14,6 +14,7 @@ pub use parameter::*;
 pub use source::*;
 pub use target::*;
 
+use playtime_api::Matrix;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -25,6 +26,7 @@ pub struct Envelope<T> {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
+    ClipMatrix(Envelope<Box<Option<Matrix>>>),
     MainCompartment(Envelope<Box<Compartment>>),
     ControllerCompartment(Envelope<Box<Compartment>>),
     Mappings(Envelope<Vec<Mapping>>),
