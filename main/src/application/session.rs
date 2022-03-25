@@ -12,15 +12,14 @@ use crate::base::{
     SenderToRealTimeThread,
 };
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    BackboneState, BasicSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
     GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, MainMapping, MainSettings, MappingCompartment, MappingId, MappingKey,
-    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
-    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
-    ZEROED_PLUGIN_PARAMETERS,
+    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
+    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualSource, VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -69,8 +68,8 @@ pub struct Session {
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub auto_correct_settings: Prop<bool>,
-    pub input_logging_enabled: Prop<bool>,
-    pub output_logging_enabled: Prop<bool>,
+    pub real_input_logging_enabled: Prop<bool>,
+    pub real_output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
@@ -201,8 +200,8 @@ impl Session {
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
             auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
-            input_logging_enabled: prop(false),
-            output_logging_enabled: prop(false),
+            real_input_logging_enabled: prop(false),
+            real_output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             control_input: prop(Default::default()),
             feedback_output: prop(None),
@@ -542,8 +541,8 @@ impl Session {
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
-            .merge(self.input_logging_enabled.changed())
-            .merge(self.output_logging_enabled.changed())
+            .merge(self.real_input_logging_enabled.changed())
+            .merge(self.real_output_logging_enabled.changed())
     }
 
     pub fn captured_incoming_message(&mut self, event: MessageCaptureEvent) {
@@ -706,7 +705,7 @@ impl Session {
             instance_container: self.instance_container,
             instance_state: self.instance_state(),
             instance_id: self.instance_id(),
-            output_logging_enabled: self.output_logging_enabled.get(),
+            output_logging_enabled: self.real_output_logging_enabled.get(),
             processor_context: &self.context,
         }
     }
@@ -2139,26 +2138,19 @@ impl Session {
     }
 
     fn sync_settings(&self) {
-        let settings = MainSettings {
+        let settings = BasicSettings {
             control_input: self.control_input(),
             feedback_output: self.feedback_output(),
-            input_logging_enabled: self.input_logging_enabled.get(),
-            output_logging_enabled: self.output_logging_enabled.get(),
+            real_input_logging_enabled: self.real_input_logging_enabled.get(),
+            real_output_logging_enabled: self.real_output_logging_enabled.get(),
             send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
         };
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateSettings(settings));
-        let task = NormalRealTimeTask::UpdateSettings {
-            let_matched_events_through: self.let_matched_events_through.get(),
-            let_unmatched_events_through: self.let_unmatched_events_through.get(),
-            control_input: self.control_input(),
-            feedback_output: self.feedback_output(),
-            input_logging_enabled: self.input_logging_enabled.get(),
-            output_logging_enabled: self.output_logging_enabled.get(),
-        };
-        self.normal_real_time_task_sender.send_complaining(task);
+        self.normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
     }
 
     fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {

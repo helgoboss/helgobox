@@ -8,11 +8,11 @@ use crate::domain::{
     InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
     LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
-    MessageCaptureResult, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedClipMatrixEvent,
-    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeMappingUpdate,
-    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage,
-    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
+    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RealFeedbackValue,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    ReaperMessage, ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
     SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
     VirtualSourceValue,
 };
@@ -76,7 +76,7 @@ struct Basics<EH: DomainEventHandler> {
     instance_id: InstanceId,
     instance_container: &'static dyn InstanceContainer,
     logger: slog::Logger,
-    settings: MainSettings,
+    settings: BasicSettings,
     control_is_globally_enabled: bool,
     // TODO-medium Now that we communicate the feedback output separately, we could limit the scope
     //  of its meaning to "instance enabled etc."
@@ -1161,7 +1161,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.update_on_mappings();
     }
 
-    fn update_settings(&mut self, settings: MainSettings) {
+    fn update_settings(&mut self, settings: BasicSettings) {
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
@@ -1530,7 +1530,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.control_mode != ControlMode::Controlling {
             return;
         }
-        if self.basics.settings.input_logging_enabled {
+        if self.basics.settings.real_input_logging_enabled {
             log_real_control_input(&self.basics.instance_id, msg.to_string());
         }
         if !self.basics.instance_control_is_effectively_enabled() {
@@ -1573,7 +1573,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ///
     /// This doesn't check if control enabled! You need to check before.
     pub fn process_incoming_key_msg(&mut self, msg: KeyMessage) -> bool {
-        if self.basics.settings.input_logging_enabled {
+        if self.basics.settings.real_input_logging_enabled {
             self.log_incoming_message(msg);
         }
         let matched = self.process_incoming_message_internal(MainSourceMessage::Key(msg));
@@ -1609,7 +1609,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// This doesn't check if control enabled! You need to check before.
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
-        if self.basics.settings.input_logging_enabled {
+        if self.basics.settings.real_input_logging_enabled {
             self.log_incoming_message(format_osc_packet(packet));
         }
         match packet {
@@ -2359,7 +2359,7 @@ pub enum NormalMainTask {
         value: AbsoluteValue,
     },
     RefreshAllTargets,
-    UpdateSettings(MainSettings),
+    UpdateSettings(BasicSettings),
     /// This is a hacky way to notify a ReaLearn instance on the monitoring FX chain
     /// that it might have been enabled or disabled (unfortunately, REAPER doesn't
     /// call CSURF_EXT_SETFXENABLED for monitoring FX).
@@ -2377,15 +2377,30 @@ pub enum NormalMainTask {
     UseIntegrationTestFeedbackSender(SenderToNormalThread<SourceFeedbackValue>),
 }
 
-#[derive(Debug, Default)]
-pub struct MainSettings {
+#[derive(Copy, Clone, Debug, Default)]
+pub struct BasicSettings {
     pub control_input: ControlInput,
     pub feedback_output: Option<FeedbackOutput>,
-    pub input_logging_enabled: bool,
-    pub output_logging_enabled: bool,
+    pub real_input_logging_enabled: bool,
+    pub real_output_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
+}
+
+impl BasicSettings {
+    /// For real-time processor usage.
+    pub fn midi_control_input(&self) -> MidiControlInput {
+        self.control_input
+            .midi_control_input()
+            .unwrap_or(MidiControlInput::FxInput)
+    }
+
+    /// For real-time processor usage.
+    pub fn midi_destination(&self) -> Option<MidiDestination> {
+        self.feedback_output
+            .and_then(|output| output.midi_destination())
+    }
 }
 
 /// A task which is sent from time to time from real-time to main processor.
@@ -2528,7 +2543,7 @@ impl FeedbackReason {
 impl<EH: DomainEventHandler> Basics<EH> {
     pub fn update_settings_internal(
         &mut self,
-        settings: MainSettings,
+        settings: BasicSettings,
         any_main_mapping_is_effectively_on: bool,
     ) {
         self.clear_last_feedback();
@@ -2674,7 +2689,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             instance_container: self.instance_container,
             instance_state: &self.instance_state,
             instance_id: &self.instance_id,
-            output_logging_enabled: self.settings.output_logging_enabled,
+            output_logging_enabled: self.settings.real_output_logging_enabled,
             processor_context: &self.context,
         }
     }
@@ -3067,7 +3082,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 (SourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
                     match midi_output {
                         MidiDestination::FxOutput => {
-                            if self.settings.output_logging_enabled {
+                            if self.settings.real_output_logging_enabled {
                                 log_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
@@ -3088,7 +3103,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // thread, in order to support multiple instances with the same device) ...
                             // it won't be useful at all if the real-time processors send the feedback
                             // in the order of instance instantiation.
-                            if self.settings.output_logging_enabled {
+                            if self.settings.real_output_logging_enabled {
                                 log_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
@@ -3103,7 +3118,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                 }
                 (SourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
-                    if self.settings.output_logging_enabled {
+                    if self.settings.real_output_logging_enabled {
                         log_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
                     self.channels
@@ -3469,14 +3484,14 @@ fn determine_control_globally_enabled(context: &ProcessorContext) -> bool {
 
 fn determine_feedback_globally_enabled(
     context: &ProcessorContext,
-    settings: &MainSettings,
+    settings: &BasicSettings,
 ) -> bool {
     settings.feedback_output.is_some()
         && context.containing_fx().is_enabled()
         && track_arm_conditions_are_met(context, settings)
 }
 
-fn track_arm_conditions_are_met(context: &ProcessorContext, settings: &MainSettings) -> bool {
+fn track_arm_conditions_are_met(context: &ProcessorContext, settings: &BasicSettings) -> bool {
     if !context.containing_fx().is_input_fx() && !settings.send_feedback_only_if_armed {
         return true;
     }

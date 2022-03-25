@@ -551,7 +551,7 @@ impl HeaderPanel {
                     "Log incoming messages",
                     ItemOpts {
                         enabled: true,
-                        checked: session.input_logging_enabled.get(),
+                        checked: session.real_input_logging_enabled.get(),
                     },
                     || MenuAction::ToggleInputLogging,
                 ),
@@ -559,7 +559,7 @@ impl HeaderPanel {
                     "Log outgoing messages",
                     ItemOpts {
                         enabled: true,
-                        checked: session.output_logging_enabled.get(),
+                        checked: session.real_output_logging_enabled.get(),
                     },
                     || MenuAction::ToggleOutputLogging,
                 ),
@@ -1048,14 +1048,14 @@ impl HeaderPanel {
     fn toggle_input_logging(&self) {
         self.session()
             .borrow_mut()
-            .input_logging_enabled
+            .real_input_logging_enabled
             .set_with(|prev| !*prev);
     }
 
     fn toggle_output_logging(&self) {
         self.session()
             .borrow_mut()
-            .output_logging_enabled
+            .real_output_logging_enabled
             .set_with(|prev| !*prev);
     }
 
