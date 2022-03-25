@@ -104,12 +104,12 @@ pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
     log(instance_id, "Real learn input", msg);
 }
 
-pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
-    log(instance_id, reason, msg);
+pub fn log_virtual_feedback_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::VirtualFeedback, msg);
 }
 
-pub fn log_feedback_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::Feedback, msg);
+pub fn log_real_feedback_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::RealFeedback, msg);
 }
 
 pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
@@ -120,10 +120,16 @@ pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
     log_output(instance_id, OutputReason::Target, msg);
 }
 
+pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
+    log(instance_id, reason, msg);
+}
+
 #[derive(Copy, Clone, Debug, Display)]
 pub enum OutputReason {
-    #[display(fmt = "Feedback output")]
-    Feedback,
+    #[display(fmt = "Real feedback output")]
+    RealFeedback,
+    #[display(fmt = "Virtual feedback output")]
+    VirtualFeedback,
     #[display(fmt = "Lifecycle output")]
     Lifecycle,
     /// E.g. device queries

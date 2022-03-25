@@ -28,9 +28,9 @@ use std::cell::RefCell;
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
-    format_osc_message, format_osc_packet, format_raw_midi, log_feedback_output,
-    log_lifecycle_output, log_real_control_input, log_real_learn_input, log_target_output,
-    log_virtual_control_input,
+    format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
+    log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_output,
+    log_virtual_control_input, log_virtual_feedback_output,
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
@@ -2384,6 +2384,7 @@ pub struct BasicSettings {
     pub real_input_logging_enabled: bool,
     pub real_output_logging_enabled: bool,
     pub virtual_input_logging_enabled: bool,
+    pub virtual_output_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
@@ -3011,9 +3012,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 // Virtual source matched virtual target. The following method
                                 // will always produce real target values (because controller
                                 // mappings can't have virtual sources).
-                                if let Some(SpecificCompoundFeedbackValue::Real(
-                                    final_feedback_value,
-                                )) = m.feedback_given_target_value(
+                                if self.settings.virtual_output_logging_enabled {
+                                    log_virtual_feedback_output(&self.instance_id, &value);
+                                }
+                                // TODO-high CONTINUE
+                                let compound_feedback_value = m.feedback_given_target_value(
                                     // This clone is unavoidable because we are producing
                                     // real feedback values and these will be sent to another
                                     //  thread, so they must be self-contained.
@@ -3023,7 +3026,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                             && m.feedback_is_enabled(),
                                         ..destinations
                                     },
-                                ) {
+                                );
+                                if let Some(SpecificCompoundFeedbackValue::Real(
+                                    final_feedback_value,
+                                )) = compound_feedback_value
+                                {
                                     // Successful virtual-to-real feedback
                                     self.send_direct_feedback(
                                         feedback_reason,
@@ -3089,7 +3096,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     match midi_output {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
-                                log_feedback_output(
+                                log_real_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
                                 );
@@ -3110,7 +3117,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // it won't be useful at all if the real-time processors send the feedback
                             // in the order of instance instantiation.
                             if self.settings.real_output_logging_enabled {
-                                log_feedback_output(
+                                log_real_feedback_output(
                                     &self.instance_id,
                                     format_midi_source_value(&v),
                                 );
@@ -3125,7 +3132,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 }
                 (SourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
-                        log_feedback_output(&self.instance_id, format_osc_message(&msg));
+                        log_real_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
                     self.channels
                         .osc_feedback_task_sender

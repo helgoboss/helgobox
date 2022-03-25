@@ -223,6 +223,7 @@ impl HeaderPanel {
             ToggleRealInputLogging,
             ToggleVirtualInputLogging,
             ToggleRealOutputLogging,
+            ToggleVirtualOutputLogging,
             ToggleSendFeedbackOnlyIfTrackArmed,
             ToggleUpperFloorMembership,
             ToggleServer,
@@ -572,6 +573,14 @@ impl HeaderPanel {
                     },
                     || MenuAction::ToggleRealOutputLogging,
                 ),
+                item_with_opts(
+                    "Log outgoing virtual messages",
+                    ItemOpts {
+                        enabled: true,
+                        checked: session.virtual_output_logging_enabled.get(),
+                    },
+                    || MenuAction::ToggleVirtualOutputLogging,
+                ),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -634,6 +643,7 @@ impl HeaderPanel {
             MenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
             MenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
             MenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
+            MenuAction::ToggleVirtualOutputLogging => self.toggle_virtual_output_logging(),
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
@@ -1073,6 +1083,13 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .real_output_logging_enabled
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_virtual_output_logging(&self) {
+        self.session()
+            .borrow_mut()
+            .virtual_output_logging_enabled
             .set_with(|prev| !*prev);
     }
 

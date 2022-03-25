@@ -71,6 +71,7 @@ pub struct Session {
     pub real_input_logging_enabled: Prop<bool>,
     pub real_output_logging_enabled: Prop<bool>,
     pub virtual_input_logging_enabled: Prop<bool>,
+    pub virtual_output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
@@ -204,6 +205,7 @@ impl Session {
             real_input_logging_enabled: prop(false),
             real_output_logging_enabled: prop(false),
             virtual_input_logging_enabled: prop(false),
+            virtual_output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             control_input: prop(Default::default()),
             feedback_output: prop(None),
@@ -546,6 +548,7 @@ impl Session {
             .merge(self.real_input_logging_enabled.changed())
             .merge(self.real_output_logging_enabled.changed())
             .merge(self.virtual_input_logging_enabled.changed())
+            .merge(self.virtual_output_logging_enabled.changed())
     }
 
     pub fn captured_incoming_message(&mut self, event: MessageCaptureEvent) {
@@ -2147,6 +2150,7 @@ impl Session {
             real_input_logging_enabled: self.real_input_logging_enabled.get(),
             real_output_logging_enabled: self.real_output_logging_enabled.get(),
             virtual_input_logging_enabled: self.virtual_input_logging_enabled.get(),
+            virtual_output_logging_enabled: self.virtual_output_logging_enabled.get(),
             send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),

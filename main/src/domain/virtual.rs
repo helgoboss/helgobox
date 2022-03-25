@@ -152,6 +152,16 @@ pub struct VirtualFeedbackValue {
     feedback_value: FeedbackValue<'static>,
 }
 
+impl Display for VirtualFeedbackValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} with value {}",
+            self.control_element, self.feedback_value
+        )
+    }
+}
+
 impl VirtualFeedbackValue {
     pub fn new(
         control_element: VirtualControlElement,
