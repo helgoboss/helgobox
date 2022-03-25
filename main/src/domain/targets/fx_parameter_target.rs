@@ -351,6 +351,7 @@ fn determine_param_control_type_and_character(
             (
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: UnitValue::new(step_size),
+                    is_retriggerable: false,
                 },
                 TargetCharacter::Discrete,
             )

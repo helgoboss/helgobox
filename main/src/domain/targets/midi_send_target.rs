@@ -81,6 +81,7 @@ impl MidiSendTarget {
                     (
                         ControlType::AbsoluteDiscrete {
                             atomic_step_size: step_size,
+                            is_retriggerable: true,
                         },
                         TargetCharacter::Discrete,
                     )

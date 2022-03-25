@@ -44,6 +44,7 @@ impl RealearnTarget for SelectedTrackTarget {
         (
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(self.project.track_count() + 1),
+                is_retriggerable: false,
             },
             TargetCharacter::Discrete,
         )

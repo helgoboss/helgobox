@@ -63,6 +63,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                     let count = self.count(context);
                     convert_count_to_step_size(count)
                 },
+                is_retriggerable: false,
             },
             TargetCharacter::Discrete,
         )
