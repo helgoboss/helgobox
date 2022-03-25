@@ -1,5 +1,7 @@
 use crate::base::eel;
-use helgoboss_learn::{AbsoluteValue, MidiSourceScript, RawMidiEvent};
+use helgoboss_learn::{
+    create_raw_midi_events_singleton, AbsoluteValue, MidiSourceScript, RawMidiEvent, RawMidiEvents,
+};
 
 use std::sync::Arc;
 
@@ -40,7 +42,7 @@ impl EelMidiSourceScript {
 }
 
 impl MidiSourceScript for EelMidiSourceScript {
-    fn execute(&self, input_value: AbsoluteValue) -> Result<Vec<RawMidiEvent>, &'static str> {
+    fn execute(&self, input_value: AbsoluteValue) -> Result<RawMidiEvents, &'static str> {
         let y_value = match input_value {
             AbsoluteValue::Continuous(v) => v.get(),
             AbsoluteValue::Discrete(f) => f.actual() as f64,
@@ -65,6 +67,6 @@ impl MidiSourceScript for EelMidiSourceScript {
             i += 1;
         }
         let raw_midi_event = RawMidiEvent::new(0, i, array);
-        Ok(vec![raw_midi_event])
+        Ok(create_raw_midi_events_singleton(raw_midi_event))
     }
 }

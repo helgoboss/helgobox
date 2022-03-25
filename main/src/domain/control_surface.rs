@@ -9,7 +9,7 @@ use crate::domain::{
     SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{ModeGarbage, RawMidiEvent};
+use helgoboss_learn::{ModeGarbage, RawMidiEvents};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     FxParameter, MainTaskMiddleware, Project, Reaper,
@@ -65,7 +65,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub enum Garbage {
-    RawMidiEvents(Vec<RawMidiEvent>),
+    RawMidiEvents(RawMidiEvents),
     RealTimeProcessor(SharedRealTimeProcessor),
     LifecycleMidiData(LifecycleMidiData),
     ResolvedTarget(Option<RealTimeCompoundMappingTarget>),

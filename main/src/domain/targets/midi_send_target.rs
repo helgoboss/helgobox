@@ -6,8 +6,8 @@ use crate::domain::{
     SendMidiDestination, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, Fraction, MidiSourceValue, RawMidiPattern, Target,
-    UnitValue,
+    create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
+    MidiSourceValue, RawMidiPattern, Target, UnitValue,
 };
 use std::convert::TryInto;
 
@@ -173,7 +173,8 @@ impl RealearnTarget for MidiSendTarget {
             }
         };
         self.artificial_value = value;
-        let raw_midi_events = vec![self.pattern.to_concrete_midi_event(value)];
+        let raw_midi_events =
+            create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(value));
         context
             .control_context
             .log_outgoing_target_midi(&raw_midi_events);
@@ -254,7 +255,6 @@ impl<'a> Target<'a> for MidiSendTarget {
 pub const MIDI_SEND_TARGET: TargetTypeDef = TargetTypeDef {
     name: "MIDI: Send message",
     short_name: "Send MIDI",
-    hint: "Has limitations (see user guide)",
     supports_feedback: false,
     ..DEFAULT_TARGET
 };

@@ -144,9 +144,7 @@ impl RealTimeProcessor {
         host: &HostCallback,
     ) {
         self.process_clip_record_task(buffer.split().0, block_props);
-        if self.get_feedback_driver() == Driver::Vst {
-            self.process_feedback_tasks(Caller::Vst(host));
-        }
+        self.process_feedback_tasks(Caller::Vst(host));
     }
 
     /// This should be regularly called by audio hook in normal mode.
@@ -472,11 +470,6 @@ impl RealTimeProcessor {
                 }
             }
         }
-        // It's better to send feedback after processing the settings update - otherwise there's the
-        // danger that feedback it sent to the wrong device or not at all.
-        if self.get_feedback_driver() == Driver::AudioHook {
-            self.process_feedback_tasks(Caller::AudioHook);
-        }
     }
 
     fn process_clip_record_task(
@@ -556,32 +549,6 @@ impl RealTimeProcessor {
                     self.send_captured_midi(res, allow_virtual_sources);
                 }
             }
-        }
-    }
-
-    /// There's an important difference between using audio hook or VST plug-in as driver:
-    /// VST processing stops e.g. when project paused and track not armed or on input FX chain and
-    /// track not armed. The result is that control, feedback, mapping updates and many other things
-    /// wouldn't work anymore. That's why we prefer audio hook whenever possible. However, we can't
-    /// use the audio hook if we need access to the VST plug-in host callback because it's dangerous
-    /// (would crash when plug-in gone) and somehow strange (although it seems to work).
-    ///
-    /// **IMPORTANT**: If "MIDI control input" is set to a MIDI device, it's very important that
-    /// `run()` is called either just from the VST or just from the audio hook. If both do it,
-    /// the MIDI messages are processed **twice**!!! Easy solution: Never have two drivers.
-    fn get_feedback_driver(&self) -> Driver {
-        use Driver::*;
-        match self.settings.midi_destination() {
-            // Feedback not sent at all. We still want to "eat" any remaining feedback messages.
-            // We do everything in the audio hook because it's more reliable.
-            None => AudioHook,
-            // Feedback sent directly to device. Same here: We let the audio hook do everything in
-            // order to not run into surprising situations where control or feedback don't work.
-            Some(MidiDestination::Device(_)) => AudioHook,
-            // Feedback sent to FX output. Here we have to be more careful because sending feedback
-            // to FX output involves host callback invocation. This can only be done from the VST
-            // plug-in.
-            Some(MidiDestination::FxOutput) => Vst,
         }
     }
 
@@ -941,6 +908,7 @@ impl RealTimeProcessor {
         {
             control_controller_mappings_midi(
                 &self.control_main_task_sender,
+                &self.feedback_task_sender,
                 controller_mappings,
                 main_mappings,
                 value_event,
@@ -975,6 +943,7 @@ impl RealTimeProcessor {
                     let _ = process_real_mapping(
                         m,
                         &self.control_main_task_sender,
+                        &self.feedback_task_sender,
                         compartment,
                         Event::new(source_value_event.offset(), control_value),
                         ControlOptions {
@@ -1072,13 +1041,15 @@ impl RealTimeProcessor {
                                     LifecycleMidiMessage::Raw(data) => {
                                         if self.settings.real_output_logging_enabled {
                                             permit_alloc(|| {
-                                                self.log_lifecycle_output(MidiSourceValue::Raw {
-                                                    // We don't use this as feedback value,
-                                                    // at least not in the sense that it
-                                                    // participates in feedback relay.
-                                                    feedback_address_info: None,
-                                                    events: vec![*data.clone()],
-                                                });
+                                                // We don't use this as feedback value,
+                                                // at least not in the sense that it
+                                                // participates in feedback relay.
+                                                let feedback_address_info = None;
+                                                let value = MidiSourceValue::single_raw(
+                                                    feedback_address_info,
+                                                    *data.clone(),
+                                                );
+                                                self.log_lifecycle_output(value);
                                             });
                                         }
                                         mo.send_msg(&**data, SendMidiTime::Instantly);
@@ -1104,13 +1075,13 @@ impl RealTimeProcessor {
                 LifecycleMidiMessage::Raw(data) => {
                     if self.settings.real_output_logging_enabled {
                         permit_alloc(|| {
-                            self.log_lifecycle_output(MidiSourceValue::Raw {
-                                // We don't use this as feedback value,
-                                // at least not in the sense that it
-                                // participates in feedback relay.
-                                feedback_address_info: None,
-                                events: vec![*data.clone()],
-                            });
+                            // We don't use this as feedback value,
+                            // at least not in the sense that it
+                            // participates in feedback relay.
+                            let feedback_address_info = None;
+                            let value =
+                                MidiSourceValue::single_raw(feedback_address_info, *data.clone());
+                            self.log_lifecycle_output(value);
                         });
                     }
                     send_raw_midi_to_fx_output(data.bytes(), SampleOffset::ZERO, caller)
@@ -1322,7 +1293,8 @@ pub enum MidiDestination {
 
 #[allow(clippy::too_many_arguments)]
 fn control_controller_mappings_midi(
-    sender: &SenderToNormalThread<ControlMainTask>,
+    main_task_sender: &SenderToNormalThread<ControlMainTask>,
+    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     // Mappings with virtual targets
     controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
@@ -1345,7 +1317,8 @@ fn control_controller_mappings_midi(
             let mapping_matched = match control_match {
                 ProcessVirtual(virtual_source_value) => {
                     let matched = control_main_mappings_virtual(
-                        sender,
+                        main_task_sender,
+                        rt_feedback_sender,
                         main_mappings,
                         Event::new(value_event.offset(), virtual_source_value),
                         ControlOptions {
@@ -1368,14 +1341,15 @@ fn control_controller_mappings_midi(
                         matrix,
                     );
                     if virtual_input_logging_enabled {
-                        log_virtual_control_input(sender, virtual_source_value, matched);
+                        log_virtual_control_input(main_task_sender, virtual_source_value, matched);
                     }
                     matched
                 }
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
                         m,
-                        sender,
+                        main_task_sender,
+                        rt_feedback_sender,
                         MappingCompartment::ControllerMappings,
                         Event::new(value_event.offset(), control_value),
                         ControlOptions {
@@ -1403,7 +1377,8 @@ fn control_controller_mappings_midi(
 #[allow(clippy::too_many_arguments)]
 fn process_real_mapping(
     mapping: &mut RealTimeMapping,
-    sender: &SenderToNormalThread<ControlMainTask>,
+    main_task_sender: &SenderToNormalThread<ControlMainTask>,
+    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     compartment: MappingCompartment,
     value_event: Event<ControlValue>,
     options: ControlOptions,
@@ -1437,7 +1412,8 @@ fn process_real_mapping(
                     control_value,
                     midi_feedback_output,
                     output_logging_enabled,
-                    sender,
+                    main_task_sender,
+                    rt_feedback_sender,
                     value_event,
                 );
             }
@@ -1453,7 +1429,7 @@ fn process_real_mapping(
     };
     // If we made it until here, real-time processing was not meant to be or not possible.
     forward_control_to_main_processor(
-        sender,
+        main_task_sender,
         compartment,
         mapping.id(),
         value_event.payload(),
@@ -1469,7 +1445,8 @@ fn real_time_target_send_midi(
     control_value: ControlValue,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    sender: &SenderToNormalThread<ControlMainTask>,
+    main_task_sender: &SenderToNormalThread<ControlMainTask>,
+    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     value_event: Event<ControlValue>,
 ) -> Result<(), &'static str> {
     let v = control_value.to_absolute_value()?;
@@ -1484,31 +1461,38 @@ fn real_time_target_send_midi(
                 Some(midi_feedback_output.ok_or("no feedback output set")?)
             }
         },
-        Caller::AudioHook => {
-            match t.destination() {
-                SendMidiDestination::FxOutput => {
-                    // Control input = Device | Destination = FX output.
-                    // Not supported currently. It could be by introducing a new
-                    // `FxOutputTask` with a SendMidiToFxOutput variant, tasks being
-                    // processed by `run_from_vst()` only no matter the feedback driver.
-                    None
-                }
-                SendMidiDestination::FeedbackOutput => {
-                    Some(midi_feedback_output.ok_or("no feedback output set")?)
-                }
+        Caller::AudioHook => match t.destination() {
+            SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
+            SendMidiDestination::FeedbackOutput => {
+                Some(midi_feedback_output.ok_or("no feedback output set")?)
             }
-        }
+        },
     };
     if output_logging_enabled && midi_destination.is_some() {
         permit_alloc(|| {
-            sender.send_complaining(ControlMainTask::LogTargetOutput {
+            main_task_sender.send_complaining(ControlMainTask::LogTargetOutput {
                 event: Box::new(raw_midi_event),
             });
         });
     }
     let successful = match midi_destination {
         Some(MidiDestination::FxOutput) => {
-            send_raw_midi_to_fx_output(raw_midi_event.bytes(), value_event.offset(), caller);
+            match caller {
+                Caller::Vst(_) => {
+                    send_raw_midi_to_fx_output(
+                        raw_midi_event.bytes(),
+                        value_event.offset(),
+                        caller,
+                    );
+                }
+                Caller::AudioHook => {
+                    // We can't send to FX output here directly. Need to wait until VST processing
+                    // starts (same processing cycle).
+                    rt_feedback_sender.send_complaining(FeedbackRealTimeTask::FxOutputFeedback(
+                        MidiSourceValue::single_raw(None, raw_midi_event),
+                    ));
+                }
+            }
             true
         }
         Some(MidiDestination::Device(dev_id)) => {
@@ -1550,7 +1534,8 @@ fn forward_control_to_main_processor(
 /// Returns whether this source value matched one of the mappings.
 #[allow(clippy::too_many_arguments)]
 fn control_main_mappings_virtual(
-    sender: &SenderToNormalThread<ControlMainTask>,
+    main_task_sender: &SenderToNormalThread<ControlMainTask>,
+    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: Event<VirtualSourceValue>,
     options: ControlOptions,
@@ -1570,7 +1555,8 @@ fn control_main_mappings_virtual(
             if let Some(control_value) = s.control(&value_event.payload()) {
                 let _ = process_real_mapping(
                     m,
-                    sender,
+                    main_task_sender,
+                    rt_feedback_sender,
                     MappingCompartment::MainMappings,
                     Event::new(value_event.offset(), control_value),
                     ControlOptions {
@@ -1587,12 +1573,6 @@ fn control_main_mappings_virtual(
         }
     }
     matched
-}
-
-#[derive(Eq, PartialEq)]
-enum Driver {
-    AudioHook,
-    Vst,
 }
 
 fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller) {
