@@ -792,7 +792,7 @@ impl RealTimeProcessor {
                 ..
             } => {
                 if self.input_logging_enabled {
-                    self.log_learn_input(event.payload());
+                    self.log_real_learn_input(event.payload());
                 }
                 let scan_result = match event.payload() {
                     IncomingMidiMessage::Short(short_msg) => {
@@ -826,7 +826,7 @@ impl RealTimeProcessor {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(event.payload());
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
-            self.log_control_input(source_value, false, matched);
+            self.log_real_control_input(source_value, false, matched);
         }
         if self.midi_control_input == MidiControlInput::FxInput
             && ((matched && self.let_matched_events_through)
@@ -845,7 +845,7 @@ impl RealTimeProcessor {
     }
 
     /// Might allocate!
-    fn log_control_input(
+    fn log_real_control_input(
         &self,
         msg: MidiSourceValue<RawShortMessage>,
         consumed: bool,
@@ -854,7 +854,7 @@ impl RealTimeProcessor {
         // It's okay to crackle when logging input.
         if let Ok(msg) = permit_alloc(|| msg.try_into_owned()) {
             self.control_main_task_sender
-                .send_complaining(ControlMainTask::LogControlInput {
+                .send_complaining(ControlMainTask::LogRealControlInput {
                     value: msg,
                     match_result: if consumed {
                         InputMatchResult::Consumed
@@ -868,11 +868,11 @@ impl RealTimeProcessor {
     }
 
     /// Might allocate!
-    fn log_learn_input(&self, msg: IncomingMidiMessage) {
+    fn log_real_learn_input(&self, msg: IncomingMidiMessage) {
         // It's okay if we crackle when logging input.
         let owned_msg = permit_alloc(|| msg.to_owned());
         self.control_main_task_sender
-            .send_complaining(ControlMainTask::LogLearnInput { msg: owned_msg });
+            .send_complaining(ControlMainTask::LogRealLearnInput { msg: owned_msg });
     }
 
     /// Might allocate!
@@ -903,7 +903,7 @@ impl RealTimeProcessor {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(event.payload());
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
-            self.log_control_input(source_value, false, matched);
+            self.log_real_control_input(source_value, false, matched);
         }
         if self.midi_control_input == MidiControlInput::FxInput
             && ((matched && self.let_matched_events_through)
@@ -931,7 +931,7 @@ impl RealTimeProcessor {
         let source_value = event.payload().to_source_value();
         if self.is_consumed_by_at_least_one_source(event.payload()) {
             if self.input_logging_enabled {
-                self.log_control_input(source_value, true, false);
+                self.log_real_control_input(source_value, true, false);
             }
             // Some short MIDI messages are just parts of bigger composite MIDI messages,
             // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
@@ -941,7 +941,7 @@ impl RealTimeProcessor {
         }
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
-            self.log_control_input(source_value, false, matched);
+            self.log_real_control_input(source_value, false, matched);
         }
         if matched {
             self.process_matched_short(event, caller);
@@ -973,6 +973,7 @@ impl RealTimeProcessor {
                 value_event,
                 caller,
                 self.midi_feedback_output,
+                self.input_logging_enabled,
                 self.output_logging_enabled,
                 self.clip_matrix.as_ref(),
             )
@@ -1363,6 +1364,7 @@ fn control_controller_mappings_midi(
     value_event: Event<&MidiSourceValue<RawShortMessage>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    input_logging_enabled: bool,
     output_logging_enabled: bool,
     matrix: Option<&WeakMatrix>,
 ) -> bool {
@@ -1375,29 +1377,35 @@ fn control_controller_mappings_midi(
         if let Some(control_match) = m.control_midi_virtualizing(value_event.payload()) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
-                ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
-                    sender,
-                    main_mappings,
-                    Event::new(value_event.offset(), virtual_source_value),
-                    ControlOptions {
-                        // We inherit "Send feedback after control" to the main processor if it's
-                        // enabled for the virtual mapping. That's the easy way to do it.
-                        // Downside: If multiple real control elements are mapped to one virtual
-                        // control element, "feedback after control" will be sent to all of those,
-                        // which is technically not necessary. It would be enough to just send it
-                        // to the one that was touched. However, it also doesn't really hurt.
-                        enforce_send_feedback_after_control: m.options().feedback_send_behavior
-                            == FeedbackSendBehavior::SendFeedbackAfterControl,
-                        mode_control_options: m.mode_control_options(),
-                        // Not important yet at this point because virtual targets can't affect
-                        // subsequent virtual targets.
-                        enforce_target_refresh: false,
-                    },
-                    caller,
-                    midi_feedback_output,
-                    output_logging_enabled,
-                    matrix,
-                ),
+                ProcessVirtual(virtual_source_value) => {
+                    let matched = control_main_mappings_virtual(
+                        sender,
+                        main_mappings,
+                        Event::new(value_event.offset(), virtual_source_value),
+                        ControlOptions {
+                            // We inherit "Send feedback after control" to the main processor if it's
+                            // enabled for the virtual mapping. That's the easy way to do it.
+                            // Downside: If multiple real control elements are mapped to one virtual
+                            // control element, "feedback after control" will be sent to all of those,
+                            // which is technically not necessary. It would be enough to just send it
+                            // to the one that was touched. However, it also doesn't really hurt.
+                            enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                                == FeedbackSendBehavior::SendFeedbackAfterControl,
+                            mode_control_options: m.mode_control_options(),
+                            // Not important yet at this point because virtual targets can't affect
+                            // subsequent virtual targets.
+                            enforce_target_refresh: false,
+                        },
+                        caller,
+                        midi_feedback_output,
+                        output_logging_enabled,
+                        matrix,
+                    );
+                    if input_logging_enabled {
+                        log_virtual_control_input(sender, virtual_source_value, matched);
+                    }
+                    matched
+                }
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
                         m,
@@ -1813,4 +1821,19 @@ impl<'a> WriteAudioRequest for RealTimeProcessorWriteAudioRequest<'a> {
         let slice = self.inputs.get(effective_channel_index);
         AudioBuf::from_slice(slice, 1, self.block_props.block_length).ok()
     }
+}
+
+fn log_virtual_control_input(
+    sender: &SenderToNormalThread<ControlMainTask>,
+    value: VirtualSourceValue,
+    matched: bool,
+) {
+    sender.send_complaining(ControlMainTask::LogVirtualControlInput {
+        value,
+        match_result: if matched {
+            InputMatchResult::Matched
+        } else {
+            InputMatchResult::Unmatched
+        },
+    });
 }

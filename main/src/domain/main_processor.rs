@@ -27,9 +27,10 @@ use std::cell::RefCell;
 
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
-    format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
-    format_raw_midi, log_control_input, log_feedback_output, log_learn_input, log_lifecycle_output,
-    log_target_output,
+    format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
+    format_osc_message, format_osc_packet, format_raw_midi, log_feedback_output,
+    log_lifecycle_output, log_real_control_input, log_real_learn_input, log_target_output,
+    log_virtual_control_input,
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
@@ -405,17 +406,29 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             } => {
                 let _ = self.control(compartment, mapping_id, value, options);
             }
-            LogControlInput {
+            LogVirtualControlInput {
                 value,
                 match_result,
             } => {
-                log_control_input(
+                log_virtual_control_input(
                     self.instance_id(),
-                    format!("{} ({})", format_midi_source_value(&value), match_result),
+                    format_control_input_with_match_result(value, match_result),
                 );
             }
-            LogLearnInput { msg } => {
-                log_learn_input(self.instance_id(), format_incoming_midi_message(msg));
+            LogRealControlInput {
+                value,
+                match_result,
+            } => {
+                log_real_control_input(
+                    self.instance_id(),
+                    format_control_input_with_match_result(
+                        format_midi_source_value(&value),
+                        match_result,
+                    ),
+                );
+            }
+            LogRealLearnInput { msg } => {
+                log_real_learn_input(self.instance_id(), format_incoming_midi_message(msg));
             }
             LogTargetOutput { event } => {
                 log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
@@ -1518,7 +1531,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         if self.basics.settings.input_logging_enabled {
-            log_control_input(&self.basics.instance_id, msg.to_string());
+            log_real_control_input(&self.basics.instance_id, msg.to_string());
         }
         if !self.basics.instance_control_is_effectively_enabled() {
             return;
@@ -1547,10 +1560,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn log_incoming_message<T: Display>(&self, msg: T) {
         match self.basics.control_mode {
             ControlMode::Controlling => {
-                log_control_input(&self.basics.instance_id, msg);
+                log_real_control_input(&self.basics.instance_id, msg);
             }
             ControlMode::LearningSource { .. } => {
-                log_learn_input(&self.basics.instance_id, msg);
+                log_real_learn_input(&self.basics.instance_id, msg);
             }
             ControlMode::Disabled => {}
         }
@@ -2417,11 +2430,15 @@ pub enum ControlMainTask {
         value: ControlValue,
         options: ControlOptions,
     },
-    LogControlInput {
+    LogVirtualControlInput {
+        value: VirtualSourceValue,
+        match_result: InputMatchResult,
+    },
+    LogRealControlInput {
         value: MidiSourceValue<'static, RawShortMessage>,
         match_result: InputMatchResult,
     },
-    LogLearnInput {
+    LogRealLearnInput {
         msg: OwnedIncomingMidiMessage,
     },
     LogTargetOutput {
@@ -2901,7 +2918,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 if let Some(virtual_source_value) = m.control_virtualizing(msg) {
                     self.event_handler
                         .notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
-                    self.process_main_mappings_with_virtual_sources(
+                    let results = self.process_main_mappings_with_virtual_sources(
                         main_mappings,
                         virtual_source_value,
                         ControlOptions {
@@ -2922,7 +2939,17 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             enforce_target_refresh: false,
                         },
                         parameters,
-                    )
+                    );
+                    let match_result = if results.is_empty() {
+                        InputMatchResult::Unmatched
+                    } else {
+                        InputMatchResult::Matched
+                    };
+                    log_virtual_control_input(
+                        &self.instance_id,
+                        format_control_input_with_match_result(virtual_source_value, match_result),
+                    );
+                    results
                 } else {
                     vec![]
                 }
@@ -3146,6 +3173,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
     }
 
     /// Processes main mappings with virtual sources.
+    ///
+    /// Returns a list of all invocation results. Empty if no mapping matched at all.
     fn process_main_mappings_with_virtual_sources(
         &self,
         main_mappings: &mut OrderedMappingMap<MainMapping>,

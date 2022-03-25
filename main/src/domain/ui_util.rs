@@ -1,4 +1,4 @@
-use crate::domain::{InstanceId, OwnedIncomingMidiMessage};
+use crate::domain::{InputMatchResult, InstanceId, OwnedIncomingMidiMessage};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -85,12 +85,23 @@ pub fn format_value_as_db(value: UnitValue) -> String {
         .to_string()
 }
 
-pub fn log_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Control input", msg);
+pub fn format_control_input_with_match_result(
+    msg: impl Display,
+    match_result: InputMatchResult,
+) -> String {
+    format!("{} ({})", msg, match_result)
 }
 
-pub fn log_learn_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Learn input", msg);
+pub fn log_virtual_control_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Virtual control input", msg);
+}
+
+pub fn log_real_control_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Real control input", msg);
+}
+
+pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Real learn input", msg);
 }
 
 pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {

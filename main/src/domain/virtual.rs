@@ -116,6 +116,16 @@ pub struct VirtualSourceValue {
     control_value: ControlValue,
 }
 
+impl Display for VirtualSourceValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} with value {}",
+            self.control_element, self.control_value
+        )
+    }
+}
+
 impl VirtualSourceValue {
     pub fn new(
         control_element: VirtualControlElement,
