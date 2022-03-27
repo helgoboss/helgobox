@@ -21,16 +21,17 @@ use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
 use playtime_api::{
     ClipPlayStartTiming, ClipRecordStartTiming, ClipRecordStopTiming, EvenQuantization,
-    MatrixClipRecordSettings, RecordLength,
+    MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
 };
 use reaper_high::{OwnedSource, Project, Reaper};
+use reaper_low::raw;
 use reaper_low::raw::PCM_sink;
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
     MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 use std::time::Duration;
@@ -101,9 +102,16 @@ enum State {
 #[derive(Debug)]
 struct ReadyState {
     source: OwnedPcmSource,
+    midi_overdub_settings: Option<MidiOverdubSettings>,
+}
+
+#[derive(Debug)]
+pub struct MidiOverdubSettings {
     /// For sending the result of overdubbing back to the main thread, we keep a mirror of the
     /// original source to which we apply the same modifications.
-    midi_overdub_mirror_source: Option<OwnedPcmSource>,
+    pub mirror_source: OwnedPcmSource,
+    pub mode: MidiClipRecordMode,
+    pub quantization_settings: Option<QuantizationSettings>,
 }
 
 #[derive(Debug)]
@@ -220,6 +228,7 @@ impl RecordingAudioFinishingState {
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
     mirror_source: OwnedPcmSource,
+    quantization_settings: Option<QuantizationSettings>,
 }
 
 impl KindState {
@@ -230,6 +239,7 @@ impl KindState {
                 let recording_midi_state = RecordingMidiState {
                     new_source: equipment.empty_midi_source,
                     mirror_source: equipment.empty_midi_source_mirror,
+                    quantization_settings: equipment.quantization_settings,
                 };
                 Self::Midi(recording_midi_state)
             }
@@ -285,7 +295,7 @@ impl Recorder {
     pub fn ready(source: OwnedPcmSource, request_sender: Sender<RecorderRequest>) -> Self {
         let ready_state = ReadyState {
             source,
-            midi_overdub_mirror_source: None,
+            midi_overdub_settings: None,
         };
         Self {
             state: Some(State::Ready(ready_state)),
@@ -369,11 +379,11 @@ impl Recorder {
     pub fn start_midi_overdub(
         &mut self,
         in_project_midi_source: Option<OwnedPcmSource>,
-        mirror_source: OwnedPcmSource,
+        settings: MidiOverdubSettings,
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => {
-                if s.midi_overdub_mirror_source.is_some() {
+                if s.midi_overdub_settings.is_some() {
                     return Err("recorder already has MIDI overdub mirror source");
                 }
                 if let Some(in_project_midi_source) = in_project_midi_source {
@@ -382,7 +392,7 @@ impl Recorder {
                     let obsolete_source = mem::replace(&mut s.source, in_project_midi_source);
                     self.request_sender.discard_source(obsolete_source);
                 }
-                s.midi_overdub_mirror_source = Some(mirror_source);
+                s.midi_overdub_settings = Some(settings);
                 Ok(())
             }
             State::Recording(_) => {
@@ -393,7 +403,7 @@ impl Recorder {
 
     pub fn take_midi_overdub_mirror_source(&mut self) -> Option<OwnedPcmSource> {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => s.midi_overdub_mirror_source.take(),
+            State::Ready(s) => Some(s.midi_overdub_settings.take()?.mirror_source),
             State::Recording(_) => None,
         }
     }
@@ -538,14 +548,16 @@ impl Recorder {
         overdub_frame: Option<usize>,
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => match s.midi_overdub_mirror_source.as_mut() {
+            State::Ready(s) => match s.midi_overdub_settings.as_mut() {
                 None => Err("neither recording nor overdubbing"),
-                Some(mirror_source) => {
+                Some(overdub_settings) => {
                     write_midi(
                         request,
                         &mut s.source,
-                        mirror_source,
+                        &mut overdub_settings.mirror_source,
                         overdub_frame.expect("no MIDI overdub frame given"),
+                        overdub_settings.mode,
+                        overdub_settings.quantization_settings.as_ref(),
                     );
                     Ok(())
                 }
@@ -588,6 +600,8 @@ impl Recorder {
                             &mut midi_state.new_source,
                             &mut midi_state.mirror_source,
                             recording.total_frame_offset,
+                            MidiClipRecordMode::Normal,
+                            midi_state.quantization_settings.as_ref(),
                         );
                         Ok(())
                     }
@@ -619,7 +633,7 @@ impl Recorder {
                             );
                             let ready_state = ReadyState {
                                 source,
-                                midi_overdub_mirror_source: None,
+                                midi_overdub_settings: None,
                             };
                             Ready(ready_state)
                         }
@@ -695,7 +709,7 @@ impl RecordingState {
                         // There's an old source to roll back to.
                         let ready_state = ReadyState {
                             source: old_source,
-                            midi_overdub_mirror_source: None,
+                            midi_overdub_settings: None,
                         };
                         (
                             Ok(StopRecordingOutcome::Canceled),
@@ -894,7 +908,7 @@ impl RecordingState {
                 };
                 let ready_state = ReadyState {
                     source: midi_state.new_source,
-                    midi_overdub_mirror_source: None,
+                    midi_overdub_settings: None,
                 };
                 (outcome, State::Ready(ready_state))
             }
@@ -969,19 +983,15 @@ impl RecordingEquipment {
 pub struct MidiRecordingEquipment {
     empty_midi_source: OwnedPcmSource,
     empty_midi_source_mirror: OwnedPcmSource,
-}
-
-impl Default for MidiRecordingEquipment {
-    fn default() -> Self {
-        Self::new()
-    }
+    quantization_settings: Option<QuantizationSettings>,
 }
 
 impl MidiRecordingEquipment {
-    pub fn new() -> Self {
+    pub fn new(quantization_settings: Option<QuantizationSettings>) -> Self {
         Self {
             empty_midi_source: create_empty_midi_source().into_raw(),
             empty_midi_source_mirror: create_empty_midi_source().into_raw(),
+            quantization_settings,
         }
     }
 }
@@ -1488,8 +1498,15 @@ fn write_midi(
     source: &mut OwnedPcmSource,
     mirror_source: &mut OwnedPcmSource,
     block_pos_frame: usize,
+    record_mode: MidiClipRecordMode,
+    quantization_settings: Option<&QuantizationSettings>,
 ) {
     let global_time = convert_duration_in_frames_to_seconds(block_pos_frame, MIDI_FRAME_RATE);
+    let overwrite_mode = match record_mode {
+        MidiClipRecordMode::Normal => -1,
+        MidiClipRecordMode::Overdub => 0,
+        MidiClipRecordMode::Replace => 1,
+    };
     let mut write_struct = midi_realtime_write_struct_t {
         // Time within the source.
         global_time: global_time.get(),
@@ -1505,7 +1522,7 @@ fn write_midi(
         global_item_time: 0.0,
         length: request.audio_request_props.block_length as _,
         // Overdub
-        overwritemode: 0,
+        overwritemode: overwrite_mode,
         events: unsafe { request.events.as_ptr().as_mut() },
         latency: 0.0,
         // Not used
@@ -1516,17 +1533,31 @@ fn write_midi(
         global_time.get(),
         block_pos_frame
     );
+    let quantize_mode = quantization_settings.map(|_| raw::midi_quantize_mode_t {
+        doquant: true,
+        movemode: 0,
+        sizemode: 0,
+        quantstrength: 100,
+        // 1 quarter note
+        quantamt: 1.0,
+        swingamt: 0,
+        range_min: 0,
+        range_max: 100,
+    });
+    let quantize_mode_ptr = quantize_mode
+        .map(|qm| &qm as *const _ as *mut c_void)
+        .unwrap_or(null_mut());
     unsafe {
         source.extended(
             PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
             &mut write_struct as *mut _ as _,
-            null_mut(),
+            quantize_mode_ptr,
             null_mut(),
         );
         mirror_source.extended(
             PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
             &mut write_struct as *mut _ as _,
-            null_mut(),
+            quantize_mode_ptr,
             null_mut(),
         );
     }
@@ -1590,3 +1621,6 @@ pub enum RecordState {
 }
 
 const MAX_AUDIO_CHANNEL_COUNT: usize = 64;
+
+#[derive(Clone, Debug)]
+pub struct QuantizationSettings {}

@@ -1,7 +1,7 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome,
+    LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier, PollRecordingOutcome,
     PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
     PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState, Recorder, RecordingArgs,
     Resampler, Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest,
@@ -290,12 +290,12 @@ impl SupplierChain {
     pub fn start_midi_overdub(
         &mut self,
         in_project_midi_source: Option<OwnedPcmSource>,
-        mirror_source: OwnedPcmSource,
+        settings: MidiOverdubSettings,
     ) {
         // With MIDI, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .start_midi_overdub(in_project_midi_source, mirror_source)
+            .start_midi_overdub(in_project_midi_source, settings)
             .unwrap();
     }
 

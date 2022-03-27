@@ -1,4 +1,7 @@
-use crate::rt::supplier::{ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest};
+use crate::rt::supplier::{
+    ChainEquipment, KindSpecificRecordingOutcome, MidiOverdubSettings, QuantizationSettings,
+    RecorderRequest,
+};
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{
     MidiOverdubInstruction, OverridableMatrixSettings, ProcessingRelevantClipSettings,
@@ -10,7 +13,7 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
-use playtime_api::{ClipColor, Db, Source};
+use playtime_api::{ClipColor, Db, MidiClipRecordMode, Source};
 use reaper_high::{OwnedSource, Project};
 use reaper_medium::{Bpm, OwnedPcmSource};
 
@@ -96,7 +99,15 @@ impl Clip {
     pub fn create_midi_overdub_instruction(
         &self,
         permanent_project: Project,
+        mode: MidiClipRecordMode,
+        auto_quantize: bool,
     ) -> ClipEngineResult<MidiOverdubInstruction> {
+        let quantization_settings = if auto_quantize {
+            // TODO-high Use project quantization settings
+            Some(QuantizationSettings {})
+        } else {
+            None
+        };
         let instruction = match &self.source {
             Source::File(file_based_api_source) => {
                 // We have a file-based MIDI source only. In the real-time clip, we need to replace
@@ -105,19 +116,29 @@ impl Clip {
                     Some(permanent_project),
                     file_based_api_source,
                 )?;
-                // TODO-high-wait Asked Justin how to convert into in-project MIDI source.
+                // TODO-high-wait Use Justin's trick to import as in-project MIDI.
                 let in_project_source = file_based_source;
                 MidiOverdubInstruction {
                     in_project_midi_source: Some(in_project_source.clone().into_raw()),
-                    mirror_source: in_project_source.into_raw(),
+                    settings: MidiOverdubSettings {
+                        mirror_source: in_project_source.into_raw(),
+                        mode,
+                        quantization_settings,
+                    },
                 }
             }
             Source::MidiChunk(s) => {
                 // We have an in-project MIDI source already. Great!
                 MidiOverdubInstruction {
                     in_project_midi_source: None,
-                    mirror_source: create_pcm_source_from_midi_chunk_based_api_source(s.clone())?
-                        .into_raw(),
+                    settings: MidiOverdubSettings {
+                        mirror_source: {
+                            create_pcm_source_from_midi_chunk_based_api_source(s.clone())?
+                                .into_raw()
+                        },
+                        mode,
+                        quantization_settings,
+                    },
                 }
             }
         };

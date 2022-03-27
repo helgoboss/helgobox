@@ -7,11 +7,12 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, RecordState,
-    Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome,
-    StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
+    PollRecordingOutcome, RecordState, Recorder, RecorderRequest, RecordingArgs,
+    RecordingEquipment, RecordingOutcome, StopRecordingOutcome, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
@@ -1053,7 +1054,7 @@ impl ReadyState {
         use ReadySubState::*;
         // TODO-medium Maybe we should start to play if not yet playing
         if let Playing(s) = self.state {
-            supplier_chain.start_midi_overdub(args.in_project_midi_source, args.mirror_source);
+            supplier_chain.start_midi_overdub(args.in_project_midi_source, args.settings);
             self.state = Playing(PlayingState {
                 overdubbing: true,
                 ..s
@@ -1440,12 +1441,7 @@ pub struct MidiOverdubInstruction {
     /// one, this field will contain an in-project MIDI source. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.
     pub in_project_midi_source: Option<OwnedPcmSource>,
-    /// A (in-project) clone of the current source into which the same overdub events are going to
-    /// be written.
-    ///
-    /// Can then be sent back to the main thread so it can be saved correctly (without having to
-    /// interfere with the real-time threads).  
-    pub mirror_source: OwnedPcmSource,
+    pub settings: MidiOverdubSettings,
 }
 
 #[derive(Debug)]

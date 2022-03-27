@@ -105,16 +105,17 @@ impl Slot {
                 use MidiClipRecordMode::*;
                 let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
                     Normal => false,
-                    Overdub => {
+                    Overdub | Replace => {
                         // Only allow MIDI overdub if existing clip is a MIDI clip already.
                         content.runtime_data.material_info.is_midi()
                     }
-                    Replace => todo!(),
                 };
                 let midi_overdub_instruction = if want_midi_overdub {
-                    let midi_overdub_instruction = content
-                        .clip
-                        .create_midi_overdub_instruction(playback_track.project())?;
+                    let midi_overdub_instruction = content.clip.create_midi_overdub_instruction(
+                        playback_track.project(),
+                        matrix_record_settings.midi_settings.record_mode,
+                        matrix_record_settings.midi_settings.auto_quantize,
+                    )?;
                     Some(midi_overdub_instruction)
                 } else {
                     None
@@ -133,7 +134,10 @@ impl Slot {
         let recording_equipment = record_task_creation_outcome
             .task
             .input
-            .create_recording_equipment(Some(playback_track.project()));
+            .create_recording_equipment(
+                Some(playback_track.project()),
+                matrix_record_settings.midi_settings.auto_quantize,
+            );
         let input_is_midi = recording_equipment.is_midi();
         let midi_overdub_instruction = if input_is_midi {
             midi_overdub_instruction

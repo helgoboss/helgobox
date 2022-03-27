@@ -3,7 +3,8 @@ use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
-    ChainPreBufferCommandProcessor, MidiRecordingEquipment, RecorderRequest, RecordingEquipment,
+    ChainPreBufferCommandProcessor, MidiRecordingEquipment, QuantizationSettings, RecorderRequest,
+    RecordingEquipment,
 };
 use crate::rt::{
     ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
@@ -432,11 +433,21 @@ pub enum ClipRecordInput {
 
 impl ClipRecordInput {
     /// Project is necessary to create an audio sink.
-    pub fn create_recording_equipment(&self, project: Option<Project>) -> RecordingEquipment {
+    pub fn create_recording_equipment(
+        &self,
+        project: Option<Project>,
+        auto_quantize_midi: bool,
+    ) -> RecordingEquipment {
         use ClipRecordInput::*;
         match &self {
             HardwareInput(ClipRecordHardwareInput::Midi(_)) => {
-                RecordingEquipment::Midi(MidiRecordingEquipment::new())
+                let quantization_settings = if auto_quantize_midi {
+                    // TODO-high Use project quantization settings
+                    Some(QuantizationSettings {})
+                } else {
+                    None
+                };
+                RecordingEquipment::Midi(MidiRecordingEquipment::new(quantization_settings))
             }
             HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
             | FxInput(virtual_input) => {
