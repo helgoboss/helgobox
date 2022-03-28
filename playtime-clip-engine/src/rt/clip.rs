@@ -255,7 +255,7 @@ impl Clip {
     }
 
     /// Stops the clip playing or recording.
-    pub fn stop<H: HandleStopEvent>(
+    pub fn stop<H: HandleSlotEvent>(
         &mut self,
         args: ClipStopArgs,
         event_handler: &H,
@@ -359,7 +359,7 @@ impl Clip {
     /// and writing material.
     ///
     /// Returns `false` if not necessary to poll and write material anymore.
-    pub fn recording_poll<H: HandleStopEvent>(
+    pub fn recording_poll<H: HandleSlotEvent>(
         &mut self,
         args: ClipRecordingPollArgs,
         event_handler: &H,
@@ -607,7 +607,7 @@ impl ReadyState {
     ///
     /// By default, if it's overdubbing, it just stops the overdubbing (a second call will make
     /// it stop playing).
-    pub fn stop<H: HandleStopEvent>(
+    pub fn stop<H: HandleSlotEvent>(
         &mut self,
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
@@ -840,7 +840,7 @@ impl ReadyState {
         };
         ClipProcessingOutcome {
             num_audio_frames_written: fill_samples_outcome.num_audio_frames_written,
-            slot_instruction: None,
+            clear_slot: false,
         }
     }
 
@@ -1056,41 +1056,37 @@ impl ReadyState {
             supplier_chain,
             &material_info,
         );
-        let (next_state, slot_instruction, recording_state) =
+        let (next_state, clear_slot, recording_state) =
             if let Some(next_frame) = fill_samples_outcome.next_frame {
                 // Suspension not finished yet.
                 let next_state = ReadySubState::Suspending(SuspendingState {
                     pos: next_frame,
                     ..s
                 });
-                (next_state, None, None)
+                (next_state, false, None)
             } else {
                 // Suspension finished.
                 use StateAfterSuspension::*;
                 self.reset_for_play(supplier_chain);
                 match s.next_state {
-                    Playing(s) => (ReadySubState::Playing(s), None, None),
+                    Playing(s) => (ReadySubState::Playing(s), false, None),
                     Paused => (
                         ReadySubState::Paused(PausedState { pos: s.pos }),
-                        None,
+                        false,
                         None,
                     ),
                     Stopped => {
                         supplier_chain.pre_buffer_simple(0);
-                        (ReadySubState::Stopped, None, None)
+                        (ReadySubState::Stopped, false, None)
                     }
-                    Recording(s) => (self.state, None, Some(s)),
-                    ToBeRemoved => (
-                        ReadySubState::Stopped,
-                        Some(SlotInstruction::ClearSlot),
-                        None,
-                    ),
+                    Recording(s) => (self.state, false, Some(s)),
+                    ToBeRemoved => (ReadySubState::Stopped, true, None),
                 }
             };
         self.state = next_state;
         let outcome = ClipProcessingOutcome {
             num_audio_frames_written: fill_samples_outcome.num_audio_frames_written,
-            slot_instruction,
+            clear_slot,
         };
         (outcome, recording_state)
     }
@@ -1287,7 +1283,7 @@ impl ReadyState {
 }
 
 impl RecordingState {
-    pub fn stop<H: HandleStopEvent>(
+    pub fn stop<H: HandleSlotEvent>(
         &mut self,
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
@@ -1328,7 +1324,7 @@ impl RecordingState {
         Ok(outcome)
     }
 
-    fn finish_recording<H: HandleStopEvent>(
+    fn finish_recording<H: HandleSlotEvent>(
         self,
         outcome: RecordingOutcome,
         supplier_chain: &mut SupplierChain,
@@ -1673,7 +1669,7 @@ impl Default for Go {
 #[derive(Default)]
 pub struct ClipProcessingOutcome {
     pub num_audio_frames_written: usize,
-    pub slot_instruction: Option<SlotInstruction>,
+    pub clear_slot: bool,
 }
 
 struct FillSamplesOutcome {
@@ -1681,10 +1677,10 @@ struct FillSamplesOutcome {
     next_frame: Option<isize>,
 }
 
-pub trait HandleStopEvent {
+pub trait HandleSlotEvent {
     fn midi_overdub_finished(&self, mirror_source: OwnedPcmSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
-    fn slot_cleared(&self);
+    fn slot_cleared(&self, clip: Clip);
 }
 
 /// Holds the result of a normal (non-overdub) recording.

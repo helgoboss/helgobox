@@ -2,7 +2,7 @@ use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipRecordingPollArgs, ClipStopArgs, HandleStopEvent, NormalRecordingOutcome, OwnedAudioBuffer,
+    ClipRecordingPollArgs, ClipStopArgs, HandleSlotEvent, NormalRecordingOutcome, OwnedAudioBuffer,
     Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
@@ -167,7 +167,7 @@ pub trait ColumnEventSender {
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
 
-    fn slot_cleared(&self, slot_index: usize);
+    fn slot_cleared(&self, slot_index: usize, clip: Clip);
 
     fn record_request_acknowledged(
         &self,
@@ -203,8 +203,9 @@ impl ColumnEventSender for Sender<ColumnEvent> {
         self.send_event(event);
     }
 
-    fn slot_cleared(&self, index: usize) {
-        self.send_event(ColumnEvent::ClipRemoved(index));
+    fn slot_cleared(&self, slot_index: usize, clip: Clip) {
+        let event = ColumnEvent::SlotCleared { slot_index, clip };
+        self.send_event(event);
     }
 
     fn record_request_acknowledged(
@@ -357,7 +358,7 @@ impl Column {
                 audio_request_props,
             };
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
-            let _ = slot.stop_clip(stop_args, &event_handler, &self.event_sender);
+            let _ = slot.stop_clip(stop_args, &event_handler);
         }
     }
 
@@ -380,7 +381,7 @@ impl Column {
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
-        slot.stop_clip(clip_args, &event_handler, &self.event_sender)
+        slot.stop_clip(clip_args, &event_handler)
     }
 
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
@@ -471,7 +472,7 @@ impl Column {
         };
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
-            let _ = slot.process_transport_change(&args, &event_handler, &self.event_sender);
+            let _ = slot.process_transport_change(&args, &event_handler);
         }
     }
 
@@ -486,7 +487,7 @@ impl Column {
     pub fn clear_slot(&mut self, index: usize) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, index);
-        slot.clear(&event_handler, &self.event_sender)?;
+        slot.clear(&event_handler)?;
         Ok(())
     }
 
@@ -652,7 +653,8 @@ impl Column {
                     matrix_settings: &self.matrix_settings,
                     column_settings: &self.settings,
                 };
-                if let Ok(outcome) = slot.process(&mut inner_args) {
+                let event_handler = ClipEventHandler::new(&self.event_sender, row);
+                if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
                     if outcome.num_audio_frames_written > 0 {
                         output_buffer
                             .slice_mut(0..outcome.num_audio_frames_written)
@@ -879,7 +881,10 @@ pub enum ColumnEvent {
         slot_index: usize,
         material_info: MaterialInfo,
     },
-    ClipRemoved(usize),
+    SlotCleared {
+        slot_index: usize,
+        clip: Clip,
+    },
     RecordRequestAcknowledged {
         slot_index: usize,
         /// Slot runtime data is returned only if it's a recording from scratch (slot was not
@@ -925,7 +930,7 @@ impl<'a> ClipEventHandler<'a> {
     }
 }
 
-impl<'a> HandleStopEvent for ClipEventHandler<'a> {
+impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
     fn midi_overdub_finished(&self, mirror_source: OwnedPcmSource) {
         self.event_sender
             .midi_overdub_finished(self.slot_index, mirror_source);
@@ -936,8 +941,8 @@ impl<'a> HandleStopEvent for ClipEventHandler<'a> {
             .normal_recording_finished(self.slot_index, outcome);
     }
 
-    fn slot_cleared(&self) {
-        self.event_sender.slot_cleared(self.slot_index);
+    fn slot_cleared(&self, clip: Clip) {
+        self.event_sender.slot_cleared(self.slot_index, clip);
     }
 }
 

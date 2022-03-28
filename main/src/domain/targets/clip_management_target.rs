@@ -50,6 +50,9 @@ impl RealearnTarget for ClipManagementTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
+        if !value.is_on() {
+            return Ok(None);
+        }
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| {
@@ -78,8 +81,8 @@ impl RealearnTarget for ClipManagementTarget {
 impl<'a> Target<'a> for ClipManagementTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        None
+    fn current_value(&self, _: ControlContext<'a>) -> Option<AbsoluteValue> {
+        Some(AbsoluteValue::default())
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

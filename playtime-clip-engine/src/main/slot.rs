@@ -377,6 +377,10 @@ impl Slot {
             .notify_midi_overdub_finished(mirror_source, temporary_project)
     }
 
+    pub fn slot_cleared(&mut self) -> Option<ClipChangedEvent> {
+        self.content.take().map(|_| ClipChangedEvent::Removed)
+    }
+
     pub fn notify_normal_recording_finished(
         &mut self,
         outcome: NormalRecordingOutcome,
@@ -422,6 +426,12 @@ pub enum SlotState {
     RecordingOrOverdubbingRequested,
     /// Recording (no overdub).
     Recording(SlotRuntimeData),
+}
+
+impl SlotState {
+    pub fn is_as_good_as_recording(&self) -> bool {
+        !matches!(self, Self::Normal)
+    }
 }
 
 impl Default for SlotState {

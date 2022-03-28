@@ -238,7 +238,13 @@ impl Column {
                         .help_set(formatted, HelpMode::Temporary);
                     None
                 }
-                ClipRemoved(slot_index) => Some((slot_index, ClipChangedEvent::Removed)),
+                SlotCleared { slot_index, .. } => {
+                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                        slot.slot_cleared().map(|e| (slot_index, e))
+                    } else {
+                        None
+                    }
+                }
             };
             if let Some(evt) = change_event {
                 change_events.push(evt);

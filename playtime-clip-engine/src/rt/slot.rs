@@ -2,12 +2,10 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
-    ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
-    ColumnSettings, HandleStopEvent, OverridableMatrixSettings, SharedPos, SlotInstruction,
-    SlotRecordInstruction,
+    ColumnProcessTransportChangeArgs, ColumnSettings, HandleSlotEvent, OverridableMatrixSettings,
+    SharedPos, SlotInstruction, SlotRecordInstruction,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
-use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::{ClipPlayStopTiming, Db};
 use reaper_medium::PlayState;
@@ -35,7 +33,7 @@ impl Slot {
     }
 
     /// See [`Clip::recording_poll`].
-    pub fn recording_poll<H: HandleStopEvent>(
+    pub fn recording_poll<H: HandleSlotEvent>(
         &mut self,
         args: ClipRecordingPollArgs,
         event_handler: &H,
@@ -57,53 +55,47 @@ impl Slot {
     }
 
     /// Stops the clip if this slot contains one.
-    pub fn stop_clip<H: HandleStopEvent>(
+    pub fn stop_clip<H: HandleSlotEvent>(
         &mut self,
         args: ClipStopArgs,
         event_handler: &H,
-        event_sender: &Sender<ColumnEvent>,
     ) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
         let instruction = self.clip_mut_internal()?.stop(args, event_handler)?;
         if let Some(instruction) = instruction {
-            self.process_stop_instruction(instruction, event_sender);
+            self.process_instruction(instruction, event_handler);
         }
         Ok(())
     }
 
-    fn process_stop_instruction(
+    fn process_instruction<H: HandleSlotEvent>(
         &mut self,
         instruction: SlotInstruction,
-        event_sender: &Sender<ColumnEvent>,
+        event_handler: &H,
     ) {
         use SlotInstruction::*;
         match instruction {
             ClearSlot => {
-                self.clear_internal(event_sender);
+                self.clear_internal(event_handler);
             }
         }
     }
 
-    pub fn clear<H: HandleStopEvent>(
-        &mut self,
-        event_handler: &H,
-        event_sender: &Sender<ColumnEvent>,
-    ) -> ClipEngineResult<()> {
+    pub fn clear<H: HandleSlotEvent>(&mut self, event_handler: &H) -> ClipEngineResult<()> {
         let clip = match &mut self.clip {
             None => return Err("already empty"),
             Some(c) => c,
         };
         if clip.initiate_removal()? {
-            self.clear_internal(event_sender);
-            event_handler.slot_cleared();
+            self.clear_internal(event_handler);
         }
         Ok(())
     }
 
-    fn clear_internal(&mut self, event_sender: &Sender<ColumnEvent>) {
+    fn clear_internal<H: HandleSlotEvent>(&mut self, event_handler: &H) {
         debug!("Clearing real-time slot");
         if let Some(clip) = self.clip.take() {
-            event_sender.dispose(ColumnGarbage::Clip(clip));
+            event_handler.slot_cleared(clip);
         };
         self.runtime_data = InternalRuntimeData::default();
     }
@@ -198,11 +190,10 @@ impl Slot {
         Ok(())
     }
 
-    pub fn process_transport_change<H: HandleStopEvent>(
+    pub fn process_transport_change<H: HandleSlotEvent>(
         &mut self,
         args: &SlotProcessTransportChangeArgs,
         event_handler: &H,
-        event_sender: &Sender<ColumnEvent>,
     ) -> ClipEngineResult<()> {
         let instruction = {
             let clip = match &mut self.clip {
@@ -300,26 +291,32 @@ impl Slot {
             }
         };
         if let Some(instruction) = instruction {
-            self.process_stop_instruction(instruction, event_sender);
+            self.process_instruction(instruction, event_handler);
         }
         Ok(())
     }
 
-    pub fn process(
+    pub fn process<H: HandleSlotEvent>(
         &mut self,
         args: &mut ClipProcessArgs,
+        event_handler: &H,
     ) -> ClipEngineResult<SlotProcessingOutcome> {
         measure_time("slot.process.time", || {
             let clip = self.clip_mut_internal()?;
             let clip_outcome = clip.process(args);
-            let play_state = clip.play_state();
-            let last_play_state = self.runtime_data.last_play_state;
-            let changed_play_state = if play_state == last_play_state {
+            let changed_play_state = if clip_outcome.clear_slot {
+                self.clear_internal(event_handler);
                 None
             } else {
-                debug!("Clip state changed: {:?}", play_state);
-                self.runtime_data.last_play_state = play_state;
-                Some(play_state)
+                let play_state = clip.play_state();
+                let last_play_state = self.runtime_data.last_play_state;
+                if play_state == last_play_state {
+                    None
+                } else {
+                    debug!("Clip state changed: {:?}", play_state);
+                    self.runtime_data.last_play_state = play_state;
+                    Some(play_state)
+                }
             };
             let outcome = SlotProcessingOutcome {
                 changed_play_state,
@@ -339,7 +336,7 @@ impl Slot {
 }
 
 impl InternalRuntimeData {
-    fn stop_clip_by_transport<H: HandleStopEvent>(
+    fn stop_clip_by_transport<H: HandleSlotEvent>(
         &mut self,
         clip: &mut Clip,
         args: &SlotProcessTransportChangeArgs,

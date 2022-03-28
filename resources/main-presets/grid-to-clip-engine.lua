@@ -23,9 +23,17 @@ local parameters = {
         index = 3,
         name = "Record modifier",
     },
+    {
+        index = 4,
+        name = "Delete modifier",
+    },
 }
 
 local groups = {
+    {
+        id = "exclusive-modifiers",
+        name = "Exclusive modifiers",
+    },
     {
         id = "slot-play",
         name = "Slot play",
@@ -34,11 +42,16 @@ local groups = {
         id = "slot-record",
         name = "Slot record",
     },
+    {
+        id = "slot-clear",
+        name = "Slot clear",
+    },
 }
 
 local mappings = {
     {
         id = "record-modifier",
+        group = "exclusive-modifiers",
         name = "Record modifier",
         source = {
             kind = "Virtual",
@@ -47,6 +60,7 @@ local mappings = {
         },
         glue = {
             absolute_mode = "ToggleButton",
+            interaction = "InverseTargetValueOnOnly",
         },
         target = {
             kind = "FxParameterValue",
@@ -55,7 +69,28 @@ local mappings = {
                 index = 3,
             },
         },
-    }
+    },
+    {
+        id = "delete-modifier",
+        group = "exclusive-modifiers",
+        name = "Delete modifier",
+        source = {
+            kind = "Virtual",
+            id = "delete",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "ToggleButton",
+            interaction = "InverseTargetValueOnOnly",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 4,
+            },
+        },
+    },
 }
 
 -- For each column
@@ -76,6 +111,10 @@ for col = 0, column_count - 1 do
                 modifiers = {
                     {
                         parameter = 3,
+                        on = false,
+                    },
+                    {
+                        parameter = 4,
                         on = false,
                     },
                 },
@@ -137,9 +176,6 @@ for col = 0, column_count - 1 do
                 character = "Button",
                 id = prefix .. "pad",
             },
-            glue = {
-                absolute_mode = "ToggleButton",
-            },
             target = {
                 kind = "ClipTransportAction",
                 slot = {
@@ -150,9 +186,44 @@ for col = 0, column_count - 1 do
                 action = "Record",
             },
         }
+        local slot_clear = {
+            id = prefix .. "slot-clear",
+            name = "Slot " .. human_col .. "/" .. human_row .. " clear",
+            group = "slot-clear",
+            feedback_enabled = false,
+            activation_condition = {
+                kind = "Modifier",
+                modifiers = {
+                    {
+                        parameter = 4,
+                        on = true,
+                    },
+                },
+            },
+            source = {
+                kind = "Virtual",
+                character = "Button",
+                id = prefix .. "pad",
+            },
+            glue = {
+                absolute_mode = "ToggleButton",
+            },
+            target = {
+                kind = "ClipManagement",
+                slot = {
+                    address = "Dynamic",
+                    column_expression = slot_column_expression,
+                    row_expression = slot_row_expression
+                },
+                action = {
+                    kind = "ClearSlot",
+                },
+            },
+        }
         table.insert(mappings, slot_play)
         table.insert(mappings, slot_play_feedback)
         table.insert(mappings, slot_record)
+        table.insert(mappings, slot_clear)
     end
 end
 

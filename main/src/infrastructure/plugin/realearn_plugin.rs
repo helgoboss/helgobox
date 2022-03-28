@@ -243,7 +243,7 @@ impl Plugin for RealearnPlugin {
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         firewall(|| {
-            tracing_debug!("VST vendor specific (index = {})", index);
+            // tracing_debug!("VST vendor specific (index = {})", index);
             let opcode: plugin::OpCode = match index.try_into() {
                 Ok(c) => c,
                 Err(_) => return 0,
