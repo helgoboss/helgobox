@@ -441,6 +441,13 @@ pub struct ClipRecordTask {
 pub struct ClipRecordDestination {
     pub column_source: WeakColumn,
     pub slot_index: usize,
+    /// If this is set, it's important to write the MIDI events during the *post* phase of the audio
+    /// callback, otherwise the written MIDI events would be played back a moment later, which
+    /// would result in duplicated note playback during recording.
+    ///
+    /// If this is not set, it's important to write it in the *pre* phase because we don't want
+    /// to miss playing back any material when we change back from recording to ready.
+    pub is_midi_overdub: bool,
 }
 
 #[derive(Debug)]

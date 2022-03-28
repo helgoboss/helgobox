@@ -7,8 +7,8 @@ use crate::main::{
     VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, Recorder, RecorderRequest, RecordingArgs, SupplierChain,
-    MIDI_BASE_BPM,
+    ChainEquipment, MaterialInfo, Recorder, RecorderRequest, RecordingArgs, RecordingEquipment,
+    SupplierChain, MIDI_BASE_BPM,
 };
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::rt::{
@@ -132,22 +132,16 @@ impl Slot {
             }
         };
         // Prepare tasks, equipment, instructions.
-        let record_task_creation_outcome = create_clip_record_task(
+        let record_stuff = create_clip_record_stuff(
             self.index,
             containing_track,
+            matrix_record_settings,
             column_record_settings,
             playback_track,
             rt_column,
+            midi_overdub_instruction.is_some(),
         )?;
-        let recording_equipment = record_task_creation_outcome
-            .task
-            .input
-            .create_recording_equipment(
-                Some(playback_track.project()),
-                matrix_record_settings.midi_settings.auto_quantize,
-            );
-        let input_is_midi = recording_equipment.is_midi();
-        let midi_overdub_instruction = if input_is_midi {
+        let midi_overdub_instruction = if record_stuff.task.destination.is_midi_overdub {
             midi_overdub_instruction
         } else {
             // Want overdub but we have a audio input, so don't use overdub mode after all.
@@ -159,7 +153,7 @@ impl Slot {
         } else {
             // We record completely new material.
             let args = ClipRecordArgs {
-                recording_equipment,
+                recording_equipment: record_stuff.recording_equipment,
                 settings: *matrix_record_settings,
             };
             if has_existing_clip {
@@ -198,8 +192,8 @@ impl Slot {
         // Here we do the actual state changes and distribute tasks.
         self.state = SlotState::RecordingOrOverdubbingRequested;
         column_command_sender.record_clip(self.index, instruction);
-        self.temporary_route = record_task_creation_outcome.temporary_route;
-        handler.request_recording_input(record_task_creation_outcome.task);
+        self.temporary_route = record_stuff.temporary_route;
+        handler.request_recording_input(record_stuff.task);
         Ok(())
     }
 
@@ -444,18 +438,21 @@ fn get_content_mut(content: &mut Option<Content>) -> ClipEngineResult<&mut Conte
     content.as_mut().ok_or(SLOT_NOT_FILLED)
 }
 
-struct ClipRecordTaskCreationOutcome {
+struct ClipRecordStuff {
     task: ClipRecordTask,
+    recording_equipment: RecordingEquipment,
     temporary_route: Option<TrackRoute>,
 }
 
-fn create_clip_record_task(
+fn create_clip_record_stuff(
     slot_index: usize,
     containing_track: Option<&Track>,
+    matrix_record_settings: &MatrixClipRecordSettings,
     column_settings: &ColumnClipRecordSettings,
     playback_track: &Track,
     column_source: &SharedColumn,
-) -> ClipEngineResult<ClipRecordTaskCreationOutcome> {
+    midi_overdub_desired: bool,
+) -> ClipEngineResult<ClipRecordStuff> {
     let (input, temporary_route) = {
         use RecordOrigin::*;
         match &column_settings.origin {
@@ -505,18 +502,24 @@ fn create_clip_record_task(
             }
         }
     };
+    let recording_equipment = input.create_recording_equipment(
+        Some(playback_track.project()),
+        matrix_record_settings.midi_settings.auto_quantize,
+    );
     let task = ClipRecordTask {
         input,
         destination: ClipRecordDestination {
             column_source: column_source.downgrade(),
             slot_index,
+            is_midi_overdub: midi_overdub_desired && recording_equipment.is_midi(),
         },
     };
-    let outcome = ClipRecordTaskCreationOutcome {
+    let stuff = ClipRecordStuff {
         task,
+        recording_equipment,
         temporary_route,
     };
-    Ok(outcome)
+    Ok(stuff)
 }
 
 fn resolve_recording_track(

@@ -231,7 +231,9 @@ impl RealearnAudioHook {
 
     fn process_clip_record_task(&mut self, args: &OnAudioBufferArgs) {
         if let Some(t) = &mut self.clip_record_task {
-            if !process_clip_record_task(args, t) {
+            let its_our_turn = (t.destination.is_midi_overdub && args.is_post)
+                || (!t.destination.is_midi_overdub && !args.is_post);
+            if its_our_turn && !process_clip_record_task(args, t) {
                 tracing_debug!("Clearing clip record task from audio hook");
                 self.clip_record_task = None;
             }
@@ -322,9 +324,6 @@ impl RealearnAudioHook {
 
 impl OnAudioBuffer for RealearnAudioHook {
     fn call(&mut self, args: OnAudioBufferArgs) {
-        if args.is_post {
-            return;
-        }
         if !self.initialized {
             // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
             // current thread. This operation needs an allocation at the first time it's executed
@@ -346,19 +345,21 @@ impl OnAudioBuffer for RealearnAudioHook {
             self.initialized = true;
         }
         assert_no_alloc(|| {
-            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-            global_steady_timeline_state().on_audio_buffer(block_props.to_playtime());
-            let current_time = Instant::now();
-            let time_of_last_run = self.time_of_last_run.replace(current_time);
-            let might_be_rebirth = if let Some(time) = time_of_last_run {
-                current_time.duration_since(time) > Duration::from_secs(1)
-            } else {
-                false
-            };
-            self.process_feedback_tasks();
-            self.call_real_time_processors(block_props, might_be_rebirth);
+            if !args.is_post {
+                let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+                global_steady_timeline_state().on_audio_buffer(block_props.to_playtime());
+                let current_time = Instant::now();
+                let time_of_last_run = self.time_of_last_run.replace(current_time);
+                let might_be_rebirth = if let Some(time) = time_of_last_run {
+                    current_time.duration_since(time) > Duration::from_secs(1)
+                } else {
+                    false
+                };
+                self.process_feedback_tasks();
+                self.call_real_time_processors(block_props, might_be_rebirth);
+                self.process_normal_tasks();
+            }
             self.process_clip_record_task(&args);
-            self.process_normal_tasks();
         });
     }
 }
