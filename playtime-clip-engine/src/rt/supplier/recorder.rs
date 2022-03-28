@@ -1528,11 +1528,6 @@ fn write_midi(
         // Not used
         overwrite_actives: null_mut(),
     };
-    debug!(
-        "Write MIDI: Pos = {}s (= {} frames)",
-        global_time.get(),
-        block_pos_frame
-    );
     let quantize_mode = quantization_settings.map(|_| raw::midi_quantize_mode_t {
         doquant: true,
         movemode: 0,
@@ -1540,13 +1535,21 @@ fn write_midi(
         quantstrength: 100,
         // 1 quarter note
         quantamt: 1.0,
-        swingamt: 0,
+        swingamt: 1,
         range_min: 0,
         range_max: 100,
     });
     let quantize_mode_ptr = quantize_mode
-        .map(|qm| &qm as *const _ as *mut c_void)
+        .as_ref()
+        .map(|qm| qm as *const _ as *mut c_void)
         .unwrap_or(null_mut());
+    debug!(
+        "Write MIDI: Pos = {}s (= {} frames), overwritemode = {}, quantize_mode = {:?}",
+        global_time.get(),
+        block_pos_frame,
+        overwrite_mode,
+        quantize_mode_ptr
+    );
     unsafe {
         source.extended(
             PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
