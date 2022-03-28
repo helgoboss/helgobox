@@ -46,6 +46,7 @@ pub enum Target {
     ClipTransportAction(ClipTransportActionTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
+    ClipManagement(ClipManagementTarget),
     SendMidi(SendMidiTarget),
     SendOsc(SendOscTarget),
     EnableInstances(EnableInstancesTarget),
@@ -493,6 +494,28 @@ pub struct ClipVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ClipManagementTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub slot: ClipSlotDescriptor,
+    pub action: ClipManagementAction,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum ClipManagementAction {
+    ClearSlot,
+    FillSlotWithSelectedItem,
+}
+
+impl Default for ClipManagementAction {
+    fn default() -> Self {
+        Self::ClearSlot
+    }
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

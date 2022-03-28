@@ -4,13 +4,13 @@ use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
     ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
-use crate::{clip_timeline, rt, ClipEngineResult};
+use crate::{clip_timeline, rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
+    ClipColor, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
     MatrixClipRecordSettings,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
@@ -76,7 +76,6 @@ impl Column {
     pub fn load(
         &mut self,
         api_column: api::Column,
-        permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
@@ -85,7 +84,7 @@ impl Column {
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
             let guid = Guid::from_string_without_braces(id.get())?;
-            Some(permanent_project.or_current_project().track_by_guid(&guid))
+            Some(self.project.or_current_project().track_by_guid(&guid))
         } else {
             None
         };
@@ -111,13 +110,16 @@ impl Column {
         for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
                 let clip = Clip::load(api_clip);
-                self.fill_slot_internal(
-                    api_slot.row,
+                let slot = get_slot_mut_insert(&mut self.slots, api_slot.row);
+                fill_slot_internal(
+                    slot,
                     clip,
-                    permanent_project,
                     chain_equipment,
                     recorder_request_sender,
                     matrix_settings,
+                    &self.rt_settings,
+                    &self.rt_command_sender,
+                    self.project,
                 )?;
             }
         }
@@ -171,32 +173,6 @@ impl Column {
 
     pub fn rt_column(&self) -> WeakColumn {
         self.rt_column.downgrade()
-    }
-
-    fn fill_slot_internal(
-        &mut self,
-        row: usize,
-        mut clip: Clip,
-        permanent_project: Option<Project>,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
-    ) -> ClipEngineResult<()> {
-        let rt_clip = clip.create_real_time_clip(
-            permanent_project,
-            chain_equipment,
-            recorder_request_sender,
-            &matrix_settings.overridable,
-            &self.rt_settings,
-        )?;
-        let slot = get_slot_mut_insert(&mut self.slots, row);
-        slot.fill_with(clip, &rt_clip);
-        let args = ColumnFillSlotArgs {
-            slot_index: row,
-            clip: rt_clip,
-        };
-        self.rt_command_sender.fill_slot(Box::new(Some(args)));
-        Ok(())
     }
 
     pub fn poll(&mut self, _timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
@@ -262,6 +238,7 @@ impl Column {
                         .help_set(formatted, HelpMode::Temporary);
                     None
                 }
+                ClipRemoved(slot_index) => Some((slot_index, ClipChangedEvent::Removed)),
             };
             if let Some(evt) = change_event {
                 change_events.push(evt);
@@ -279,6 +256,52 @@ impl Column {
         });
         change_events.extend(pos_change_events);
         change_events
+    }
+
+    pub fn clear_slot(&self, slot_index: usize) {
+        self.rt_command_sender.clear_slot(slot_index);
+    }
+
+    pub fn fill_slot_with_selected_item(
+        &mut self,
+        slot_index: usize,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &MatrixSettings,
+    ) -> ClipEngineResult<()> {
+        let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+        if !slot.is_empty() {
+            return Err("slot is not empty");
+        }
+        let item = self
+            .project
+            .or_current_project()
+            .first_selected_item()
+            .ok_or("no item selected")?;
+        let clip = api::Clip {
+            source: source_util::create_api_source_from_item(item, false)
+                .map_err(|_| "couldn't create source from item")?,
+            time_base: todo!(),
+            start_timing: todo!(),
+            stop_timing: todo!(),
+            looped: todo!(),
+            volume: api::Db::ZERO,
+            color: ClipColor::PlayTrackColor,
+            section: todo!(),
+            audio_settings: todo!(),
+            midi_settings: todo!(),
+        };
+        let clip = Clip::load(clip);
+        fill_slot_internal(
+            slot,
+            clip,
+            chain_equipment,
+            recorder_request_sender,
+            matrix_settings,
+            &self.rt_settings,
+            &self.rt_command_sender,
+            self.project,
+        )
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
@@ -460,3 +483,29 @@ fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
 }
 
 const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
+
+fn fill_slot_internal(
+    slot: &mut Slot,
+    mut clip: Clip,
+    chain_equipment: &ChainEquipment,
+    recorder_request_sender: &Sender<RecorderRequest>,
+    matrix_settings: &MatrixSettings,
+    column_settings: &rt::ColumnSettings,
+    rt_command_sender: &ColumnCommandSender,
+    project: Option<Project>,
+) -> ClipEngineResult<()> {
+    let rt_clip = clip.create_real_time_clip(
+        project,
+        chain_equipment,
+        recorder_request_sender,
+        &matrix_settings.overridable,
+        column_settings,
+    )?;
+    slot.fill_with(clip, &rt_clip);
+    let args = ColumnFillSlotArgs {
+        slot_index: slot.index(),
+        clip: rt_clip,
+    };
+    rt_command_sender.fill_slot(Box::new(Some(args)));
+    Ok(())
+}

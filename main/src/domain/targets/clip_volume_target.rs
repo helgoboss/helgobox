@@ -25,9 +25,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
+        let target = ClipVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
-        })])
+        };
+        Ok(vec![ReaperTarget::ClipVolume(target)])
     }
 
     fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {

@@ -30,6 +30,7 @@ use std::mem;
 
 #[derive(Clone, Debug)]
 pub struct Slot {
+    index: usize,
     /// If this is set, the slot contains a clip.
     ///
     /// This means one of the following things:
@@ -38,7 +39,6 @@ pub struct Slot {
     /// - The clip is active and is currently being MIDI-overdubbed.
     /// - The clip is inactive, which means it's about to be replaced with different clip content
     ///   that's in the process of being recorded right now.
-    index: usize,
     content: Option<Content>,
     state: SlotState,
     /// Route which is just created temporarily for recording.
@@ -59,6 +59,14 @@ impl Slot {
             state: Default::default(),
             temporary_route: None,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.content.is_none() && matches!(&self.state, SlotState::Normal)
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
     }
 
     /// Returns `None` if this slot doesn't need to be saved (because it's empty).

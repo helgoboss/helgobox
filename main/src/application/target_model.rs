@@ -23,8 +23,8 @@ use crate::domain::{
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
     UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
@@ -46,7 +46,7 @@ use std::borrow::Cow;
 use std::error::Error;
 
 use playtime_clip_engine::main::SlotPlayOptions;
-use realearn_api::schema::ClipSlotDescriptor;
+use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor};
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
     TrackSendDirection,
@@ -114,6 +114,7 @@ pub enum TargetCommand {
     SetOscArgTypeTag(OscTypeTag),
     SetOscDevId(Option<OscDeviceId>),
     SetClipSlot(ClipSlotDescriptor),
+    SetClipManagementAction(ClipManagementAction),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
     SetExclusivity(Exclusivity),
@@ -183,6 +184,7 @@ pub enum TargetProp {
     OscArgTypeTag,
     OscDevId,
     ClipSlot,
+    ClipManagementAction,
     PollForFeedback,
     Tags,
     Exclusivity,
@@ -450,6 +452,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_slot = s;
                 One(P::ClipSlot)
             }
+            C::SetClipManagementAction(v) => {
+                self.clip_management_action = v;
+                One(P::ClipManagementAction)
+            }
         };
         Some(affected)
     }
@@ -545,6 +551,7 @@ pub struct TargetModel {
     osc_dev_id: Option<OscDeviceId>,
     // # For clip targets
     clip_slot: ClipSlotDescriptor,
+    clip_management_action: ClipManagementAction,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -621,6 +628,7 @@ impl Default for TargetModel {
             group_id: Default::default(),
             active_mappings_only: false,
             clip_slot: ClipSlotDescriptor::Selected,
+            clip_management_action: Default::default(),
         }
     }
 }
@@ -848,6 +856,10 @@ impl TargetModel {
 
     pub fn osc_dev_id(&self) -> Option<OscDeviceId> {
         self.osc_dev_id
+    }
+
+    pub fn clip_management_action(&self) -> ClipManagementAction {
+        self.clip_management_action
     }
 
     pub fn poll_for_feedback(&self) -> bool {
@@ -1817,6 +1829,12 @@ impl TargetModel {
                     ClipVolume => UnresolvedReaperTarget::ClipVolume(UnresolvedClipVolumeTarget {
                         slot: self.virtual_clip_slot()?,
                     }),
+                    ClipManagement => {
+                        UnresolvedReaperTarget::ClipManagement(UnresolvedClipManagementTarget {
+                            slot: self.virtual_clip_slot()?,
+                            action: self.clip_management_action,
+                        })
+                    }
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
                             scope: TagScope {

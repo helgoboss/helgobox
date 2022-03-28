@@ -25,16 +25,15 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context.project_or_current_project();
-        let basics = ClipTransportTargetBasics {
-            slot_coordinates: self.slot.resolve(context, compartment)?,
-            action: self.action,
-            play_options: self.play_options,
-        };
-        let targets = vec![ReaperTarget::ClipTransport(ClipTransportTarget {
+        let target = ClipTransportTarget {
             project,
-            basics,
-        })];
-        Ok(targets)
+            basics: ClipTransportTargetBasics {
+                slot_coordinates: self.slot.resolve(context, compartment)?,
+                action: self.action,
+                play_options: self.play_options,
+            },
+        };
+        Ok(vec![ReaperTarget::ClipTransport(target)])
     }
 
     fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {

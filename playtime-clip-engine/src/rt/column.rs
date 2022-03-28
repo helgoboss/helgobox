@@ -100,6 +100,10 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::ProcessTransportChange(args));
     }
 
+    pub fn clear_slot(&self, slot_index: usize) {
+        self.send_task(ColumnCommand::ClearSlot(slot_index));
+    }
+
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
         self.send_task(ColumnCommand::PlayClip(args));
     }
@@ -143,6 +147,7 @@ impl ColumnCommandSender {
 #[derive(Debug)]
 pub enum ColumnCommand {
     ClearSlots,
+    ClearSlot(usize),
     UpdateSettings(ColumnSettings),
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
@@ -161,6 +166,8 @@ pub trait ColumnEventSender {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
+
+    fn slot_cleared(&self, slot_index: usize);
 
     fn record_request_acknowledged(
         &self,
@@ -194,6 +201,10 @@ impl ColumnEventSender for Sender<ColumnEvent> {
             material_info,
         };
         self.send_event(event);
+    }
+
+    fn slot_cleared(&self, index: usize) {
+        self.send_event(ColumnEvent::ClipRemoved(index));
     }
 
     fn record_request_acknowledged(
@@ -468,12 +479,27 @@ impl Column {
         DurationInSeconds::MAX
     }
 
+    pub fn clear_slots(&mut self) {
+        self.slots.clear();
+    }
+
+    pub fn clear_slot(&mut self, index: usize) -> ClipEngineResult<()> {
+        let slot = get_slot_mut(&mut self.slots, index)?;
+        let event_handler = ClipEventHandler::new(&self.event_sender, index);
+        slot.clear(&event_handler, &self.event_sender)?;
+        Ok(())
+    }
+
     fn process_commands(&mut self, audio_request_props: BasicAudioRequestProps) {
         while let Ok(task) = self.command_receiver.try_recv() {
             use ColumnCommand::*;
             match task {
                 ClearSlots => {
-                    self.slots.clear();
+                    self.clear_slots();
+                }
+                ClearSlot(slot_index) => {
+                    let result = self.clear_slot(slot_index);
+                    self.notify_user_about_failed_interaction(result);
                 }
                 UpdateSettings(s) => {
                     self.settings = s;
@@ -853,6 +879,7 @@ pub enum ColumnEvent {
         slot_index: usize,
         material_info: MaterialInfo,
     },
+    ClipRemoved(usize),
     RecordRequestAcknowledged {
         slot_index: usize,
         /// Slot runtime data is returned only if it's a recording from scratch (slot was not
@@ -907,6 +934,10 @@ impl<'a> HandleStopEvent for ClipEventHandler<'a> {
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome) {
         self.event_sender
             .normal_recording_finished(self.slot_index, outcome);
+    }
+
+    fn slot_cleared(&self) {
+        self.event_sender.slot_cleared(self.slot_index);
     }
 }
 

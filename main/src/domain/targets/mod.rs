@@ -13,6 +13,9 @@ pub use clip_seek_target::*;
 mod clip_volume_target;
 pub use clip_volume_target::*;
 
+mod clip_management_target;
+pub use clip_management_target::*;
+
 mod track_peak_target;
 pub use track_peak_target::*;
 

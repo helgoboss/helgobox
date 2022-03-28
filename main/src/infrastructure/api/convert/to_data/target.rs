@@ -576,6 +576,13 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_slot: Some(d.slot),
             ..init(d.commons)
         },
+        Target::ClipManagement(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipManagement,
+            clip_slot: Some(d.slot),
+            clip_management_action: d.action,
+            ..init(d.commons)
+        },
         Target::SendMidi(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SendMidi,

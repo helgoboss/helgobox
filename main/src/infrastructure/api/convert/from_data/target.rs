@@ -20,7 +20,7 @@ use crate::infrastructure::data::{
 use realearn_api::schema;
 use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
+    BookmarkRef, ClipManagementTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
     CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
     CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
     FxOnlineOfflineStateTarget, FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget,
@@ -245,6 +245,11 @@ fn convert_real_target(
         ClipVolume => T::ClipVolume(ClipVolumeTarget {
             commons,
             slot: data.clip_slot.unwrap_or_default(),
+        }),
+        ClipManagement => T::ClipManagement(ClipManagementTarget {
+            commons,
+            slot: data.clip_slot.unwrap_or_default(),
+            action: data.clip_management_action,
         }),
         SendMidi => T::SendMidi(SendMidiTarget {
             commons,

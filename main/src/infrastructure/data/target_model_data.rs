@@ -21,7 +21,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
-use realearn_api::schema::ClipSlotDescriptor;
+use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -135,6 +135,8 @@ pub struct TargetModelData {
     /// Replaced with `clip_slot` since v2.12.0-pre.5
     #[serde(default, skip_serializing_if = "is_default")]
     pub slot_index: usize,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_management_action: ClipManagementAction,
     /// Not supported anymore since v2.12.0-pre.5
     #[serde(default, skip_serializing_if = "is_default")]
     pub next_bar: bool,
@@ -202,6 +204,7 @@ impl TargetModelData {
             osc_arg_type: model.osc_arg_type_tag(),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
+            clip_management_action: model.clip_management_action(),
             next_bar: false,
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
@@ -389,6 +392,7 @@ impl TargetModelData {
                 row_index: 0,
             });
         model.change(C::SetClipSlot(slot_descriptor));
+        model.change(C::SetClipManagementAction(self.clip_management_action));
     }
 }
 

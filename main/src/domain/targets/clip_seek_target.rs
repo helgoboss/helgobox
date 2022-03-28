@@ -23,10 +23,11 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::ClipSeek(ClipSeekTarget {
+        let target = ClipSeekTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
             feedback_resolution: self.feedback_resolution,
-        })])
+        };
+        Ok(vec![ReaperTarget::ClipSeek(target)])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

@@ -175,7 +175,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             let mut column = Column::new(permanent_project);
             column.load(
                 api_column,
-                permanent_project,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
@@ -234,6 +233,25 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let row_count = self.row_count();
         let column = get_column_mut(&mut self.columns, coordinates.column).ok()?;
         column.slot(coordinates.row(), row_count)
+    }
+
+    pub fn clear_slot(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, coordinates.column)?;
+        column.clear_slot(coordinates.row);
+        Ok(())
+    }
+
+    pub fn fill_slot_with_selected_item(
+        &mut self,
+        coordinates: ClipSlotCoordinates,
+    ) -> ClipEngineResult<()> {
+        let column = get_column_mut(&mut self.columns, coordinates.column)?;
+        column.fill_slot_with_selected_item(
+            coordinates.row,
+            &self.chain_equipment,
+            &self.recorder_request_sender,
+            &self.settings,
+        )
     }
 
     pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {

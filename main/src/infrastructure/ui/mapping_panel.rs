@@ -425,7 +425,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::ClipSlot => {
+                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -494,6 +494,7 @@ impl MappingPanel {
                                             P::ActiveMappingsOnly => {
                                                 view.invalidate_target_check_box_2();
                                             }
+                                            P::ClipSlot | P::ClipManagementAction => {}
                                         }
                                     }
                                 }
