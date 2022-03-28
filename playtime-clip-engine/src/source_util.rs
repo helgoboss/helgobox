@@ -93,7 +93,7 @@ pub fn create_pcm_source_from_api_source(
     Ok(pcm_source.into_raw())
 }
 
-pub fn create_pcm_source_from_midi_chunk_based_api_source(
+fn create_pcm_source_from_midi_chunk_based_api_source(
     MidiChunkSource { mut chunk }: MidiChunkSource,
 ) -> ClipEngineResult<OwnedSource> {
     let mut source = OwnedSource::from_type("MIDI").unwrap();
@@ -109,7 +109,7 @@ pub fn create_pcm_source_from_midi_chunk_based_api_source(
     Ok(source)
 }
 
-pub fn create_pcm_source_from_file_based_api_source(
+fn create_pcm_source_from_file_based_api_source(
     project_for_relative_path: Option<Project>,
     FileSource { path }: &FileSource,
 ) -> ClipEngineResult<OwnedSource> {

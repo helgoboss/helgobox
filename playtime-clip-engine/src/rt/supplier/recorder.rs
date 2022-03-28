@@ -988,9 +988,13 @@ pub struct MidiRecordingEquipment {
 
 impl MidiRecordingEquipment {
     pub fn new(quantization_settings: Option<QuantizationSettings>) -> Self {
+        let empty_midi_source = create_empty_midi_source().into_raw();
         Self {
-            empty_midi_source: create_empty_midi_source().into_raw(),
-            empty_midi_source_mirror: create_empty_midi_source().into_raw(),
+            // TODO-high CONTINUE Make sure this is pooled (it goes back to the main thread and
+            //  it must be pooled so we can let editing the main thread source affect the real-time
+            //  source).
+            empty_midi_source_mirror: empty_midi_source.clone(),
+            empty_midi_source,
             quantization_settings,
         }
     }
@@ -1548,7 +1552,11 @@ fn write_midi(
         global_time.get(),
         block_pos_frame,
         overwrite_mode,
-        quantize_mode_ptr
+        if quantize_mode_ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { *(quantize_mode_ptr as *mut raw::midi_quantize_mode_t) })
+        }
     );
     unsafe {
         source.extended(
@@ -1557,12 +1565,12 @@ fn write_midi(
             quantize_mode_ptr,
             null_mut(),
         );
-        mirror_source.extended(
-            PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
-            &mut write_struct as *mut _ as _,
-            quantize_mode_ptr,
-            null_mut(),
-        );
+        // mirror_source.extended(
+        //     PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
+        //     &mut write_struct as *mut _ as _,
+        //     quantize_mode_ptr,
+        //     null_mut(),
+        // );
     }
 }
 

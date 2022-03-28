@@ -268,6 +268,24 @@ impl Column {
         self.rt_command_sender.clear_slot(slot_index);
     }
 
+    pub fn start_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
+        let slot = self.get_slot(slot_index)?;
+        slot.start_editing_clip(self.project.or_current_project())
+    }
+
+    pub fn stop_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
+        let slot = self.get_slot(slot_index)?;
+        slot.stop_editing_clip(self.project)
+    }
+
+    pub fn is_editing_clip(&self, slot_index: usize) -> bool {
+        if let Some(slot) = self.slots.get(slot_index) {
+            slot.is_editing_clip(self.project)
+        } else {
+            false
+        }
+    }
+
     pub fn fill_slot_with_selected_item(
         &mut self,
         slot_index: usize,
@@ -500,14 +518,14 @@ fn fill_slot_internal(
     rt_command_sender: &ColumnCommandSender,
     project: Option<Project>,
 ) -> ClipEngineResult<()> {
-    let rt_clip = clip.create_real_time_clip(
+    let (rt_clip, midi_source_copy) = clip.create_real_time_clip(
         project,
         chain_equipment,
         recorder_request_sender,
         &matrix_settings.overridable,
         column_settings,
     )?;
-    slot.fill_with(clip, &rt_clip);
+    slot.fill_with(clip, &rt_clip, midi_source_copy);
     let args = ColumnFillSlotArgs {
         slot_index: slot.index(),
         clip: rt_clip,

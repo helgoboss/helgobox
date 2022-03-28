@@ -241,6 +241,24 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    pub fn start_editing_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, coordinates.column)?;
+        column.start_editing_clip(coordinates.row)
+    }
+
+    pub fn stop_editing_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, coordinates.column)?;
+        column.stop_editing_clip(coordinates.row)
+    }
+
+    pub fn is_editing_clip(&self, coordinates: ClipSlotCoordinates) -> bool {
+        if let Some(column) = self.columns.get(coordinates.column) {
+            column.is_editing_clip(coordinates.row)
+        } else {
+            false
+        }
+    }
+
     pub fn fill_slot_with_selected_item(
         &mut self,
         coordinates: ClipSlotCoordinates,

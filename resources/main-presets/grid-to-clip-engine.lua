@@ -27,6 +27,10 @@ local parameters = {
         index = 4,
         name = "Delete modifier",
     },
+    {
+        index = 5,
+        name = "quantize modifier",
+    },
 }
 
 local groups = {
@@ -45,6 +49,10 @@ local groups = {
     {
         id = "slot-clear",
         name = "Slot clear",
+    },
+    {
+        id = "slot-quantize",
+        name = "Slot quantize",
     },
 }
 
@@ -88,6 +96,27 @@ local mappings = {
             parameter = {
                 address = "ById",
                 index = 4,
+            },
+        },
+    },
+    {
+        id = "quantize-modifier",
+        group = "exclusive-modifiers",
+        name = "quantize modifier",
+        source = {
+            kind = "Virtual",
+            id = "quantize",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "ToggleButton",
+            interaction = "InverseTargetValueOnOnly",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 5,
             },
         },
     },
@@ -176,6 +205,9 @@ for col = 0, column_count - 1 do
                 character = "Button",
                 id = prefix .. "pad",
             },
+            glue = {
+                absolute_mode = "ToggleButton",
+            },
             target = {
                 kind = "ClipTransportAction",
                 slot = {
@@ -205,9 +237,6 @@ for col = 0, column_count - 1 do
                 character = "Button",
                 id = prefix .. "pad",
             },
-            glue = {
-                absolute_mode = "ToggleButton",
-            },
             target = {
                 kind = "ClipManagement",
                 slot = {
@@ -220,10 +249,42 @@ for col = 0, column_count - 1 do
                 },
             },
         }
+        local slot_quantize = {
+            id = prefix .. "slot-quantize",
+            name = "Slot " .. human_col .. "/" .. human_row .. " quantize",
+            group = "slot-quantize",
+            feedback_enabled = false,
+            activation_condition = {
+                kind = "Modifier",
+                modifiers = {
+                    {
+                        parameter = 5,
+                        on = true,
+                    },
+                },
+            },
+            source = {
+                kind = "Virtual",
+                character = "Button",
+                id = prefix .. "pad",
+            },
+            target = {
+                kind = "ClipManagement",
+                slot = {
+                    address = "Dynamic",
+                    column_expression = slot_column_expression,
+                    row_expression = slot_row_expression
+                },
+                action = {
+                    kind = "EditClip",
+                },
+            },
+        }
         table.insert(mappings, slot_play)
         table.insert(mappings, slot_play_feedback)
         table.insert(mappings, slot_record)
         table.insert(mappings, slot_clear)
+        table.insert(mappings, slot_quantize)
     end
 end
 

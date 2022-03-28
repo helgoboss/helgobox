@@ -1,3 +1,4 @@
+use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     BackboneState, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
     MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
@@ -39,10 +40,14 @@ pub struct ClipManagementTarget {
 
 impl RealearnTarget for ClipManagementTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Trigger,
-        )
+        use ClipManagementAction as A;
+        match self.action {
+            A::ClearSlot | A::FillSlotWithSelectedItem => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Trigger,
+            ),
+            A::EditClip => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+        }
     }
 
     fn hit(
@@ -50,21 +55,32 @@ impl RealearnTarget for ClipManagementTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if !value.is_on() {
-            return Ok(None);
-        }
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| {
+                use ClipManagementAction as A;
                 match self.action {
-                    ClipManagementAction::ClearSlot => {
-                        matrix.clear_slot(self.slot_coordinates)?;
+                    A::ClearSlot => {
+                        if value.is_on() {
+                            matrix.clear_slot(self.slot_coordinates)?;
+                        }
+                        Ok(None)
                     }
-                    ClipManagementAction::FillSlotWithSelectedItem => {
-                        matrix.fill_slot_with_selected_item(self.slot_coordinates)?;
+                    A::FillSlotWithSelectedItem => {
+                        if value.is_on() {
+                            matrix.fill_slot_with_selected_item(self.slot_coordinates)?;
+                        }
+                        Ok(None)
+                    }
+                    A::EditClip => {
+                        if value.is_on() {
+                            matrix.start_editing_clip(self.slot_coordinates)?;
+                        } else {
+                            matrix.stop_editing_clip(self.slot_coordinates)?;
+                        }
+                        Ok(None)
                     }
                 }
-                Ok(None)
             },
         )?
     }
@@ -81,8 +97,18 @@ impl RealearnTarget for ClipManagementTarget {
 impl<'a> Target<'a> for ClipManagementTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ControlContext<'a>) -> Option<AbsoluteValue> {
-        Some(AbsoluteValue::default())
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
+        use ClipManagementAction as A;
+        match self.action {
+            A::ClearSlot | A::FillSlotWithSelectedItem => Some(AbsoluteValue::default()),
+            A::EditClip => BackboneState::get()
+                .with_clip_matrix(context.instance_state, |matrix| {
+                    let is_editing = matrix.is_editing_clip(self.slot_coordinates);
+                    let value = convert_bool_to_unit_value(is_editing);
+                    Some(AbsoluteValue::Continuous(value))
+                })
+                .ok()?,
+        }
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

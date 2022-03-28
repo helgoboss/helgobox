@@ -16,7 +16,6 @@ use crate::rt::supplier::{
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
-use crate::source_util::create_pcm_source_from_api_source;
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
 use crossbeam_channel::Sender;
@@ -183,7 +182,7 @@ struct RollbackData {
 impl Clip {
     /// Must not call in real-time thread!
     pub fn ready(
-        api_source: &api::Source,
+        pcm_source: OwnedPcmSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
         clip_settings: &ProcessingRelevantClipSettings,
@@ -191,7 +190,6 @@ impl Clip {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
     ) -> ClipEngineResult<Self> {
-        let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
         let ready_state = ReadyState {
             state: ReadySubState::Stopped,
             play_settings: clip_settings.create_play_settings(),
@@ -331,7 +329,6 @@ impl Clip {
                 if let Some(recording_state) = new_state {
                     self.state = Recording(recording_state);
                 }
-
                 Ok(())
             }
             Recording(_) => Err(ErrorWithPayload::new("already recording", args)),
@@ -1370,7 +1367,7 @@ impl RecordingState {
             .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
         // Return ready state
         // Finishing recording happens in the call stack of either record polling or stopping.
-        // Both of these things happen *before* get_samples() by the preview register is called.
+        // Both of these things happen *before* get_samples() is called by the preview register.
         // So get_samples() for the same block as the one we are in now will be called a moment
         // later. That's what guarantees us that we don't miss any samples.
         ready_state

@@ -7,14 +7,14 @@ use crate::main::{
     VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, Recorder, RecorderRequest, RecordingArgs, RecordingEquipment,
-    SupplierChain, MIDI_BASE_BPM,
+    ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
+    RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain, MIDI_BASE_BPM,
 };
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
-    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
-    SlotRecordInstruction, SlotRuntimeData,
+    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
+    RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
@@ -24,8 +24,10 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Guid, Project, Track, TrackRoute};
-use reaper_medium::{OwnedPcmSource, PositionInSeconds, RecordingInput};
+use reaper_high::{Guid, OrCurrentProject, OwnedSource, Project, Reaper, Track, TrackRoute};
+use reaper_medium::{
+    DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput, UiRefreshBehavior,
+};
 use std::mem;
 
 #[derive(Clone, Debug)]
@@ -41,7 +43,7 @@ pub struct Slot {
     ///   that's in the process of being recorded right now.
     content: Option<Content>,
     state: SlotState,
-    /// Route which is just created temporarily for recording.
+    /// Route which was created temporarily for recording.
     temporary_route: Option<TrackRoute>,
 }
 
@@ -49,6 +51,11 @@ pub struct Slot {
 struct Content {
     clip: Clip,
     runtime_data: SlotRuntimeData,
+    /// A copy of the real-time MIDI source.
+    ///
+    /// This is necessary for MIDI sources to make it possible to open the source in
+    /// a MIDI editor. For this to work, the source must be a pooled copy!
+    midi_source_copy: Option<OwnedPcmSource>,
 }
 
 impl Slot {
@@ -119,10 +126,14 @@ impl Slot {
                     }
                 };
                 let midi_overdub_instruction = if want_midi_overdub {
-                    let midi_overdub_instruction = content.clip.create_midi_overdub_instruction(
+                    let midi_overdub_instruction = create_midi_overdub_instruction(
                         playback_track.project(),
                         matrix_record_settings.midi_settings.record_mode,
                         matrix_record_settings.midi_settings.auto_quantize,
+                        content
+                            .midi_source_copy
+                            .as_ref()
+                            .expect("no MIDI source copy available"),
                     )?;
                     Some(midi_overdub_instruction)
                 } else {
@@ -205,6 +216,38 @@ impl Slot {
 
     fn get_content(&self) -> ClipEngineResult<&Content> {
         self.content.as_ref().ok_or(SLOT_NOT_FILLED)
+    }
+
+    pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
+        let content = self.get_content()?;
+        let midi_source_copy = content.midi_source_copy.as_ref().ok_or("no MIDI source")?;
+        let editor_track = find_or_create_editor_track(temporary_project);
+        let item = editor_track.add_item().map_err(|e| e.message())?;
+        debug!("Active take before: {:?}", item.active_take());
+        let take = item.add_take().map_err(|e| e.message())?;
+        take.set_source(OwnedSource::new(midi_source_copy.clone()));
+        debug!("Active take after: {:?}", item.active_take());
+        item.set_position(PositionInSeconds::new(0.0), UiRefreshBehavior::NoRefresh)
+            .unwrap();
+        item.set_length(DurationInSeconds::new(2.0), UiRefreshBehavior::NoRefresh)
+            .unwrap();
+        Reaper::get().medium_reaper().update_arrange();
+        Ok(())
+    }
+
+    pub fn stop_editing_clip(&self, temporary_project: Option<Project>) -> ClipEngineResult<()> {
+        let content = self.get_content()?;
+        // TODO-high CONTINUE
+        Ok(())
+    }
+
+    pub fn is_editing_clip(&self, temporary_project: Option<Project>) -> bool {
+        if let Some(content) = self.content.as_ref() {
+            // TODO-high CONTINUE
+            false
+        } else {
+            false
+        }
     }
 
     pub fn clip_volume(&self) -> ClipEngineResult<Db> {
@@ -316,7 +359,12 @@ impl Slot {
         Ok(tempo_adjusted_secs)
     }
 
-    pub fn fill_with(&mut self, clip: Clip, rt_clip: &rt::Clip) {
+    pub(crate) fn fill_with(
+        &mut self,
+        clip: Clip,
+        rt_clip: &rt::Clip,
+        midi_source_copy: Option<OwnedPcmSource>,
+    ) {
         let content = Content {
             clip,
             runtime_data: SlotRuntimeData {
@@ -324,6 +372,7 @@ impl Slot {
                 pos: rt_clip.shared_pos(),
                 material_info: rt_clip.material_info().unwrap(),
             },
+            midi_source_copy,
         };
         self.content = Some(content);
     }
@@ -368,7 +417,7 @@ impl Slot {
         self.remove_temporary_route();
         get_content_mut(&mut self.content)?
             .clip
-            .notify_midi_overdub_finished(mirror_source, temporary_project)
+            .notify_midi_overdub_finished(&OwnedSource::new(mirror_source), temporary_project)
     }
 
     pub fn slot_cleared(&mut self) -> Option<ClipChangedEvent> {
@@ -388,14 +437,18 @@ impl Slot {
                     Err("clip recording was not yet acknowledged")
                 }
                 SlotState::Recording(mut runtime_data) => {
-                    let clip = Clip::from_recording(
+                    let (clip, midi_source_copy) = Clip::from_recording(
                         recording.kind_specific,
                         recording.clip_settings,
                         temporary_project,
                     )?;
                     runtime_data.material_info = recording.material_info;
                     debug!("Fill slot with clip: {:#?}", &clip);
-                    let content = Content { clip, runtime_data };
+                    let content = Content {
+                        clip,
+                        runtime_data,
+                        midi_source_copy,
+                    };
                     self.content = Some(content);
                     self.state = SlotState::Normal;
                     Ok(None)
@@ -566,3 +619,79 @@ fn translate_track_input_to_hw_input(
     };
     Ok(hw_input)
 }
+pub fn create_midi_overdub_instruction(
+    permanent_project: Project,
+    mode: MidiClipRecordMode,
+    auto_quantize: bool,
+    midi_source_copy: &OwnedPcmSource,
+) -> ClipEngineResult<MidiOverdubInstruction> {
+    let quantization_settings = if auto_quantize {
+        // TODO-high Use project quantization settings
+        Some(QuantizationSettings {})
+    } else {
+        None
+    };
+    // let instruction = match &self.source {
+    //     Source::File(file_based_api_source) => {
+    //         // We have a file-based MIDI source only. In the real-time clip, we need to replace
+    //         // it with an equivalent in-project MIDI source first. Create it!
+    //         let file_based_source = create_pcm_source_from_file_based_api_source(
+    //             Some(permanent_project),
+    //             file_based_api_source,
+    //         )?;
+    //         // TODO-high-wait Use Justin's trick to import as in-project MIDI.
+    //         let in_project_source = file_based_source;
+    //         MidiOverdubInstruction {
+    //             in_project_midi_source: Some(in_project_source.clone().into_raw()),
+    //             settings: MidiOverdubSettings {
+    //                 mirror_source: in_project_source.into_raw(),
+    //                 mode,
+    //                 quantization_settings,
+    //             },
+    //         }
+    //     }
+    //     Source::MidiChunk(s) => {
+    //         // We have an in-project MIDI source already. Great!
+    //         MidiOverdubInstruction {
+    //             in_project_midi_source: None,
+    //             settings: MidiOverdubSettings {
+    //                 mirror_source: {
+    //                     create_pcm_source_from_midi_chunk_based_api_source(s.clone())?
+    //                         .into_raw()
+    //                 },
+    //                 mode,
+    //                 quantization_settings,
+    //             },
+    //         }
+    //     }
+    // };
+    // TODO-high Deal with file-based source.
+    let instruction = MidiOverdubInstruction {
+        in_project_midi_source: None,
+        settings: MidiOverdubSettings {
+            mirror_source: midi_source_copy.clone(),
+            mode,
+            quantization_settings,
+        },
+    };
+    Ok(instruction)
+}
+
+fn find_or_create_editor_track(project: Project) -> Track {
+    project
+        .tracks()
+        .find(|t| {
+            if let Some(name) = t.name() {
+                name.to_str() == EDITOR_TRACK_NAME
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| {
+            let track = project.add_track();
+            track.set_name(EDITOR_TRACK_NAME);
+            track
+        })
+}
+
+const EDITOR_TRACK_NAME: &str = "playtime-editor-track";

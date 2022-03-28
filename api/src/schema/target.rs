@@ -510,6 +510,7 @@ pub struct ClipManagementTarget {
 pub enum ClipManagementAction {
     ClearSlot,
     FillSlotWithSelectedItem,
+    EditClip,
 }
 
 impl Default for ClipManagementAction {
