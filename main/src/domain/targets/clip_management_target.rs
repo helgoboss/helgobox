@@ -73,7 +73,7 @@ impl RealearnTarget for ClipManagementTarget {
         Some(ReaperTargetType::ClipManagement)
     }
 
-    fn is_available(&self, context: ControlContext) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 }
