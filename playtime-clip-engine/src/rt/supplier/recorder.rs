@@ -563,7 +563,7 @@ impl Recorder {
                 }
             },
             State::Recording(s) => {
-                assert!(s.committed, "MIDI doesn't use the committed state");
+                assert!(!s.committed, "MIDI doesn't use the committed state");
                 match &mut s.kind_state {
                     KindState::Audio(_) => Err("recording audio, not MIDI"),
                     KindState::Midi(midi_state) => {
