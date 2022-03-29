@@ -357,9 +357,14 @@ impl OnAudioBuffer for RealearnAudioHook {
                 };
                 self.process_feedback_tasks();
                 self.call_real_time_processors(block_props, might_be_rebirth);
-                self.process_normal_tasks();
             }
             self.process_clip_record_task(&args);
+            // Process normal tasks after processing the clip record task so that clip recording
+            // starts in next cycle, not in this one (in this one, the clip is not yet prepared
+            // for recording if this is a is_post = false record task).
+            if !args.is_post {
+                self.process_normal_tasks();
+            }
         });
     }
 }
