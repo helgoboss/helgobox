@@ -20,17 +20,17 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 
 . Start REAPER.
 . If you haven't already done it, https://github.com/helgoboss/realearn#installation[install ReaLearn via ReaPack].
-. Make sure your MIDI controller is enabled in Options → Preferences… → Audio → MIDI Devices
+. Make sure your MIDI controller is enabled in _Options → Preferences… → Audio → MIDI Devices_
   * For the MIDI input device (control), tick _Enable input from this device_ and untick
  _Enable input for control messages_.
   * For the MIDI output device (feedback), tick both _Enable output to this device_ and _Do not send reset messages_.
 +
 [NOTE]
 ====
-The option _Do not send reset messages_ isn't available in older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
+The option _Do not send reset messages_ isn't available in older REAPER versions. If you don't use any external hardware synths, you can untick the global options _Reset on: Play_ and _Reset on: Stop_ instead!
 ====
-. Check if there's an existing controller preset for your MIDI controller (this is optional but can make things
- easier).
+. Make sure the MIDI device is *not* in use as a REAPER control surface (in _Options → Preferences... → Control/OSC/web_).
+. Check if there's an existing controller preset for your MIDI controller (this is optional but can make things easier).
   * Extensions → ReaPack → Browse packages…
   * Type "realearn controller" in the _Filter_ field.
   * You should see a list of ReaLearn controller presets.
@@ -101,11 +101,11 @@ your DAW.
 The usual ReaLearn workflow for a single mapping goes like this:
 
 . Add a mapping
-. Hit "Learn source" and touch some knob on your controller.
-. Hit "Learn target" and touch some target parameter.
+. Hit _Learn source_ and touch some knob on your controller.
+. Hit _Learn target_ and touch some target parameter.
 . Done.
 
-If you want to learn multiple mappings in one go, this gets even easier via the "Learn many" button which can save you a lot of clicks.
+If you want to learn multiple mappings in one go, this gets even easier via the _Learn many_ button which can save you a lot of clicks.
 
 The result are mappings that you can customize as you desire, for example by setting a target value
 range. All of that with MIDI/OSC feedback support, which was previously only available in the less
@@ -226,21 +226,28 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 [#troubleshooting]
 ==== Troubleshooting
 
-If REAPER crashes when scanning for plug-ins and the crash message shows something like `reaper_host64`
-or `reaper_host32`, you either have a 32/64-bit version mismatch or you have
-"Preferences → Plug-ins → Compatibility → VST bridging/firewalling" set to "In separate plug-in process" or
-"In dedicated process per plug-in". Please see the https://github.com/helgoboss/realearn#installation[installation instructions on the
+==== ReaLearn doesn't appear in the list of plug-ins
+
+- Make sure you look in the *VSTi* section (ReaLearn is an instrument).
+- If REAPER crashes when scanning for plug-ins and the crash message shows something like `reaper_host64` or `reaper_host32`, you either have a 32/64-bit version mismatch or you have _Preferences → Plug-ins → Compatibility → VST bridging/firewalling_ set to "In separate plug-in process" or "In dedicated process per plug-in". Please see the https://github.com/helgoboss/realearn#installation[installation instructions on the
 project website] for hints how to fix this.
-In future, ReaLearn hopefully will handle this situation more gracefully. 
 
-If the label remains at "Stop" at step 3, you need to have a look at your MIDI setup.
+==== ReaLearn doesn't learn MIDI messages
 
+If the label remains at "Stop" at step 3, that means ReaLearn doesn't see the incoming MIDI messages. You need to have a look at your MIDI setup.
+
+* Make sure the MIDI device is *not* installed as REAPER control surface (in _Preferences → Control/OSC/web_).
 * Make sure *Enable input from this device* is checked for your controller MIDI input device in
  the REAPER preferences.
 +
-NOTE: _Enable input for control messages_ is totally irrelevant for ReaLearn. This is
+[NOTE]
+====
+_Enable input for control messages_ is totally irrelevant for ReaLearn. This is
 only used for REAPER's built-in MIDI learn, which uses the so-called _control MIDI path_.
+
 With ReaLearn, you use the same MIDI path for controlling and playing, which is one reason why it is so flexible. It provides local and global MIDI message filtering, so you still don't need to worry about messages that are intended for control but suddenly cause your synthesizer to play MIDI notes.
+====
++
 * Make sure your audio hardware is not stuck (playback in REAPER should work).
 * Make sure the track is armed for recording and has the appropriate MIDI device input.
 +
