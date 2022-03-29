@@ -88,17 +88,13 @@ impl Clip {
         Ok(clip)
     }
 
-    pub fn notify_midi_overdub_requested(
-        &mut self,
-        pooled_midi_source: &OwnedSource,
-        temporary_project: Option<Project>,
-    ) -> ClipEngineResult<()> {
-        // Before recording, we should serialize the latest MIDI editor changes to the source
-        // because during recording we won't look into the source (in order to not get in-flux
-        // content or interfere with the recording process in negative ways).
-        self.source =
-            create_api_source_from_recorded_midi_source(&pooled_midi_source, temporary_project)?;
-        Ok(())
+    /// Update API source in case project needs to be saved during recording.
+    ///
+    /// (Before recording, we should serialize the latest MIDI editor changes to the source
+    /// because during recording we won't look into the source in order to not get in-flux
+    /// content or interfere with the recording process in negative ways.)
+    pub fn update_api_source_before_midi_overdubbing(&mut self, source: api::Source) {
+        self.source = source;
     }
 
     pub fn notify_midi_overdub_finished(
@@ -110,6 +106,10 @@ impl Clip {
             create_api_source_from_recorded_midi_source(mirror_source, temporary_project)?;
         self.source = api_source;
         Ok(())
+    }
+
+    pub fn api_source(&self) -> &api::Source {
+        &self.source
     }
 
     pub fn create_pcm_source(
@@ -180,7 +180,7 @@ impl Clip {
     }
 }
 
-fn create_api_source_from_recorded_midi_source(
+pub fn create_api_source_from_recorded_midi_source(
     midi_source: &OwnedSource,
     temporary_project: Option<Project>,
 ) -> ClipEngineResult<api::Source> {

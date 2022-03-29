@@ -93,25 +93,32 @@ fn create_midi_chunk_source(chunk: String) -> api::Source {
 
 /// Creates a REAPER PCM source from the given API source.
 ///
-/// If no project is given, the path will not be relative.
+/// - Keeps MIDI files as reference, doesn't convert to in-project MIDI.
+/// - If no project is given, the path will not be relative.
 pub fn create_pcm_source_from_api_source(
     api_source: &api::Source,
     project_for_relative_path: Option<Project>,
 ) -> ClipEngineResult<OwnedPcmSource> {
     use api::Source::*;
     let pcm_source = match api_source {
-        File(s) => create_pcm_source_from_file_based_api_source(project_for_relative_path, s)?,
+        File(s) => {
+            // We don't import MIDI as in-project MIDI, otherwise we would end up with a MIDI chunk
+            // source on save, which would be unexpected. It's worth to point out that MIDI overdub
+            // is not possible with file-based MIDI sources. So as soon as the user does MIDI
+            // overdub, we need to go "MIDI chunk".
+            create_pcm_source_from_file_based_api_source(project_for_relative_path, s, false)?
+        }
         MidiChunk(s) => create_pcm_source_from_midi_chunk_based_api_source(s.clone())?,
     };
     Ok(pcm_source.into_raw())
 }
 
 fn create_pcm_source_from_midi_chunk_based_api_source(
-    MidiChunkSource { mut chunk }: MidiChunkSource,
+    mut pcm_source: MidiChunkSource,
 ) -> ClipEngineResult<OwnedSource> {
     let mut source = OwnedSource::from_type("MIDI").unwrap();
-    chunk += ">\n";
-    source.set_state_chunk("<SOURCE MIDI\n", chunk)?;
+    pcm_source.chunk += ">\n";
+    source.set_state_chunk("<SOURCE MIDI\n", pcm_source.chunk)?;
     // Make sure we don't have any association to some item on the timeline (or in
     // another slot) because that could lead to unpleasant surprises.
     source.remove_from_midi_pool().map_err(|e| e.message())?;
@@ -122,23 +129,27 @@ fn create_pcm_source_from_midi_chunk_based_api_source(
     Ok(source)
 }
 
-fn create_pcm_source_from_file_based_api_source(
+pub fn create_pcm_source_from_file_based_api_source(
     project_for_relative_path: Option<Project>,
-    FileSource { path }: &FileSource,
+    source: &FileSource,
+    import_midi_as_in_project_midi: bool,
 ) -> ClipEngineResult<OwnedSource> {
-    let absolute_file = if path.is_relative() {
+    let absolute_file = if source.path.is_relative() {
         project_for_relative_path
             .ok_or("slot source given as relative file but without project")?
-            .make_path_absolute(path)
+            .make_path_absolute(&source.path)
             .ok_or("couldn't make clip source path absolute")?
     } else {
-        path.clone()
+        source.path.clone()
     };
-    // We don't import as in-project events, otherwise we would end up with a MIDI chunk
-    // source on save, which would be unexpected. It's worth to point out that MIDI overdub
-    // is not possible with file-based MIDI sources. So as soon as the user does MIDI
-    // overdub, we need to go "MIDI chunk".
-    let source = OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)?;
+    let source = if import_midi_as_in_project_midi {
+        Reaper::get().with_pref_import_as_mid_file_reference(false, || {
+            OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)
+        })
+    } else {
+        OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)
+    };
+    let source = source?;
     if rt::source_util::pcm_source_is_midi(source.as_ref().as_raw()) {
         post_process_midi_source(&source);
     }

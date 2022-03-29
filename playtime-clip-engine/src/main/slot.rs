@@ -2,9 +2,9 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{
-    Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordHardwareInput,
-    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, VirtualClipRecordAudioInput,
-    VirtualClipRecordHardwareMidiInput,
+    create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
+    ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
+    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{
     ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
@@ -16,6 +16,7 @@ use crate::rt::{
     MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
     RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
 };
+use crate::source_util::create_pcm_source_from_file_based_api_source;
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -125,39 +126,38 @@ impl Slot {
         rt_column: &SharedColumn,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<()> {
-        // Check preconditions.
-        let project = playback_track.project();
         if self.state.is_pretty_much_recording() {
             return Err("recording already");
         }
-        let (has_existing_clip, desired_midi_overdub_instruction) = match &self.content {
-            None => (false, None),
-            Some(content) => {
-                if content.runtime_data.play_state.is_somehow_recording() {
-                    return Err("recording already according to play state");
-                }
-                use MidiClipRecordMode::*;
-                let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
-                    Normal => false,
-                    Overdub | Replace => {
-                        // Only allow MIDI overdub if existing clip is a MIDI clip already.
-                        content.runtime_data.material_info.is_midi()
-                    }
-                };
-                let desired_midi_overdub_instruction = if want_midi_overdub {
-                    let instruction = create_midi_overdub_instruction(
-                        matrix_record_settings.midi_settings.record_mode,
-                        matrix_record_settings.midi_settings.auto_quantize,
-                    )?;
-                    Some(instruction)
-                } else {
-                    None
-                };
-                (true, desired_midi_overdub_instruction)
+        // Check preconditions and prepare stuff.
+        let project = playback_track.project();
+        let desired_midi_overdub_instruction = if let Some(content) = &self.content {
+            if content.runtime_data.play_state.is_somehow_recording() {
+                return Err("recording already according to play state");
             }
+            use MidiClipRecordMode::*;
+            let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
+                Normal => false,
+                Overdub | Replace => {
+                    // Only allow MIDI overdub if existing clip is a MIDI clip already.
+                    content.runtime_data.material_info.is_midi()
+                }
+            };
+            if want_midi_overdub {
+                let instruction = create_midi_overdub_instruction(
+                    matrix_record_settings.midi_settings.record_mode,
+                    matrix_record_settings.midi_settings.auto_quantize,
+                    content.clip.api_source(),
+                    Some(project),
+                )?;
+                Some(instruction)
+            } else {
+                None
+            }
+        } else {
+            None
         };
-        // Prepare tasks, equipment, instructions.
-        let record_stuff = create_clip_record_stuff(
+        let (common_stuff, mode_specific_stuff) = create_record_stuff(
             self.index,
             containing_track,
             matrix_record_settings,
@@ -166,78 +166,161 @@ impl Slot {
             rt_column,
             desired_midi_overdub_instruction,
         )?;
-        let (instruction, pooled_midi_source) = match record_stuff.mode_specific {
-            ModeSpecificClipRecordStuff::MidiOverdub { instruction } => {
-                // We can do MIDI overdub. This is the easiest thing and needs almost no preparation.
-                (SlotRecordInstruction::MidiOverdub(instruction), None)
-            }
-            ModeSpecificClipRecordStuff::Normal {
-                recording_equipment,
-                pooled_midi_source,
-            } => {
-                // We record completely new material.
-                let args = ClipRecordArgs {
-                    recording_equipment,
-                    settings: *matrix_record_settings,
-                };
-                let instruction = if has_existing_clip {
-                    // There's a clip already. That makes it easy because we have the clip struct
-                    // already, including the complete clip supplier chain, and can reuse it.
-                    SlotRecordInstruction::ExistingClip(args)
-                } else {
-                    // There's no clip yet so we need to create the clip including the complete supplier
-                    // chain from scratch. We need to do create much of the stuff here already because
-                    // we must not allocate in the real-time thread. However, we can't create the
-                    // complete clip because we don't have enough information (block length, timeline
-                    // frame rate) available at this point to resolve the initial recording position.
-                    let recording_args = RecordingArgs::from_stuff(
-                        Some(project),
-                        rt_column_settings,
-                        overridable_matrix_settings,
-                        &args.settings,
-                        args.recording_equipment,
-                    );
-                    let timeline = clip_timeline(Some(project), false);
-                    let timeline_cursor_pos = timeline.cursor_pos();
-                    let recorder =
-                        Recorder::recording(recording_args, recorder_request_sender.clone());
-                    let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
-                    let new_clip_instruction = RecordNewClipInstruction {
-                        supplier_chain,
-                        project: Some(project),
-                        shared_pos: Default::default(),
-                        timeline,
-                        timeline_cursor_pos,
-                        settings: *matrix_record_settings,
-                    };
-                    SlotRecordInstruction::NewClip(new_clip_instruction)
-                };
-                (instruction, pooled_midi_source)
-            }
+        match mode_specific_stuff {
+            ModeSpecificRecordStuff::FromScratch(from_scratch_stuff) => self.record_from_scratch(
+                column_command_sender,
+                handler,
+                matrix_record_settings,
+                overridable_matrix_settings,
+                rt_column_settings,
+                recorder_request_sender,
+                chain_equipment,
+                project,
+                common_stuff,
+                from_scratch_stuff,
+            ),
+            ModeSpecificRecordStuff::MidiOverdub(midi_overdub_stuff) => self
+                .record_as_midi_overdub(
+                    column_command_sender,
+                    handler,
+                    project,
+                    common_stuff,
+                    midi_overdub_stuff,
+                ),
+        }
+    }
+
+    fn record_from_scratch<H: ClipMatrixHandler>(
+        &mut self,
+        column_command_sender: &ColumnCommandSender,
+        handler: &H,
+        matrix_record_settings: &MatrixClipRecordSettings,
+        overridable_matrix_settings: &OverridableMatrixSettings,
+        rt_column_settings: &rt::ColumnSettings,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        chain_equipment: &ChainEquipment,
+        project: Project,
+        common_stuff: CommonRecordStuff,
+        specific_stuff: FromScratchRecordStuff,
+    ) -> ClipEngineResult<()> {
+        // Build slot instruction
+        let args = ClipRecordArgs {
+            recording_equipment: specific_stuff.recording_equipment,
+            settings: *matrix_record_settings,
         };
+        let instruction = if self.content.is_some() {
+            // There's a clip already. That makes it easy because we have the clip struct
+            // already, including the complete clip supplier chain, and can reuse it.
+            SlotRecordInstruction::ExistingClip(args)
+        } else {
+            // There's no clip yet so we need to create the clip including the complete supplier
+            // chain from scratch. We need to do create much of the stuff here already because
+            // we must not allocate in the real-time thread. However, we can't create the
+            // complete clip because we don't have enough information (block length, timeline
+            // frame rate) available at this point to resolve the initial recording position.
+            let recording_args = RecordingArgs::from_stuff(
+                Some(project),
+                rt_column_settings,
+                overridable_matrix_settings,
+                &args.settings,
+                args.recording_equipment,
+            );
+            let timeline = clip_timeline(Some(project), false);
+            let timeline_cursor_pos = timeline.cursor_pos();
+            let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
+            let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
+            let new_clip_instruction = RecordNewClipInstruction {
+                supplier_chain,
+                project: Some(project),
+                shared_pos: Default::default(),
+                timeline,
+                timeline_cursor_pos,
+                settings: *matrix_record_settings,
+            };
+            SlotRecordInstruction::NewClip(new_clip_instruction)
+        };
+        let next_state = SlotState::RequestedRecording(RequestedRecordingState {
+            pooled_midi_source: specific_stuff.pooled_midi_source,
+        });
         // Above code was only for checking preconditions and preparing stuff.
-        // Here we do the actual state changes and distribute tasks.
-        let next_state = if instruction.is_midi_overdub() {
-            let content = self
-                .content
-                .as_mut()
-                .expect("content not set although overdubbing");
-            let pooled_midi_source = content
+        // Here we can't fail anymore, do the actual state changes and distribute tasks.
+        self.initiate_recording(
+            column_command_sender,
+            handler,
+            next_state,
+            instruction,
+            common_stuff.temporary_route,
+            common_stuff.task,
+        );
+        Ok(())
+    }
+
+    fn record_as_midi_overdub<H: ClipMatrixHandler>(
+        &mut self,
+        column_command_sender: &ColumnCommandSender,
+        handler: &H,
+        project: Project,
+        common_stuff: CommonRecordStuff,
+        specific_stuff: MidiOverdubRecordStuff,
+    ) -> ClipEngineResult<()> {
+        // If we had a file-based source before and now have an in-project source, make a pooled
+        // copy of the in-project source.
+        let content = self
+            .content
+            .as_mut()
+            .expect("content not set although overdubbing");
+        let new_pooled_midi_source =
+            if let Some(s) = &specific_stuff.instruction.in_project_midi_source {
+                let s = Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone());
+                Some(OwnedSource::new(s))
+            } else {
+                None
+            };
+        let pooled_midi_source = new_pooled_midi_source.as_ref().unwrap_or_else(|| {
+            content
                 .pooled_midi_source
                 .as_ref()
-                .expect("pooled MIDI source not set although overdubbing");
-            content
-                .clip
-                .notify_midi_overdub_requested(pooled_midi_source, Some(project))?;
-            SlotState::RequestedOverdubbing
-        } else {
-            SlotState::RequestedRecording(RequestedRecordingState { pooled_midi_source })
-        };
-        self.state = next_state;
-        column_command_sender.record_clip(self.index, instruction);
-        self.temporary_route = record_stuff.temporary_route;
-        handler.request_recording_input(record_stuff.task);
+                .expect("pooled MIDI source not set although overdubbing")
+        });
+        let fresh_api_source =
+            create_api_source_from_recorded_midi_source(&pooled_midi_source, Some(project))?;
+        // Above code was only for checking preconditions and preparing stuff.
+        // Here we can't fail anymore, do the actual state changes and distribute tasks.
+        if let Some(s) = new_pooled_midi_source {
+            content.pooled_midi_source = Some(s);
+        }
+        content
+            .clip
+            .update_api_source_before_midi_overdubbing(fresh_api_source);
+        self.initiate_recording(
+            column_command_sender,
+            handler,
+            SlotState::RequestedOverdubbing,
+            SlotRecordInstruction::MidiOverdub(specific_stuff.instruction),
+            common_stuff.temporary_route,
+            common_stuff.task,
+        );
         Ok(())
+    }
+
+    fn initiate_recording<H: ClipMatrixHandler>(
+        &mut self,
+        column_command_sender: &ColumnCommandSender,
+        handler: &H,
+        next_state: SlotState,
+        instruction: SlotRecordInstruction,
+        temporary_route: Option<TrackRoute>,
+        task: ClipRecordTask,
+    ) {
+        // 1. The main slot needs to know what's going on.
+        self.state = next_state;
+        // 2. The real-time slot needs to be prepared.
+        column_command_sender.record_clip(self.index, instruction);
+        // 3. The context needs to deliver our input.
+        handler.request_recording_input(task);
+        // 4. When recording track output, we must set up a send.
+        // TODO-medium For reasons of clean rollback, we should create the route here, not above.
+        self.temporary_route = temporary_route;
     }
 
     fn remove_temporary_route(&mut self) {
@@ -546,23 +629,26 @@ fn get_content_mut(content: &mut Option<Content>) -> ClipEngineResult<&mut Conte
     content.as_mut().ok_or(SLOT_NOT_FILLED)
 }
 
-struct ClipRecordStuff {
+struct CommonRecordStuff {
     task: ClipRecordTask,
     temporary_route: Option<TrackRoute>,
-    mode_specific: ModeSpecificClipRecordStuff,
 }
 
-enum ModeSpecificClipRecordStuff {
-    Normal {
-        recording_equipment: RecordingEquipment,
-        pooled_midi_source: Option<OwnedSource>,
-    },
-    MidiOverdub {
-        instruction: MidiOverdubInstruction,
-    },
+enum ModeSpecificRecordStuff {
+    FromScratch(FromScratchRecordStuff),
+    MidiOverdub(MidiOverdubRecordStuff),
 }
 
-fn create_clip_record_stuff(
+struct FromScratchRecordStuff {
+    recording_equipment: RecordingEquipment,
+    pooled_midi_source: Option<OwnedSource>,
+}
+
+struct MidiOverdubRecordStuff {
+    instruction: MidiOverdubInstruction,
+}
+
+fn create_record_stuff(
     slot_index: usize,
     containing_track: Option<&Track>,
     matrix_record_settings: &MatrixClipRecordSettings,
@@ -570,7 +656,7 @@ fn create_clip_record_stuff(
     playback_track: &Track,
     column_source: &SharedColumn,
     desired_midi_overdub_instruction: Option<MidiOverdubInstruction>,
-) -> ClipEngineResult<ClipRecordStuff> {
+) -> ClipEngineResult<(CommonRecordStuff, ModeSpecificRecordStuff)> {
     let (input, temporary_route) = {
         use RecordOrigin::*;
         match &column_settings.origin {
@@ -638,25 +724,25 @@ fn create_clip_record_stuff(
             is_midi_overdub: final_midi_overdub_instruction.is_some(),
         },
     };
-    let stuff = ClipRecordStuff {
+    let mode_specific_stuff = if let Some(instruction) = final_midi_overdub_instruction {
+        ModeSpecificRecordStuff::MidiOverdub(MidiOverdubRecordStuff { instruction })
+    } else {
+        let pooled_midi_source = match &recording_equipment {
+            RecordingEquipment::Midi(e) => {
+                Some(OwnedSource::new(e.create_pooled_copy_of_midi_source()))
+            }
+            RecordingEquipment::Audio(_) => None,
+        };
+        ModeSpecificRecordStuff::FromScratch(FromScratchRecordStuff {
+            recording_equipment,
+            pooled_midi_source,
+        })
+    };
+    let common_stuff = CommonRecordStuff {
         task,
         temporary_route,
-        mode_specific: if let Some(instruction) = final_midi_overdub_instruction {
-            ModeSpecificClipRecordStuff::MidiOverdub { instruction }
-        } else {
-            let pooled_midi_source = match &recording_equipment {
-                RecordingEquipment::Midi(e) => {
-                    Some(OwnedSource::new(e.create_pooled_copy_of_midi_source()))
-                }
-                RecordingEquipment::Audio(_) => None,
-            };
-            ModeSpecificClipRecordStuff::Normal {
-                recording_equipment,
-                pooled_midi_source,
-            }
-        },
     };
-    Ok(stuff)
+    Ok((common_stuff, mode_specific_stuff))
 }
 
 fn resolve_recording_track(
@@ -706,6 +792,8 @@ fn translate_track_input_to_hw_input(
 pub fn create_midi_overdub_instruction(
     mode: MidiClipRecordMode,
     auto_quantize: bool,
+    api_source: &api::Source,
+    temporary_project: Option<Project>,
 ) -> ClipEngineResult<MidiOverdubInstruction> {
     let quantization_settings = if auto_quantize {
         // TODO-high Use project quantization settings
@@ -713,43 +801,25 @@ pub fn create_midi_overdub_instruction(
     } else {
         None
     };
-    // let instruction = match &self.source {
-    //     Source::File(file_based_api_source) => {
-    //         // We have a file-based MIDI source only. In the real-time clip, we need to replace
-    //         // it with an equivalent in-project MIDI source first. Create it!
-    //         let file_based_source = create_pcm_source_from_file_based_api_source(
-    //             Some(permanent_project),
-    //             file_based_api_source,
-    //         )?;
-    //         // TODO-high-wait Use Justin's trick to import as in-project MIDI.
-    //         let in_project_source = file_based_source;
-    //         MidiOverdubInstruction {
-    //             in_project_midi_source: Some(in_project_source.clone().into_raw()),
-    //             settings: MidiOverdubSettings {
-    //                 mirror_source: in_project_source.into_raw(),
-    //                 mode,
-    //                 quantization_settings,
-    //             },
-    //         }
-    //     }
-    //     Source::MidiChunk(s) => {
-    //         // We have an in-project MIDI source already. Great!
-    //         MidiOverdubInstruction {
-    //             in_project_midi_source: None,
-    //             settings: MidiOverdubSettings {
-    //                 mirror_source: {
-    //                     create_pcm_source_from_midi_chunk_based_api_source(s.clone())?
-    //                         .into_raw()
-    //                 },
-    //                 mode,
-    //                 quantization_settings,
-    //             },
-    //         }
-    //     }
-    // };
-    // TODO-high Deal with file-based source.
+    let in_project_midi_source = match api_source {
+        api::Source::File(file_based_api_source) => {
+            // We have a file-based MIDI source only. In the real-time clip, we need to replace
+            // it with an equivalent in-project MIDI source first. Create it!
+            let in_project_source = create_pcm_source_from_file_based_api_source(
+                temporary_project,
+                file_based_api_source,
+                true,
+            )?;
+            Some(in_project_source.into_raw())
+        }
+        api::Source::MidiChunk(_) => {
+            // We have an in-project MIDI source already. Great!
+            None
+        }
+    };
+
     let instruction = MidiOverdubInstruction {
-        in_project_midi_source: None,
+        in_project_midi_source,
         settings: MidiOverdubSettings {
             mode,
             quantization_settings,

@@ -1469,12 +1469,6 @@ pub enum SlotRecordInstruction {
     MidiOverdub(MidiOverdubInstruction),
 }
 
-impl SlotRecordInstruction {
-    pub fn is_midi_overdub(&self) -> bool {
-        matches!(self, Self::MidiOverdub(_))
-    }
-}
-
 #[derive(Debug)]
 pub struct RecordNewClipInstruction {
     pub supplier_chain: SupplierChain,
