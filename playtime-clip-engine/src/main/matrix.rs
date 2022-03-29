@@ -21,7 +21,7 @@ use playtime_api::{
     MatrixClipRecordSettings, TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Track};
-use reaper_medium::{Bpm, MidiInputDeviceId, OwnedPcmSource, PositionInSeconds};
+use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
 use std::thread::JoinHandle;
 use std::{cmp, thread};
 

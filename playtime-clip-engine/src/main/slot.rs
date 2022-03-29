@@ -25,10 +25,9 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Guid, OrCurrentProject, OwnedSource, Project, Reaper, Track, TrackRoute};
+use reaper_high::{Guid, OwnedSource, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{
-    DurationInSeconds, OwnedPcmSource, PcmSource, PositionInSeconds, RecordingInput,
-    UiRefreshBehavior,
+    DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput, UiRefreshBehavior,
 };
 use std::mem;
 
@@ -354,14 +353,14 @@ impl Slot {
         Ok(())
     }
 
-    pub fn stop_editing_clip(&self, temporary_project: Option<Project>) -> ClipEngineResult<()> {
-        let content = self.get_content()?;
+    pub fn stop_editing_clip(&self, _temporary_project: Option<Project>) -> ClipEngineResult<()> {
+        let _ = self.get_content()?;
         // TODO-high CONTINUE
         Ok(())
     }
 
-    pub fn is_editing_clip(&self, temporary_project: Option<Project>) -> bool {
-        if let Some(content) = self.content.as_ref() {
+    pub fn is_editing_clip(&self, _temporary_project: Option<Project>) -> bool {
+        if let Some(_content) = self.content.as_ref() {
             // TODO-high CONTINUE
             false
         } else {

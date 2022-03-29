@@ -1,22 +1,15 @@
-use crate::rt::source_util::pcm_source_is_midi;
-use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, MidiOverdubSettings, QuantizationSettings,
-    RecorderRequest,
-};
+use crate::rt::supplier::{ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest};
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{
-    MidiOverdubInstruction, OverridableMatrixSettings, ProcessingRelevantClipSettings,
-};
+use crate::rt::{OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
-use playtime_api::{ClipColor, Db, MidiClipRecordMode, Source};
+use playtime_api::{ClipColor, Db};
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_medium::{Bpm, OwnedPcmSource};
-use std::path::PathBuf;
 
 /// Describes a clip.
 ///

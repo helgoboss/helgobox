@@ -1,4 +1,4 @@
-use reaper_medium::{BorrowedPcmSource, ReaperStr};
+use reaper_medium::BorrowedPcmSource;
 
 pub fn pcm_source_is_midi(src: &BorrowedPcmSource) -> bool {
     get_pcm_source_type(src).is_midi()

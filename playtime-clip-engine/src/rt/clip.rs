@@ -261,7 +261,7 @@ impl Clip {
         use ClipState::*;
         let instruction = match &mut self.state {
             Ready(s) => {
-                s.stop(args, &mut self.supplier_chain, event_handler);
+                s.stop(args, &mut self.supplier_chain);
                 None
             }
             Recording(s) => {
@@ -604,12 +604,7 @@ impl ReadyState {
     ///
     /// By default, if it's overdubbing, it just stops the overdubbing (a second call will make
     /// it stop playing).
-    pub fn stop<H: HandleSlotEvent>(
-        &mut self,
-        args: ClipStopArgs,
-        supplier_chain: &mut SupplierChain,
-        event_handler: &H,
-    ) {
+    pub fn stop(&mut self, args: ClipStopArgs, supplier_chain: &mut SupplierChain) {
         use ReadySubState::*;
         match self.state {
             Stopped => {}
