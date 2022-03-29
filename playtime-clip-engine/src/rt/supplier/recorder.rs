@@ -102,6 +102,8 @@ enum State {
 #[derive(Debug)]
 struct ReadyState {
     source: OwnedPcmSource,
+    /// This is updated with every overdub request and never cleared. So it can be `Some`
+    /// even we are not currently overdubbing.   
     midi_overdub_settings: Option<MidiOverdubSettings>,
 }
 
@@ -378,9 +380,6 @@ impl Recorder {
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => {
-                if s.midi_overdub_settings.is_some() {
-                    return Err("recorder already overdubbing");
-                }
                 if let Some(in_project_midi_source) = in_project_midi_source {
                     // We can only record with an in-project MIDI source, so before overdubbing
                     // we need to replace the current file-based one with the given in-project one.
