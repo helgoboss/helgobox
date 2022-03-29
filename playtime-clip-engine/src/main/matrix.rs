@@ -21,7 +21,7 @@ use playtime_api::{
     MatrixClipRecordSettings, TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Track};
-use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
+use reaper_medium::{Bpm, MidiInputDeviceId, OwnedPcmSource, PositionInSeconds};
 use std::thread::JoinHandle;
 use std::{cmp, thread};
 
@@ -490,7 +490,8 @@ impl ClipRecordInput {
                 } else {
                     None
                 };
-                RecordingEquipment::Midi(MidiRecordingEquipment::new(quantization_settings))
+                let equipment = MidiRecordingEquipment::new(quantization_settings);
+                RecordingEquipment::Midi(equipment)
             }
             HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
             | FxInput(virtual_input) => {

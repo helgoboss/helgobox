@@ -14,16 +14,15 @@ use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
 use playtime_api::{ClipColor, Db, MidiClipRecordMode, Source};
-use reaper_high::{OwnedSource, Project};
+use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_medium::{Bpm, OwnedPcmSource};
+use std::path::PathBuf;
 
 /// Describes a clip.
 ///
 /// Not loaded yet.
 #[derive(Clone, Debug)]
 pub struct Clip {
-    // Unlike Column and Matrix, we use the API clip here directly because there's almost no
-    // unnecessary data inside.
     source: api::Source,
     processing_relevant_settings: ProcessingRelevantClipSettings,
 }
@@ -36,32 +35,46 @@ impl Clip {
         }
     }
 
-    /// Also returns a pooled copy of the MIDI source if it's MIDI.
     pub fn from_recording(
         kind_specific_outcome: KindSpecificRecordingOutcome,
         clip_settings: ProcessingRelevantClipSettings,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<(Self, Option<OwnedPcmSource>)> {
+        pooled_midi_source: Option<&OwnedSource>,
+    ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
-        let (api_source, midi_source_copy) = match kind_specific_outcome {
-            Midi { mirror_source } => {
-                let mirror_source = OwnedSource::new(mirror_source);
-                let api_source =
-                    create_api_source_from_mirror_source(&mirror_source, temporary_project)?;
-                (api_source, Some(mirror_source.into_raw()))
+        let api_source = match kind_specific_outcome {
+            Midi {} => {
+                let pooled_midi_source =
+                    pooled_midi_source.expect("MIDI source must be given for MIDI recordings");
+                create_api_source_from_recorded_midi_source(&pooled_midi_source, temporary_project)?
             }
-            Audio { path, .. } => (create_file_api_source(temporary_project, &path), None),
+            Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
             source: api_source,
             processing_relevant_settings: clip_settings,
         };
-        Ok((clip, midi_source_copy))
+        Ok(clip)
     }
 
-    pub fn save(&self) -> api::Clip {
-        api::Clip {
-            source: self.source.clone(),
+    /// Creates an API clip.
+    ///
+    /// If the MIDI source is given, it will create the API source by inspecting the contents of
+    /// this MIDI source (instead of just cloning the API source field). With this, changes that
+    /// have been made to the source via MIDI editor are correctly saved.
+    pub fn save(
+        &self,
+        midi_source: Option<&OwnedSource>,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<api::Clip> {
+        let clip = api::Clip {
+            source: {
+                if let Some(midi_source) = midi_source {
+                    create_api_source_from_recorded_midi_source(midi_source, temporary_project)?
+                } else {
+                    self.source.clone()
+                }
+            },
             time_base: self.processing_relevant_settings.time_base,
             start_timing: self.processing_relevant_settings.start_timing,
             stop_timing: self.processing_relevant_settings.stop_timing,
@@ -71,7 +84,21 @@ impl Clip {
             section: self.processing_relevant_settings.section,
             audio_settings: self.processing_relevant_settings.audio_settings,
             midi_settings: self.processing_relevant_settings.midi_settings,
-        }
+        };
+        Ok(clip)
+    }
+
+    pub fn notify_midi_overdub_requested(
+        &mut self,
+        pooled_midi_source: &OwnedSource,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<()> {
+        // Before recording, we should serialize the latest MIDI editor changes to the source
+        // because during recording we won't look into the source (in order to not get in-flux
+        // content or interfere with the recording process in negative ways).
+        self.source =
+            create_api_source_from_recorded_midi_source(&pooled_midi_source, temporary_project)?;
+        Ok(())
     }
 
     pub fn notify_midi_overdub_finished(
@@ -79,9 +106,17 @@ impl Clip {
         mirror_source: &OwnedSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
-        let api_source = create_api_source_from_mirror_source(mirror_source, temporary_project)?;
+        let api_source =
+            create_api_source_from_recorded_midi_source(mirror_source, temporary_project)?;
         self.source = api_source;
         Ok(())
+    }
+
+    pub fn create_pcm_source(
+        &self,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<OwnedPcmSource> {
+        create_pcm_source_from_api_source(&self.source, temporary_project)
     }
 
     /// Returns the clip and a pooled copy of the MIDI source (if MIDI).
@@ -92,11 +127,12 @@ impl Clip {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::ColumnSettings,
-    ) -> ClipEngineResult<(rt::Clip, Option<OwnedPcmSource>)> {
+    ) -> ClipEngineResult<(rt::Clip, Option<OwnedSource>)> {
         let pcm_source = create_pcm_source_from_api_source(&self.source, permanent_project)?;
-        let midi_source_copy = if pcm_source_is_midi(&pcm_source) {
-            // TODO-high CONTINUE Make sure this is pooled!
-            Some(pcm_source.clone())
+        let pooled_copy = if matches!(self.source, api::Source::MidiChunk(_)) {
+            let clone =
+                Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
+            Some(OwnedSource::new(clone))
         } else {
             None
         };
@@ -109,7 +145,7 @@ impl Clip {
             chain_equipment,
             recorder_request_sender,
         )?;
-        Ok((rt_clip, midi_source_copy))
+        Ok((rt_clip, pooled_copy))
     }
 
     pub fn looped(&self) -> bool {
@@ -144,12 +180,12 @@ impl Clip {
     }
 }
 
-fn create_api_source_from_mirror_source(
-    mirror_source: &OwnedSource,
+fn create_api_source_from_recorded_midi_source(
+    midi_source: &OwnedSource,
     temporary_project: Option<Project>,
 ) -> ClipEngineResult<api::Source> {
     let api_source = source_util::create_api_source_from_pcm_source(
-        mirror_source,
+        midi_source,
         CreateApiSourceMode::AllowEmbeddedData,
         temporary_project,
     );

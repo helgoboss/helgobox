@@ -299,13 +299,6 @@ impl SupplierChain {
             .unwrap();
     }
 
-    pub fn take_midi_overdub_mirror_source(&mut self) -> Option<OwnedPcmSource> {
-        // With MIDI, there's no contention.
-        self.pre_buffer_wormhole()
-            .recorder()
-            .take_midi_overdub_mirror_source()
-    }
-
     /// If we are in MIDI overdub mode, the play position parameter must be set.
     pub fn write_midi(
         &mut self,

@@ -1,5 +1,30 @@
-use reaper_medium::{reaper_str, BorrowedPcmSource};
+use reaper_medium::{BorrowedPcmSource, ReaperStr};
 
 pub fn pcm_source_is_midi(src: &BorrowedPcmSource) -> bool {
-    src.get_type(|t| t == reaper_str!("MIDI") || t == reaper_str!("MIDIPOOL"))
+    get_pcm_source_type(src).is_midi()
+}
+
+pub fn get_pcm_source_type(src: &BorrowedPcmSource) -> PcmSourceType {
+    use PcmSourceType::*;
+    src.get_type(|t| match t.to_str() {
+        "MIDI" => NormalMidi,
+        "MIDIPOOL" => PooledMidi,
+        "WAVE" => Wave,
+        _ => Unknown,
+    })
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum PcmSourceType {
+    NormalMidi,
+    PooledMidi,
+    Wave,
+    Unknown,
+}
+
+impl PcmSourceType {
+    pub fn is_midi(&self) -> bool {
+        use PcmSourceType::*;
+        matches!(self, NormalMidi | PooledMidi)
+    }
 }

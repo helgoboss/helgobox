@@ -165,7 +165,11 @@ impl Column {
             },
             clip_record_settings: self.settings.clip_record_settings.clone(),
             slots: {
-                let slots = self.slots.iter().filter_map(|slot| slot.save()).collect();
+                let slots = self
+                    .slots
+                    .iter()
+                    .filter_map(|slot| slot.save(self.project))
+                    .collect();
                 Some(slots)
             },
         }
@@ -518,14 +522,14 @@ fn fill_slot_internal(
     rt_command_sender: &ColumnCommandSender,
     project: Option<Project>,
 ) -> ClipEngineResult<()> {
-    let (rt_clip, midi_source_copy) = clip.create_real_time_clip(
+    let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
         project,
         chain_equipment,
         recorder_request_sender,
         &matrix_settings.overridable,
         column_settings,
     )?;
-    slot.fill_with(clip, &rt_clip, midi_source_copy);
+    slot.fill_with(clip, &rt_clip, pooled_midi_source);
     let args = ColumnFillSlotArgs {
         slot_index: slot.index(),
         clip: rt_clip,

@@ -620,9 +620,6 @@ impl ReadyState {
                         overdubbing: false,
                         ..s
                     });
-                    if let Some(mirror_source) = supplier_chain.take_midi_overdub_mirror_source() {
-                        event_handler.midi_overdub_finished(mirror_source);
-                    }
                     if !args.enforce_play_stop {
                         // Continue playing
                         return;
@@ -1470,6 +1467,12 @@ pub enum SlotRecordInstruction {
     NewClip(RecordNewClipInstruction),
     ExistingClip(ClipRecordArgs),
     MidiOverdub(MidiOverdubInstruction),
+}
+
+impl SlotRecordInstruction {
+    pub fn is_midi_overdub(&self) -> bool {
+        matches!(self, Self::MidiOverdub(_))
+    }
 }
 
 #[derive(Debug)]

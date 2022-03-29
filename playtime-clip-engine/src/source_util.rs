@@ -1,10 +1,12 @@
 use crate::file_util::get_path_for_new_media_file;
+use crate::rt::source_util::{get_pcm_source_type, PcmSourceType};
 use crate::rt::supplier::MIDI_BASE_BPM;
 use crate::{rt, ClipEngineResult};
 use playtime_api as api;
 use playtime_api::{FileSource, MidiChunkSource};
-use reaper_high::{BorrowedSource, Item, OwnedSource, Project, ReaperSource};
+use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, ReaperSource};
 use reaper_medium::{MidiImportBehavior, OwnedPcmSource};
+use std::borrow::Cow;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -46,24 +48,35 @@ pub fn create_api_source_from_pcm_source(
     mode: CreateApiSourceMode,
     project: Option<Project>,
 ) -> Result<api::Source, Box<dyn Error>> {
-    let pcm_source_type = pcm_source.r#type();
     if let Some(source_file) = pcm_source.file_name() {
         Ok(create_file_api_source(project, &source_file))
-    } else if matches!(pcm_source_type.as_str(), "MIDI" | "MIDIPOOL") {
-        use CreateApiSourceMode::*;
-        let api_source = match mode {
-            AllowEmbeddedData => create_midi_chunk_source(pcm_source.state_chunk()),
-            ForceExportToFile { file_base_name } => {
-                let file_name = get_path_for_new_media_file(&file_base_name, "mid", project);
-                pcm_source
-                    .export_to_file(&file_name)
-                    .map_err(|_| "couldn't export MIDI source to file")?;
-                create_file_api_source(project, &file_name)
-            }
-        };
-        Ok(api_source)
     } else {
-        Err(format!("item source incompatible (type {})", pcm_source_type).into())
+        let pcm_source_type = get_pcm_source_type(pcm_source.as_raw());
+        if pcm_source_type.is_midi() {
+            use CreateApiSourceMode::*;
+            let api_source = match mode {
+                AllowEmbeddedData => {
+                    let ref_source = if pcm_source_type == PcmSourceType::PooledMidi {
+                        let cloned_pcm_source = Reaper::get()
+                            .with_pref_pool_midi_when_duplicating(false, || pcm_source.to_owned());
+                        Cow::Owned(cloned_pcm_source)
+                    } else {
+                        Cow::Borrowed(pcm_source)
+                    };
+                    create_midi_chunk_source(ref_source.state_chunk())
+                }
+                ForceExportToFile { file_base_name } => {
+                    let file_name = get_path_for_new_media_file(&file_base_name, "mid", project);
+                    pcm_source
+                        .export_to_file(&file_name)
+                        .map_err(|_| "couldn't export MIDI source to file")?;
+                    create_file_api_source(project, &file_name)
+                }
+            };
+            Ok(api_source)
+        } else {
+            Err(format!("item source incompatible (type {:?})", pcm_source_type).into())
+        }
     }
 }
 
