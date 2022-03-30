@@ -1,7 +1,8 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{get_cycle_at_frame, MIDI_FRAME_RATE};
+use crate::rt::supplier::{get_cycle_at_frame, MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
@@ -94,6 +95,7 @@ impl MaterialInfo {
         }
     }
 
+    /// Returns the duration assuming native source tempo.
     pub fn duration(&self) -> DurationInSeconds {
         match self {
             MaterialInfo::Audio(i) => i.duration(),
@@ -103,6 +105,15 @@ impl MaterialInfo {
 
     pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
         get_cycle_at_frame(frame, self.frame_count())
+    }
+
+    pub fn tempo_factor_during_recording(&self, timeline_tempo: Bpm) -> f64 {
+        if self.is_midi() {
+            calc_tempo_factor(MIDI_BASE_BPM, timeline_tempo)
+        } else {
+            // When recording audio, we have tempo factor 1.0 (original recording tempo).
+            1.0
+        }
     }
 }
 
@@ -114,6 +125,7 @@ pub struct AudioMaterialInfo {
 }
 
 impl AudioMaterialInfo {
+    /// Returns the duration assuming native source tempo.
     pub fn duration(&self) -> DurationInSeconds {
         convert_duration_in_frames_to_seconds(self.frame_count, self.frame_rate)
     }
@@ -125,6 +137,7 @@ pub struct MidiMaterialInfo {
 }
 
 impl MidiMaterialInfo {
+    /// Returns the duration assuming native source tempo.
     pub fn duration(&self) -> DurationInSeconds {
         convert_duration_in_frames_to_seconds(self.frame_count, MIDI_FRAME_RATE)
     }

@@ -279,12 +279,12 @@ impl Column {
 
     pub fn stop_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
         let slot = self.get_slot(slot_index)?;
-        slot.stop_editing_clip(self.project)
+        slot.stop_editing_clip(self.project.or_current_project())
     }
 
     pub fn is_editing_clip(&self, slot_index: usize) -> bool {
         if let Some(slot) = self.slots.get(slot_index) {
-            slot.is_editing_clip(self.project)
+            slot.is_editing_clip(self.project.or_current_project())
         } else {
             false
         }

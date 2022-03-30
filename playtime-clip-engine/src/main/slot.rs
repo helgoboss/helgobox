@@ -1,5 +1,6 @@
 use crate::conversion_util::{
-    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
+    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
+    convert_position_in_frames_to_seconds,
 };
 use crate::main::{
     create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
@@ -8,9 +9,8 @@ use crate::main::{
 };
 use crate::rt::supplier::{
     ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
-    RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain, MIDI_BASE_BPM,
+    RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
-use crate::rt::tempo_util::calc_tempo_factor;
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
     MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
@@ -25,9 +25,10 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Guid, OwnedSource, Project, Reaper, Track, TrackRoute};
+use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
-    DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput, UiRefreshBehavior,
+    Bpm, CommandId, DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput,
+    RequiredViewMode, SectionId, TrackArea, UiRefreshBehavior,
 };
 use std::mem;
 
@@ -60,6 +61,26 @@ struct Content {
     /// Now that we have pooled MIDI anyway, we don't need to send a finished MIDI recording back
     /// to the main thread using the "mirror source" method (which we did before).
     pooled_midi_source: Option<OwnedSource>,
+}
+
+impl Content {
+    pub fn length_in_seconds(
+        &self,
+        timeline: &HybridTimeline,
+    ) -> ClipEngineResult<DurationInSeconds> {
+        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+        let tempo_factor = self.tempo_factor(timeline_tempo);
+        let tempo_adjusted_secs = adjust_duration_in_secs_anti_proportionally(
+            self.runtime_data.material_info.duration(),
+            tempo_factor,
+        );
+        Ok(tempo_adjusted_secs)
+    }
+
+    pub fn tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
+        let is_midi = self.runtime_data.material_info.is_midi();
+        self.clip.tempo_factor(timeline_tempo, is_midi)
+    }
 }
 
 impl Slot {
@@ -334,35 +355,51 @@ impl Slot {
 
     pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
+        if !content.runtime_data.material_info.is_midi() {
+            return Err("editing not supported for audio");
+        }
+        let timeline = clip_timeline(Some(temporary_project), false);
+        let item_length = content.length_in_seconds(&timeline)?;
         let editor_track = find_or_create_editor_track(temporary_project);
-        let item = editor_track.add_item().map_err(|e| e.message())?;
-        debug!("Active take before: {:?}", item.active_take());
-        let take = item.add_take().map_err(|e| e.message())?;
         let midi_source = if let Some(s) = content.pooled_midi_source.as_ref() {
             Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
         } else {
             OwnedSource::new(content.clip.create_pcm_source(Some(temporary_project))?)
         };
+        let item = editor_track.add_item().map_err(|e| e.message())?;
+        let take = item.add_take().map_err(|e| e.message())?;
         take.set_source(midi_source);
-        debug!("Active take after: {:?}", item.active_take());
         item.set_position(PositionInSeconds::new(0.0), UiRefreshBehavior::NoRefresh)
             .unwrap();
-        item.set_length(DurationInSeconds::new(2.0), UiRefreshBehavior::NoRefresh)
+        item.set_length(item_length, UiRefreshBehavior::NoRefresh)
             .unwrap();
-        Reaper::get().medium_reaper().update_arrange();
+        // open_midi_editor_via_action(temporary_project, item);
+        open_midi_editor_directly(editor_track, take);
         Ok(())
     }
 
-    pub fn stop_editing_clip(&self, _temporary_project: Option<Project>) -> ClipEngineResult<()> {
-        let _ = self.get_content()?;
-        // TODO-high CONTINUE
+    pub fn stop_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
+        let content = self.get_content()?;
+        let editor_track = find_editor_track(temporary_project).ok_or("editor track not found")?;
+        let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
+        let _ = unsafe {
+            Reaper::get()
+                .medium_reaper()
+                .delete_track_media_item(editor_track.raw(), clip_item.raw())
+        };
+        if editor_track.item_count() == 0 {
+            editor_track.project().remove_track(&editor_track);
+        }
         Ok(())
     }
 
-    pub fn is_editing_clip(&self, _temporary_project: Option<Project>) -> bool {
-        if let Some(_content) = self.content.as_ref() {
-            // TODO-high CONTINUE
-            false
+    pub fn is_editing_clip(&self, temporary_project: Project) -> bool {
+        if let Some(content) = self.content.as_ref() {
+            if let Some(editor_track) = find_editor_track(temporary_project) {
+                find_clip_item(content, &editor_track).is_some()
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -413,18 +450,18 @@ impl Slot {
     }
 
     fn runtime_data(&self) -> ClipEngineResult<&SlotRuntimeData> {
-        use SlotState::*;
-        match &self.state {
-            Recording(s) => Ok(&s.runtime_data),
-            _ => Ok(&self.get_content()?.runtime_data),
+        if let SlotState::Recording(s) = &self.state {
+            Ok(&s.runtime_data)
+        } else {
+            Ok(&self.get_content()?.runtime_data)
         }
     }
 
     fn runtime_data_mut(&mut self) -> ClipEngineResult<&mut SlotRuntimeData> {
-        use SlotState::*;
-        match &mut self.state {
-            Recording(s) => Ok(&mut s.runtime_data),
-            _ => Ok(&mut get_content_mut(&mut self.content)?.runtime_data),
+        if let SlotState::Recording(s) = &mut self.state {
+            Ok(&mut s.runtime_data)
+        } else {
+            Ok(&mut get_content_mut(&mut self.content)?.runtime_data)
         }
     }
 
@@ -457,22 +494,22 @@ impl Slot {
         &self,
         timeline: &HybridTimeline,
     ) -> ClipEngineResult<PositionInSeconds> {
-        let runtime_data = self.runtime_data()?;
+        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+        let (runtime_data, tempo_factor) = if let SlotState::Recording(s) = &self.state {
+            let tempo_factor = s
+                .runtime_data
+                .material_info
+                .tempo_factor_during_recording(timeline_tempo);
+            (&s.runtime_data, tempo_factor)
+        } else {
+            let content = self.get_content()?;
+            (&content.runtime_data, content.tempo_factor(timeline_tempo))
+        };
         let pos_in_source_frames = runtime_data.mod_frame();
         let pos_in_secs = convert_position_in_frames_to_seconds(
             pos_in_source_frames,
             runtime_data.material_info.frame_rate(),
         );
-        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
-        let is_midi = runtime_data.material_info.is_midi();
-        let tempo_factor = if let Ok(content) = self.get_content() {
-            content.clip.tempo_factor(timeline_tempo, is_midi)
-        } else if is_midi {
-            calc_tempo_factor(MIDI_BASE_BPM, timeline_tempo)
-        } else {
-            // When recording audio, we have tempo factor 1.0 (original recording tempo).
-            1.0
-        };
         let tempo_adjusted_secs = adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor);
         Ok(tempo_adjusted_secs)
     }
@@ -762,6 +799,7 @@ fn resolve_recording_track(
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
+
 fn translate_track_input_to_hw_input(
     track_input: RecordingInput,
 ) -> ClipEngineResult<ClipRecordHardwareInput> {
@@ -828,20 +866,108 @@ pub fn create_midi_overdub_instruction(
 }
 
 fn find_or_create_editor_track(project: Project) -> Track {
-    project
-        .tracks()
-        .find(|t| {
-            if let Some(name) = t.name() {
-                name.to_str() == EDITOR_TRACK_NAME
-            } else {
-                false
-            }
-        })
-        .unwrap_or_else(|| {
-            let track = project.add_track();
-            track.set_name(EDITOR_TRACK_NAME);
-            track
-        })
+    find_editor_track(project).unwrap_or_else(|| {
+        let track = project.add_track();
+        track.set_shown(TrackArea::Mcp, false);
+        track.set_shown(TrackArea::Tcp, false);
+        track.set_name(EDITOR_TRACK_NAME);
+        track
+    })
+}
+
+fn find_editor_track(project: Project) -> Option<Track> {
+    project.tracks().find(|t| {
+        if let Some(name) = t.name() {
+            name.to_str() == EDITOR_TRACK_NAME
+        } else {
+            false
+        }
+    })
 }
 
 const EDITOR_TRACK_NAME: &str = "playtime-editor-track";
+
+fn item_refers_to_clip_content(item: Item, content: &Content) -> bool {
+    let take = match item.active_take() {
+        None => return false,
+        Some(t) => t,
+    };
+    let source = match take.source() {
+        None => return false,
+        Some(s) => s,
+    };
+    if let Some(clip_source) = &content.pooled_midi_source {
+        // TODO-medium Checks can be optimized (in terms of performance)
+        clip_source.pooled_midi_id().map(|res| res.id) == source.pooled_midi_id().map(|res| res.id)
+    } else if let api::Source::File(s) = &content.clip.api_source() {
+        source
+            .as_ref()
+            .as_raw()
+            .get_file_name(|n| if let Some(n) = n { n == &s.path } else { false })
+    } else {
+        false
+    }
+}
+
+fn item_is_open_in_midi_editor(item: Item) -> bool {
+    let item_take = match item.active_take() {
+        None => return false,
+        Some(t) => t,
+    };
+    let reaper = Reaper::get().medium_reaper();
+    let active_editor = match reaper.midi_editor_get_active() {
+        None => return false,
+        Some(e) => e,
+    };
+    let open_take = match unsafe { reaper.midi_editor_get_take(active_editor) } {
+        Err(_) => return false,
+        Ok(t) => t,
+    };
+    open_take == item_take.raw()
+}
+
+fn open_midi_editor_directly(editor_track: Track, take: Take) {
+    if let Some(source) = take.source() {
+        unsafe {
+            source
+                .as_raw()
+                .ext_open_editor(Reaper::get().main_window(), editor_track.index().unwrap())
+                .unwrap();
+        }
+        configure_midi_editor();
+    }
+}
+
+fn open_midi_editor_via_action(project: Project, item: Item) {
+    project.select_item_exclusively(item);
+    let open_midi_editor_command_id = CommandId::new(40153);
+    // let open_midi_editor_command_id = CommandId::new(40109);
+    Reaper::get()
+        .main_section()
+        .action_by_command_id(open_midi_editor_command_id)
+        .invoke_as_trigger(item.project());
+    configure_midi_editor();
+}
+
+fn configure_midi_editor() {
+    let reaper = Reaper::get().medium_reaper();
+    let midi_editor_section_id = SectionId::new(32060);
+    let source_beats_command_id = CommandId::new(40470);
+    let zoom_command_id = CommandId::new(40466);
+    let required_view_mode = RequiredViewMode::Normal;
+    // Switch piano roll time base to "Source beats" if not already happened.
+    if reaper.get_toggle_command_state_ex(midi_editor_section_id, source_beats_command_id)
+        != Some(true)
+    {
+        let _ =
+            reaper.midi_editor_last_focused_on_command(source_beats_command_id, required_view_mode);
+    }
+    // Zoom to content
+    let _ = reaper.midi_editor_last_focused_on_command(zoom_command_id, required_view_mode);
+}
+
+fn find_clip_item(content: &Content, editor_track: &Track) -> Option<Item> {
+    editor_track.items().find(|item| {
+        item_refers_to_clip_content(*item, content) && item_is_open_in_midi_editor(*item)
+    })
+}

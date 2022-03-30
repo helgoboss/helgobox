@@ -268,6 +268,9 @@ for col = 0, column_count - 1 do
                 character = "Button",
                 id = prefix .. "pad",
             },
+            glue = {
+                absolute_mode = "ToggleButton",
+            },
             target = {
                 kind = "ClipManagement",
                 slot = {
