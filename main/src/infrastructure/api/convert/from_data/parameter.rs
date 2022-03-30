@@ -1,4 +1,4 @@
-use crate::application::ParameterSetting;
+use crate::domain::ParameterSetting;
 use crate::infrastructure::api::convert::ConversionResult;
 use realearn_api::schema;
 

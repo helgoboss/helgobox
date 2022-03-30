@@ -9,12 +9,13 @@ use crate::domain::{
     LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
     MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
-    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RealFeedbackValue,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
-    ReaperMessage, ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
-    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
-    VirtualSourceValue,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ParameterArray,
+    ProcessorContext, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource,
+    RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -54,12 +55,6 @@ const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
-
-pub const PLUGIN_PARAMETER_COUNT: u32 = 200;
-pub const COMPARTMENT_PARAMETER_COUNT: u32 = 100;
-pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
-pub type ParameterSlice = [f32];
-pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
 
 pub type SharedMainProcessors<EH> = Rc<RefCell<Vec<MainProcessor<EH>>>>;
 

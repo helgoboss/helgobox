@@ -6,7 +6,6 @@ use crate::application::{
     SharedSessionState, SourceModel, TargetCategory, TargetModel, TargetProp,
     VirtualControlElementType,
 };
-use crate::base::default_util::is_default;
 use crate::base::{
     prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
     SenderToRealTimeThread,
@@ -17,10 +16,10 @@ use crate::domain::{
     FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
     InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
-    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
-    ZEROED_PLUGIN_PARAMETERS,
+    NormalRealTimeTask, OscFeedbackTask, ParameterArray, ParameterSetting, ProcessorContext,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
+    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
+    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -2265,54 +2264,6 @@ impl Session {
         self.full_sync();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ParameterSetting {
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub key: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub name: String,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub max_value: Option<f64>,
-}
-
-impl ParameterSetting {
-    pub fn is_default(&self) -> bool {
-        self.name.is_empty()
-    }
-
-    pub fn key_matches(&self, key: &str) -> bool {
-        if let Some(k) = self.key.as_ref() {
-            k == key
-        } else {
-            false
-        }
-    }
-
-    pub fn convert_to_effective_value(&self, raw_value: f32) -> f64 {
-        let raw_value = UnitValue::new_clamped(raw_value as _);
-        if let Some(max_value) = self.max_value {
-            raw_value.get() * max_value
-        } else {
-            raw_value.get()
-        }
-    }
-
-    pub fn convert_to_raw_value(&self, effective_value: f64) -> f32 {
-        let raw_value = if let Some(max_value) = self.max_value {
-            effective_value / max_value
-        } else {
-            effective_value
-        };
-        UnitValue::new_clamped(raw_value).get() as f32
-    }
-
-    pub fn parse_to_raw_value(&self, text: &str) -> Result<f32, &'static str> {
-        let effective_value: f64 = text.parse().map_err(|_| "couldn't parse as number")?;
-        Ok(self.convert_to_raw_value(effective_value))
     }
 }
 

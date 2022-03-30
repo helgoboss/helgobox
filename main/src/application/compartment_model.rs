@@ -1,7 +1,7 @@
 use crate::application::{
-    Affected, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp, ParameterSetting,
+    Affected, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp,
 };
-use crate::domain::{GroupId, MappingId};
+use crate::domain::{GroupId, MappingId, ParameterSetting};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

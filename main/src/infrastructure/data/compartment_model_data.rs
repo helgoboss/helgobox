@@ -1,6 +1,6 @@
-use crate::application::{CompartmentModel, GroupModel, ParameterSetting};
+use crate::application::{CompartmentModel, GroupModel};
 use crate::base::default_util::is_default;
-use crate::domain::{GroupId, GroupKey, MappingCompartment};
+use crate::domain::{GroupId, GroupKey, MappingCompartment, ParameterSetting};
 use crate::infrastructure::data::{
     DataToModelConversionContext, GroupModelData, MappingModelData, MigrationDescriptor,
     ModelToDataConversionContext,

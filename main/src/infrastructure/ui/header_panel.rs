@@ -17,13 +17,13 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
-    MainPreset, MainPresetAutoLoadMode, MappingCommand, ParameterSetting, Preset, PresetManager,
-    SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, Preset, PresetManager, SessionProp,
+    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
     BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
-    MessageCaptureEvent, OscDeviceId, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    MessageCaptureEvent, OscDeviceId, ParameterSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{

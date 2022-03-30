@@ -1,5 +1,4 @@
-use crate::application::ParameterSetting;
-use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{MappingCompartment, ParameterSetting, COMPARTMENT_PARAMETER_COUNT};
 use enum_map::{enum_map, EnumMap};
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -1,12 +1,12 @@
 use crate::application::{
     empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
-    MainPresetAutoLoadMode, ParameterSetting, Session, SessionState,
+    MainPresetAutoLoadMode, Session, SessionState,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
     MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
-    Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ParameterSetting, Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,

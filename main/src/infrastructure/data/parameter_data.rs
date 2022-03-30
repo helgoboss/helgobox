@@ -1,5 +1,5 @@
-use crate::application::ParameterSetting;
 use crate::base::default_util::is_default;
+use crate::domain::ParameterSetting;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

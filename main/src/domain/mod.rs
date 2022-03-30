@@ -107,3 +107,6 @@ pub use props::*;
 
 mod accelerator;
 pub use accelerator::*;
+
+mod parameter;
+pub use parameter::*;

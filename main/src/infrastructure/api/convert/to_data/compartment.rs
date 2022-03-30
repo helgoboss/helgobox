@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::application::ParameterSetting;
+use crate::domain::ParameterSetting;
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
