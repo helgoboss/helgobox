@@ -2690,7 +2690,7 @@ fn edit_compartment_parameter(
         let session_state = session.state().borrow();
         range
             .clone()
-            .map(|i| session_state.get_parameter_settings(compartment, i))
+            .map(|i| session_state.get_parameter_setting(compartment, i))
             .cloned()
             .collect()
     };
@@ -2707,34 +2707,42 @@ enum EditOscDevError {
     Unexpected(&'static str),
 }
 
-/// Max 5 settings.
+/// Pass max 5 settings.
 fn edit_compartment_parameter_internal(
     offset: u32,
     settings: &[ParameterSetting],
 ) -> Result<Vec<ParameterSetting>, &'static str> {
     let mut captions_csv = (offset..)
         .zip(settings)
-        .map(|(i, _)| format!("Param {} name", i + 1))
+        .map(|(i, _)| format!("Param {} name,Param {} maximum", i + 1, i + 1))
         .join(",");
     captions_csv.push_str(",separator=;,extrawidth=80");
-    let initial_csv = settings.iter().map(|s| s.name.clone()).join(";");
+    let initial_csv = settings
+        .iter()
+        .flat_map(|s| {
+            [
+                s.name.clone(),
+                s.max_value.map(|v| v.to_string()).unwrap_or_default(),
+            ]
+        })
+        .join(";");
     let csv = Reaper::get()
         .medium_reaper()
         .get_user_inputs(
             "ReaLearn",
-            settings.len() as _,
+            (settings.len() * 2) as u32,
             captions_csv,
             initial_csv,
-            512,
+            1024,
         )
         .ok_or("cancelled")?;
-    let out_settings: Vec<_> = csv
-        .to_str()
-        .split(';')
+    let tuples = csv.to_str().split(';').tuples();
+    let out_settings: Vec<_> = tuples
         .zip(settings)
-        .map(|(name, old_setting)| ParameterSetting {
+        .map(|((name, max_value), old_setting)| ParameterSetting {
             key: old_setting.key.clone(),
             name: name.trim().to_owned(),
+            max_value: { max_value.parse().ok() },
         })
         .collect();
     if out_settings.len() != settings.len() {

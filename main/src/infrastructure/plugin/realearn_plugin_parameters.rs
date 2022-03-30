@@ -113,6 +113,20 @@ impl RealearnPluginParameters {
         session.upgrade()
     }
 
+    fn set_parameter_value_internal(&self, index: u32, value: f32) {
+        // We immediately send to the main processor. Sending to the session and using the
+        // session parameter list as single source of truth is no option because this method
+        // will be called in a processing thread, not in the main thread. Not even a mutex would
+        // help here because the session is conceived for main-thread usage only! I was not
+        // aware of this being called in another thread and it led to subtle errors of course
+        // (https://github.com/helgoboss/realearn/issues/59).
+        self.parameter_main_task_sender
+            .send_complaining(ParameterMainTask::UpdateParameter { index, value });
+        // Also update synchronously so that a subsequent `get_parameter` will immediately
+        // return the new value.
+        self.parameters_mut()[index as usize] = value;
+    }
+
     fn parameters(&self) -> RwLockReadGuard<ParameterArray> {
         self.parameters.read().expect("writer should never panic")
     }
@@ -210,21 +224,50 @@ impl PluginParameters for RealearnPluginParameters {
 
     fn set_parameter(&self, index: i32, value: f32) {
         firewall(|| {
-            // We immediately send to the main processor. Sending to the session and using the
-            // session parameter list as single source of truth is no option because this method
-            // will be called in a processing thread, not in the main thread. Not even a mutex would
-            // help here because the session is conceived for main-thread usage only! I was not
-            // aware of this being called in another thread and it led to subtle errors of course
-            // (https://github.com/helgoboss/realearn/issues/59).
-            self.parameter_main_task_sender
-                .send_complaining(ParameterMainTask::UpdateParameter {
-                    index: index as _,
-                    value,
-                });
-            // Also update synchronously so that a subsequent `get_parameter` will immediately
-            // return the new value.
-            self.parameters_mut()[index as usize] = value;
+            self.set_parameter_value_internal(index as _, value);
         });
+    }
+
+    fn get_parameter_text(&self, index: i32) -> String {
+        firewall(|| {
+            let index = index as u32;
+            let raw_value = self.parameters()[index as usize];
+            let effective_value =
+                if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
+                    let rel_index = compartment.relativize_absolute_index(index);
+                    self.session_state
+                        .borrow()
+                        .get_parameter_setting(compartment, rel_index)
+                        .convert_to_effective_value(raw_value)
+                } else {
+                    raw_value as f64
+                };
+            format!("{:.3}", effective_value)
+        })
+        .unwrap_or_default()
+    }
+
+    fn string_to_parameter(&self, index: i32, text: String) -> bool {
+        firewall(|| {
+            let index = index as u32;
+            if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
+                let rel_index = compartment.relativize_absolute_index(index);
+                let parse_result = self
+                    .session_state
+                    .borrow()
+                    .get_parameter_setting(compartment, rel_index)
+                    .parse_to_raw_value(&text);
+                if let Ok(raw_value) = parse_result {
+                    self.set_parameter_value_internal(index, raw_value);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        })
+        .unwrap_or_default()
     }
 }
 

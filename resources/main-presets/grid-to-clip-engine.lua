@@ -29,7 +29,7 @@ local parameters = {
     },
     {
         index = 5,
-        name = "quantize modifier",
+        name = "Quantize modifier",
     },
 }
 

@@ -33,7 +33,7 @@ impl Default for SessionState {
 }
 
 impl SessionState {
-    pub fn get_parameter_settings(
+    pub fn get_parameter_setting(
         &self,
         compartment: MappingCompartment,
         index: u32,

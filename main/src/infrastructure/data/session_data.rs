@@ -591,7 +591,7 @@ fn get_parameter_data_map(
         .filter_map(|i| {
             let parameter_slice = compartment.slice_params(parameters);
             let value = parameter_slice[i as usize];
-            let settings = session_state.get_parameter_settings(compartment, i);
+            let settings = session_state.get_parameter_setting(compartment, i);
             if value == 0.0 && settings.name.is_empty() {
                 return None;
             }
