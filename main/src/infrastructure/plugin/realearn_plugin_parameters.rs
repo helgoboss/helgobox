@@ -7,7 +7,7 @@ use slog::debug;
 
 use crate::application::{SharedSession, SharedSessionState, WeakSession};
 use crate::domain::{
-    MappingCompartment, ParameterArray, ParameterMainTask, ZEROED_PLUGIN_PARAMETERS,
+    MappingCompartment, ParameterMainTask, ParameterValueArray, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
@@ -21,7 +21,7 @@ pub struct RealearnPluginParameters {
     // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
     parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
-    parameters: RwLock<ParameterArray>,
+    parameters: RwLock<ParameterValueArray>,
     session_state: SendOrSyncWhatever<SharedSessionState>,
 }
 
@@ -127,11 +127,11 @@ impl RealearnPluginParameters {
         self.parameters_mut()[index as usize] = value;
     }
 
-    fn parameters(&self) -> RwLockReadGuard<ParameterArray> {
+    fn parameters(&self) -> RwLockReadGuard<ParameterValueArray> {
         self.parameters.read().expect("writer should never panic")
     }
 
-    fn parameters_mut(&self) -> RwLockWriteGuard<ParameterArray> {
+    fn parameters_mut(&self) -> RwLockWriteGuard<ParameterValueArray> {
         self.parameters.write().expect("writer should never panic")
     }
 }

@@ -1,4 +1,4 @@
-use crate::domain::{ControlContext, ParameterArray};
+use crate::domain::{ControlContext, Parameters};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::TypeSpecificPluginContext;
@@ -9,19 +9,19 @@ use vst::plugin::HostCallback;
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedProcessorContext<'a> {
     pub context: &'a ProcessorContext,
-    pub params: &'a ParameterArray,
+    pub parameters: Parameters<'a>,
     pub control_context: ControlContext<'a>,
 }
 
 impl<'a> ExtendedProcessorContext<'a> {
     pub fn new(
         context: &'a ProcessorContext,
-        params: &'a ParameterArray,
+        parameters: Parameters<'a>,
         control_context: ControlContext<'a>,
     ) -> Self {
         Self {
             context,
-            params,
+            parameters,
             control_context,
         }
     }
@@ -30,8 +30,8 @@ impl<'a> ExtendedProcessorContext<'a> {
         self.context
     }
 
-    pub fn params(&self) -> &'a ParameterArray {
-        self.params
+    pub fn parameters(&self) -> Parameters {
+        self.parameters
     }
 
     pub fn control_context(&self) -> ControlContext {

@@ -1,12 +1,48 @@
 use crate::base::default_util::is_default;
 use helgoboss_learn::UnitValue;
 use serde::{Deserialize, Serialize};
+use std::ops::Range;
 
 pub const PLUGIN_PARAMETER_COUNT: u32 = 200;
 pub const COMPARTMENT_PARAMETER_COUNT: u32 = 100;
-pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
-pub type ParameterSlice = [f32];
-pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
+pub type ParameterValueArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
+pub type ParameterSettingArray = [ParameterSetting; PLUGIN_PARAMETER_COUNT as usize];
+pub const ZEROED_PLUGIN_PARAMETERS: ParameterValueArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
+
+#[derive(Copy, Clone, Debug)]
+pub struct Parameters<'a> {
+    values: &'a [f32],
+    settings: &'a [ParameterSetting],
+}
+
+impl<'a> Parameters<'a> {
+    pub fn new(values: &'a [f32], settings: &'a [ParameterSetting]) -> Self {
+        assert_eq!(values.len(), settings.len());
+        Self { values, settings }
+    }
+
+    pub fn values(&self) -> &[f32] {
+        self.values
+    }
+
+    pub fn raw_value_at(&self, index: u32) -> Option<f32> {
+        self.values.get(index as usize).copied()
+    }
+
+    pub fn slice(&self, range: Range<u32>) -> Self {
+        let range = range.start as usize..range.end as usize;
+        Self {
+            values: &self.values[range.clone()],
+            settings: &self.settings[range],
+        }
+    }
+
+    pub fn get_effective_value(&self, index: u32) -> Option<f64> {
+        let raw_value = *self.values.get(index as usize)?;
+        let effective_value = self.settings[index as usize].convert_to_effective_value(raw_value);
+        Some(effective_value)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

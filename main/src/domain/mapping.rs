@@ -3,10 +3,10 @@ use crate::domain::{
     ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue, KeyMessage,
     KeySource, MappingActivationEffect, MappingControlContext, MappingData, MappingInfo,
-    MessageCaptureEvent, MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult,
-    ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealTimeMappingUpdate,
-    RealTimeReaperTarget, RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource,
-    ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    MessageCaptureEvent, MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, Parameters,
+    PersistentMappingProcessingState, RealTimeMappingUpdate, RealTimeReaperTarget,
+    RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
+    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
     VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
     VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
@@ -424,11 +424,11 @@ impl MainMapping {
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
-        params: &ParameterArray,
+        parameters: Parameters,
         absolute_param_index: u32,
         previous_value: f32,
     ) -> Option<MappingActivationEffect> {
-        let sliced_params = self.core.compartment.slice_params(params);
+        let sliced_params = self.core.compartment.slice_parameters(parameters);
         let rel_param_index = self
             .core
             .compartment
@@ -492,7 +492,7 @@ impl MainMapping {
         let (targets, is_active) = self.resolve_target(context, control_context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        self.update_activation(context.params());
+        self.update_activation(context.parameters());
         let target_value = self.current_aggregated_target_value(control_context);
         self.initial_target_value = target_value;
         self.last_non_performance_target_value = Cell::new(target_value);
@@ -602,8 +602,8 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<RealTimeMappingUpdate> {
-        let sliced_params = self.core.compartment.slice_params(params);
+    pub fn update_activation(&mut self, parameters: Parameters) -> Option<RealTimeMappingUpdate> {
+        let sliced_params = self.core.compartment.slice_parameters(parameters);
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
         self.activation_state.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
@@ -2188,9 +2188,9 @@ impl MappingCompartment {
         absolute_index - self.param_offset()
     }
 
-    pub fn slice_params(self, params: &ParameterArray) -> &ParameterSlice {
+    pub fn slice_parameters(self, parameters: Parameters) -> Parameters {
         let range = self.param_range();
-        &params[range.start as usize..range.end as usize]
+        parameters.slice(range)
     }
 
     const fn param_offset(self) -> u32 {

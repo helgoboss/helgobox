@@ -5,8 +5,9 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
-    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
-    ParameterSetting, Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
+    ParameterSetting, ParameterValueArray, Tag, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -189,7 +190,7 @@ impl Default for SessionData {
 }
 
 impl SessionData {
-    pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
+    pub fn from_model(session: &Session, parameters: &ParameterValueArray) -> SessionData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession {
                 session,
@@ -304,7 +305,7 @@ impl SessionData {
     pub fn apply_to_model(
         &self,
         session: &mut Session,
-        params: &ParameterArray,
+        params: &ParameterValueArray,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         ensure_no_duplicate_compartment_data(
@@ -571,7 +572,7 @@ impl SessionData {
         Ok(())
     }
 
-    pub fn parameters_as_array(&self) -> ParameterArray {
+    pub fn parameters_as_array(&self) -> ParameterValueArray {
         let mut parameters = ZEROED_PLUGIN_PARAMETERS;
         for (i, p) in self.parameters.iter() {
             if let Ok(i) = i.parse::<u32>() {
@@ -584,12 +585,12 @@ impl SessionData {
 
 fn get_parameter_data_map(
     session_state: &SessionState,
-    parameters: &ParameterArray,
+    parameters: &ParameterValueArray,
     compartment: MappingCompartment,
 ) -> HashMap<String, ParameterData> {
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
-            let parameter_slice = compartment.slice_params(parameters);
+            let parameter_slice = compartment.slice_parameters(parameters);
             let value = parameter_slice[i as usize];
             let settings = session_state.get_parameter_setting(compartment, i);
             if value == 0.0 && settings.name.is_empty() {

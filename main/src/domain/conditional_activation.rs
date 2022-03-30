@@ -1,5 +1,5 @@
 use crate::base::eel;
-use crate::domain::{ParameterSlice, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{Parameters, COMPARTMENT_PARAMETER_COUNT};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -22,17 +22,17 @@ impl ActivationCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &ParameterSlice) -> bool {
+    pub fn is_fulfilled(&self, params: Parameters) -> bool {
         use ActivationCondition::*;
         match self {
             Always => true,
-            Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params),
+            Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params.values()),
             Program {
                 param_index,
                 program_index,
-            } => program_condition_is_fulfilled(*param_index, *program_index, params),
+            } => program_condition_is_fulfilled(*param_index, *program_index, params.values()),
             Eel(condition) => {
-                condition.notify_params_changed(params);
+                condition.notify_params_changed(params.values());
                 condition.is_fulfilled()
             }
         }
@@ -51,7 +51,7 @@ impl ActivationCondition {
     /// TODO-low This is not visible because it's &self.
     pub fn is_fulfilled_single(
         &self,
-        params: &ParameterSlice,
+        params: Parameters,
         // Changed index
         index: u32,
         // Previous value at changed index
@@ -61,12 +61,16 @@ impl ActivationCondition {
         let is_fulfilled = match self {
             Modifiers(conditions) => {
                 let is_affected = conditions.iter().any(|c| {
-                    c.is_affected_by_param_change(index, previous_value, params[index as usize])
+                    c.is_affected_by_param_change(
+                        index,
+                        previous_value,
+                        params.raw_value_at(index).unwrap(),
+                    )
                 });
                 if !is_affected {
                     return None;
                 }
-                modifier_conditions_are_fulfilled(conditions, params)
+                modifier_conditions_are_fulfilled(conditions, params.values())
             }
             Program {
                 param_index,
@@ -75,10 +79,11 @@ impl ActivationCondition {
                 if index != *param_index {
                     return None;
                 }
-                program_condition_is_fulfilled(*param_index, *program_index, params)
+                program_condition_is_fulfilled(*param_index, *program_index, params.values())
             }
             Eel(condition) => {
-                let is_affected = condition.notify_param_changed(index, params[index as usize]);
+                let is_affected =
+                    condition.notify_param_changed(index, params.raw_value_at(index).unwrap());
                 if !is_affected {
                     return None;
                 }
@@ -90,20 +95,13 @@ impl ActivationCondition {
     }
 }
 
-fn modifier_conditions_are_fulfilled(
-    conditions: &[ModifierCondition],
-    params: &ParameterSlice,
-) -> bool {
+fn modifier_conditions_are_fulfilled(conditions: &[ModifierCondition], params: &[f32]) -> bool {
     conditions
         .iter()
         .all(|condition| condition.is_fulfilled(params))
 }
 
-fn program_condition_is_fulfilled(
-    param_index: u32,
-    program_index: u32,
-    params: &ParameterSlice,
-) -> bool {
+fn program_condition_is_fulfilled(param_index: u32, program_index: u32, params: &[f32]) -> bool {
     let param_value = params[param_index as usize];
     let current_program_index = (param_value * 99.0).round() as u32;
     current_program_index == program_index
@@ -130,7 +128,7 @@ impl ModifierCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &ParameterSlice) -> bool {
+    pub fn is_fulfilled(&self, params: &[f32]) -> bool {
         let param_value = match params.get(self.param_index as usize) {
             // Parameter doesn't exist. Shouldn't happen but handle gracefully.
             None => return false,
@@ -185,7 +183,7 @@ impl EelCondition {
         })
     }
 
-    pub fn notify_params_changed(&self, params: &ParameterSlice) {
+    pub fn notify_params_changed(&self, params: &[f32]) {
         for (i, p) in self.params.iter().enumerate() {
             if let Some(v) = p {
                 unsafe {

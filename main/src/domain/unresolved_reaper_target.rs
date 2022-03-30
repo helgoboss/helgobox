@@ -1,15 +1,15 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    BackboneState, ExtendedProcessorContext, FeedbackResolution, MappingCompartment,
-    ParameterSlice, ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
-    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget,
-    UnresolvedAutomationTouchStateTarget, UnresolvedClipManagementTarget, UnresolvedClipSeekTarget,
-    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    BackboneState, ExtendedProcessorContext, FeedbackResolution, MappingCompartment, Parameters,
+    ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
+    UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxPresetTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteVolumeTarget,
@@ -18,7 +18,7 @@ use crate::domain::{
     UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
     UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
     UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    UnresolvedTransportTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -337,7 +337,7 @@ impl TrackRouteSelector {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, TrackRouteResolveError> {
-        let sliced_params = compartment.slice_params(context.params());
+        let sliced_params = compartment.slice_parameters(context.parameters());
         let result = evaluator
             .evaluate(sliced_params)
             .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
@@ -471,7 +471,7 @@ impl VirtualClipSlot {
                 column_evaluator,
                 row_evaluator,
             } => {
-                let sliced_params = compartment.slice_params(context.params());
+                let sliced_params = compartment.slice_parameters(context.parameters());
                 let column_index = to_slot_coordinate(column_evaluator.evaluate(sliced_params))?;
                 let row_index = to_slot_coordinate(row_evaluator.evaluate(sliced_params))?;
                 ClipSlotCoordinates::new(column_index, row_index)
@@ -579,7 +579,7 @@ impl VirtualFxParameter {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxParameterResolveError> {
-        let sliced_params = compartment.slice_params(context.params());
+        let sliced_params = compartment.slice_parameters(context.parameters());
         let result = evaluator
             .evaluate(sliced_params)
             .map_err(|_| FxParameterResolveError::ExpressionFailed)?
@@ -636,21 +636,21 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(params, |_, _| None)
+    pub fn evaluate(&self, parameters: Parameters) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(parameters, |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
-        params: &ParameterSlice,
+        parameters: Parameters,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(params, additional_vars)
+        self.evaluate_internal(parameters, additional_vars)
     }
 
     fn evaluate_internal(
         &self,
-        params: &ParameterSlice,
+        parameters: Parameters,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
@@ -668,7 +668,7 @@ impl ExpressionEvaluator {
                             return None;
                         }
                         let index = index.round() as u32;
-                        get_compartment_param_value(index, params)
+                        parameters.get_effective_value(index)
                     } else {
                         None
                     }
@@ -683,7 +683,7 @@ impl ExpressionEvaluator {
                         return None;
                     }
                     let index = one_based_position - 1;
-                    get_compartment_param_value(index, params)
+                    parameters.get_effective_value(index)
                 }
             }
         };
@@ -880,7 +880,7 @@ impl VirtualTrack {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<i32, TrackResolveError> {
-        let sliced_params = compartment.slice_params(context.params());
+        let sliced_params = compartment.slice_parameters(context.parameters());
         let result = evaluator
             .evaluate_with_additional_vars(sliced_params, |name, args| match name {
                 "this_track_index" => {
@@ -1145,7 +1145,7 @@ impl VirtualChainFx {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxResolveError> {
-        let sliced_params = compartment.slice_params(context.params());
+        let sliced_params = compartment.slice_parameters(context.parameters());
         let result = evaluator
             .evaluate(sliced_params)
             .map_err(|_| FxResolveError::ExpressionFailed)?
@@ -1508,14 +1508,6 @@ pub trait UnresolvedReaperTargetDef {
     fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
         None
     }
-}
-
-fn get_compartment_param_value(index: u32, params: &ParameterSlice) -> Option<f64> {
-    if !(0..COMPARTMENT_PARAMETER_COUNT).contains(&index) {
-        return None;
-    }
-    let param_value = params[index as usize];
-    Some(param_value as f64)
 }
 
 /// Special: Index -1 means master track.

@@ -9,13 +9,13 @@ use crate::domain::{
     LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
     MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ParameterArray,
-    ProcessorContext, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource,
-    RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
-    ZEROED_PLUGIN_PARAMETERS,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ParameterSettingArray,
+    ParameterValueArray, Parameters, ProcessorContext, QualifiedClipMatrixEvent,
+    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualSourceValue, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -203,7 +203,10 @@ struct Collections {
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
-    parameters: ParameterArray,
+    /// Holds parameter values of all compartments consecutively.
+    param_values: ParameterValueArray,
+    /// Holds parameter settings of all compartments consecutively.
+    param_settings: ParameterSettingArray,
     previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, AbsoluteValue>>,
 }
 
@@ -294,7 +297,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 target_touch_dependent_mappings: Default::default(),
                 beat_dependent_feedback_mappings: Default::default(),
                 milli_dependent_feedback_mappings: Default::default(),
-                parameters: ZEROED_PLUGIN_PARAMETERS,
+                param_values: ZEROED_PLUGIN_PARAMETERS,
+                param_settings: [Default::default(); PLUGIN_PARAMETER_COUNT as usize],
                 previous_target_values: Default::default(),
             },
             poll_control_mappings: Default::default(),
@@ -440,7 +444,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let control_context = self.basics.control_context();
                     let processor_context = ExtendedProcessorContext::new(
                         &self.basics.context,
-                        &self.collections.parameters,
+                        Parameters::new(
+                            &self.collections.param_values,
+                            &self.collections.param_settings,
+                        ),
                         control_context,
                     );
                     let mode_poll_result = if m.mode().wants_to_be_polled() {
@@ -464,7 +471,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         let res = if let Some(source_control_value) = m.poll_source() {
                             control_mapping_stage_one(
                                 &self.basics,
-                                &self.collections.parameters,
+                                Parameters::new(
+                                    &self.collections.param_values,
+                                    &self.collections.param_settings,
+                                ),
                                 m,
                                 source_control_value,
                                 ControlOptions::default(),
@@ -545,7 +555,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             let control_result = control_mapping_stage_one_and_two(
                 &self.basics,
-                &self.collections.parameters,
+                Parameters::new(
+                    &self.collections.param_values,
+                    &self.collections.param_settings,
+                ),
                 m,
                 control_value,
                 options,
@@ -804,7 +817,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let _ = m.refresh_target(
                         ExtendedProcessorContext::new(
                             &self.basics.context,
-                            &self.collections.parameters,
+                            Parameters::new(
+                                &self.collections.param_values,
+                                &self.collections.param_settings,
+                            ),
                             control_context,
                         ),
                         control_context,
@@ -876,8 +892,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
         }
         // Update own value (important to do first)
-        let previous_value = self.collections.parameters[index as usize];
-        self.collections.parameters[index as usize] = value;
+        let previous_value = self.collections.param_values[index as usize];
+        self.collections.param_values[index as usize] = value;
         self.basics
             .event_handler
             .handle_event(DomainEvent::UpdatedParameter { index, value });
@@ -893,7 +909,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             let activation_effects: Vec<MappingActivationEffect> = self
                 .all_mappings_in_compartment(compartment)
                 .filter_map(|m| {
-                    m.check_activation_effect(&self.collections.parameters, index, previous_value)
+                    m.check_activation_effect(
+                        Parameters::new(
+                            &self.collections.param_values,
+                            &self.collections.param_settings,
+                        ),
+                        index,
+                        previous_value,
+                    )
                 })
                 .collect();
             // 2. Mapping activation: Write
@@ -921,7 +944,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let control_context = self.basics.control_context();
                     let context = ExtendedProcessorContext::new(
                         &self.basics.context,
-                        &self.collections.parameters,
+                        Parameters::new(
+                            &self.collections.param_values,
+                            &self.collections.param_settings,
+                        ),
                         control_context,
                     );
                     if let Some(target_update) = m.refresh_target(context, control_context) {
@@ -946,9 +972,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn update_all_parameters(&mut self, parameters: Box<ParameterArray>) {
+    fn update_all_parameters(&mut self, parameters: Box<ParameterValueArray>) {
         debug!(self.basics.logger, "Updating all parameters...");
-        self.collections.parameters = *parameters;
+        self.collections.param_values = *parameters;
         self.basics
             .event_handler
             .handle_event(DomainEvent::UpdatedAllParameters(parameters));
@@ -963,7 +989,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
             ) {
                 if m.activation_can_be_affected_by_parameters() {
-                    if let Some(update) = m.update_activation(&self.collections.parameters) {
+                    if let Some(update) = m.update_activation(Parameters::new(
+                        &self.collections.param_values,
+                        &self.collections.param_settings,
+                    )) {
                         mapping_updates.push(update);
                     }
                 }
@@ -971,7 +1000,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let control_context = self.basics.control_context();
                     let context = ExtendedProcessorContext::new(
                         &self.basics.context,
-                        &self.collections.parameters,
+                        Parameters::new(
+                            &self.collections.param_values,
+                            &self.collections.param_settings,
+                        ),
                         control_context,
                     );
                     if let Some(target_update) = m.refresh_target(context, control_context) {
@@ -1119,7 +1151,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let control_context = self.basics.control_context();
                 let context = ExtendedProcessorContext::new(
                     &self.basics.context,
-                    &self.collections.parameters,
+                    Parameters::new(
+                        &self.collections.param_values,
+                        &self.collections.param_settings,
+                    ),
                     control_context,
                 );
                 if let Some(target_update) = m.refresh_target(context, control_context) {
@@ -1196,7 +1231,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 m.init_target_and_activation(
                     ExtendedProcessorContext::new(
                         &self.basics.context,
-                        &self.collections.parameters,
+                        Parameters::new(
+                            &self.collections.param_values,
+                            &self.collections.param_settings,
+                        ),
                         control_context,
                     ),
                     control_context,
@@ -1538,7 +1576,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &mut self.collections.mappings_with_virtual_targets,
                 &mut self.collections.mappings[MappingCompartment::MainMappings],
                 msg,
-                &self.collections.parameters,
+                Parameters::new(
+                    &self.collections.param_values,
+                    &self.collections.param_settings,
+                ),
             );
         for r in results {
             control_mapping_stage_three(
@@ -1586,7 +1627,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &mut self.collections.mappings_with_virtual_targets,
                 &mut self.collections.mappings[MappingCompartment::MainMappings],
                 msg,
-                &self.collections.parameters,
+                Parameters::new(
+                    &self.collections.param_values,
+                    &self.collections.param_settings,
+                ),
             );
         let matched_virtual = !results.is_empty();
         for r in results {
@@ -1687,7 +1731,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 };
                 let control_result = control_mapping_stage_one_and_two(
                     &self.basics,
-                    &self.collections.parameters,
+                    Parameters::new(
+                        &self.collections.param_values,
+                        &self.collections.param_settings,
+                    ),
                     m,
                     control_value,
                     options,
@@ -2051,7 +2098,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .count(),
             self.basics.channels.control_task_receiver.len(),
             self.basics.channels.feedback_task_receiver.len(),
-            self.collections.parameters,
+            self.collections.param_values,
         );
         Reaper::get().show_console_msg(msg);
         // Detailed
@@ -2097,7 +2144,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         mapping.init_target_and_activation(
             ExtendedProcessorContext::new(
                 &self.basics.context,
-                &self.collections.parameters,
+                Parameters::new(
+                    &self.collections.param_values,
+                    &self.collections.param_settings,
+                ),
                 control_context,
             ),
             control_context,
@@ -2286,7 +2336,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &self.basics.logger,
                 ExtendedProcessorContext::new(
                     &self.basics.context,
-                    &self.collections.parameters,
+                    Parameters::new(
+                        &self.collections.param_values,
+                        &self.collections.param_settings,
+                    ),
                     control_context,
                 ),
                 value,
@@ -2423,7 +2476,7 @@ pub enum NormalRealTimeToMainThreadTask {
 #[derive(Debug)]
 pub enum ParameterMainTask {
     UpdateParameter { index: u32, value: f32 },
-    UpdateAllParameters(Box<ParameterArray>),
+    UpdateAllParameters(Box<ParameterValueArray>),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).
@@ -2792,7 +2845,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         mapping_id: MappingId,
         group_id: GroupId,
-        f: impl Fn(&mut MainMapping, &Basics<EH>, &ParameterArray) -> MappingControlResult,
+        f: impl Fn(&mut MainMapping, &Basics<EH>, Parameters) -> MappingControlResult,
     ) {
         let other_mappings = collections.mappings[compartment]
             .values_mut()
@@ -2807,7 +2860,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // TODO-low Rust question 958: Figure out the difference to the for loop.
         let mut hit_instructions = vec![];
         for other_mapping in other_mappings {
-            let other_control_result = f(other_mapping, self, &collections.parameters);
+            let other_control_result = f(
+                other_mapping,
+                self,
+                Parameters::new(&collections.param_values, &collections.param_settings),
+            );
             if let Some(new_value) = other_control_result.new_target_value {
                 self.notify_target_value_changed(other_mapping, new_value);
             }
@@ -2828,7 +2885,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 logger: &self.logger,
                 processor_context: ExtendedProcessorContext::new(
                     &self.context,
-                    &collections.parameters,
+                    Parameters::new(&collections.param_values, &collections.param_settings),
                     self.control_context(),
                 ),
             });
@@ -2921,7 +2978,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // Contains mappings with virtual sources
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
-        parameters: &ParameterArray,
+        parameters: Parameters,
     ) -> Vec<ExtendedMappingControlResult> {
         // Control
         let mut extended_control_results: Vec<_> = mappings_with_virtual_targets
@@ -3203,7 +3260,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         value: VirtualSourceValue,
         options: ControlOptions,
-        parameters: &ParameterArray,
+        parameters: Parameters,
     ) -> Vec<ExtendedMappingControlResult> {
         // Controller mappings can't have virtual sources, so for now we only need to check
         // main mappings.
@@ -3319,7 +3376,7 @@ pub enum InputMatchResult {
 #[must_use]
 fn control_mapping_stage_one_and_two<EH: DomainEventHandler>(
     basics: &Basics<EH>,
-    parameters: &ParameterArray,
+    parameters: Parameters,
     m: &mut MainMapping,
     control_value: ControlValue,
     options: ControlOptions,
@@ -3340,7 +3397,7 @@ fn control_mapping_stage_one_and_two<EH: DomainEventHandler>(
 #[must_use]
 fn control_mapping_stage_one<EH: DomainEventHandler>(
     basics: &Basics<EH>,
-    parameters: &ParameterArray,
+    parameters: Parameters,
     m: &mut MainMapping,
     control_value: ControlValue,
     options: ControlOptions,
@@ -3404,7 +3461,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
         let control_context = basics.control_context();
         let processor_context = ExtendedProcessorContext::new(
             &basics.context,
-            &collections.parameters,
+            Parameters::new(&collections.param_values, &collections.param_settings),
             control_context,
         );
         let pass_2_control_results = hi.execute(HitInstructionContext {

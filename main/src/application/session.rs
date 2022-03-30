@@ -16,14 +16,13 @@ use crate::domain::{
     FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
     InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParameterArray, ParameterSetting, ProcessorContext,
+    NormalRealTimeTask, OscFeedbackTask, ParameterSetting, ParameterValueArray, ProcessorContext,
     ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
     SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
     VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
-use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
 use rx_util::Notifier;
@@ -34,7 +33,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use core::iter;
-use helgoboss_learn::{AbsoluteValue, UnitValue};
+use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
 use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
@@ -105,8 +104,8 @@ pub struct Session {
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
     instance_container: &'static dyn InstanceContainer,
-    /// A secondary copy of the canonical parameters stored in the infrastructure layer.
-    parameters: ParameterArray,
+    /// A secondary copy of the canonical parameter values stored in the infrastructure layer.
+    parameters: ParameterValueArray,
     state: SharedSessionState,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
@@ -698,7 +697,7 @@ impl Session {
 
     pub fn extended_context_with_params<'a>(
         &'a self,
-        params: &'a ParameterArray,
+        params: &'a [f32],
     ) -> ExtendedProcessorContext<'a> {
         ExtendedProcessorContext::new(&self.context, params, self.control_context())
     }
