@@ -10,7 +10,7 @@ pub fn convert_parameter(
         index: index.parse()?,
         id: data.key,
         name: Some(data.name),
-        max_value: data.max_value,
+        value_count: data.value_count,
     };
     Ok(p)
 }

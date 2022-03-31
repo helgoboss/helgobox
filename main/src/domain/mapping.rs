@@ -2204,6 +2204,11 @@ impl MappingCompartment {
         let offset = self.param_offset();
         offset..(offset + COMPARTMENT_PARAMETER_COUNT)
     }
+
+    pub const fn param_range_for_indexing(self) -> Range<usize> {
+        let range = self.param_range();
+        range.start as usize..range.end as usize
+    }
 }
 
 pub enum ExtendedSourceCharacter {

@@ -85,7 +85,7 @@ pub struct Session {
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     active_controller_preset_id: Option<String>,
     active_main_preset_id: Option<String>,
-    context: ProcessorContext,
+    processor_context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     default_main_group: SharedGroup,
     default_controller_group: SharedGroup,
@@ -105,7 +105,7 @@ pub struct Session {
     ui: Box<dyn SessionUi>,
     instance_container: &'static dyn InstanceContainer,
     /// A secondary copy of the canonical parameter values stored in the infrastructure layer.
-    parameters: ParameterValueArray,
+    parameter_values: ParameterValueArray,
     state: SharedSessionState,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
@@ -219,7 +219,7 @@ impl Session {
             mapping_which_learns_target: prop(None),
             active_controller_preset_id: None,
             active_main_preset_id: None,
-            context,
+            processor_context: context,
             mappings: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
                 MappingCompartment::MainMappings,
@@ -240,7 +240,7 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: Box::new(ui),
             instance_container,
-            parameters: ZEROED_PLUGIN_PARAMETERS,
+            parameter_values: ZEROED_PLUGIN_PARAMETERS,
             state,
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
@@ -280,7 +280,7 @@ impl Session {
         match input_descriptor {
             InputDescriptor::Midi { device_id, channel } => match self.control_input() {
                 ControlInput::Midi(MidiControlInput::FxInput) => {
-                    if let Some(track) = self.context().track() {
+                    if let Some(track) = self.processor_context().track() {
                         if !track.is_armed(true) {
                             return false;
                         }
@@ -665,7 +665,7 @@ impl Session {
         // Prevent learning targets from other project tabs (leads to weird effects, just think
         // about it)
         if let Some(p) = target.project() {
-            if p != self.context.project_or_current_project() {
+            if p != self.processor_context.project_or_current_project() {
                 return;
             }
         }
@@ -687,19 +687,23 @@ impl Session {
         }
     }
 
-    pub fn context(&self) -> &ProcessorContext {
-        &self.context
+    pub fn processor_context(&self) -> &ProcessorContext {
+        &self.processor_context
     }
 
     pub fn extended_context(&self) -> ExtendedProcessorContext {
-        self.extended_context_with_params(&self.parameters)
+        self.extended_context_with_params(&self.parameter_values)
     }
 
     pub fn extended_context_with_params<'a>(
         &'a self,
-        params: &'a [f32],
+        param_values: &'a [f32],
     ) -> ExtendedProcessorContext<'a> {
-        ExtendedProcessorContext::new(&self.context, params, self.control_context())
+        ExtendedProcessorContext::new(
+            &self.processor_context,
+            param_values,
+            self.control_context(),
+        )
     }
 
     pub fn control_context(&self) -> ControlContext {
@@ -712,7 +716,7 @@ impl Session {
             instance_state: self.instance_state(),
             instance_id: self.instance_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),
-            processor_context: &self.context,
+            processor_context: &self.processor_context,
         }
     }
 
@@ -1718,11 +1722,13 @@ impl Session {
     }
 
     pub fn show_in_floating_window(&self) {
-        self.context().containing_fx().show_in_floating_window();
+        self.processor_context()
+            .containing_fx()
+            .show_in_floating_window();
     }
 
     pub fn containing_fx_is_in_input_fx_chain(&self) -> bool {
-        self.context.containing_fx().is_input_fx()
+        self.processor_context.containing_fx().is_input_fx()
     }
 
     pub fn set_active_controller_id_without_notification(
@@ -1862,7 +1868,7 @@ impl Session {
     }
 
     fn reset_parameters(&self, compartment: MappingCompartment) {
-        let fx = self.context.containing_fx().clone();
+        let fx = self.processor_context.containing_fx().clone();
         let _ = Global::task_support().do_later_in_main_thread_from_main_thread_asap(move || {
             for i in compartment.param_range() {
                 let _ = fx.parameter_by_index(i).set_reaper_normalized_value(0.0);
@@ -1877,7 +1883,10 @@ impl Session {
         self.set_mappings_without_notification(compartment, std::iter::empty());
         self.state
             .borrow_mut()
-            .set_parameter_settings_without_notification(compartment, empty_parameter_settings());
+            .set_compartment_parameter_settings_without_notification(
+                compartment,
+                empty_parameter_settings(),
+            );
     }
 
     pub fn state(&self) -> &SharedSessionState {
@@ -1891,7 +1900,10 @@ impl Session {
     ) {
         self.state
             .borrow_mut()
-            .set_parameter_settings_without_notification_from_iter(compartment, settings);
+            .set_compartment_parameter_settings_without_notification_from_indexed_iter(
+                compartment,
+                settings,
+            );
         self.notify_parameter_settings_changed(compartment);
     }
 
@@ -2248,7 +2260,7 @@ impl Session {
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_dirty(&self) {
         debug!(self.logger, "Marking session as dirty");
-        self.context.notify_dirty();
+        self.processor_context.notify_dirty();
     }
 
     pub fn logger(&self) -> &slog::Logger {
@@ -2306,12 +2318,12 @@ impl DomainEventHandler for WeakSession {
             }
             UpdatedParameter { index, value } => {
                 let mut session = session.borrow_mut();
-                session.parameters[index as usize] = value;
+                session.parameter_values[index as usize] = value;
                 session.ui.parameters_changed(&session);
             }
             UpdatedAllParameters(params) => {
                 let mut session = session.borrow_mut();
-                session.parameters = *params;
+                session.parameter_values = *params;
                 session.ui.parameters_changed(&session);
             }
             FullResyncRequested => {

@@ -2714,7 +2714,7 @@ fn edit_compartment_parameter_internal(
 ) -> Result<Vec<ParameterSetting>, &'static str> {
     let mut captions_csv = (offset..)
         .zip(settings)
-        .map(|(i, _)| format!("Param {} name,Param {} maximum", i + 1, i + 1))
+        .map(|(i, _)| format!("Param {} name,Value count", i + 1))
         .join(",");
     captions_csv.push_str(",separator=;,extrawidth=80");
     let initial_csv = settings
@@ -2722,7 +2722,7 @@ fn edit_compartment_parameter_internal(
         .flat_map(|s| {
             [
                 s.name.clone(),
-                s.max_value.map(|v| v.to_string()).unwrap_or_default(),
+                s.value_count.map(|v| v.to_string()).unwrap_or_default(),
             ]
         })
         .join(";");
@@ -2739,10 +2739,10 @@ fn edit_compartment_parameter_internal(
     let tuples = csv.to_str().split(';').tuples();
     let out_settings: Vec<_> = tuples
         .zip(settings)
-        .map(|((name, max_value), old_setting)| ParameterSetting {
+        .map(|((name, value_count), old_setting)| ParameterSetting {
             key: old_setting.key.clone(),
             name: name.trim().to_owned(),
-            max_value: { max_value.parse().ok() },
+            value_count: { value_count.parse().ok() },
         })
         .collect();
     if out_settings.len() != settings.len() {

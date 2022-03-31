@@ -878,7 +878,7 @@ impl App {
     pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().containing_fx() == fx
+            session.processor_context().containing_fx() == fx
         })
     }
 
@@ -1290,7 +1290,7 @@ impl App {
             let session = session.upgrade()?;
             let mapping = {
                 let s = session.borrow();
-                if s.context().project() != project {
+                if s.processor_context().project() != project {
                     return None;
                 }
                 s.find_mapping_with_target(compartment, target)?.clone()
@@ -1302,7 +1302,7 @@ impl App {
     fn find_first_session_on_track(&self, track: &Track) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().track() == Some(track)
+            session.processor_context().track() == Some(track)
         })
     }
 
@@ -1315,7 +1315,7 @@ impl App {
     fn find_first_session_in_project(&self, project: Option<Project>) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == project
+            session.processor_context().project() == project
         })
     }
 
@@ -1337,7 +1337,8 @@ impl App {
     ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == project && session.receives_input_from(input_descriptor)
+            session.processor_context().project() == project
+                && session.receives_input_from(input_descriptor)
         })
     }
 
@@ -1364,7 +1365,7 @@ impl App {
             let session = session.upgrade()?;
             let mapping = {
                 let s = session.borrow();
-                if s.context().project() != project {
+                if s.processor_context().project() != project {
                     return None;
                 }
                 let input_descriptor = capture_result.to_input_descriptor(true)?;
@@ -1582,7 +1583,7 @@ impl InstanceContainer for App {
                     continue;
                 }
                 // Don't leave the context (project if in project, FX chain if monitoring FX).
-                let context = session.context();
+                let context = session.processor_context();
                 if context.project() != args.initiator_project {
                     continue;
                 }

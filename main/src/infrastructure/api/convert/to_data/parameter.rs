@@ -6,7 +6,7 @@ pub fn convert_parameter(p: Parameter) -> ConversionResult<ParameterSetting> {
     let data = ParameterSetting {
         key: p.id,
         name: p.name.unwrap_or_default(),
-        max_value: p.max_value,
+        value_count: p.value_count,
     };
     Ok(data)
 }

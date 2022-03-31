@@ -190,7 +190,7 @@ impl Default for SessionData {
 }
 
 impl SessionData {
-    pub fn from_model(session: &Session, parameters: &ParameterValueArray) -> SessionData {
+    pub fn from_model(session: &Session, parameter_values: &[f32]) -> SessionData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession {
                 session,
@@ -260,12 +260,12 @@ impl SessionData {
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: get_parameter_data_map(
                 &session_state,
-                parameters,
+                parameter_values,
                 MappingCompartment::MainMappings,
             ),
             controller_parameters: get_parameter_data_map(
                 &session_state,
-                parameters,
+                parameter_values,
                 MappingCompartment::ControllerMappings,
             ),
             clip_slots: vec![],
@@ -311,7 +311,7 @@ impl SessionData {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
-            self.parameters.values().map(|p| &p.settings),
+            self.parameters.values().map(|p| &p.setting),
         )?;
         let control_input = match self.control_device_id.as_ref() {
             None => ControlInput::Midi(MidiControlInput::FxInput),
@@ -465,11 +465,11 @@ impl SessionData {
         // Parameters
         {
             let mut session_state = session.state().borrow_mut();
-            session_state.set_parameter_settings_without_notification(
+            session_state.set_compartment_parameter_settings_without_notification(
                 MappingCompartment::MainMappings,
                 get_parameter_settings(&self.parameters),
             );
-            session_state.set_parameter_settings_without_notification(
+            session_state.set_compartment_parameter_settings_without_notification(
                 MappingCompartment::ControllerMappings,
                 get_parameter_settings(&self.controller_parameters),
             );
@@ -514,7 +514,7 @@ impl SessionData {
                     &self.clip_slots,
                     &self.mappings,
                     &self.controller_mappings,
-                    session.context().track(),
+                    session.processor_context().track(),
                 )?;
                 BackboneState::get()
                     .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
@@ -585,19 +585,19 @@ impl SessionData {
 
 fn get_parameter_data_map(
     session_state: &SessionState,
-    parameters: &ParameterValueArray,
+    parameter_values: &[f32],
     compartment: MappingCompartment,
 ) -> HashMap<String, ParameterData> {
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
-            let parameter_slice = compartment.slice_parameters(parameters);
-            let value = parameter_slice[i as usize];
-            let settings = session_state.get_parameter_setting(compartment, i);
-            if value == 0.0 && settings.name.is_empty() {
+            let parameters = session_state.compartment_parameters(compartment, parameter_values);
+            let value = parameters.raw_value_at(i).unwrap();
+            let setting = parameters.setting_at(i).unwrap();
+            if value == 0.0 && setting.name.is_empty() {
                 return None;
             }
             let data = ParameterData {
-                settings: settings.clone(),
+                setting: setting.clone(),
                 value,
             };
             Some((i.to_string(), data))
@@ -609,7 +609,7 @@ fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<Para
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
         if let Ok(i) = i.parse::<u32>() {
-            settings[i as usize] = p.settings.clone();
+            settings[i as usize] = p.setting.clone();
         }
     }
     settings

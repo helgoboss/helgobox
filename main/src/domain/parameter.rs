@@ -1,6 +1,7 @@
 use crate::base::default_util::is_default;
 use helgoboss_learn::UnitValue;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroU32;
 use std::ops::Range;
 
 pub const PLUGIN_PARAMETER_COUNT: u32 = 200;
@@ -29,6 +30,10 @@ impl<'a> Parameters<'a> {
         self.values.get(index as usize).copied()
     }
 
+    pub fn setting_at(&self, index: u32) -> Option<&ParameterSetting> {
+        self.settings.get(index as usize)
+    }
+
     pub fn slice(&self, range: Range<u32>) -> Self {
         let range = range.start as usize..range.end as usize;
         Self {
@@ -52,7 +57,7 @@ pub struct ParameterSetting {
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub max_value: Option<f64>,
+    pub value_count: Option<NonZeroU32>,
 }
 
 impl ParameterSetting {
@@ -70,16 +75,16 @@ impl ParameterSetting {
 
     pub fn convert_to_effective_value(&self, raw_value: f32) -> f64 {
         let raw_value = UnitValue::new_clamped(raw_value as _);
-        if let Some(max_value) = self.max_value {
-            raw_value.get() * max_value
+        if let Some(value_count) = self.value_count {
+            (raw_value.get() * (value_count.get() - 1) as f64).round()
         } else {
             raw_value.get()
         }
     }
 
     pub fn convert_to_raw_value(&self, effective_value: f64) -> f32 {
-        let raw_value = if let Some(max_value) = self.max_value {
-            effective_value / max_value
+        let raw_value = if let Some(value_count) = self.value_count {
+            (effective_value / (value_count.get() - 1) as f64).round()
         } else {
             effective_value
         };

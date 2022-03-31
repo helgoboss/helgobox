@@ -1,5 +1,7 @@
-use crate::domain::{MappingCompartment, ParameterSetting, COMPARTMENT_PARAMETER_COUNT};
-use enum_map::{enum_map, EnumMap};
+use crate::domain::{
+    MappingCompartment, ParameterSetting, ParameterSettingArray, Parameters,
+    COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -17,16 +19,13 @@ pub type SharedSessionState = Rc<RefCell<SessionState>>;
 /// special handling would be against its philosophy.
 #[derive(Debug)]
 pub struct SessionState {
-    parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
+    parameter_settings: ParameterSettingArray,
 }
 
 impl Default for SessionState {
     fn default() -> Self {
         Self {
-            parameter_settings: enum_map! {
-                MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-                MappingCompartment::MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-            },
+            parameter_settings: [Default::default(); PLUGIN_PARAMETER_COUNT as usize],
         }
     }
 }
@@ -37,14 +36,27 @@ impl SessionState {
         compartment: MappingCompartment,
         index: u32,
     ) -> &ParameterSetting {
-        &self.parameter_settings[compartment][index as usize]
+        &self.compartment_parameter_settings(compartment)[index as usize]
+    }
+
+    pub fn compartment_parameters(
+        &self,
+        compartment: MappingCompartment,
+        all_values: &[f32],
+    ) -> Parameters {
+        self.all_parameters(all_values)
+            .slice(compartment.param_range())
+    }
+
+    fn all_parameters(&self, all_values: &[f32]) -> Parameters {
+        Parameters::new(all_values, &self.parameter_settings)
     }
 
     pub fn non_default_parameter_settings_by_compartment(
         &self,
         compartment: MappingCompartment,
     ) -> HashMap<u32, ParameterSetting> {
-        self.parameter_settings[compartment]
+        self.compartment_parameter_settings(compartment)
             .iter()
             .enumerate()
             .filter(|(_, s)| !s.is_default())
@@ -66,7 +78,7 @@ impl SessionState {
     }
 
     pub fn get_parameter_name(&self, compartment: MappingCompartment, rel_index: u32) -> String {
-        let setting = &self.parameter_settings[compartment][rel_index as usize];
+        let setting = &self.compartment_parameter_settings(compartment)[rel_index as usize];
         if setting.name.is_empty() {
             format!("Param {}", rel_index + 1)
         } else {
@@ -74,21 +86,36 @@ impl SessionState {
         }
     }
 
-    pub fn set_parameter_settings_without_notification(
+    pub fn set_compartment_parameter_settings_without_notification(
         &mut self,
         compartment: MappingCompartment,
         parameter_settings: Vec<ParameterSetting>,
     ) {
-        self.parameter_settings[compartment] = parameter_settings;
+        self.set_compartment_parameter_settings_without_notification_from_iter(
+            compartment,
+            parameter_settings.into_iter(),
+        )
     }
 
-    pub fn set_parameter_settings_without_notification_from_iter(
+    fn set_compartment_parameter_settings_without_notification_from_iter(
+        &mut self,
+        compartment: MappingCompartment,
+        settings: impl Iterator<Item = ParameterSetting>,
+    ) {
+        let compartment_settings = self.compartment_parameter_settings_mut(compartment);
+        for (i, s) in settings.enumerate() {
+            compartment_settings[i] = s;
+        }
+    }
+
+    pub fn set_compartment_parameter_settings_without_notification_from_indexed_iter(
         &mut self,
         compartment: MappingCompartment,
         settings: impl Iterator<Item = (u32, ParameterSetting)>,
     ) {
+        let compartment_settings = self.compartment_parameter_settings_mut(compartment);
         for (i, s) in settings {
-            self.parameter_settings[compartment][i as usize] = s;
+            compartment_settings[i as usize] = s;
         }
     }
 
@@ -101,7 +128,10 @@ impl SessionState {
         for (i, s) in parameter_settings {
             settings[i as usize] = s;
         }
-        self.parameter_settings[compartment] = settings;
+        self.set_compartment_parameter_settings_without_notification_from_iter(
+            compartment,
+            settings.into_iter(),
+        );
     }
 
     pub fn find_parameter_setting_by_key(
@@ -109,11 +139,25 @@ impl SessionState {
         compartment: MappingCompartment,
         key: &str,
     ) -> Option<(u32, &ParameterSetting)> {
-        self.parameter_settings[compartment]
+        self.compartment_parameter_settings(compartment)
             .iter()
             .enumerate()
             .find(|(_, s)| s.key.as_ref().map(|k| k == key).unwrap_or(false))
             .map(|(i, s)| (i as u32, s))
+    }
+
+    fn compartment_parameter_settings(
+        &self,
+        compartment: MappingCompartment,
+    ) -> &[ParameterSetting] {
+        &self.parameter_settings[compartment.param_range_for_indexing()]
+    }
+
+    fn compartment_parameter_settings_mut(
+        &self,
+        compartment: MappingCompartment,
+    ) -> &mut [ParameterSetting] {
+        &mut self.parameter_settings[compartment.param_range_for_indexing()]
     }
 }
 

@@ -76,7 +76,7 @@ impl RealearnPluginParameters {
         let session = self.session().expect("session gone");
         let session = session.borrow();
         let parameters = self.parameters();
-        SessionData::from_model(&session, &parameters)
+        SessionData::from_model(&session, &*parameters)
     }
 
     fn apply_session_data_internal(&self, session_data: &SessionData) {

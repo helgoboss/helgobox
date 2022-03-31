@@ -1120,7 +1120,10 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
-                    let project = self.session.context().project_or_current_project();
+                    let project = self
+                        .session
+                        .processor_context()
+                        .project_or_current_project();
                     let current_bookmark_data = project.current_bookmark();
                     let (bookmark_type, bookmark_index) = match (
                         current_bookmark_data.marker_index,
@@ -2390,7 +2393,10 @@ impl<'a> MutableMappingPanel<'a> {
                     )));
                 }
                 _ if self.mapping.target_model.supports_track() => {
-                    let project = self.session.context().project_or_current_project();
+                    let project = self
+                        .session
+                        .processor_context()
+                        .project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
                         self.change_target_with_closure(Some(combo_id), |ctx| {

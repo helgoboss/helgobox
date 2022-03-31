@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ParameterData {
     #[serde(flatten)]
-    pub settings: ParameterSetting,
+    pub setting: ParameterSetting,
     #[serde(default, skip_serializing_if = "is_default")]
     pub value: f32,
 }
