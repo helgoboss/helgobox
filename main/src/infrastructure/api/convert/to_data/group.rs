@@ -1,4 +1,4 @@
-use crate::domain::GroupKey;
+use crate::domain::{CompartmentParamIndex, GroupKey};
 use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{EnabledData, GroupModelData};
@@ -7,7 +7,7 @@ use realearn_api::schema::*;
 pub fn convert_group(
     g: Group,
     is_default_group: bool,
-    param_index_by_key: impl Fn(&str) -> Option<u32>,
+    param_index_by_key: impl Fn(&str) -> Option<CompartmentParamIndex>,
 ) -> ConversionResult<GroupModelData> {
     let data = GroupModelData {
         id: if is_default_group {

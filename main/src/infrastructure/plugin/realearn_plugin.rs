@@ -163,7 +163,6 @@ impl Plugin for RealearnPlugin {
                 control_main_task_receiver,
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
-                session_state,
                 sample_rate: Default::default(),
             }
         })

@@ -1,7 +1,6 @@
 use crate::base::eel;
 use crate::domain::{
-    CompartmentParamIndex, CompartmentParamValues, CompartmentParams, RawParamValue,
-    COMPARTMENT_PARAMETER_COUNT,
+    CompartmentParamIndex, CompartmentParams, RawParamValue, COMPARTMENT_PARAMETER_COUNT,
 };
 use std::collections::HashSet;
 
@@ -25,17 +24,17 @@ impl ActivationCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: CompartmentParams) -> bool {
+    pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
         use ActivationCondition::*;
         match self {
             Always => true,
-            Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params.values()),
+            Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params),
             Program {
                 param_index,
                 program_index,
-            } => program_condition_is_fulfilled(*param_index, *program_index, params.values()),
+            } => program_condition_is_fulfilled(*param_index, *program_index, params),
             Eel(condition) => {
-                condition.notify_params_changed(params.values());
+                condition.notify_params_changed(params);
                 condition.is_fulfilled()
             }
         }
@@ -54,7 +53,7 @@ impl ActivationCondition {
     /// TODO-low This is not visible because it's &self.
     pub fn is_fulfilled_single(
         &self,
-        params: CompartmentParams,
+        params: &CompartmentParams,
         // Changed index
         index: CompartmentParamIndex,
         // Previous value at changed index
@@ -73,7 +72,7 @@ impl ActivationCondition {
                 if !is_affected {
                     return None;
                 }
-                modifier_conditions_are_fulfilled(conditions, params.values())
+                modifier_conditions_are_fulfilled(conditions, params)
             }
             Program {
                 param_index,
@@ -82,7 +81,7 @@ impl ActivationCondition {
                 if index != *param_index {
                     return None;
                 }
-                program_condition_is_fulfilled(*param_index, *program_index, params.values())
+                program_condition_is_fulfilled(*param_index, *program_index, params)
             }
             Eel(condition) => {
                 let is_affected =
@@ -100,19 +99,19 @@ impl ActivationCondition {
 
 fn modifier_conditions_are_fulfilled(
     conditions: &[ModifierCondition],
-    param_values: CompartmentParamValues,
+    params: &CompartmentParams,
 ) -> bool {
     conditions
         .iter()
-        .all(|condition| condition.is_fulfilled(param_values))
+        .all(|condition| condition.is_fulfilled(params))
 }
 
 fn program_condition_is_fulfilled(
     param_index: CompartmentParamIndex,
     program_index: u32,
-    param_values: CompartmentParamValues,
+    params: &CompartmentParams,
 ) -> bool {
-    let param_value = param_values.at(param_index);
+    let param_value = params.at(param_index).raw_value();
     let current_program_index = (param_value * 99.0).round() as u32;
     current_program_index == program_index
 }
@@ -143,8 +142,8 @@ impl ModifierCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, param_values: CompartmentParamValues) -> bool {
-        let param_value = param_values.at(self.param_index);
+    pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
+        let param_value = params.at(self.param_index).raw_value();
         let is_on = param_value_is_on(param_value);
         is_on == self.is_on
     }
@@ -194,12 +193,12 @@ impl EelCondition {
         })
     }
 
-    pub fn notify_params_changed(&self, param_values: CompartmentParamValues) {
+    pub fn notify_params_changed(&self, params: &CompartmentParams) {
         for (i, p) in self.params.iter().enumerate() {
             let i = CompartmentParamIndex::try_from(i as u32).unwrap();
             if let Some(v) = p {
                 unsafe {
-                    v.set(param_values.at(i) as f64);
+                    v.set(params.at(i).raw_value() as f64);
                 }
             }
         }

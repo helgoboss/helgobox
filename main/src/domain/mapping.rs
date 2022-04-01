@@ -37,7 +37,7 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Formatter;
-use std::ops::Range;
+use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -425,11 +425,11 @@ impl MainMapping {
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
-        params: PluginParams,
+        params: &PluginParams,
         plugin_param_index: PluginParamIndex,
         previous_value: f32,
     ) -> Option<MappingActivationEffect> {
-        let compartment_params = params.slice_to_compartment(self.core.compartment);
+        let compartment_params = params.compartment_params(self.core.compartment);
         let compartment_param_index = self
             .core
             .compartment
@@ -603,8 +603,8 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn update_activation(&mut self, params: PluginParams) -> Option<RealTimeMappingUpdate> {
-        let compartment_params = params.slice_to_compartment(self.core.compartment);
+    pub fn update_activation(&mut self, params: &PluginParams) -> Option<RealTimeMappingUpdate> {
+        let compartment_params = params.compartment_params(self.core.compartment);
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 =
             self.activation_condition_1.is_fulfilled(compartment_params);
@@ -2183,34 +2183,43 @@ impl MappingCompartment {
         MappingCompartment::into_enum_iter()
     }
 
+    /// Returns the compartment to which the given plug-in parameter index belongs.
     pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> MappingCompartment {
         Self::enum_iter()
-            .find(|c| c.param_range().contains(&plugin_param_index.get()))
+            .find(|c| c.plugin_param_range().contains(&plugin_param_index))
             .unwrap()
     }
 
+    /// Translates the given plug-in parameter index to a compartment-local index.
+    pub fn translate_plugin_param_index(
+        index: PluginParamIndex,
+    ) -> (MappingCompartment, CompartmentParamIndex) {
+        let compartment = Self::by_plugin_param_index(index);
+        (compartment, compartment.to_compartment_param_index(index))
+    }
+
+    /// Returns the compartment-local parameter index corresponding to the given plug-in parameter
+    /// index.
     pub fn to_compartment_param_index(
         self,
         plugin_param_index: PluginParamIndex,
     ) -> CompartmentParamIndex {
-        CompartmentParamIndex::try_from(plugin_param_index.get() - self.param_offset()).unwrap()
+        CompartmentParamIndex::try_from(plugin_param_index.get() - self.plugin_param_offset().get())
+            .unwrap()
     }
 
-    const fn param_offset(self) -> u32 {
-        match self {
+    /// Returns the plug-in parameter range corresponding to this compartment.
+    pub fn plugin_param_range(self) -> RangeInclusive<PluginParamIndex> {
+        let offset = self.plugin_param_offset();
+        offset..=(offset + (COMPARTMENT_PARAMETER_COUNT - 1)).unwrap()
+    }
+
+    fn plugin_param_offset(self) -> PluginParamIndex {
+        let raw_offset = match self {
             MappingCompartment::ControllerMappings => 100u32,
             MappingCompartment::MainMappings => 0u32,
-        }
-    }
-
-    pub const fn param_range(self) -> Range<u32> {
-        let offset = self.param_offset();
-        offset..(offset + COMPARTMENT_PARAMETER_COUNT)
-    }
-
-    pub const fn param_range_for_indexing(self) -> Range<usize> {
-        let range = self.param_range();
-        range.start as usize..range.end as usize
+        };
+        PluginParamIndex::try_from(raw_offset).unwrap()
     }
 }
 

@@ -22,7 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
+    convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef,
+    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
     MessageCaptureEvent, OscDeviceId, ParamSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
@@ -52,6 +53,7 @@ use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
+use std::ops::Range;
 
 const OSC_INDEX_OFFSET: isize = 1000;
 const KEYBOARD_INDEX_OFFSET: isize = 2000;
@@ -245,7 +247,7 @@ impl HeaderPanel {
             ToggleOscDeviceControl(OscDeviceId),
             ToggleOscDeviceFeedback(OscDeviceId),
             ToggleOscDeviceBundles(OscDeviceId),
-            EditCompartmentParameter(MappingCompartment, u32),
+            EditCompartmentParameter(MappingCompartment, Range<CompartmentParamIndex>),
             SendFeedbackNow,
             LogDebugInfo,
         }
@@ -271,7 +273,6 @@ impl HeaderPanel {
                 text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
-            let session_state = session.state().borrow();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
@@ -363,21 +364,27 @@ impl HeaderPanel {
                     "Compartment parameters",
                     (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
                         .map(|batch_index| {
-                            let offset = batch_index * PARAM_BATCH_SIZE;
-                            let range = offset..(offset + PARAM_BATCH_SIZE);
+                            let offset =
+                                CompartmentParamIndex::try_from(batch_index * PARAM_BATCH_SIZE)
+                                    .unwrap();
+                            let end = (offset + PARAM_BATCH_SIZE).unwrap();
+                            let range = offset..end;
                             menu(
-                                format!("Parameters {} - {}", range.start + 1, range.end),
-                                range
+                                format!(
+                                    "Parameters {} - {}",
+                                    range.start.get() + 1,
+                                    range.end.get()
+                                ),
+                                convert_compartment_param_index_range_to_iter(&range)
                                     .map(|i| {
-                                        item(
-                                            format!(
-                                                "{}...",
-                                                session_state.get_parameter_name(compartment, i)
-                                            ),
-                                            move || {
-                                                MenuAction::EditCompartmentParameter(compartment, i)
-                                            },
-                                        )
+                                        let param_name = session
+                                            .params()
+                                            .compartment_params(compartment)
+                                            .get_parameter_name(i);
+                                        let range = range.clone();
+                                        item(format!("{}...", param_name), move || {
+                                            MenuAction::EditCompartmentParameter(compartment, range)
+                                        })
                                     })
                                     .collect(),
                             )
@@ -636,8 +643,8 @@ impl HeaderPanel {
             MenuAction::ToggleOscDeviceBundles(dev_id) => {
                 App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
             }
-            MenuAction::EditCompartmentParameter(compartment, rel_index) => {
-                let _ = edit_compartment_parameter(self.session(), compartment, rel_index);
+            MenuAction::EditCompartmentParameter(compartment, range) => {
+                let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
             MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             MenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
@@ -2680,24 +2687,26 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 fn edit_compartment_parameter(
     session: SharedSession,
     compartment: MappingCompartment,
-    rel_index: u32,
+    range: Range<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
-    let batch_index = rel_index / PARAM_BATCH_SIZE;
-    let offset = batch_index * PARAM_BATCH_SIZE;
-    let range = offset..(offset + PARAM_BATCH_SIZE);
     let current_settings: Vec<_> = {
         let session = session.borrow();
-        let session_state = session.state().borrow();
-        range
-            .clone()
-            .map(|i| session_state.get_setting(compartment, i))
-            .cloned()
+        convert_compartment_param_index_range_to_iter(&range)
+            .map(|i| {
+                session
+                    .params()
+                    .compartment_params(compartment)
+                    .at(i)
+                    .setting()
+                    .clone()
+            })
             .collect()
     };
-    let modified_settings = edit_compartment_parameter_internal(offset, &current_settings)?;
+    let modified_settings = edit_compartment_parameter_internal(range.start, &current_settings)?;
+    let range_iter = convert_compartment_param_index_range_to_iter(&range);
     session
         .borrow_mut()
-        .set_parameter_settings(compartment, range.zip(modified_settings));
+        .update_certain_param_settings(compartment, range_iter.zip(modified_settings));
     Ok(())
 }
 
@@ -2709,10 +2718,10 @@ enum EditOscDevError {
 
 /// Pass max 5 settings.
 fn edit_compartment_parameter_internal(
-    offset: u32,
+    offset: CompartmentParamIndex,
     settings: &[ParamSetting],
 ) -> Result<Vec<ParamSetting>, &'static str> {
-    let mut captions_csv = (offset..)
+    let mut captions_csv = (offset.get()..)
         .zip(settings)
         .map(|(i, _)| format!("Param {} name,Value count", i + 1))
         .join(",");

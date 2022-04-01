@@ -105,10 +105,7 @@ impl CompartmentModelData {
                 .parameters
                 .iter()
                 .filter_map(|(key, value)| {
-                    let index = key
-                        .parse::<u32>()
-                        .and_then(CompartmentParamIndex::try_from)
-                        .ok()?;
+                    let index: CompartmentParamIndex = key.parse::<u32>().ok()?.try_into().ok()?;
                     Some((index, value.clone()))
                 })
                 .collect(),

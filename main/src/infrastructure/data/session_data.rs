@@ -4,11 +4,10 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    BackboneState, ClipMatrixRef, CompartmentParamIndex, CompartmentParamSettings, ControlInput,
-    FeedbackOutput, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, OscDeviceId, OwnedCompartmentParamSettings,
-    OwnedPluginParamValues, ParamSetting, PluginParamIndex, PluginParamValues, PluginParams, Tag,
-    COMPARTMENT_PARAMETER_COUNT,
+    compartment_param_index_iter, BackboneState, ClipMatrixRef, CompartmentParamIndex,
+    CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
+    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
+    PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -191,8 +190,8 @@ impl Default for SessionData {
 }
 
 impl SessionData {
-    /// The given parameter values are the canonical ones from `RealearnPluginParameters`.
-    pub fn from_model(session: &Session, param_values: PluginParamValues) -> SessionData {
+    /// The given parameters are the canonical ones from `RealearnPluginParameters`.
+    pub fn from_model(session: &Session, plugin_params: &PluginParams) -> SessionData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession {
                 session,
@@ -215,10 +214,6 @@ impl SessionData {
             ))
         };
         let instance_state = session.instance_state().borrow();
-        let plugin_params = session
-            .parameters()
-            .settings()
-            .merge_with_values(param_values);
         SessionData {
             version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
@@ -305,7 +300,7 @@ impl SessionData {
     pub fn apply_to_model(
         &self,
         session: &mut Session,
-        param_values: PluginParamValues,
+        params: &PluginParams,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         ensure_no_duplicate_compartment_data(
@@ -445,7 +440,7 @@ impl SessionData {
                         &migration_descriptor,
                         self.version.as_ref(),
                         session.compartment_in_session(compartment),
-                        Some(session.extended_context_with_params(param_values)),
+                        Some(session.extended_context_with_params(params)),
                     )
                 })
                 .collect();
@@ -464,11 +459,11 @@ impl SessionData {
         session.tags.set_without_notification(self.tags.clone());
         // Parameters
         {
-            session.set_parameter_settings_without_notification(
+            session.set_params_without_notification(
                 MappingCompartment::MainMappings,
                 get_parameter_settings(&self.parameters),
             );
-            session.set_parameter_settings_without_notification(
+            session.set_params_without_notification(
                 MappingCompartment::ControllerMappings,
                 get_parameter_settings(&self.controller_parameters),
             );
@@ -571,25 +566,28 @@ impl SessionData {
         Ok(())
     }
 
-    pub fn create_parameter_values(&self) -> OwnedPluginParamValues {
-        let mut values = Default::default();
+    pub fn create_params(&self) -> PluginParams {
+        let mut params = PluginParams::default();
         for (i, p) in self.parameters.iter() {
-            if let Ok(i) = i.parse::<u32>().and_then(PluginParamIndex::try_from) {
-                values.update_at(i, p.value);
+            if let Some(i) = i
+                .parse::<u32>()
+                .ok()
+                .and_then(|i| PluginParamIndex::try_from(i).ok())
+            {
+                params.at_mut(i).set_raw_value(p.value);
             }
         }
-        values
+        params
     }
 }
 
 fn get_parameter_data_map(
-    plugin_params: PluginParams,
+    plugin_params: &PluginParams,
     compartment: MappingCompartment,
 ) -> HashMap<String, ParameterData> {
-    let compartment_params = plugin_params.slice_to_compartment(compartment);
-    (0..COMPARTMENT_PARAMETER_COUNT)
+    let compartment_params = plugin_params.compartment_params(compartment);
+    compartment_param_index_iter()
         .filter_map(|i| {
-            let i = CompartmentParamIndex::try_from(i).unwrap();
             let param = compartment_params.at(i);
             let value = param.raw_value();
             let setting = param.setting();
@@ -605,13 +603,15 @@ fn get_parameter_data_map(
         .collect()
 }
 
-fn get_parameter_settings(
-    data_map: &HashMap<String, ParameterData>,
-) -> OwnedCompartmentParamSettings {
-    let mut settings = OwnedCompartmentParamSettings::new();
+fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> CompartmentParams {
+    let mut settings = CompartmentParams::default();
     for (i, p) in data_map.iter() {
-        if let Ok(i) = i.parse::<u32>().and_then(CompartmentParamIndex::try_from) {
-            settings.update_at(i, p.setting.clone());
+        if let Some(i) = i
+            .parse::<u32>()
+            .ok()
+            .and_then(|i| CompartmentParamIndex::try_from(i).ok())
+        {
+            settings.at_mut(i).set_setting(p.setting.clone());
         }
     }
     settings
@@ -632,12 +632,12 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
 }
 
 impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
-    fn param_index_by_key(&self, key: &str) -> Option<u32> {
+    fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex> {
         let (i, _) = self
             .session
-            .state()
-            .borrow()
-            .find_parameter_setting_by_key(self.compartment, key)?;
+            .params()
+            .compartment_params(self.compartment)
+            .find_setting_by_key(key)?;
         Some(i)
     }
 }

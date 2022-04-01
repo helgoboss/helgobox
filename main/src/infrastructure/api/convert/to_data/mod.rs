@@ -1,5 +1,6 @@
 use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
+use crate::domain::CompartmentParamIndex;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::ActivationConditionData;
@@ -61,12 +62,12 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
 }
 
 pub trait ApiToDataConversionContext {
-    fn param_index_by_key(&self, key: &str) -> Option<u32>;
+    fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex>;
 }
 
 fn convert_activation(
     a: ActivationCondition,
-    param_index_by_key: &impl Fn(&str) -> Option<u32>,
+    param_index_by_key: &impl Fn(&str) -> Option<CompartmentParamIndex>,
 ) -> ConversionResult<ActivationConditionData> {
     use application::ActivationType;
     use ActivationCondition::*;
@@ -118,10 +119,10 @@ fn convert_activation(
 
 fn resolve_parameter_ref(
     param_ref: &ParamRef,
-    param_index_by_key: &impl Fn(&str) -> Option<u32>,
-) -> ConversionResult<u32> {
+    param_index_by_key: &impl Fn(&str) -> Option<CompartmentParamIndex>,
+) -> ConversionResult<CompartmentParamIndex> {
     let res = match param_ref {
-        ParamRef::Index(i) => *i,
+        ParamRef::Index(i) => CompartmentParamIndex::try_from(*i)?,
         ParamRef::Key(key) => {
             param_index_by_key(key).ok_or_else(|| format!("Parameter {} not defined", key))?
         }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::domain::ParamSetting;
+use crate::domain::{CompartmentParamIndex, ParamSetting};
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
@@ -10,17 +10,20 @@ use realearn_api::schema::*;
 
 pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
-        parameters: HashMap<u32, ParamSetting>,
+        parameters: HashMap<CompartmentParamIndex, ParamSetting>,
         groups: Vec<GroupModelData>,
     }
-    fn param_index_by_key(parameters: &HashMap<u32, ParamSetting>, key: &str) -> Option<u32> {
+    fn param_index_by_key(
+        parameters: &HashMap<CompartmentParamIndex, ParamSetting>,
+        key: &str,
+    ) -> Option<CompartmentParamIndex> {
         parameters
             .iter()
             .find(|(_, p)| p.key_matches(key))
             .map(|(i, _)| *i)
     }
     impl ApiToDataConversionContext for ConversionContext {
-        fn param_index_by_key(&self, key: &str) -> Option<u32> {
+        fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex> {
             param_index_by_key(&self.parameters, key)
         }
     }
@@ -29,7 +32,12 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelD
             .parameters
             .unwrap_or_default()
             .into_iter()
-            .map(|p| Ok((p.index, convert_parameter(p)?)))
+            .map(|p| {
+                Ok((
+                    CompartmentParamIndex::try_from(p.index)?,
+                    convert_parameter(p)?,
+                ))
+            })
             .collect();
         res?
     };

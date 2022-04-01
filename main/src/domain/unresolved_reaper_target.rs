@@ -338,7 +338,7 @@ impl TrackRouteSelector {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, TrackRouteResolveError> {
-        let compartment_params = context.params().slice_to_compartment(compartment);
+        let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate(compartment_params)
             .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
@@ -472,7 +472,7 @@ impl VirtualClipSlot {
                 column_evaluator,
                 row_evaluator,
             } => {
-                let compartment_params = context.params().slice_to_compartment(compartment);
+                let compartment_params = context.params().compartment_params(compartment);
                 let column_index =
                     to_slot_coordinate(column_evaluator.evaluate(compartment_params))?;
                 let row_index = to_slot_coordinate(row_evaluator.evaluate(compartment_params))?;
@@ -581,7 +581,7 @@ impl VirtualFxParameter {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxParameterResolveError> {
-        let compartment_params = context.params().slice_to_compartment(compartment);
+        let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate(compartment_params)
             .map_err(|_| FxParameterResolveError::ExpressionFailed)?
@@ -638,13 +638,13 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: CompartmentParams) -> Result<f64, fasteval::Error> {
+    pub fn evaluate(&self, params: &CompartmentParams) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(params, |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
-        parameters: CompartmentParams,
+        parameters: &CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(parameters, additional_vars)
@@ -652,7 +652,7 @@ impl ExpressionEvaluator {
 
     fn evaluate_internal(
         &self,
-        params: CompartmentParams,
+        params: &CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
@@ -884,7 +884,7 @@ impl VirtualTrack {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<i32, TrackResolveError> {
-        let compartment_params = context.params().slice_to_compartment(compartment);
+        let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate_with_additional_vars(compartment_params, |name, args| match name {
                 "this_track_index" => {
@@ -1149,7 +1149,7 @@ impl VirtualChainFx {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxResolveError> {
-        let compartment_params = context.params().slice_to_compartment(compartment);
+        let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate(compartment_params)
             .map_err(|_| FxResolveError::ExpressionFailed)?

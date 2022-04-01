@@ -6,10 +6,7 @@ use reaper_low::firewall;
 use slog::debug;
 
 use crate::application::{SharedSession, WeakSession};
-use crate::domain::{
-    OwnedPluginParamSettings, OwnedPluginParamValues, ParameterMainTask, PluginParamIndex,
-    RawParamValue,
-};
+use crate::domain::{ParameterMainTask, PluginParamIndex, PluginParams, RawParamValue};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -22,14 +19,12 @@ pub struct RealearnPluginParameters {
     // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
     parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
-    /// Canonical parameter values.
+    /// Canonical parameters.
     ///
-    /// Locked by a mutex because this will be accessed from different threads.
-    parameter_values: RwLock<OwnedPluginParamValues>,
-    /// Copy of the session-managed parameter settings.
-    ///
-    /// Accessed from main thread only.
-    parameter_settings: OwnedPluginParamSettings,
+    /// Locked by a mutex because this will be accessed from different threads. At least the values.
+    /// But we want to keep settings and values tightly together for reasons of simplicity, so we
+    /// put them into the mutex as well.
+    params: RwLock<PluginParams>,
 }
 
 impl RealearnPluginParameters {
@@ -38,8 +33,7 @@ impl RealearnPluginParameters {
             session: AtomicLazyCell::new(),
             data_to_be_loaded: Default::default(),
             parameter_main_task_sender: parameter_main_task_channel,
-            parameter_values: Default::default(),
-            parameter_settings: Default::default(),
+            params: Default::default(),
         }
     }
 
@@ -78,8 +72,8 @@ impl RealearnPluginParameters {
     fn create_session_data_internal(&self) -> SessionData {
         let session = self.session().expect("session gone");
         let session = session.borrow();
-        let parameters_values = self.parameter_values();
-        SessionData::from_model(&session, parameters_values.borrow())
+        let params = self.params();
+        SessionData::from_model(&session, &params)
     }
 
     fn apply_session_data_internal(&self, session_data: &SessionData) {
@@ -99,16 +93,14 @@ impl RealearnPluginParameters {
                 ));
             }
         }
-        let parameters = session_data.create_parameter_values();
-        if let Err(e) = session_data.apply_to_model(&mut session, parameters.borrow()) {
+        let params = session_data.create_params();
+        if let Err(e) = session_data.apply_to_model(&mut session, &params) {
             notification::warn(e.to_string());
         }
         // Update parameters
         self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateAllParamValues(Box::new(
-                parameters.clone(),
-            )));
-        *self.parameter_values_mut() = parameters;
+            .send_complaining(ParameterMainTask::UpdateAllParams(params.clone()));
+        *self.params_mut() = params;
         // Notify
         session.notify_everything_has_changed();
     }
@@ -129,19 +121,15 @@ impl RealearnPluginParameters {
             .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
         // Also update synchronously so that a subsequent `get_parameter` will immediately
         // return the new value.
-        self.parameter_values_mut().update_at(index, value);
+        self.params_mut().at_mut(index).set_raw_value(value);
     }
 
-    fn parameter_values(&self) -> RwLockReadGuard<OwnedPluginParamValues> {
-        self.parameter_values
-            .read()
-            .expect("writer should never panic")
+    fn params(&self) -> RwLockReadGuard<PluginParams> {
+        self.params.read().expect("writer should never panic")
     }
 
-    fn parameter_values_mut(&self) -> RwLockWriteGuard<OwnedPluginParamValues> {
-        self.parameter_values
-            .write()
-            .expect("writer should never panic")
+    fn params_mut(&self) -> RwLockWriteGuard<PluginParams> {
+        self.params.write().expect("writer should never panic")
     }
 }
 
@@ -204,8 +192,7 @@ impl PluginParameters for RealearnPluginParameters {
                 Ok(i) => i,
                 Err(_) => return String::new(),
             };
-            self.parameter_settings
-                .build_qualified_parameter_name(index)
+            self.params().build_qualified_parameter_name(index)
         })
         .unwrap_or_default()
     }
@@ -223,7 +210,7 @@ impl PluginParameters for RealearnPluginParameters {
             // value. Getting an old value is terrible for clients which use the current value
             // for calculating a new value, e.g. ReaLearn itself when used with relative encoders.
             // Turning the encoder will result in increments not being applied reliably.
-            self.parameter_values().borrow().at(index)
+            self.params().at(index).raw_value()
         })
         .unwrap_or(0.0)
     }
@@ -244,11 +231,7 @@ impl PluginParameters for RealearnPluginParameters {
                 Ok(i) => i,
                 Err(_) => return String::new(),
             };
-            let parameter_values = self.parameter_values();
-            self.parameter_settings
-                .merge_with_values(parameter_values.borrow())
-                .at(index)
-                .to_string()
+            self.params().at(index).to_string()
         })
         .unwrap_or_default()
     }
@@ -259,12 +242,7 @@ impl PluginParameters for RealearnPluginParameters {
                 Ok(i) => i,
                 Err(_) => return Default::default(),
             };
-            let parameter_values = self.parameter_values();
-            let parse_result = self
-                .parameter_settings
-                .merge_with_values(parameter_values.borrow())
-                .at(index)
-                .parse(&text);
+            let parse_result = self.params().at(index).parse(&text);
             if let Ok(raw_value) = parse_result {
                 self.set_parameter_value_internal(index, raw_value);
                 true

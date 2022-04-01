@@ -9,14 +9,14 @@ use vst::plugin::HostCallback;
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedProcessorContext<'a> {
     pub context: &'a ProcessorContext,
-    pub params: PluginParams<'a>,
+    pub params: &'a PluginParams,
     pub control_context: ControlContext<'a>,
 }
 
 impl<'a> ExtendedProcessorContext<'a> {
     pub fn new(
         context: &'a ProcessorContext,
-        params: PluginParams<'a>,
+        params: &'a PluginParams,
         control_context: ControlContext<'a>,
     ) -> Self {
         Self {
@@ -30,7 +30,7 @@ impl<'a> ExtendedProcessorContext<'a> {
         self.context
     }
 
-    pub fn params(&self) -> PluginParams {
+    pub fn params(&self) -> &'a PluginParams {
         self.params
     }
 

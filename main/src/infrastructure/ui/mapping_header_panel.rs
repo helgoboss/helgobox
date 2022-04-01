@@ -12,7 +12,7 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{CompartmentParamIndex, MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{compartment_param_index_iter, CompartmentParamIndex, MappingCompartment, Tag};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -570,17 +570,13 @@ impl MappingHeaderPanel {
         };
         let session = self.session();
         let session = session.borrow();
-        let session_state = session.state().borrow();
         b.fill_combo_box_with_data_small(start.into_iter().chain(
-            (0..COMPARTMENT_PARAMETER_COUNT).map(|i| {
-                (
-                    i as isize,
-                    format!(
-                        "{}. {}",
-                        i + 1,
-                        session_state.get_parameter_name(compartment, i)
-                    ),
-                )
+            compartment_param_index_iter().map(|i| {
+                let param_name = session
+                    .params()
+                    .compartment_params(compartment)
+                    .get_parameter_name(i);
+                (i.get() as isize, format!("{}. {}", i.get() + 1, param_name))
             }),
         ));
     }
