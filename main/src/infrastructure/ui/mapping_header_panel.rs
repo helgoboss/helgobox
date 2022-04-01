@@ -234,14 +234,30 @@ impl MappingHeaderPanel {
                     false,
                     compartment,
                 );
-                self.view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
-                    .fill_combo_box_with_data_vec(
-                        (0..=99).map(|i| (i as isize, i.to_string())).collect(),
-                    )
             }
             _ => {}
         };
+    }
+
+    fn fill_activation_setting_2_combo_box_with_banks(&self, item: &dyn Item) {
+        let bank_param_index = item.bank_condition().param_index();
+        let session = self.session();
+        let session = session.borrow();
+        let bank_param = session
+            .params()
+            .compartment_params(item.compartment())
+            .at(bank_param_index);
+        let bank_count = if let Some(value_count) = bank_param.setting().value_count {
+            value_count.get()
+        } else {
+            100
+        };
+        let data = (0..bank_count)
+            .map(|i| (i as isize, i.to_string()))
+            .collect();
+        self.view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
+            .fill_combo_box_with_data_vec(data);
     }
 
     fn invalidate_activation_control_visibilities(&self, item: &dyn Item) {
@@ -319,11 +335,17 @@ impl MappingHeaderPanel {
                 );
             }
             Bank => {
+                self.fill_activation_setting_2_combo_box_with_banks(item);
                 let bank_index = item.bank_condition().bank_index();
-                self.view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
+                let combo_box = self
+                    .view
+                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX);
+                if combo_box
                     .select_combo_box_item_by_index(bank_index as _)
-                    .unwrap();
+                    .is_err()
+                {
+                    combo_box.select_new_combo_box_item(format!("Invalid bank {}", bank_index));
+                }
             }
             _ => {}
         };
