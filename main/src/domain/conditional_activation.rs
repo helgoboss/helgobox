@@ -1,6 +1,7 @@
 use crate::base::eel;
 use crate::domain::{
-    CompartmentParamIndex, CompartmentParams, RawParamValue, COMPARTMENT_PARAMETER_COUNT,
+    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, RawParamValue,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use std::collections::HashSet;
 
@@ -84,8 +85,8 @@ impl ActivationCondition {
                 program_condition_is_fulfilled(*param_index, *program_index, params)
             }
             Eel(condition) => {
-                let is_affected =
-                    condition.notify_param_changed(index, params.at(index).raw_value());
+                let is_affected = condition
+                    .notify_param_changed(index, params.at(index).effective_value().into());
                 if !is_affected {
                     return None;
                 }
@@ -111,8 +112,13 @@ fn program_condition_is_fulfilled(
     program_index: u32,
     params: &CompartmentParams,
 ) -> bool {
-    let param_value = params.at(param_index).raw_value();
-    let current_program_index = (param_value * 99.0).round() as u32;
+    let current_program_index = match params.at(param_index).effective_value() {
+        EffectiveParamValue::Continuous(v) => {
+            // If no count given for the parameter, we just assume a count of 100.
+            (v * 99.0).round() as u32
+        }
+        EffectiveParamValue::Discrete(v) => v,
+    };
     current_program_index == program_index
 }
 
@@ -198,21 +204,17 @@ impl EelCondition {
             let i = CompartmentParamIndex::try_from(i as u32).unwrap();
             if let Some(v) = p {
                 unsafe {
-                    v.set(params.at(i).raw_value() as f64);
+                    v.set(params.at(i).effective_value().into());
                 }
             }
         }
     }
 
     /// Returns true if activation might have changed.
-    pub fn notify_param_changed(
-        &self,
-        param_index: CompartmentParamIndex,
-        value: RawParamValue,
-    ) -> bool {
+    pub fn notify_param_changed(&self, param_index: CompartmentParamIndex, value: f64) -> bool {
         if let Some(v) = &self.params[param_index.get() as usize] {
             unsafe {
-                v.set(value as f64);
+                v.set(value);
             }
             true
         } else {

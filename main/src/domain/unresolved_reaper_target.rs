@@ -671,7 +671,7 @@ impl ExpressionEvaluator {
                         }
                         let index = index.round() as u32;
                         let index = CompartmentParamIndex::try_from(index).ok()?;
-                        Some(params.at(index).effective_value())
+                        Some(params.at(index).effective_value().into())
                     } else {
                         None
                     }
@@ -687,7 +687,7 @@ impl ExpressionEvaluator {
                     }
                     let index = one_based_position - 1;
                     let index = CompartmentParamIndex::try_from(index).ok()?;
-                    Some(params.at(index).effective_value())
+                    Some(params.at(index).effective_value().into())
                 }
             }
         };

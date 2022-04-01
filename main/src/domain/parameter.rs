@@ -43,6 +43,31 @@ pub fn convert_compartment_param_index_range_to_iter(
 /// Raw parameter value.
 pub type RawParamValue = f32;
 
+/// Effective parameter value.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum EffectiveParamValue {
+    Continuous(f64),
+    Discrete(u32),
+}
+
+impl Display for EffectiveParamValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            EffectiveParamValue::Continuous(v) => write!(f, "{:.3}", *v),
+            EffectiveParamValue::Discrete(v) => v.fmt(f),
+        }
+    }
+}
+
+impl From<EffectiveParamValue> for f64 {
+    fn from(v: EffectiveParamValue) -> Self {
+        match v {
+            EffectiveParamValue::Continuous(v) => v,
+            EffectiveParamValue::Discrete(v) => v as f64,
+        }
+    }
+}
+
 /// Parameter setting.
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,12 +94,13 @@ impl ParamSetting {
         }
     }
 
-    fn convert_to_effective_value(&self, raw_value: RawParamValue) -> f64 {
+    fn convert_to_value(&self, raw_value: RawParamValue) -> EffectiveParamValue {
         let raw_value = UnitValue::new_clamped(raw_value as _);
         if let Some(value_count) = self.value_count {
-            (raw_value.get() * (value_count.get() - 1) as f64).round()
+            let scaled = raw_value.get() * (value_count.get() - 1) as f64;
+            EffectiveParamValue::Discrete(scaled.round() as u32)
         } else {
-            raw_value.get()
+            EffectiveParamValue::Continuous(raw_value.get())
         }
     }
 
@@ -106,9 +132,9 @@ impl Param {
         Self { setting, value }
     }
 
-    /// Returns the effective value of this parameter (taking the count into account).
-    pub fn effective_value(&self) -> f64 {
-        self.setting.convert_to_effective_value(self.value)
+    /// Returns the effective parameter value (taking the parameter setting into account).
+    pub fn effective_value(&self) -> EffectiveParamValue {
+        self.setting.convert_to_value(self.value)
     }
 
     /// Returns the setting of this parameter.
@@ -139,7 +165,7 @@ impl Param {
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.3}", self.effective_value())
+        self.effective_value().fmt(f)
     }
 }
 
