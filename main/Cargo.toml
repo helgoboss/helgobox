@@ -36,7 +36,7 @@ helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_re
 # For being able to (de)serialize using FromStr and Display
 serde_with = "1.6.4"
 c_str_macro = "1.0.2"
-vst = "0.2.1"
+vst = "0.3.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
