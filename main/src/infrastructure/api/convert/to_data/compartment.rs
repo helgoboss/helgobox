@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::domain::ParameterSetting;
+use crate::domain::ParamSetting;
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
@@ -10,10 +10,10 @@ use realearn_api::schema::*;
 
 pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
-        parameters: HashMap<u32, ParameterSetting>,
+        parameters: HashMap<u32, ParamSetting>,
         groups: Vec<GroupModelData>,
     }
-    fn param_index_by_key(parameters: &HashMap<u32, ParameterSetting>, key: &str) -> Option<u32> {
+    fn param_index_by_key(parameters: &HashMap<u32, ParamSetting>, key: &str) -> Option<u32> {
         parameters
             .iter()
             .find(|(_, p)| p.key_matches(key))

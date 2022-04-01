@@ -1,6 +1,6 @@
 use crate::application::{CompartmentModel, GroupModel};
 use crate::base::default_util::is_default;
-use crate::domain::{GroupId, GroupKey, MappingCompartment, ParameterSetting};
+use crate::domain::{CompartmentParamIndex, GroupId, GroupKey, MappingCompartment, ParamSetting};
 use crate::infrastructure::data::{
     DataToModelConversionContext, GroupModelData, MappingModelData, MigrationDescriptor,
     ModelToDataConversionContext,
@@ -23,7 +23,7 @@ pub struct CompartmentModelData {
     // String key workaround because otherwise deserialization doesn't work with flattening.
     // (https://github.com/serde-rs/serde/issues/1183)
     #[serde(default, skip_serializing_if = "is_default")]
-    pub parameters: HashMap<String, ParameterSetting>,
+    pub parameters: HashMap<String, ParamSetting>,
 }
 
 impl ModelToDataConversionContext for CompartmentModel {
@@ -104,7 +104,13 @@ impl CompartmentModelData {
             parameters: self
                 .parameters
                 .iter()
-                .filter_map(|(key, value)| Some((key.parse::<u32>().ok()?, value.clone())))
+                .filter_map(|(key, value)| {
+                    let index = key
+                        .parse::<u32>()
+                        .and_then(CompartmentParamIndex::try_from)
+                        .ok()?;
+                    Some((index, value.clone()))
+                })
                 .collect(),
             groups,
         };
@@ -115,7 +121,7 @@ impl CompartmentModelData {
 pub fn ensure_no_duplicate_compartment_data<'a>(
     mappings: &[MappingModelData],
     groups: &[GroupModelData],
-    parameters: impl Iterator<Item = &'a ParameterSetting>,
+    parameters: impl Iterator<Item = &'a ParamSetting>,
 ) -> Result<(), String> {
     ensure_no_duplicate("mapping IDs", mappings.iter().filter_map(|m| m.id.as_ref()))?;
     ensure_no_duplicate(

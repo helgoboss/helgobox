@@ -1,6 +1,7 @@
 use crate::domain::{
     CompoundMappingTarget, MappingCompartment, MappingId, MessageCaptureResult,
-    ParameterValueArray, ProjectionFeedbackValue, QualifiedMappingId,
+    OwnedPluginParamValues, PluginParamIndex, ProjectionFeedbackValue, QualifiedMappingId,
+    RawParamValue,
 };
 use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
@@ -12,8 +13,11 @@ pub enum DomainEvent<'a> {
     CapturedIncomingMessage(MessageCaptureEvent),
     UpdatedOnMappings(HashSet<QualifiedMappingId>),
     UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
-    UpdatedParameter { index: u32, value: f32 },
-    UpdatedAllParameters(Box<ParameterValueArray>),
+    UpdatedSingleParameterValue {
+        index: PluginParamIndex,
+        value: RawParamValue,
+    },
+    UpdatedAllParameterValues(Box<OwnedPluginParamValues>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),

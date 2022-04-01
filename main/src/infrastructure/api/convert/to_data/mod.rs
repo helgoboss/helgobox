@@ -75,11 +75,9 @@ fn convert_activation(
             let create_model =
                 |state: Option<&ModifierState>| -> ConversionResult<ModifierConditionModel> {
                     let res = if let Some(s) = state {
+                        let i = resolve_parameter_ref(&s.parameter, param_index_by_key)?;
                         ModifierConditionModel {
-                            param_index: Some(resolve_parameter_ref(
-                                &s.parameter,
-                                param_index_by_key,
-                            )?),
+                            param_index: Some(i.try_into()?),
                             is_on: s.on,
                         }
                     } else {
@@ -98,14 +96,17 @@ fn convert_activation(
                 ..Default::default()
             }
         }
-        Bank(c) => ActivationConditionData {
-            activation_type: ActivationType::Bank,
-            program_condition: BankConditionModel {
-                param_index: resolve_parameter_ref(&c.parameter, param_index_by_key)?,
-                bank_index: c.bank_index,
-            },
-            ..Default::default()
-        },
+        Bank(c) => {
+            let i = resolve_parameter_ref(&c.parameter, param_index_by_key)?;
+            ActivationConditionData {
+                activation_type: ActivationType::Bank,
+                program_condition: BankConditionModel {
+                    param_index: i.try_into()?,
+                    bank_index: c.bank_index,
+                },
+                ..Default::default()
+            }
+        }
         Eel(c) => ActivationConditionData {
             activation_type: ActivationType::Eel,
             eel_condition: c.condition,

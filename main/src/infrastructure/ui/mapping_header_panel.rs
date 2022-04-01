@@ -12,7 +12,7 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{CompartmentParamIndex, MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -301,7 +301,7 @@ impl MappingHeaderPanel {
                 let param_index = item.bank_condition().param_index();
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX)
-                    .select_combo_box_item_by_index(param_index as _)
+                    .select_combo_box_item_by_index(param_index.get() as _)
                     .unwrap();
             }
             _ => {}
@@ -341,7 +341,7 @@ impl MappingHeaderPanel {
                 b.select_combo_box_item_by_data(-1).unwrap();
             }
             Some(i) => {
-                b.select_combo_box_item_by_data(i as _).unwrap();
+                b.select_combo_box_item_by_data(i.get() as _).unwrap();
             }
         };
         self.view
@@ -446,8 +446,10 @@ impl MappingHeaderPanel {
                 let b = self
                     .view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX);
-                let value = b.selected_combo_box_item_index() as u32;
-                item.set_bank_condition(session, item.bank_condition().with_param_index(value));
+                let index = (b.selected_combo_box_item_index() as u32)
+                    .try_into()
+                    .unwrap();
+                item.set_bank_condition(session, item.bank_condition().with_param_index(index));
             }
             _ => {}
         };
@@ -485,12 +487,15 @@ impl MappingHeaderPanel {
         set: impl FnOnce(WeakSession, &mut dyn Item, ModifierConditionModel),
     ) {
         let b = self.view.require_control(combo_box_id);
-        let value = match b.selected_combo_box_item_data() {
+        let index = match b.selected_combo_box_item_data() {
             -1 => None,
-            id => Some(id as u32),
+            id => {
+                let index = CompartmentParamIndex::try_from(id as u32).unwrap();
+                Some(index)
+            }
         };
         let current = get(item);
-        set(session, item, current.with_param_index(value));
+        set(session, item, current.with_param_index(index));
     }
 
     fn invalidate_activation_eel_condition_edit_control(

@@ -1,4 +1,4 @@
-use crate::domain::ModifierCondition;
+use crate::domain::{CompartmentParamIndex, ModifierCondition};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -41,7 +41,7 @@ impl Default for ActivationType {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct ModifierConditionModel {
     #[serde(rename = "paramIndex")]
-    pub param_index: Option<u32>,
+    pub param_index: Option<CompartmentParamIndex>,
     #[serde(rename = "isOn")]
     pub is_on: bool,
 }
@@ -52,11 +52,14 @@ impl ModifierConditionModel {
             .map(|i| ModifierCondition::new(i, self.is_on))
     }
 
-    pub fn param_index(&self) -> Option<u32> {
+    pub fn param_index(&self) -> Option<CompartmentParamIndex> {
         self.param_index
     }
 
-    pub fn with_param_index(&self, param_index: Option<u32>) -> ModifierConditionModel {
+    pub fn with_param_index(
+        &self,
+        param_index: Option<CompartmentParamIndex>,
+    ) -> ModifierConditionModel {
         ModifierConditionModel {
             param_index,
             ..*self
@@ -75,17 +78,17 @@ impl ModifierConditionModel {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct BankConditionModel {
     #[serde(rename = "paramIndex")]
-    pub param_index: u32,
+    pub param_index: CompartmentParamIndex,
     #[serde(rename = "programIndex")]
     pub bank_index: u32,
 }
 
 impl BankConditionModel {
-    pub fn param_index(&self) -> u32 {
+    pub fn param_index(&self) -> CompartmentParamIndex {
         self.param_index
     }
 
-    pub fn with_param_index(&self, param_index: u32) -> BankConditionModel {
+    pub fn with_param_index(&self, param_index: CompartmentParamIndex) -> BankConditionModel {
         BankConditionModel {
             param_index,
             ..*self

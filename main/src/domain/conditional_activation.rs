@@ -1,5 +1,8 @@
 use crate::base::eel;
-use crate::domain::{Parameters, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{
+    CompartmentParamIndex, CompartmentParamValues, CompartmentParams, RawParamValue,
+    COMPARTMENT_PARAMETER_COUNT,
+};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -7,7 +10,7 @@ pub enum ActivationCondition {
     Always,
     Modifiers(Vec<ModifierCondition>),
     Program {
-        param_index: u32,
+        param_index: CompartmentParamIndex,
         program_index: u32,
     },
     // Boxed in order to keep the enum variants at a similar size (clippy gave that hint)
@@ -22,7 +25,7 @@ impl ActivationCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: Parameters) -> bool {
+    pub fn is_fulfilled(&self, params: CompartmentParams) -> bool {
         use ActivationCondition::*;
         match self {
             Always => true,
@@ -51,11 +54,11 @@ impl ActivationCondition {
     /// TODO-low This is not visible because it's &self.
     pub fn is_fulfilled_single(
         &self,
-        params: Parameters,
+        params: CompartmentParams,
         // Changed index
-        index: u32,
+        index: CompartmentParamIndex,
         // Previous value at changed index
-        previous_value: f32,
+        previous_value: RawParamValue,
     ) -> Option<bool> {
         use ActivationCondition::*;
         let is_fulfilled = match self {
@@ -64,7 +67,7 @@ impl ActivationCondition {
                     c.is_affected_by_param_change(
                         index,
                         previous_value,
-                        params.raw_value_at(index).unwrap(),
+                        params.at(index).raw_value(),
                     )
                 });
                 if !is_affected {
@@ -83,7 +86,7 @@ impl ActivationCondition {
             }
             Eel(condition) => {
                 let is_affected =
-                    condition.notify_param_changed(index, params.raw_value_at(index).unwrap());
+                    condition.notify_param_changed(index, params.at(index).raw_value());
                 if !is_affected {
                     return None;
                 }
@@ -95,14 +98,21 @@ impl ActivationCondition {
     }
 }
 
-fn modifier_conditions_are_fulfilled(conditions: &[ModifierCondition], params: &[f32]) -> bool {
+fn modifier_conditions_are_fulfilled(
+    conditions: &[ModifierCondition],
+    param_values: CompartmentParamValues,
+) -> bool {
     conditions
         .iter()
-        .all(|condition| condition.is_fulfilled(params))
+        .all(|condition| condition.is_fulfilled(param_values))
 }
 
-fn program_condition_is_fulfilled(param_index: u32, program_index: u32, params: &[f32]) -> bool {
-    let param_value = params[param_index as usize];
+fn program_condition_is_fulfilled(
+    param_index: CompartmentParamIndex,
+    program_index: u32,
+    param_values: CompartmentParamValues,
+) -> bool {
+    let param_value = param_values.at(param_index);
     let current_program_index = (param_value * 99.0).round() as u32;
     current_program_index == program_index
 }
@@ -113,28 +123,29 @@ fn param_value_is_on(value: f32) -> bool {
 
 #[derive(Debug)]
 pub struct ModifierCondition {
-    param_index: u32,
+    param_index: CompartmentParamIndex,
     is_on: bool,
 }
 
 impl ModifierCondition {
-    pub fn new(param_index: u32, is_on: bool) -> ModifierCondition {
+    pub fn new(param_index: CompartmentParamIndex, is_on: bool) -> ModifierCondition {
         ModifierCondition { param_index, is_on }
     }
 
-    pub fn is_affected_by_param_change(&self, index: u32, previous_value: f32, value: f32) -> bool {
+    pub fn is_affected_by_param_change(
+        &self,
+        index: CompartmentParamIndex,
+        previous_value: RawParamValue,
+        value: RawParamValue,
+    ) -> bool {
         self.param_index == index && param_value_is_on(previous_value) != param_value_is_on(value)
     }
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &[f32]) -> bool {
-        let param_value = match params.get(self.param_index as usize) {
-            // Parameter doesn't exist. Shouldn't happen but handle gracefully.
-            None => return false,
-            Some(v) => v,
-        };
-        let is_on = param_value_is_on(*param_value);
+    pub fn is_fulfilled(&self, param_values: CompartmentParamValues) -> bool {
+        let param_value = param_values.at(self.param_index);
+        let is_on = param_value_is_on(param_value);
         is_on == self.is_on
     }
 }
@@ -183,19 +194,24 @@ impl EelCondition {
         })
     }
 
-    pub fn notify_params_changed(&self, params: &[f32]) {
+    pub fn notify_params_changed(&self, param_values: CompartmentParamValues) {
         for (i, p) in self.params.iter().enumerate() {
+            let i = CompartmentParamIndex::try_from(i as u32).unwrap();
             if let Some(v) = p {
                 unsafe {
-                    v.set(params[i] as f64);
+                    v.set(param_values.at(i) as f64);
                 }
             }
         }
     }
 
     /// Returns true if activation might have changed.
-    pub fn notify_param_changed(&self, param_index: u32, value: f32) -> bool {
-        if let Some(v) = &self.params[param_index as usize] {
+    pub fn notify_param_changed(
+        &self,
+        param_index: CompartmentParamIndex,
+        value: RawParamValue,
+    ) -> bool {
+        if let Some(v) = &self.params[param_index.get() as usize] {
             unsafe {
                 v.set(value as f64);
             }

@@ -23,7 +23,7 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::{
     BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
-    MessageCaptureEvent, OscDeviceId, ParameterSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    MessageCaptureEvent, OscDeviceId, ParamSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -2690,7 +2690,7 @@ fn edit_compartment_parameter(
         let session_state = session.state().borrow();
         range
             .clone()
-            .map(|i| session_state.get_parameter_setting(compartment, i))
+            .map(|i| session_state.get_setting(compartment, i))
             .cloned()
             .collect()
     };
@@ -2710,8 +2710,8 @@ enum EditOscDevError {
 /// Pass max 5 settings.
 fn edit_compartment_parameter_internal(
     offset: u32,
-    settings: &[ParameterSetting],
-) -> Result<Vec<ParameterSetting>, &'static str> {
+    settings: &[ParamSetting],
+) -> Result<Vec<ParamSetting>, &'static str> {
     let mut captions_csv = (offset..)
         .zip(settings)
         .map(|(i, _)| format!("Param {} name,Value count", i + 1))
@@ -2739,7 +2739,7 @@ fn edit_compartment_parameter_internal(
     let tuples = csv.to_str().split(';').tuples();
     let out_settings: Vec<_> = tuples
         .zip(settings)
-        .map(|((name, value_count), old_setting)| ParameterSetting {
+        .map(|((name, value_count), old_setting)| ParamSetting {
             key: old_setting.key.clone(),
             name: name.trim().to_owned(),
             value_count: { value_count.parse().ok() },

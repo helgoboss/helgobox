@@ -1,10 +1,11 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
-    ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue, KeyMessage,
-    KeySource, MappingActivationEffect, MappingControlContext, MappingData, MappingInfo,
-    MessageCaptureEvent, MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, Parameters,
-    PersistentMappingProcessingState, RealTimeMappingUpdate, RealTimeReaperTarget,
+    ActivationCondition, CompartmentParamIndex, CompoundChangeEvent, ControlContext,
+    ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
+    HitInstructionReturnValue, KeyMessage, KeySource, MappingActivationEffect,
+    MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
+    MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
+    PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
     RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
     ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
     VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
@@ -424,23 +425,23 @@ impl MainMapping {
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
-        parameters: Parameters,
-        absolute_param_index: u32,
+        params: PluginParams,
+        plugin_param_index: PluginParamIndex,
         previous_value: f32,
     ) -> Option<MappingActivationEffect> {
-        let sliced_params = self.core.compartment.slice_parameters(parameters);
-        let rel_param_index = self
+        let compartment_params = params.slice_to_compartment(self.core.compartment);
+        let compartment_param_index = self
             .core
             .compartment
-            .relativize_absolute_index(absolute_param_index);
+            .to_compartment_param_index(plugin_param_index);
         let effect_1 = self.activation_condition_1.is_fulfilled_single(
-            sliced_params,
-            rel_param_index,
+            compartment_params,
+            compartment_param_index,
             previous_value,
         );
         let effect_2 = self.activation_condition_2.is_fulfilled_single(
-            sliced_params,
-            rel_param_index,
+            compartment_params,
+            compartment_param_index,
             previous_value,
         );
         MappingActivationEffect::new(self.id(), effect_1, effect_2)
@@ -492,7 +493,7 @@ impl MainMapping {
         let (targets, is_active) = self.resolve_target(context, control_context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        self.update_activation(context.parameters());
+        self.update_activation(context.params());
         let target_value = self.current_aggregated_target_value(control_context);
         self.initial_target_value = target_value;
         self.last_non_performance_target_value = Cell::new(target_value);
@@ -602,11 +603,13 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn update_activation(&mut self, parameters: Parameters) -> Option<RealTimeMappingUpdate> {
-        let sliced_params = self.core.compartment.slice_parameters(parameters);
+    pub fn update_activation(&mut self, params: PluginParams) -> Option<RealTimeMappingUpdate> {
+        let compartment_params = params.slice_to_compartment(self.core.compartment);
         let was_active_before = self.is_active_in_terms_of_activation_state();
-        self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
-        self.activation_state.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
+        self.activation_state.is_active_1 =
+            self.activation_condition_1.is_fulfilled(compartment_params);
+        self.activation_state.is_active_2 =
+            self.activation_condition_2.is_fulfilled(compartment_params);
         let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
@@ -2180,17 +2183,17 @@ impl MappingCompartment {
         MappingCompartment::into_enum_iter()
     }
 
-    pub fn by_absolute_param_index(absolute_index: u32) -> Option<MappingCompartment> {
-        Self::enum_iter().find(|c| c.param_range().contains(&(absolute_index)))
+    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> MappingCompartment {
+        Self::enum_iter()
+            .find(|c| c.param_range().contains(&plugin_param_index.get()))
+            .unwrap()
     }
 
-    pub fn relativize_absolute_index(self, absolute_index: u32) -> u32 {
-        absolute_index - self.param_offset()
-    }
-
-    pub fn slice_parameters(self, parameters: Parameters) -> Parameters {
-        let range = self.param_range();
-        parameters.slice(range)
+    pub fn to_compartment_param_index(
+        self,
+        plugin_param_index: PluginParamIndex,
+    ) -> CompartmentParamIndex {
+        CompartmentParamIndex::try_from(plugin_param_index.get() - self.param_offset()).unwrap()
     }
 
     const fn param_offset(self) -> u32 {

@@ -1,8 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    BackboneState, ExtendedProcessorContext, FeedbackResolution, MappingCompartment, Parameters,
-    ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    BackboneState, CompartmentParamIndex, CompartmentParams, ExtendedProcessorContext,
+    FeedbackResolution, MappingCompartment, ReaperTarget, UnresolvedActionTarget,
+    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
     UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
     UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
@@ -337,9 +338,9 @@ impl TrackRouteSelector {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, TrackRouteResolveError> {
-        let sliced_params = compartment.slice_parameters(context.parameters());
+        let compartment_params = context.params().slice_to_compartment(compartment);
         let result = evaluator
-            .evaluate(sliced_params)
+            .evaluate(compartment_params)
             .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {
@@ -471,9 +472,10 @@ impl VirtualClipSlot {
                 column_evaluator,
                 row_evaluator,
             } => {
-                let sliced_params = compartment.slice_parameters(context.parameters());
-                let column_index = to_slot_coordinate(column_evaluator.evaluate(sliced_params))?;
-                let row_index = to_slot_coordinate(row_evaluator.evaluate(sliced_params))?;
+                let compartment_params = context.params().slice_to_compartment(compartment);
+                let column_index =
+                    to_slot_coordinate(column_evaluator.evaluate(compartment_params))?;
+                let row_index = to_slot_coordinate(row_evaluator.evaluate(compartment_params))?;
                 ClipSlotCoordinates::new(column_index, row_index)
             }
         };
@@ -579,9 +581,9 @@ impl VirtualFxParameter {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxParameterResolveError> {
-        let sliced_params = compartment.slice_parameters(context.parameters());
+        let compartment_params = context.params().slice_to_compartment(compartment);
         let result = evaluator
-            .evaluate(sliced_params)
+            .evaluate(compartment_params)
             .map_err(|_| FxParameterResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {
@@ -636,13 +638,13 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, parameters: Parameters) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(parameters, |_, _| None)
+    pub fn evaluate(&self, params: CompartmentParams) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(params, |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
-        parameters: Parameters,
+        parameters: CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(parameters, additional_vars)
@@ -650,7 +652,7 @@ impl ExpressionEvaluator {
 
     fn evaluate_internal(
         &self,
-        parameters: Parameters,
+        params: CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
@@ -668,7 +670,8 @@ impl ExpressionEvaluator {
                             return None;
                         }
                         let index = index.round() as u32;
-                        parameters.get_effective_value(index)
+                        let index = CompartmentParamIndex::try_from(index).ok()?;
+                        Some(params.at(index).effective_value())
                     } else {
                         None
                     }
@@ -683,7 +686,8 @@ impl ExpressionEvaluator {
                         return None;
                     }
                     let index = one_based_position - 1;
-                    parameters.get_effective_value(index)
+                    let index = CompartmentParamIndex::try_from(index).ok()?;
+                    Some(params.at(index).effective_value())
                 }
             }
         };
@@ -880,9 +884,9 @@ impl VirtualTrack {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<i32, TrackResolveError> {
-        let sliced_params = compartment.slice_parameters(context.parameters());
+        let compartment_params = context.params().slice_to_compartment(compartment);
         let result = evaluator
-            .evaluate_with_additional_vars(sliced_params, |name, args| match name {
+            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
                 "this_track_index" => {
                     let track = context.context().track()?;
                     Some(get_track_index_for_expression(track))
@@ -1145,9 +1149,9 @@ impl VirtualChainFx {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<u32, FxResolveError> {
-        let sliced_params = compartment.slice_parameters(context.parameters());
+        let compartment_params = context.params().slice_to_compartment(compartment);
         let result = evaluator
-            .evaluate(sliced_params)
+            .evaluate(compartment_params)
             .map_err(|_| FxResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {

@@ -1,25 +1,25 @@
 use crate::application::{
-    empty_parameter_settings, share_group, share_mapping, Affected, Change, ChangeResult,
-    CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand,
-    GroupModel, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp,
-    Preset, PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping,
-    SharedSessionState, SourceModel, TargetCategory, TargetModel, TargetProp,
-    VirtualControlElementType,
+    share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
+    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
+    PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping, SourceModel,
+    TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
 };
 use crate::base::{
     prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
     SenderToRealTimeThread,
 };
 use crate::domain::{
-    BackboneState, BasicSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
-    InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParameterSetting, ParameterValueArray, ProcessorContext,
+    BackboneState, BasicSettings, CompartmentParamIndex, CompoundMappingSource, ControlContext,
+    ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
+    InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment,
+    MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, OwnedCompartmentParamSettings,
+    OwnedPluginParams, ParamSetting, PluginParamValues, PluginParams, ProcessorContext,
     ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
     SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
+    VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -104,9 +104,8 @@ pub struct Session {
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
     instance_container: &'static dyn InstanceContainer,
-    /// A secondary copy of the canonical parameter values stored in the infrastructure layer.
-    parameter_values: ParameterValueArray,
-    state: SharedSessionState,
+    /// All canonical parameter settings and a copy of all parameter values.
+    parameters: OwnedPluginParams,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
@@ -187,7 +186,6 @@ impl Session {
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
-        state: SharedSessionState,
         global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
             FeedbackAudioHookTask,
         >,
@@ -240,8 +238,7 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: Box::new(ui),
             instance_container,
-            parameter_values: ZEROED_PLUGIN_PARAMETERS,
-            state,
+            parameters: Default::default(),
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
@@ -692,12 +689,12 @@ impl Session {
     }
 
     pub fn extended_context(&self) -> ExtendedProcessorContext {
-        self.extended_context_with_params(&self.parameter_values)
+        self.extended_context_with_params(self.parameters.values())
     }
 
     pub fn extended_context_with_params<'a>(
         &'a self,
-        param_values: &'a [f32],
+        param_values: PluginParamValues,
     ) -> ExtendedProcessorContext<'a> {
         ExtendedProcessorContext::new(
             &self.processor_context,
@@ -1818,9 +1815,10 @@ impl Session {
     pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
         CompartmentModel {
             parameters: self
-                .state
-                .borrow()
-                .non_default_parameter_settings_by_compartment(compartment),
+                .parameters
+                .settings()
+                .slice_to_compartment(compartment)
+                .non_default_settings(),
             default_group: self.default_group(compartment).borrow().clone(),
             groups: self
                 .groups(compartment)
@@ -1857,9 +1855,12 @@ impl Session {
             default_group.replace(model.default_group);
             self.set_groups_without_notification(compartment, model.groups.into_iter());
             self.set_mappings_without_notification(compartment, model.mappings);
-            self.state
-                .borrow_mut()
-                .set_parameter_settings_from_non_default(compartment, model.parameters);
+            self.parameters
+                .settings_mut()
+                .update_certain_settings_within_compartment(
+                    compartment,
+                    model.parameters.into_iter(),
+                );
         } else {
             self.clear_compartment_data(compartment);
         }
@@ -1881,29 +1882,33 @@ impl Session {
             .replace(GroupModel::default_for_compartment(compartment));
         self.set_groups_without_notification(compartment, std::iter::empty());
         self.set_mappings_without_notification(compartment, std::iter::empty());
-        self.state
-            .borrow_mut()
-            .set_compartment_parameter_settings_without_notification(
-                compartment,
-                empty_parameter_settings(),
-            );
+        self.parameters
+            .settings_mut()
+            .reset_all_in_compartment(compartment);
     }
 
-    pub fn state(&self) -> &SharedSessionState {
-        &self.state
+    pub fn parameters(&self) -> PluginParams {
+        self.parameters.borrow()
+    }
+
+    pub fn set_parameter_settings_without_notification(
+        &mut self,
+        compartment: MappingCompartment,
+        settings: OwnedCompartmentParamSettings,
+    ) {
+        self.parameters
+            .settings_mut()
+            .update_all_settings_within_compartment(compartment, settings);
     }
 
     pub fn set_parameter_settings(
         &mut self,
         compartment: MappingCompartment,
-        settings: impl Iterator<Item = (u32, ParameterSetting)>,
+        settings: impl Iterator<Item = (CompartmentParamIndex, ParamSetting)>,
     ) {
-        self.state
-            .borrow_mut()
-            .set_compartment_parameter_settings_without_notification_from_indexed_iter(
-                compartment,
-                settings,
-            );
+        self.parameters
+            .settings_mut()
+            .update_certain_settings_within_compartment(compartment, settings);
         self.notify_parameter_settings_changed(compartment);
     }
 
@@ -2316,12 +2321,12 @@ impl DomainEventHandler for WeakSession {
                     s.ui.target_value_changed(e);
                 }
             }
-            UpdatedParameter { index, value } => {
+            UpdatedSingleParameterValue { index, value } => {
                 let mut session = session.borrow_mut();
                 session.parameter_values[index as usize] = value;
                 session.ui.parameters_changed(&session);
             }
-            UpdatedAllParameters(params) => {
+            UpdatedAllParameterValues(params) => {
                 let mut session = session.borrow_mut();
                 session.parameter_values = *params;
                 session.ui.parameters_changed(&session);

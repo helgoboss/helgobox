@@ -5,9 +5,10 @@ use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
 
-use crate::application::{SharedSession, SharedSessionState, WeakSession};
+use crate::application::{SharedSession, WeakSession};
 use crate::domain::{
-    MappingCompartment, ParameterMainTask, ParameterValueArray, ZEROED_PLUGIN_PARAMETERS,
+    OwnedPluginParamSettings, OwnedPluginParamValues, ParameterMainTask, PluginParamIndex,
+    RawParamValue,
 };
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
@@ -21,22 +22,24 @@ pub struct RealearnPluginParameters {
     // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
     parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
-    parameters: RwLock<ParameterValueArray>,
-    session_state: SendOrSyncWhatever<SharedSessionState>,
+    /// Canonical parameter values.
+    ///
+    /// Locked by a mutex because this will be accessed from different threads.
+    parameter_values: RwLock<OwnedPluginParamValues>,
+    /// Copy of the session-managed parameter settings.
+    ///
+    /// Accessed from main thread only.
+    parameter_settings: OwnedPluginParamSettings,
 }
 
 impl RealearnPluginParameters {
-    pub fn new(
-        parameter_main_task_channel: SenderToNormalThread<ParameterMainTask>,
-        session_state: SharedSessionState,
-    ) -> Self {
+    pub fn new(parameter_main_task_channel: SenderToNormalThread<ParameterMainTask>) -> Self {
         Self {
             session: AtomicLazyCell::new(),
             data_to_be_loaded: Default::default(),
             parameter_main_task_sender: parameter_main_task_channel,
-            parameters: RwLock::new(ZEROED_PLUGIN_PARAMETERS),
-            // We will never access the session state in another thread than the main thread.
-            session_state: unsafe { SendOrSyncWhatever::new(session_state) },
+            parameter_values: Default::default(),
+            parameter_settings: Default::default(),
         }
     }
 
@@ -75,8 +78,8 @@ impl RealearnPluginParameters {
     fn create_session_data_internal(&self) -> SessionData {
         let session = self.session().expect("session gone");
         let session = session.borrow();
-        let parameters = self.parameters();
-        SessionData::from_model(&session, &*parameters)
+        let parameters_values = self.parameter_values();
+        SessionData::from_model(&session, parameters_values.borrow())
     }
 
     fn apply_session_data_internal(&self, session_data: &SessionData) {
@@ -96,14 +99,16 @@ impl RealearnPluginParameters {
                 ));
             }
         }
-        let parameters = session_data.parameters_as_array();
-        if let Err(e) = session_data.apply_to_model(&mut session, &parameters) {
+        let parameters = session_data.create_parameter_values();
+        if let Err(e) = session_data.apply_to_model(&mut session, parameters.borrow()) {
             notification::warn(e.to_string());
         }
         // Update parameters
         self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateAllParameters(Box::new(parameters)));
-        *self.parameters_mut() = parameters;
+            .send_complaining(ParameterMainTask::UpdateAllParamValues(Box::new(
+                parameters.clone(),
+            )));
+        *self.parameter_values_mut() = parameters;
         // Notify
         session.notify_everything_has_changed();
     }
@@ -113,7 +118,7 @@ impl RealearnPluginParameters {
         session.upgrade()
     }
 
-    fn set_parameter_value_internal(&self, index: u32, value: f32) {
+    fn set_parameter_value_internal(&self, index: PluginParamIndex, value: RawParamValue) {
         // We immediately send to the main processor. Sending to the session and using the
         // session parameter list as single source of truth is no option because this method
         // will be called in a processing thread, not in the main thread. Not even a mutex would
@@ -121,18 +126,22 @@ impl RealearnPluginParameters {
         // aware of this being called in another thread and it led to subtle errors of course
         // (https://github.com/helgoboss/realearn/issues/59).
         self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateParameter { index, value });
+            .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
         // Also update synchronously so that a subsequent `get_parameter` will immediately
         // return the new value.
-        self.parameters_mut()[index as usize] = value;
+        self.parameter_values_mut().update_at(index, value);
     }
 
-    fn parameters(&self) -> RwLockReadGuard<ParameterValueArray> {
-        self.parameters.read().expect("writer should never panic")
+    fn parameter_values(&self) -> RwLockReadGuard<OwnedPluginParamValues> {
+        self.parameter_values
+            .read()
+            .expect("writer should never panic")
     }
 
-    fn parameters_mut(&self) -> RwLockWriteGuard<ParameterValueArray> {
-        self.parameters.write().expect("writer should never panic")
+    fn parameter_values_mut(&self) -> RwLockWriteGuard<OwnedPluginParamValues> {
+        self.parameter_values
+            .write()
+            .expect("writer should never panic")
     }
 }
 
@@ -191,25 +200,22 @@ impl PluginParameters for RealearnPluginParameters {
 
     fn get_parameter_name(&self, index: i32) -> String {
         firewall(|| {
-            let index = index as u32;
-            let name = if let Some(compartment) = MappingCompartment::by_absolute_param_index(index)
-            {
-                let rel_index = compartment.relativize_absolute_index(index);
-                let name = self
-                    .session_state
-                    .borrow()
-                    .get_qualified_parameter_name(compartment, rel_index);
-                Some(name)
-            } else {
-                None
+            let index = match PluginParamIndex::try_from(index as u32) {
+                Ok(i) => i,
+                Err(_) => return String::new(),
             };
-            name.unwrap_or_else(|| format!("Parameter {}", index + 1))
+            self.parameter_settings
+                .build_qualified_parameter_name(index)
         })
         .unwrap_or_default()
     }
 
     fn get_parameter(&self, index: i32) -> f32 {
         firewall(|| {
+            let index = match PluginParamIndex::try_from(index as u32) {
+                Ok(i) => i,
+                Err(_) => return 0.0,
+            };
             // It's super important that we don't get the parameter from the session because if
             // the parameter is set shortly before via `set_parameter()`, it can happen that we
             // don't get this latest value from the session - it will arrive there a bit later
@@ -217,57 +223,56 @@ impl PluginParameters for RealearnPluginParameters {
             // value. Getting an old value is terrible for clients which use the current value
             // for calculating a new value, e.g. ReaLearn itself when used with relative encoders.
             // Turning the encoder will result in increments not being applied reliably.
-            self.parameters()[index as usize]
+            self.parameter_values().borrow().at(index)
         })
-        .unwrap_or_default()
+        .unwrap_or(0.0)
     }
 
     fn set_parameter(&self, index: i32, value: f32) {
         firewall(|| {
-            self.set_parameter_value_internal(index as _, value);
+            let index = match PluginParamIndex::try_from(index as u32) {
+                Ok(i) => i,
+                Err(_) => return,
+            };
+            self.set_parameter_value_internal(index, value);
         });
     }
 
     fn get_parameter_text(&self, index: i32) -> String {
         firewall(|| {
-            let index = index as u32;
-            let raw_value = self.parameters()[index as usize];
-            let effective_value =
-                if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
-                    let rel_index = compartment.relativize_absolute_index(index);
-                    self.session_state
-                        .borrow()
-                        .get_parameter_setting(compartment, rel_index)
-                        .convert_to_effective_value(raw_value)
-                } else {
-                    raw_value as f64
-                };
-            format!("{:.3}", effective_value)
+            let index = match PluginParamIndex::try_from(index as u32) {
+                Ok(i) => i,
+                Err(_) => return String::new(),
+            };
+            let parameter_values = self.parameter_values();
+            self.parameter_settings
+                .merge_with_values(parameter_values.borrow())
+                .at(index)
+                .to_string()
         })
         .unwrap_or_default()
     }
 
     fn string_to_parameter(&self, index: i32, text: String) -> bool {
         firewall(|| {
-            let index = index as u32;
-            if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
-                let rel_index = compartment.relativize_absolute_index(index);
-                let parse_result = self
-                    .session_state
-                    .borrow()
-                    .get_parameter_setting(compartment, rel_index)
-                    .parse_to_raw_value(&text);
-                if let Ok(raw_value) = parse_result {
-                    self.set_parameter_value_internal(index, raw_value);
-                    true
-                } else {
-                    false
-                }
+            let index = match PluginParamIndex::try_from(index as u32) {
+                Ok(i) => i,
+                Err(_) => return Default::default(),
+            };
+            let parameter_values = self.parameter_values();
+            let parse_result = self
+                .parameter_settings
+                .merge_with_values(parameter_values.borrow())
+                .at(index)
+                .parse(&text);
+            if let Ok(raw_value) = parse_result {
+                self.set_parameter_value_internal(index, raw_value);
+                true
             } else {
                 false
             }
         })
-        .unwrap_or_default()
+        .unwrap_or(false)
     }
 }
 

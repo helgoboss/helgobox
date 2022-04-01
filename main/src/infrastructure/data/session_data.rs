@@ -1,13 +1,14 @@
 use crate::application::{
-    empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
-    MainPresetAutoLoadMode, Session, SessionState,
+    reaper_supports_global_midi_filter, CompartmentInSession, GroupModel, MainPresetAutoLoadMode,
+    Session,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    BackboneState, ClipMatrixRef, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
-    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
-    ParameterSetting, ParameterValueArray, Tag, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipMatrixRef, CompartmentParamIndex, CompartmentParamSettings, ControlInput,
+    FeedbackOutput, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
+    MidiControlInput, MidiDestination, OscDeviceId, OwnedCompartmentParamSettings,
+    OwnedPluginParamValues, ParamSetting, PluginParamIndex, PluginParamValues, PluginParams, Tag,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -190,7 +191,8 @@ impl Default for SessionData {
 }
 
 impl SessionData {
-    pub fn from_model(session: &Session, parameter_values: &[f32]) -> SessionData {
+    /// The given parameter values are the canonical ones from `RealearnPluginParameters`.
+    pub fn from_model(session: &Session, param_values: PluginParamValues) -> SessionData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession {
                 session,
@@ -213,7 +215,10 @@ impl SessionData {
             ))
         };
         let instance_state = session.instance_state().borrow();
-        let session_state = session.state().borrow();
+        let plugin_params = session
+            .parameters()
+            .settings()
+            .merge_with_values(param_values);
         SessionData {
             version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
@@ -258,14 +263,9 @@ impl SessionData {
                 .active_preset_id(MappingCompartment::MainMappings)
                 .map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
-            parameters: get_parameter_data_map(
-                &session_state,
-                parameter_values,
-                MappingCompartment::MainMappings,
-            ),
+            parameters: get_parameter_data_map(plugin_params, MappingCompartment::MainMappings),
             controller_parameters: get_parameter_data_map(
-                &session_state,
-                parameter_values,
+                plugin_params,
                 MappingCompartment::ControllerMappings,
             ),
             clip_slots: vec![],
@@ -305,7 +305,7 @@ impl SessionData {
     pub fn apply_to_model(
         &self,
         session: &mut Session,
-        params: &ParameterValueArray,
+        param_values: PluginParamValues,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         ensure_no_duplicate_compartment_data(
@@ -445,7 +445,7 @@ impl SessionData {
                         &migration_descriptor,
                         self.version.as_ref(),
                         session.compartment_in_session(compartment),
-                        Some(session.extended_context_with_params(params)),
+                        Some(session.extended_context_with_params(param_values)),
                     )
                 })
                 .collect();
@@ -464,12 +464,11 @@ impl SessionData {
         session.tags.set_without_notification(self.tags.clone());
         // Parameters
         {
-            let mut session_state = session.state().borrow_mut();
-            session_state.set_compartment_parameter_settings_without_notification(
+            session.set_parameter_settings_without_notification(
                 MappingCompartment::MainMappings,
                 get_parameter_settings(&self.parameters),
             );
-            session_state.set_compartment_parameter_settings_without_notification(
+            session.set_parameter_settings_without_notification(
                 MappingCompartment::ControllerMappings,
                 get_parameter_settings(&self.controller_parameters),
             );
@@ -572,27 +571,28 @@ impl SessionData {
         Ok(())
     }
 
-    pub fn parameters_as_array(&self) -> ParameterValueArray {
-        let mut parameters = ZEROED_PLUGIN_PARAMETERS;
+    pub fn create_parameter_values(&self) -> OwnedPluginParamValues {
+        let mut values = Default::default();
         for (i, p) in self.parameters.iter() {
-            if let Ok(i) = i.parse::<u32>() {
-                parameters[i as usize] = p.value;
+            if let Ok(i) = i.parse::<u32>().and_then(PluginParamIndex::try_from) {
+                values.update_at(i, p.value);
             }
         }
-        parameters
+        values
     }
 }
 
 fn get_parameter_data_map(
-    session_state: &SessionState,
-    parameter_values: &[f32],
+    plugin_params: PluginParams,
     compartment: MappingCompartment,
 ) -> HashMap<String, ParameterData> {
+    let compartment_params = plugin_params.slice_to_compartment(compartment);
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
-            let parameters = session_state.compartment_parameters(compartment, parameter_values);
-            let value = parameters.raw_value_at(i).unwrap();
-            let setting = parameters.setting_at(i).unwrap();
+            let i = CompartmentParamIndex::try_from(i).unwrap();
+            let param = compartment_params.at(i);
+            let value = param.raw_value();
+            let setting = param.setting();
             if value == 0.0 && setting.name.is_empty() {
                 return None;
             }
@@ -605,11 +605,13 @@ fn get_parameter_data_map(
         .collect()
 }
 
-fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<ParameterSetting> {
-    let mut settings = empty_parameter_settings();
+fn get_parameter_settings(
+    data_map: &HashMap<String, ParameterData>,
+) -> OwnedCompartmentParamSettings {
+    let mut settings = OwnedCompartmentParamSettings::new();
     for (i, p) in data_map.iter() {
-        if let Ok(i) = i.parse::<u32>() {
-            settings[i as usize] = p.setting.clone();
+        if let Ok(i) = i.parse::<u32>().and_then(CompartmentParamIndex::try_from) {
+            settings.update_at(i, p.setting.clone());
         }
     }
     settings

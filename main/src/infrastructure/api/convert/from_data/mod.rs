@@ -162,7 +162,7 @@ fn convert_activation_condition(
                         .into_iter()
                         .filter_map(|c| {
                             let state = schema::ModifierState {
-                                parameter: ParamRef::Index(c.param_index?),
+                                parameter: ParamRef::Index(c.param_index?.get()),
                                 on: c.is_on,
                             };
                             Some(state)
@@ -175,7 +175,7 @@ fn convert_activation_condition(
         }
         Bank => {
             let condition = schema::BankActivationCondition {
-                parameter: ParamRef::Index(condition_data.program_condition.param_index),
+                parameter: ParamRef::Index(condition_data.program_condition.param_index.get()),
                 bank_index: condition_data.program_condition.bank_index,
             };
             Some(T::Bank(condition))
