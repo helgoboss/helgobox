@@ -53,7 +53,7 @@ use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 const OSC_INDEX_OFFSET: isize = 1000;
 const KEYBOARD_INDEX_OFFSET: isize = 2000;

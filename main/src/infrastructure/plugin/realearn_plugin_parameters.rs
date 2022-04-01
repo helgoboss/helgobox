@@ -127,7 +127,7 @@ impl RealearnPluginParameters {
         self.params_mut().at_mut(index).set_raw_value(value);
     }
 
-    fn params(&self) -> RwLockReadGuard<PluginParams> {
+    pub fn params(&self) -> RwLockReadGuard<PluginParams> {
         self.params.read().expect("writer should never panic")
     }
 

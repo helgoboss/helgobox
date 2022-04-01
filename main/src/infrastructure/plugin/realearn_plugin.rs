@@ -7,7 +7,8 @@ use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToReal
 use crate::domain::{
     AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
     MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
-    ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    PluginParamIndex, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -21,7 +22,7 @@ use reaper_medium::Hz;
 
 use slog::{debug, o};
 use std::cell::RefCell;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
@@ -35,6 +36,7 @@ use crate::infrastructure::plugin::app::App;
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use std::convert::TryInto;
+use std::slice;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -243,11 +245,7 @@ impl Plugin for RealearnPlugin {
                 Ok(c) => c,
                 Err(_) => return 0,
             };
-            if self.handle_vendor_specific(opcode, value, ptr, opt).is_ok() {
-                0xf00d
-            } else {
-                0
-            }
+            self.handle_vendor_specific(opcode, value, ptr, opt)
         })
         .unwrap_or(0)
     }
@@ -505,7 +503,7 @@ impl RealearnPlugin {
         value: isize,
         ptr: *mut c_void,
         opt: f32,
-    ) -> Result<(), &'static str> {
+    ) -> isize {
         use plugin::OpCode::*;
         fn interpret_as_param_name(value: isize) -> Result<&'static str, &'static str> {
             let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
@@ -514,22 +512,58 @@ impl RealearnPlugin {
         match opcode {
             // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
             GetData if value != 0 => {
-                let param_name = interpret_as_param_name(value)?;
+                let param_name = match interpret_as_param_name(value) {
+                    Ok(n) => n,
+                    Err(_) => return 0,
+                };
                 let buffer =
                     unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
-                self.get_named_config_param(param_name, buffer)
+                if self.get_named_config_param(param_name, buffer).is_ok() {
+                    0xf00d
+                } else {
+                    0
+                }
             }
+            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
             SetData if value != 0 => {
-                let param_name = interpret_as_param_name(value)?;
-                self.set_named_config_param(param_name, ptr as *const c_char)
+                let param_name = match interpret_as_param_name(value) {
+                    Ok(n) => n,
+                    Err(_) => return 0,
+                };
+                if self
+                    .set_named_config_param(param_name, ptr as *const c_char)
+                    .is_ok()
+                {
+                    0xf00d
+                } else {
+                    0
+                }
+            }
+            // Cockos parameter value text without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
+            GetParameterDisplay if !ptr.is_null() && value >= 0 => {
+                match PluginParamIndex::try_from(value as u32) {
+                    Ok(i) => {
+                        let params = self.plugin_parameters.params();
+                        let string = params.at(i).to_string();
+                        let c_string = match CString::new(string) {
+                            Ok(s) => s,
+                            Err(_) => return 0,
+                        };
+                        let bytes = c_string.as_bytes_with_nul();
+                        let dest_slice = unsafe { slice::from_raw_parts_mut(ptr as *mut u8, 256) };
+                        dest_slice[..bytes.len()].copy_from_slice(bytes);
+                        0xbeef
+                    }
+                    Err(_) => 0,
+                }
             }
             GetEffectName => {
                 self.normal_main_task_channel
                     .0
                     .send_if_space(NormalMainTask::GetEffectNameHasBeenCalled);
-                Err("only partially handled opcode")
+                0
             }
-            _ => Err("unhandled opcode"),
+            _ => 0,
         }
     }
 }
