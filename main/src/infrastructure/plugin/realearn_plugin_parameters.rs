@@ -5,11 +5,14 @@ use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
 
-use crate::application::{SharedSession, WeakSession};
-use crate::domain::{ParameterMainTask, PluginParamIndex, PluginParams, RawParamValue};
+use crate::application::{ParamContainer, SharedSession, WeakSession};
+use crate::domain::{
+    CompartmentParams, MappingCompartment, ParameterMainTask, PluginParamIndex, PluginParams,
+    RawParamValue,
+};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
 
 #[derive(Debug)]
@@ -251,6 +254,21 @@ impl PluginParameters for RealearnPluginParameters {
             }
         })
         .unwrap_or(false)
+    }
+}
+
+impl ParamContainer for Arc<RealearnPluginParameters> {
+    fn update_compartment_params(
+        &mut self,
+        compartment: MappingCompartment,
+        params: CompartmentParams,
+    ) {
+        let mut plugin_params = self.params_mut();
+        let compartment_params = plugin_params.compartment_params_mut(compartment);
+        *compartment_params = params;
+        // Propagate
+        self.parameter_main_task_sender
+            .send_complaining(ParameterMainTask::UpdateAllParams(plugin_params.clone()));
     }
 }
 

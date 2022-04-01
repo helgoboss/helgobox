@@ -411,6 +411,7 @@ impl RealearnPlugin {
                     // being dropped when the plug-in is removed. It
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
+                    plugin_parameters.clone(),
                     App::get(),
                     App::get().controller_preset_manager(),
                     App::get().main_preset_manager(),

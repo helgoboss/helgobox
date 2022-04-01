@@ -52,6 +52,14 @@ pub trait SessionUi {
     );
 }
 
+pub trait ParamContainer {
+    fn update_compartment_params(
+        &mut self,
+        compartment: MappingCompartment,
+        params: CompartmentParams,
+    );
+}
+
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
@@ -94,7 +102,6 @@ pub struct Session {
     mapping_list_changed_subject:
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
@@ -103,6 +110,8 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
+    #[derivative(Debug = "ignore")]
+    param_container: Box<dyn ParamContainer>,
     instance_container: &'static dyn InstanceContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
     params: PluginParams,
@@ -181,6 +190,7 @@ impl Session {
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         ui: impl SessionUi + 'static,
+        param_container: impl ParamContainer + 'static,
         instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
@@ -229,7 +239,6 @@ impl Session {
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
             group_list_changed_subject: Default::default(),
-            parameter_settings_changed_subject: Default::default(),
             incoming_msg_captured_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
@@ -237,6 +246,7 @@ impl Session {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: Box::new(ui),
+            param_container: Box::new(param_container),
             instance_container,
             params: Default::default(),
             controller_preset_manager: Box::new(controller_manager),
@@ -403,13 +413,6 @@ impl Session {
             .do_async(|shared_session, compartment| {
                 let mut session = shared_session.borrow_mut();
                 session.sync_all_mappings_full(compartment);
-                session.mark_compartment_dirty(compartment);
-            });
-        // Whenever something in the parameter settings changed, mark compartment dirty.
-        when(self.parameter_settings_changed())
-            .with(weak_session.clone())
-            .do_async(|shared_session, compartment| {
-                let mut session = shared_session.borrow_mut();
                 session.mark_compartment_dirty(compartment);
             });
         // Whenever anything in a mapping list changes and other things which affect all
@@ -1809,7 +1812,6 @@ impl Session {
     }
 
     pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
-        todo!();
         CompartmentModel {
             parameters: self
                 .params
@@ -1851,10 +1853,11 @@ impl Session {
             default_group.replace(model.default_group);
             self.set_groups_without_notification(compartment, model.groups.into_iter());
             self.set_mappings_without_notification(compartment, model.mappings);
-            todo!();
-            self.params
-                .compartment_params_mut(compartment)
-                .reset_and_apply_given_settings(model.parameters);
+            let compartment_params = self.params.compartment_params_mut(compartment);
+            compartment_params.reset_all();
+            compartment_params.apply_given_settings(model.parameters);
+            self.param_container
+                .update_compartment_params(compartment, compartment_params.clone());
         } else {
             self.clear_compartment_data(compartment);
         }
@@ -1881,21 +1884,18 @@ impl Session {
         self.params.compartment_params_mut(compartment).reset_all();
     }
 
-    pub fn set_params_without_notification(
-        &mut self,
-        compartment: MappingCompartment,
-        params: CompartmentParams,
-    ) {
-        todo!()
-    }
-
     pub fn update_certain_param_settings(
         &mut self,
         compartment: MappingCompartment,
-        settings: impl Iterator<Item = (CompartmentParamIndex, ParamSetting)>,
+        settings: Vec<(CompartmentParamIndex, ParamSetting)>,
     ) {
-        todo!();
-        self.notify_parameter_settings_changed(compartment);
+        let compartment_params = self.params.compartment_params_mut(compartment);
+        compartment_params.apply_given_settings(settings);
+        self.param_container
+            .update_compartment_params(compartment, compartment_params.clone());
+        // We don't need to notify the UI because it will be done once the param container has
+        // propagated the changes to the session again via event (uni-directional dataflow).
+        self.mark_compartment_dirty(compartment);
     }
 
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
@@ -1928,13 +1928,6 @@ impl Session {
 
     pub fn params(&self) -> &PluginParams {
         &self.params
-    }
-
-    /// Fires when a parameter setting has been changed.
-    pub fn parameter_settings_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
-        self.parameter_settings_changed_subject.clone()
     }
 
     pub fn set_mappings_without_notification(
@@ -2123,10 +2116,6 @@ impl Session {
     /// Shouldn't be used if the complete list has changed.
     fn notify_group_list_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.group_list_changed_subject, &compartment);
-    }
-
-    fn notify_parameter_settings_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.parameter_settings_changed_subject, &compartment);
     }
 
     fn sync_upper_floor_membership(&self) {

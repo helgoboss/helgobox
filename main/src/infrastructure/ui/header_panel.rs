@@ -53,7 +53,7 @@ use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 const OSC_INDEX_OFFSET: isize = 1000;
 const KEYBOARD_INDEX_OFFSET: isize = 2000;
@@ -247,7 +247,7 @@ impl HeaderPanel {
             ToggleOscDeviceControl(OscDeviceId),
             ToggleOscDeviceFeedback(OscDeviceId),
             ToggleOscDeviceBundles(OscDeviceId),
-            EditCompartmentParameter(MappingCompartment, Range<CompartmentParamIndex>),
+            EditCompartmentParameter(MappingCompartment, RangeInclusive<CompartmentParamIndex>),
             SendFeedbackNow,
             LogDebugInfo,
         }
@@ -367,13 +367,13 @@ impl HeaderPanel {
                             let offset =
                                 CompartmentParamIndex::try_from(batch_index * PARAM_BATCH_SIZE)
                                     .unwrap();
-                            let end = (offset + PARAM_BATCH_SIZE).unwrap();
-                            let range = offset..end;
+                            let inclusive_end = (offset + (PARAM_BATCH_SIZE - 1)).unwrap();
+                            let range = offset..=inclusive_end;
                             menu(
                                 format!(
                                     "Parameters {} - {}",
-                                    range.start.get() + 1,
-                                    range.end.get()
+                                    range.start().get() + 1,
+                                    range.end().get() + 1
                                 ),
                                 convert_compartment_param_index_range_to_iter(&range)
                                     .map(|i| {
@@ -2687,7 +2687,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 fn edit_compartment_parameter(
     session: SharedSession,
     compartment: MappingCompartment,
-    range: Range<CompartmentParamIndex>,
+    range: RangeInclusive<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
     let current_settings: Vec<_> = {
         let session = session.borrow();
@@ -2702,11 +2702,11 @@ fn edit_compartment_parameter(
             })
             .collect()
     };
-    let modified_settings = edit_compartment_parameter_internal(range.start, &current_settings)?;
+    let modified_settings = edit_compartment_parameter_internal(*range.start(), &current_settings)?;
     let range_iter = convert_compartment_param_index_range_to_iter(&range);
     session
         .borrow_mut()
-        .update_certain_param_settings(compartment, range_iter.zip(modified_settings));
+        .update_certain_param_settings(compartment, range_iter.zip(modified_settings).collect());
     Ok(())
 }
 

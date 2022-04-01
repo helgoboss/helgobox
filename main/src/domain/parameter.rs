@@ -5,7 +5,6 @@ use enum_map::EnumMap;
 use helgoboss_learn::UnitValue;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
@@ -23,8 +22,8 @@ pub fn compartment_param_index_iter() -> impl Iterator<Item = CompartmentParamIn
 }
 
 /// Returns the range of compartment parameter indices.
-pub fn compartment_param_index_range() -> Range<CompartmentParamIndex> {
-    CompartmentParamIndex(0)..CompartmentParamIndex(COMPARTMENT_PARAMETER_COUNT)
+pub fn compartment_param_index_range() -> RangeInclusive<CompartmentParamIndex> {
+    CompartmentParamIndex(0)..=CompartmentParamIndex(COMPARTMENT_PARAMETER_COUNT - 1)
 }
 
 /// We need this because the `step_trait` is not stabilized yet.
@@ -36,9 +35,9 @@ pub fn convert_plugin_param_index_range_to_iter(
 
 /// We need this because the `step_trait` is not stabilized yet.
 pub fn convert_compartment_param_index_range_to_iter(
-    range: &Range<CompartmentParamIndex>,
+    range: &RangeInclusive<CompartmentParamIndex>,
 ) -> impl Iterator<Item = CompartmentParamIndex> {
-    (range.start.get()..range.end.get()).map(|i| CompartmentParamIndex(i))
+    (range.start().get()..=range.end().get()).map(|i| CompartmentParamIndex(i))
 }
 
 /// Raw parameter value.
@@ -102,6 +101,11 @@ pub struct Param {
 }
 
 impl Param {
+    /// Creates a new parameter.
+    pub fn new(setting: ParamSetting, value: RawParamValue) -> Self {
+        Self { setting, value }
+    }
+
     /// Returns the effective value of this parameter (taking the count into account).
     pub fn effective_value(&self) -> f64 {
         self.setting.convert_to_effective_value(self.value)
@@ -172,7 +176,7 @@ impl CompartmentParams {
     }
 
     /// Returns a map of all parameter settings that don't correspond to the defaults.
-    pub fn non_default_settings(&self) -> HashMap<CompartmentParamIndex, ParamSetting> {
+    pub fn non_default_settings(&self) -> Vec<(CompartmentParamIndex, ParamSetting)> {
         self.0
             .iter()
             .map(|p| &p.setting)
@@ -187,14 +191,13 @@ impl CompartmentParams {
             .collect()
     }
 
-    /// Resets all settings and values to the defaults or applies the given settings.
-    pub fn reset_and_apply_given_settings(
+    /// Applies the given settings.
+    pub fn apply_given_settings(
         &mut self,
-        mut settings: HashMap<CompartmentParamIndex, ParamSetting>,
+        mut settings: Vec<(CompartmentParamIndex, ParamSetting)>,
     ) {
-        for (i, param) in self.enumerated_mut() {
-            param.value = 0.0;
-            param.setting = settings.remove(&i).unwrap_or_default();
+        for (i, setting) in settings {
+            self.at_mut(i).setting = setting;
         }
     }
 

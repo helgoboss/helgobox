@@ -6,7 +6,7 @@ use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, CompartmentParamIndex,
     CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
-    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
+    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, Param,
     PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
@@ -457,17 +457,6 @@ impl SessionData {
             .main_preset_auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
         session.tags.set_without_notification(self.tags.clone());
-        // Parameters
-        {
-            session.set_params_without_notification(
-                MappingCompartment::MainMappings,
-                get_parameter_settings(&self.parameters),
-            );
-            session.set_params_without_notification(
-                MappingCompartment::ControllerMappings,
-                get_parameter_settings(&self.controller_parameters),
-            );
-        }
         // Instance state
         {
             let instance_state = session.instance_state().clone();
@@ -574,7 +563,8 @@ impl SessionData {
                 .ok()
                 .and_then(|i| PluginParamIndex::try_from(i).ok())
             {
-                params.at_mut(i).set_raw_value(p.value);
+                let param = Param::new(p.setting.clone(), p.value);
+                *params.at_mut(i) = param;
             }
         }
         params
