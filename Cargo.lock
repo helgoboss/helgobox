@@ -4938,8 +4938,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "vst"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "111c58168c9208a20c3f5cedeca0721aee2cac0e92c5ec2a16dc4beb5886a40a"
+source = "git+https://github.com/helgoboss/vst-rs.git?branch=feature/param-props#5f03914e523a716a895c10da220e797b3973e5d7"
 dependencies = [
  "bitflags",
  "libc",

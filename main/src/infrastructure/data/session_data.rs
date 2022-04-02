@@ -593,20 +593,6 @@ fn get_parameter_data_map(
         .collect()
 }
 
-fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> CompartmentParams {
-    let mut settings = CompartmentParams::default();
-    for (i, p) in data_map.iter() {
-        if let Some(i) = i
-            .parse::<u32>()
-            .ok()
-            .and_then(|i| CompartmentParamIndex::try_from(i).ok())
-        {
-            settings.at_mut(i).set_setting(p.setting.clone());
-        }
-    }
-    settings
-}
-
 impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
     fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
         let group = self.session.find_group_by_id(self.compartment, group_id)?;

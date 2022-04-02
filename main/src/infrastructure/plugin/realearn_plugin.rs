@@ -1,14 +1,17 @@
 use vst::editor::Editor;
 use vst::plugin;
-use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
+use vst::plugin::{
+    CanDo, Category, HostCallback, Info, Plugin, PluginParameterCharacter, PluginParameterInfo,
+    PluginParameters,
+};
 
 use super::RealearnEditor;
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
-    MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
-    PluginParamIndex, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor,
-    PLUGIN_PARAMETER_COUNT,
+    convert_count_to_step_size, AudioBlockProps, BackboneState, ControlMainTask, Event,
+    FeedbackRealTimeTask, InstanceId, MainProcessor, NormalMainTask,
+    NormalRealTimeToMainThreadTask, ParameterMainTask, PluginParamIndex, ProcessorContext,
+    RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -189,6 +192,26 @@ impl Plugin for RealearnPlugin {
             }
         })
         .unwrap_or_default()
+    }
+
+    fn get_parameter_info(&self, index: i32) -> Option<PluginParameterInfo> {
+        let i = match PluginParamIndex::try_from(index as u32) {
+            Ok(i) => i,
+            Err(_) => return None,
+        };
+        let params = self.plugin_parameters.params();
+        let param = params.at(i);
+        if let Some(value_count) = param.setting().value_count {
+            let mut info = PluginParameterInfo::default();
+            info.character = PluginParameterCharacter::Discrete {
+                min: 0,
+                max: (value_count.get() - 1) as i32,
+                steps: None,
+            };
+            Some(info)
+        } else {
+            None
+        }
     }
 
     fn init(&mut self) {

@@ -94,14 +94,17 @@ impl RealearnTarget for FxParameterTarget {
         input: UnitValue,
         _: ControlContext,
     ) -> Result<u32, &'static str> {
-        // Example (target step size = 0.10):
+        // Example (target value count = 11, target step size = 0.10):
         // - 0    => 0
         // - 0.05 => 1
         // - 0.10 => 1
         // - 0.15 => 2
         // - 0.20 => 2
+        // Extreme example (target value count = 2, step size = 1.0):
+        // - 0.0..0.5  => 0
+        // - 0.5..=1.0 => 1
         let step_size = self.param.step_size().ok_or("not supported")?;
-        let val = (input.get() / step_size).round() as _;
+        let val = (input.get() / step_size).round() as u32;
         Ok(val)
     }
 
