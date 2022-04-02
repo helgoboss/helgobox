@@ -114,6 +114,16 @@ impl RealearnPluginParameters {
     }
 
     fn set_parameter_value_internal(&self, index: PluginParamIndex, value: RawParamValue) {
+        let mut params = self.params_mut();
+        let param = params.at_mut(index);
+        let current_value = param.raw_value();
+        if current_value == value {
+            // No need to update. This can happen a lot if a ReaLearn parameter is being automated.
+            return;
+        }
+        // Update synchronously so that a subsequent `get_parameter` will immediately
+        // return the new value.
+        param.set_raw_value(value);
         // We immediately send to the main processor. Sending to the session and using the
         // session parameter list as single source of truth is no option because this method
         // will be called in a processing thread, not in the main thread. Not even a mutex would
@@ -122,9 +132,6 @@ impl RealearnPluginParameters {
         // (https://github.com/helgoboss/realearn/issues/59).
         self.parameter_main_task_sender
             .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
-        // Also update synchronously so that a subsequent `get_parameter` will immediately
-        // return the new value.
-        self.params_mut().at_mut(index).set_raw_value(value);
     }
 
     pub fn params(&self) -> RwLockReadGuard<PluginParams> {
@@ -245,7 +252,7 @@ impl PluginParameters for RealearnPluginParameters {
                 Ok(i) => i,
                 Err(_) => return Default::default(),
             };
-            let parse_result = self.params().at(index).parse(&text);
+            let parse_result = self.params().at(index).setting().parse_to_raw_value(&text);
             if let Ok(raw_value) = parse_result {
                 self.set_parameter_value_internal(index, raw_value);
                 true
