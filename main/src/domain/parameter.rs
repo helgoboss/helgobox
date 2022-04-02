@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
-use std::ops::{Add, Range, RangeInclusive};
+use std::ops::{Add, RangeInclusive};
 
 /// Total number of parameters of the plug-in.
 pub const PLUGIN_PARAMETER_COUNT: u32 = 200;
@@ -94,7 +94,7 @@ impl ParamSetting {
         }
     }
 
-    fn convert_to_value(&self, raw_value: RawParamValue) -> EffectiveParamValue {
+    pub fn convert_to_value(&self, raw_value: RawParamValue) -> EffectiveParamValue {
         let raw_value = UnitValue::new_clamped(raw_value as _);
         if let Some(value_count) = self.value_count {
             let scaled = raw_value.get() * (value_count.get() - 1) as f64;
@@ -106,14 +106,15 @@ impl ParamSetting {
 
     fn convert_to_raw_value(&self, effective_value: f64) -> RawParamValue {
         let raw_value = if let Some(value_count) = self.value_count {
-            (effective_value / (value_count.get() - 1) as f64).round()
+            effective_value / (value_count.get() - 1) as f64
         } else {
             effective_value
         };
         UnitValue::new_clamped(raw_value).get() as RawParamValue
     }
 
-    fn parse_to_raw_value(&self, text: &str) -> Result<RawParamValue, &'static str> {
+    /// Attempts to parse the given text to a raw parameter value.
+    pub fn parse_to_raw_value(&self, text: &str) -> Result<RawParamValue, &'static str> {
         let effective_value: f64 = text.parse().map_err(|_| "couldn't parse as number")?;
         Ok(self.convert_to_raw_value(effective_value))
     }
@@ -155,11 +156,6 @@ impl Param {
     /// Sets the raw value of this parameter.
     pub fn set_raw_value(&mut self, value: RawParamValue) {
         self.value = value;
-    }
-
-    /// Attempts to parse the given text to a raw parameter value.
-    pub fn parse(&self, text: &str) -> Result<RawParamValue, &'static str> {
-        self.setting.parse_to_raw_value(text)
     }
 }
 

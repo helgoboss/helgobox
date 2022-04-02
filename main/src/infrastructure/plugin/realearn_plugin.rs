@@ -18,7 +18,7 @@ use assert_no_alloc::*;
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
-use reaper_medium::Hz;
+use reaper_medium::{Hz, ReaperStr};
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -36,6 +36,7 @@ use crate::infrastructure::plugin::app::App;
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use std::convert::TryInto;
+use std::num::ParseFloatError;
 use std::slice;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
@@ -510,7 +511,7 @@ impl RealearnPlugin {
             param_name.to_str().map_err(|_| "invalid parameter name")
         }
         match opcode {
-            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
+            // Cockos: named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
             GetData if value != 0 => {
                 let param_name = match interpret_as_param_name(value) {
                     Ok(n) => n,
@@ -524,7 +525,7 @@ impl RealearnPlugin {
                     0
                 }
             }
-            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
+            // Cockos: named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
             SetData if value != 0 => {
                 let param_name = match interpret_as_param_name(value) {
                     Ok(n) => n,
@@ -539,23 +540,41 @@ impl RealearnPlugin {
                     0
                 }
             }
-            // Cockos parameter value text without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
+            // Cockos: Format parameter value without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
             GetParameterDisplay if !ptr.is_null() && value >= 0 => {
-                match PluginParamIndex::try_from(value as u32) {
-                    Ok(i) => {
-                        let params = self.plugin_parameters.params();
-                        let string = params.at(i).to_string();
-                        let c_string = match CString::new(string) {
-                            Ok(s) => s,
-                            Err(_) => return 0,
-                        };
-                        let bytes = c_string.as_bytes_with_nul();
-                        let dest_slice = unsafe { slice::from_raw_parts_mut(ptr as *mut u8, 256) };
-                        dest_slice[..bytes.len()].copy_from_slice(bytes);
-                        0xbeef
-                    }
-                    Err(_) => 0,
+                let i = match PluginParamIndex::try_from(value as u32) {
+                    Ok(i) => i,
+                    Err(_) => return 0,
+                };
+                let params = self.plugin_parameters.params();
+                let string = params.at(i).setting().convert_to_value(opt).to_string();
+                if write_to_c_str(ptr, string).is_err() {
+                    return 0;
                 }
+                0xbeef
+            }
+            // Cockos: Parse parameter value without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
+            StringToParameter if !ptr.is_null() && value >= 0 => {
+                let i = match PluginParamIndex::try_from(value as u32) {
+                    Ok(i) => i,
+                    Err(_) => return 0,
+                };
+                let reaper_str = unsafe { ReaperStr::from_ptr(ptr as *const c_char) };
+                let text_input = reaper_str.to_str();
+                if text_input.is_empty() {
+                    // REAPER checks if we support this.
+                    return 0xbeef;
+                }
+                let params = self.plugin_parameters.params();
+                let param = params.at(i);
+                let raw_value = match param.setting().parse_to_raw_value(text_input) {
+                    Ok(v) => v,
+                    Err(_) => return 0,
+                };
+                if write_to_c_str(ptr, raw_value.to_string()).is_err() {
+                    return 0;
+                }
+                0xbeef
             }
             GetEffectName => {
                 self.normal_main_task_channel
@@ -566,6 +585,17 @@ impl RealearnPlugin {
             _ => 0,
         }
     }
+}
+
+fn write_to_c_str(dest: *mut c_void, src: String) -> Result<(), &'static str> {
+    let c_string = match CString::new(src) {
+        Ok(s) => s,
+        Err(_) => return Err("Rust string contained nul byte"),
+    };
+    let bytes = c_string.as_bytes_with_nul();
+    let dest_slice = unsafe { slice::from_raw_parts_mut(dest as *mut u8, 256) };
+    dest_slice[..bytes.len()].copy_from_slice(bytes);
+    Ok(())
 }
 
 impl Drop for RealearnPlugin {
