@@ -9,6 +9,11 @@
 #include "msvc/Resource.h"
 #include "../../../lib/WDL/WDL/swell/swell.h"
 #include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
+#ifdef __APPLE__
+#define SWELL_DLG_SCALE_AUTOGEN 1.6
+#else
+#define SWELL_DLG_SCALE_AUTOGEN 1.9
+#endif
 #define CBS_HASSTRINGS 0
 #define WS_EX_LEFT
 #define WC_COMBOBOX "ComboBox"

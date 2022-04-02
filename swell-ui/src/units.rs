@@ -48,7 +48,7 @@ fn effective_scale_factor() -> f64 {
     }
     #[cfg(target_os = "macos")]
     {
-        1.7
+        1.6
     }
     #[cfg(target_os = "windows")]
     {
