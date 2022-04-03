@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, CompoundMappingSource, ControlMainTask, ControlMode,
-    ControlOptions, Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
-    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
+    ControlOptions, Event, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId,
+    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MatchOutcome,
+    MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
     NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
@@ -173,9 +173,10 @@ impl RealTimeProcessor {
         &mut self,
         event: Event<IncomingMidiMessage>,
     ) -> bool {
-        let matched = self.process_incoming_midi(event, Caller::AudioHook);
-        let let_through = (matched && self.settings.let_matched_events_through)
-            || (!matched && self.settings.let_unmatched_events_through);
+        let match_outcome = self.process_incoming_midi(event, Caller::AudioHook);
+        let let_through = (match_outcome.matched_or_consumed()
+            && self.settings.let_matched_events_through)
+            || (!match_outcome.matched_or_consumed() && self.settings.let_unmatched_events_through);
         !let_through
     }
 
@@ -649,15 +650,18 @@ impl RealTimeProcessor {
         });
     }
 
-    /// Returns if this MIDI event matched somehow.
-    fn process_incoming_midi(&mut self, event: Event<IncomingMidiMessage>, caller: Caller) -> bool {
+    fn process_incoming_midi(
+        &mut self,
+        event: Event<IncomingMidiMessage>,
+        caller: Caller,
+    ) -> MatchOutcome {
         use MidiMessageClassification::*;
         match classify_midi_message(event.payload()) {
             Normal => self.process_incoming_midi_normal(event, caller),
             Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
                 self.process_unmatched(event, caller);
-                false
+                MatchOutcome::Unmatched
             }
             Timing => {
                 // Timing clock messages are treated special (calculates BPM).
@@ -667,10 +671,10 @@ impl RealTimeProcessor {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
                         self.control_midi(Event::new(event.offset(), &source_value), caller)
                     } else {
-                        false
+                        MatchOutcome::Unmatched
                     }
                 } else {
-                    false
+                    MatchOutcome::Unmatched
                 }
             }
         }
@@ -681,13 +685,11 @@ impl RealTimeProcessor {
     /// - (N)RPN messages
     /// - 14-bit CC messages
     /// - Short MIDI messaages
-    ///
-    /// Returns whether the event somehow matched.
     fn process_incoming_midi_normal(
         &mut self,
         event: Event<IncomingMidiMessage>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
@@ -702,32 +704,36 @@ impl RealTimeProcessor {
                     // single messages can't be used anymore! Otherwise it would be
                     // confusing. They are consumed. That's the reason why
                     // we do the consumption check at a later state.
-                    let matched_or_consumed_plain =
+                    let plain_match_outcome =
                         self.process_incoming_midi_normal_plain(event, caller);
-                    let (matched_nrpn, matched_cc14) = match event.payload() {
+                    let (nrpn_match_outcome, cc14_match_outcome) = match event.payload() {
                         IncomingMidiMessage::Short(short_msg) => {
-                            let mut matched_nrpn = false;
+                            let mut nrpn_match_outcome = MatchOutcome::Unmatched;
                             for nrpn_msg in self.nrpn_scanner.feed(&short_msg).iter().flatten() {
                                 let nrpn_event = Event::new(event.offset(), *nrpn_msg);
-                                if self.process_incoming_midi_normal_nrpn(nrpn_event, caller) {
-                                    matched_nrpn = true;
-                                }
+                                let child_match_outcome =
+                                    self.process_incoming_midi_normal_nrpn(nrpn_event, caller);
+                                nrpn_match_outcome.upgrade_from(child_match_outcome);
                             }
-                            let matched_cc14 =
+                            let cc14_match_outcome =
                                 if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&short_msg) {
                                     let cc14_event = Event::new(event.offset(), cc14_msg);
                                     self.process_incoming_midi_normal_cc14(cc14_event, caller)
                                 } else {
-                                    false
+                                    MatchOutcome::Unmatched
                                 };
-                            (matched_nrpn, matched_cc14)
+                            (nrpn_match_outcome, cc14_match_outcome)
                         }
                         // A sys-ex message is never part of a compound message.
-                        IncomingMidiMessage::SysEx(_) => (false, false),
+                        IncomingMidiMessage::SysEx(_) => {
+                            (MatchOutcome::Unmatched, MatchOutcome::Unmatched)
+                        }
                     };
-                    matched_or_consumed_plain || matched_nrpn || matched_cc14
+                    plain_match_outcome
+                        .merge_with(nrpn_match_outcome)
+                        .merge_with(cc14_match_outcome)
                 } else {
-                    false
+                    MatchOutcome::Unmatched
                 }
             }
             ControlMode::LearningSource {
@@ -750,12 +756,12 @@ impl RealTimeProcessor {
                 if let Some(source) = scan_result {
                     self.send_captured_midi(source, allow_virtual_sources);
                 }
-                true
+                MatchOutcome::Consumed
             }
             ControlMode::Disabled => {
                 // "Disabled" means we use this for global learning! We consider this therefore as
-                // matched.
-                true
+                // consumed.
+                MatchOutcome::Consumed
             }
         }
     }
@@ -765,15 +771,16 @@ impl RealTimeProcessor {
         &mut self,
         event: Event<ParameterNumberMessage>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(event.payload());
-        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
-            self.log_real_control_input(source_value, false, matched);
+            self.log_real_control_input_internal(source_value, match_outcome);
         }
         if self.settings.midi_control_input() == MidiControlInput::FxInput
-            && ((matched && self.settings.let_matched_events_through)
-                || (!matched && self.settings.let_unmatched_events_through))
+            && ((match_outcome.matched_or_consumed() && self.settings.let_matched_events_through)
+                || (!match_outcome.matched_or_consumed()
+                    && self.settings.let_unmatched_events_through))
         {
             for m in event
                 .payload()
@@ -784,7 +791,7 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(Event::new(event.offset(), *m), caller);
             }
         }
-        matched
+        match_outcome
     }
 
     /// Might allocate!
@@ -794,18 +801,27 @@ impl RealTimeProcessor {
         consumed: bool,
         matched: bool,
     ) {
+        let match_outcome = if consumed {
+            MatchOutcome::Consumed
+        } else if matched {
+            MatchOutcome::Matched
+        } else {
+            MatchOutcome::Unmatched
+        };
+        self.log_real_control_input_internal(msg, match_outcome)
+    }
+
+    fn log_real_control_input_internal(
+        &self,
+        msg: MidiSourceValue<RawShortMessage>,
+        match_outcome: MatchOutcome,
+    ) {
         // It's okay to crackle when logging input.
         if let Ok(msg) = permit_alloc(|| msg.try_into_owned()) {
             self.control_main_task_sender
                 .send_complaining(ControlMainTask::LogRealControlInput {
                     value: msg,
-                    match_result: if consumed {
-                        InputMatchResult::Consumed
-                    } else if matched {
-                        InputMatchResult::Matched
-                    } else {
-                        InputMatchResult::Unmatched
-                    },
+                    match_outcome: match_outcome,
                 });
         }
     }
@@ -842,15 +858,16 @@ impl RealTimeProcessor {
         &mut self,
         event: Event<ControlChange14BitMessage>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(event.payload());
-        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
-            self.log_real_control_input(source_value, false, matched);
+            self.log_real_control_input_internal(source_value, match_outcome);
         }
         if self.settings.midi_control_input() == MidiControlInput::FxInput
-            && ((matched && self.settings.let_matched_events_through)
-                || (!matched && self.settings.let_unmatched_events_through))
+            && ((match_outcome.matched_or_consumed() && self.settings.let_matched_events_through)
+                || (!match_outcome.matched_or_consumed()
+                    && self.settings.let_unmatched_events_through))
         {
             for m in event
                 .payload()
@@ -861,16 +878,14 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(short_event, caller);
             }
         }
-        matched
+        match_outcome
     }
 
-    /// Returns whether this message matched or was at least consumed
-    /// (e.g. as part of a NRPN message).
     fn process_incoming_midi_normal_plain(
         &mut self,
         event: Event<IncomingMidiMessage>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         let source_value = event.payload().to_source_value();
         if self.is_consumed_by_at_least_one_source(event.payload()) {
             if self.settings.real_input_logging_enabled {
@@ -880,18 +895,20 @@ impl RealTimeProcessor {
             // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
             // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
-            return true;
+            return MatchOutcome::Consumed;
         }
-        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
-            self.log_real_control_input(source_value, false, matched);
+            self.log_real_control_input_internal(source_value, match_outcome);
         }
-        if matched {
+        // At this point, we shouldn't have "consumed" anymore because for MIDI sources, no
+        // control will be done at all if a message is consumed by at least one mapping (see above).
+        if match_outcome.matched_or_consumed() {
             self.process_matched_short(event, caller);
         } else {
             self.process_unmatched(event, caller);
         }
-        matched
+        match_outcome
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
@@ -899,14 +916,13 @@ impl RealTimeProcessor {
             .flat_map(move |compartment| self.mappings[compartment].values())
     }
 
-    /// Returns whether this source value matched one of the mappings.
     fn control_midi(
         &mut self,
         value_event: Event<&MidiSourceValue<RawShortMessage>>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         // We do pattern matching in order to use Rust's borrow splitting.
-        let matched_controller = if let [ref mut controller_mappings, ref mut main_mappings] =
+        let controller_outcome = if let [ref mut controller_mappings, ref mut main_mappings] =
             self.mappings.as_mut_slice()
         {
             control_controller_mappings_midi(
@@ -924,17 +940,17 @@ impl RealTimeProcessor {
         } else {
             unreachable!()
         };
-        let matched_main = self.control_main_mappings_midi(value_event, caller);
-        matched_main || matched_controller
+        let main_outcome = self.control_main_mappings_midi(value_event, caller);
+        controller_outcome.merge_with(main_outcome)
     }
 
     fn control_main_mappings_midi(
         &mut self,
         source_value_event: Event<&MidiSourceValue<RawShortMessage>>,
         caller: Caller,
-    ) -> bool {
+    ) -> MatchOutcome {
         let compartment = MappingCompartment::MainMappings;
-        let mut matched = false;
+        let mut match_outcome = MatchOutcome::Unmatched;
         for m in self.mappings[compartment]
             .values_mut()
             // The UI prevents creating main mappings with virtual targets but a JSON import
@@ -950,7 +966,7 @@ impl RealTimeProcessor {
                         compartment,
                         Event::new(source_value_event.offset(), control_value),
                         ControlOptions {
-                            enforce_target_refresh: matched,
+                            enforce_target_refresh: match_outcome.matched(),
                             ..Default::default()
                         },
                         caller,
@@ -958,11 +974,12 @@ impl RealTimeProcessor {
                         self.settings.real_output_logging_enabled,
                         self.clip_matrix.as_ref(),
                     );
-                    matched = true;
+                    // It can't be consumed because we checked this before for all mappings.
+                    match_outcome = MatchOutcome::Matched;
                 }
             }
         }
-        matched
+        match_outcome
     }
 
     fn process_matched_short(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
@@ -1315,8 +1332,8 @@ fn control_controller_mappings_midi(
     virtual_input_logging_enabled: bool,
     output_logging_enabled: bool,
     matrix: Option<&WeakMatrix>,
-) -> bool {
-    let mut matched = false;
+) -> MatchOutcome {
+    let mut match_outcome = MatchOutcome::Unmatched;
     let mut enforce_target_refresh = false;
     for m in controller_mappings
         .values_mut()
@@ -1324,9 +1341,9 @@ fn control_controller_mappings_midi(
     {
         if let Some(control_match) = m.control_midi_virtualizing(value_event.payload()) {
             use PartialControlMatch::*;
-            let mapping_matched = match control_match {
+            let child_match_outcome = match control_match {
                 ProcessVirtual(virtual_source_value) => {
-                    let matched = control_main_mappings_virtual(
+                    let virtual_match_outcome = control_main_mappings_virtual(
                         main_task_sender,
                         rt_feedback_sender,
                         main_mappings,
@@ -1351,9 +1368,13 @@ fn control_controller_mappings_midi(
                         matrix,
                     );
                     if virtual_input_logging_enabled {
-                        log_virtual_control_input(main_task_sender, virtual_source_value, matched);
+                        log_virtual_control_input(
+                            main_task_sender,
+                            virtual_source_value,
+                            virtual_match_outcome,
+                        );
                     }
-                    matched
+                    virtual_match_outcome
                 }
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
@@ -1371,17 +1392,15 @@ fn control_controller_mappings_midi(
                         output_logging_enabled,
                         matrix,
                     );
-                    // We do this only for transactions of *real* targets matches.
+                    // We do this only for transactions of *real* target matches.
                     enforce_target_refresh = true;
-                    true
+                    MatchOutcome::Matched
                 }
             };
-            if mapping_matched {
-                matched = true;
-            }
+            match_outcome.upgrade_from(child_match_outcome);
         }
     }
-    matched
+    match_outcome
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1542,7 +1561,6 @@ fn forward_control_to_main_processor(
     sender.send_if_space(task);
 }
 
-/// Returns whether this source value matched one of the mappings.
 #[allow(clippy::too_many_arguments)]
 fn control_main_mappings_virtual(
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
@@ -1554,10 +1572,10 @@ fn control_main_mappings_virtual(
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
     matrix: Option<&WeakMatrix>,
-) -> bool {
+) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
-    let mut matched = false;
+    let mut match_outcome = MatchOutcome::Unmatched;
     for m in main_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
@@ -1571,7 +1589,7 @@ fn control_main_mappings_virtual(
                     MappingCompartment::MainMappings,
                     Event::new(value_event.offset(), control_value),
                     ControlOptions {
-                        enforce_target_refresh: matched,
+                        enforce_target_refresh: match_outcome.matched(),
                         ..options
                     },
                     caller,
@@ -1579,11 +1597,12 @@ fn control_main_mappings_virtual(
                     output_logging_enabled,
                     matrix,
                 );
-                matched = true;
+                // If we find an associated main mapping, this is not just consumed, it's matched.
+                match_outcome = MatchOutcome::Matched;
             }
         }
     }
-    matched
+    match_outcome
 }
 
 fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller) {
@@ -1783,14 +1802,10 @@ impl<'a> WriteAudioRequest for RealTimeProcessorWriteAudioRequest<'a> {
 fn log_virtual_control_input(
     sender: &SenderToNormalThread<ControlMainTask>,
     value: VirtualSourceValue,
-    matched: bool,
+    match_outcome: MatchOutcome,
 ) {
     sender.send_complaining(ControlMainTask::LogVirtualControlInput {
         value,
-        match_result: if matched {
-            InputMatchResult::Matched
-        } else {
-            InputMatchResult::Unmatched
-        },
+        match_outcome,
     });
 }

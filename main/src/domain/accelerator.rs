@@ -35,13 +35,8 @@ impl<EH: DomainEventHandler> TranslateAccel for RealearnAccelerator<EH> {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
         // TODO-high Remove debug logging
         log_args(&args);
-        let pressed = match args.msg.message {
-            AccelMsgKind::KeyDown => true,
-            AccelMsgKind::KeyUp => false,
-            _ => return TranslateAccelResult::NotOurWindow,
-        };
         let stroke = Keystroke::new(args.msg.behavior, args.msg.key);
-        let msg = KeyMessage::new(pressed, stroke);
+        let msg = KeyMessage::new(args.msg.message, stroke);
         self.process_message(msg)
     }
 }

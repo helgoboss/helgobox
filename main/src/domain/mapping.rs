@@ -1129,10 +1129,21 @@ impl MainMapping {
     /// Controls the source only.
     ///
     /// Doesn't consider MIDI sources because they are handled completely in the real-time mapping.
-    pub fn control_source(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
+    pub fn control_source(
+        &mut self,
+        msg: MainSourceMessage,
+    ) -> Option<ControlOutcome<ControlValue>> {
         match (msg, &mut self.core.source) {
-            (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
-            (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => {
+                // With OSC sources, we don't distinguish between matched or consumed because
+                // there's no such thing such as "letting messages through".
+                s.control(m).map(ControlOutcome::Matched)
+            }
+            (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => {
+                // With REAPER sources, we don't distinguish between matched or consumed because
+                // there's no such thing such as "letting messages through".
+                s.control(m).map(ControlOutcome::Matched)
+            }
             (MainSourceMessage::Key(m), CompoundMappingSource::Key(s)) => s.control(m),
             _ => None,
         }
@@ -1146,16 +1157,25 @@ impl MainMapping {
         }
     }
 
-    pub fn control_virtualizing(&mut self, msg: MainSourceMessage) -> Option<VirtualSourceValue> {
+    pub fn control_virtualizing(
+        &mut self,
+        msg: MainSourceMessage,
+    ) -> Option<ControlOutcome<VirtualSourceValue>> {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = self.control_source(msg)?;
+        let control_value = match self.control_source(msg)? {
+            ControlOutcome::Consumed => {
+                return Some(ControlOutcome::Consumed);
+            }
+            ControlOutcome::Matched(v) => v,
+        };
         // First target is enough because this does nothing yet.
-        match self.targets.first()? {
+        let virtual_source_value = match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
             CompoundMappingTarget::Reaper(_) => None,
-        }
+        };
+        Some(ControlOutcome::Matched(virtual_source_value?))
     }
 }
 
@@ -1470,13 +1490,16 @@ impl CompoundMappingSource {
     ///
     /// - Source learning (including source virtualization)
     /// - Source filtering/finding (including source virtualization)
-    pub fn try_control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
+    pub fn reacts_to_source_value_with(
+        &self,
+        value: IncomingCompoundSourceValue,
+    ) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
             (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
             (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
             (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
-            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.try_control(m),
+            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.reacts_to_message_with(m),
             _ => None,
         }
     }
@@ -2392,4 +2415,10 @@ pub enum InputDescriptor {
         device_id: OscDeviceId,
     },
     Keyboard,
+}
+
+#[derive(Copy, Clone)]
+pub enum ControlOutcome<T> {
+    Consumed,
+    Matched(T),
 }

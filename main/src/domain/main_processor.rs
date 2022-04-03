@@ -1,10 +1,10 @@
 use crate::domain::{
     aggregate_target_values, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
     CompoundFeedbackValue, CompoundMappingSource, CompoundMappingSourceAddress,
-    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
+    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, ControlOutcome,
+    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
     InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
     LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
@@ -402,7 +402,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             LogVirtualControlInput {
                 value,
-                match_result,
+                match_outcome: match_result,
             } => {
                 log_virtual_control_input(
                     self.instance_id(),
@@ -411,7 +411,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             LogRealControlInput {
                 value,
-                match_result,
+                match_outcome: match_result,
             } => {
                 log_real_control_input(
                     self.instance_id(),
@@ -1533,7 +1533,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         let msg = MainSourceMessage::Reaper(msg);
-        let results = self
+        let (control_results, _) = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
@@ -1541,7 +1541,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 msg,
                 &self.collections.parameters,
             );
-        for r in results {
+        for r in control_results {
             control_mapping_stage_three(
                 &self.basics,
                 &mut self.collections,
@@ -1572,16 +1572,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.settings.real_input_logging_enabled {
             self.log_incoming_message(msg);
         }
-        let matched = self.process_incoming_message_internal(MainSourceMessage::Key(msg));
-        let let_through = (matched && self.basics.settings.let_matched_events_through)
-            || (!matched && self.basics.settings.let_unmatched_events_through);
+        let match_outcome = self.process_incoming_message_internal(MainSourceMessage::Key(msg));
+        let let_through = (match_outcome.matched_or_consumed()
+            && self.basics.settings.let_matched_events_through)
+            || (!match_outcome.matched_or_consumed()
+                && self.basics.settings.let_unmatched_events_through);
         !let_through
     }
 
-    /// Returns if matched (used to decide whether to filter out keyboard event from the
-    /// keyboard processing queue).
-    fn process_incoming_msg_for_controlling(&mut self, msg: MainSourceMessage) -> bool {
-        let results = self
+    fn process_incoming_msg_for_controlling(&mut self, msg: MainSourceMessage) -> MatchOutcome {
+        let (control_results, virtual_match_outcome) = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
@@ -1589,8 +1589,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 msg,
                 &self.collections.parameters,
             );
-        let matched_virtual = !results.is_empty();
-        for r in results {
+        for r in control_results {
             control_mapping_stage_three(
                 &self.basics,
                 &mut self.collections,
@@ -1599,8 +1598,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 GroupInteractionProcessing::On(r.group_interaction_input),
             )
         }
-        let matched_real = self.process_mappings_with_real_targets(msg);
-        matched_virtual || matched_real
+        let real_match_outcome = self.process_mappings_with_real_targets(msg);
+        virtual_match_outcome.merge_with(real_match_outcome)
     }
 
     /// This doesn't check if control enabled! You need to check before.
@@ -1621,9 +1620,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    /// Returns if matched (used to decide whether to filter out keyboard event from the
-    /// keyboard processing queue).
-    fn process_incoming_message_internal(&mut self, msg: MainSourceMessage) -> bool {
+    fn process_incoming_message_internal(&mut self, msg: MainSourceMessage) -> MatchOutcome {
         match self.basics.control_mode {
             ControlMode::Controlling => self.process_incoming_msg_for_controlling(msg),
             ControlMode::LearningSource {
@@ -1635,14 +1632,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     osc_arg_index_hint,
                     msg.create_capture_result(),
                 );
-                true
+                MatchOutcome::Consumed
             }
             ControlMode::Disabled => {
-                // "Disabled" means we use global learning, which is why we could consider it
-                // as matched. However, global learning for keyboard keys is not supported yet, so
-                // we should not filter the event out! For OSC, we don't need the info at all
-                // because OSC doesn't support filtering out events.
-                false
+                // "Disabled" means we use global learning, which is why we could consider it at
+                // least as consumed ... normally. However, global learning for keyboard keys is not
+                // supported yet, so we should not filter the event out! For OSC, we don't need the
+                // info at all because OSC doesn't support filtering out events.
+                MatchOutcome::Unmatched
             }
         }
     }
@@ -1664,11 +1661,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Controls mappings with real targets in *both* compartments.
-    ///
-    /// Returns if matched (used to decide whether to filter out keyboard event from the
-    /// keyboard processing queue).
-    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) -> bool {
-        let mut matched = false;
+    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) -> MatchOutcome {
+        let mut match_outcome = MatchOutcome::Unmatched;
         for compartment in MappingCompartment::enum_iter() {
             let mut enforce_target_refresh = false;
             // Search for 958 to know why we use a for loop here instead of collect().
@@ -1677,10 +1671,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
-                let control_value = if let Some(cv) = m.control_source(msg) {
-                    cv
-                } else {
-                    continue;
+                let control_outcome = m.control_source(msg);
+                match_outcome.upgrade_from(control_outcome.into());
+                let control_value = match control_outcome {
+                    Some(ControlOutcome::Matched(v)) => v,
+                    _ => continue,
                 };
                 let options = ControlOptions {
                     enforce_target_refresh,
@@ -1709,7 +1704,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     },
                 };
                 results.push(extended_control_result);
-                matched = true;
             }
             for r in results {
                 control_mapping_stage_three(
@@ -1721,7 +1715,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 )
             }
         }
-        matched
+        match_outcome
     }
 
     fn process_mapping_updates_due_to_parameter_changes(
@@ -2448,11 +2442,11 @@ pub enum ControlMainTask {
     },
     LogVirtualControlInput {
         value: VirtualSourceValue,
-        match_result: InputMatchResult,
+        match_outcome: MatchOutcome,
     },
     LogRealControlInput {
         value: MidiSourceValue<'static, RawShortMessage>,
-        match_result: InputMatchResult,
+        match_outcome: MatchOutcome,
     },
     LogRealLearnInput {
         msg: OwnedIncomingMidiMessage,
@@ -2926,55 +2920,64 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
         params: &PluginParams,
-    ) -> Vec<ExtendedMappingControlResult> {
+    ) -> (Vec<ExtendedMappingControlResult>, MatchOutcome) {
         // Control
+        let mut match_outcome = MatchOutcome::Unmatched;
         let mut extended_control_results: Vec<_> = mappings_with_virtual_targets
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
-                if let Some(virtual_source_value) = m.control_virtualizing(msg) {
-                    self.event_handler
-                        .notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
-                    let results = self.process_main_mappings_with_virtual_sources(
-                        main_mappings,
-                        virtual_source_value,
-                        ControlOptions {
-                            // We inherit "Send feedback after control" if it's
-                            // enabled for the virtual mapping. That's the easy way to do it.
-                            // Downside: If multiple real control elements are mapped to one
-                            // virtual control element,
-                            // "feedback after control" will be sent to all of
-                            // those, which is technically not
-                            // necessary. It would be enough to just send it
-                            // to the one that was touched. However, it also doesn't really
-                            // hurt.
-                            enforce_send_feedback_after_control: m.options().feedback_send_behavior
-                                == FeedbackSendBehavior::SendFeedbackAfterControl,
-                            mode_control_options: m.mode_control_options(),
-                            // Not yet important at this point because one virtual target can't
-                            // affect a subsequent one.
-                            enforce_target_refresh: false,
-                        },
-                        params,
-                    );
-                    let match_result = if results.is_empty() {
-                        InputMatchResult::Unmatched
-                    } else {
-                        InputMatchResult::Matched
-                    };
-                    if self.settings.virtual_input_logging_enabled {
-                        log_virtual_control_input(
-                            &self.instance_id,
-                            format_control_input_with_match_result(
-                                virtual_source_value,
-                                match_result,
-                            ),
-                        );
+                let control_outcome = match m.control_virtualizing(msg) {
+                    None => return vec![],
+                    Some(o) => o,
+                };
+                let virtual_source_value = match m.control_virtualizing(msg) {
+                    Some(ControlOutcome::Matched(v)) => v,
+                    unmatched_or_consumed => {
+                        match_outcome.upgrade_from(unmatched_or_consumed.into());
+                        return vec![];
                     }
-                    results
+                };
+                self.event_handler
+                    .notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
+                let results = self.process_main_mappings_with_virtual_sources(
+                    main_mappings,
+                    virtual_source_value,
+                    ControlOptions {
+                        // We inherit "Send feedback after control" if it's
+                        // enabled for the virtual mapping. That's the easy way to do it.
+                        // Downside: If multiple real control elements are mapped to one
+                        // virtual control element,
+                        // "feedback after control" will be sent to all of
+                        // those, which is technically not
+                        // necessary. It would be enough to just send it
+                        // to the one that was touched. However, it also doesn't really
+                        // hurt.
+                        enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                            == FeedbackSendBehavior::SendFeedbackAfterControl,
+                        mode_control_options: m.mode_control_options(),
+                        // Not yet important at this point because one virtual target can't
+                        // affect a subsequent one.
+                        enforce_target_refresh: false,
+                    },
+                    params,
+                );
+                let child_match_outcome = if results.is_empty() {
+                    MatchOutcome::Unmatched
                 } else {
-                    vec![]
+                    MatchOutcome::Matched
+                };
+                match_outcome.upgrade_from(child_match_outcome);
+                if self.settings.virtual_input_logging_enabled {
+                    log_virtual_control_input(
+                        &self.instance_id,
+                        format_control_input_with_match_result(
+                            virtual_source_value,
+                            child_match_outcome,
+                        ),
+                    );
                 }
+                results
             })
             .collect();
         // Feedback
@@ -2985,7 +2988,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 .iter_mut()
                 .filter_map(|r| r.control_result.feedback_value.take()),
         );
-        extended_control_results
+        (extended_control_results, match_outcome)
     }
 
     /// Sends both direct and virtual-source feedback.
@@ -3310,14 +3313,51 @@ impl InstanceId {
     }
 }
 
-#[derive(Display)]
-pub enum InputMatchResult {
-    #[display(fmt = "consumed")]
-    Consumed,
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display)]
+pub enum MatchOutcome {
+    /// Message didn't match at all, was not even consumed.
     #[display(fmt = "unmatched")]
-    Unmatched,
+    Unmatched = 0,
+    /// Message was not processed but at least consumed (= "eaten").
+    ///
+    /// That means it should not be forwarded if "Let matched events through" is `false`.
+    #[display(fmt = "consumed")]
+    Consumed = 1,
+    /// Message was processed.
+    ///
+    /// That means it should not be forwarded if "Let matched events through" is `false`.
     #[display(fmt = "matched")]
-    Matched,
+    Matched = 2,
+}
+
+impl MatchOutcome {
+    pub fn matched_or_consumed(&self) -> bool {
+        matches!(self, Self::Matched | Self::Consumed)
+    }
+
+    pub fn matched(&self) -> bool {
+        matches!(self, Self::Matched)
+    }
+
+    pub fn merge_with(self, rhs: MatchOutcome) -> MatchOutcome {
+        [self, rhs].into_iter().max().unwrap()
+    }
+
+    pub fn upgrade_from(&mut self, rhs: MatchOutcome) {
+        if rhs > *self {
+            *self = rhs;
+        }
+    }
+}
+
+impl<T> From<Option<ControlOutcome<T>>> for MatchOutcome {
+    fn from(v: Option<ControlOutcome<T>>) -> Self {
+        match v {
+            None => Self::Unmatched,
+            Some(ControlOutcome::Consumed) => MatchOutcome::Consumed,
+            Some(ControlOutcome::Matched(_)) => MatchOutcome::Matched,
+        }
+    }
 }
 
 #[must_use]

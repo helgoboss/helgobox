@@ -1,4 +1,4 @@
-use crate::domain::{InputMatchResult, InstanceId, OwnedIncomingMidiMessage};
+use crate::domain::{InstanceId, MatchOutcome, OwnedIncomingMidiMessage};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -87,7 +87,7 @@ pub fn format_value_as_db(value: UnitValue) -> String {
 
 pub fn format_control_input_with_match_result(
     msg: impl Display,
-    match_result: InputMatchResult,
+    match_result: MatchOutcome,
 ) -> String {
     format!("{} ({})", msg, match_result)
 }
