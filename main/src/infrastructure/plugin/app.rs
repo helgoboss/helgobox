@@ -368,30 +368,21 @@ impl App {
     }
 
     fn reconnect_osc_devices(&self) {
-        // Control devices
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             let middleware = control_surface.middleware_mut();
-            // Disconnect
+            // Disconnect inputs
             middleware.clear_osc_input_devices();
-            // Reconnect
-            let osc_input_devices = self
-                .osc_device_manager
-                .borrow_mut()
-                .connect_all_enabled_inputs();
-            middleware.set_osc_input_devices(osc_input_devices);
-        });
-        // Feedback devices
-        {
-            // Disconnect
+            // Disconnect outputs
             let mut processor = self.osc_feedback_processor.borrow_mut();
             processor.stop();
-            // Reconnect
-            let osc_output_devices = self
+            // Reconnect inputs and outputs
+            let (osc_input_devices, osc_output_devices) = self
                 .osc_device_manager
                 .borrow_mut()
-                .connect_all_enabled_outputs();
+                .connect_all_enabled_inputs_and_outputs();
+            middleware.set_osc_input_devices(osc_input_devices);
             processor.start(osc_output_devices);
-        }
+        });
     }
 
     // Executed whenever the first ReaLearn instance is loaded.
@@ -429,14 +420,10 @@ impl App {
             .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
             .expect("couldn't register ReaLearn audio hook");
         // OSC devices
-        let osc_input_devices = self
+        let (osc_input_devices, osc_output_devices) = self
             .osc_device_manager
             .borrow_mut()
-            .connect_all_enabled_inputs();
-        let osc_output_devices = self
-            .osc_device_manager
-            .borrow_mut()
-            .connect_all_enabled_outputs();
+            .connect_all_enabled_inputs_and_outputs();
         // OSC processor
         self.osc_feedback_processor
             .borrow_mut()

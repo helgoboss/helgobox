@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::error::Error;
 use std::fs;
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -68,22 +68,19 @@ impl OscDeviceManager {
         self.config.devices.get(index)
     }
 
-    pub fn connect_all_enabled_inputs(&mut self) -> Vec<OscInputDevice> {
-        self.config
+    pub fn connect_all_enabled_inputs_and_outputs(
+        &mut self,
+    ) -> (Vec<OscInputDevice>, Vec<OscOutputDevice>) {
+        let (input_devs, output_devs): (Vec<_>, Vec<_>) = self
+            .config
             .devices
             .iter_mut()
-            .filter(|dev| dev.is_enabled_for_control())
-            .flat_map(|dev| dev.connect_input())
-            .collect()
-    }
-
-    pub fn connect_all_enabled_outputs(&mut self) -> Vec<OscOutputDevice> {
-        self.config
-            .devices
-            .iter_mut()
-            .filter(|dev| dev.is_enabled_for_feedback())
-            .flat_map(|dev| dev.connect_output())
-            .collect()
+            .flat_map(|dev| dev.connect())
+            .unzip();
+        (
+            input_devs.into_iter().flatten().collect(),
+            output_devs.into_iter().flatten().collect(),
+        )
     }
 
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -136,14 +133,17 @@ pub struct OscDevice {
     name: String,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     is_enabled_for_control: bool,
+    /// For receiving control messages.
     #[serde(default, skip_serializing_if = "is_default")]
     local_port: Option<u16>,
     #[serde(skip)]
     has_input_connection_problem: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     is_enabled_for_feedback: bool,
+    /// For sending feedback messages.
     #[serde(default, skip_serializing_if = "is_default")]
     device_host: Option<Ipv4Addr>,
+    /// For sending feedback messages.
     #[serde(default, skip_serializing_if = "is_default")]
     device_port: Option<u16>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
@@ -170,36 +170,60 @@ impl Default for OscDevice {
 }
 
 impl OscDevice {
-    pub fn connect_input(&mut self) -> Result<OscInputDevice, Box<dyn Error>> {
-        let result = self.connect_input_internal();
-        self.has_input_connection_problem = result.is_err();
-        result
+    pub fn connect(
+        &mut self,
+    ) -> Result<(Option<OscInputDevice>, Option<OscOutputDevice>), Box<dyn Error>> {
+        if !self.is_enabled_for_control && !self.is_enabled_for_feedback {
+            return Err("neither control nor feedback enabled".into());
+        }
+        let ip = Ipv4Addr::UNSPECIFIED;
+        let bind_address = if self.is_enabled_for_control {
+            // Control. We need to bind to the defined local port.
+            SocketAddrV4::new(ip, self.local_port.ok_or("local port not specified")?)
+        } else {
+            // Feedback only. We don't care to which port to connect locally because we don't
+            // want to receive control messages.
+            SocketAddrV4::new(ip, 0)
+        };
+        let socket = UdpSocket::bind(bind_address)?;
+        let input_dev = if self.is_enabled_for_control {
+            let result = self.connect_input_internal(socket.try_clone()?);
+            self.has_input_connection_problem = result.is_err();
+            Some(result?)
+        } else {
+            None
+        };
+        let output_dev = if self.is_enabled_for_feedback {
+            let result = self.connect_output_internal(socket);
+            self.has_output_connection_problem = result.is_err();
+            Some(result?)
+        } else {
+            None
+        };
+        Ok((input_dev, output_dev))
     }
 
-    fn connect_input_internal(&self) -> Result<OscInputDevice, Box<dyn Error>> {
+    fn connect_input_internal(&self, socket: UdpSocket) -> Result<OscInputDevice, Box<dyn Error>> {
+        socket.set_nonblocking(true)?;
         OscInputDevice::bind(
             self.id,
-            SocketAddrV4::new(
-                Ipv4Addr::UNSPECIFIED,
-                self.local_port.ok_or("local port not specified")?,
-            ),
+            socket,
             App::logger().new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
         )
     }
 
-    pub fn connect_output(&mut self) -> Result<OscOutputDevice, Box<dyn Error>> {
-        let result = self.connect_output_internal();
-        self.has_output_connection_problem = result.is_err();
-        result
-    }
-
-    fn connect_output_internal(&self) -> Result<OscOutputDevice, Box<dyn Error>> {
+    fn connect_output_internal(
+        &self,
+        socket: UdpSocket,
+    ) -> Result<OscOutputDevice, Box<dyn Error>> {
+        let dest_addr = SocketAddrV4::new(
+            self.device_host.ok_or("device host not specified")?,
+            self.device_port.ok_or("local port not specified")?,
+        );
         OscOutputDevice::connect(
             self.id,
-            SocketAddrV4::new(
-                self.device_host.ok_or("device host not specified")?,
-                self.device_port.ok_or("local port not specified")?,
-            ),
+            socket,
+            dest_addr,
             App::logger().new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
             self.can_deal_with_bundles,
         )

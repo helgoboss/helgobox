@@ -147,11 +147,9 @@ pub struct OscInputDevice {
 impl OscInputDevice {
     pub fn bind(
         id: OscDeviceId,
-        addr: impl ToSocketAddrs,
+        socket: UdpSocket,
         logger: slog::Logger,
     ) -> Result<OscInputDevice, Box<dyn Error>> {
-        let socket = UdpSocket::bind(addr)?;
-        socket.set_nonblocking(true)?;
         let dev = OscInputDevice {
             id,
             socket,
@@ -207,12 +205,12 @@ pub struct OscOutputDevice {
 impl OscOutputDevice {
     pub fn connect(
         id: OscDeviceId,
-        addr: impl ToSocketAddrs,
+        socket: UdpSocket,
+        dest_addr: impl ToSocketAddrs,
         logger: slog::Logger,
         can_deal_with_bundles: bool,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
-        let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))?;
-        socket.connect(addr)?;
+        socket.connect(dest_addr);
         let dev = OscOutputDevice {
             id,
             socket,
