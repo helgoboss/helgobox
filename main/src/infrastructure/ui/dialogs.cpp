@@ -8,12 +8,15 @@
 // Some preparation for dialog generation.
 #include "msvc/Resource.h"
 #include "../../../lib/WDL/WDL/swell/swell.h"
-#include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
+// Make sure the following factors correspond to the ones in `units.rs` (function `effective_scale_factors`).
 #ifdef __APPLE__
 #define SWELL_DLG_SCALE_AUTOGEN 1.6
+#define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.95
 #else
 #define SWELL_DLG_SCALE_AUTOGEN 1.9
+#define SWELL_DLG_SCALE_AUTOGEN_YADJ 1.0
 #endif
+#include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
 #define CBS_HASSTRINGS 0
 #define WS_EX_LEFT
 #define WC_COMBOBOX "ComboBox"

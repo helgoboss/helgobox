@@ -145,7 +145,7 @@ mod codegen {
             .expect("couldn't write modified RC file");
         // Use PHP to translate SWELL-compatible RC file to C++
         let result = std::process::Command::new("php")
-            .arg("lib/WDL/WDL/swell/mac_resgen.php")
+            .arg("lib/WDL/WDL/swell/swell_resgen.php")
             .arg("../target/realearn.modified.rc")
             .output()
             .expect("PHP dialog translator result not available");

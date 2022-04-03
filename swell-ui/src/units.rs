@@ -39,20 +39,46 @@ impl<T> Point<T> {
     }
 }
 
-fn effective_scale_factor() -> f64 {
+fn effective_scale_factors() -> ScaleFactors {
     #[cfg(target_os = "linux")]
     {
         let scaling_256 = reaper_low::Swell::get().SWELL_GetScaling256();
         let hidpi_factor = scaling_256 as f64 / 256.0;
-        1.9 * hidpi_factor
+        ScaleFactors {
+            main: 1.9 * hidpi_factor,
+            y: 1.0,
+        }
     }
     #[cfg(target_os = "macos")]
     {
-        1.6
+        ScaleFactors { main: 1.6, y: 0.95 }
     }
     #[cfg(target_os = "windows")]
     {
-        1.7
+        ScaleFactors { main: 1.7, y: 1.0 }
+    }
+}
+
+struct ScaleFactors {
+    /// The main scale factor which affects both x and y coordinates.
+    ///
+    /// Corresponds to `SWELL_DLG_SCALE_AUTOGEN` in `dialogs.cpp`.
+    main: f64,
+    /// An additional scale factor which is applied to y coordinates.
+    ///
+    /// Set to 1.0 if you want to use the main factor only.
+    ///
+    /// Corresponds to `SWELL_DLG_SCALE_AUTOGEN_YADJ` in `dialogs.cpp`.
+    y: f64,
+}
+
+impl ScaleFactors {
+    pub fn x_factor(&self) -> f64 {
+        self.main
+    }
+
+    pub fn y_factor(&self) -> f64 {
+        self.main * self.y
     }
 }
 
@@ -64,10 +90,10 @@ impl Point<DialogUnits> {
         // TODO-low On Windows this works differently. See original ReaLearn. But on the other hand
         //  ... this is only for the first short render before the optimal size is calculated.
         //  So as long as it works, this heuristic is okay.
-        let scale_factor = effective_scale_factor();
+        let scale_factors = effective_scale_factors();
         Point {
-            x: Pixels((scale_factor * self.x.get() as f64) as _),
-            y: Pixels((scale_factor * self.y.get() as f64) as _),
+            x: Pixels((scale_factors.x_factor() * self.x.get() as f64) as _),
+            y: Pixels((scale_factors.y_factor() * self.y.get() as f64) as _),
         }
     }
 }
