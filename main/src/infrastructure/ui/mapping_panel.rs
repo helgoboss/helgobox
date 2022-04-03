@@ -290,6 +290,9 @@ impl MappingPanel {
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
+                                            P::Keystroke => {
+                                                view.invalidate_source_line_3(initiator);
+                                            }
                                         }
                                     }
                                 }

@@ -34,6 +34,9 @@ pub enum Source {
     LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplaySource),
     // OSC
     Osc(OscSource),
+    // Keyboard
+    Key(KeySource),
+    // Virtual
     Virtual(VirtualSource),
 }
 
@@ -168,6 +171,20 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct TimerSource {
         pub duration: u64,
+    }
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct KeySource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub keystroke: Option<Keystroke>,
+    }
+
+    #[derive(Copy, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct Keystroke {
+        pub modifiers: u8,
+        pub key: u16,
     }
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]

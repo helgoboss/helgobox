@@ -46,6 +46,7 @@ pub enum SourceCommand {
     SetOscFeedbackArgs(Vec<String>),
     SetReaperSourceType(ReaperSourceType),
     SetTimerMillis(u64),
+    SetKeystroke(Option<Keystroke>),
     SetControlElementType(VirtualControlElementType),
     SetControlElementId(VirtualControlElementId),
 }
@@ -75,6 +76,7 @@ pub enum SourceProp {
     ControlElementType,
     ControlElementId,
     TimerMillis,
+    Keystroke,
 }
 
 impl GetProcessingRelevance for SourceProp {
@@ -185,6 +187,10 @@ impl<'a> Change<'a> for SourceModel {
                 self.timer_millis = v;
                 One(P::TimerMillis)
             }
+            C::SetKeystroke(v) => {
+                self.keystroke = v;
+                One(P::Keystroke)
+            }
         };
         Some(affected)
     }
@@ -218,7 +224,7 @@ pub struct SourceModel {
     reaper_source_type: ReaperSourceType,
     timer_millis: u64,
     // Key
-    key_stroke: Option<Keystroke>,
+    keystroke: Option<Keystroke>,
     // Virtual
     control_element_type: VirtualControlElementType,
     control_element_id: VirtualControlElementId,
@@ -250,7 +256,7 @@ impl Default for SourceModel {
             osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
             timer_millis: Default::default(),
-            key_stroke: None,
+            keystroke: None,
         }
     }
 }
@@ -330,6 +336,10 @@ impl SourceModel {
 
     pub fn osc_feedback_args(&self) -> &[String] {
         &self.osc_feedback_args
+    }
+
+    pub fn keystroke(&self) -> Option<Keystroke> {
+        self.keystroke
     }
 
     pub fn reaper_source_type(&self) -> ReaperSourceType {
@@ -452,7 +462,7 @@ impl SourceModel {
             }
             Key(s) => {
                 self.category = SourceCategory::Keyboard;
-                self.key_stroke = Some(s.stroke());
+                self.keystroke = Some(s.stroke());
             }
         };
         Some(Affected::Multiple)
@@ -601,7 +611,7 @@ impl SourceModel {
     }
 
     pub fn create_key_source(&self) -> Option<KeySource> {
-        Some(KeySource::new(self.key_stroke?))
+        Some(KeySource::new(self.keystroke?))
     }
 
     fn create_timer_source(&self) -> TimerSource {

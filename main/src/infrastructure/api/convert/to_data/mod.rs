@@ -1,15 +1,17 @@
-use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::CompartmentParamIndex;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::ActivationConditionData;
+use crate::{application, domain};
 pub use compartment::*;
+use enumflags2::BitFlags;
 pub use mapping::*;
 use realearn_api::schema::{
-    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementCharacter,
-    VirtualControlElementId,
+    ActivationCondition, Keystroke, ModifierState, OscArgKind, ParamRef,
+    VirtualControlElementCharacter, VirtualControlElementId,
 };
+use reaper_medium::AcceleratorKeyCode;
 use source::*;
 
 mod compartment;
@@ -29,6 +31,13 @@ fn convert_control_element_type(
         Multi => T::Multi,
         Button => T::Button,
     }
+}
+
+fn convert_keystroke(s: Keystroke) -> domain::Keystroke {
+    domain::Keystroke::new(
+        BitFlags::from_bits_truncate(s.modifiers),
+        AcceleratorKeyCode::new(s.key),
+    )
 }
 
 fn convert_control_element_id(s: VirtualControlElementId) -> data::VirtualControlElementIdData {

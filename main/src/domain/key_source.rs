@@ -2,7 +2,7 @@ use crate::domain::ControlOutcome;
 use enumflags2::BitFlags;
 use helgoboss_learn::{ControlValue, UnitValue};
 use reaper_high::Reaper;
-use reaper_medium::{Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKey};
+use reaper_medium::{Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode};
 use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -105,22 +105,33 @@ impl Display for KeyMessage {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Keystroke {
-    behavior: BitFlags<AcceleratorBehavior>,
-    key: AcceleratorKey,
+    modifiers: BitFlags<AcceleratorBehavior>,
+    key: AcceleratorKeyCode,
 }
 
 impl Keystroke {
-    pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKey) -> Self {
-        Self { behavior, key }
+    pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKeyCode) -> Self {
+        Self {
+            modifiers: behavior,
+            key,
+        }
+    }
+
+    pub fn modifiers(&self) -> BitFlags<AcceleratorBehavior> {
+        self.modifiers
+    }
+
+    pub fn key(&self) -> AcceleratorKeyCode {
+        self.key
     }
 }
 
 impl Display for Keystroke {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let accel = Accel {
-            f_virt: self.behavior,
+            f_virt: self.modifiers,
             key: self.key,
             cmd: 0,
         };

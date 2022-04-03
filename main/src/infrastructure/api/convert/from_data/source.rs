@@ -1,6 +1,7 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind, convert_osc_argument, ConversionStyle,
+    convert_control_element_id, convert_control_element_kind, convert_keystroke,
+    convert_osc_argument, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
@@ -197,7 +198,12 @@ pub fn convert_source(
             };
             schema::Source::Virtual(s)
         }
-        Keyboard => todo!(),
+        Keyboard => {
+            let s = schema::KeySource {
+                keystroke: data.keystroke.map(convert_keystroke),
+            };
+            schema::Source::Key(s)
+        }
     };
     Ok(source)
 }

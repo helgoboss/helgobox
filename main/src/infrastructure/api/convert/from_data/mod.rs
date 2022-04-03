@@ -13,7 +13,7 @@ pub use compartment::*;
 mod target;
 
 use crate::application::{ActivationType, VirtualControlElementType};
-use crate::domain::Tag;
+use crate::domain::{Keystroke, Tag};
 use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
 use helgoboss_learn::OscTypeTag;
@@ -41,6 +41,13 @@ fn convert_control_element_kind(
         Button => T::Button,
     };
     style.required_value(res)
+}
+
+fn convert_keystroke(v: Keystroke) -> schema::Keystroke {
+    schema::Keystroke {
+        modifiers: v.modifiers().bits(),
+        key: v.key().get(),
+    }
 }
 
 fn convert_osc_argument(

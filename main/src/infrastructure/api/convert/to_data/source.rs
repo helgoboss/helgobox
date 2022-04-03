@@ -1,6 +1,7 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_osc_arg_type,
+    convert_control_element_id, convert_control_element_type, convert_keystroke,
+    convert_osc_arg_type,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
@@ -88,6 +89,10 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             Osc(s) => s.feedback_arguments.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
+        keystroke: match &s {
+            Key(s) => s.keystroke.map(convert_keystroke),
+            _ => Default::default(),
+        },
         control_element_type: match &s {
             Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
             _ => Default::default(),
@@ -132,6 +137,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | SiniConE24Display(_)
         | LaunchpadProScrollingTextDisplay(_) => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
+        Key(_) => SourceCategory::Keyboard,
         Virtual(_) => SourceCategory::Virtual,
     }
 }

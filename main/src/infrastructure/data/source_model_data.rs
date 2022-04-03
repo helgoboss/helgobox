@@ -5,7 +5,7 @@ use crate::application::{
 };
 use crate::base::default_util::is_default;
 use crate::base::notification;
-use crate::domain::MappingCompartment;
+use crate::domain::{Keystroke, MappingCompartment};
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -65,6 +65,8 @@ pub struct SourceModelData {
     pub osc_arg_is_relative: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_feedback_args: Vec<String>,
+    // Keyboard
+    pub keystroke: Option<Keystroke>,
     // Virtual
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
@@ -102,6 +104,7 @@ impl SourceModelData {
             osc_arg_type: model.osc_arg_type_tag(),
             osc_arg_is_relative: model.osc_arg_is_relative(),
             osc_feedback_args: model.osc_feedback_args().to_vec(),
+            keystroke: model.keystroke(),
             control_element_type: model.control_element_type(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
@@ -183,6 +186,7 @@ impl SourceModelData {
         ));
         model.change(P::SetReaperSourceType(self.reaper_source_type));
         model.change(P::SetTimerMillis(self.timer_millis));
+        model.change(P::SetKeystroke(self.keystroke));
     }
 }
 
