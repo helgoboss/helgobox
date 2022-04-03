@@ -214,20 +214,10 @@ impl CompartmentParams {
     }
 
     /// Applies the given settings.
-    pub fn apply_given_settings(
-        &mut self,
-        mut settings: Vec<(CompartmentParamIndex, ParamSetting)>,
-    ) {
+    pub fn apply_given_settings(&mut self, settings: Vec<(CompartmentParamIndex, ParamSetting)>) {
         for (i, setting) in settings {
             self.at_mut(i).setting = setting;
         }
-    }
-
-    fn enumerated_mut(&mut self) -> impl Iterator<Item = (CompartmentParamIndex, &mut Param)> {
-        self.0
-            .iter_mut()
-            .enumerate()
-            .map(|(i, p)| (CompartmentParamIndex(i as u32), p))
     }
 
     /// Resets all settings and values to the defaults.

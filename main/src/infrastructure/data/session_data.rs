@@ -5,9 +5,8 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, CompartmentParamIndex,
-    CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
-    MappingCompartment, MappingId, MidiControlInput, MidiDestination, OscDeviceId, Param,
-    PluginParamIndex, PluginParams, Tag,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
+    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,

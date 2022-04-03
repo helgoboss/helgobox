@@ -1,8 +1,6 @@
 use crate::domain::{DomainEventHandler, KeyMessage, Keystroke, SharedMainProcessors};
 use reaper_high::Reaper;
-use reaper_medium::{
-    Accel, AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult,
-};
+use reaper_medium::{Accel, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
 
 #[derive(Debug)]
 pub struct RealearnAccelerator<EH: DomainEventHandler> {

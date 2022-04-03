@@ -80,10 +80,6 @@ impl KeyMessage {
         Self { kind, stroke }
     }
 
-    pub fn kind(&self) -> AccelMsgKind {
-        self.kind
-    }
-
     pub fn is_press(&self) -> bool {
         self.kind == AccelMsgKind::KeyDown
     }

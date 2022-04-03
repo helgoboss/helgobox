@@ -2927,10 +2927,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
-                let control_outcome = match m.control_virtualizing(msg) {
-                    None => return vec![],
-                    Some(o) => o,
-                };
                 let virtual_source_value = match m.control_virtualizing(msg) {
                     Some(ControlOutcome::Matched(v)) => v,
                     unmatched_or_consumed => {

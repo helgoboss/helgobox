@@ -7,7 +7,7 @@ use slog::{trace, warn};
 
 use std::error::Error;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
+use std::net::{ToSocketAddrs, UdpSocket};
 
 use core::mem;
 use std::str::FromStr;
@@ -210,7 +210,7 @@ impl OscOutputDevice {
         logger: slog::Logger,
         can_deal_with_bundles: bool,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
-        socket.connect(dest_addr);
+        socket.connect(dest_addr)?;
         let dev = OscOutputDevice {
             id,
             socket,
