@@ -594,10 +594,16 @@ impl View for MappingRowsPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         #[cfg(target_family = "unix")]
         unsafe {
-            Reaper::get()
-                .medium_reaper()
-                .low()
-                .InitializeCoolSB(window.raw() as _);
+            let reaper = Reaper::get().medium_reaper().low();
+            let hwnd = window.raw() as _;
+            reaper.InitializeCoolSB(hwnd);
+            #[cfg(target_os = "macos")]
+            if !Window::dark_mode_is_enabled() {
+                // If not in dark mode, using REAPER's dark scrollbar looks weird.
+                // Let's use the default bright toolbar of CoolSB. It looks ugly but
+                // at least it's brighter.
+                reaper.CoolSB_SetThemeIndex(hwnd, -1);
+            }
         }
         window.move_to(self.position);
         self.open_mapping_rows(window);
