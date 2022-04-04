@@ -1,8 +1,11 @@
 use crate::domain::ControlOutcome;
 use enumflags2::BitFlags;
 use helgoboss_learn::{ControlValue, UnitValue};
-use reaper_high::Reaper;
-use reaper_medium::{Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode};
+use reaper_high::{AcceleratorKey, Reaper};
+use reaper_medium::{
+    virt_keys, Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode, ReaperString, VirtKey,
+};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -24,7 +27,7 @@ impl KeySource {
     }
 
     pub fn control(&mut self, msg: KeyMessage) -> Option<ControlOutcome<ControlValue>> {
-        if !msg.is_press_or_release() && msg.stroke() == self.stroke {
+        if !msg.interaction_kind().is_press_or_release() && msg.stroke() == self.stroke {
             // On Windows, there's not just press and release but also something like "key is being
             // hold", which fires continuously. We neither want to react to it (because we have our
             // own fire modes) nor simply forward it to REAPER (because it would dig a hole
@@ -32,18 +35,19 @@ impl KeySource {
             // instead.
             return Some(ControlOutcome::Consumed);
         }
-        if msg.is_press() && self.currently_pressed {
+        let is_press = msg.interaction_kind().is_press();
+        if is_press && self.currently_pressed {
             // We don't want OS-triggered repeated key firing (macOS). We have our own fire modes.
             return Some(ControlOutcome::Consumed);
         }
         let control_value = self.get_control_value(msg)?;
-        self.currently_pressed = msg.is_press();
+        self.currently_pressed = is_press;
         Some(ControlOutcome::Matched(control_value))
     }
 
     /// Non-mutating! Used for checks.
     pub fn reacts_to_message_with(&self, msg: KeyMessage) -> Option<ControlValue> {
-        if !msg.is_press_or_release() {
+        if !msg.interaction_kind().is_press_or_release() {
             return None;
         }
         self.get_control_value(msg)
@@ -54,7 +58,7 @@ impl KeySource {
         if msg.stroke != self.stroke {
             return None;
         }
-        let value = if msg.is_press() {
+        let value = if msg.interaction_kind().is_press() {
             UnitValue::MAX
         } else {
             UnitValue::MIN
@@ -80,13 +84,13 @@ impl KeyMessage {
         Self { kind, stroke }
     }
 
-    pub fn is_press(&self) -> bool {
-        self.kind == AccelMsgKind::KeyDown
-    }
-
-    /// Checks if the kind is relevant (only key-down and key-up).
-    pub fn is_press_or_release(&self) -> bool {
-        matches!(self.kind, AccelMsgKind::KeyDown | AccelMsgKind::KeyUp)
+    pub fn interaction_kind(&self) -> KeyInteractionKind {
+        use AccelMsgKind::*;
+        match self.kind {
+            KeyDown | SysKeyDown => KeyInteractionKind::Press,
+            KeyUp | SysKeyUp => KeyInteractionKind::Release,
+            _ => KeyInteractionKind::Other,
+        }
     }
 
     pub fn stroke(&self) -> Keystroke {
@@ -96,12 +100,29 @@ impl KeyMessage {
 
 impl Display for KeyMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let kind_text = match self.kind {
-            AccelMsgKind::KeyDown => "Press",
-            AccelMsgKind::KeyUp => "Release",
-            _ => "Other",
-        };
-        write!(f, "{} {}", kind_text, self.stroke)
+        write!(f, "{} {}", self.interaction_kind(), self.stroke)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+pub enum KeyInteractionKind {
+    Press,
+    Release,
+    Other,
+}
+
+impl KeyInteractionKind {
+    pub fn is_press(&self) -> bool {
+        matches!(self, Self::Press)
+    }
+
+    pub fn is_release(&self) -> bool {
+        matches!(self, Self::Release)
+    }
+
+    /// Checks if the kind is relevant (only key-down and key-up).
+    pub fn is_press_or_release(&self) -> bool {
+        matches!(self, Self::Press | Self::Release)
     }
 }
 
@@ -112,6 +133,35 @@ pub struct Keystroke {
 }
 
 impl Keystroke {
+    /// This normalizes the given behavior/key combination so it works cross-platform.
+    ///
+    /// When REAPER notifies us about incoming key events, the accelerator behavior and key codes
+    /// look slightly different depending on the operating system:
+    ///
+    /// - On all operating systems, if we have a key combination, we receive each key event
+    ///   separately, even the modifier keys. Good!
+    /// - If we have a key combination (modifier key + normal key), Windows doesn't mention the
+    ///   modifier keys in the accelerator behavior, but macOS and Linux do. We prefer the Windows
+    ///   way because it makes more sense in this context. We receive modifier key-ups and key-downs
+    ///   separately anyway.
+    /// - On Windows, umlauts are delivered as virtual keys, on macOS and Linux as character codes.
+    ///   We prefer the macOS and Linux way.
+    /// - On Windows, "normal" special characters such as # and + are delivered as virtual keys.
+    ///   On macOS and Linux, they are delivered as character codes.
+    /// - On Windows, "abnormal" special characters such as ^ or ` are delivered as virtual keys.
+    ///   On macOS, they are also delivered as virtual keys but with a different code.
+    ///   On Linux, they are delivered as character code.
+    ///   We don't like any. Mark them as not portable!
+    pub fn normalized(
+        mut behavior: BitFlags<AcceleratorBehavior>,
+        key: AcceleratorKeyCode,
+    ) -> Self {
+        // Remove (makes a difference on macOS and Linux only).
+        use AcceleratorBehavior::*;
+        behavior.remove(Shift | Control | Alt);
+        Self::new(behavior, key)
+    }
+
     pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKeyCode) -> Self {
         Self {
             modifiers: behavior,
@@ -126,19 +176,30 @@ impl Keystroke {
     pub fn key(&self) -> AcceleratorKeyCode {
         self.key
     }
-}
 
-impl Display for Keystroke {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn format_key_via_reaper(&self) -> ReaperString {
         let accel = Accel {
             f_virt: self.modifiers,
             key: self.key,
             cmd: 0,
         };
-        write!(
-            f,
-            "{}",
-            Reaper::get().medium_reaper().kbd_format_key_name(accel)
-        )
+        Reaper::get().medium_reaper().kbd_format_key_name(accel)
+    }
+}
+
+impl Display for Keystroke {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let key = AcceleratorKey::from_behavior_and_key_code(self.modifiers, self.key);
+        use virt_keys::{CONTROL, MENU, SHIFT};
+        const WIN: VirtKey = VirtKey::new(91);
+        use AcceleratorKey as K;
+        let label: Cow<str> = match key {
+            K::VirtKey(SHIFT) => "Shift".into(),
+            K::VirtKey(CONTROL) => "Ctrl/Cmd".into(),
+            K::VirtKey(MENU) => "Alt/Opt".into(),
+            K::VirtKey(WIN) => "Win/^".into(),
+            _ => self.format_key_via_reaper().into_string().into(),
+        };
+        f.write_str(label.as_ref())
     }
 }
