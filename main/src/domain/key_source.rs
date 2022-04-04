@@ -51,7 +51,7 @@ impl KeySource {
 
     /// Non-mutating! Used for checks.
     pub fn reacts_to_message_with(&self, msg: KeyMessage) -> Option<ControlValue> {
-        if msg.interaction_kind().is_press_or_release() {
+        if !msg.interaction_kind().is_press_or_release() {
             return None;
         }
         self.get_control_value(msg)
@@ -208,29 +208,8 @@ impl Keystroke {
                     modifiers.remove(VirtKey);
                     Self::new(modifiers, AcceleratorKeyCode::new(character_code as u16))
                 }
-            } else if key.get() < 0xFF {
-                // Key is a byte-sized character code.
-                // On Windows (and maybe also other OS?), when in a text field, each "KeyDown" event
-                // on a character key is followed by a "Char" event which contains the
-                // key as character code. We don't really process this
-                // "Char" event but it's still relevant in that we need to consume it or associate
-                // it with a mapping when we use "Filter source". In order to do that, we need
-                // to normalize its keystroke. Our normalization strategy is the same as above:
-                // If virtual key code and character code is the same, prefer the virtual key code,
-                // otherwise use the character code.
-                let result = unsafe { winapi::um::winuser::VkKeyScanA(key.get() as i8) };
-                let virt_key_code = (result & 0xFF);
-                if virt_key_code >= 0 && virt_key_code == key.get() as i16 {
-                    // Virtual key code is equal to character code. Use virtual key code.
-                    modifiers |= VirtKey;
-                    Self::new(modifiers, AcceleratorKeyCode::new(virt_key_code as _))
-                } else {
-                    // Virtual key not found or character code different. Prefer character code.
-                    Self::new(modifiers, key)
-                }
             } else {
-                // Key is a more-than-byte-sized character code, so there can't be virt-key codes.
-                // Use as is.
+                // Key is a character code. Use as is.
                 Self::new(modifiers, key)
             }
         }
