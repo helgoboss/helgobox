@@ -780,7 +780,7 @@ impl HeaderPanel {
                     "This clears the names of {} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
                     count
                 )            ,
-            |m| String::new(),
+            |_| String::new(),
         );
     }
 

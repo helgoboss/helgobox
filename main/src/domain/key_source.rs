@@ -120,10 +120,6 @@ impl KeyInteractionKind {
         matches!(self, Self::Press)
     }
 
-    pub fn is_release(&self) -> bool {
-        matches!(self, Self::Release)
-    }
-
     /// Checks if the kind is relevant (only key-down and key-up).
     pub fn is_press_or_release(&self) -> bool {
         matches!(self, Self::Press | Self::Release)
@@ -283,8 +279,6 @@ impl Keystroke {
                         // Other basic characters don't qualify as explicitly portable.
                         _ => None,
                     },
-                    // Not explicitly portable
-                    _ => None,
                 }
             }
         }

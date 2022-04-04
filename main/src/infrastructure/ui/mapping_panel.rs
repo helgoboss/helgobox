@@ -250,13 +250,17 @@ impl MappingPanel {
                                                 view.invalidate_source_line_4_combo_box_2();
                                             }
                                             P::ParameterNumberMessageNumber |
-                                            P::OscArgIndex |
                                             P::ControlElementId => {
                                                 view.invalidate_source_line_4_edit_control(initiator);
                                             }
+                                            P::OscArgIndex => {
+                                                view.invalidate_source_line_4(initiator);
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
                                             P::CustomCharacter |
                                             P::OscArgTypeTag => {
-                                                view.invalidate_source_line_5_combo_box();
+                                                view.invalidate_source_line_4_combo_box_2();
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
@@ -1275,7 +1279,24 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     #[allow(clippy::single_match)]
-    fn handle_source_line_4_combo_box_change(&mut self) {
+    fn handle_source_line_4_combo_box_1_change(&mut self) {
+        let combo = self
+            .view
+            .require_control(root::ID_SOURCE_LINE_4_COMBO_BOX_1);
+        use SourceCategory::*;
+        match self.mapping.source_model.category() {
+            Osc => {
+                let index = get_osc_arg_index_from_combo(combo);
+                self.change_mapping(MappingCommand::ChangeSource(SourceCommand::SetOscArgIndex(
+                    index,
+                )));
+            }
+            _ => {}
+        }
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_source_line_4_combo_box_2_change(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
         use SourceCategory::*;
         match self.mapping.source_model.category() {
@@ -1310,11 +1331,17 @@ impl<'a> MutableMappingPanel<'a> {
                     _ => {}
                 }
             }
+            Osc => {
+                let tag = get_osc_type_tag_from_combo(b);
+                self.change_mapping(MappingCommand::ChangeSource(
+                    SourceCommand::SetOscArgTypeTag(tag),
+                ));
+            }
             _ => {}
         }
     }
 
-    fn handle_source_line_5_combo_box_change(&mut self) {
+    fn handle_source_line_5_combo_box_2_change(&mut self) {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
@@ -1341,13 +1368,6 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 }
-            }
-            Osc => {
-                let i = b.selected_combo_box_item_index();
-                let tag = i.try_into().expect("invalid OSC type tag");
-                self.change_mapping(MappingCommand::ChangeSource(
-                    SourceCommand::SetOscArgTypeTag(tag),
-                ));
             }
             _ => {}
         }
@@ -1436,13 +1456,6 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Osc => {
-                let value = parse_osc_arg_index(&text);
-                self.change_mapping_with_initiator(
-                    MappingCommand::ChangeSource(SourceCommand::SetOscArgIndex(value)),
-                    Some(edit_control_id),
-                );
-            }
             Virtual => {
                 let value = text.parse().unwrap_or_default();
                 self.change_mapping_with_initiator(
@@ -1450,7 +1463,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Reaper | Never | Keyboard => {}
+            Reaper | Never | Keyboard | Osc => {}
         };
     }
 
@@ -2286,10 +2299,9 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendOsc => {
-                    let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid OSC type tag");
+                    let index = get_osc_arg_index_from_combo(combo);
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetOscArgTypeTag(v),
+                        TargetCommand::SetOscArgIndex(index),
                     ));
                 }
                 ReaperTargetType::FxParameter => {
@@ -2495,6 +2507,12 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc => {
+                    let v = get_osc_type_tag_from_combo(combo);
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetOscArgTypeTag(v),
+                    ));
+                }
                 ReaperTargetType::FxParameter => {
                     if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -2670,14 +2688,6 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendOsc => {
-                    let text = control.text().unwrap_or_default();
-                    let v = parse_osc_arg_index(&text);
-                    self.change_mapping_with_initiator(
-                        MappingCommand::ChangeTarget(TargetCommand::SetOscArgIndex(v)),
-                        Some(edit_control_id),
-                    );
-                }
                 ReaperTargetType::FxParameter => match self.mapping.target_model.param_type() {
                     VirtualFxParameterType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -3232,12 +3242,20 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
+    #[allow(clippy::single_match)]
     fn invalidate_source_line_4_combo_box_1(&self) {
-        let control = self
+        let b = self
             .view
             .require_control(root::ID_SOURCE_LINE_4_COMBO_BOX_1);
-        // TODO-high CONTINUE
-        control.hide();
+        use SourceCategory::*;
+        match self.source.category() {
+            Osc => {
+                invalidate_with_osc_arg_index(b, self.source.osc_arg_index());
+            }
+            _ => {
+                b.hide();
+            }
+        };
     }
 
     fn invalidate_source_line_4_combo_box_2(&self) {
@@ -3300,6 +3318,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
             }
+            Osc if self.source.osc_arg_index().is_some() => {
+                let tag = self.source.osc_arg_type_tag();
+                invalidate_with_osc_arg_type_tag(b, tag);
+            }
             _ => {
                 b.hide();
             }
@@ -3321,7 +3343,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ => None,
             },
-            Osc => Some(format_osc_arg_index(self.source.osc_arg_index())),
             Virtual => Some(self.source.control_element_id().to_string()),
             _ => None,
         };
@@ -3465,7 +3486,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     _ => None,
                 }
             }
-            Osc => Some("Type"),
+            Osc => None,
             _ => None,
         };
         self.view
@@ -3512,12 +3533,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                         b.hide();
                     }
                 }
-            }
-            Osc => {
-                b.show();
-                b.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
-                b.select_combo_box_item_by_index(self.source.osc_arg_type_tag().into())
-                    .unwrap();
             }
             _ => {
                 b.hide();
@@ -4016,11 +4031,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendOsc => {
-                    control.show();
-                    let text = format_osc_arg_index(self.target.osc_arg_index());
-                    control.set_text(text.as_str());
-                }
                 ReaperTargetType::FxParameter => {
                     let text = match self.target.param_type() {
                         VirtualFxParameterType::Dynamic => {
@@ -4229,10 +4239,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.target.target_type() {
                 ReaperTargetType::SendOsc => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
-                    let tag = self.target.osc_arg_type_tag();
-                    combo.select_combo_box_item_by_index(tag.into()).unwrap();
+                    invalidate_with_osc_arg_index(combo, self.target.osc_arg_index());
                 }
                 ReaperTargetType::FxParameter => {
                     combo.show();
@@ -4380,6 +4387,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc if self.target.osc_arg_index().is_some() => {
+                    let tag = self.target.osc_arg_type_tag();
+                    invalidate_with_osc_arg_type_tag(combo, tag);
+                }
                 ReaperTargetType::FxParameter
                     if self.target.param_type() == VirtualFxParameterType::ById =>
                 {
@@ -5751,10 +5762,13 @@ impl View for MappingPanel {
                 self.write(|p| p.handle_source_line_3_combo_box_1_change())
             }
             root::ID_SOURCE_NUMBER_COMBO_BOX => {
-                self.write(|p| p.handle_source_line_4_combo_box_change())
+                self.write(|p| p.handle_source_line_4_combo_box_2_change())
+            }
+            root::ID_SOURCE_LINE_4_COMBO_BOX_1 => {
+                self.write(|p| p.handle_source_line_4_combo_box_1_change())
             }
             root::ID_SOURCE_CHARACTER_COMBO_BOX => {
-                self.write(|p| p.handle_source_line_5_combo_box_change())
+                self.write(|p| p.handle_source_line_5_combo_box_2_change())
             }
             root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
                 self.write(|p| p.handle_source_line_3_combo_box_2_change())
@@ -6301,6 +6315,35 @@ fn channel_menu<R>(f: impl Fn(u8) -> R) -> Vec<R> {
     (0..16).map(&f).collect()
 }
 
+fn invalidate_with_osc_arg_type_tag(b: Window, tag: OscTypeTag) {
+    b.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
+    b.show();
+    b.select_combo_box_item_by_index(tag.into()).unwrap();
+}
+
+fn invalidate_with_osc_arg_index(combo: Window, index: Option<u32>) {
+    combo.fill_combo_box_with_data_small(osc_arg_indexes());
+    combo.show();
+    let data = index.map(|i| i as isize).unwrap_or(-1);
+    combo.select_combo_box_item_by_data(data).unwrap();
+}
+
+fn get_osc_type_tag_from_combo(combo: Window) -> OscTypeTag {
+    let i = combo.selected_combo_box_item_index();
+    i.try_into().expect("invalid OSC type tag")
+}
+
+fn get_osc_arg_index_from_combo(combo: Window) -> Option<u32> {
+    match combo.selected_combo_box_item_data() {
+        -1 => None,
+        i => Some(i as u32),
+    }
+}
+
+fn osc_arg_indexes() -> impl Iterator<Item = (isize, String)> {
+    iter::once((-1isize, "-".to_string())).chain((0..9).map(|i| (i as isize, (i + 1).to_string())))
+}
+
 fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
@@ -6646,19 +6689,5 @@ fn extract_remaining_name(text: &str) -> &str {
         &text[slash_index + 1..]
     } else {
         text
-    }
-}
-
-fn parse_osc_arg_index(text: &str) -> Option<u32> {
-    let v = text.parse::<u32>().ok()?;
-    // UI is 1-rooted
-    Some(if v == 0 { v } else { v - 1 })
-}
-
-fn format_osc_arg_index(index: Option<u32>) -> String {
-    if let Some(i) = index {
-        (i + 1).to_string()
-    } else {
-        "".to_owned()
     }
 }
