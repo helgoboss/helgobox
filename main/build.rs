@@ -53,10 +53,10 @@ fn compile_eel() {
                 .current_dir(
                     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib/WDL/WDL/eel2"),
                 )
-                .arg("asm-nseel-x64.o")
+                .arg("asm-nseel-x64-sse.o")
                 .output()
                 .expect("Failed to generate asm-nseel-x64.o. Maybe 'nasm' is not installed.");
-            Some("lib/WDL/WDL/eel2/asm-nseel-x64.o")
+            Some("lib/WDL/WDL/eel2/asm-nseel-x64-sse.o")
         } else {
             None
         }
