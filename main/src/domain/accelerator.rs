@@ -1,6 +1,5 @@
 use crate::domain::{DomainEventHandler, KeyMessage, Keystroke, SharedMainProcessors};
-use reaper_high::Reaper;
-use reaper_medium::{Accel, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
+use reaper_medium::{TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
 
 #[derive(Debug)]
 pub struct RealearnAccelerator<EH: DomainEventHandler> {
@@ -31,27 +30,8 @@ impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
 
 impl<EH: DomainEventHandler> TranslateAccel for RealearnAccelerator<EH> {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
-        // TODO-high Remove debug logging
-        log_args(&args);
         let stroke = Keystroke::normalized(args.msg.behavior, args.msg.key);
         let msg = KeyMessage::new(args.msg.message, stroke);
         self.process_message(msg)
     }
-}
-
-fn log_args(args: &TranslateAccelArgs) {
-    let accel = Accel {
-        f_virt: args.msg.behavior,
-        key: args.msg.key,
-        cmd: 0,
-    };
-    let formatted = Reaper::get().medium_reaper().kbd_format_key_name(accel);
-    tracing_debug!(
-        "\
-            Captured {:?}\n\
-            Formatted: {},\n\
-        ",
-        &args,
-        formatted
-    );
 }

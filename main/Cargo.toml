@@ -166,6 +166,9 @@ metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
+# For converting virtual umlaut/special keys into character codes (keyboard source)
+winapi = { version = "0.3", features = ["winuser"] }
+
 
 [build-dependencies]
 # For making Git commit hash available to code

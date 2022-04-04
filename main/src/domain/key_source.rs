@@ -156,10 +156,41 @@ impl Keystroke {
         mut behavior: BitFlags<AcceleratorBehavior>,
         key: AcceleratorKeyCode,
     ) -> Self {
-        // Remove (makes a difference on macOS and Linux only).
+        // Remove modifier info (makes a difference on macOS and Linux only).
         use AcceleratorBehavior::*;
         behavior.remove(Shift | Control | Alt);
-        Self::new(behavior, key)
+        #[cfg(windows)]
+        {
+            // On Windows, we need to convert virtual keys for umlauts or special characters to
+            // character codes so we match the behavior of macOS and Linux.
+            if behavior.contains(VirtKey) {
+                let character_code = unsafe {
+                    winapi::um::winuser::MapVirtualKeyW(
+                        key.get() as u32,
+                        winapi::um::winuser::MAPVK_VK_TO_CHAR,
+                    )
+                };
+                if character_code == 0 {
+                    // Couldn't find corresponding character code.
+                    Self::new(behavior, key)
+                } else if character_code == key.get() as u32 {
+                    // Character code is equal to virtual key code. In this case, macOS and Linux
+                    // would also use the virtual key code (I hope), so we keep it.
+                    Self::new(behavior, key)
+                } else {
+                    // We have a completely different character code. Use this one because
+                    // macOS and Linux would also prefer the character code.
+                    behavior.remove(VirtKey);
+                    Self::new(behavior, AcceleratorKeyCode::new(character_code as u16))
+                }
+            } else {
+                Self::new(behavior, key)
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Self::new(behavior, key)
+        }
     }
 
     pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKeyCode) -> Self {

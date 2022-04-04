@@ -3500,6 +3500,7 @@ dependencies = [
  "webbrowser",
  "webpki 0.21.3",
  "wildmatch",
+ "winapi 0.3.9",
 ]
 
 [[package]]
