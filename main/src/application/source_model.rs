@@ -789,7 +789,7 @@ impl Display for SourceModel {
                 let text = self
                     .create_key_source()
                     .map(|s| Cow::Owned(s.to_string()))
-                    .unwrap_or_else(|| Cow::Borrowed("<Key undefined>"));
+                    .unwrap_or_else(|| Cow::Borrowed(KEY_UNDEFINED_LABEL));
                 vec![text]
             }
         };
@@ -797,6 +797,8 @@ impl Display for SourceModel {
         write!(f, "{}", non_empty_lines.join("\n"))
     }
 }
+
+pub const KEY_UNDEFINED_LABEL: &str = "<Key undefined>";
 
 #[derive(
     Clone,

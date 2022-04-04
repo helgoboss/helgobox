@@ -144,6 +144,7 @@ pub enum KeyStrokePortability {
 
 #[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
 pub enum PortabilityIssue {
+    NotNormalized,
     OperatingSystemRelated,
     KeyboardLayoutRelated,
     Other,
@@ -233,18 +234,58 @@ impl Keystroke {
     pub fn portability(&self) -> Option<KeyStrokePortability> {
         use KeyStrokePortability::*;
         use PortabilityIssue::*;
+        let normalized = self.normalized();
+        if *self != normalized {
+            return Some(KeyStrokePortability::NonPortable(
+                PortabilityIssue::NotNormalized,
+            ));
+        }
         match self.accelerator_key() {
             AcceleratorKey::Character(ch) => {
                 match ch {
-                    // Consider code-page dependent characters generally as non-portable.
+                    // Consider non-ASCII characters generally as non-portable.
                     x if x > 0x7f => Some(NonPortable(KeyboardLayoutRelated)),
-                    _ => None,
+                    a => {
+                        let a = a as u8;
+                        match a {
+                            // These ones are at least on the numpad. Numpad is layout-agnostic.
+                            b'+' | b'-' | b'*' | b'/' => Some(Portable),
+                            // These have special behavior on some keyboard layouts.
+                            b'`' | b'^' => Some(NonPortable(KeyboardLayoutRelated)),
+                            // Since most ASCII characters are transmitted as virtual keys, we
+                            // can categorize all other ASCII characters as probably not portable.
+                            _ => None,
+                        }
+                    }
                 }
             }
             AcceleratorKey::VirtKey(k) => {
                 use virt_keys::*;
-                None
-                // match k {}
+                match k {
+                    // Special keys that either every keyboard has or everybody knows a keyboard
+                    // might not have. Anyway, no cross-platform or keyboard-layout issues usually.
+                    ESCAPE | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | F11 | INSERT
+                    | NUMPAD0 | NUMPAD1 | NUMPAD2 | NUMPAD3 | NUMPAD4 | NUMPAD5 | NUMPAD6
+                    | NUMPAD7 | NUMPAD8 | NUMPAD9 | SHIFT | CONTROL | MENU | SPACE | TAB | HOME
+                    | END | PRIOR | NEXT | LEFT | UP | DOWN | RIGHT | RETURN | BACK | PAUSE
+                    | CLEAR | DELETE | SNAPSHOT => Some(Portable),
+                    CAPITAL => {
+                        // CAPS LOCK doesn't fire on macOS.
+                        Some(NonPortable(OperatingSystemRelated))
+                    }
+                    F12 => {
+                        // F12 is known to be treated a bit differently at times.
+                        Some(NonPortable(PortabilityIssue::Other))
+                    }
+                    // Characters
+                    k => match k.get() {
+                        b'A'..=b'Z' | b'0'..=b'9' => Some(Portable),
+                        // Other basic characters don't qualify as explicitly portable.
+                        _ => None,
+                    },
+                    // Not explicitly portable
+                    _ => None,
+                }
             }
         }
     }

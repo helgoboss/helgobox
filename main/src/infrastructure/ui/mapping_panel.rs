@@ -40,14 +40,15 @@ use crate::application::{
     SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
     TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakSession,
+    WeakSession, KEY_UNDEFINED_LABEL,
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext,
+    KeyStrokePortability, PortabilityIssue, ReaperTargetType, SendMidiDestination,
+    SimpleExclusivity, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -3367,8 +3368,24 @@ impl<'a> ImmutableMappingPanel<'a> {
                 let text = self
                     .source
                     .create_key_source()
-                    .map(|s| s.to_string())
-                    .unwrap_or_default();
+                    .map(|s| {
+                        let comment = match s.stroke().portability() {
+                            Some(KeyStrokePortability::Portable) => "",
+                            Some(KeyStrokePortability::NonPortable(issue)) => match issue {
+                                PortabilityIssue::OperatingSystemRelated => {
+                                    " (not cross-platform!)"
+                                }
+                                PortabilityIssue::KeyboardLayoutRelated => {
+                                    " (not portable, special character!)"
+                                }
+                                PortabilityIssue::Other => " (not portable!)",
+                                PortabilityIssue::NotNormalized => " (not normalized!)",
+                            },
+                            None => " (probably not portable)",
+                        };
+                        format!("{}{}", s.stroke(), comment)
+                    })
+                    .unwrap_or_else(|| KEY_UNDEFINED_LABEL.to_string());
                 Some((text, false))
             }
             _ => None,
