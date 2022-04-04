@@ -17,8 +17,8 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
-    MainPreset, MainPresetAutoLoadMode, MappingCommand, Preset, PresetManager, SessionProp,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, Preset, PresetManager,
+    SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -216,6 +216,7 @@ impl HeaderPanel {
             CopyListedMappingsAsJson,
             CopyListedMappingsAsLua(ConversionStyle),
             AutoNameListedMappings,
+            NameListedMappingsAfterSource,
             MakeTargetsOfListedMappingsSticky,
             MakeSourcesOfMainMappingsVirtual,
             MoveListedMappingsToGroup(Option<GroupId>),
@@ -298,6 +299,9 @@ impl HeaderPanel {
                 },
                 item("Auto-name listed mappings", || {
                     MenuAction::AutoNameListedMappings
+                }),
+                item("Name listed mappings after source", || {
+                    MenuAction::NameListedMappingsAfterSource
                 }),
                 item("Make sources of all main mappings virtual", || {
                     MenuAction::MakeSourcesOfMainMappingsVirtual
@@ -611,6 +615,7 @@ impl HeaderPanel {
                 self.copy_listed_mappings_as_json().unwrap();
             }
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
+            MenuAction::NameListedMappingsAfterSource => self.named_listed_mappings_after_source(),
             MenuAction::MakeSourcesOfMainMappingsVirtual => {
                 self.make_sources_of_main_mappings_virtual()
             }
@@ -769,26 +774,59 @@ impl HeaderPanel {
     }
 
     fn auto_name_listed_mappings(&self) {
+        self.named_listed_mappings(
+            |count|
+                format!(
+                    "This clears the names of {} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
+                    count
+                )            ,
+            |m| String::new(),
+        );
+    }
+
+    fn named_listed_mappings_after_source(&self) {
+        self.named_listed_mappings(
+            |count| {
+                format!(
+                    "This modifies the names of {} mappings. Do you really want to continue?",
+                    count
+                )
+            },
+            |m| {
+                m.source_model
+                    .to_string()
+                    .lines()
+                    .map(|l| l.to_string())
+                    .next()
+                    .unwrap_or_default()
+            },
+        );
+    }
+
+    fn named_listed_mappings(
+        &self,
+        get_confirmation_msg: impl FnOnce(usize) -> String,
+        get_name: impl Fn(&MappingModel) -> String,
+    ) {
         let listed_mappings = self.get_listened_mappings(self.active_compartment());
         if listed_mappings.is_empty() {
             return;
         }
-        if !self.view.require_window().confirm(
-            "ReaLearn",
-            format!(
-                "This clears the names of {} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
-                listed_mappings.len()
-            ),
-        ) {
+        if !self
+            .view
+            .require_window()
+            .confirm("ReaLearn", get_confirmation_msg(listed_mappings.len()))
+        {
             return;
         }
         let session = self.session();
         let mut session = session.borrow_mut();
         for m in listed_mappings {
             let mut mapping = m.borrow_mut();
+            let new_name = get_name(&mapping);
             session.change_mapping_from_ui_expert(
                 &mut mapping,
-                MappingCommand::ClearName,
+                MappingCommand::SetName(new_name),
                 None,
                 self.session.clone(),
             );

@@ -34,7 +34,6 @@ pub enum MappingCommand {
     ChangeSource(SourceCommand),
     ChangeMode(ModeCommand),
     ChangeTarget(TargetCommand),
-    ClearName,
 }
 
 #[derive(PartialEq)]
@@ -186,7 +185,6 @@ impl<'a> Change<'a> for MappingModel {
                     .change(cmd)
                     .map(|affected| One(P::InTarget(affected)));
             }
-            C::ClearName => return self.change(MappingCommand::SetName(String::new())),
         };
         Some(affected)
     }
