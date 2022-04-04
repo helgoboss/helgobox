@@ -342,6 +342,10 @@ impl SourceModel {
         self.osc_arg_is_relative
     }
 
+    pub fn osc_arg_value_range(&self) -> Interval<f64> {
+        self.osc_arg_value_range
+    }
+
     pub fn osc_feedback_args(&self) -> &[String] {
         &self.osc_feedback_args
     }
@@ -679,6 +683,12 @@ impl SourceModel {
             return false;
         }
         self.midi_source_type.supports_channel()
+    }
+
+    pub fn supports_osc_arg_value_range(&self) -> bool {
+        self.category == SourceCategory::Osc
+            && self.osc_arg_index.is_some()
+            && self.osc_arg_type_tag.supports_value_range()
     }
 
     pub fn display_count(&self) -> u8 {

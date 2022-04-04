@@ -864,6 +864,10 @@ impl TargetModel {
         self.osc_arg_type_tag
     }
 
+    pub fn osc_arg_value_range(&self) -> Interval<f64> {
+        self.osc_arg_value_range
+    }
+
     pub fn osc_dev_id(&self) -> Option<OscDeviceId> {
         self.osc_dev_id
     }
@@ -1934,6 +1938,12 @@ impl TargetModel {
             return false;
         }
         self.supports_track_apart_from_type()
+    }
+
+    pub fn supports_osc_arg_value_range(&self) -> bool {
+        self.category == TargetCategory::Reaper
+            && self.osc_arg_index.is_some()
+            && self.osc_arg_type_tag.supports_value_range()
     }
 
     fn supports_track_apart_from_type(&self) -> bool {

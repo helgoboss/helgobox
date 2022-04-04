@@ -3444,6 +3444,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "mlua",
  "nanoid",
+ "nom 7.0.0",
  "num_enum 0.5.4",
  "once_cell",
  "open",

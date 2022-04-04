@@ -162,6 +162,8 @@ strum = "0.23"
 strum_macros = "0.23"
 metrics = "0.18.0"
 metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
+# For parsing OSC argument value ranges
+nom = "7.0.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

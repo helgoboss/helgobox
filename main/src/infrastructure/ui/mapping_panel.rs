@@ -20,10 +20,10 @@ use rxrust::prelude::*;
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
-    FireMode, GroupInteraction, MackieSevenSegmentDisplayScope, MidiClockTransportMessage,
-    ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo,
-    RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
-    ValueSequence, VirtualColor,
+    FireMode, GroupInteraction, Interval, MackieSevenSegmentDisplayScope,
+    MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter, OscTypeTag,
+    OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
+    Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -255,12 +255,14 @@ impl MappingPanel {
                                             }
                                             P::OscArgIndex => {
                                                 view.invalidate_source_line_4(initiator);
+                                                view.invalidate_source_line_5(initiator);
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
                                             P::CustomCharacter |
                                             P::OscArgTypeTag => {
                                                 view.invalidate_source_line_4_combo_box_2();
+                                                view.invalidate_source_line_5(initiator);
                                                 view.invalidate_mode_controls();
                                                 view.invalidate_help();
                                             }
@@ -461,6 +463,7 @@ impl MappingPanel {
                                             P::OscArgIndex |
                                             P::OscArgTypeTag => {
                                                 view.invalidate_target_line_4(initiator);
+                                                view.invalidate_target_line_5(initiator);
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
@@ -1464,6 +1467,23 @@ impl<'a> MutableMappingPanel<'a> {
                 );
             }
             Reaper | Never | Keyboard | Osc => {}
+        };
+    }
+
+    fn handle_source_line_5_edit_control_change(&mut self) {
+        let edit_control_id = root::ID_SOURCE_LINE_5_EDIT_CONTROL;
+        let c = self.view.require_control(edit_control_id);
+        let text = c.text().unwrap_or_default();
+        use SourceCategory::*;
+        match self.mapping.source_model.category() {
+            Osc => {
+                let v = parse_osc_arg_value_range(&text);
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeSource(SourceCommand::SetOscArgValueRange(v)),
+                    Some(edit_control_id),
+                );
+            }
+            _ => {}
         };
     }
 
@@ -2754,6 +2774,25 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    fn handle_target_line_5_edit_control_change(&mut self) {
+        let edit_control_id = root::ID_TARGET_LINE_5_EDIT_CONTROL;
+        let control = self.view.require_control(edit_control_id);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc => {
+                    let text = control.text().unwrap_or_default();
+                    let v = parse_osc_arg_value_range(&text);
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetOscArgValueRange(v)),
+                        Some(edit_control_id),
+                    );
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
     fn target_category(&self) -> TargetCategory {
         self.mapping.target_model.category()
     }
@@ -3486,7 +3525,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     _ => None,
                 }
             }
-            Osc => None,
+            Osc if self.source.supports_osc_arg_value_range() => Some("Range"),
             _ => None,
         };
         self.view
@@ -3540,15 +3579,25 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn invalidate_source_line_5_edit_control(&self, initiator: Option<u32>) {
         if initiator == Some(root::ID_SOURCE_LINE_5_EDIT_CONTROL) {
             return;
         }
-        let control = self
-            .view
-            .require_control(root::ID_SOURCE_LINE_5_EDIT_CONTROL);
-        // TODO-high CONTINUE
-        control.hide();
+        use SourceCategory::*;
+        let text = match self.source.category() {
+            Osc if self.source.supports_osc_arg_value_range() => {
+                let text = format_osc_arg_value_range(
+                    self.source.osc_arg_value_range(),
+                    self.source.osc_arg_type_tag(),
+                );
+                Some(text)
+            }
+            _ => None,
+        };
+        self.view
+            .require_control(root::ID_SOURCE_LINE_5_EDIT_CONTROL)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_source_line_3_combo_box_2(&self) {
@@ -4015,11 +4064,22 @@ impl<'a> ImmutableMappingPanel<'a> {
         if initiator == Some(root::ID_TARGET_LINE_5_EDIT_CONTROL) {
             return;
         }
-        let control = self
-            .view
-            .require_control(root::ID_TARGET_LINE_5_EDIT_CONTROL);
-        // TODO-high CONTINUE
-        control.hide();
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc if self.target.supports_osc_arg_value_range() => {
+                    let text = format_osc_arg_value_range(
+                        self.target.osc_arg_value_range(),
+                        self.target.osc_arg_type_tag(),
+                    );
+                    Some(text)
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_5_EDIT_CONTROL)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_4_edit_control(&self, initiator: Option<u32>) {
@@ -4147,9 +4207,18 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_5_label_1(&self) {
-        let control = self.view.require_control(root::ID_TARGET_LINE_5_LABEL_1);
-        // TODO-high CONTINUE
-        control.hide();
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc if self.target.supports_osc_arg_value_range() => {
+                    Some("Range")
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_5_LABEL_1)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_4_label_1(&self) {
@@ -5890,6 +5959,9 @@ impl View for MappingPanel {
             root::ID_SOURCE_NUMBER_EDIT_CONTROL => {
                 view.write(|p| p.handle_source_line_4_edit_control_change());
             }
+            root::ID_SOURCE_LINE_5_EDIT_CONTROL => {
+                view.write(|p| p.handle_source_line_5_edit_control_change());
+            }
             root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
                 view.write(|p| p.handle_source_line_7_edit_control_change());
             }
@@ -5912,6 +5984,9 @@ impl View for MappingPanel {
             }
             root::ID_TARGET_LINE_4_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
+            }
+            root::ID_TARGET_LINE_5_EDIT_CONTROL => {
+                view.write(|p| p.handle_target_line_5_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
                 let value = view.clone().write(|p| {
@@ -6690,4 +6765,27 @@ fn extract_remaining_name(text: &str) -> &str {
     } else {
         text
     }
+}
+
+fn format_osc_arg_value_range(range: Interval<f64>, type_tag: OscTypeTag) -> String {
+    if type_tag.is_discrete() {
+        format!("{:.0} - {:.0}", range.min_val(), range.max_val())
+    } else {
+        format!("{:.4} - {:.4}", range.min_val(), range.max_val())
+    }
+}
+
+fn parse_osc_arg_value_range(text: &str) -> Interval<f64> {
+    use nom::character::complete::space0;
+    use nom::number::complete::double;
+    use nom::sequence::separated_pair;
+    use nom::{character::complete::char, sequence::tuple, IResult};
+    fn parse_range(input: &str) -> IResult<&str, Interval<f64>> {
+        let mut parser = separated_pair(double, tuple((space0, char('-'), space0)), double);
+        let (remainder, (from, to)) = parser(input)?;
+        Ok((remainder, Interval::new_auto(from, to)))
+    }
+    parse_range(text)
+        .map(|r| r.1)
+        .unwrap_or(DEFAULT_OSC_ARG_VALUE_RANGE)
 }
