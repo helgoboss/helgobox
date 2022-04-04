@@ -9,9 +9,9 @@ use crate::domain::{
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, MackieLcdScope,
+    ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
-    OscTypeTag, SiniConE24Scope, SourceCharacter, UnitValue,
+    OscTypeTag, SiniConE24Scope, SourceCharacter, UnitValue, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -43,6 +43,7 @@ pub enum SourceCommand {
     SetOscArgIndex(Option<u32>),
     SetOscArgTypeTag(OscTypeTag),
     SetOscArgIsRelative(bool),
+    SetOscArgValueRange(Interval<f64>),
     SetOscFeedbackArgs(Vec<String>),
     SetReaperSourceType(ReaperSourceType),
     SetTimerMillis(u64),
@@ -71,6 +72,7 @@ pub enum SourceProp {
     OscArgIndex,
     OscArgTypeTag,
     OscArgIsRelative,
+    OscArgValueRange,
     OscFeedbackArgs,
     ReaperSourceType,
     ControlElementType,
@@ -167,7 +169,11 @@ impl<'a> Change<'a> for SourceModel {
                 self.osc_arg_is_relative = v;
                 One(P::OscArgIsRelative)
             }
-            SourceCommand::SetOscFeedbackArgs(v) => {
+            C::SetOscArgValueRange(v) => {
+                self.osc_arg_value_range = v;
+                One(P::OscArgValueRange)
+            }
+            C::SetOscFeedbackArgs(v) => {
                 self.osc_feedback_args = v;
                 One(P::OscFeedbackArgs)
             }
@@ -219,6 +225,7 @@ pub struct SourceModel {
     osc_arg_index: Option<u32>,
     osc_arg_type_tag: OscTypeTag,
     osc_arg_is_relative: bool,
+    osc_arg_value_range: Interval<f64>,
     osc_feedback_args: Vec<String>,
     // REAPER
     reaper_source_type: ReaperSourceType,
@@ -253,6 +260,7 @@ impl Default for SourceModel {
             osc_arg_index: Some(0),
             osc_arg_type_tag: Default::default(),
             osc_arg_is_relative: false,
+            osc_arg_value_range: DEFAULT_OSC_ARG_VALUE_RANGE,
             osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
             timer_millis: Default::default(),
@@ -652,11 +660,13 @@ impl SourceModel {
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
         let arg_index = self.osc_arg_index?;
-        Some(OscArgDescriptor::new(
+        let arg_desc = OscArgDescriptor::new(
             arg_index,
             self.osc_arg_type_tag,
             self.osc_arg_is_relative,
-        ))
+            self.osc_arg_value_range,
+        );
+        Some(arg_desc)
     }
 
     pub fn supports_type(&self) -> bool {

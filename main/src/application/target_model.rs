@@ -1,7 +1,9 @@
 use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, OscArgDescriptor, OscTypeTag, Target};
+use helgoboss_learn::{
+    ControlType, Interval, OscArgDescriptor, OscTypeTag, Target, DEFAULT_OSC_ARG_VALUE_RANGE,
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
@@ -112,6 +114,7 @@ pub enum TargetCommand {
     SetOscAddressPattern(String),
     SetOscArgIndex(Option<u32>),
     SetOscArgTypeTag(OscTypeTag),
+    SetOscArgValueRange(Interval<f64>),
     SetOscDevId(Option<OscDeviceId>),
     SetClipSlot(ClipSlotDescriptor),
     SetClipManagementAction(ClipManagementAction),
@@ -182,6 +185,7 @@ pub enum TargetProp {
     OscAddressPattern,
     OscArgIndex,
     OscArgTypeTag,
+    OscArgValueRange,
     OscDevId,
     ClipSlot,
     ClipManagementAction,
@@ -424,6 +428,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.osc_arg_type_tag = v;
                 One(P::OscArgTypeTag)
             }
+            C::SetOscArgValueRange(v) => {
+                self.osc_arg_value_range = v;
+                One(P::OscArgValueRange)
+            }
             C::SetOscDevId(v) => {
                 self.osc_dev_id = v;
                 One(P::OscDevId)
@@ -548,6 +556,7 @@ pub struct TargetModel {
     osc_address_pattern: String,
     osc_arg_index: Option<u32>,
     osc_arg_type_tag: OscTypeTag,
+    osc_arg_value_range: Interval<f64>,
     osc_dev_id: Option<OscDeviceId>,
     // # For clip targets
     clip_slot: ClipSlotDescriptor,
@@ -621,6 +630,7 @@ impl Default for TargetModel {
             osc_address_pattern: "".to_owned(),
             osc_arg_index: Some(0),
             osc_arg_type_tag: Default::default(),
+            osc_arg_value_range: DEFAULT_OSC_ARG_VALUE_RANGE,
             osc_dev_id: None,
             poll_for_feedback: true,
             tags: Default::default(),
@@ -1895,6 +1905,7 @@ impl TargetModel {
             self.osc_arg_type_tag,
             // Doesn't matter for sending
             false,
+            self.osc_arg_value_range,
         ))
     }
 

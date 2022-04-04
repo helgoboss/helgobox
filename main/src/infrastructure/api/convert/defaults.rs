@@ -10,7 +10,7 @@ pub const GROUP_FEEDBACK_ENABLED: bool = true;
 
 pub const SOURCE_OSC_IS_RELATIVE: bool = false;
 
-const UNIT_INTERVAL: Interval<f64> = Interval(0.0, 1.0);
+pub const UNIT_INTERVAL: Interval<f64> = Interval(0.0, 1.0);
 pub const GLUE_STEP_SIZE_INTERVAL: Interval<f64> = Interval(0.01, 0.01);
 // Should be the same as GLUE_STEP_SIZE_INTERVAL because the native data structure only saves one.
 pub const GLUE_STEP_FACTOR_INTERVAL: Interval<i32> = Interval(1, 1);
