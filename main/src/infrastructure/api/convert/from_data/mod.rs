@@ -46,7 +46,7 @@ fn convert_control_element_kind(
 fn convert_keystroke(v: Keystroke) -> schema::Keystroke {
     schema::Keystroke {
         modifiers: v.modifiers().bits(),
-        key: v.key().get(),
+        key: v.key_code().get(),
     }
 }
 

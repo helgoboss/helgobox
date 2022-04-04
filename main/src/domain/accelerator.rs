@@ -1,5 +1,7 @@
 use crate::domain::{DomainEventHandler, KeyMessage, Keystroke, SharedMainProcessors};
-use reaper_medium::{TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
+use reaper_medium::{
+    AccelMsg, AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult,
+};
 
 #[derive(Debug)]
 pub struct RealearnAccelerator<EH: DomainEventHandler> {
@@ -30,7 +32,10 @@ impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
 
 impl<EH: DomainEventHandler> TranslateAccel for RealearnAccelerator<EH> {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
-        let stroke = Keystroke::normalized(args.msg.behavior, args.msg.key);
+        // if args.msg.message == AccelMsgKind::Char {
+        //     return TranslateAccelResult::NotOurWindow;
+        // }
+        let stroke = Keystroke::new(args.msg.behavior, args.msg.key).normalized();
         let msg = KeyMessage::new(args.msg.message, stroke);
         self.process_message(msg)
     }

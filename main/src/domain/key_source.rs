@@ -33,6 +33,10 @@ impl KeySource {
             // own fire modes) nor simply forward it to REAPER (because it would dig a hole
             // into our "Filter matched events" mechanism). We let this source "consume" the message
             // instead.
+            // Oh yes, and there's "Char". If in a text field, Windows (and maybe also other OS?)
+            // sends for each character key press an additional "Char" interaction. It should have
+            // been normalized in the accelerator and match the keystroke of the key-down event.
+            // As a result, we consume it as well.
             return Some(ControlOutcome::Consumed);
         }
         let is_press = msg.interaction_kind().is_press();
@@ -47,7 +51,7 @@ impl KeySource {
 
     /// Non-mutating! Used for checks.
     pub fn reacts_to_message_with(&self, msg: KeyMessage) -> Option<ControlValue> {
-        if !msg.interaction_kind().is_press_or_release() {
+        if msg.interaction_kind().is_press_or_release() {
             return None;
         }
         self.get_control_value(msg)
@@ -132,7 +136,27 @@ pub struct Keystroke {
     key: AcceleratorKeyCode,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+pub enum KeyStrokePortability {
+    NonPortable(PortabilityIssue),
+    Portable,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+pub enum PortabilityIssue {
+    OperatingSystemRelated,
+    KeyboardLayoutRelated,
+    Other,
+}
+
 impl Keystroke {
+    pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKeyCode) -> Self {
+        Self {
+            modifiers: behavior,
+            key,
+        }
+    }
+
     /// This normalizes the given behavior/key combination so it works cross-platform.
     ///
     /// When REAPER notifies us about incoming key events, the accelerator behavior and key codes
@@ -151,19 +175,20 @@ impl Keystroke {
     /// - On Windows, "abnormal" special characters such as ^ or ` are delivered as virtual keys.
     ///   On macOS, they are also delivered as virtual keys but with a different code.
     ///   On Linux, they are delivered as character code.
-    ///   We don't like any. Mark them as not portable!
-    pub fn normalized(
-        mut behavior: BitFlags<AcceleratorBehavior>,
-        key: AcceleratorKeyCode,
-    ) -> Self {
-        // Remove modifier info (makes a difference on macOS and Linux only).
+    ///   We don't like any. Mark them as non-portable!
+    pub fn normalized(&self) -> Self {
         use AcceleratorBehavior::*;
-        behavior.remove(Shift | Control | Alt);
+        let mut modifiers = self.modifiers;
+        let key = self.key;
+        // Remove modifier info (makes a difference on macOS and Linux only).
+        modifiers.remove(Shift | Control | Alt);
+        // Do some Windows-specific conversions.
         #[cfg(windows)]
         {
-            // On Windows, we need to convert virtual keys for umlauts or special characters to
-            // character codes so we match the behavior of macOS and Linux.
-            if behavior.contains(VirtKey) {
+            if modifiers.contains(VirtKey) {
+                // Key is a virtual key.
+                // On Windows, we need to convert virtual keys for umlauts or special characters to
+                // character codes so we match the behavior of macOS and Linux.
                 let character_code = unsafe {
                     winapi::um::winuser::MapVirtualKeyW(
                         key.get() as u32,
@@ -172,31 +197,47 @@ impl Keystroke {
                 };
                 if character_code == 0 {
                     // Couldn't find corresponding character code.
-                    Self::new(behavior, key)
+                    Self::new(modifiers, key)
                 } else if character_code == key.get() as u32 {
                     // Character code is equal to virtual key code. In this case, macOS and Linux
                     // would also use the virtual key code (I hope), so we keep it.
-                    Self::new(behavior, key)
+                    Self::new(modifiers, key)
                 } else {
                     // We have a completely different character code. Use this one because
                     // macOS and Linux would also prefer the character code.
-                    behavior.remove(VirtKey);
-                    Self::new(behavior, AcceleratorKeyCode::new(character_code as u16))
+                    modifiers.remove(VirtKey);
+                    Self::new(modifiers, AcceleratorKeyCode::new(character_code as u16))
+                }
+            } else if key.get() < 0xFF {
+                // Key is a byte-sized character code.
+                // On Windows (and maybe also other OS?), when in a text field, each "KeyDown" event
+                // on a character key is followed by a "Char" event which contains the
+                // key as character code. We don't really process this
+                // "Char" event but it's still relevant in that we need to consume it or associate
+                // it with a mapping when we use "Filter source". In order to do that, we need
+                // to normalize its keystroke. Our normalization strategy is the same as above:
+                // If virtual key code and character code is the same, prefer the virtual key code,
+                // otherwise use the character code.
+                let result = unsafe { winapi::um::winuser::VkKeyScanA(key.get() as i8) };
+                let virt_key_code = (result & 0xFF);
+                if virt_key_code >= 0 && virt_key_code == key.get() as i16 {
+                    // Virtual key code is equal to character code. Use virtual key code.
+                    modifiers |= VirtKey;
+                    Self::new(modifiers, AcceleratorKeyCode::new(virt_key_code as _))
+                } else {
+                    // Virtual key not found or character code different. Prefer character code.
+                    Self::new(modifiers, key)
                 }
             } else {
-                Self::new(behavior, key)
+                // Key is a more-than-byte-sized character code, so there can't be virt-key codes.
+                // Use as is.
+                Self::new(modifiers, key)
             }
         }
+        // On Linux and macOS, this is not necessary.
         #[cfg(not(windows))]
         {
-            Self::new(behavior, key)
-        }
-    }
-
-    pub fn new(behavior: BitFlags<AcceleratorBehavior>, key: AcceleratorKeyCode) -> Self {
-        Self {
-            modifiers: behavior,
-            key,
+            Self::new(modifiers, key)
         }
     }
 
@@ -204,8 +245,33 @@ impl Keystroke {
         self.modifiers
     }
 
-    pub fn key(&self) -> AcceleratorKeyCode {
+    pub fn key_code(&self) -> AcceleratorKeyCode {
         self.key
+    }
+
+    /// Returns information about portability of this keystroke across operating systems, keyboards,
+    /// layouts, if known.
+    pub fn portability(&self) -> Option<KeyStrokePortability> {
+        use KeyStrokePortability::*;
+        use PortabilityIssue::*;
+        match self.accelerator_key() {
+            AcceleratorKey::Character(ch) => {
+                match ch {
+                    // Consider code-page dependent characters generally as non-portable.
+                    x if x > 0x7f => Some(NonPortable(KeyboardLayoutRelated)),
+                    _ => None,
+                }
+            }
+            AcceleratorKey::VirtKey(k) => {
+                use virt_keys::*;
+                None
+                // match k {}
+            }
+        }
+    }
+
+    fn accelerator_key(&self) -> AcceleratorKey {
+        AcceleratorKey::from_behavior_and_key_code(self.modifiers, self.key)
     }
 
     fn format_key_via_reaper(&self) -> ReaperString {
@@ -220,7 +286,7 @@ impl Keystroke {
 
 impl Display for Keystroke {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let key = AcceleratorKey::from_behavior_and_key_code(self.modifiers, self.key);
+        let key = self.accelerator_key();
         use virt_keys::{CONTROL, MENU, SHIFT};
         const WIN: VirtKey = VirtKey::new(91);
         use AcceleratorKey as K;
