@@ -247,7 +247,7 @@ impl MappingPanel {
                                                 view.invalidate_source_line_5_combo_box();
                                             }
                                             P::MidiMessageNumber => {
-                                                view.invalidate_source_line_4_combo_box();
+                                                view.invalidate_source_line_4_combo_box_2();
                                             }
                                             P::ParameterNumberMessageNumber |
                                             P::OscArgIndex |
@@ -274,7 +274,7 @@ impl MappingPanel {
                                                 view.invalidate_source_controls();
                                             }
                                             P::DisplayId => {
-                                                view.invalidate_source_line_4_combo_box();
+                                                view.invalidate_source_line_4_combo_box_2();
                                             }
                                             P::Line => {
                                                 view.invalidate_source_line_5_combo_box();
@@ -285,6 +285,9 @@ impl MappingPanel {
                                             }
                                             P::MidiScript | P::OscFeedbackArgs => {
                                                 view.invalidate_source_line_7_edit_control(initiator);
+                                            }
+                                            P::OscArgValueRange => {
+                                                view.invalidate_source_line_5(initiator);
                                             }
                                             P::OscArgIsRelative => {
                                                 view.invalidate_source_controls();
@@ -456,6 +459,9 @@ impl MappingPanel {
                                                 view.invalidate_target_line_4(initiator);
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
+                                            }
+                                            P::OscArgValueRange => {
+                                                view.invalidate_target_line_5(initiator);
                                             }
                                             P::ScrollArrangeView | P::SeekPlay => {
                                                 view.invalidate_target_check_boxes();
@@ -2973,7 +2979,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_line_2();
         self.invalidate_source_line_3(None);
         self.invalidate_source_line_4(None);
-        self.invalidate_source_line_5();
+        self.invalidate_source_line_5(None);
         self.invalidate_source_check_box_2();
         self.invalidate_source_line_7(None);
     }
@@ -3179,7 +3185,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_line_4_label();
         self.invalidate_source_line_4_button();
         self.invalidate_source_line_4_check_box();
-        self.invalidate_source_line_4_combo_box();
+        self.invalidate_source_line_4_combo_box_1();
+        self.invalidate_source_line_4_combo_box_2();
         self.invalidate_source_line_4_edit_control(initiator);
     }
 
@@ -3225,7 +3232,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    fn invalidate_source_line_4_combo_box(&self) {
+    fn invalidate_source_line_4_combo_box_1(&self) {
+        let control = self
+            .view
+            .require_control(root::ID_SOURCE_LINE_4_COMBO_BOX_1);
+        // TODO-high CONTINUE
+        control.hide();
+    }
+
+    fn invalidate_source_line_4_combo_box_2(&self) {
         let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category() {
@@ -3427,9 +3442,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         c.set_enabled(!read_only);
     }
 
-    fn invalidate_source_line_5(&self) {
+    fn invalidate_source_line_5(&self, initiator: Option<u32>) {
         self.invalidate_source_line_5_label();
         self.invalidate_source_line_5_combo_box();
+        self.invalidate_source_line_5_edit_control(initiator);
     }
 
     fn invalidate_source_line_5_label(&self) {
@@ -3509,6 +3525,17 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
     }
 
+    fn invalidate_source_line_5_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_SOURCE_LINE_5_EDIT_CONTROL) {
+            return;
+        }
+        let control = self
+            .view
+            .require_control(root::ID_SOURCE_LINE_5_EDIT_CONTROL);
+        // TODO-high CONTINUE
+        control.hide();
+    }
+
     fn invalidate_source_line_3_combo_box_2(&self) {
         let b = self
             .view
@@ -3546,6 +3573,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_2(initiator);
         self.invalidate_target_line_3(initiator);
         self.invalidate_target_line_4(initiator);
+        self.invalidate_target_line_5(initiator);
         self.invalidate_target_value_controls();
         self.invalidate_target_learn_button();
         self.invalidate_target_check_boxes();
@@ -3918,6 +3946,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_4_button();
     }
 
+    fn invalidate_target_line_5(&self, initiator: Option<u32>) {
+        self.invalidate_target_line_5_label_1();
+        self.invalidate_target_line_5_edit_control(initiator);
+    }
+
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -3961,6 +3994,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
             self.mapping.compartment(),
         );
+    }
+
+    fn invalidate_target_line_5_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_5_EDIT_CONTROL) {
+            return;
+        }
+        let control = self
+            .view
+            .require_control(root::ID_TARGET_LINE_5_EDIT_CONTROL);
+        // TODO-high CONTINUE
+        control.hide();
     }
 
     fn invalidate_target_line_4_edit_control(&self, initiator: Option<u32>) {
@@ -4090,6 +4134,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_TARGET_LINE_3_LABEL_1)
             .set_text_or_hide(text);
+    }
+
+    fn invalidate_target_line_5_label_1(&self) {
+        let control = self.view.require_control(root::ID_TARGET_LINE_5_LABEL_1);
+        // TODO-high CONTINUE
+        control.hide();
     }
 
     fn invalidate_target_line_4_label_1(&self) {
