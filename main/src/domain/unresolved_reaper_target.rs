@@ -228,7 +228,7 @@ pub fn get_track_route(
     compartment: MappingCompartment,
 ) -> Result<TrackRoute, &'static str> {
     let track = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?
-        // TODO-medium Support multiple tracks
+        // TODO-high Support multiple tracks
         .into_iter()
         .next()
         .ok_or("no track resolved")?;
@@ -1073,7 +1073,7 @@ pub enum TrackRouteResolveError {
 impl VirtualChainFx {
     pub fn resolve(
         &self,
-        fx_chain: &FxChain,
+        fx_chains: &[FxChain],
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<Fx>, FxResolveError> {
@@ -1081,42 +1081,60 @@ impl VirtualChainFx {
         let fxs = match self {
             Dynamic(evaluator) => {
                 let index = Self::evaluate_to_fx_index(evaluator, context, compartment)?;
-                let single = get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
-                    FxResolveError::FxNotFound {
-                        guid: None,
-                        name: None,
-                        index: Some(index),
-                    }
-                })?;
-                vec![single]
+                fx_chains
+                    .into_iter()
+                    .flat_map(|fx_chain| {
+                        get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
+                            FxResolveError::FxNotFound {
+                                guid: None,
+                                name: None,
+                                index: Some(index),
+                            }
+                        })
+                    })
+                    .collect()
             }
             ById(guid, index) => {
+                let fx_not_found_error = || FxResolveError::FxNotFound {
+                    guid: Some(*guid),
+                    name: None,
+                    index: None,
+                };
+                // It doesn't make sense to search for the same FX ID on multiple tracks, so we
+                // only take the first one.
+                let fx_chain = fx_chains.first().ok_or_else(fx_not_found_error)?;
                 let single =
                     get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, *index)
-                        .map_err(|_| FxResolveError::FxNotFound {
-                            guid: Some(*guid),
-                            name: None,
-                            index: None,
-                        })?;
+                        .map_err(|_| fx_not_found_error())?;
                 vec![single]
             }
             ByName {
                 wild_match,
                 allow_multiple,
-            } => find_fxs_by_name(fx_chain, wild_match)
+            } => find_fxs_by_name(fx_chains, wild_match)
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
-            ByIndex(index) | ByIdOrIndex(None, index) => {
-                let single = get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
-                    FxResolveError::FxNotFound {
-                        guid: None,
-                        name: None,
-                        index: Some(*index),
-                    }
-                })?;
-                vec![single]
-            }
+            ByIndex(index) | ByIdOrIndex(None, index) => fx_chains
+                .into_iter()
+                .flat_map(|fx_chain| {
+                    get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
+                        FxResolveError::FxNotFound {
+                            guid: None,
+                            name: None,
+                            index: Some(*index),
+                        }
+                    })
+                })
+                .collect(),
             ByIdOrIndex(Some(guid), index) => {
+                let fx_not_found_error = || FxResolveError::FxNotFound {
+                    guid: Some(*guid),
+                    name: None,
+                    index: Some(*index),
+                };
+                // It doesn't make sense to search for the same FX ID on multiple tracks, so we
+                // only take the first one.
+                let fx_chain = fx_chains.first().ok_or_else(fx_not_found_error)?;
                 // Track by GUID because target relates to a very particular FX
                 let single = get_guid_based_fx_by_guid_on_chain_with_index_hint(
                     fx_chain,
@@ -1125,11 +1143,7 @@ impl VirtualChainFx {
                 )
                 // Fall back to index-based
                 .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
-                .map_err(|_| FxResolveError::FxNotFound {
-                    guid: Some(*guid),
-                    name: None,
-                    index: Some(*index),
-                })?;
+                .map_err(|_| fx_not_found_error())?;
                 vec![single]
             }
         };
@@ -1191,9 +1205,13 @@ impl VirtualChainFx {
     }
 }
 
-fn find_fxs_by_name<'a>(chain: &'a FxChain, name: &'a WildMatch) -> impl Iterator<Item = Fx> + 'a {
-    chain
-        .fxs()
+fn find_fxs_by_name<'a>(
+    chains: &'a [FxChain],
+    name: &'a WildMatch,
+) -> impl Iterator<Item = Fx> + 'a {
+    chains
+        .into_iter()
+        .flat_map(|chain| chain.fxs())
         .filter(move |fx| name.matches(fx.name().to_str()))
 }
 
@@ -1230,7 +1248,7 @@ pub fn get_fx_param(
         .next()
         .ok_or("no FX resolved")?;
     fx_parameter_descriptor
-        // TODO-low Support multiple FXs
+        // TODO-high Support multiple FXs
         .fx_parameter
         .resolve(&fx, context, compartment)
         .map_err(|_| "parameter doesn't exist")
@@ -1291,7 +1309,7 @@ pub fn get_fxs(
                 }
                 _ => MaybeOwned::Borrowed(chain_fx),
             };
-            let fx_chain = get_fx_chain(
+            let fx_chains = get_fx_chains(
                 context,
                 &descriptor.track_descriptor.track,
                 *is_input_fx,
@@ -1299,7 +1317,7 @@ pub fn get_fxs(
             )?;
             chain_fx
                 .get()
-                .resolve(&fx_chain, context, compartment)
+                .resolve(&fx_chains, context, compartment)
                 .map_err(|_| "couldn't resolve particular FX")
         }
     }
@@ -1362,18 +1380,21 @@ pub fn resolve_track_route_by_index(
     }
 }
 
-pub fn get_fx_chain(
+pub fn get_fx_chains(
     context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     compartment: MappingCompartment,
-) -> Result<FxChain, &'static str> {
-    let track = get_effective_tracks(context, track, compartment)?
-        // TODO-low Support multiple tracks
+) -> Result<Vec<FxChain>, &'static str> {
+    let fx_chains = get_effective_tracks(context, track, compartment)?
         .into_iter()
-        .next()
-        .ok_or("no track resolved")?;
-    let result = if is_input_fx {
+        .map(|track| get_fx_chain(track, is_input_fx))
+        .collect();
+    Ok(fx_chains)
+}
+
+fn get_fx_chain(track: Track, is_input_fx: bool) -> FxChain {
+    if is_input_fx {
         if track.is_master_track() {
             // The combination "Master track + input FX chain" by convention represents the
             // monitoring FX chain in REAPER. It's a bit unfortunate that we have 2 representations
@@ -1388,8 +1409,7 @@ pub fn get_fx_chain(
         }
     } else {
         track.normal_fx_chain()
-    };
-    Ok(result)
+    }
 }
 
 fn get_guid_based_fx_by_guid_on_chain_with_index_hint(

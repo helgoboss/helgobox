@@ -75,7 +75,6 @@ impl RealearnTarget for FxOnlineTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            // TODO-high Not sure if this is the correct change event.
             CompoundChangeEvent::Reaper(ChangeEvent::FxEnabledChanged(e)) if e.fx == self.fx => {
                 (true, None)
             }

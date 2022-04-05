@@ -1,5 +1,5 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chain, shown_fx_unit_value,
+    convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, shown_fx_unit_value,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDisplayType,
     HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
@@ -24,15 +24,22 @@ impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::FxNavigate(FxNavigateTarget {
-            fx_chain: get_fx_chain(
-                context,
-                &self.track_descriptor.track,
-                self.is_input_fx,
-                compartment,
-            )?,
-            display_type: self.display_type,
-        })])
+        let fx_chains = get_fx_chains(
+            context,
+            &self.track_descriptor.track,
+            self.is_input_fx,
+            compartment,
+        )?;
+        let targets = fx_chains
+            .into_iter()
+            .map(|fx_chain| {
+                ReaperTarget::FxNavigate(FxNavigateTarget {
+                    fx_chain,
+                    display_type: self.display_type,
+                })
+            })
+            .collect();
+        Ok(targets)
     }
 
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {

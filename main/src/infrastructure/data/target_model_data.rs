@@ -11,7 +11,7 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
+    get_fx_chains, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
     FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
     SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType, TouchedTrackParameterType,
     TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
@@ -837,9 +837,14 @@ pub fn deserialize_fx(
         } => {
             let (context, compartment, virtual_track) =
                 ctx.expect("trying to load < 1.12.0 FX target without processor context");
-            let fx =
-                get_guid_based_fx_at_index(context, virtual_track, *is_input_fx, *i, compartment)
-                    .ok();
+            let fx = get_first_guid_based_fx_at_index(
+                context,
+                virtual_track,
+                *is_input_fx,
+                *i,
+                compartment,
+            )
+            .ok();
             FxPropValues {
                 r#type: VirtualFxType::ByIdOrIndex,
                 is_input_fx: *is_input_fx,
@@ -1078,13 +1083,14 @@ pub struct BookmarkData {
     pub is_region: bool,
 }
 
-pub fn get_guid_based_fx_at_index(
+pub fn get_first_guid_based_fx_at_index(
     context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
     compartment: MappingCompartment,
 ) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx, compartment)?;
+    let fx_chains = get_fx_chains(context, track, is_input_fx, compartment)?;
+    let fx_chain = fx_chains.first().ok_or("empty list of FX chains")?;
     fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
 }

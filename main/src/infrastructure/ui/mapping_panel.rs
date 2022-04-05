@@ -4397,7 +4397,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                     self.target.virtual_fx()
                                 {
                                     if let Some(fx) = chain_fx
-                                        .resolve(&chain, context, self.mapping.compartment())
+                                        .resolve(&[chain], context, self.mapping.compartment())
                                         .ok()
                                         .and_then(|fxs| fxs.into_iter().next())
                                     {
