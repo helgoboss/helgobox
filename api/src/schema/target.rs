@@ -44,6 +44,7 @@ pub enum Target {
     RoutePhase(RoutePhaseTarget),
     RoutePan(RoutePanTarget),
     RouteVolume(RouteVolumeTarget),
+    RouteTouchState(RouteTouchStateTarget),
     ClipTransportAction(ClipTransportActionTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
@@ -278,7 +279,7 @@ pub struct TrackAutomationTouchStateTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
-    pub touched_parameter: TouchedParameter,
+    pub touched_parameter: TouchedTrackParameter,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -476,6 +477,15 @@ pub struct RouteVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RouteTouchStateTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub route: RouteDescriptor,
+    pub touched_parameter: TouchedRouteParameter,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -755,10 +765,16 @@ pub enum GroupMappingExclusivity {
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub enum TouchedParameter {
+pub enum TouchedTrackParameter {
     Volume,
     Pan,
     Width,
+}
+
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub enum TouchedRouteParameter {
+    Volume,
+    Pan,
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

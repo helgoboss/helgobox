@@ -48,15 +48,15 @@ use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
     KeyStrokePortability, PortabilityIssue, ReaperTargetType, SendMidiDestination,
-    SimpleExclusivity, WithControlContext,
+    SimpleExclusivity, TouchedRouteParameterType, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, FeedbackResolution, FxDisplayType, MappingCompartment,
     QualifiedMappingId, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
-    VirtualControlElementId, VirtualFx,
+    TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualControlElement, VirtualControlElementId, VirtualFx,
 };
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
@@ -438,7 +438,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea => {
+                                            P::SoloBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::TrackArea => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -512,6 +512,9 @@ impl MappingPanel {
                                                 view.invalidate_target_check_box_2();
                                             }
                                             P::ClipSlot | P::ClipManagementAction => {}
+                                            P::TouchedRouteParameterType => {
+                                                view.invalidate_target_line_3_combo_box_2();
+                                            }
                                         }
                                     }
                                 }
@@ -2501,7 +2504,7 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackAutomationMode
                 | ReaperTargetType::AutomationModeOverride
-                | ReaperTargetType::TrackSendAutomationMode => {
+                | ReaperTargetType::RouteAutomationMode => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid automation mode");
                     self.change_mapping(MappingCommand::ChangeTarget(
@@ -2510,9 +2513,16 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackTouchState => {
                     let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid touched parameter type");
+                    let v = i.try_into().expect("invalid touched track parameter type");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTouchedParameterType(v),
+                        TargetCommand::SetTouchedTrackParameterType(v),
+                    ));
+                }
+                ReaperTargetType::RouteTouchState => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid touched route parameter type");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTouchedRouteParameterType(v),
                     ));
                 }
                 _ => {}
@@ -4426,6 +4436,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.track_area().into())
                         .unwrap();
                 }
+                ReaperTargetType::RouteTouchState => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TouchedRouteParameterType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.target.touched_route_parameter_type().into(),
+                        )
+                        .unwrap();
+                }
                 _ if self.target.supports_automation_mode() => {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
@@ -4435,9 +4454,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackTouchState => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TouchedParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TouchedTrackParameterType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.touched_parameter_type().into())
+                        .select_combo_box_item_by_index(
+                            self.target.touched_track_parameter_type().into(),
+                        )
                         .unwrap();
                 }
                 _ => {

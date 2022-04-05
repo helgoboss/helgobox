@@ -72,10 +72,6 @@ impl RealearnTarget for FxParameterTouchStateTarget {
         Some(self.param.fx())
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
-        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
-    }
-
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::FxParameterTouchState)
     }

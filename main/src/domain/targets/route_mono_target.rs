@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteMonoTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TrackRouteMono(RouteMonoTarget {
+        Ok(vec![ReaperTarget::RouteMono(RouteMonoTarget {
             route: get_track_route(context, &self.descriptor, compartment)?,
             poll_for_feedback: self.poll_for_feedback,
         })])
@@ -92,7 +92,7 @@ impl RealearnTarget for RouteMonoTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendMono)
+        Some(ReaperTargetType::RouteMono)
     }
 }
 

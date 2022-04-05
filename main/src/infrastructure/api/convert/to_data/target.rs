@@ -6,7 +6,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, Exclusivity, FxDisplayType, ReaperTargetType, SeekOptions,
-    SendMidiDestination, TrackRouteType,
+    SendMidiDestination, TouchedRouteParameterType, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_control_element_type, convert_osc_arg_type,
@@ -267,8 +267,8 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 touched_parameter_type: {
-                    use domain::TouchedParameterType as T;
-                    use TouchedParameter::*;
+                    use domain::TouchedTrackParameterType as T;
+                    use TouchedTrackParameter::*;
                     match d.touched_parameter {
                         Volume => T::Volume,
                         Pan => T::Pan,
@@ -487,7 +487,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendAutomationMode,
+                r#type: ReaperTargetType::RouteAutomationMode,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
@@ -503,7 +503,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendMono,
+                r#type: ReaperTargetType::RouteMono,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
@@ -518,7 +518,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendMute,
+                r#type: ReaperTargetType::RouteMute,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
@@ -533,7 +533,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendPhase,
+                r#type: ReaperTargetType::RoutePhase,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
@@ -548,7 +548,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendPan,
+                r#type: ReaperTargetType::RoutePan,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
@@ -560,10 +560,26 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = route_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackSendVolume,
+                r#type: ReaperTargetType::RouteVolume,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
+                ..init(d.commons)
+            }
+        }
+        Target::RouteTouchState(d) => {
+            let route_desc = convert_route_desc(d.route)?;
+            let track_desc = route_desc.track_desc;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::RouteTouchState,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                track_route_data: route_desc.track_route_data,
+                touched_route_parameter_type: match d.touched_parameter {
+                    TouchedRouteParameter::Volume => TouchedRouteParameterType::Volume,
+                    TouchedRouteParameter::Pan => TouchedRouteParameterType::Pan,
+                },
                 ..init(d.commons)
             }
         }

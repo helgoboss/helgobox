@@ -94,6 +94,9 @@ pub use route_mono_target::*;
 mod route_automation_mode_target;
 pub use route_automation_mode_target::*;
 
+mod route_touch_state_target;
+pub use route_touch_state_target::*;
+
 mod track_pan_target;
 pub use track_pan_target::*;
 

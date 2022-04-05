@@ -6,7 +6,7 @@ use crate::domain::{
     MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
     RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget, SharedMainProcessors,
-    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
+    SharedRealTimeProcessor, SourceFeedbackValue, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, RawMidiEvents};
@@ -169,7 +169,7 @@ pub struct RealearnMonitoringFxParameterValueChangedEvent {
 #[derive(Debug)]
 pub struct ParameterAutomationTouchStateChangedEvent {
     pub track: MediaTrack,
-    pub parameter_type: TouchedParameterType,
+    pub parameter_type: TouchedTrackParameterType,
     pub new_value: bool,
 }
 
@@ -700,7 +700,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     }
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
-        if let Ok(domain_type) = TouchedParameterType::try_from_reaper(args.parameter_type) {
+        if let Ok(domain_type) = TouchedTrackParameterType::try_from_reaper(args.parameter_type) {
             BackboneState::target_context()
                 .borrow()
                 .automation_parameter_is_touched(args.track, domain_type)

@@ -21,9 +21,9 @@ use crate::domain::{
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
     MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
-    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipManagementTarget,
     UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
     UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
@@ -35,14 +35,15 @@ use crate::domain::{
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
-    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
-    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
-    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
-    VirtualChainFx, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
+    UnresolvedSelectedTrackTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, VirtualChainFx, VirtualClipSlot, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -93,7 +94,8 @@ pub enum TargetCommand {
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
     SetFxSnapshot(Option<FxSnapshot>),
-    SetTouchedParameterType(TouchedParameterType),
+    SetTouchedTrackParameterType(TouchedTrackParameterType),
+    SetTouchedRouteParameterType(TouchedRouteParameterType),
     SetBookmarkRef(u32),
     SetBookmarkType(BookmarkType),
     SetBookmarkAnchorType(BookmarkAnchorType),
@@ -164,7 +166,8 @@ pub enum TargetProp {
     TransportAction,
     AnyOnParameter,
     FxSnapshot,
-    TouchedParameterType,
+    TouchedTrackParameterType,
+    TouchedRouteParameterType,
     BookmarkRef,
     BookmarkType,
     BookmarkAnchorType,
@@ -341,9 +344,13 @@ impl<'a> Change<'a> for TargetModel {
                 self.fx_snapshot = v;
                 One(P::FxSnapshot)
             }
-            C::SetTouchedParameterType(v) => {
-                self.touched_parameter_type = v;
-                One(P::TouchedParameterType)
+            C::SetTouchedTrackParameterType(v) => {
+                self.touched_track_parameter_type = v;
+                One(P::TouchedTrackParameterType)
+            }
+            C::SetTouchedRouteParameterType(v) => {
+                self.touched_route_parameter_type = v;
+                One(P::TouchedRouteParameterType)
             }
             C::SetBookmarkRef(v) => {
                 self.bookmark_ref = v;
@@ -514,6 +521,7 @@ pub struct TargetModel {
     route_index: u32,
     route_name: String,
     route_expression: String,
+    touched_route_parameter_type: TouchedRouteParameterType,
     // # For track solo targets
     solo_behavior: SoloBehavior,
     // # For toggleable track targets
@@ -525,7 +533,7 @@ pub struct TargetModel {
     // # For "Load FX snapshot" target
     fx_snapshot: Option<FxSnapshot>,
     // # For "Automation touch state" target
-    touched_parameter_type: TouchedParameterType,
+    touched_track_parameter_type: TouchedTrackParameterType,
     // # For "Go to marker/region" target
     bookmark_ref: u32,
     bookmark_type: BookmarkType,
@@ -604,12 +612,13 @@ impl Default for TargetModel {
             route_index: 0,
             route_name: Default::default(),
             route_expression: Default::default(),
+            touched_route_parameter_type: Default::default(),
             solo_behavior: Default::default(),
             track_exclusivity: Default::default(),
             transport_action: TransportAction::default(),
             any_on_parameter: AnyOnParameter::default(),
             fx_snapshot: None,
-            touched_parameter_type: Default::default(),
+            touched_track_parameter_type: Default::default(),
             bookmark_ref: 0,
             bookmark_type: BookmarkType::Marker,
             bookmark_anchor_type: Default::default(),
@@ -777,8 +786,12 @@ impl TargetModel {
         self.fx_snapshot.as_ref()
     }
 
-    pub fn touched_parameter_type(&self) -> TouchedParameterType {
-        self.touched_parameter_type
+    pub fn touched_track_parameter_type(&self) -> TouchedTrackParameterType {
+        self.touched_track_parameter_type
+    }
+
+    pub fn touched_route_parameter_type(&self) -> TouchedRouteParameterType {
+        self.touched_route_parameter_type
     }
 
     pub fn bookmark_ref(&self) -> u32 {
@@ -950,7 +963,7 @@ impl TargetModel {
         if self.route_selector_type.is_sticky() {
             return Ok(None);
         };
-        let desc = self.track_route_descriptor()?;
+        let desc = self.route_descriptor()?;
         let route = desc.resolve_first(context, compartment)?;
         let virtual_route = virtualize_route(&route, context.context(), false);
         Ok(self.set_virtual_route(virtual_route))
@@ -1365,7 +1378,7 @@ impl TargetModel {
             TrackAutomationMode(t) => {
                 self.automation_mode = RealearnAutomationMode::from_reaper(t.mode);
             }
-            TrackRouteAutomationMode(t) => {
+            RouteAutomationMode(t) => {
                 self.automation_mode = RealearnAutomationMode::from_reaper(t.mode);
             }
             AutomationModeOverride(t) => match t.mode_override {
@@ -1583,7 +1596,7 @@ impl TargetModel {
         Ok(desc)
     }
 
-    pub fn track_route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
+    pub fn route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
         let desc = TrackRouteDescriptor {
             track_descriptor: self.track_descriptor()?,
             route: self.virtual_track_route()?,
@@ -1661,9 +1674,9 @@ impl TargetModel {
                     TrackPeak => UnresolvedReaperTarget::TrackPeak(UnresolvedTrackPeakTarget {
                         track_descriptor: self.track_descriptor()?,
                     }),
-                    TrackSendVolume => {
+                    RouteVolume => {
                         UnresolvedReaperTarget::TrackSendVolume(UnresolvedRouteVolumeTarget {
-                            descriptor: self.track_route_descriptor()?,
+                            descriptor: self.route_descriptor()?,
                         })
                     }
                     TrackPan => UnresolvedReaperTarget::TrackPan(UnresolvedTrackPanTarget {
@@ -1714,36 +1727,34 @@ impl TargetModel {
                         behavior: self.solo_behavior,
                         exclusivity: self.track_exclusivity,
                     }),
-                    TrackSendPan => {
-                        UnresolvedReaperTarget::TrackSendPan(UnresolvedRoutePanTarget {
-                            descriptor: self.track_route_descriptor()?,
-                        })
-                    }
-                    TrackSendMute => {
-                        UnresolvedReaperTarget::TrackSendMute(UnresolvedRouteMuteTarget {
-                            descriptor: self.track_route_descriptor()?,
-                            poll_for_feedback: self.poll_for_feedback,
-                        })
-                    }
-                    TrackSendPhase => {
-                        UnresolvedReaperTarget::TrackRoutePhase(UnresolvedRoutePhaseTarget {
-                            descriptor: self.track_route_descriptor()?,
-                            poll_for_feedback: self.poll_for_feedback,
-                        })
-                    }
-                    TrackSendMono => {
-                        UnresolvedReaperTarget::TrackRouteMono(UnresolvedRouteMonoTarget {
-                            descriptor: self.track_route_descriptor()?,
-                            poll_for_feedback: self.poll_for_feedback,
-                        })
-                    }
-                    TrackSendAutomationMode => UnresolvedReaperTarget::TrackRouteAutomationMode(
+                    RoutePan => UnresolvedReaperTarget::RoutePan(UnresolvedRoutePanTarget {
+                        descriptor: self.route_descriptor()?,
+                    }),
+                    RouteMute => UnresolvedReaperTarget::RouteMute(UnresolvedRouteMuteTarget {
+                        descriptor: self.route_descriptor()?,
+                        poll_for_feedback: self.poll_for_feedback,
+                    }),
+                    RoutePhase => UnresolvedReaperTarget::RoutePhase(UnresolvedRoutePhaseTarget {
+                        descriptor: self.route_descriptor()?,
+                        poll_for_feedback: self.poll_for_feedback,
+                    }),
+                    RouteMono => UnresolvedReaperTarget::RouteMono(UnresolvedRouteMonoTarget {
+                        descriptor: self.route_descriptor()?,
+                        poll_for_feedback: self.poll_for_feedback,
+                    }),
+                    RouteAutomationMode => UnresolvedReaperTarget::RouteAutomationMode(
                         UnresolvedRouteAutomationModeTarget {
-                            descriptor: self.track_route_descriptor()?,
+                            descriptor: self.route_descriptor()?,
                             mode: self.automation_mode.to_reaper(),
                             poll_for_feedback: self.poll_for_feedback,
                         },
                     ),
+                    RouteTouchState => {
+                        UnresolvedReaperTarget::RouteTouchState(UnresolvedRouteTouchStateTarget {
+                            descriptor: self.route_descriptor()?,
+                            parameter_type: self.touched_route_parameter_type,
+                        })
+                    }
                     Tempo => UnresolvedReaperTarget::Tempo(UnresolvedTempoTarget),
                     Playrate => UnresolvedReaperTarget::Playrate(UnresolvedPlayrateTarget),
                     AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride(
@@ -1810,7 +1821,7 @@ impl TargetModel {
                     TrackTouchState => {
                         UnresolvedReaperTarget::TrackTouchState(UnresolvedTrackTouchStateTarget {
                             track_descriptor: self.track_descriptor()?,
-                            parameter_type: self.touched_parameter_type,
+                            parameter_type: self.touched_track_parameter_type,
                             exclusivity: self.track_exclusivity,
                         })
                     }
@@ -1983,7 +1994,7 @@ impl TargetModel {
         }
         use ReaperTargetType::*;
         match self.r#type {
-            TrackAutomationMode | TrackSendAutomationMode => true,
+            TrackAutomationMode | RouteAutomationMode => true,
             AutomationModeOverride => {
                 self.automation_mode_override_type == AutomationModeOverrideType::Override
             }
@@ -2083,7 +2094,12 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                         write!(f, "{}: {}", tt.short_name(), self.0.automation_mode)
                     }
                     TrackTouchState => {
-                        write!(f, "{}: {}", tt.short_name(), self.0.touched_parameter_type)
+                        write!(
+                            f,
+                            "{}: {}",
+                            tt.short_name(),
+                            self.0.touched_track_parameter_type
+                        )
                     }
                     _ => f.write_str(tt.short_name()),
                 }
@@ -2227,7 +2243,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     pub fn resolve_track_route(&self) -> Result<TrackRoute, &'static str> {
         get_track_route(
             self.context,
-            &self.target.track_route_descriptor()?,
+            &self.target.route_descriptor()?,
             self.compartment,
         )
     }
@@ -2287,12 +2303,8 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                             self.target.automation_mode
                         )
                     }
-                    TrackSendVolume
-                    | TrackSendPan
-                    | TrackSendMute
-                    | TrackSendPhase
-                    | TrackSendMono
-                    | TrackSendAutomationMode => write!(
+                    RouteVolume | RoutePan | RouteMute | RoutePhase | RouteMono
+                    | RouteAutomationMode => write!(
                         f,
                         "{}\nTrack {}\n{} {}",
                         tt,
@@ -2327,7 +2339,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         "{}\nTrack {}\n{}",
                         tt,
                         self.track_label(),
-                        self.target.touched_parameter_type
+                        self.target.touched_track_parameter_type
                     ),
                     GoToBookmark => {
                         write!(f, "{}\n{}", tt, self.bookmark_label())

@@ -16,11 +16,11 @@ use crate::domain::{
     FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
     MIDI_SEND_TARGET, NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
     ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
-    ROUTE_PHASE_TARGET, ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
-    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET,
-    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
-    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
-    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SEEK_TARGET,
+    SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
+    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET, TRACK_PHASE_TARGET,
+    TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET, TRACK_TOOL_TARGET,
+    TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -525,16 +525,19 @@ pub enum ReaperTargetType {
     LoadFxSnapshot = 19,
     FxPreset = 13,
     FxOpen = 27,
+
+    // FX parameter targets
     FxParameterValue = 1,
     FxParameterTouchState = 47,
 
     // Send targets
-    TrackSendAutomationMode = 45,
-    TrackSendMono = 41,
-    TrackSendMute = 18,
-    TrackSendPhase = 40,
-    TrackSendPan = 9,
-    TrackSendVolume = 3,
+    RouteAutomationMode = 45,
+    RouteTouchState = 48,
+    RouteMono = 41,
+    RouteMute = 18,
+    RoutePhase = 40,
+    RoutePan = 9,
+    RouteVolume = 3,
 
     // Clip targets
     ClipManagement = 46,
@@ -582,10 +585,10 @@ impl ReaperTargetType {
         matches!(
             self,
             FxParameterValue
-                | TrackSendMute
-                | TrackSendPhase
-                | TrackSendMono
-                | TrackSendAutomationMode
+                | RouteMute
+                | RoutePhase
+                | RouteMono
+                | RouteAutomationMode
                 | AllTrackFxEnable
                 | TrackShow
                 | TrackPhase
@@ -627,12 +630,13 @@ impl ReaperTargetType {
             FxOpen => &FX_OPEN_TARGET,
             FxParameterValue => &FX_PARAMETER_TARGET,
             FxParameterTouchState => &FX_PARAMETER_TOUCH_STATE_TARGET,
-            TrackSendAutomationMode => &ROUTE_AUTOMATION_MODE_TARGET,
-            TrackSendMono => &ROUTE_MONO_TARGET,
-            TrackSendMute => &ROUTE_MUTE_TARGET,
-            TrackSendPhase => &ROUTE_PHASE_TARGET,
-            TrackSendPan => &ROUTE_PAN_TARGET,
-            TrackSendVolume => &ROUTE_VOLUME_TARGET,
+            RouteAutomationMode => &ROUTE_AUTOMATION_MODE_TARGET,
+            RouteMono => &ROUTE_MONO_TARGET,
+            RouteMute => &ROUTE_MUTE_TARGET,
+            RoutePhase => &ROUTE_PHASE_TARGET,
+            RoutePan => &ROUTE_PAN_TARGET,
+            RouteVolume => &ROUTE_VOLUME_TARGET,
+            RouteTouchState => &ROUTE_TOUCH_STATE_TARGET,
             ClipTransport => &CLIP_TRANSPORT_TARGET,
             ClipSeek => &CLIP_SEEK_TARGET,
             ClipVolume => &CLIP_VOLUME_TARGET,

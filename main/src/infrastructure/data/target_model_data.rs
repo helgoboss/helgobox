@@ -13,8 +13,8 @@ use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
     FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
-    SendMidiDestination, SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType,
-    TransportAction, VirtualTrack,
+    SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType, TouchedTrackParameterType,
+    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::{
@@ -85,7 +85,9 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub fx_snapshot: Option<FxSnapshot>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub touched_parameter_type: TouchedParameterType,
+    pub touched_parameter_type: TouchedTrackParameterType,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub touched_route_parameter_type: TouchedRouteParameterType,
     // Bookmark target
     #[serde(flatten)]
     pub bookmark_data: BookmarkData,
@@ -187,7 +189,8 @@ impl TargetModelData {
                 model.control_element_id(),
             ),
             fx_snapshot: model.fx_snapshot().cloned(),
-            touched_parameter_type: model.touched_parameter_type(),
+            touched_parameter_type: model.touched_track_parameter_type(),
+            touched_route_parameter_type: model.touched_route_parameter_type(),
             bookmark_data: BookmarkData {
                 anchor: model.bookmark_anchor_type(),
                 r#ref: model.bookmark_ref(),
@@ -342,7 +345,10 @@ impl TargetModelData {
             self.control_element_index.to_model(),
         ));
         model.change(C::SetFxSnapshot(self.fx_snapshot.clone()));
-        model.change(C::SetTouchedParameterType(self.touched_parameter_type));
+        model.change(C::SetTouchedTrackParameterType(self.touched_parameter_type));
+        model.change(C::SetTouchedRouteParameterType(
+            self.touched_route_parameter_type,
+        ));
         let bookmark_type = if self.bookmark_data.is_region {
             BookmarkType::Region
         } else {

@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteMuteTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TrackRouteMute(RouteMuteTarget {
+        Ok(vec![ReaperTarget::RouteMute(RouteMuteTarget {
             route: get_track_route(context, &self.descriptor, compartment)?,
             poll_for_feedback: self.poll_for_feedback,
         })])
@@ -92,7 +92,7 @@ impl RealearnTarget for RouteMuteTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendMute)
+        Some(ReaperTargetType::RouteMute)
     }
 }
 

@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePhaseTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TrackRoutePhase(RoutePhaseTarget {
+        Ok(vec![ReaperTarget::RoutePhase(RoutePhaseTarget {
             route: get_track_route(context, &self.descriptor, compartment)?,
             poll_for_feedback: self.poll_for_feedback,
         })])
@@ -92,7 +92,7 @@ impl RealearnTarget for RoutePhaseTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendPhase)
+        Some(ReaperTargetType::RoutePhase)
     }
 }
 

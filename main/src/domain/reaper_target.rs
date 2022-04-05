@@ -32,10 +32,11 @@ use crate::domain::{
     FxParameterTouchStateTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
     HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget,
     OscSendTarget, PlayrateTarget, RealTimeClipTransportTarget, RealTimeControlContext,
-    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget,
-    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget,
-    TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -97,11 +98,12 @@ pub enum ReaperTarget {
     TrackShow(TrackShowTarget),
     TrackSolo(TrackSoloTarget),
     TrackAutomationMode(TrackAutomationModeTarget),
-    TrackRoutePan(RoutePanTarget),
-    TrackRouteMute(RouteMuteTarget),
-    TrackRoutePhase(RoutePhaseTarget),
-    TrackRouteMono(RouteMonoTarget),
-    TrackRouteAutomationMode(RouteAutomationModeTarget),
+    RoutePan(RoutePanTarget),
+    RouteMute(RouteMuteTarget),
+    RoutePhase(RoutePhaseTarget),
+    RouteMono(RouteMonoTarget),
+    RouteAutomationMode(RouteAutomationModeTarget),
+    RouteTouchState(RouteTouchStateTarget),
     Tempo(TempoTarget),
     Playrate(PlayrateTarget),
     AutomationModeOverride(AutomationModeOverrideTarget),
@@ -331,9 +333,7 @@ impl ReaperTarget {
             TrackRouteVolumeChanged(e) if e.touched => {
                 TrackRouteVolume(RouteVolumeTarget { route: e.route })
             }
-            TrackRoutePanChanged(e) if e.touched => {
-                TrackRoutePan(RoutePanTarget { route: e.route })
-            }
+            TrackRoutePanChanged(e) if e.touched => RoutePan(RoutePanTarget { route: e.route }),
             TrackArmChanged(e) => TrackArm(TrackArmTarget {
                 track: e.track,
                 exclusivity: Default::default(),
@@ -499,7 +499,7 @@ impl ReaperTarget {
             .merge(
                 csurf_rx
                     .track_route_pan_touched()
-                    .map(move |route| TrackRoutePan(RoutePanTarget { route }).into()),
+                    .map(move |route| RoutePan(RoutePanTarget { route }).into()),
             )
             .merge(
                 action_rx
@@ -561,11 +561,12 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackShow(t) => t.current_value(context),
             TrackSolo(t) => t.current_value(context),
             TrackAutomationMode(t) => t.current_value(context),
-            TrackRoutePan(t) => t.current_value(context),
-            TrackRouteMute(t) => t.current_value(context),
-            TrackRoutePhase(t) => t.current_value(context),
-            TrackRouteMono(t) => t.current_value(context),
-            TrackRouteAutomationMode(t) => t.current_value(context),
+            RoutePan(t) => t.current_value(context),
+            RouteMute(t) => t.current_value(context),
+            RoutePhase(t) => t.current_value(context),
+            RouteMono(t) => t.current_value(context),
+            RouteAutomationMode(t) => t.current_value(context),
+            RouteTouchState(t) => t.current_value(context),
             Tempo(t) => t.current_value(context),
             Playrate(t) => t.current_value(context),
             AutomationModeOverride(t) => t.current_value(context),
@@ -1103,48 +1104,6 @@ impl Default for SoloBehavior {
         // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
         // initial idea of being the number one tool for very project-specific mappings.
         SoloBehavior::InPlace
-    }
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize_repr,
-    Deserialize_repr,
-    IntoEnumIterator,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum TouchedParameterType {
-    Volume,
-    Pan,
-    Width,
-}
-
-impl Default for TouchedParameterType {
-    fn default() -> Self {
-        TouchedParameterType::Volume
-    }
-}
-
-impl TouchedParameterType {
-    pub fn try_from_reaper(
-        reaper_type: reaper_medium::TouchedParameterType,
-    ) -> Result<Self, &'static str> {
-        use reaper_medium::TouchedParameterType::*;
-        let res = match reaper_type {
-            Volume => Self::Volume,
-            Pan => Self::Pan,
-            Width => Self::Width,
-            Unknown(_) => return Err("unknown touch parameter type"),
-        };
-        Ok(res)
     }
 }
 

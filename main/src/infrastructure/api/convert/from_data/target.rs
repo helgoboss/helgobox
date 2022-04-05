@@ -5,8 +5,8 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
-    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
-    TrackRouteType, TransportAction,
+    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_control_element_kind, convert_osc_argument, convert_tags,
@@ -27,11 +27,11 @@ use realearn_api::schema::{
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
     LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
     RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
-    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget,
-    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMuteStateTarget,
-    TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
-    TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportActionTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -151,8 +151,8 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             touched_parameter: {
-                use schema::TouchedParameter as T;
-                use TouchedParameterType::*;
+                use schema::TouchedTrackParameter as T;
+                use TouchedTrackParameterType::*;
                 match data.touched_parameter_type {
                     Volume => T::Volume,
                     Pan => T::Pan,
@@ -198,7 +198,7 @@ fn convert_real_target(
                 parameter: convert_fx_parameter_descriptor(data, style),
             })
         }
-        TrackSendAutomationMode => T::RouteAutomationMode(RouteAutomationModeTarget {
+        RouteAutomationMode => T::RouteAutomationMode(RouteAutomationModeTarget {
             commons,
             mode: convert_automation_mode(data.track_automation_mode),
             poll_for_feedback: style.required_value_with_default(
@@ -207,7 +207,7 @@ fn convert_real_target(
             ),
             route: convert_route_descriptor(data, style),
         }),
-        TrackSendMono => T::RouteMonoState(RouteMonoStateTarget {
+        RouteMono => T::RouteMonoState(RouteMonoStateTarget {
             commons,
             poll_for_feedback: style.required_value_with_default(
                 data.poll_for_feedback,
@@ -215,12 +215,12 @@ fn convert_real_target(
             ),
             route: convert_route_descriptor(data, style),
         }),
-        TrackSendMute => T::RouteMuteState(RouteMuteStateTarget {
+        RouteMute => T::RouteMuteState(RouteMuteStateTarget {
             commons,
             poll_for_feedback: Some(data.poll_for_feedback),
             route: convert_route_descriptor(data, style),
         }),
-        TrackSendPhase => T::RoutePhase(RoutePhaseTarget {
+        RoutePhase => T::RoutePhase(RoutePhaseTarget {
             commons,
             poll_for_feedback: style.required_value_with_default(
                 data.poll_for_feedback,
@@ -228,12 +228,24 @@ fn convert_real_target(
             ),
             route: convert_route_descriptor(data, style),
         }),
-        TrackSendPan => T::RoutePan(RoutePanTarget {
+        RoutePan => T::RoutePan(RoutePanTarget {
             commons,
             route: convert_route_descriptor(data, style),
         }),
-        TrackSendVolume => T::RouteVolume(RouteVolumeTarget {
+        RouteVolume => T::RouteVolume(RouteVolumeTarget {
             commons,
+            route: convert_route_descriptor(data, style),
+        }),
+        RouteTouchState => T::RouteTouchState(RouteTouchStateTarget {
+            commons,
+            touched_parameter: {
+                use schema::TouchedRouteParameter as T;
+                use TouchedRouteParameterType::*;
+                match data.touched_route_parameter_type {
+                    Volume => T::Volume,
+                    Pan => T::Pan,
+                }
+            },
             route: convert_route_descriptor(data, style),
         }),
         ClipTransport => T::ClipTransportAction(ClipTransportActionTarget {

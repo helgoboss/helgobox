@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TrackRouteAutomationMode(
+        Ok(vec![ReaperTarget::RouteAutomationMode(
             RouteAutomationModeTarget {
                 route: get_track_route(context, &self.descriptor, compartment)?,
                 poll_for_feedback: self.poll_for_feedback,
@@ -102,7 +102,7 @@ impl RealearnTarget for RouteAutomationModeTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendAutomationMode)
+        Some(ReaperTargetType::RouteAutomationMode)
     }
 }
 

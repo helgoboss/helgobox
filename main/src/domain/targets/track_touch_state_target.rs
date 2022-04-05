@@ -4,8 +4,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -13,7 +12,7 @@ use reaper_high::{Project, Track};
 #[derive(Debug)]
 pub struct UnresolvedTrackTouchStateTarget {
     pub track_descriptor: TrackDescriptor,
-    pub parameter_type: TouchedParameterType,
+    pub parameter_type: TouchedTrackParameterType,
     pub exclusivity: TrackExclusivity,
 }
 
@@ -45,7 +44,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackTouchStateTarget {
     pub track: Track,
-    pub parameter_type: TouchedParameterType,
+    pub parameter_type: TouchedTrackParameterType,
     pub exclusivity: TrackExclusivity,
 }
 
@@ -145,3 +144,45 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track_exclusivity: true,
     ..DEFAULT_TARGET
 };
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    serde_repr::Serialize_repr,
+    serde_repr::Deserialize_repr,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+    derive_more::Display,
+)]
+#[repr(usize)]
+pub enum TouchedTrackParameterType {
+    Volume,
+    Pan,
+    Width,
+}
+
+impl Default for TouchedTrackParameterType {
+    fn default() -> Self {
+        TouchedTrackParameterType::Volume
+    }
+}
+
+impl TouchedTrackParameterType {
+    pub fn try_from_reaper(
+        reaper_type: reaper_medium::TouchedParameterType,
+    ) -> Result<Self, &'static str> {
+        use reaper_medium::TouchedParameterType::*;
+        let res = match reaper_type {
+            Volume => Self::Volume,
+            Pan => Self::Pan,
+            Width => Self::Width,
+            Unknown(_) => return Err("unknown touch parameter type"),
+        };
+        Ok(res)
+    }
+}

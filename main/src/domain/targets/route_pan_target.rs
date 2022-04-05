@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePanTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TrackRoutePan(RoutePanTarget {
+        Ok(vec![ReaperTarget::RoutePan(RoutePanTarget {
             route: get_track_route(context, &self.descriptor, compartment)?,
         })])
     }
@@ -125,7 +125,7 @@ impl RealearnTarget for RoutePanTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendPan)
+        Some(ReaperTargetType::RoutePan)
     }
 }
 

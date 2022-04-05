@@ -1,7 +1,7 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
-    TouchedParameterType,
+    TouchedTrackParameterType,
 };
 use reaper_high::{Fx, Track};
 use reaper_medium::MediaTrack;
@@ -20,11 +20,11 @@ pub struct RealearnTargetContext {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 struct TouchedThing {
     track: MediaTrack,
-    parameter_type: TouchedParameterType,
+    parameter_type: TouchedTrackParameterType,
 }
 
 impl TouchedThing {
-    pub fn new(track: MediaTrack, parameter_type: TouchedParameterType) -> Self {
+    pub fn new(track: MediaTrack, parameter_type: TouchedTrackParameterType) -> Self {
         Self {
             track,
             parameter_type,
@@ -65,7 +65,7 @@ impl RealearnTargetContext {
     pub fn touch_automation_parameter(
         &mut self,
         track: &Track,
-        parameter_type: TouchedParameterType,
+        parameter_type: TouchedTrackParameterType,
     ) {
         self.touched_things
             .insert(TouchedThing::new(track.raw(), parameter_type));
@@ -84,7 +84,7 @@ impl RealearnTargetContext {
     pub fn untouch_automation_parameter(
         &mut self,
         track: &Track,
-        parameter_type: TouchedParameterType,
+        parameter_type: TouchedTrackParameterType,
     ) {
         self.touched_things
             .remove(&TouchedThing::new(track.raw(), parameter_type));
@@ -99,15 +99,15 @@ impl RealearnTargetContext {
         );
     }
 
-    fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedParameterType) {
+    fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedTrackParameterType) {
         match parameter_type {
-            TouchedParameterType::Volume => {
+            TouchedTrackParameterType::Volume => {
                 track.set_volume(track.volume());
             }
-            TouchedParameterType::Pan => {
+            TouchedTrackParameterType::Pan => {
                 track.set_pan(track.pan());
             }
-            TouchedParameterType::Width => {
+            TouchedTrackParameterType::Width => {
                 track.set_width(track.width());
             }
         }
@@ -116,7 +116,7 @@ impl RealearnTargetContext {
     pub fn automation_parameter_is_touched(
         &self,
         track: MediaTrack,
-        parameter_type: TouchedParameterType,
+        parameter_type: TouchedTrackParameterType,
     ) -> bool {
         self.touched_things
             .contains(&TouchedThing::new(track, parameter_type))

@@ -130,7 +130,7 @@ impl RealearnTarget for RouteVolumeTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackSendVolume)
+        Some(ReaperTargetType::RouteVolume)
     }
 }
 
