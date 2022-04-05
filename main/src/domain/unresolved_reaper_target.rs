@@ -222,20 +222,22 @@ pub fn get_effective_tracks(
 }
 
 // Returns an error if that send (or track) doesn't exist.
-pub fn get_track_route(
+pub fn get_track_routes(
     context: ExtendedProcessorContext,
     descriptor: &TrackRouteDescriptor,
     compartment: MappingCompartment,
-) -> Result<TrackRoute, &'static str> {
-    let track = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?
-        // TODO-high Support multiple tracks
+) -> Result<Vec<TrackRoute>, &'static str> {
+    let tracks = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?;
+    let routes = tracks
         .into_iter()
-        .next()
-        .ok_or("no track resolved")?;
-    descriptor
-        .route
-        .resolve(&track, context, compartment)
-        .map_err(|_| "route doesn't exist")
+        .flat_map(|track| {
+            descriptor
+                .route
+                .resolve(&track, context, compartment)
+                .map_err(|_| "route doesn't exist")
+        })
+        .collect();
+    Ok(routes)
 }
 
 #[derive(Debug)]

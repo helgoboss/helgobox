@@ -16,7 +16,7 @@ use crate::application::{
 };
 use crate::domain::{
     find_bookmark, get_fx_params, get_fxs, get_non_present_virtual_route_label,
-    get_non_present_virtual_track_label, get_track_route, ActionInvocationType, AnyOnParameter,
+    get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
     MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
@@ -2186,7 +2186,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         use TrackRouteSelector::*;
         match &virtual_route.selector {
             ById(_) => {
-                if let Ok(r) = self.resolve_track_route() {
+                if let Ok(r) = self.resolve_first_track_route() {
                     get_route_label(&r).into()
                 } else {
                     get_non_present_virtual_route_label(virtual_route).into()
@@ -2263,12 +2263,13 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 
     // Returns an error if that send (or track) doesn't exist.
-    pub fn resolve_track_route(&self) -> Result<TrackRoute, &'static str> {
-        get_track_route(
+    pub fn resolve_first_track_route(&self) -> Result<TrackRoute, &'static str> {
+        let routes = get_track_routes(
             self.context,
             &self.target.route_descriptor()?,
             self.compartment,
-        )
+        )?;
+        routes.into_iter().next().ok_or("empty list of routes")
     }
 
     // Returns an error if that param (or FX) doesn't exist.

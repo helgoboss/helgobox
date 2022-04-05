@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_pan, get_track_route, pan_unit_value, parse_value_from_pan,
+    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
     MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
@@ -20,9 +20,12 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePanTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::RoutePan(RoutePanTarget {
-            route: get_track_route(context, &self.descriptor, compartment)?,
-        })])
+        let routes = get_track_routes(context, &self.descriptor, compartment)?;
+        let targets = routes
+            .into_iter()
+            .map(|route| ReaperTarget::RoutePan(RoutePanTarget { route }))
+            .collect();
+        Ok(targets)
     }
 
     fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {

@@ -1,5 +1,5 @@
 use crate::domain::{
-    automation_mode_unit_value, format_value_as_on_off, get_track_route, ControlContext,
+    automation_mode_unit_value, format_value_as_on_off, get_track_routes, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
@@ -22,13 +22,18 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::RouteAutomationMode(
-            RouteAutomationModeTarget {
-                route: get_track_route(context, &self.descriptor, compartment)?,
-                poll_for_feedback: self.poll_for_feedback,
-                mode: self.mode,
-            },
-        )])
+        let routes = get_track_routes(context, &self.descriptor, compartment)?;
+        let targets = routes
+            .into_iter()
+            .map(|route| {
+                ReaperTarget::RouteAutomationMode(RouteAutomationModeTarget {
+                    route,
+                    poll_for_feedback: self.poll_for_feedback,
+                    mode: self.mode,
+                })
+            })
+            .collect();
+        Ok(targets)
     }
 
     fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
