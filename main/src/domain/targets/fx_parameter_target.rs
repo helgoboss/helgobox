@@ -198,7 +198,7 @@ impl RealearnTarget for FxParameterTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::FxParameter)
+        Some(ReaperTargetType::FxParameterValue)
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
@@ -321,11 +321,12 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
 }
 
 pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Set parameter value",
+    name: "FX parameter: Set value",
     short_name: "FX parameter value",
     supports_poll_for_feedback: true,
     supports_track: true,
     supports_fx: true,
+    supports_fx_parameter: true,
     ..DEFAULT_TARGET
 };
 

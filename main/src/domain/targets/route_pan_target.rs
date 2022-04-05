@@ -7,7 +7,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
-use reaper_medium::ReaperFunctionError;
+use reaper_medium::{EditMode, ReaperFunctionError};
 
 #[derive(Debug)]
 pub struct UnresolvedRoutePanTarget {
@@ -75,7 +75,7 @@ impl RealearnTarget for RoutePanTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
-            .set_pan(pan)
+            .set_pan(pan, EditMode::NormalTweak)
             .map_err(|_| "couldn't set route pan")?;
         Ok(None)
     }

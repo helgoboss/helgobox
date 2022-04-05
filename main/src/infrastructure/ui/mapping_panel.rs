@@ -2324,15 +2324,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetOscArgIndex(index),
                     ));
                 }
-                ReaperTargetType::FxParameter => {
-                    let param_type = combo
-                        .selected_combo_box_item_index()
-                        .try_into()
-                        .unwrap_or_default();
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetParamType(
-                        param_type,
-                    )));
-                }
                 ReaperTargetType::NavigateWithinGroup => {
                     let exclusivity: SimpleExclusivity = combo
                         .selected_combo_box_item_index()
@@ -2341,6 +2332,15 @@ impl<'a> MutableMappingPanel<'a> {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetExclusivity(exclusivity.into()),
                     ));
+                }
+                t if t.supports_fx_parameter() => {
+                    let param_type = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetParamType(
+                        param_type,
+                    )));
                 }
                 t if t.supports_exclusivity() => {
                     let exclusivity = combo
@@ -2508,7 +2508,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetAutomationMode(v),
                     ));
                 }
-                ReaperTargetType::AutomationTouchState => {
+                ReaperTargetType::TrackTouchState => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid touched parameter type");
                     self.change_mapping(MappingCommand::ChangeTarget(
@@ -2533,7 +2533,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetOscArgTypeTag(v),
                     ));
                 }
-                ReaperTargetType::FxParameter => {
+                t if t.supports_fx_parameter() => {
                     if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
                         let param = fx.parameter_by_index(i as _);
@@ -2708,7 +2708,7 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::FxParameter => match self.mapping.target_model.param_type() {
+                t if t.supports_fx_parameter() => match self.mapping.target_model.param_type() {
                     VirtualFxParameterType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
                         self.change_mapping_with_initiator(
@@ -4091,7 +4091,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::FxParameter => {
+                t if t.supports_fx_parameter() => {
                     let text = match self.target.param_type() {
                         VirtualFxParameterType::Dynamic => {
                             Some(self.target.param_expression().to_owned())
@@ -4191,7 +4191,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
-                ReaperTargetType::AutomationTouchState => Some("Type"),
+                ReaperTargetType::TrackTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
@@ -4225,9 +4225,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some("Action"),
-                ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
+                t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_tags() => Some("Tags"),
@@ -4310,19 +4310,19 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => {
                     invalidate_with_osc_arg_index(combo, self.target.osc_arg_index());
                 }
-                ReaperTargetType::FxParameter => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.param_type().into())
-                        .unwrap();
-                }
                 ReaperTargetType::NavigateWithinGroup => {
                     combo.show();
                     combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
                     combo
                         .select_combo_box_item_by_index(simple_exclusivity.into())
+                        .unwrap();
+                }
+                t if t.supports_fx_parameter() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.param_type().into())
                         .unwrap();
                 }
                 t if t.supports_exclusivity() => {
@@ -4433,7 +4433,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.automation_mode().into())
                         .unwrap();
                 }
-                ReaperTargetType::AutomationTouchState => {
+                ReaperTargetType::TrackTouchState => {
                     combo.show();
                     combo.fill_combo_box_indexed(TouchedParameterType::into_enum_iter());
                     combo
@@ -4460,8 +4460,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let tag = self.target.osc_arg_type_tag();
                     invalidate_with_osc_arg_type_tag(combo, tag);
                 }
-                ReaperTargetType::FxParameter
-                    if self.target.param_type() == VirtualFxParameterType::ById =>
+
+                t if t.supports_fx_parameter()
+                    && self.target.param_type() == VirtualFxParameterType::ById =>
                 {
                     combo.show();
                     let context = self.session.extended_context();
@@ -6327,8 +6328,8 @@ fn invalidate_target_line_4_expression_result(
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => match target.target_type() {
-            ReaperTargetType::FxParameter
-                if target.param_type() == VirtualFxParameterType::Dynamic =>
+            t if t.supports_fx_parameter()
+                && target.param_type() == VirtualFxParameterType::Dynamic =>
             {
                 target
                     .virtual_fx_parameter()

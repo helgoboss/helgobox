@@ -262,7 +262,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = convert_track_desc(d.track.unwrap_or_default())?;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::AutomationTouchState,
+                r#type: ReaperTargetType::TrackTouchState,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
@@ -455,7 +455,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = fx_desc.chain_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::FxParameter,
+                r#type: ReaperTargetType::FxParameterValue,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
@@ -464,6 +464,21 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 poll_for_feedback: d
                     .poll_for_feedback
                     .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
+                ..init(d.commons)
+            }
+        }
+        Target::FxParameterAutomationTouchState(d) => {
+            let fx_parameter_desc = convert_fx_parameter_desc(d.parameter)?;
+            let fx_desc = fx_parameter_desc.fx_desc;
+            let track_desc = fx_desc.chain_desc.track_desc;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::FxParameterTouchState,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
+                fx_parameter_data: fx_parameter_desc.fx_parameter_data,
                 ..init(d.commons)
             }
         }

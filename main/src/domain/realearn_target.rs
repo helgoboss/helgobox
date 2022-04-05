@@ -10,16 +10,17 @@ use crate::domain::{
     OrderedMappingMap, OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, ReaperTarget,
     SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
     ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
-    AUTOMATION_TOUCH_STATE_TARGET, CLIP_MANAGEMENT_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET,
-    CLIP_VOLUME_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET,
-    FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET,
-    GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
-    NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
-    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
-    ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET,
-    TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET,
-    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
-    TRACK_TOOL_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    CLIP_MANAGEMENT_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET,
+    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET,
+    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET,
+    FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
+    MIDI_SEND_TARGET, NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
+    ROUTE_PHASE_TARGET, ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
+    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET,
+    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
+    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
+    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -508,7 +509,7 @@ pub enum ReaperTargetType {
     TrackPhase = 39,
     TrackSelection = 6,
     TrackAutomationMode = 25,
-    AutomationTouchState = 21,
+    TrackTouchState = 21,
     TrackPan = 4,
     TrackWidth = 17,
     TrackVolume = 2,
@@ -517,13 +518,15 @@ pub enum ReaperTargetType {
 
     // FX chain targets
     FxNavigate = 28,
+
     // FX targets
     FxEnable = 12,
     FxOnline = 42,
     LoadFxSnapshot = 19,
     FxPreset = 13,
     FxOpen = 27,
-    FxParameter = 1,
+    FxParameterValue = 1,
+    FxParameterTouchState = 47,
 
     // Send targets
     TrackSendAutomationMode = 45,
@@ -558,7 +561,7 @@ impl Display for ReaperTargetType {
 
 impl Default for ReaperTargetType {
     fn default() -> Self {
-        ReaperTargetType::FxParameter
+        ReaperTargetType::FxParameterValue
     }
 }
 
@@ -578,7 +581,7 @@ impl ReaperTargetType {
         use ReaperTargetType::*;
         matches!(
             self,
-            FxParameter
+            FxParameterValue
                 | TrackSendMute
                 | TrackSendPhase
                 | TrackSendMono
@@ -610,7 +613,7 @@ impl ReaperTargetType {
             TrackPhase => &TRACK_PHASE_TARGET,
             TrackSelection => &TRACK_SELECTION_TARGET,
             TrackAutomationMode => &TRACK_AUTOMATION_MODE_TARGET,
-            AutomationTouchState => &AUTOMATION_TOUCH_STATE_TARGET,
+            TrackTouchState => &TRACK_TOUCH_STATE_TARGET,
             TrackPan => &TRACK_PAN_TARGET,
             TrackWidth => &TRACK_WIDTH_TARGET,
             TrackVolume => &TRACK_VOLUME_TARGET,
@@ -622,7 +625,8 @@ impl ReaperTargetType {
             LoadFxSnapshot => &LOAD_FX_SNAPSHOT_TARGET,
             FxPreset => &FX_PRESET_TARGET,
             FxOpen => &FX_OPEN_TARGET,
-            FxParameter => &FX_PARAMETER_TARGET,
+            FxParameterValue => &FX_PARAMETER_TARGET,
+            FxParameterTouchState => &FX_PARAMETER_TOUCH_STATE_TARGET,
             TrackSendAutomationMode => &ROUTE_AUTOMATION_MODE_TARGET,
             TrackSendMono => &ROUTE_MONO_TARGET,
             TrackSendMute => &ROUTE_MUTE_TARGET,
@@ -686,6 +690,10 @@ impl ReaperTargetType {
         self.definition().supports_exclusivity()
     }
 
+    pub fn supports_fx_parameter(self) -> bool {
+        self.definition().supports_fx_parameter()
+    }
+
     pub fn supports_control(&self) -> bool {
         self.definition().supports_control()
     }
@@ -715,6 +723,7 @@ pub struct TargetTypeDef {
     pub supports_track_scrolling: bool,
     pub supports_slot: bool,
     pub supports_fx: bool,
+    pub supports_fx_parameter: bool,
     pub supports_fx_chain: bool,
     pub supports_fx_display_type: bool,
     pub supports_tags: bool,
@@ -751,6 +760,9 @@ impl TargetTypeDef {
     }
     pub const fn supports_fx(&self) -> bool {
         self.supports_fx
+    }
+    pub const fn supports_fx_parameter(&self) -> bool {
+        self.supports_fx_parameter
     }
     pub const fn supports_fx_chain(&self) -> bool {
         self.supports_fx() || self.supports_fx_chain
@@ -795,6 +807,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track_scrolling: false,
     supports_slot: false,
     supports_fx: false,
+    supports_fx_parameter: false,
     supports_fx_chain: false,
     supports_fx_display_type: false,
     supports_tags: false,

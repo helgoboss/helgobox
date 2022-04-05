@@ -14,7 +14,6 @@ mod target;
 
 use crate::application::{ActivationType, VirtualControlElementType};
 use crate::domain::{Keystroke, Tag};
-use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::data::{
     ActivationConditionData, OscValueRange, VirtualControlElementIdData,
 };

@@ -37,6 +37,7 @@ pub enum Target {
     CycleThroughFxPresets(CycleThroughFxPresetsTarget),
     FxVisibility(FxVisibilityTarget),
     FxParameterValue(FxParameterValueTarget),
+    FxParameterAutomationTouchState(FxParameterAutomationTouchStateTarget),
     RouteAutomationMode(RouteAutomationModeTarget),
     RouteMonoState(RouteMonoStateTarget),
     RouteMuteState(RouteMuteStateTarget),
@@ -410,6 +411,14 @@ pub struct FxParameterValueTarget {
     pub parameter: FxParameterDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub poll_for_feedback: Option<bool>,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FxParameterAutomationTouchStateTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub parameter: FxParameterDescriptor,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]

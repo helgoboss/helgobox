@@ -27,15 +27,15 @@ use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    AutomationTouchStateTarget, ClipManagementTarget, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
+    ClipManagementTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
+    FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
+    FxParameterTouchStateTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
     HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget,
     OscSendTarget, PlayrateTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget,
     SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget,
     TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -83,6 +83,7 @@ impl TargetCharacter {
 pub enum ReaperTarget {
     Action(ActionTarget),
     FxParameter(FxParameterTarget),
+    FxParameterTouchState(FxParameterTouchStateTarget),
     TrackVolume(TrackVolumeTarget),
     TrackTool(TrackToolTarget),
     TrackPeak(TrackPeakTarget),
@@ -114,7 +115,7 @@ pub enum ReaperTarget {
     Transport(TransportTarget),
     AnyOn(AnyOnTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
-    AutomationTouchState(AutomationTouchStateTarget),
+    TrackAutomationTouchState(TrackTouchStateTarget),
     GoToBookmark(GoToBookmarkTarget),
     Seek(SeekTarget),
     SendMidi(MidiSendTarget),
@@ -547,6 +548,7 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackPeak(t) => t.current_value(context),
             Action(t) => t.current_value(context),
             FxParameter(t) => t.current_value(context),
+            FxParameterTouchState(t) => t.current_value(context),
             TrackVolume(t) => t.current_value(context),
             TrackTool(t) => t.current_value(context),
             TrackPan(t) => t.current_value(context),
@@ -580,7 +582,7 @@ impl<'a> Target<'a> for ReaperTarget {
             AllTrackFxEnable(t) => t.current_value(context),
             Transport(t) => t.current_value(context),
             AnyOn(t) => t.current_value(context),
-            AutomationTouchState(t) => t.current_value(context),
+            TrackAutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
             ClipTransport(t) => t.current_value(context),

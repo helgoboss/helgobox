@@ -9,7 +9,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
-use reaper_medium::ReaperFunctionError;
+use reaper_medium::{EditMode, ReaperFunctionError};
 
 #[derive(Debug)]
 pub struct UnresolvedRouteVolumeTarget {
@@ -73,7 +73,7 @@ impl RealearnTarget for RouteVolumeTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.route
-            .set_volume(volume.unwrap_or(Volume::MIN))
+            .set_volume(volume.unwrap_or(Volume::MIN), EditMode::NormalTweak)
             .map_err(|_| "couldn't set route volume")?;
         Ok(None)
     }

@@ -61,8 +61,8 @@ pub use all_track_fx_enable_target::*;
 mod transport_target;
 pub use transport_target::*;
 
-mod automation_touch_state_target;
-pub use automation_touch_state_target::*;
+mod track_touch_state_target;
+pub use track_touch_state_target::*;
 
 mod go_to_bookmark_target;
 pub use go_to_bookmark_target::*;
@@ -138,3 +138,6 @@ pub use any_on_target::*;
 
 mod last_touched_target;
 pub use last_touched_target::*;
+
+mod fx_parameter_touch_state_target;
+pub use fx_parameter_touch_state_target::*;

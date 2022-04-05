@@ -23,14 +23,15 @@ use realearn_api::schema::{
     BookmarkRef, ClipManagementTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
     CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
     CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
-    FxOnlineOfflineStateTarget, FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget,
-    LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget,
-    ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget,
-    RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget, FxParameterValueTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget,
+    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
+    TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -141,7 +142,7 @@ fn convert_real_target(
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             mode: convert_automation_mode(data.track_automation_mode),
         }),
-        AutomationTouchState => T::TrackAutomationTouchState(TrackAutomationTouchStateTarget {
+        TrackTouchState => T::TrackAutomationTouchState(TrackAutomationTouchStateTarget {
             commons,
             track: convert_track_descriptor(
                 data.track_data,
@@ -183,7 +184,7 @@ fn convert_real_target(
             display_kind: convert_fx_display_kind(data.fx_display_type, style),
             chain: convert_fx_chain_descriptor(data, style),
         }),
-        FxParameter => T::FxParameterValue(FxParameterValueTarget {
+        FxParameterValue => T::FxParameterValue(FxParameterValueTarget {
             commons,
             poll_for_feedback: style.required_value_with_default(
                 data.poll_for_feedback,
@@ -191,6 +192,12 @@ fn convert_real_target(
             ),
             parameter: convert_fx_parameter_descriptor(data, style),
         }),
+        FxParameterTouchState => {
+            T::FxParameterAutomationTouchState(FxParameterAutomationTouchStateTarget {
+                commons,
+                parameter: convert_fx_parameter_descriptor(data, style),
+            })
+        }
         TrackSendAutomationMode => T::RouteAutomationMode(RouteAutomationModeTarget {
             commons,
             mode: convert_automation_mode(data.track_automation_mode),

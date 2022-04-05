@@ -206,7 +206,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 . Press the "Add one" button.
 * A new mapping called "1" should appear in the mapping rows panel.
 * For now it's greyed out because it's not complete yet. The default target is a
- <<fx-set-parameter-value,FX: Set parameter value>> target which doesn't yet refer to any specific FX.
+ <<fx-set-parameter-value>> target which doesn't yet refer to any specific FX.
 . Press the "Learn source" button of that new mapping.
 * Its label will change to "Stop".
 . Touch some control element on your MIDI controller (knob, encoder, fader, button, key, pitch
@@ -1187,7 +1187,7 @@ Here's how you would implement a typical use case. You want your rotary encoder 
 not pressed and control target B when it's pressed.
 
 . Create a mapping for the button
-** As "Target", you need to choose ReaLearn itself (Type: "FX: set parameter value", Track: `&lt;This&gt;`, FX: "… VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
+** As "Target", you need to choose ReaLearn itself (Type: <<fx-set-parameter-value>>, Track: `&lt;This&gt;`, FX: "… VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
 ** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
 . Create a mapping with target A
 ** Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it. Set "Modifier B" to `&lt;None&gt;`.
@@ -2112,7 +2112,7 @@ In the probably rare case that the polling causes performance issues, you can un
 * For most targets, if you untick this checkbox, automatic feedback for that target will simply stop working. This
  means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself
  (not using ReaLearn).
-* The "FX: Set parameter value" target is an exception. Automatic feedback will still work, even without _Poll for
+* The <<fx-set-parameter-value>> target is an exception. Automatic feedback will still work, even without _Poll for
  feedback_ enabled. But in the following corner cases it might not:
 ** If the FX is on the monitoring FX chain.
 ** If you change a preset from within the FX GUI.
@@ -2518,7 +2518,7 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
  window.
 
 [#fx-set-parameter-value]
-====== FX: Set parameter value
+====== FX parameter: Set value
 
 Sets the value of a particular track FX parameter.
 
@@ -2790,7 +2790,7 @@ Lets you control not just _this_ mapping but also _all other mappings in the sam
 
 TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick
  a target that doesn't have any effect, for example an unused internal ReaLearn compartment parameter
- (target type "FX: Set parameter value" with FX set to `<This>`).
+ (target <<fx-set-parameter-value>> with FX set to `<This>`).
 
 * *None:* Switches group interaction off. This is the default. Incoming control events will just affect _this_
  mapping, not others.

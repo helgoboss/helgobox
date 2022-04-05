@@ -24,13 +24,14 @@ use crate::domain::{
     TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
-    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedClipManagementTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
@@ -38,10 +39,10 @@ use crate::domain::{
     UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
     UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
     UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
-    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipSlot,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
-    VirtualTrack, VirtualTrackRoute,
+    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
+    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
+    VirtualChainFx, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -576,7 +577,7 @@ impl Default for TargetModel {
             unit: Default::default(),
             control_element_type: VirtualControlElementType::default(),
             control_element_id: Default::default(),
-            r#type: ReaperTargetType::FxParameter,
+            r#type: ReaperTargetType::FxParameterValue,
             action: None,
             action_invocation_type: ActionInvocationType::default(),
             track_type: Default::default(),
@@ -1638,12 +1639,17 @@ impl TargetModel {
                             None
                         },
                     }),
-                    FxParameter => {
+                    FxParameterValue => {
                         UnresolvedReaperTarget::FxParameter(UnresolvedFxParameterTarget {
                             fx_parameter_descriptor: self.fx_parameter_descriptor()?,
                             poll_for_feedback: self.poll_for_feedback,
                         })
                     }
+                    FxParameterTouchState => UnresolvedReaperTarget::FxParameterTouchState(
+                        UnresolvedFxParameterTouchStateTarget {
+                            fx_parameter_descriptor: self.fx_parameter_descriptor()?,
+                        },
+                    ),
                     TrackVolume => {
                         UnresolvedReaperTarget::TrackVolume(UnresolvedTrackVolumeTarget {
                             track_descriptor: self.track_descriptor()?,
@@ -1801,13 +1807,13 @@ impl TargetModel {
                         })
                     }
                     LastTouched => UnresolvedReaperTarget::LastTouched(UnresolvedLastTouchedTarget),
-                    AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState(
-                        UnresolvedAutomationTouchStateTarget {
+                    TrackTouchState => {
+                        UnresolvedReaperTarget::TrackTouchState(UnresolvedTrackTouchStateTarget {
                             track_descriptor: self.track_descriptor()?,
                             parameter_type: self.touched_parameter_type,
                             exclusivity: self.track_exclusivity,
-                        },
-                    ),
+                        })
+                    }
                     GoToBookmark => {
                         UnresolvedReaperTarget::GoToBookmark(UnresolvedGoToBookmarkTarget {
                             bookmark_type: self.bookmark_type,
@@ -2076,7 +2082,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     TrackAutomationMode => {
                         write!(f, "{}: {}", tt.short_name(), self.0.automation_mode)
                     }
-                    AutomationTouchState => {
+                    TrackTouchState => {
                         write!(f, "{}: {}", tt.short_name(), self.0.touched_parameter_type)
                     }
                     _ => f.write_str(tt.short_name()),
@@ -2259,7 +2265,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         self.target.command_id_label(),
                         self.target.action_name_label()
                     ),
-                    FxParameter => write!(
+                    FxParameterValue => write!(
                         f,
                         "{}\nTrack {}\nFX {}\nParam {}",
                         tt,
@@ -2316,7 +2322,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                             .map(|s| s.to_string())
                             .unwrap_or_else(|| "-".to_owned())
                     ),
-                    AutomationTouchState => write!(
+                    TrackTouchState => write!(
                         f,
                         "{}\nTrack {}\n{}",
                         tt,

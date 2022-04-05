@@ -11,13 +11,13 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValu
 use reaper_high::{Project, Track};
 
 #[derive(Debug)]
-pub struct UnresolvedAutomationTouchStateTarget {
+pub struct UnresolvedTrackTouchStateTarget {
     pub track_descriptor: TrackDescriptor,
     pub parameter_type: TouchedParameterType,
     pub exclusivity: TrackExclusivity,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedAutomationTouchStateTarget {
+impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
@@ -27,7 +27,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAutomationTouchStateTarget {
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::AutomationTouchState(AutomationTouchStateTarget {
+                    ReaperTarget::TrackAutomationTouchState(TrackTouchStateTarget {
                         track,
                         parameter_type: self.parameter_type,
                         exclusivity: self.exclusivity,
@@ -43,13 +43,13 @@ impl UnresolvedReaperTargetDef for UnresolvedAutomationTouchStateTarget {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct AutomationTouchStateTarget {
+pub struct TrackTouchStateTarget {
     pub track: Track,
     pub parameter_type: TouchedParameterType,
     pub exclusivity: TrackExclusivity,
 }
 
-impl RealearnTarget for AutomationTouchStateTarget {
+impl RealearnTarget for TrackTouchStateTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
@@ -119,11 +119,11 @@ impl RealearnTarget for AutomationTouchStateTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::AutomationTouchState)
+        Some(ReaperTargetType::TrackTouchState)
     }
 }
 
-impl<'a> Target<'a> for AutomationTouchStateTarget {
+impl<'a> Target<'a> for TrackTouchStateTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -138,9 +138,9 @@ impl<'a> Target<'a> for AutomationTouchStateTarget {
     }
 }
 
-pub const AUTOMATION_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
+pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Set automation touch state",
-    short_name: "Automation touch state",
+    short_name: "Track touch state",
     supports_track: true,
     supports_track_exclusivity: true,
     ..DEFAULT_TARGET
