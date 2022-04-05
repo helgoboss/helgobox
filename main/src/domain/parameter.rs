@@ -96,6 +96,13 @@ impl ParamSetting {
         }
     }
 
+    pub fn with_raw_value(&self, value: RawParamValue) -> impl Display + '_ {
+        SettingAndValue {
+            setting: self,
+            value,
+        }
+    }
+
     pub fn convert_to_value(&self, raw_value: RawParamValue) -> EffectiveParamValue {
         let raw_value = UnitValue::new_clamped(raw_value as _);
         if let Some(value_count) = self.value_count {
@@ -123,6 +130,23 @@ impl ParamSetting {
     pub fn parse_to_raw_value(&self, text: &str) -> Result<RawParamValue, &'static str> {
         let effective_value: f64 = text.parse().map_err(|_| "couldn't parse as number")?;
         Ok(self.convert_to_raw_value(effective_value))
+    }
+}
+
+struct SettingAndValue<'a> {
+    setting: &'a ParamSetting,
+    value: RawParamValue,
+}
+
+impl<'a> Display for SettingAndValue<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let effective_value = self.setting.convert_to_value(self.value);
+        if let EffectiveParamValue::Discrete(v) = effective_value {
+            if let Some(label) = self.setting.find_label_for_value(v) {
+                return label.fmt(f);
+            }
+        }
+        effective_value.fmt(f)
     }
 }
 
@@ -167,13 +191,11 @@ impl Param {
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let effective_value = self.effective_value();
-        if let EffectiveParamValue::Discrete(v) = effective_value {
-            if let Some(label) = self.setting.find_label_for_value(v) {
-                return label.fmt(f);
-            }
-        }
-        effective_value.fmt(f)
+        let setting_and_value = SettingAndValue {
+            setting: &self.setting,
+            value: self.value,
+        };
+        setting_and_value.fmt(f)
     }
 }
 

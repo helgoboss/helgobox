@@ -109,12 +109,13 @@ impl RealearnTarget for FxParameterTarget {
     }
 
     fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
-        self.param
+        let formatted_value = self
+            .param
             // Even if a REAPER-normalized value can take numbers > 1.0, the usual value range
             // is in fact normalized in the classical sense (unit interval).
             .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
-            .map(|s| s.into_string())
-            .unwrap_or_else(|_| self.format_value_generic(value, context))
+            .map(|s| s.into_string());
+        formatted_value.unwrap_or_else(|_| self.format_value_generic(value, context))
     }
 
     fn hit(

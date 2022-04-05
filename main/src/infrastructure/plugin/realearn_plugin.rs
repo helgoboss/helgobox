@@ -569,7 +569,7 @@ impl RealearnPlugin {
                     Err(_) => return 0,
                 };
                 let params = self.plugin_parameters.params();
-                let string = params.at(i).setting().convert_to_value(opt).to_string();
+                let string = params.at(i).setting().with_raw_value(opt).to_string();
                 if write_to_c_str(ptr, string).is_err() {
                     return 0;
                 }

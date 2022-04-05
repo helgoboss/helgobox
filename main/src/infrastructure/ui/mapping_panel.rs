@@ -6116,6 +6116,7 @@ fn invalidate_target_controls_free(
     initiator: Option<u32>,
     edit_control_id: u32,
     set_text_only_if_edit_control_not_focused: bool,
+    // Whether to display/enter step sizes instead of absolute values.
     use_step_sizes: bool,
     unit: TargetUnit,
     control_context: ControlContext,
@@ -6130,7 +6131,10 @@ fn invalidate_target_controls_free(
                         .convert_unit_value_to_discrete_value(value, control_context)
                         .map(|v| v.to_string())
                         .unwrap_or_else(|_| "".to_string());
-                    (edit_text, "".to_string())
+                    (
+                        edit_text,
+                        get_text_right_to_target_edit_control(target, value, control_context),
+                    )
                 } else if use_step_sizes {
                     (
                         target.format_step_size_without_unit(value, control_context),
