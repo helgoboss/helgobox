@@ -12,6 +12,65 @@ pub trait PresetLinkManager: fmt::Debug {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String>;
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FxPresetLinkConfig {
+    links: Vec<FxPresetLink>,
+}
+
+impl PresetLinkManager for FxPresetLinkConfig {
+    fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
+        // Let the links with preset name have precedence.
+        find_match(
+            self.links.iter().filter(|l| l.fx_id.has_preset_name()),
+            fx_id,
+        )
+        .or_else(|| {
+            find_match(
+                self.links.iter().filter(|l| !l.fx_id.has_preset_name()),
+                fx_id,
+            )
+        })
+    }
+}
+
+impl FxPresetLinkConfig {
+    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
+        self.links.iter()
+    }
+
+    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
+        for link in &mut self.links {
+            if link.fx_id == old_fx_id {
+                link.fx_id = new_fx_id;
+                return;
+            }
+        }
+    }
+
+    pub fn remove_link(&mut self, fx_id: &FxId) {
+        self.links.retain(|l| &l.fx_id != fx_id);
+    }
+
+    pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
+        let link = FxPresetLink { fx_id, preset_id };
+        if let Some(l) = self.links.iter_mut().find(|l| l.fx_id == link.fx_id) {
+            *l = link;
+        } else {
+            self.links.push(link);
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FxPresetLink {
+    #[serde(rename = "fx")]
+    pub fx_id: FxId,
+    #[serde(rename = "presetId")]
+    pub preset_id: String,
+}
+
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxId {
@@ -150,4 +209,17 @@ impl Default for MainPresetAutoLoadMode {
     fn default() -> Self {
         Self::Off
     }
+}
+
+fn find_match<'a>(
+    mut links: impl Iterator<Item = &'a FxPresetLink>,
+    fx_id: &FxId,
+) -> Option<String> {
+    links.find_map(|link| {
+        if fx_id.matches(&link.fx_id) {
+            Some(link.preset_id.clone())
+        } else {
+            None
+        }
+    })
 }

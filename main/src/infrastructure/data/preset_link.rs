@@ -1,4 +1,4 @@
-use crate::application::{FxId, PresetLinkManager};
+use crate::application::{FxId, FxPresetLinkConfig, PresetLinkManager};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::fs;
@@ -6,21 +6,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 pub type SharedPresetLinkManager = Rc<RefCell<FileBasedPresetLinkManager>>;
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FxPresetLinkConfig {
-    links: Vec<FxPresetLink>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FxPresetLink {
-    #[serde(rename = "fx")]
-    pub fx_id: FxId,
-    #[serde(rename = "presetId")]
-    pub preset_id: String,
-}
 
 #[derive(Debug)]
 pub struct FileBasedPresetLinkManager {
@@ -36,6 +21,25 @@ impl FileBasedPresetLinkManager {
         };
         let _ = manager.load_fx_config();
         manager
+    }
+
+    pub fn config(&self) -> &FxPresetLinkConfig {
+        &self.config
+    }
+
+    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
+        self.config.update_fx_id(old_fx_id, new_fx_id);
+        self.save_fx_config().unwrap();
+    }
+
+    pub fn remove_link(&mut self, fx_id: &FxId) {
+        self.config.remove_link(fx_id);
+        self.save_fx_config().unwrap();
+    }
+
+    pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
+        self.config.link_preset_to_fx(preset_id, fx_id);
+        self.save_fx_config().unwrap();
     }
 
     fn fx_config_file_path(&self) -> PathBuf {
@@ -59,72 +63,10 @@ impl FileBasedPresetLinkManager {
             .map_err(|_| "couldn't write FX preset link config file")?;
         Ok(())
     }
-
-    pub fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
-        // Let the links with preset name have precedence.
-        find_match(
-            self.config
-                .links
-                .iter()
-                .filter(|l| l.fx_id.has_preset_name()),
-            fx_id,
-        )
-        .or_else(|| {
-            find_match(
-                self.config
-                    .links
-                    .iter()
-                    .filter(|l| !l.fx_id.has_preset_name()),
-                fx_id,
-            )
-        })
-    }
-
-    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
-        self.config.links.iter()
-    }
-
-    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
-        for link in &mut self.config.links {
-            if link.fx_id == old_fx_id {
-                link.fx_id = new_fx_id;
-                return;
-            }
-        }
-        self.save_fx_config().unwrap();
-    }
-
-    pub fn remove_link(&mut self, fx_id: &FxId) {
-        self.config.links.retain(|l| &l.fx_id != fx_id);
-        self.save_fx_config().unwrap();
-    }
-
-    pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
-        let link = FxPresetLink { fx_id, preset_id };
-        if let Some(l) = self.config.links.iter_mut().find(|l| l.fx_id == link.fx_id) {
-            *l = link;
-        } else {
-            self.config.links.push(link);
-        }
-        self.save_fx_config().unwrap();
-    }
 }
 
 impl PresetLinkManager for SharedPresetLinkManager {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
-        self.borrow().find_preset_linked_to_fx(fx_id)
+        self.borrow().config().find_preset_linked_to_fx(fx_id)
     }
-}
-
-fn find_match<'a>(
-    mut links: impl Iterator<Item = &'a FxPresetLink>,
-    fx_id: &FxId,
-) -> Option<String> {
-    links.find_map(|link| {
-        if fx_id.matches(&link.fx_id) {
-            Some(link.preset_id.clone())
-        } else {
-            None
-        }
-    })
 }

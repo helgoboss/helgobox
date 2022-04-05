@@ -499,7 +499,7 @@ impl HeaderPanel {
                     } else {
                         disabled_item("<Add link from last focused FX to preset>")
                     })
-                    .chain(preset_link_manager.links().map(|link| {
+                    .chain(preset_link_manager.config().links().map(|link| {
                         let fx_id_0 = link.fx_id.clone();
                         let fx_id_1 = link.fx_id.clone();
                         let fx_id_2 = link.fx_id.clone();
