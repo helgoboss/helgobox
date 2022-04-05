@@ -1,9 +1,9 @@
 use crate::application::{
     share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
-    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel,
-    MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
-    PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping, SourceModel,
-    TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
+    CompartmentModel, CompartmentProp, ControllerPreset, FxId, FxPresetLinkConfig, GroupCommand,
+    GroupModel, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp,
+    Preset, PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping,
+    SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
 };
 use crate::base::{
     prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
@@ -117,7 +117,9 @@ pub struct Session {
     params: PluginParams,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
-    main_preset_link_manager: Box<dyn PresetLinkManager>,
+    global_preset_link_manager: Box<dyn PresetLinkManager>,
+    instance_preset_link_config: FxPresetLinkConfig,
+    use_instance_preset_links_only: bool,
     instance_state: SharedInstanceState,
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
@@ -251,7 +253,9 @@ impl Session {
             params: Default::default(),
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
-            main_preset_link_manager: Box::new(preset_link_manager),
+            global_preset_link_manager: Box::new(preset_link_manager),
+            instance_preset_link_config: Default::default(),
+            use_instance_preset_links_only: false,
             instance_state,
             global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender,
@@ -511,11 +515,27 @@ impl Session {
     }
 
     fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>) {
-        let preset_id =
-            fx_id.and_then(|id| self.main_preset_link_manager.find_preset_linked_to_fx(&id));
-        if self.active_main_preset_id != preset_id {
-            let _ = self.activate_main_preset(preset_id);
+        let final_preset_id = self.find_preset_linked_to_fx(fx_id);
+        // Activate preset if not active already.
+        if self.active_main_preset_id == final_preset_id {
+            return;
         }
+        let _ = self.activate_main_preset(final_preset_id);
+    }
+
+    fn find_preset_linked_to_fx(&self, fx_id: Option<FxId>) -> Option<String> {
+        let fx_id = fx_id?;
+        if let Some(preset_id) = self
+            .instance_preset_link_config
+            .find_preset_linked_to_fx(&fx_id)
+        {
+            return Some(preset_id);
+        }
+        if self.use_instance_preset_links_only {
+            return None;
+        }
+        self.global_preset_link_manager
+            .find_preset_linked_to_fx(&fx_id)
     }
 
     fn invalidate_fx_indexes_of_mapping_targets(&mut self, weak_session: WeakSession) {
@@ -1732,6 +1752,26 @@ impl Session {
 
     pub fn containing_fx_is_in_input_fx_chain(&self) -> bool {
         self.processor_context.containing_fx().is_input_fx()
+    }
+
+    pub fn use_instance_preset_links_only(&self) -> bool {
+        self.use_instance_preset_links_only
+    }
+
+    pub fn set_use_instance_preset_links_only(&mut self, value: bool) {
+        self.use_instance_preset_links_only = value;
+    }
+
+    pub fn instance_preset_link_config(&self) -> &FxPresetLinkConfig {
+        &self.instance_preset_link_config
+    }
+
+    pub fn instance_preset_link_config_mut(&mut self) -> &mut FxPresetLinkConfig {
+        &mut self.instance_preset_link_config
+    }
+
+    pub fn set_instance_preset_link_config(&mut self, config: FxPresetLinkConfig) {
+        self.instance_preset_link_config = config;
     }
 
     pub fn set_active_controller_id_without_notification(

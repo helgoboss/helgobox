@@ -1,6 +1,6 @@
 use crate::application::{
-    reaper_supports_global_midi_filter, CompartmentInSession, GroupModel, MainPresetAutoLoadMode,
-    Session,
+    reaper_supports_global_midi_filter, CompartmentInSession, FxPresetLinkConfig, GroupModel,
+    MainPresetAutoLoadMode, Session,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
@@ -33,7 +33,7 @@ use std::ops::Deref;
 /// backward-compatible.
 // TODO-low Maybe call PluginData because it also contains parameter values (which are not part of
 // the session.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
     // Since ReaLearn 1.12.0-pre18
@@ -103,6 +103,10 @@ pub struct SessionData {
     main: CompartmentState,
     #[serde(default, skip_serializing_if = "is_default")]
     active_instance_tags: HashSet<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    instance_preset_link_config: FxPresetLinkConfig,
+    #[serde(default, skip_serializing_if = "is_default")]
+    use_instance_preset_links_only: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -184,6 +188,8 @@ impl Default for SessionData {
             controller: Default::default(),
             main: Default::default(),
             active_instance_tags: Default::default(),
+            instance_preset_link_config: Default::default(),
+            use_instance_preset_links_only: false,
         }
     }
 }
@@ -286,6 +292,8 @@ impl SessionData {
                 MappingCompartment::MainMappings,
             ),
             active_instance_tags: instance_state.active_instance_tags().clone(),
+            instance_preset_link_config: session.instance_preset_link_config().clone(),
+            use_instance_preset_links_only: session.use_instance_preset_links_only(),
         }
     }
 
@@ -456,6 +464,8 @@ impl SessionData {
             .main_preset_auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
         session.tags.set_without_notification(self.tags.clone());
+        session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
+        session.set_use_instance_preset_links_only(self.use_instance_preset_links_only);
         // Instance state
         {
             let instance_state = session.instance_state().clone();

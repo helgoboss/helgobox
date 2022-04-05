@@ -12,7 +12,15 @@ pub trait PresetLinkManager: fmt::Debug {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String>;
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+pub trait PresetLinkMutator {
+    fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId);
+
+    fn remove_link(&mut self, fx_id: &FxId);
+
+    fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId);
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxPresetLinkConfig {
     links: Vec<FxPresetLink>,
@@ -34,12 +42,8 @@ impl PresetLinkManager for FxPresetLinkConfig {
     }
 }
 
-impl FxPresetLinkConfig {
-    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
-        self.links.iter()
-    }
-
-    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
+impl PresetLinkMutator for FxPresetLinkConfig {
+    fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
         for link in &mut self.links {
             if link.fx_id == old_fx_id {
                 link.fx_id = new_fx_id;
@@ -48,11 +52,11 @@ impl FxPresetLinkConfig {
         }
     }
 
-    pub fn remove_link(&mut self, fx_id: &FxId) {
+    fn remove_link(&mut self, fx_id: &FxId) {
         self.links.retain(|l| &l.fx_id != fx_id);
     }
 
-    pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
+    fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
         let link = FxPresetLink { fx_id, preset_id };
         if let Some(l) = self.links.iter_mut().find(|l| l.fx_id == link.fx_id) {
             *l = link;
@@ -62,7 +66,13 @@ impl FxPresetLinkConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl FxPresetLinkConfig {
+    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
+        self.links.iter()
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxPresetLink {
     #[serde(rename = "fx")]

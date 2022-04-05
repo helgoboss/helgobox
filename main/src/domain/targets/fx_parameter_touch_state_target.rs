@@ -51,7 +51,7 @@ impl RealearnTarget for FxParameterTouchStateTarget {
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if !value.is_on() {
-            self.param.end_edit();
+            self.param.end_edit().map_err(|e| e.message())?;
         }
         Ok(None)
     }

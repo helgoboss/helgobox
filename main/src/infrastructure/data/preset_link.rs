@@ -1,5 +1,4 @@
-use crate::application::{FxId, FxPresetLinkConfig, PresetLinkManager};
-use serde::{Deserialize, Serialize};
+use crate::application::{FxId, FxPresetLinkConfig, PresetLinkManager, PresetLinkMutator};
 use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
@@ -25,21 +24,6 @@ impl FileBasedPresetLinkManager {
 
     pub fn config(&self) -> &FxPresetLinkConfig {
         &self.config
-    }
-
-    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
-        self.config.update_fx_id(old_fx_id, new_fx_id);
-        self.save_fx_config().unwrap();
-    }
-
-    pub fn remove_link(&mut self, fx_id: &FxId) {
-        self.config.remove_link(fx_id);
-        self.save_fx_config().unwrap();
-    }
-
-    pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
-        self.config.link_preset_to_fx(preset_id, fx_id);
-        self.save_fx_config().unwrap();
     }
 
     fn fx_config_file_path(&self) -> PathBuf {
@@ -68,5 +52,22 @@ impl FileBasedPresetLinkManager {
 impl PresetLinkManager for SharedPresetLinkManager {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
         self.borrow().config().find_preset_linked_to_fx(fx_id)
+    }
+}
+
+impl PresetLinkMutator for FileBasedPresetLinkManager {
+    fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
+        self.config.update_fx_id(old_fx_id, new_fx_id);
+        self.save_fx_config().unwrap();
+    }
+
+    fn remove_link(&mut self, fx_id: &FxId) {
+        self.config.remove_link(fx_id);
+        self.save_fx_config().unwrap();
+    }
+
+    fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
+        self.config.link_preset_to_fx(preset_id, fx_id);
+        self.save_fx_config().unwrap();
     }
 }
