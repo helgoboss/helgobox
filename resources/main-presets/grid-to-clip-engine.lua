@@ -1,19 +1,62 @@
 -- ### Configuration ###
 
+-- Modes
+local mode_count = 100
+local modes = {
+    { label = "Normal" },
+    { label = "Record", button = "record" },
+    { label = "Delete", button = "delete" },
+    { label = "Quantize", button = "quantize" },
+}
+
 -- Number of columns and rows
 local column_count = 8
 local row_count = 8
 
 -- ### Content ###
 
+local mappings = {}
+local mode_labels = {}
+
+for i, mode in ipairs(modes) do
+    table.insert(mode_labels, mode.label)
+    if mode.button then
+        local target_value = (i - 1) / mode_count
+        local m = {
+            group = "modes",
+            name = mode.label,
+            source = {
+                kind = "Virtual",
+                id = mode.button,
+                character = "Button",
+            },
+            glue = {
+                absolute_mode = "ToggleButton",
+                target_interval = { target_value, target_value },
+                out_of_range_behavior = "Min",
+            },
+            target = {
+                kind = "FxParameterValue",
+                parameter = {
+                    address = "ById",
+                    index = 3,
+                },
+            },
+        }
+        table.insert(mappings, m)
+    end
+end
+
 local parameters = {
     {
         index = 0,
         name = "Column offset",
+        value_count = 10000,
     },
     {
         index = 1,
         name = "Row offset",
+        value_count = 10000,
     },
     {
         index = 2,
@@ -21,22 +64,16 @@ local parameters = {
     },
     {
         index = 3,
-        name = "Record modifier",
-    },
-    {
-        index = 4,
-        name = "Delete modifier",
-    },
-    {
-        index = 5,
-        name = "Quantize modifier",
+        name = "Mode",
+        value_count = mode_count,
+        value_labels = mode_labels
     },
 }
 
 local groups = {
     {
-        id = "exclusive-modifiers",
-        name = "Exclusive modifiers",
+        id = "modes",
+        name = "Modes",
     },
     {
         id = "slot-play",
@@ -56,97 +93,23 @@ local groups = {
     },
 }
 
-local mappings = {
-    {
-        id = "record-modifier",
-        group = "exclusive-modifiers",
-        name = "Record modifier",
-        source = {
-            kind = "Virtual",
-            id = "record",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "ToggleButton",
-            interaction = "InverseTargetValueOnOnly",
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 3,
-            },
-        },
-    },
-    {
-        id = "delete-modifier",
-        group = "exclusive-modifiers",
-        name = "Delete modifier",
-        source = {
-            kind = "Virtual",
-            id = "delete",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "ToggleButton",
-            interaction = "InverseTargetValueOnOnly",
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 4,
-            },
-        },
-    },
-    {
-        id = "quantize-modifier",
-        group = "exclusive-modifiers",
-        name = "quantize modifier",
-        source = {
-            kind = "Virtual",
-            id = "quantize",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "ToggleButton",
-            interaction = "InverseTargetValueOnOnly",
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 5,
-            },
-        },
-    },
-}
-
 -- For each column
 for col = 0, column_count - 1 do
     local human_col = col + 1
     for row = 0, row_count - 1 do
         local human_row = row + 1
         local prefix = "col" .. human_col .. "/row" .. human_row .. "/"
-        local slot_column_expression = "p[0] * 10000 + " .. col
-        local slot_row_expression = "p[1] * 10000 + " .. row
+        local slot_column_expression = "p[0] + " .. col
+        local slot_row_expression = "p[1] + " .. row
         local slot_play = {
             id = prefix .. "slot-play",
             name = "Slot " .. human_col .. "/" .. human_row .. " play",
             group = "slot-play",
             feedback_enabled = false,
             activation_condition = {
-                kind = "Modifier",
-                modifiers = {
-                    {
-                        parameter = 3,
-                        on = false,
-                    },
-                    {
-                        parameter = 4,
-                        on = false,
-                    },
-                },
+                kind = "Bank",
+                parameter = 3,
+                bank_index = 0,
             },
             source = {
                 kind = "Virtual",
@@ -192,13 +155,9 @@ for col = 0, column_count - 1 do
             group = "slot-record",
             feedback_enabled = false,
             activation_condition = {
-                kind = "Modifier",
-                modifiers = {
-                    {
-                        parameter = 3,
-                        on = true,
-                    },
-                },
+                kind = "Bank",
+                parameter = 3,
+                bank_index = 1,
             },
             source = {
                 kind = "Virtual",
@@ -224,13 +183,9 @@ for col = 0, column_count - 1 do
             group = "slot-clear",
             feedback_enabled = false,
             activation_condition = {
-                kind = "Modifier",
-                modifiers = {
-                    {
-                        parameter = 4,
-                        on = true,
-                    },
-                },
+                kind = "Bank",
+                parameter = 3,
+                bank_index = 2,
             },
             source = {
                 kind = "Virtual",
@@ -256,12 +211,9 @@ for col = 0, column_count - 1 do
             feedback_enabled = false,
             activation_condition = {
                 kind = "Modifier",
-                modifiers = {
-                    {
-                        parameter = 5,
-                        on = true,
-                    },
-                },
+                kind = "Bank",
+                parameter = 3,
+                bank_index = 4,
             },
             source = {
                 kind = "Virtual",

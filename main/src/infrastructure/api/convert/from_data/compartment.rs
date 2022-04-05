@@ -22,7 +22,7 @@ pub fn convert_compartment(
             let v: Result<Vec<_>, _> = data
                 .parameters
                 .into_iter()
-                .map(|(key, value)| convert_parameter(key, value))
+                .map(|(key, value)| convert_parameter(key, value, style))
                 .collect();
             style.required_value(v?)
         },

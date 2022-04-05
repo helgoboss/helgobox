@@ -78,6 +78,8 @@ pub struct ParamSetting {
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub value_count: Option<NonZeroU32>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub value_labels: Vec<String>,
 }
 
 impl ParamSetting {
@@ -111,6 +113,10 @@ impl ParamSetting {
             effective_value
         };
         UnitValue::new_clamped(raw_value).get() as RawParamValue
+    }
+
+    fn find_label_for_value(&self, value: u32) -> Option<&str> {
+        self.value_labels.get(value as usize).map(|s| s.as_str())
     }
 
     /// Attempts to parse the given text to a raw parameter value.
@@ -161,7 +167,13 @@ impl Param {
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.effective_value().fmt(f)
+        let effective_value = self.effective_value();
+        if let EffectiveParamValue::Discrete(v) = effective_value {
+            if let Some(label) = self.setting.find_label_for_value(v) {
+                return label.fmt(f);
+            }
+        }
+        effective_value.fmt(f)
     }
 }
 

@@ -2790,6 +2790,7 @@ fn edit_compartment_parameter_internal(
             key: old_setting.key.clone(),
             name: name.trim().to_owned(),
             value_count: { value_count.parse().ok() },
+            value_labels: vec![],
         })
         .collect();
     if out_settings.len() != settings.len() {

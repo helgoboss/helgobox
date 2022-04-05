@@ -16,4 +16,6 @@ pub struct Parameter {
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_count: Option<NonZeroU32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_labels: Option<Vec<String>>,
 }
