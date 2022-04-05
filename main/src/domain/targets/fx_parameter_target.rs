@@ -1,6 +1,6 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_param, AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext,
+    get_fx_params, AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor, HitInstructionReturnValue,
     MappingCompartment, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
@@ -26,15 +26,21 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let param = get_fx_param(context, &self.fx_parameter_descriptor, compartment)?;
-        let is_real_time_ready = reaper_is_ready_for_real_time_fx_param_control()
-            && fx_is_on_same_track_as_realearn(context, &param);
-        let target = FxParameterTarget {
-            is_real_time_ready,
-            param,
-            poll_for_feedback: self.poll_for_feedback,
-        };
-        Ok(vec![ReaperTarget::FxParameter(target)])
+        let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
+        let targets = params
+            .into_iter()
+            .map(|param| {
+                let is_real_time_ready = reaper_is_ready_for_real_time_fx_param_control()
+                    && fx_is_on_same_track_as_realearn(context, &param);
+                let target = FxParameterTarget {
+                    is_real_time_ready,
+                    param,
+                    poll_for_feedback: self.poll_for_feedback,
+                };
+                ReaperTarget::FxParameter(target)
+            })
+            .collect();
+        Ok(targets)
     }
 
     fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {

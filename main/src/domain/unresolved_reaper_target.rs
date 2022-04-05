@@ -1238,20 +1238,22 @@ pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String 
 }
 
 // Returns an error if that param (or FX) doesn't exist.
-pub fn get_fx_param(
+pub fn get_fx_params(
     context: ExtendedProcessorContext,
     fx_parameter_descriptor: &FxParameterDescriptor,
     compartment: MappingCompartment,
-) -> Result<FxParameter, &'static str> {
-    let fx = get_fxs(context, &fx_parameter_descriptor.fx_descriptor, compartment)?
+) -> Result<Vec<FxParameter>, &'static str> {
+    let fxs = get_fxs(context, &fx_parameter_descriptor.fx_descriptor, compartment)?;
+    let parameters = fxs
         .into_iter()
-        .next()
-        .ok_or("no FX resolved")?;
-    fx_parameter_descriptor
-        // TODO-high Support multiple FXs
-        .fx_parameter
-        .resolve(&fx, context, compartment)
-        .map_err(|_| "parameter doesn't exist")
+        .flat_map(|fx| {
+            fx_parameter_descriptor
+                .fx_parameter
+                .resolve(&fx, context, compartment)
+                .map_err(|_| "parameter doesn't exist")
+        })
+        .collect();
+    Ok(parameters)
 }
 
 // Returns an error if the FX doesn't exist.

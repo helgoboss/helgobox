@@ -15,7 +15,7 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, ProcessingRelevance, VirtualControlElementType,
 };
 use crate::domain::{
-    find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
+    find_bookmark, get_fx_params, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType, AnyOnParameter,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
@@ -2227,7 +2227,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         use VirtualFxParameter::*;
         match virtual_param {
             ById(_) => {
-                if let Ok(p) = self.resolve_fx_param() {
+                if let Ok(p) = self.resolve_first_fx_param() {
                     get_fx_param_label(Some(&p), p.index())
                 } else {
                     format!("<Not present> ({})", virtual_param).into()
@@ -2272,12 +2272,13 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 
     // Returns an error if that param (or FX) doesn't exist.
-    fn resolve_fx_param(&self) -> Result<FxParameter, &'static str> {
-        get_fx_param(
+    fn resolve_first_fx_param(&self) -> Result<FxParameter, &'static str> {
+        let params = get_fx_params(
             self.context,
             &self.target.fx_parameter_descriptor()?,
             self.compartment,
-        )
+        )?;
+        params.into_iter().next().ok_or("empty FX param list")
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'a> {

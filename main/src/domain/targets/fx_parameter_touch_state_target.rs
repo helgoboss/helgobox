@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, get_fx_param, ControlContext, ExtendedProcessorContext,
+    format_value_as_on_off, get_fx_params, ControlContext, ExtendedProcessorContext,
     FxParameterDescriptor, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -18,9 +18,12 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTouchStateTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let param = get_fx_param(context, &self.fx_parameter_descriptor, compartment)?;
-        let target = FxParameterTouchStateTarget { param };
-        Ok(vec![ReaperTarget::FxParameterTouchState(target)])
+        let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
+        let targets = params
+            .into_iter()
+            .map(|param| ReaperTarget::FxParameterTouchState(FxParameterTouchStateTarget { param }))
+            .collect();
+        Ok(targets)
     }
 
     fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
