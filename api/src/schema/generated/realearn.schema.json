@@ -264,6 +264,52 @@
         "ReleaseOnly"
       ]
     },
+    "ClipManagementAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "ClearSlot"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "FillSlotWithSelectedItem"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "EditClip"
+              ]
+            }
+          }
+        }
+      ]
+    },
     "ClipSlotDescriptor": {
       "oneOf": [
         {
@@ -976,6 +1022,26 @@
       "maxItems": 2,
       "minItems": 2
     },
+    "Keystroke": {
+      "type": "object",
+      "required": [
+        "key",
+        "modifiers"
+      ],
+      "properties": {
+        "key": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "modifiers": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
     "LifecycleHook": {
       "type": "object",
       "properties": {
@@ -1118,6 +1184,14 @@
       },
       "additionalProperties": false
     },
+    "MonitoringMode": {
+      "type": "string",
+      "enum": [
+        "Off",
+        "Normal",
+        "TapeStyle"
+      ]
+    },
     "OscArgKind": {
       "type": "string",
       "enum": [
@@ -1147,6 +1221,9 @@
         },
         "kind": {
           "$ref": "#/definitions/OscArgKind"
+        },
+        "value_range": {
+          "$ref": "#/definitions/Interval_for_double"
         }
       },
       "additionalProperties": false
@@ -1224,6 +1301,17 @@
         },
         "name": {
           "type": "string"
+        },
+        "value_count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1.0
+        },
+        "value_labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
@@ -1907,6 +1995,24 @@
         {
           "type": "object",
           "required": [
+            "kind"
+          ],
+          "properties": {
+            "keystroke": {
+              "$ref": "#/definitions/Keystroke"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Key"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "id",
             "kind"
           ],
@@ -2372,6 +2478,34 @@
           "type": "object",
           "required": [
             "kind",
+            "mode"
+          ],
+          "properties": {
+            "exclusivity": {
+              "$ref": "#/definitions/TrackExclusivity"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "TrackMonitoringMode"
+              ]
+            },
+            "mode": {
+              "$ref": "#/definitions/MonitoringMode"
+            },
+            "track": {
+              "$ref": "#/definitions/TrackDescriptor"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
             "touched_parameter"
           ],
           "properties": {
@@ -2385,7 +2519,7 @@
               ]
             },
             "touched_parameter": {
-              "$ref": "#/definitions/TouchedParameter"
+              "$ref": "#/definitions/TouchedTrackParameter"
             },
             "track": {
               "$ref": "#/definitions/TrackDescriptor"
@@ -2703,6 +2837,28 @@
           "type": "object",
           "required": [
             "kind",
+            "parameter"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "FxParameterAutomationTouchState"
+              ]
+            },
+            "parameter": {
+              "$ref": "#/definitions/FxParameterDescriptor"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
             "mode",
             "route"
           ],
@@ -2850,6 +3006,32 @@
         {
           "type": "object",
           "required": [
+            "kind",
+            "route",
+            "touched_parameter"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "RouteTouchState"
+              ]
+            },
+            "route": {
+              "$ref": "#/definitions/RouteDescriptor"
+            },
+            "touched_parameter": {
+              "$ref": "#/definitions/TouchedRouteParameter"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "action",
             "kind",
             "slot"
@@ -2909,6 +3091,32 @@
               "type": "string",
               "enum": [
                 "ClipVolume"
+              ]
+            },
+            "slot": {
+              "$ref": "#/definitions/ClipSlotDescriptor"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "action",
+            "kind",
+            "slot"
+          ],
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/ClipManagementAction"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "ClipManagement"
               ]
             },
             "slot": {
@@ -3107,7 +3315,14 @@
         "Percent"
       ]
     },
-    "TouchedParameter": {
+    "TouchedRouteParameter": {
+      "type": "string",
+      "enum": [
+        "Volume",
+        "Pan"
+      ]
+    },
+    "TouchedTrackParameter": {
       "type": "string",
       "enum": [
         "Volume",

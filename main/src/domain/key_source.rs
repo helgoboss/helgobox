@@ -173,6 +173,7 @@ impl Keystroke {
     ///   On macOS, they are also delivered as virtual keys but with a different code.
     ///   On Linux, they are delivered as character code.
     ///   We don't like any. Mark them as non-portable!
+    #[allow(clippy::if_same_then_else)]
     pub fn normalized(&self) -> Self {
         use AcceleratorBehavior::*;
         let mut modifiers = self.modifiers;

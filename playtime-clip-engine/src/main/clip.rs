@@ -39,7 +39,7 @@ impl Clip {
             Midi {} => {
                 let pooled_midi_source =
                     pooled_midi_source.expect("MIDI source must be given for MIDI recordings");
-                create_api_source_from_recorded_midi_source(&pooled_midi_source, temporary_project)?
+                create_api_source_from_recorded_midi_source(pooled_midi_source, temporary_project)?
             }
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };

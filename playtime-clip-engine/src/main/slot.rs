@@ -210,6 +210,7 @@ impl Slot {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn record_from_scratch<H: ClipMatrixHandler>(
         &mut self,
         column_command_sender: &ColumnCommandSender,
@@ -303,7 +304,7 @@ impl Slot {
                 .expect("pooled MIDI source not set although overdubbing")
         });
         let fresh_api_source =
-            create_api_source_from_recorded_midi_source(&pooled_midi_source, Some(project))?;
+            create_api_source_from_recorded_midi_source(pooled_midi_source, Some(project))?;
         // Above code was only for checking preconditions and preparing stuff.
         // Here we can't fail anymore, do the actual state changes and distribute tasks.
         if let Some(s) = new_pooled_midi_source {
@@ -903,7 +904,7 @@ fn item_refers_to_clip_content(item: Item, content: &Content) -> bool {
         source
             .as_ref()
             .as_raw()
-            .get_file_name(|n| if let Some(n) = n { n == &s.path } else { false })
+            .get_file_name(|n| if let Some(n) = n { n == s.path } else { false })
     } else {
         false
     }
@@ -938,6 +939,7 @@ fn open_midi_editor_directly(editor_track: Track, take: Take) {
     }
 }
 
+#[allow(dead_code)]
 fn open_midi_editor_via_action(project: Project, item: Item) {
     project.select_item_exclusively(item);
     let open_midi_editor_command_id = CommandId::new(40153);

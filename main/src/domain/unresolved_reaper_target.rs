@@ -1084,7 +1084,7 @@ impl VirtualChainFx {
             Dynamic(evaluator) => {
                 let index = Self::evaluate_to_fx_index(evaluator, context, compartment)?;
                 fx_chains
-                    .into_iter()
+                    .iter()
                     .flat_map(|fx_chain| {
                         get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
                             FxResolveError::FxNotFound {
@@ -1117,7 +1117,7 @@ impl VirtualChainFx {
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
             ByIndex(index) | ByIdOrIndex(None, index) => fx_chains
-                .into_iter()
+                .iter()
                 .flat_map(|fx_chain| {
                     get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
                         FxResolveError::FxNotFound {
@@ -1212,7 +1212,7 @@ fn find_fxs_by_name<'a>(
     name: &'a WildMatch,
 ) -> impl Iterator<Item = Fx> + 'a {
     chains
-        .into_iter()
+        .iter()
         .flat_map(|chain| chain.fxs())
         .filter(move |fx| name.matches(fx.name().to_str()))
 }

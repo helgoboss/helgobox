@@ -4,13 +4,13 @@ use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
     ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
-use crate::{clip_timeline, rt, source_util, ClipEngineResult};
+use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ClipColor, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
     MatrixClipRecordSettings,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
@@ -290,46 +290,48 @@ impl Column {
         }
     }
 
+    // TODO-high Implement
     pub fn fill_slot_with_selected_item(
         &mut self,
-        slot_index: usize,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
+        _slot_index: usize,
+        _chain_equipment: &ChainEquipment,
+        _recorder_request_sender: &Sender<RecorderRequest>,
+        _matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        if !slot.is_empty() {
-            return Err("slot is not empty");
-        }
-        let item = self
-            .project
-            .or_current_project()
-            .first_selected_item()
-            .ok_or("no item selected")?;
-        let clip = api::Clip {
-            source: source_util::create_api_source_from_item(item, false)
-                .map_err(|_| "couldn't create source from item")?,
-            time_base: todo!(),
-            start_timing: todo!(),
-            stop_timing: todo!(),
-            looped: todo!(),
-            volume: api::Db::ZERO,
-            color: ClipColor::PlayTrackColor,
-            section: todo!(),
-            audio_settings: todo!(),
-            midi_settings: todo!(),
-        };
-        let clip = Clip::load(clip);
-        fill_slot_internal(
-            slot,
-            clip,
-            chain_equipment,
-            recorder_request_sender,
-            matrix_settings,
-            &self.rt_settings,
-            &self.rt_command_sender,
-            self.project,
-        )
+        // let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+        // if !slot.is_empty() {
+        //     return Err("slot is not empty");
+        // }
+        // let item = self
+        //     .project
+        //     .or_current_project()
+        //     .first_selected_item()
+        //     .ok_or("no item selected")?;
+        // let clip = api::Clip {
+        //     source: source_util::create_api_source_from_item(item, false)
+        //         .map_err(|_| "couldn't create source from item")?,
+        //     time_base: todo!(),
+        //     start_timing: todo!(),
+        //     stop_timing: todo!(),
+        //     looped: todo!(),
+        //     volume: api::Db::ZERO,
+        //     color: ClipColor::PlayTrackColor,
+        //     section: todo!(),
+        //     audio_settings: todo!(),
+        //     midi_settings: todo!(),
+        // };
+        // let clip = Clip::load(clip);
+        // fill_slot_internal(
+        //     slot,
+        //     clip,
+        //     chain_equipment,
+        //     recorder_request_sender,
+        //     matrix_settings,
+        //     &self.rt_settings,
+        //     &self.rt_command_sender,
+        //     self.project,
+        // )
+        Err("not yet implemented")
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
@@ -512,6 +514,7 @@ fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
 
 const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
 
+#[allow(clippy::too_many_arguments)]
 fn fill_slot_internal(
     slot: &mut Slot,
     mut clip: Clip,

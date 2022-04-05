@@ -821,7 +821,7 @@ impl RealTimeProcessor {
             self.control_main_task_sender
                 .send_complaining(ControlMainTask::LogRealControlInput {
                     value: msg,
-                    match_outcome: match_outcome,
+                    match_outcome,
                 });
         }
     }

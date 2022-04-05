@@ -1348,6 +1348,7 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    #[allow(clippy::single_match)]
     fn handle_source_line_5_combo_box_2_change(&mut self) {
         let b = self
             .view
@@ -1474,6 +1475,7 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn handle_source_line_5_edit_control_change(&mut self) {
         let edit_control_id = root::ID_SOURCE_LINE_5_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
@@ -2792,6 +2794,7 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    #[allow(clippy::single_match)]
     fn handle_target_line_5_edit_control_change(&mut self) {
         let edit_control_id = root::ID_TARGET_LINE_5_EDIT_CONTROL;
         let control = self.view.require_control(edit_control_id);

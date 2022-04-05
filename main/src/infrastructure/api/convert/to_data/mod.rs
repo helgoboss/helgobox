@@ -95,7 +95,7 @@ fn convert_activation(
                     let res = if let Some(s) = state {
                         let i = resolve_parameter_ref(&s.parameter, param_index_by_key)?;
                         ModifierConditionModel {
-                            param_index: Some(i.try_into()?),
+                            param_index: Some(i),
                             is_on: s.on,
                         }
                     } else {
@@ -115,11 +115,11 @@ fn convert_activation(
             }
         }
         Bank(c) => {
-            let i = resolve_parameter_ref(&c.parameter, param_index_by_key)?;
+            let param_index = resolve_parameter_ref(&c.parameter, param_index_by_key)?;
             ActivationConditionData {
                 activation_type: ActivationType::Bank,
                 program_condition: BankConditionModel {
-                    param_index: i.try_into()?,
+                    param_index,
                     bank_index: c.bank_index,
                 },
                 ..Default::default()

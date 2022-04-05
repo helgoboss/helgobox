@@ -30,14 +30,14 @@ pub fn compartment_param_index_range() -> RangeInclusive<CompartmentParamIndex> 
 pub fn convert_plugin_param_index_range_to_iter(
     range: &RangeInclusive<PluginParamIndex>,
 ) -> impl Iterator<Item = PluginParamIndex> {
-    (range.start().get()..=range.end().get()).map(|i| PluginParamIndex(i))
+    (range.start().get()..=range.end().get()).map(PluginParamIndex)
 }
 
 /// We need this because the `step_trait` is not stabilized yet.
 pub fn convert_compartment_param_index_range_to_iter(
     range: &RangeInclusive<CompartmentParamIndex>,
 ) -> impl Iterator<Item = CompartmentParamIndex> {
-    (range.start().get()..=range.end().get()).map(|i| CompartmentParamIndex(i))
+    (range.start().get()..=range.end().get()).map(CompartmentParamIndex)
 }
 
 /// Raw parameter value.
