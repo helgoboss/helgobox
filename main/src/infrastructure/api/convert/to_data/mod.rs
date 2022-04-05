@@ -70,9 +70,12 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
     }
 }
 
-fn convert_osc_value_range(v: Interval<f64>) -> OscValueRange {
-    let domain_interval = helgoboss_learn::Interval::new_auto(v.0, v.1);
-    OscValueRange::from_interval(domain_interval)
+fn convert_osc_value_range(v: Option<Interval<f64>>) -> OscValueRange {
+    v.map(|v| {
+        let domain_interval = helgoboss_learn::Interval::new_auto(v.0, v.1);
+        OscValueRange::from_interval(domain_interval)
+    })
+    .unwrap_or_default()
 }
 
 pub trait ApiToDataConversionContext {

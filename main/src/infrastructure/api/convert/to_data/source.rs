@@ -86,11 +86,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => false,
         },
         osc_arg_value_range: match &s {
-            Osc(s) => s
-                .argument
-                .and_then(|a| a.value_range)
-                .map(convert_osc_value_range)
-                .unwrap_or_default(),
+            Osc(s) => convert_osc_value_range(s.argument.and_then(|a| a.value_range)),
             _ => Default::default(),
         },
         osc_feedback_args: match &s {

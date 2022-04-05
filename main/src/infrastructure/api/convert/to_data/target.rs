@@ -9,7 +9,8 @@ use crate::domain::{
     SendMidiDestination, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_osc_arg_type, convert_tags,
+    convert_control_element_id, convert_control_element_type, convert_osc_arg_type,
+    convert_osc_value_range, convert_tags,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
@@ -594,13 +595,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             ..init(d.commons)
         },
         Target::SendOsc(d) => {
-            let (osc_arg_index, osc_arg_type) = if let Some(a) = d.argument {
+            let (osc_arg_index, osc_arg_type, osc_arg_value_range) = if let Some(a) = d.argument {
                 (
-                    Some(a.index.unwrap_or(defaults::OSC_ARG_INDEX)),
+                    a.index,
                     convert_osc_arg_type(a.kind.unwrap_or_default()),
+                    convert_osc_value_range(a.value_range),
                 )
             } else {
-                (None, Default::default())
+                (None, Default::default(), Default::default())
             };
             TargetModelData {
                 category: TargetCategory::Reaper,
@@ -608,6 +610,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 osc_address_pattern: d.address.unwrap_or_default(),
                 osc_arg_index,
                 osc_arg_type,
+                osc_arg_value_range,
                 osc_dev_id: match d.destination.unwrap_or_default() {
                     OscDestination::FeedbackOutput => None,
                     OscDestination::Device { id } => Some(id.parse()?),

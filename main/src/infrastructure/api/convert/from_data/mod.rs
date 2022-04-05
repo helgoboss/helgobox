@@ -60,7 +60,7 @@ fn convert_osc_argument(
 ) -> Option<schema::OscArgument> {
     let arg_index = arg_index?;
     let arg = schema::OscArgument {
-        index: style.required_value_with_default(arg_index, defaults::OSC_ARG_INDEX),
+        index: Some(arg_index),
         kind: style.required_value(convert_osc_arg_kind(arg_type)),
         value_range: style.required_value(convert_osc_value_range(value_range)),
     };
