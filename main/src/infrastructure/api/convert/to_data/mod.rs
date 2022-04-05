@@ -2,13 +2,13 @@ use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::CompartmentParamIndex;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
-use crate::infrastructure::data::ActivationConditionData;
+use crate::infrastructure::data::{ActivationConditionData, OscValueRange};
 use crate::{application, domain};
 pub use compartment::*;
 use enumflags2::BitFlags;
 pub use mapping::*;
 use realearn_api::schema::{
-    ActivationCondition, Keystroke, ModifierState, OscArgKind, ParamRef,
+    ActivationCondition, Interval, Keystroke, ModifierState, OscArgKind, ParamRef,
     VirtualControlElementCharacter, VirtualControlElementId,
 };
 use reaper_medium::AcceleratorKeyCode;
@@ -68,6 +68,11 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
         Midi => T::Midi,
         Array => T::Array,
     }
+}
+
+fn convert_osc_value_range(v: Interval<f64>) -> OscValueRange {
+    let domain_interval = helgoboss_learn::Interval::new_auto(v.0, v.1);
+    OscValueRange::from_interval(domain_interval)
 }
 
 pub trait ApiToDataConversionContext {

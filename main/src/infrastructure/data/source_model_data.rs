@@ -6,6 +6,7 @@ use crate::application::{
 use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::{Keystroke, MappingCompartment};
+use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -64,6 +65,8 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_arg_is_relative: bool,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_value_range: OscValueRange,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub osc_feedback_args: Vec<String>,
     // Keyboard
     pub keystroke: Option<Keystroke>,
@@ -103,6 +106,7 @@ impl SourceModelData {
             osc_arg_index: model.osc_arg_index(),
             osc_arg_type: model.osc_arg_type_tag(),
             osc_arg_is_relative: model.osc_arg_is_relative(),
+            osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_feedback_args: model.osc_feedback_args().to_vec(),
             keystroke: model.keystroke(),
             control_element_type: model.control_element_type(),
@@ -179,6 +183,9 @@ impl SourceModelData {
         model.change(P::SetOscArgIndex(self.osc_arg_index));
         model.change(P::SetOscArgTypeTag(self.osc_arg_type));
         model.change(P::SetOscArgIsRelative(self.osc_arg_is_relative));
+        model.change(P::SetOscArgValueRange(
+            self.osc_arg_value_range.to_interval(),
+        ));
         model.change(P::SetOscFeedbackArgs(self.osc_feedback_args.clone()));
         model.change(P::SetControlElementType(self.control_element_type));
         model.change(P::SetControlElementId(

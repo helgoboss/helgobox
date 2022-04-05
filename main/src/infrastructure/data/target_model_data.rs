@@ -16,6 +16,7 @@ use crate::domain::{
     SendMidiDestination, SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType,
     TransportAction, VirtualTrack,
 };
+use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::{
     DataToModelConversionContext, ModelToDataConversionContext, VirtualControlElementIdData,
 };
@@ -121,6 +122,8 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_arg_type: OscTypeTag,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_value_range: OscValueRange,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub osc_dev_id: Option<OscDeviceId>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
@@ -202,6 +205,7 @@ impl TargetModelData {
             osc_address_pattern: model.osc_address_pattern().to_owned(),
             osc_arg_index: model.osc_arg_index(),
             osc_arg_type: model.osc_arg_type_tag(),
+            osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
             clip_management_action: model.clip_management_action(),
@@ -375,6 +379,9 @@ impl TargetModelData {
         model.change(C::SetOscAddressPattern(self.osc_address_pattern.clone()));
         model.change(C::SetOscArgIndex(self.osc_arg_index));
         model.change(C::SetOscArgTypeTag(self.osc_arg_type));
+        model.change(C::SetOscArgValueRange(
+            self.osc_arg_value_range.to_interval(),
+        ));
         model.change(C::SetOscDevId(self.osc_dev_id));
         model.change(C::SetPollForFeedback(self.poll_for_feedback));
         model.change(C::SetTags(self.tags.clone()));

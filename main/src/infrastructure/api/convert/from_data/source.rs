@@ -168,7 +168,12 @@ pub fn convert_source(
             let s = schema::OscSource {
                 feedback_behavior,
                 address: style.required_value(data.osc_address_pattern),
-                argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type, style),
+                argument: convert_osc_argument(
+                    data.osc_arg_index,
+                    data.osc_arg_type,
+                    data.osc_arg_value_range,
+                    style,
+                ),
                 relative: style.required_value_with_default(
                     data.osc_arg_is_relative,
                     defaults::SOURCE_OSC_IS_RELATIVE,

@@ -15,7 +15,9 @@ mod target;
 use crate::application::{ActivationType, VirtualControlElementType};
 use crate::domain::{Keystroke, Tag};
 use crate::infrastructure::api::convert::defaults;
-use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
+use crate::infrastructure::data::{
+    ActivationConditionData, OscValueRange, VirtualControlElementIdData,
+};
 use helgoboss_learn::OscTypeTag;
 use realearn_api::schema;
 use realearn_api::schema::ParamRef;
@@ -53,14 +55,21 @@ fn convert_keystroke(v: Keystroke) -> schema::Keystroke {
 fn convert_osc_argument(
     arg_index: Option<u32>,
     arg_type: OscTypeTag,
+    value_range: OscValueRange,
     style: ConversionStyle,
 ) -> Option<schema::OscArgument> {
     let arg_index = arg_index?;
     let arg = schema::OscArgument {
         index: style.required_value_with_default(arg_index, defaults::OSC_ARG_INDEX),
         kind: style.required_value(convert_osc_arg_kind(arg_type)),
+        value_range: style.required_value(convert_osc_value_range(value_range)),
     };
     style.required_value(arg)
+}
+
+fn convert_osc_value_range(v: OscValueRange) -> schema::Interval<f64> {
+    let interval = v.to_interval();
+    schema::Interval(interval.min_val(), interval.max_val())
 }
 
 fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {

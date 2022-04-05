@@ -127,6 +127,8 @@ pub struct OscArgument {
     pub index: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<OscArgKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_range: Option<Interval<f64>>,
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
