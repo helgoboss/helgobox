@@ -18,9 +18,10 @@ use crate::domain::{
     ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
     ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SEEK_TARGET,
     SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
-    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET, TRACK_PHASE_TARGET,
-    TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET, TRACK_TOOL_TARGET,
-    TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    TRACK_MONITORING_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
+    TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -510,6 +511,7 @@ pub enum ReaperTargetType {
     TrackSelection = 6,
     TrackAutomationMode = 25,
     TrackTouchState = 21,
+    TrackMonitoringMode = 49,
     TrackPan = 4,
     TrackWidth = 17,
     TrackVolume = 2,
@@ -527,15 +529,15 @@ pub enum ReaperTargetType {
     FxOpen = 27,
 
     // FX parameter targets
-    FxParameterValue = 1,
     FxParameterTouchState = 47,
+    FxParameterValue = 1,
 
     // Send targets
-    RouteAutomationMode = 45,
     RouteTouchState = 48,
     RouteMono = 41,
     RouteMute = 18,
     RoutePhase = 40,
+    RouteAutomationMode = 45,
     RoutePan = 9,
     RouteVolume = 3,
 
@@ -616,6 +618,7 @@ impl ReaperTargetType {
             TrackPhase => &TRACK_PHASE_TARGET,
             TrackSelection => &TRACK_SELECTION_TARGET,
             TrackAutomationMode => &TRACK_AUTOMATION_MODE_TARGET,
+            TrackMonitoringMode => &TRACK_MONITORING_MODE_TARGET,
             TrackTouchState => &TRACK_TOUCH_STATE_TARGET,
             TrackPan => &TRACK_PAN_TARGET,
             TrackWidth => &TRACK_WIDTH_TARGET,

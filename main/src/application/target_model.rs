@@ -37,23 +37,23 @@ use crate::domain::{
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
     UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
     UnresolvedSelectedTrackTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, VirtualChainFx, VirtualClipSlot, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
+    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
+    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
+    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
+    VirtualChainFx, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
 use playtime_clip_engine::main::SlotPlayOptions;
-use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor};
+use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor, MonitoringMode};
 use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
-    TrackSendDirection,
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
+    TrackLocation, TrackSendDirection,
 };
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -108,6 +108,7 @@ pub enum TargetCommand {
     SetFeedbackResolution(FeedbackResolution),
     SetTrackArea(RealearnTrackArea),
     SetAutomationMode(RealearnAutomationMode),
+    SetMonitoringMode(MonitoringMode),
     SetAutomationModeOverrideType(AutomationModeOverrideType),
     SetFxDisplayType(FxDisplayType),
     SetScrollArrangeView(bool),
@@ -180,6 +181,7 @@ pub enum TargetProp {
     FeedbackResolution,
     TrackArea,
     AutomationMode,
+    MonitoringMode,
     AutomationModeOverrideType,
     FxDisplayType,
     ScrollArrangeView,
@@ -400,6 +402,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.automation_mode = v;
                 One(P::AutomationMode)
             }
+            C::SetMonitoringMode(v) => {
+                self.monitoring_mode = v;
+                One(P::MonitoringMode)
+            }
             C::SetAutomationModeOverrideType(v) => {
                 self.automation_mode_override_type = v;
                 One(P::AutomationModeOverrideType)
@@ -551,6 +557,8 @@ pub struct TargetModel {
     track_area: RealearnTrackArea,
     // # For track and route automation mode target
     automation_mode: RealearnAutomationMode,
+    // # For track monitoring mode target
+    monitoring_mode: MonitoringMode,
     // # For automation mode override target
     automation_mode_override_type: AutomationModeOverrideType,
     // # For FX Open and FX Navigate target
@@ -631,6 +639,7 @@ impl Default for TargetModel {
             feedback_resolution: Default::default(),
             track_area: Default::default(),
             automation_mode: Default::default(),
+            monitoring_mode: Default::default(),
             automation_mode_override_type: Default::default(),
             fx_display_type: Default::default(),
             scroll_arrange_view: false,
@@ -840,6 +849,10 @@ impl TargetModel {
 
     pub fn automation_mode(&self) -> RealearnAutomationMode {
         self.automation_mode
+    }
+
+    pub fn monitoring_mode(&self) -> MonitoringMode {
+        self.monitoring_mode
     }
 
     pub fn automation_mode_override_type(&self) -> AutomationModeOverrideType {
@@ -1378,6 +1391,9 @@ impl TargetModel {
             TrackAutomationMode(t) => {
                 self.automation_mode = RealearnAutomationMode::from_reaper(t.mode);
             }
+            TrackMonitoringMode(t) => {
+                self.monitoring_mode = convert_monitoring_mode_to_realearn(t.mode);
+            }
             RouteAutomationMode(t) => {
                 self.automation_mode = RealearnAutomationMode::from_reaper(t.mode);
             }
@@ -1720,6 +1736,13 @@ impl TargetModel {
                             track_descriptor: self.track_descriptor()?,
                             exclusivity: self.track_exclusivity,
                             mode: self.automation_mode.to_reaper(),
+                        },
+                    ),
+                    TrackMonitoringMode => UnresolvedReaperTarget::TrackMonitoringMode(
+                        UnresolvedTrackMonitoringModeTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            exclusivity: self.track_exclusivity,
+                            mode: convert_monitoring_mode_to_reaper(self.monitoring_mode),
                         },
                     ),
                     TrackSolo => UnresolvedReaperTarget::TrackSolo(UnresolvedTrackSoloTarget {
@@ -3332,5 +3355,22 @@ fn get_track_label(track: &Track) -> String {
                 format!("{}. {}", position, name)
             }
         }
+    }
+}
+
+fn convert_monitoring_mode_to_reaper(monitoring_mode: MonitoringMode) -> InputMonitoringMode {
+    match monitoring_mode {
+        MonitoringMode::Off => InputMonitoringMode::Off,
+        MonitoringMode::Normal => InputMonitoringMode::Normal,
+        MonitoringMode::TapeStyle => InputMonitoringMode::NotWhenPlaying,
+    }
+}
+
+fn convert_monitoring_mode_to_realearn(monitoring_mode: InputMonitoringMode) -> MonitoringMode {
+    match monitoring_mode {
+        InputMonitoringMode::Off => MonitoringMode::Off,
+        InputMonitoringMode::Normal => MonitoringMode::Normal,
+        InputMonitoringMode::NotWhenPlaying => MonitoringMode::TapeStyle,
+        InputMonitoringMode::Unknown(_) => MonitoringMode::Off,
     }
 }

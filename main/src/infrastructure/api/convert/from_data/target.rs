@@ -29,9 +29,9 @@ use realearn_api::schema::{
     RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
     RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
     TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
+    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -141,6 +141,16 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             mode: convert_automation_mode(data.track_automation_mode),
+        }),
+        TrackMonitoringMode => T::TrackMonitoringMode(TrackMonitoringModeTarget {
+            commons,
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
+            exclusivity: convert_track_exclusivity(data.track_exclusivity),
+            mode: data.track_monitoring_mode,
         }),
         TrackTouchState => T::TrackAutomationTouchState(TrackAutomationTouchStateTarget {
             commons,

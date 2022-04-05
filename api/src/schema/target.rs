@@ -22,6 +22,7 @@ pub enum Target {
     TrackPhase(TrackPhaseTarget),
     TrackSelectionState(TrackSelectionStateTarget),
     TrackAutomationMode(TrackAutomationModeTarget),
+    TrackMonitoringMode(TrackMonitoringModeTarget),
     TrackAutomationTouchState(TrackAutomationTouchStateTarget),
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
@@ -268,6 +269,18 @@ pub struct TrackAutomationModeTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
     pub mode: AutomationMode,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrackMonitoringModeTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusivity: Option<TrackExclusivity>,
+    pub mode: MonitoringMode,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -629,6 +642,35 @@ pub enum AutomationMode {
     Write,
     Latch,
     LatchPreview,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum MonitoringMode {
+    #[display(fmt = "Off")]
+    Off,
+    #[display(fmt = "Normal")]
+    Normal,
+    #[display(fmt = "Tape style (off when playing)")]
+    TapeStyle,
+}
+
+impl Default for MonitoringMode {
+    fn default() -> Self {
+        Self::Off
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -34,8 +34,8 @@ use crate::domain::{
     OscSendTarget, PlayrateTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
     RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
     TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
@@ -98,6 +98,7 @@ pub enum ReaperTarget {
     TrackShow(TrackShowTarget),
     TrackSolo(TrackSoloTarget),
     TrackAutomationMode(TrackAutomationModeTarget),
+    TrackMonitoringMode(TrackMonitoringModeTarget),
     RoutePan(RoutePanTarget),
     RouteMute(RouteMuteTarget),
     RoutePhase(RoutePhaseTarget),
@@ -389,6 +390,11 @@ impl ReaperTarget {
                 exclusivity: Default::default(),
                 mode: e.new_value,
             }),
+            TrackInputMonitoringChanged(e) => TrackMonitoringMode(TrackMonitoringModeTarget {
+                track: e.track,
+                exclusivity: Default::default(),
+                mode: e.new_value,
+            }),
             GlobalAutomationOverrideChanged(e) => {
                 AutomationModeOverride(AutomationModeOverrideTarget {
                     mode_override: e.new_value,
@@ -468,6 +474,15 @@ impl ReaperTarget {
             .merge(csurf_rx.track_automation_mode_changed().map(move |track| {
                 let mode = track.automation_mode();
                 TrackAutomationMode(TrackAutomationModeTarget {
+                    track,
+                    exclusivity: Default::default(),
+                    mode,
+                })
+                .into()
+            }))
+            .merge(csurf_rx.track_input_monitoring_changed().map(move |track| {
+                let mode = track.input_monitoring_mode();
+                TrackMonitoringMode(TrackMonitoringModeTarget {
                     track,
                     exclusivity: Default::default(),
                     mode,
@@ -561,6 +576,7 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackShow(t) => t.current_value(context),
             TrackSolo(t) => t.current_value(context),
             TrackAutomationMode(t) => t.current_value(context),
+            TrackMonitoringMode(t) => t.current_value(context),
             RoutePan(t) => t.current_value(context),
             RouteMute(t) => t.current_value(context),
             RoutePhase(t) => t.current_value(context),

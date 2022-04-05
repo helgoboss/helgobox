@@ -22,7 +22,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
-use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor};
+use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor, MonitoringMode};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -100,6 +100,9 @@ pub struct TargetModelData {
     // Track automation mode target
     #[serde(default, skip_serializing_if = "is_default")]
     pub track_automation_mode: RealearnAutomationMode,
+    // Track monitoring mode target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub track_monitoring_mode: MonitoringMode,
     // Automation mode override target
     #[serde(default, skip_serializing_if = "is_default")]
     pub automation_mode_override_type: AutomationModeOverrideType,
@@ -199,6 +202,7 @@ impl TargetModelData {
             seek_options: model.seek_options(),
             track_area: model.track_area(),
             track_automation_mode: model.automation_mode(),
+            track_monitoring_mode: model.monitoring_mode(),
             automation_mode_override_type: model.automation_mode_override_type(),
             fx_display_type: model.fx_display_type(),
             scroll_arrange_view: model.scroll_arrange_view(),
@@ -360,6 +364,7 @@ impl TargetModelData {
         let _ = model.set_seek_options(self.seek_options);
         model.change(C::SetTrackArea(self.track_area));
         model.change(C::SetAutomationMode(self.track_automation_mode));
+        model.change(C::SetMonitoringMode(self.track_monitoring_mode));
         model.change(C::SetAutomationModeOverrideType(
             self.automation_mode_override_type,
         ));

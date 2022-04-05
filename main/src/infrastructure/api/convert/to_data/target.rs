@@ -258,6 +258,18 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        Target::TrackMonitoringMode(d) => {
+            let track_desc = convert_track_desc(d.track.unwrap_or_default())?;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::TrackMonitoringMode,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                track_exclusivity: convert_track_exclusivity(d.exclusivity),
+                track_monitoring_mode: d.mode,
+                ..init(d.commons)
+            }
+        }
         Target::TrackAutomationTouchState(d) => {
             let track_desc = convert_track_desc(d.track.unwrap_or_default())?;
             TargetModelData {

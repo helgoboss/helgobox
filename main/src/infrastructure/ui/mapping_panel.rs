@@ -25,6 +25,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
     Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
+use realearn_api::schema::MonitoringMode;
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -438,7 +439,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::TrackArea => {
+                                            P::SoloBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::MonitoringMode | P::TrackArea => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -2511,6 +2512,13 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetAutomationMode(v),
                     ));
                 }
+                ReaperTargetType::TrackMonitoringMode => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid monitoring mode");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMonitoringMode(v),
+                    ));
+                }
                 ReaperTargetType::TrackTouchState => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid touched track parameter type");
@@ -4204,6 +4212,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
+                ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -4443,6 +4452,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(
                             self.target.touched_route_parameter_type().into(),
                         )
+                        .unwrap();
+                }
+                ReaperTargetType::TrackMonitoringMode => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MonitoringMode::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.monitoring_mode().into())
                         .unwrap();
                 }
                 _ if self.target.supports_automation_mode() => {

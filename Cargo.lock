@@ -3508,7 +3508,10 @@ dependencies = [
 name = "realearn-api"
 version = "0.1.0"
 dependencies = [
+ "derive_more",
+ "enum-iterator",
  "mlua",
+ "num_enum 0.5.4",
  "playtime-api",
  "schemars",
  "serde",
