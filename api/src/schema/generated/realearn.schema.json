@@ -32,7 +32,8 @@
       "enum": [
         "Normal",
         "IncrementalButton",
-        "ToggleButton"
+        "ToggleButton",
+        "MakeRelative"
       ]
     },
     "ActionInvocationKind": {

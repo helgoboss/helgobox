@@ -395,7 +395,7 @@ impl MappingModel {
         context: ExtendedProcessorContext,
     ) -> Option<Affected<MappingProp>> {
         let with_context = self.with_context(context);
-        if with_context.mode_makes_sense() == Ok(false) {
+        if with_context.absolute_mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
                 self.mode_model
                     .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
@@ -584,23 +584,31 @@ pub struct MappingModelWithContext<'a> {
 }
 
 impl<'a> MappingModelWithContext<'a> {
-    pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
+    /// Returns if the absolute make sense under the current conditions.
+    ///
+    /// Conditions are:
+    ///
+    /// - Source character
+    /// - Target character and control type
+    pub fn absolute_mode_makes_sense(&self) -> Result<bool, &'static str> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
-        let mode_type = self.mapping.mode_model.absolute_mode();
-        let result = match self.mapping.source_model.character() {
-            Normal(RangeElement) => mode_type == AbsoluteMode::Normal,
-            Normal(MomentaryButton) | Normal(ToggleButton) => {
+        let source_character = self.mapping.source_model.character();
+        let absolute_mode = self.mapping.mode_model.absolute_mode();
+        let makes_sense = match source_character {
+            Normal(RangeElement) => match absolute_mode {
+                AbsoluteMode::Normal | AbsoluteMode::MakeRelative => true,
+                AbsoluteMode::IncrementalButton | AbsoluteMode::ToggleButton => false,
+            },
+            Normal(MomentaryButton | ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
-                match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::ToggleButton => !target
-                        .control_type(self.context.control_context())
-                        .is_relative(),
+                let target_is_relative = target
+                    .control_type(self.context.control_context())
+                    .is_relative();
+                match absolute_mode {
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButton => !target_is_relative,
                     AbsoluteMode::IncrementalButton => {
-                        if target
-                            .control_type(self.context.control_context())
-                            .is_relative()
-                        {
+                        if target_is_relative {
                             true
                         } else {
                             match target.character(self.context.control_context()) {
@@ -613,12 +621,21 @@ impl<'a> MappingModelWithContext<'a> {
                             }
                         }
                     }
+                    AbsoluteMode::MakeRelative => {
+                        // "Incremental button" is the correct special form of "Make relative"
+                        // for button presses!
+                        false
+                    }
                 }
             }
-            Normal(Encoder1) | Normal(Encoder2) | Normal(Encoder3) => true,
+            Normal(Encoder1) | Normal(Encoder2) | Normal(Encoder3) => {
+                // TODO-low No idea why this is true. But so what, auto-correct settings is not
+                // really a thing anymore?
+                true
+            }
             VirtualContinuous => true,
         };
-        Ok(result)
+        Ok(makes_sense)
     }
 
     pub fn has_target(&self, target: &ReaperTarget) -> bool {
@@ -663,7 +680,7 @@ impl<'a> MappingModelWithContext<'a> {
 
     pub fn uses_step_counts(&self) -> bool {
         let mode = self.mapping.create_mode();
-        if mode.settings().convert_relative_to_absolute {
+        if mode.settings().make_absolute {
             // If we convert increments to absolute values, we want step sizes of course.
             return false;
         }

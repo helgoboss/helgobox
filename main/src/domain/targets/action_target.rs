@@ -126,13 +126,6 @@ impl RealearnTarget for ActionTarget {
                     return Err("relative invocation type can't take absolute values");
                 }
             },
-            ControlValue::Relative(i) => {
-                if let ActionInvocationType::Relative = self.invocation_type {
-                    self.action.invoke_relative(i.get(), Some(self.project));
-                } else {
-                    return Err("relative values need relative invocation type");
-                }
-            }
             ControlValue::AbsoluteDiscrete(f) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
                     if !f.is_zero() {
@@ -149,6 +142,21 @@ impl RealearnTarget for ActionTarget {
                     return Err("relative invocation type can't take absolute values");
                 }
             },
+            ControlValue::RelativeDiscrete(i) => {
+                if let ActionInvocationType::Relative = self.invocation_type {
+                    self.action.invoke_relative(i.get(), Some(self.project));
+                } else {
+                    return Err("relative values need relative invocation type");
+                }
+            }
+            ControlValue::RelativeContinuous(i) => {
+                if let ActionInvocationType::Relative = self.invocation_type {
+                    let i = i.to_discrete_increment();
+                    self.action.invoke_relative(i.get(), Some(self.project));
+                } else {
+                    return Err("relative values need relative invocation type");
+                }
+            }
         };
         Ok(None)
     }

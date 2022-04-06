@@ -587,7 +587,7 @@ impl ModeModel {
             } else {
                 None
             },
-            convert_relative_to_absolute: if is_relevant(ModeParameter::MakeAbsolute) {
+            make_absolute: if is_relevant(ModeParameter::MakeAbsolute) {
                 self.make_absolute
             } else {
                 false

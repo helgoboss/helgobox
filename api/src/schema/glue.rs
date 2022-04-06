@@ -60,6 +60,7 @@ pub enum AbsoluteMode {
     Normal,
     IncrementalButton,
     ToggleButton,
+    MakeRelative,
 }
 
 impl Default for AbsoluteMode {

@@ -182,6 +182,7 @@ fn convert_absolute_mode(v: AbsoluteMode, style: ConversionStyle) -> Option<sche
         Normal => T::Normal,
         IncrementalButton => T::IncrementalButton,
         ToggleButton => T::ToggleButton,
+        MakeRelative => T::MakeRelative,
     };
     style.required_value(mode)
 }
