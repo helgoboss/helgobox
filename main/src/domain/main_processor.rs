@@ -1,12 +1,12 @@
 use crate::domain::{
     aggregate_target_values, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
     CompoundFeedbackValue, CompoundMappingSource, CompoundMappingSourceAddress,
-    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, ControlOutcome,
-    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
-    LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
+    CompoundMappingTarget, ControlContext, ControlEvent, ControlEventTimestamp, ControlInput,
+    ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput,
+    FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext,
+    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
+    KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingCompartment, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
     MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
     OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
@@ -19,8 +19,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlEvent, ControlEventTimestamp, ControlValue, GroupInteraction,
-    MidiSourceValue, MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
+    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
+    ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;

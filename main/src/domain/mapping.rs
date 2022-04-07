@@ -1,6 +1,6 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
-    ActivationCondition, CompartmentParamIndex, CompoundChangeEvent, ControlContext,
+    ActivationCondition, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
     ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
     HitInstructionReturnValue, KeyMessage, KeySource, MappingActivationEffect,
     MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
@@ -15,8 +15,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlEvent,
-    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
+    ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
     OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
     ValueFormatter, ValueParser,

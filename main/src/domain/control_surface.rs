@@ -1,15 +1,15 @@
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
-    BackboneState, CompoundMappingSource, DeviceChangeDetector, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput,
-    FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor, MidiCaptureSender,
-    MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
-    QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget, SharedMainProcessors,
-    SharedRealTimeProcessor, SourceFeedbackValue, TouchedTrackParameterType,
+    BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
+    DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
+    EelTransformation, FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData,
+    MainProcessor, MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId,
+    OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
+    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget,
+    SharedMainProcessors, SharedRealTimeProcessor, SourceFeedbackValue, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{ControlEvent, ControlEventTimestamp, ModeGarbage, RawMidiEvents};
+use helgoboss_learn::{ModeGarbage, RawMidiEvents};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     FxParameter, MainTaskMiddleware, Project, Reaper,

@@ -1,5 +1,7 @@
-use crate::domain::{DomainEventHandler, KeyMessage, Keystroke, SharedMainProcessors};
-use helgoboss_learn::{ControlEvent, ControlEventTimestamp};
+use crate::domain::{
+    ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
+    SharedMainProcessors,
+};
 use reaper_medium::{AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
 
 #[derive(Debug)]

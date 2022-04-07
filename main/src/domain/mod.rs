@@ -110,3 +110,6 @@ pub use accelerator::*;
 
 mod parameter;
 pub use parameter::*;
+
+mod control_event;
+pub use control_event::*;

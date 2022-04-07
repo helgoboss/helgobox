@@ -8,10 +8,10 @@ use vst::plugin::{
 use super::RealearnEditor;
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    AudioBlockProps, BackboneState, ControlMainTask, FeedbackRealTimeTask, InstanceId,
-    MainProcessor, MidiEvent, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
-    PluginParamIndex, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor,
-    PLUGIN_PARAMETER_COUNT,
+    AudioBlockProps, BackboneState, ControlEvent, ControlEventTimestamp, ControlMainTask,
+    FeedbackRealTimeTask, InstanceId, MainProcessor, MidiEvent, NormalMainTask,
+    NormalRealTimeToMainThreadTask, ParameterMainTask, PluginParamIndex, ProcessorContext,
+    RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -38,7 +38,6 @@ use crate::infrastructure::plugin::app::App;
 
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
-use helgoboss_learn::{ControlEvent, ControlEventTimestamp};
 use std::convert::TryInto;
 use std::slice;
 use swell_ui::SharedView;

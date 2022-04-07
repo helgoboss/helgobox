@@ -1,16 +1,14 @@
 use crate::domain::{
-    classify_midi_message, BasicSettings, CompoundMappingSource, ControlMainTask, ControlMode,
-    ControlOptions, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId, LifecycleMidiMessage,
-    LifecyclePhase, MappingCompartment, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
-    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
-    PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
-    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
-    SampleOffset, SendMidiDestination, VirtualSourceValue,
+    classify_midi_message, BasicSettings, CompoundMappingSource, ControlEvent,
+    ControlEventTimestamp, ControlMainTask, ControlMode, ControlOptions, FeedbackSendBehavior,
+    Garbage, GarbageBin, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
+    MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
+    OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
+    QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
+    RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{
-    ControlEvent, ControlEventTimestamp, ControlValue, MidiSourceValue, RawMidiEvent,
-};
+use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
