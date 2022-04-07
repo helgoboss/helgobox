@@ -391,6 +391,8 @@ impl MappingPanel {
                                 P::InTarget(p) => match p {
                                     Multiple => {
                                         view.invalidate_target_controls(None);
+                                        view.invalidate_mode_controls();
+                                        view.invalidate_help();
                                     }
                                     One(p) => {
                                         use TargetProp as P;
