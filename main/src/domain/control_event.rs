@@ -1,8 +1,8 @@
-use helgoboss_learn::{AbstractControlEvent, AbstractTimestamp};
+use helgoboss_learn::AbstractTimestamp;
 use std::fmt::{Display, Formatter};
 use std::time::{Duration, Instant};
 
-pub type ControlEvent<P> = AbstractControlEvent<P, ControlEventTimestamp>;
+pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestamp>;
 
 /// Timestamp of a control event.
 //
