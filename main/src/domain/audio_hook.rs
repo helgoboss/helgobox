@@ -1,6 +1,6 @@
 use crate::domain::{
-    classify_midi_message, AudioBlockProps, Event, Garbage, GarbageBin, IncomingMidiMessage,
-    InstanceId, MidiControlInput, MidiMessageClassification, MidiScanResult, MidiScanner,
+    classify_midi_message, AudioBlockProps, Garbage, GarbageBin, IncomingMidiMessage, InstanceId,
+    MidiControlInput, MidiEvent, MidiMessageClassification, MidiScanResult, MidiScanner,
     RealTimeProcessor,
 };
 use assert_no_alloc::*;
@@ -15,8 +15,8 @@ use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    AudioHookRegister, MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
-    OnAudioBufferArgs, SendMidiTime,
+    AudioHookRegister, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -258,7 +258,7 @@ impl RealearnAudioHook {
                         // Current control mode is checked further down the callstack. No need to
                         // check it here.
                         let our_event =
-                            match Event::from_reaper(res.midi_event, block_props.frame_rate) {
+                            match MidiEvent::from_reaper(res.midi_event, block_props.frame_rate) {
                                 Err(_) => continue,
                                 Ok(e) => e,
                             };
@@ -371,7 +371,7 @@ impl OnAudioBuffer for RealearnAudioHook {
 
 fn scan_midi(
     dev_id: MidiInputDeviceId,
-    evt: &MidiEvent,
+    evt: &reaper_medium::MidiEvent,
     midi_scanner: &mut MidiScanner,
 ) -> Option<MidiScanResult> {
     let msg = IncomingMidiMessage::from_reaper(evt.message()).ok()?;

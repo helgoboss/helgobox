@@ -8,8 +8,8 @@ use vst::plugin::{
 use super::RealearnEditor;
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    AudioBlockProps, BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId,
-    MainProcessor, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
+    AudioBlockProps, BackboneState, ControlMainTask, FeedbackRealTimeTask, InstanceId,
+    MainProcessor, MidiEvent, NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask,
     PluginParamIndex, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor,
     PLUGIN_PARAMETER_COUNT,
 };
@@ -278,7 +278,7 @@ impl Plugin for RealearnPlugin {
             assert_no_alloc(|| {
                 let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
                 for e in events.events() {
-                    let our_event = match Event::from_vst(e) {
+                    let our_event = match MidiEvent::from_vst(e) {
                         Err(_) => {
                             // Just ignore if not a valid MIDI message. Invalid MIDI message was
                             // observed in the wild: https://github.com/helgoboss/realearn/issues/82.

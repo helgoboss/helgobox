@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, CompoundMappingSource, ControlMainTask, ControlMode,
-    ControlOptions, Event, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId,
-    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MatchOutcome,
-    MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
+    ControlOptions, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId, LifecycleMidiMessage,
+    LifecyclePhase, MappingCompartment, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
+    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
     NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
@@ -115,7 +115,7 @@ impl RealTimeProcessor {
 
     pub fn process_incoming_midi_from_vst(
         &mut self,
-        event: Event<IncomingMidiMessage>,
+        event: MidiEvent<IncomingMidiMessage>,
         is_transport_start: bool,
         host: &HostCallback,
     ) {
@@ -171,7 +171,7 @@ impl RealTimeProcessor {
     /// Returns whether this message should be filtered out from the global MIDI stream.
     pub fn process_incoming_midi_from_audio_hook(
         &mut self,
-        event: Event<IncomingMidiMessage>,
+        event: MidiEvent<IncomingMidiMessage>,
     ) -> bool {
         let match_outcome = self.process_incoming_midi(event, Caller::AudioHook);
         let let_through = (match_outcome.matched_or_consumed()
@@ -535,7 +535,7 @@ impl RealTimeProcessor {
                         if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
                             // TODO-medium We should memorize the offset of the latest short message
                             //  making up the NRPN message instead!
-                            let event = Event::without_offset(nrpn_msg);
+                            let event = MidiEvent::without_offset(nrpn_msg);
                             self.process_incoming_midi_normal_nrpn(event, Caller::AudioHook);
                         }
                     }
@@ -652,7 +652,7 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi(
         &mut self,
-        event: Event<IncomingMidiMessage>,
+        event: MidiEvent<IncomingMidiMessage>,
         caller: Caller,
     ) -> MatchOutcome {
         use MidiMessageClassification::*;
@@ -669,7 +669,7 @@ impl RealTimeProcessor {
                 if self.control_is_globally_enabled {
                     if let Some(bpm) = self.midi_clock_calculator.feed(event.offset()) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(Event::new(event.offset(), &source_value), caller)
+                        self.control_midi(MidiEvent::new(event.offset(), &source_value), caller)
                     } else {
                         MatchOutcome::Unmatched
                     }
@@ -687,7 +687,7 @@ impl RealTimeProcessor {
     /// - Short MIDI messaages
     fn process_incoming_midi_normal(
         &mut self,
-        event: Event<IncomingMidiMessage>,
+        event: MidiEvent<IncomingMidiMessage>,
         caller: Caller,
     ) -> MatchOutcome {
         match self.control_mode {
@@ -710,14 +710,14 @@ impl RealTimeProcessor {
                         IncomingMidiMessage::Short(short_msg) => {
                             let mut nrpn_match_outcome = MatchOutcome::Unmatched;
                             for nrpn_msg in self.nrpn_scanner.feed(&short_msg).iter().flatten() {
-                                let nrpn_event = Event::new(event.offset(), *nrpn_msg);
+                                let nrpn_event = MidiEvent::new(event.offset(), *nrpn_msg);
                                 let child_match_outcome =
                                     self.process_incoming_midi_normal_nrpn(nrpn_event, caller);
                                 nrpn_match_outcome.upgrade_from(child_match_outcome);
                             }
                             let cc14_match_outcome =
                                 if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&short_msg) {
-                                    let cc14_event = Event::new(event.offset(), cc14_msg);
+                                    let cc14_event = MidiEvent::new(event.offset(), cc14_msg);
                                     self.process_incoming_midi_normal_cc14(cc14_event, caller)
                                 } else {
                                     MatchOutcome::Unmatched
@@ -769,11 +769,12 @@ impl RealTimeProcessor {
     /// Returns whether this message matched.
     fn process_incoming_midi_normal_nrpn(
         &mut self,
-        event: Event<ParameterNumberMessage>,
+        event: MidiEvent<ParameterNumberMessage>,
         caller: Caller,
     ) -> MatchOutcome {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(event.payload());
-        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome =
+            self.control_midi(MidiEvent::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(source_value, match_outcome);
         }
@@ -788,7 +789,7 @@ impl RealTimeProcessor {
                 .iter()
                 .flatten()
             {
-                self.send_short_midi_to_fx_output(Event::new(event.offset(), *m), caller);
+                self.send_short_midi_to_fx_output(MidiEvent::new(event.offset(), *m), caller);
             }
         }
         match_outcome
@@ -856,11 +857,12 @@ impl RealTimeProcessor {
     /// Returns whether this message matched.
     fn process_incoming_midi_normal_cc14(
         &mut self,
-        event: Event<ControlChange14BitMessage>,
+        event: MidiEvent<ControlChange14BitMessage>,
         caller: Caller,
     ) -> MatchOutcome {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(event.payload());
-        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome =
+            self.control_midi(MidiEvent::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(source_value, match_outcome);
         }
@@ -874,7 +876,7 @@ impl RealTimeProcessor {
                 .to_short_messages::<RawShortMessage>()
                 .iter()
             {
-                let short_event = Event::new(event.offset(), *m);
+                let short_event = MidiEvent::new(event.offset(), *m);
                 self.send_short_midi_to_fx_output(short_event, caller);
             }
         }
@@ -883,7 +885,7 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_plain(
         &mut self,
-        event: Event<IncomingMidiMessage>,
+        event: MidiEvent<IncomingMidiMessage>,
         caller: Caller,
     ) -> MatchOutcome {
         let source_value = event.payload().to_source_value();
@@ -897,7 +899,8 @@ impl RealTimeProcessor {
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
             return MatchOutcome::Consumed;
         }
-        let match_outcome = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        let match_outcome =
+            self.control_midi(MidiEvent::new(event.offset(), &source_value), caller);
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(source_value, match_outcome);
         }
@@ -918,7 +921,7 @@ impl RealTimeProcessor {
 
     fn control_midi(
         &mut self,
-        value_event: Event<&MidiSourceValue<RawShortMessage>>,
+        value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
         caller: Caller,
     ) -> MatchOutcome {
         // We do pattern matching in order to use Rust's borrow splitting.
@@ -946,7 +949,7 @@ impl RealTimeProcessor {
 
     fn control_main_mappings_midi(
         &mut self,
-        source_value_event: Event<&MidiSourceValue<RawShortMessage>>,
+        source_value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
         caller: Caller,
     ) -> MatchOutcome {
         let compartment = MappingCompartment::MainMappings;
@@ -964,7 +967,7 @@ impl RealTimeProcessor {
                         &self.control_main_task_sender,
                         &self.feedback_task_sender,
                         compartment,
-                        Event::new(source_value_event.offset(), control_value),
+                        MidiEvent::new(source_value_event.offset(), control_value),
                         ControlOptions {
                             enforce_target_refresh: match_outcome.matched(),
                             ..Default::default()
@@ -982,7 +985,7 @@ impl RealTimeProcessor {
         match_outcome
     }
 
-    fn process_matched_short(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
+    fn process_matched_short(&self, event: MidiEvent<IncomingMidiMessage>, caller: Caller) {
         if self.settings.midi_control_input() != MidiControlInput::FxInput {
             return;
         }
@@ -992,7 +995,7 @@ impl RealTimeProcessor {
         self.send_incoming_midi_to_fx_output(event, caller);
     }
 
-    fn process_unmatched(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
+    fn process_unmatched(&self, event: MidiEvent<IncomingMidiMessage>, caller: Caller) {
         if self.settings.midi_control_input() != MidiControlInput::FxInput {
             return;
         }
@@ -1025,7 +1028,7 @@ impl RealTimeProcessor {
                 return;
             }
             for short in shorts.iter().flatten() {
-                self.send_short_midi_to_fx_output(Event::without_offset(*short), caller);
+                self.send_short_midi_to_fx_output(MidiEvent::without_offset(*short), caller);
             }
         }
         if let Some(garbage) = value.into_garbage() {
@@ -1090,7 +1093,7 @@ impl RealTimeProcessor {
                     if self.settings.real_output_logging_enabled {
                         self.log_lifecycle_output(MidiSourceValue::Plain(*msg));
                     }
-                    self.send_short_midi_to_fx_output(Event::without_offset(*msg), caller)
+                    self.send_short_midi_to_fx_output(MidiEvent::without_offset(*msg), caller)
                 }
                 LifecycleMidiMessage::Raw(data) => {
                     if self.settings.real_output_logging_enabled {
@@ -1110,16 +1113,20 @@ impl RealTimeProcessor {
         }
     }
 
-    fn send_incoming_midi_to_fx_output(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
+    fn send_incoming_midi_to_fx_output(
+        &self,
+        event: MidiEvent<IncomingMidiMessage>,
+        caller: Caller,
+    ) {
         match event.payload() {
             IncomingMidiMessage::Short(s) => {
-                self.send_short_midi_to_fx_output(Event::new(event.offset(), s), caller);
+                self.send_short_midi_to_fx_output(MidiEvent::new(event.offset(), s), caller);
             }
             IncomingMidiMessage::SysEx(s) => send_raw_midi_to_fx_output(s, event.offset(), caller),
         }
     }
 
-    fn send_short_midi_to_fx_output(&self, event: Event<RawShortMessage>, caller: Caller) {
+    fn send_short_midi_to_fx_output(&self, event: MidiEvent<RawShortMessage>, caller: Caller) {
         let host = match caller {
             Caller::Vst(h) => h,
             _ => {
@@ -1162,7 +1169,7 @@ fn build_sysex_midi_vst_event(bytes: &[u8], offset: SampleOffset) -> SysExEvent 
     }
 }
 
-fn build_short_midi_vst_event(event: Event<RawShortMessage>) -> vst::api::MidiEvent {
+fn build_short_midi_vst_event(event: MidiEvent<RawShortMessage>) -> vst::api::MidiEvent {
     let bytes = event.payload().to_bytes();
     vst::api::MidiEvent {
         event_type: EventType::Midi,
@@ -1326,7 +1333,7 @@ fn control_controller_mappings_midi(
     controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
-    value_event: Event<&MidiSourceValue<RawShortMessage>>,
+    value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     virtual_input_logging_enabled: bool,
@@ -1347,7 +1354,7 @@ fn control_controller_mappings_midi(
                         main_task_sender,
                         rt_feedback_sender,
                         main_mappings,
-                        Event::new(value_event.offset(), virtual_source_value),
+                        MidiEvent::new(value_event.offset(), virtual_source_value),
                         ControlOptions {
                             // We inherit "Send feedback after control" to the main processor if it's
                             // enabled for the virtual mapping. That's the easy way to do it.
@@ -1382,7 +1389,7 @@ fn control_controller_mappings_midi(
                         main_task_sender,
                         rt_feedback_sender,
                         MappingCompartment::ControllerMappings,
-                        Event::new(value_event.offset(), control_value),
+                        MidiEvent::new(value_event.offset(), control_value),
                         ControlOptions {
                             enforce_target_refresh,
                             ..Default::default()
@@ -1409,7 +1416,7 @@ fn process_real_mapping(
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     compartment: MappingCompartment,
-    value_event: Event<ControlValue>,
+    value_event: MidiEvent<ControlValue>,
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
@@ -1477,7 +1484,7 @@ fn real_time_target_send_midi(
     output_logging_enabled: bool,
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
-    value_event: Event<ControlValue>,
+    value_event: MidiEvent<ControlValue>,
 ) -> Result<(), &'static str> {
     let v = control_value.to_absolute_value()?;
     // This is a type of mapping that we should process right here because we want to
@@ -1566,7 +1573,7 @@ fn control_main_mappings_virtual(
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
-    value_event: Event<VirtualSourceValue>,
+    value_event: MidiEvent<VirtualSourceValue>,
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
@@ -1587,7 +1594,7 @@ fn control_main_mappings_virtual(
                     main_task_sender,
                     rt_feedback_sender,
                     MappingCompartment::MainMappings,
-                    Event::new(value_event.offset(), control_value),
+                    MidiEvent::new(value_event.offset(), control_value),
                     ControlOptions {
                         enforce_target_refresh: match_outcome.matched(),
                         ..options
@@ -1630,7 +1637,7 @@ pub enum IncomingMidiMessage<'a> {
     SysEx(&'a [u8]),
 }
 
-impl<'a> Event<IncomingMidiMessage<'a>> {
+impl<'a> MidiEvent<IncomingMidiMessage<'a>> {
     pub fn from_vst(e: vst::event::Event<'a>) -> Result<Self, &'static str> {
         let msg = IncomingMidiMessage::from_vst(e)?;
         let delta_frames = match e {
@@ -1642,7 +1649,7 @@ impl<'a> Event<IncomingMidiMessage<'a>> {
         // https://github.com/helgoboss/realearn/issues/54. Don't know what that's
         // supposed to mean but falling back to zero should be okay in our case.
         let offset = SampleOffset::new(std::cmp::max(0, delta_frames) as u64);
-        Ok(Event::new(offset, msg))
+        Ok(MidiEvent::new(offset, msg))
     }
 
     pub fn from_reaper(
@@ -1652,7 +1659,7 @@ impl<'a> Event<IncomingMidiMessage<'a>> {
         let msg = IncomingMidiMessage::from_reaper(e.message())?;
         // Frame offset is given in 1/1024000 of a second, *not* sample frames!
         let offset = SampleOffset::from_frame_offset(e.frame_offset(), sample_rate);
-        Ok(Event::new(offset, msg))
+        Ok(MidiEvent::new(offset, msg))
     }
 }
 
