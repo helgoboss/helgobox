@@ -401,7 +401,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let _ = self.control(compartment, mapping_id, event, options);
             }
             LogVirtualControlInput {
-                value,
+                event: value,
                 match_outcome: match_result,
             } => {
                 log_virtual_control_input(
@@ -410,19 +410,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
             }
             LogRealControlInput {
-                value,
+                event,
                 match_outcome: match_result,
             } => {
+                let timestamp = event.timestamp();
                 log_real_control_input(
                     self.instance_id(),
                     format_control_input_with_match_result(
-                        format_midi_source_value(&value),
+                        ControlEvent::new(
+                            format_midi_source_value(&event.into_payload()),
+                            timestamp,
+                        ),
                         match_result,
                     ),
                 );
             }
-            LogRealLearnInput { msg } => {
-                log_real_learn_input(self.instance_id(), format_incoming_midi_message(msg));
+            LogRealLearnInput { event } => {
+                let timestamp = event.timestamp();
+                log_real_learn_input(
+                    self.instance_id(),
+                    ControlEvent::new(
+                        format_incoming_midi_message(event.into_payload()),
+                        timestamp,
+                    ),
+                );
             }
             LogTargetOutput { event } => {
                 log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
@@ -1536,7 +1547,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         if self.basics.settings.real_input_logging_enabled {
-            log_real_control_input(&self.basics.instance_id, msg.to_string());
+            log_real_control_input(&self.basics.instance_id, evt);
         }
         if !self.basics.instance_control_is_effectively_enabled() {
             return;
@@ -1618,7 +1629,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This doesn't check if control enabled! You need to check before.
     pub fn process_incoming_osc_packet(&mut self, evt: ControlEvent<&OscPacket>) {
         if self.basics.settings.real_input_logging_enabled {
-            self.log_incoming_message(format_osc_packet(evt));
+            let timestamp = evt.timestamp();
+            self.log_incoming_message(ControlEvent::new(
+                format_osc_packet(evt.into_payload()),
+                timestamp,
+            ));
         }
         match evt.payload() {
             OscPacket::Message(msg) => {
@@ -2461,15 +2476,15 @@ pub enum ControlMainTask {
         options: ControlOptions,
     },
     LogVirtualControlInput {
-        value: VirtualSourceValue,
+        event: ControlEvent<VirtualSourceValue>,
         match_outcome: MatchOutcome,
     },
     LogRealControlInput {
-        value: MidiSourceValue<'static, RawShortMessage>,
+        event: ControlEvent<MidiSourceValue<'static, RawShortMessage>>,
         match_outcome: MatchOutcome,
     },
     LogRealLearnInput {
-        msg: OwnedIncomingMidiMessage,
+        event: ControlEvent<OwnedIncomingMidiMessage>,
     },
     LogTargetOutput {
         event: Box<RawMidiEvent>,

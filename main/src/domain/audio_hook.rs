@@ -4,7 +4,7 @@ use crate::domain::{
     RealTimeProcessor,
 };
 use assert_no_alloc::*;
-use helgoboss_learn::{MidiSourceValue, RawMidiEvents};
+use helgoboss_learn::{ControlEvent, ControlEventTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::{
@@ -161,7 +161,12 @@ impl RealearnAudioHook {
     fn call_real_time_processors(&mut self, block_props: AudioBlockProps, might_be_rebirth: bool) {
         match &mut self.state {
             AudioHookState::Normal => {
-                self.call_real_time_processors_in_normal_state(block_props, might_be_rebirth);
+                let timestamp = ControlEventTimestamp::now();
+                self.call_real_time_processors_in_normal_state(
+                    block_props,
+                    might_be_rebirth,
+                    timestamp,
+                );
             }
             AudioHookState::LearningSource {
                 sender,
@@ -194,6 +199,7 @@ impl RealearnAudioHook {
         &mut self,
         block_props: AudioBlockProps,
         might_be_rebirth: bool,
+        timestamp: ControlEventTimestamp,
     ) {
         // 1a. Drive real-time processors and determine used MIDI devices "on the go".
         //
@@ -214,7 +220,7 @@ impl RealearnAudioHook {
             // stop doing so synchronously if the plug-in is
             // gone.
             let mut guard = p.lock_recover();
-            guard.run_from_audio_hook_all(block_props, might_be_rebirth);
+            guard.run_from_audio_hook_all(block_props, might_be_rebirth, timestamp);
             if guard.control_is_globally_enabled() {
                 if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
                     midi_dev_id_is_used[dev_id.get() as usize] = true;
@@ -225,7 +231,7 @@ impl RealearnAudioHook {
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
         //     them globally if desired by the instance.
         if midi_devs_used_at_all {
-            self.distribute_midi_events_to_processors(block_props, &midi_dev_id_is_used);
+            self.distribute_midi_events_to_processors(block_props, &midi_dev_id_is_used, timestamp);
         }
     }
 
@@ -244,6 +250,7 @@ impl RealearnAudioHook {
         &mut self,
         block_props: AudioBlockProps,
         midi_dev_id_is_used: &[bool; MidiInputDeviceId::MAX_DEVICE_COUNT as usize],
+        timestamp: ControlEventTimestamp,
     ) {
         for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
             if !midi_dev_id_is_used[dev_id as usize] {
@@ -262,6 +269,7 @@ impl RealearnAudioHook {
                                 Err(_) => continue,
                                 Ok(e) => e,
                             };
+                        let our_event = ControlEvent::with_timestamp(our_event, timestamp);
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
