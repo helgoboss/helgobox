@@ -472,8 +472,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else if m.source().wants_to_be_polled() && m.control_is_effectively_on() {
                         // Mode was either not polled at all or without result, poll source.
                         let res = if let Some(source_control_value) = m.poll_source() {
-                            let control_event =
-                                ControlEvent::with_timestamp(source_control_value, timestamp);
+                            let control_event = ControlEvent::new(source_control_value, timestamp);
                             control_mapping_stage_one(
                                 &self.basics,
                                 &self.collections.parameters,
@@ -520,7 +519,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             mapping_id: *id,
                             // Control value is not important because we only do target-value
                             // based group interaction.
-                            control_event: ControlEvent::with_timestamp(
+                            control_event: ControlEvent::new(
                                 ControlValue::AbsoluteContinuous(Default::default()),
                                 timestamp,
                             ),
@@ -1025,10 +1024,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.update_all_mappings(compartment, mappings);
                 }
                 NotifyRealearnInstanceStarted => {
-                    let evt = ControlEvent::with_timestamp(
-                        &ReaperMessage::RealearnInstanceStarted,
-                        timestamp,
-                    );
+                    let evt = ControlEvent::new(&ReaperMessage::RealearnInstanceStarted, timestamp);
                     self.process_reaper_message(evt);
                 }
                 HitTarget { id, value } => {

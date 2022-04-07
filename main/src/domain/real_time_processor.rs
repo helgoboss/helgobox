@@ -542,7 +542,7 @@ impl RealTimeProcessor {
                             // TODO-medium We should memorize the offset of the latest short message
                             //  making up the NRPN message instead!
                             let midi_event = MidiEvent::without_offset(nrpn_msg);
-                            let control_event = ControlEvent::with_timestamp(midi_event, timestamp);
+                            let control_event = ControlEvent::new(midi_event, timestamp);
                             self.process_incoming_midi_normal_nrpn(
                                 control_event,
                                 Caller::AudioHook,

@@ -17,7 +17,7 @@ impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
 
 impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
     fn process_message(&mut self, msg: KeyMessage) -> TranslateAccelResult {
-        let evt = ControlEvent::with_timestamp(msg, ControlEventTimestamp::now());
+        let evt = ControlEvent::new(msg, ControlEventTimestamp::now());
         let mut filter_out_event = false;
         for proc in &mut *self.main_processors.borrow_mut() {
             if proc.wants_keys() && proc.process_incoming_key_msg(evt) {

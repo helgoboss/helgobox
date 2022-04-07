@@ -550,7 +550,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
             for p in &mut *self.main_processors.borrow_mut() {
                 for msg in &msgs {
-                    let evt = ControlEvent::with_timestamp(msg, timestamp);
+                    let evt = ControlEvent::new(msg, timestamp);
                     p.process_reaper_message(evt);
                 }
             }
@@ -588,7 +588,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     for proc in &mut *self.main_processors.borrow_mut() {
                         if proc.wants_osc_from(&dev_id) {
                             for packet in &packets {
-                                let evt = ControlEvent::with_timestamp(packet, timestamp);
+                                let evt = ControlEvent::new(packet, timestamp);
                                 proc.process_incoming_osc_packet(evt);
                             }
                         }

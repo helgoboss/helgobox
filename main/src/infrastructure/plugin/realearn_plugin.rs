@@ -287,7 +287,7 @@ impl Plugin for RealearnPlugin {
                         }
                         Ok(e) => e,
                     };
-                    let our_event = ControlEvent::with_timestamp(our_event, timestamp);
+                    let our_event = ControlEvent::new(our_event, timestamp);
                     // This is called in real-time audio thread, so we can just call the
                     // real-time processor.
                     self.real_time_processor

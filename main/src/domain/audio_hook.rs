@@ -269,7 +269,7 @@ impl RealearnAudioHook {
                                 Err(_) => continue,
                                 Ok(e) => e,
                             };
-                        let our_event = ControlEvent::with_timestamp(our_event, timestamp);
+                        let our_event = ControlEvent::new(our_event, timestamp);
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
