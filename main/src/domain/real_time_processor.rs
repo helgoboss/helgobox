@@ -8,7 +8,7 @@ use crate::domain::{
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
     SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
+use helgoboss_learn::{ControlEvent, ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -1432,7 +1432,7 @@ fn process_real_mapping(
             .core
             .mode
             .control_with_options(
-                value_event.payload(),
+                ControlEvent::now(value_event.payload()),
                 reaper_target,
                 control_context,
                 options.mode_control_options,
@@ -1464,11 +1464,16 @@ fn process_real_mapping(
         }
     };
     // If we made it until here, real-time processing was not meant to be or not possible.
+    // TODO-medium We could have sample-accurate control event times by converting the MIDI event
+    //  sample offset to something like microseconds (according to the current sample rate or by
+    //  using REAPER's MidiFrameOffset type instead of SampleOffset in the first place) and using
+    //  this microsecond unit in ControlEvent time.
+    let control_event = ControlEvent::now(value_event.payload());
     forward_control_to_main_processor(
         main_task_sender,
         compartment,
         mapping.id(),
-        value_event.payload(),
+        control_event,
         options,
     );
     Ok(())
@@ -1554,13 +1559,13 @@ fn forward_control_to_main_processor(
     sender: &SenderToNormalThread<ControlMainTask>,
     compartment: MappingCompartment,
     mapping_id: MappingId,
-    value: ControlValue,
+    control_event: ControlEvent<ControlValue>,
     options: ControlOptions,
 ) {
     let task = ControlMainTask::Control {
         compartment,
         mapping_id,
-        value,
+        event: control_event,
         options,
     };
     // If plug-in dropped, the receiver might be gone already because main processor is

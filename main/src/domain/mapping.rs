@@ -15,8 +15,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
-    ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlEvent,
+    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
     OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
     ValueFormatter, ValueParser,
@@ -706,7 +706,7 @@ impl MainMapping {
     #[must_use]
     pub fn control_from_mode(
         &mut self,
-        source_value: ControlValue,
+        source_control_event: ControlEvent<ControlValue>,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
@@ -720,7 +720,7 @@ impl MainMapping {
             false,
             |options, context, mode, target| {
                 mode.control_with_options(
-                    source_value,
+                    source_control_event,
                     target,
                     context,
                     options.mode_control_options,
@@ -1172,7 +1172,9 @@ impl MainMapping {
         };
         // First target is enough because this does nothing yet.
         let virtual_source_value = match self.targets.first()? {
-            CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
+            CompoundMappingTarget::Virtual(t) => {
+                match_partially(&mut self.core, t, ControlEvent::now(control_value))
+            }
             CompoundMappingTarget::Reaper(_) => None,
         };
         Some(ControlOutcome::Matched(virtual_source_value?))
@@ -1337,7 +1339,7 @@ impl RealTimeMapping {
             return None;
         };
         if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
-            match_partially(&mut self.core, t, control_value)
+            match_partially(&mut self.core, t, ControlEvent::now(control_value))
                 .map(PartialControlMatch::ProcessVirtual)
         } else {
             Some(PartialControlMatch::ProcessDirect(control_value))
@@ -2254,7 +2256,7 @@ pub enum ExtendedSourceCharacter {
 fn match_partially(
     core: &mut MappingCore,
     target: &VirtualTarget,
-    control_value: ControlValue,
+    control_event: ControlEvent<ControlValue>,
 ) -> Option<VirtualSourceValue> {
     // Determine resulting virtual control value in real-time processor.
     // It's important to do that here. We need to know the result in order to
@@ -2265,7 +2267,7 @@ fn match_partially(
     //  processing, too!
     let res =
         core.mode
-            .control_with_options(control_value, target, (), ModeControlOptions::default())?;
+            .control_with_options(control_event, target, (), ModeControlOptions::default())?;
     let transformed_control_value: Option<ControlValue> = res.into();
     let transformed_control_value = transformed_control_value?;
     core.time_of_last_control = Some(Instant::now());

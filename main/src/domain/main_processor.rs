@@ -19,7 +19,7 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
+    AbsoluteValue, ControlEvent, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
@@ -395,10 +395,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             Control {
                 compartment,
                 mapping_id,
-                value,
+                event,
                 options,
             } => {
-                let _ = self.control(compartment, mapping_id, value, options);
+                let _ = self.control(compartment, mapping_id, event, options);
             }
             LogVirtualControlInput {
                 value,
@@ -461,11 +461,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else if m.source().wants_to_be_polled() && m.control_is_effectively_on() {
                         // Mode was either not polled at all or without result, poll source.
                         let res = if let Some(source_control_value) = m.poll_source() {
+                            let control_event = ControlEvent::now(source_control_value);
                             control_mapping_stage_one(
                                 &self.basics,
                                 &self.collections.parameters,
                                 m,
-                                source_control_value,
+                                control_event,
                                 ControlOptions::default(),
                             )
                         } else {
@@ -507,7 +508,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             mapping_id: *id,
                             // Control value is not important because we only do target-value
                             // based group interaction.
-                            control_value: ControlValue::AbsoluteContinuous(Default::default()),
+                            control_event: ControlEvent::now(ControlValue::AbsoluteContinuous(
+                                Default::default(),
+                            )),
                             group_interaction,
                         })
                     } else {
@@ -523,7 +526,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         compartment: MappingCompartment,
         mapping_id: MappingId,
-        control_value: ControlValue,
+        control_event: ControlEvent<ControlValue>,
         options: ControlOptions,
     ) -> Result<(), &'static str> {
         // Resolving mappings with virtual targets is not necessary anymore. It has
@@ -546,7 +549,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &self.basics,
                 &self.collections.parameters,
                 m,
-                control_value,
+                control_event,
                 options,
                 ManualFeedbackProcessing::On {
                     mappings_with_virtual_targets: &self.collections.mappings_with_virtual_targets,
@@ -561,7 +564,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             control_result,
             GroupInteractionProcessing::On(GroupInteractionInput {
                 mapping_id,
-                control_value,
+                control_event,
                 group_interaction,
             }),
         );
@@ -1677,6 +1680,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     Some(ControlOutcome::Matched(v)) => v,
                     _ => continue,
                 };
+                let control_event = ControlEvent::now(control_value);
                 let options = ControlOptions {
                     enforce_target_refresh,
                     ..Default::default()
@@ -1685,7 +1689,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     &self.basics,
                     &self.collections.parameters,
                     m,
-                    control_value,
+                    control_event,
                     options,
                     ManualFeedbackProcessing::On {
                         mappings_with_virtual_targets: &self
@@ -1700,7 +1704,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     group_interaction_input: GroupInteractionInput {
                         mapping_id: m.id(),
                         group_interaction: m.group_interaction(),
-                        control_value,
+                        control_event,
                     },
                 };
                 results.push(extended_control_result);
@@ -2437,7 +2441,7 @@ pub enum ControlMainTask {
     Control {
         compartment: MappingCompartment,
         mapping_id: MappingId,
-        value: ControlValue,
+        event: ControlEvent<ControlValue>,
         options: ControlOptions,
     },
     LogVirtualControlInput {
@@ -2695,7 +2699,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         collections: &mut Collections,
         compartment: MappingCompartment,
         mapping_id: MappingId,
-        control_value: ControlValue,
+        control_event: ControlEvent<ControlValue>,
         control_was_successful: bool,
     ) {
         if let Some(m) = collections.mappings[compartment].get(&mapping_id) {
@@ -2706,10 +2710,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 None => {}
                 SameControl | InverseControl => {
                     let control_value = if m.group_interaction().is_inverse() {
-                        control_value.inverse()
+                        control_event.payload().inverse()
                     } else {
-                        control_value
+                        control_event.payload()
                     };
+                    let control_event = control_event.with_payload(control_value);
                     self.process_other_mappings(
                         collections,
                         compartment,
@@ -2726,7 +2731,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 basics,
                                 parameters,
                                 other_mapping,
-                                control_value,
+                                control_event,
                                 options,
                                 ManualFeedbackProcessing::Off,
                             )
@@ -3217,6 +3222,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
                     let control_value = s.control(&value)?;
+                    let control_event = ControlEvent::now(control_value);
                     let options = ControlOptions {
                         enforce_target_refresh,
                         ..options
@@ -3225,7 +3231,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         self,
                         params,
                         m,
-                        control_value,
+                        control_event,
                         options,
                         ManualFeedbackProcessing::Off,
                     );
@@ -3239,7 +3245,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         group_interaction_input: GroupInteractionInput {
                             mapping_id: m.id(),
                             group_interaction: m.group_interaction(),
-                            control_value,
+                            control_event,
                         },
                     };
                     Some(extended_control_result)
@@ -3361,11 +3367,11 @@ fn control_mapping_stage_one_and_two<EH: DomainEventHandler>(
     basics: &Basics<EH>,
     params: &PluginParams,
     m: &mut MainMapping,
-    control_value: ControlValue,
+    control_event: ControlEvent<ControlValue>,
     options: ControlOptions,
     feedback_handling: ManualFeedbackProcessing,
 ) -> MappingControlResult {
-    let mut control_result = control_mapping_stage_one(basics, params, m, control_value, options);
+    let mut control_result = control_mapping_stage_one(basics, params, m, control_event, options);
     control_mapping_stage_two(basics, &mut control_result, m, feedback_handling);
     control_result
 }
@@ -3381,14 +3387,14 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     basics: &Basics<EH>,
     params: &PluginParams,
     m: &mut MainMapping,
-    control_value: ControlValue,
+    control_event: ControlEvent<ControlValue>,
     options: ControlOptions,
 ) -> MappingControlResult {
     basics
         .event_handler
         .notify_mapping_matched(m.compartment(), m.id());
     m.control_from_mode(
-        control_value,
+        control_event,
         options,
         basics.control_context(),
         &basics.logger,
@@ -3472,7 +3478,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
                 collections,
                 compartment,
                 input.mapping_id,
-                input.control_value,
+                input.control_event,
                 control_result.successful,
             );
         }
@@ -3500,7 +3506,7 @@ struct ExtendedMappingControlResult {
 struct GroupInteractionInput {
     mapping_id: MappingId,
     group_interaction: GroupInteraction,
-    control_value: ControlValue,
+    control_event: ControlEvent<ControlValue>,
 }
 
 struct Fb(FeedbackReason, Option<CompoundFeedbackValue>);
