@@ -19,9 +19,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, AbstractControlEvent, ControlEvent, ControlEventTimestamp, ControlValue,
-    GroupInteraction, MidiSourceValue, MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, Target,
-    BASE_EPSILON,
+    AbsoluteValue, ControlEvent, ControlEventTimestamp, ControlValue, GroupInteraction,
+    MidiSourceValue, MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
