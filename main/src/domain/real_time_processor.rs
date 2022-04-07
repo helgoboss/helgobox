@@ -115,7 +115,7 @@ impl RealTimeProcessor {
 
     pub fn process_incoming_midi_from_vst(
         &mut self,
-        event: MidiEvent<IncomingMidiMessage>,
+        event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         is_transport_start: bool,
         host: &HostCallback,
     ) {
@@ -133,7 +133,7 @@ impl RealTimeProcessor {
         } else {
             // #33, #290 If MIDI input device is not set to <FX input>, we want to pass through all
             // messages that arrive on FX input.
-            self.send_incoming_midi_to_fx_output(event, Caller::Vst(host))
+            self.send_incoming_midi_to_fx_output(event.payload(), Caller::Vst(host))
         }
     }
 
@@ -652,11 +652,11 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi(
         &mut self,
-        event: MidiEvent<IncomingMidiMessage>,
+        event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         caller: Caller,
     ) -> MatchOutcome {
         use MidiMessageClassification::*;
-        match classify_midi_message(event.payload()) {
+        match classify_midi_message(event.payload().payload()) {
             Normal => self.process_incoming_midi_normal(event, caller),
             Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
@@ -669,7 +669,13 @@ impl RealTimeProcessor {
                 if self.control_is_globally_enabled {
                     if let Some(bpm) = self.midi_clock_calculator.feed(event.offset()) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(MidiEvent::new(event.offset(), &source_value), caller)
+                        self.control_midi(
+                            event.with_payload(MidiEvent::new(
+                                event.payload().offset(),
+                                &source_value,
+                            )),
+                            caller,
+                        )
                     } else {
                         MatchOutcome::Unmatched
                     }
@@ -687,7 +693,7 @@ impl RealTimeProcessor {
     /// - Short MIDI messaages
     fn process_incoming_midi_normal(
         &mut self,
-        event: MidiEvent<IncomingMidiMessage>,
+        event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         caller: Caller,
     ) -> MatchOutcome {
         match self.control_mode {
@@ -921,7 +927,7 @@ impl RealTimeProcessor {
 
     fn control_midi(
         &mut self,
-        value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
+        value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
     ) -> MatchOutcome {
         // We do pattern matching in order to use Rust's borrow splitting.
@@ -949,7 +955,7 @@ impl RealTimeProcessor {
 
     fn control_main_mappings_midi(
         &mut self,
-        source_value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
+        source_value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
     ) -> MatchOutcome {
         let compartment = MappingCompartment::MainMappings;
@@ -961,13 +967,15 @@ impl RealTimeProcessor {
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
             if let CompoundMappingSource::Midi(s) = &m.source() {
-                if let Some(control_value) = s.control(source_value_event.payload()) {
+                let midi_event = source_value_event.payload();
+                if let Some(control_value) = s.control(midi_event.payload()) {
                     let _ = process_real_mapping(
                         m,
                         &self.control_main_task_sender,
                         &self.feedback_task_sender,
                         compartment,
-                        MidiEvent::new(source_value_event.offset(), control_value),
+                        source_value_event
+                            .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
                         ControlOptions {
                             enforce_target_refresh: match_outcome.matched(),
                             ..Default::default()
@@ -995,7 +1003,11 @@ impl RealTimeProcessor {
         self.send_incoming_midi_to_fx_output(event, caller);
     }
 
-    fn process_unmatched(&self, event: MidiEvent<IncomingMidiMessage>, caller: Caller) {
+    fn process_unmatched(
+        &self,
+        event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
+        caller: Caller,
+    ) {
         if self.settings.midi_control_input() != MidiControlInput::FxInput {
             return;
         }
@@ -1333,7 +1345,7 @@ fn control_controller_mappings_midi(
     controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
-    value_event: MidiEvent<&MidiSourceValue<RawShortMessage>>,
+    value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     virtual_input_logging_enabled: bool,
@@ -1346,7 +1358,9 @@ fn control_controller_mappings_midi(
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control_midi_virtualizing(value_event.payload()) {
+        if let Some(control_match) =
+            m.control_midi_virtualizing(flatten_control_midi_event(value_event))
+        {
             use PartialControlMatch::*;
             let child_match_outcome = match control_match {
                 ProcessVirtual(virtual_source_value) => {
@@ -1354,7 +1368,7 @@ fn control_controller_mappings_midi(
                         main_task_sender,
                         rt_feedback_sender,
                         main_mappings,
-                        MidiEvent::new(value_event.offset(), virtual_source_value),
+                        MidiEvent::new(value_event.payload().offset(), virtual_source_value),
                         ControlOptions {
                             // We inherit "Send feedback after control" to the main processor if it's
                             // enabled for the virtual mapping. That's the easy way to do it.
@@ -1416,13 +1430,14 @@ fn process_real_mapping(
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     compartment: MappingCompartment,
-    value_event: MidiEvent<ControlValue>,
+    value_event: ControlEvent<MidiEvent<ControlValue>>,
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
     clip_matrix: Option<&WeakMatrix>,
 ) -> Result<(), &'static str> {
+    let pure_control_event = flatten_control_midi_event(value_event);
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
@@ -1432,7 +1447,7 @@ fn process_real_mapping(
             .core
             .mode
             .control_with_options(
-                ControlEvent::now(value_event.payload()),
+                pure_control_event,
                 reaper_target,
                 control_context,
                 options.mode_control_options,
@@ -1464,16 +1479,11 @@ fn process_real_mapping(
         }
     };
     // If we made it until here, real-time processing was not meant to be or not possible.
-    // TODO-medium We could have sample-accurate control event times by converting the MIDI event
-    //  sample offset to something like microseconds (according to the current sample rate or by
-    //  using REAPER's MidiFrameOffset type instead of SampleOffset in the first place) and using
-    //  this microsecond unit in ControlEvent time.
-    let control_event = ControlEvent::now(value_event.payload());
     forward_control_to_main_processor(
         main_task_sender,
         compartment,
         mapping.id(),
-        control_event,
+        pure_control_event,
         options,
     );
     Ok(())
@@ -1820,4 +1830,12 @@ fn log_virtual_control_input(
         value,
         match_outcome,
     });
+}
+
+fn flatten_control_midi_event<T: Copy>(evt: ControlEvent<MidiEvent<T>>) -> ControlEvent<T> {
+    // TODO-medium We could have sample-accurate control event times by converting the MIDI event
+    //  sample offset to something like microseconds (according to the current sample rate or by
+    //  using REAPER's MidiFrameOffset type instead of SampleOffset in the first place) and using
+    //  this microsecond unit in ControlEvent time.
+    evt.map_payload(|midi_evt| midi_evt.payload())
 }

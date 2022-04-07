@@ -1159,12 +1159,12 @@ impl MainMapping {
 
     pub fn control_virtualizing(
         &mut self,
-        msg: MainSourceMessage,
+        evt: ControlEvent<MainSourceMessage>,
     ) -> Option<ControlOutcome<VirtualSourceValue>> {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = match self.control_source(msg)? {
+        let control_value = match self.control_source(evt.payload())? {
             ControlOutcome::Consumed => {
                 return Some(ControlOutcome::Consumed);
             }
@@ -1173,7 +1173,7 @@ impl MainMapping {
         // First target is enough because this does nothing yet.
         let virtual_source_value = match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => {
-                match_partially(&mut self.core, t, ControlEvent::now(control_value))
+                match_partially(&mut self.core, t, evt.with_payload(control_value))
             }
             CompoundMappingTarget::Reaper(_) => None,
         };
@@ -1328,18 +1328,18 @@ impl RealTimeMapping {
 
     pub fn control_midi_virtualizing(
         &mut self,
-        source_value: &MidiSourceValue<RawShortMessage>,
+        evt: ControlEvent<&MidiSourceValue<RawShortMessage>>,
     ) -> Option<PartialControlMatch> {
         if !self.target_is_resolved {
             return None;
         }
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
-            s.control(source_value)?
+            s.control(evt.payload())?
         } else {
             return None;
         };
         if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
-            match_partially(&mut self.core, t, ControlEvent::now(control_value))
+            match_partially(&mut self.core, t, evt.with_payload(control_value))
                 .map(PartialControlMatch::ProcessVirtual)
         } else {
             Some(PartialControlMatch::ProcessDirect(control_value))

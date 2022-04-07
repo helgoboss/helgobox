@@ -19,8 +19,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlEvent, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
+    AbsoluteValue, ControlEvent, ControlEventTimestamp, ControlValue, GroupInteraction,
+    MidiSourceValue, MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -371,7 +371,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This should *not* be called by the control surface when it's globally learning targets
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
-    pub fn run_control(&mut self) {
+    pub fn run_control(&mut self, timestamp: ControlEventTimestamp) {
         let control_is_effectively_enabled = self.basics.instance_control_is_effectively_enabled();
         // Collect control tasks (we do that in any case to not let get channels full).
         let mut count = 0;
@@ -386,7 +386,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 break;
             }
         }
-        self.poll_control();
+        self.poll_control(timestamp);
     }
 
     fn process_control_task(&mut self, task: ControlMainTask) {
@@ -430,7 +430,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn poll_control(&mut self) {
+    fn poll_control(&mut self, timestamp: ControlEventTimestamp) {
         for compartment in MappingCompartment::enum_iter() {
             for id in self.poll_control_mappings[compartment].iter() {
                 let (is_source_poll, control_result, group_interaction) = if let Some(m) =
@@ -461,7 +461,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else if m.source().wants_to_be_polled() && m.control_is_effectively_on() {
                         // Mode was either not polled at all or without result, poll source.
                         let res = if let Some(source_control_value) = m.poll_source() {
-                            let control_event = ControlEvent::now(source_control_value);
+                            let control_event =
+                                ControlEvent::with_timestamp(source_control_value, timestamp);
                             control_mapping_stage_one(
                                 &self.basics,
                                 &self.collections.parameters,
@@ -508,9 +509,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             mapping_id: *id,
                             // Control value is not important because we only do target-value
                             // based group interaction.
-                            control_event: ControlEvent::now(ControlValue::AbsoluteContinuous(
-                                Default::default(),
-                            )),
+                            control_event: ControlEvent::with_timestamp(
+                                ControlValue::AbsoluteContinuous(Default::default()),
+                                timestamp,
+                            ),
                             group_interaction,
                         })
                     } else {
@@ -572,9 +574,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This should be regularly called by the control surface, even during global target learning.
-    pub fn run_essential(&mut self) {
+    pub fn run_essential(&mut self, timestamp: ControlEventTimestamp) {
         self.process_normal_tasks_from_real_time_processor();
-        self.process_normal_tasks_from_session();
+        self.process_normal_tasks_from_session(timestamp);
         self.process_parameter_tasks();
         self.process_feedback_tasks();
         self.process_instance_feedback_events();
@@ -1000,7 +1002,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_normal_tasks_from_session(&mut self) {
+    fn process_normal_tasks_from_session(&mut self, timestamp: ControlEventTimestamp) {
         let mut count = 0;
         while let Ok(task) = self.basics.channels.normal_task_receiver.try_recv() {
             use NormalMainTask::*;
@@ -1012,7 +1014,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.update_all_mappings(compartment, mappings);
                 }
                 NotifyRealearnInstanceStarted => {
-                    self.process_reaper_message(&ReaperMessage::RealearnInstanceStarted);
+                    let evt = ControlEvent::with_timestamp(
+                        &ReaperMessage::RealearnInstanceStarted,
+                        timestamp,
+                    );
+                    self.process_reaper_message(evt);
                 }
                 HitTarget { id, value } => {
                     self.hit_target(id, value);
@@ -1510,10 +1516,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             && self.basics.settings.control_input == ControlInput::Osc(*device_id)
     }
 
-    pub fn process_reaper_message(&mut self, msg: &ReaperMessage) {
+    pub fn process_reaper_message(&mut self, evt: ControlEvent<&ReaperMessage>) {
         // First process internally.
         // Convenience: Send all feedback whenever a MIDI device is connected.
-        if let ReaperMessage::MidiDevicesConnected(payload) = msg {
+        if let ReaperMessage::MidiDevicesConnected(payload) = evt.payload() {
             if let Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))) =
                 self.basics.settings.feedback_output
             {
@@ -1535,13 +1541,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if !self.basics.instance_control_is_effectively_enabled() {
             return;
         }
-        let msg = MainSourceMessage::Reaper(msg);
+        let evt = evt.map_payload(MainSourceMessage::Reaper);
         let (control_results, _) = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
                 &mut self.collections.mappings[MappingCompartment::MainMappings],
-                msg,
+                evt,
                 &self.collections.parameters,
             );
         for r in control_results {
@@ -1553,7 +1559,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 GroupInteractionProcessing::On(r.group_interaction_input),
             )
         }
-        self.process_mappings_with_real_targets(msg);
+        self.process_mappings_with_real_targets(evt);
     }
 
     fn log_incoming_message<T: Display>(&self, msg: T) {
@@ -1571,11 +1577,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Returns whether this message should be filtered out from the keyboard processing chain.
     ///
     /// This doesn't check if control enabled! You need to check before.
-    pub fn process_incoming_key_msg(&mut self, msg: KeyMessage) -> bool {
+    pub fn process_incoming_key_msg(&mut self, evt: ControlEvent<KeyMessage>) -> bool {
         if self.basics.settings.real_input_logging_enabled {
-            self.log_incoming_message(msg);
+            self.log_incoming_message(evt);
         }
-        let match_outcome = self.process_incoming_message_internal(MainSourceMessage::Key(msg));
+        let match_outcome =
+            self.process_incoming_message_internal(evt.map_payload(MainSourceMessage::Key));
         let let_through = (match_outcome.matched_or_consumed()
             && self.basics.settings.let_matched_events_through)
             || (!match_outcome.matched_or_consumed()
@@ -1583,13 +1590,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         !let_through
     }
 
-    fn process_incoming_msg_for_controlling(&mut self, msg: MainSourceMessage) -> MatchOutcome {
+    fn process_incoming_msg_for_controlling(
+        &mut self,
+        evt: ControlEvent<MainSourceMessage>,
+    ) -> MatchOutcome {
         let (control_results, virtual_match_outcome) = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
                 &mut self.collections.mappings[MappingCompartment::MainMappings],
-                msg,
+                evt,
                 &self.collections.parameters,
             );
         for r in control_results {
@@ -1601,31 +1611,34 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 GroupInteractionProcessing::On(r.group_interaction_input),
             )
         }
-        let real_match_outcome = self.process_mappings_with_real_targets(msg);
+        let real_match_outcome = self.process_mappings_with_real_targets(evt);
         virtual_match_outcome.merge_with(real_match_outcome)
     }
 
     /// This doesn't check if control enabled! You need to check before.
-    pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
+    pub fn process_incoming_osc_packet(&mut self, evt: ControlEvent<&OscPacket>) {
         if self.basics.settings.real_input_logging_enabled {
-            self.log_incoming_message(format_osc_packet(packet));
+            self.log_incoming_message(format_osc_packet(evt));
         }
-        match packet {
+        match evt.payload() {
             OscPacket::Message(msg) => {
                 let msg = MainSourceMessage::Osc(msg);
-                self.process_incoming_message_internal(msg);
+                self.process_incoming_message_internal(evt.with_payload(msg));
             }
             OscPacket::Bundle(bundle) => {
                 for p in bundle.content.iter() {
-                    self.process_incoming_osc_packet(p);
+                    self.process_incoming_osc_packet(evt.with_payload(p));
                 }
             }
         }
     }
 
-    fn process_incoming_message_internal(&mut self, msg: MainSourceMessage) -> MatchOutcome {
+    fn process_incoming_message_internal(
+        &mut self,
+        evt: ControlEvent<MainSourceMessage>,
+    ) -> MatchOutcome {
         match self.basics.control_mode {
-            ControlMode::Controlling => self.process_incoming_msg_for_controlling(msg),
+            ControlMode::Controlling => self.process_incoming_msg_for_controlling(evt),
             ControlMode::LearningSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
@@ -1633,7 +1646,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.process_incoming_msg_for_learning(
                     allow_virtual_sources,
                     osc_arg_index_hint,
-                    msg.create_capture_result(),
+                    evt.payload().create_capture_result(),
                 );
                 MatchOutcome::Consumed
             }
@@ -1664,7 +1677,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Controls mappings with real targets in *both* compartments.
-    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) -> MatchOutcome {
+    fn process_mappings_with_real_targets(
+        &mut self,
+        evt: ControlEvent<MainSourceMessage>,
+    ) -> MatchOutcome {
         let mut match_outcome = MatchOutcome::Unmatched;
         for compartment in MappingCompartment::enum_iter() {
             let mut enforce_target_refresh = false;
@@ -1674,13 +1690,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
-                let control_outcome = m.control_source(msg);
+                let control_outcome = m.control_source(evt.payload());
                 match_outcome.upgrade_from(control_outcome.into());
                 let control_value = match control_outcome {
                     Some(ControlOutcome::Matched(v)) => v,
                     _ => continue,
                 };
-                let control_event = ControlEvent::now(control_value);
+                let control_event = evt.with_payload(control_value);
                 let options = ControlOptions {
                     enforce_target_refresh,
                     ..Default::default()
@@ -2923,7 +2939,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         mappings_with_virtual_targets: &mut OrderedMappingMap<MainMapping>,
         // Contains mappings with virtual sources
         main_mappings: &mut OrderedMappingMap<MainMapping>,
-        msg: MainSourceMessage,
+        evt: ControlEvent<MainSourceMessage>,
         params: &PluginParams,
     ) -> (Vec<ExtendedMappingControlResult>, MatchOutcome) {
         // Control
@@ -2932,7 +2948,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
-                let virtual_source_value = match m.control_virtualizing(msg) {
+                let virtual_source_value = match m.control_virtualizing(evt) {
                     Some(ControlOutcome::Matched(v)) => v,
                     unmatched_or_consumed => {
                         match_outcome.upgrade_from(unmatched_or_consumed.into());
@@ -2943,7 +2959,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     .notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
                 let results = self.process_main_mappings_with_virtual_sources(
                     main_mappings,
-                    virtual_source_value,
+                    evt.with_payload(virtual_source_value),
                     ControlOptions {
                         // We inherit "Send feedback after control" if it's
                         // enabled for the virtual mapping. That's the easy way to do it.
@@ -3209,7 +3225,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     fn process_main_mappings_with_virtual_sources(
         &self,
         main_mappings: &mut OrderedMappingMap<MainMapping>,
-        value: VirtualSourceValue,
+        evt: ControlEvent<VirtualSourceValue>,
         options: ControlOptions,
         params: &PluginParams,
     ) -> Vec<ExtendedMappingControlResult> {
@@ -3221,8 +3237,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter(|m| m.control_is_effectively_on())
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
-                    let control_value = s.control(&value)?;
-                    let control_event = ControlEvent::now(control_value);
+                    let control_value = s.control(&evt.payload())?;
+                    let control_event = evt.with_payload(control_value);
                     let options = ControlOptions {
                         enforce_target_refresh,
                         ..options

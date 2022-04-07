@@ -38,6 +38,7 @@ use crate::infrastructure::plugin::app::App;
 
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
+use helgoboss_learn::{ControlEvent, ControlEventTimestamp};
 use std::convert::TryInto;
 use std::slice;
 use swell_ui::SharedView;
@@ -276,6 +277,7 @@ impl Plugin for RealearnPlugin {
     fn process_events(&mut self, events: &Events) {
         firewall(|| {
             assert_no_alloc(|| {
+                let timestamp = ControlEventTimestamp::now();
                 let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
                 for e in events.events() {
                     let our_event = match MidiEvent::from_vst(e) {
@@ -286,6 +288,7 @@ impl Plugin for RealearnPlugin {
                         }
                         Ok(e) => e,
                     };
+                    let our_event = ControlEvent::with_timestamp(our_event, timestamp);
                     // This is called in real-time audio thread, so we can just call the
                     // real-time processor.
                     self.real_time_processor

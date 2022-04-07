@@ -9,7 +9,7 @@ use crate::domain::{
     SharedRealTimeProcessor, SourceFeedbackValue, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{ModeGarbage, RawMidiEvents};
+use helgoboss_learn::{ControlEvent, ControlEventTimestamp, ModeGarbage, RawMidiEvents};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     FxParameter, MainTaskMiddleware, Project, Reaper,
@@ -260,6 +260,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
+        let timestamp = ControlEventTimestamp::now();
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
@@ -268,11 +269,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.process_incoming_additional_feedback();
         self.process_instance_orchestration_events();
         self.emit_beats_as_feedback_events();
-        self.emit_device_changes_as_reaper_source_messages();
-        self.process_incoming_osc_messages();
+        self.emit_device_changes_as_reaper_source_messages(timestamp);
+        self.process_incoming_osc_messages(timestamp);
         self.poll_clip_matrixes();
         self.process_incoming_clip_matrix_events();
-        self.run_main_processors();
+        self.run_main_processors(timestamp);
         // // TODO-high-grpc Just an experiment
         // if let Some(t) = Reaper::get().current_project().first_track() {
         //     let vol = t.volume();
@@ -378,17 +379,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn run_main_processors(&mut self) {
+    fn run_main_processors(&mut self, timestamp: ControlEventTimestamp) {
         match &self.state {
             State::Normal => {
                 for p in &mut *self.main_processors.borrow_mut() {
-                    p.run_essential();
-                    p.run_control();
+                    p.run_essential(timestamp);
+                    p.run_control(timestamp);
                 }
             }
             State::CapturingOsc(_) | State::LearningTarget(_) => {
                 for p in &mut *self.main_processors.borrow_mut() {
-                    p.run_essential();
+                    p.run_essential(timestamp);
                 }
             }
         }
@@ -517,7 +518,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn emit_device_changes_as_reaper_source_messages(&mut self) {
+    fn emit_device_changes_as_reaper_source_messages(&mut self, timestamp: ControlEventTimestamp) {
         // Check roughly every 2 seconds
         if self.counter % (30 * 2) == 0 {
             let midi_in_diff = self
@@ -549,7 +550,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
             for p in &mut *self.main_processors.borrow_mut() {
                 for msg in &msgs {
-                    p.process_reaper_message(msg);
+                    let evt = ControlEvent::with_timestamp(msg, timestamp);
+                    p.process_reaper_message(evt);
                 }
             }
         }
@@ -568,7 +570,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         Reaper::get().show_console_msg(msg);
     }
 
-    fn process_incoming_osc_messages(&mut self) {
+    fn process_incoming_osc_messages(&mut self, timestamp: ControlEventTimestamp) {
         pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
         let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); OSC_INCOMING_BULK_SIZE]> = self
             .osc_input_devices
@@ -586,7 +588,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     for proc in &mut *self.main_processors.borrow_mut() {
                         if proc.wants_osc_from(&dev_id) {
                             for packet in &packets {
-                                proc.process_incoming_osc_packet(packet);
+                                let evt = ControlEvent::with_timestamp(packet, timestamp);
+                                proc.process_incoming_osc_packet(evt);
                             }
                         }
                     }
