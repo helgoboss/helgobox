@@ -9,7 +9,8 @@ use crate::domain::{
     SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
 use helgoboss_learn::{
-    ControlEvent, ControlEventTimestamp, ControlValue, MidiSourceValue, RawMidiEvent,
+    AbstractControlEvent, ControlEvent, ControlEventTimestamp, ControlValue, MidiSourceValue,
+    RawMidiEvent,
 };
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,

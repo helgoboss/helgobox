@@ -15,11 +15,11 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlEvent,
-    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
-    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
-    ValueFormatter, ValueParser,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue,
+    AbstractControlEvent, ControlEvent, ControlType, ControlValue, FeedbackValue, GroupInteraction,
+    MidiSourceAddress, MidiSourceValue, ModeControlOptions, ModeControlResult, ModeFeedbackOptions,
+    NumericFeedbackValue, NumericValue, OscSource, OscSourceAddress, PropValue, RawMidiEvent,
+    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
