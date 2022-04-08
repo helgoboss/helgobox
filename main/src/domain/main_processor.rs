@@ -454,7 +454,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         control_context,
                     );
                     let mode_poll_result = if m.mode().wants_to_be_polled() {
-                        m.poll_mode(control_context, &self.basics.logger, processor_context)
+                        m.poll_mode(
+                            control_context,
+                            &self.basics.logger,
+                            processor_context,
+                            timestamp,
+                        )
                     } else {
                         Default::default()
                     };

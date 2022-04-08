@@ -1,7 +1,7 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
     ActivationCondition, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
-    ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
+    ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
     HitInstructionReturnValue, KeyMessage, KeySource, MappingActivationEffect,
     MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
     MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
@@ -684,6 +684,7 @@ impl MainMapping {
         context: ControlContext,
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
+        timestamp: ControlEventTimestamp,
     ) -> MappingControlResult {
         self.control_internal(
             ControlOptions::default(),
@@ -691,7 +692,7 @@ impl MainMapping {
             logger,
             processor_context,
             true,
-            |_, context, mode, target| mode.poll(target, context),
+            |_, context, mode, target| mode.poll(target, context, timestamp),
         )
     }
 
