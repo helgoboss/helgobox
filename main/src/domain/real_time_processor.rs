@@ -1486,6 +1486,8 @@ fn process_real_mapping(
                 reaper_target,
                 control_context,
                 options.mode_control_options,
+                // Performance control not supported when controlling real-time
+                None,
             )
             .ok_or("mode didn't return control value")?
             .into();

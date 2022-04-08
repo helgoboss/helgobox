@@ -319,6 +319,10 @@ impl MainMapping {
         self.last_non_performance_target_value.set(Some(value));
     }
 
+    pub fn last_non_performance_target_value(&self) -> Option<AbsoluteValue> {
+        self.last_non_performance_target_value.get()
+    }
+
     pub fn take_mapping_info(&mut self) -> MappingInfo {
         MappingInfo {
             name: self.name.take().unwrap_or_default(),
@@ -368,7 +372,6 @@ impl MainMapping {
     pub fn mode_control_options(&self) -> ModeControlOptions {
         ModeControlOptions {
             enforce_rotate: self.core.mode.settings().rotate,
-            last_non_performance_target_value: self.last_non_performance_target_value.get(),
         }
     }
 
@@ -715,6 +718,7 @@ impl MainMapping {
         context: ControlContext,
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
+        last_non_performance_target_value: Option<AbsoluteValue>,
     ) -> MappingControlResult {
         self.control_internal(
             options,
@@ -728,6 +732,7 @@ impl MainMapping {
                     target,
                     context,
                     options.mode_control_options,
+                    last_non_performance_target_value,
                 )
             },
         )
@@ -782,7 +787,7 @@ impl MainMapping {
         MappingData {
             mapping_id: self.core.id,
             group_id: self.core.group_id,
-            last_non_performance_target_value: self.last_non_performance_target_value.get(),
+            last_non_performance_target_value: self.last_non_performance_target_value(),
         }
     }
 
@@ -1329,7 +1334,6 @@ impl RealTimeMapping {
     pub fn mode_control_options(&self) -> ModeControlOptions {
         ModeControlOptions {
             enforce_rotate: self.core.mode.settings().rotate,
-            last_non_performance_target_value: None,
         }
     }
 
@@ -2266,9 +2270,14 @@ fn match_partially(
     // TODO-medium If we want to support fire after timeout and turbo for mappings with
     //  virtual targets one day, we need to poll this in real-time processor and OSC
     //  processing, too!
-    let res =
-        core.mode
-            .control_with_options(control_event, target, (), ModeControlOptions::default())?;
+    let res = core.mode.control_with_options(
+        control_event,
+        target,
+        (),
+        ModeControlOptions::default(),
+        // Performance control not relevant in virtual context.
+        None,
+    )?;
     let transformed_control_value: Option<ControlValue> = res.into();
     let transformed_control_value = transformed_control_value?;
     core.time_of_last_control = Some(Instant::now());

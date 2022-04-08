@@ -3431,6 +3431,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         basics.control_context(),
         &basics.logger,
         ExtendedProcessorContext::new(&basics.context, params, basics.control_context()),
+        m.last_non_performance_target_value(),
     )
 }
 
