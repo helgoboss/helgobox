@@ -5683,14 +5683,17 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn fill_mode_type_combo_box(&self) {
-        let target_category = self.mapping.target_model.category();
+        let base_input = self.mapping.base_mode_applicability_check_input();
+        let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
         let items = AbsoluteMode::into_enum_iter().map(|m| {
-            let suffix =
-                if target_category == TargetCategory::Virtual && m == AbsoluteMode::ToggleButton {
-                    " (invalid because target is virtual!)"
-                } else {
-                    ""
-                };
+            let applicable = self.mapping.mode_model.mode_parameter_is_relevant(
+                ModeParameter::SpecificAbsoluteMode(m),
+                base_input,
+                &relevant_source_characters,
+                true,
+                false,
+            );
+            let suffix = if applicable { "" } else { " (not applicable!)" };
             format!("{}{}", m, suffix)
         });
         self.view
