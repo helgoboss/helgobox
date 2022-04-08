@@ -1,5 +1,6 @@
 use helgoboss_learn::AbstractTimestamp;
 use std::fmt::{Display, Formatter};
+use std::ops::Sub;
 use std::time::{Duration, Instant};
 
 pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestamp>;
@@ -18,9 +19,13 @@ impl ControlEventTimestamp {
     }
 }
 
-impl AbstractTimestamp for ControlEventTimestamp {
-    fn elapsed(&self) -> Duration {
-        self.0.elapsed()
+impl AbstractTimestamp for ControlEventTimestamp {}
+
+impl Sub for ControlEventTimestamp {
+    type Output = Duration;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.0 - rhs.0
     }
 }
 
