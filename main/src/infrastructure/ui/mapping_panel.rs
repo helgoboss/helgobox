@@ -5693,7 +5693,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 true,
                 false,
             );
-            let suffix = if applicable { "" } else { " (not applicable!)" };
+            let suffix = if applicable { "" } else { " (NOT APPLICABLE)" };
             format!("{}{}", m, suffix)
         });
         self.view
