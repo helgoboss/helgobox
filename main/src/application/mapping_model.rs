@@ -597,7 +597,9 @@ impl<'a> MappingModelWithContext<'a> {
         let absolute_mode = self.mapping.mode_model.absolute_mode();
         let makes_sense = match source_character {
             Normal(RangeElement) => match absolute_mode {
-                AbsoluteMode::Normal | AbsoluteMode::MakeRelative => true,
+                AbsoluteMode::Normal
+                | AbsoluteMode::MakeRelative
+                | AbsoluteMode::PerformanceControl => true,
                 AbsoluteMode::IncrementalButton | AbsoluteMode::ToggleButton => false,
             },
             Normal(MomentaryButton | ToggleButton) => {
@@ -626,11 +628,12 @@ impl<'a> MappingModelWithContext<'a> {
                         // for button presses!
                         false
                     }
+                    AbsoluteMode::PerformanceControl => false,
                 }
             }
             Normal(Encoder1) | Normal(Encoder2) | Normal(Encoder3) => {
                 // TODO-low No idea why this is true. But so what, auto-correct settings is not
-                // really a thing anymore?
+                //  really a thing anymore?
                 true
             }
             VirtualContinuous => true,

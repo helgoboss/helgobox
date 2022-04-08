@@ -106,6 +106,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 IncrementalButton => T::IncrementalButton,
                 ToggleButton => T::ToggleButton,
                 MakeRelative => T::MakeRelative,
+                PerformanceControl => T::PerformanceControl,
             }
         },
         min_source_value: source_interval.min_val(),

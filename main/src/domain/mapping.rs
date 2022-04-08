@@ -366,7 +366,10 @@ impl MainMapping {
     }
 
     pub fn mode_control_options(&self) -> ModeControlOptions {
-        self.core.mode_control_options()
+        ModeControlOptions {
+            enforce_rotate: self.core.mode.settings().rotate,
+            last_non_performance_target_value: self.last_non_performance_target_value.get(),
+        }
     }
 
     pub fn splinter_real_time_mapping(&mut self) -> RealTimeMapping {
@@ -1324,7 +1327,10 @@ impl RealTimeMapping {
     }
 
     pub fn mode_control_options(&self) -> ModeControlOptions {
-        self.core.mode_control_options()
+        ModeControlOptions {
+            enforce_rotate: self.core.mode.settings().rotate,
+            last_non_performance_target_value: None,
+        }
     }
 
     pub fn control_midi_virtualizing(
@@ -1372,12 +1378,6 @@ impl MappingCore {
             t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY
         } else {
             false
-        }
-    }
-
-    fn mode_control_options(&self) -> ModeControlOptions {
-        ModeControlOptions {
-            enforce_rotate: self.mode.settings().rotate,
         }
     }
 }

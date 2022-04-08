@@ -61,6 +61,7 @@ pub enum AbsoluteMode {
     IncrementalButton,
     ToggleButton,
     MakeRelative,
+    PerformanceControl,
 }
 
 impl Default for AbsoluteMode {
