@@ -11,7 +11,7 @@
 // Make sure the following factors correspond to the ones in `units.rs` (function `effective_scale_factors`).
 #ifdef __APPLE__
 #define SWELL_DLG_SCALE_AUTOGEN 1.6
-#define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.90
+#define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.95
 #else
 #define SWELL_DLG_SCALE_AUTOGEN 1.9
 #define SWELL_DLG_SCALE_AUTOGEN_YADJ 1.0
