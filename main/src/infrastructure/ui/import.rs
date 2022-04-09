@@ -15,11 +15,14 @@ use crate::infrastructure::data::{
     CompartmentModelData, MappingModelData, ModeModelData, SessionData, SourceModelData,
     TargetModelData,
 };
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::lua_serializer;
+use crate::infrastructure::ui::util::open_in_browser;
 use mlua::{Lua, LuaSerdeExt, Value};
 use realearn_api::schema;
 use realearn_api::schema::{ApiObject, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
+use reaper_high::Reaper;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -190,6 +193,23 @@ pub fn serialize_data_object_to_json(object: DataObject) -> Result<String, Box<d
     Ok(serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?)
 }
 
+pub fn dry_run_lua_script(text: &str) -> Result<(), Box<dyn Error>> {
+    let lua = Lua::new();
+    let value = execute_lua_script(&lua, text)?;
+    let json = serde_json::to_string_pretty(&value)?;
+    match App::get_temp_dir() {
+        None => {
+            Reaper::get().show_console_msg(json);
+        }
+        Some(dir) => {
+            let json_file = dir.path().join("dry-run.json");
+            std::fs::write(&json_file, json)?;
+            open_in_browser(&json_file.to_string_lossy())
+        }
+    }
+    Ok(())
+}
+
 pub enum SerializationFormat {
     JsonDataObject,
     LuaApiObject(ConversionStyle),
@@ -217,6 +237,11 @@ pub fn serialize_data_object_to_lua(
 
 pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
     let lua = Lua::new();
+    let value = execute_lua_script(&lua, text)?;
+    Ok(lua.from_value(value)?)
+}
+
+fn execute_lua_script<'a>(lua: &'a Lua, text: &str) -> Result<mlua::Value<'a>, Box<dyn Error>> {
     let instant = Instant::now();
     // Try to prevent code from taking too long to execute.
     lua.set_hook(
@@ -233,6 +258,21 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
     )?;
     // Make sure we execute in a sort of sandbox.
     let env = build_safe_lua_env(&lua)?;
+    // Add some useful functions (hidden, undocumented, subject to change!)
+    let realearn_table = {
+        let table = lua.create_table()?;
+        let get_track_guid_by_index = lua.create_function(|_, index: u32| {
+            let guid = Reaper::get()
+                .current_project()
+                .track_by_index(index)
+                .map(|t| t.guid().to_string_without_braces());
+            Ok(guid)
+        })?;
+        table.set("get_track_guid_by_index", get_track_guid_by_index)?;
+        table
+    };
+    env.set("realearn", realearn_table)?;
+    // Load and evaluate script
     let lua_chunk = lua
         .load(text)
         .set_name("Import")?
@@ -245,7 +285,7 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
         }
         e => Box::new(e),
     })?;
-    Ok(lua.from_value(value)?)
+    Ok(value)
 }
 
 #[derive(Debug, Display)]

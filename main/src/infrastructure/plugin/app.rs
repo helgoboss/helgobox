@@ -45,6 +45,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 use swell_ui::{SharedView, View};
+use tempfile::TempDir;
 use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
@@ -307,6 +308,12 @@ impl App {
             },
         );
         App::get().init();
+    }
+
+    pub fn get_temp_dir() -> Option<&'static TempDir> {
+        static TEMP_DIR: Lazy<Option<TempDir>> =
+            Lazy::new(|| tempfile::Builder::new().prefix("realearn-").tempdir().ok());
+        TEMP_DIR.as_ref()
     }
 
     /// Executed globally just once as soon as we have access to global REAPER instance.

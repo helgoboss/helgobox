@@ -44,10 +44,11 @@ use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
-    deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
-    serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua, DataObject,
-    GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
-    SerializationFormat, SharedIndependentPanelManager, SharedMainState, SourceFilter,
+    deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
+    get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
+    serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
+    MappingRowsPanel, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
+    SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -222,12 +223,15 @@ impl HeaderPanel {
             let preset_link_manager = preset_link_manager.borrow();
             let main_preset_manager = App::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
-            let text_from_clipboard = get_text_from_clipboard();
-            let data_object_from_clipboard = text_from_clipboard
-                .as_ref()
-                .and_then(|text| deserialize_data_object_from_json(text).ok());
+            let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
+            let text_from_clipboard_clone = text_from_clipboard.clone();
+            let data_object_from_clipboard = if text_from_clipboard.is_empty() {
+                None
+            } else {
+                deserialize_data_object_from_json(&*text_from_clipboard).ok()
+            };
             let clipboard_could_contain_lua =
-                text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
+                !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
@@ -306,9 +310,17 @@ impl HeaderPanel {
                             },
                             move || {
                                 ContextMenuAction::PasteFromLuaReplaceAllInGroup(
-                                    text_from_clipboard.unwrap(),
+                                    text_from_clipboard,
                                 )
                             },
+                        ),
+                        item_with_opts(
+                            "Dry-run Lua script from clipboard",
+                            ItemOpts {
+                                enabled: clipboard_could_contain_lua,
+                                checked: false,
+                            },
+                            move || ContextMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
                     ],
                 ),
@@ -566,6 +578,9 @@ impl HeaderPanel {
             }
             ContextMenuAction::PasteFromLuaReplaceAllInGroup(text) => {
                 self.paste_from_lua_replace_all_in_group(&text);
+            }
+            ContextMenuAction::DryRunLuaScript(text) => {
+                self.dry_run_lua_script(&text);
             }
             ContextMenuAction::EditNewOscDevice => edit_new_osc_device(),
             ContextMenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
@@ -876,9 +891,13 @@ impl HeaderPanel {
     }
 
     fn paste_from_lua_replace_all_in_group(&self, text: &str) {
-        if let Err(e) = self.paste_from_lua_replace_all_in_group_internal(text) {
-            self.view.require_window().alert("ReaLearn", e.to_string());
-        }
+        let result = self.paste_from_lua_replace_all_in_group_internal(text);
+        self.notify_user_on_error(result);
+    }
+
+    fn dry_run_lua_script(&self, text: &str) {
+        let result = dry_run_lua_script(text);
+        self.notify_user_on_error(result);
     }
 
     fn paste_from_lua_replace_all_in_group_internal(
@@ -2429,11 +2448,8 @@ impl View for HeaderPanel {
             root::ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             root::ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
             root::ID_IMPORT_BUTTON => {
-                if let Err(error) = self.import_from_clipboard() {
-                    self.view
-                        .require_window()
-                        .alert("ReaLearn", error.to_string());
-                }
+                let result = self.import_from_clipboard();
+                self.notify_user_on_error(result);
             }
             root::ID_EXPORT_BUTTON => {
                 self.notify_user_on_error(self.export_to_clipboard());
@@ -2792,7 +2808,8 @@ enum ContextMenuAction {
     MakeSourcesOfMainMappingsVirtual,
     MoveListedMappingsToGroup(Option<GroupId>),
     PasteReplaceAllInGroup(Vec<MappingModelData>),
-    PasteFromLuaReplaceAllInGroup(String),
+    PasteFromLuaReplaceAllInGroup(Rc<String>),
+    DryRunLuaScript(Rc<String>),
     ToggleAutoCorrectSettings,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,

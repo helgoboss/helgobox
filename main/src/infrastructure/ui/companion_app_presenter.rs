@@ -13,17 +13,14 @@ use qrcode::QrCode;
 
 use rxrust::prelude::*;
 
-use once_cell::unsync::Lazy;
+use crate::infrastructure::ui::util::open_in_browser;
 use std::cell::Cell;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use tempfile::TempDir;
 
 #[derive(Debug)]
 pub struct CompanionAppPresenter {
     session: WeakSession,
-    app_setup_temp_dir: Lazy<Option<TempDir>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     /// `true` as soon as requested within this ReaLearn session execution at least once
     app_info_requested: Cell<bool>,
@@ -33,7 +30,6 @@ impl CompanionAppPresenter {
     pub fn new(session: WeakSession) -> Rc<CompanionAppPresenter> {
         let m = CompanionAppPresenter {
             session,
-            app_setup_temp_dir: Lazy::new(|| create_app_setup_temp_dir().ok()),
             party_is_over_subject: Default::default(),
             app_info_requested: Cell::new(false),
         };
@@ -45,15 +41,11 @@ impl CompanionAppPresenter {
     pub fn show_app_info(&self) {
         self.app_info_requested.set(true);
         let index_file = self.update_app_info();
-        webbrowser::open(&index_file.to_string_lossy())
-            .expect("couldn't open app setup page in browser");
+        open_in_browser(&index_file.to_string_lossy());
     }
 
     fn update_app_info(&self) -> PathBuf {
-        let dir = self
-            .app_setup_temp_dir
-            .as_ref()
-            .expect("app setup temp dir not lazily created");
+        let dir = App::get_temp_dir().expect("app setup temp dir not lazily created");
         let session = self.session();
         let session = session.borrow();
         let app = App::get();
@@ -211,9 +203,4 @@ pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'stat
 #[cfg(target_os = "linux")]
 pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
     Err("not supported on Linux")
-}
-
-fn create_app_setup_temp_dir() -> io::Result<TempDir> {
-    let dir = tempfile::Builder::new().prefix("realearn-").tempdir()?;
-    Ok(dir)
 }
