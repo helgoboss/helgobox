@@ -722,7 +722,8 @@ impl CustomPcmSource for SharedColumn {
     }
 
     fn get_num_channels(&mut self) -> Option<u32> {
-        unimplemented!()
+        // This will only be called if the preview register is played without track.
+        unimplemented!("track-less columns not yet supported")
     }
 
     fn get_sample_rate(&mut self) -> Option<Hz> {

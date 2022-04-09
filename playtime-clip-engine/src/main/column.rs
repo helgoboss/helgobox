@@ -483,11 +483,12 @@ fn start_playing_preview(
             measure_alignment,
         )
     } else {
-        Reaper::get().medium_session().play_preview_ex(
-            reg.clone(),
-            buffering_behavior,
-            measure_alignment,
-        )
+        panic!("Attempting to initialize column without track. Not yet supported.")
+        // Reaper::get().medium_session().play_preview_ex(
+        //     reg.clone(),
+        //     buffering_behavior,
+        //     measure_alignment,
+        // )
     };
     result.unwrap()
 }
