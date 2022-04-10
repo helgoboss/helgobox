@@ -269,6 +269,15 @@ fn execute_lua_script<'a>(lua: &'a Lua, text: &str) -> Result<mlua::Value<'a>, B
             Ok(guid)
         })?;
         table.set("get_track_guid_by_index", get_track_guid_by_index)?;
+        let print = lua.create_function(|_, arg: mlua::Value| {
+            let text: String = match arg {
+                Value::String(s) => format!("{}\n", s.to_string_lossy()),
+                arg => format!("{:?}\n", arg),
+            };
+            Reaper::get().show_console_msg(text);
+            Ok(())
+        })?;
+        table.set("print", print)?;
         table
     };
     env.set("realearn", realearn_table)?;
