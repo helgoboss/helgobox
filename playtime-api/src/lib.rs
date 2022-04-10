@@ -593,12 +593,6 @@ pub struct ColumnClipPlayAudioSettings {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Row {
-    pub scene: Scene,
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Scene {
     // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
