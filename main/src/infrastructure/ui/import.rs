@@ -24,6 +24,13 @@ use realearn_api::schema::{ApiObject, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 use reaper_high::Reaper;
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum UntaggedDataObject {
+    Tagged(DataObject),
+    PresetLike(CommonPresetData),
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum DataObject {
@@ -36,6 +43,17 @@ pub enum DataObject {
     Source(Envelope<Box<SourceModelData>>),
     Mode(Envelope<Box<ModeModelData>>),
     Target(Envelope<Box<TargetModelData>>),
+}
+
+/// This corresponds to the way controller and main presets are structured.
+///
+/// They don't have an envelope. We also want to be able to import their data.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommonPresetData {
+    pub name: String,
+    #[serde(flatten)]
+    pub data: Box<CompartmentModelData>,
 }
 
 impl DataObject {
@@ -131,8 +149,8 @@ impl DataObject {
 pub fn deserialize_data_object(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> Result<AnnotatedResult<DataObject>, Box<dyn Error>> {
-    let json_err = match deserialize_data_object_from_json(text) {
+) -> Result<AnnotatedResult<UntaggedDataObject>, Box<dyn Error>> {
+    let json_err = match deserialize_untagged_data_object_from_json(text) {
         Ok(o) => {
             return Ok(AnnotatedResult::without_annotations(o));
         }
@@ -140,13 +158,20 @@ pub fn deserialize_data_object(
     };
     let lua_err = match deserialize_data_object_from_lua(text, conversion_context) {
         Ok(o) => {
-            return Ok(AnnotatedResult::without_annotations(o));
+            return Ok(AnnotatedResult::without_annotations(
+                UntaggedDataObject::Tagged(o),
+            ));
         }
         Err(e) => e,
     };
     let csi_err = match deserialize_data_object_from_csi(text, conversion_context) {
         Ok(r) => {
-            return Ok(r);
+            let untagged_data_object = UntaggedDataObject::Tagged(r.value);
+            let annotated_result = AnnotatedResult {
+                value: untagged_data_object,
+                annotations: r.annotations,
+            };
+            return Ok(annotated_result);
         }
         Err(e) => e,
     };
@@ -164,6 +189,12 @@ pub fn deserialize_data_object(
 }
 
 pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
+    Ok(serde_json::from_str(text)?)
+}
+
+pub fn deserialize_untagged_data_object_from_json(
+    text: &str,
+) -> Result<UntaggedDataObject, Box<dyn Error>> {
     Ok(serde_json::from_str(text)?)
 }
 

@@ -48,7 +48,7 @@ use crate::infrastructure::ui::{
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
     MappingRowsPanel, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
-    SharedMainState, SourceFilter,
+    SharedMainState, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -1862,8 +1862,13 @@ impl HeaderPanel {
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
+        use UntaggedDataObject::*;
         match res.value {
-            DataObject::Session(Envelope { value: d}) => {
+            PresetLike(preset_data) => {
+                let compartment = self.active_compartment();
+                self.import_compartment(compartment, preset_data.data);
+            }
+            Tagged(DataObject::Session(Envelope { value: d})) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
@@ -1871,7 +1876,7 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
-            DataObject::ClipMatrix(Envelope { value }) => {
+            Tagged(DataObject::ClipMatrix(Envelope { value })) => {
                 let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
@@ -1901,20 +1906,20 @@ impl HeaderPanel {
                     }
                 }
             }
-            DataObject::MainCompartment(Envelope {value}) => {
+            Tagged(DataObject::MainCompartment(Envelope {value})) => {
                 let compartment = MappingCompartment::MainMappings;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
-            DataObject::ControllerCompartment(Envelope {value}) => {
+            Tagged(DataObject::ControllerCompartment(Envelope {value})) => {
                 let compartment = MappingCompartment::ControllerMappings;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
-            DataObject::Mappings{..} => {
+            Tagged(DataObject::Mappings{..}) => {
                 return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
             }
-            DataObject::Mapping{..} => {
+            Tagged(DataObject::Mapping{..}) => {
                 return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
             }
             _ => {
