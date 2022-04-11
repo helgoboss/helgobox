@@ -174,6 +174,7 @@ mod codegen {
             .raw_line("#![allow(dead_code)]")
             .raw_line("#![allow(deref_nullptr)]")
             .whitelist_function("NSEEL_.*")
+            .whitelist_var("NSEEL_.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks));
         if let Some(stdlib) = util::determine_cpp_stdlib() {
             builder = builder.clang_arg(format!("-stdlib=lib{}", stdlib));

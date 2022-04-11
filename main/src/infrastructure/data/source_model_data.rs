@@ -10,6 +10,7 @@ use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
+use realearn_api::schema::MidiScriptKind;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -47,6 +48,8 @@ pub struct SourceModelData {
     pub message: MidiClockTransportMessage,
     #[serde(default, skip_serializing_if = "is_default")]
     pub raw_midi_pattern: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub midi_script_kind: MidiScriptKind,
     #[serde(default, skip_serializing_if = "is_default")]
     pub midi_script: String,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -98,6 +101,7 @@ impl SourceModelData {
             is_14_bit: model.is_14_bit(),
             message: model.midi_clock_transport_message(),
             raw_midi_pattern: model.raw_midi_pattern().to_owned(),
+            midi_script_kind: model.midi_script_kind(),
             midi_script: model.midi_script().to_owned(),
             display_type: model.display_type(),
             display_id: model.display_id(),
@@ -175,6 +179,7 @@ impl SourceModelData {
         model.change(P::SetIs14Bit(self.is_14_bit));
         model.change(P::SetMidiClockTransportMessage(self.message));
         model.change(P::SetRawMidiPattern(self.raw_midi_pattern.clone()));
+        model.change(P::SetMidiScriptKind(self.midi_script_kind));
         model.change(P::SetMidiScript(self.midi_script.clone()));
         model.change(P::SetDisplayType(self.display_type));
         model.change(P::SetDisplayId(self.display_id));

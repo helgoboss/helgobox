@@ -2,11 +2,11 @@ use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
     InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnTargetContext, ReaperTarget,
+    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnTargetContext, ReaperTarget, SafeLua,
     SharedInstanceState, WeakInstanceState,
 };
 use playtime_clip_engine::rt::WeakMatrix;
-use reaper_high::Track;
+use reaper_high::{Reaper, Track};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -44,6 +44,29 @@ impl BackboneState {
             instance_states: Default::default(),
             server_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
+    }
+
+    /// Returns a static reference to a Lua state, intended to be used in the main thread only!
+    ///
+    /// This should only be used for Lua stuff like MIDI scripts, where it would be too expensive
+    /// to create a new Lua state for each single script and too complex to have narrow-scoped
+    /// lifetimes. For all other situations, a new Lua state should be constructed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if not called from main thread.
+    ///
+    /// # Safety
+    ///
+    /// If this static reference is passed to other user threads and used there, we are done.
+    pub unsafe fn main_thread_lua() -> &'static SafeLua {
+        Reaper::get().require_main_thread();
+        use once_cell::sync::Lazy;
+        struct SingleThreadLua(SafeLua);
+        unsafe impl Send for SingleThreadLua {}
+        unsafe impl Sync for SingleThreadLua {}
+        static LUA: Lazy<SingleThreadLua> = Lazy::new(|| SingleThreadLua(SafeLua::new().unwrap()));
+        &LUA.0
     }
 
     pub fn server_event_sender() -> &'static tokio::sync::broadcast::Sender<ServerEventType> {

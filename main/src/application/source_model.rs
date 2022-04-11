@@ -2,9 +2,10 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
 use crate::domain::{
-    CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, KeySource, Keystroke,
-    MappingCompartment, MidiSource, ReaperSource, TimerSource, VirtualControlElement,
-    VirtualControlElementId, VirtualSource, VirtualTarget,
+    BackboneState, CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter,
+    FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript, MappingCompartment,
+    MidiSource, ReaperSource, TimerSource, VirtualControlElement, VirtualControlElementId,
+    VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -15,6 +16,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use realearn_api::schema::MidiScriptKind;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -35,6 +37,7 @@ pub enum SourceCommand {
     SetIsRegistered(Option<bool>),
     SetIs14Bit(Option<bool>),
     SetRawMidiPattern(String),
+    SetMidiScriptKind(MidiScriptKind),
     SetMidiScript(String),
     SetDisplayType(DisplayType),
     SetDisplayId(Option<u8>),
@@ -64,6 +67,7 @@ pub enum SourceProp {
     IsRegistered,
     Is14Bit,
     RawMidiPattern,
+    MidiScriptKind,
     MidiScript,
     DisplayType,
     DisplayId,
@@ -136,6 +140,10 @@ impl<'a> Change<'a> for SourceModel {
             C::SetRawMidiPattern(v) => {
                 self.raw_midi_pattern = v;
                 One(P::RawMidiPattern)
+            }
+            C::SetMidiScriptKind(v) => {
+                self.midi_script_kind = v;
+                One(P::MidiScriptKind)
             }
             C::SetMidiScript(v) => {
                 self.midi_script = v;
@@ -216,6 +224,7 @@ pub struct SourceModel {
     is_registered: Option<bool>,
     is_14_bit: Option<bool>,
     raw_midi_pattern: String,
+    midi_script_kind: MidiScriptKind,
     midi_script: String,
     display_type: DisplayType,
     display_id: Option<u8>,
@@ -252,6 +261,7 @@ impl Default for SourceModel {
             is_registered: Some(false),
             is_14_bit: Some(false),
             raw_midi_pattern: "".to_owned(),
+            midi_script_kind: Default::default(),
             midi_script: "".to_owned(),
             display_type: Default::default(),
             display_id: Default::default(),
@@ -308,6 +318,10 @@ impl SourceModel {
 
     pub fn raw_midi_pattern(&self) -> &str {
         &self.raw_midi_pattern
+    }
+
+    pub fn midi_script_kind(&self) -> MidiScriptKind {
+        self.midi_script_kind
     }
 
     pub fn midi_script(&self) -> &str {
@@ -584,7 +598,21 @@ impl SourceModel {
                         custom_character: self.custom_character,
                     },
                     Script => MidiSource::Script {
-                        script: EelMidiSourceScript::compile(&self.midi_script).ok(),
+                        script: {
+                            match self.midi_script_kind {
+                                MidiScriptKind::Eel => {
+                                    EelMidiSourceScript::compile(&self.midi_script)
+                                        .ok()
+                                        .map(FlexibleMidiSourceScript::Eel)
+                                }
+                                MidiScriptKind::Lua => {
+                                    let lua = unsafe { BackboneState::main_thread_lua() };
+                                    LuaMidiSourceScript::compile(lua, &self.midi_script)
+                                        .ok()
+                                        .map(FlexibleMidiSourceScript::Lua)
+                                }
+                            }
+                        },
                     },
                     Display => MidiSource::Display {
                         spec: self.display_spec(),

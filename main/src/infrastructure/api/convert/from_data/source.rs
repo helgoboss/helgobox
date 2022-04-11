@@ -125,6 +125,7 @@ pub fn convert_source(
                 }
                 Script => {
                     let s = schema::MidiScriptSource {
+                        kind: style.required_value(data.midi_script_kind),
                         script: style.required_value(data.midi_script),
                     };
                     schema::Source::MidiScript(s)

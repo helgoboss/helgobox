@@ -40,6 +40,10 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             MidiRaw(s) => s.pattern.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
+        midi_script_kind: match &s {
+            MidiScript(s) => s.kind.unwrap_or_default(),
+            _ => Default::default(),
+        },
         midi_script: match &s {
             MidiScript(s) => s.script.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),

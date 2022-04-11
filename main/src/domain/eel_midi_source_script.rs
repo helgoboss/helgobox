@@ -1,6 +1,7 @@
 use crate::base::eel;
 use helgoboss_learn::{
-    create_raw_midi_events_singleton, AbsoluteValue, MidiSourceScript, RawMidiEvent, RawMidiEvents,
+    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceScript, RawMidiEvent,
+    RawMidiEvents,
 };
 
 use std::sync::Arc;
@@ -42,10 +43,16 @@ impl EelMidiSourceScript {
 }
 
 impl MidiSourceScript for EelMidiSourceScript {
-    fn execute(&self, input_value: AbsoluteValue) -> Result<RawMidiEvents, &'static str> {
+    fn execute(&self, input_value: FeedbackValue) -> Result<RawMidiEvents, &'static str> {
         let y_value = match input_value {
-            AbsoluteValue::Continuous(v) => v.get(),
-            AbsoluteValue::Discrete(f) => f.actual() as f64,
+            // TODO-high Find a constant for this which is defined in EEL
+            FeedbackValue::Off => f64::MIN,
+            FeedbackValue::Numeric(v) => match v.value {
+                AbsoluteValue::Continuous(v) => v.get(),
+                AbsoluteValue::Discrete(f) => f.actual() as f64,
+            },
+            // TODO-high Make this work by using EEL string support.
+            FeedbackValue::Textual(t) => t.text.as_ptr() as isize as f64,
         };
         let slice = unsafe {
             self.eel_unit.y.set(y_value);

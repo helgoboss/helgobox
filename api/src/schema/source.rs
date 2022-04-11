@@ -62,6 +62,9 @@ impl Default for FeedbackBehavior {
 
 mod midi {
     use crate::schema::FeedbackBehavior;
+    use derive_more::Display;
+    use enum_iterator::IntoEnumIterator;
+    use num_enum::{IntoPrimitive, TryFromPrimitive};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -209,7 +212,40 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub kind: Option<MidiScriptKind>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub script: Option<String>,
+    }
+
+    /// Kind of a MIDI script
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        IntoEnumIterator,
+        TryFromPrimitive,
+        IntoPrimitive,
+        Display,
+        JsonSchema,
+    )]
+    #[repr(usize)]
+    pub enum MidiScriptKind {
+        #[serde(rename = "eel")]
+        #[display(fmt = "EEL")]
+        Eel,
+        #[serde(rename = "lua")]
+        #[display(fmt = "Lua")]
+        Lua,
+    }
+
+    impl Default for MidiScriptKind {
+        fn default() -> Self {
+            MidiScriptKind::Eel
+        }
     }
 
     #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

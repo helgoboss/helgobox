@@ -25,7 +25,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
     Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::schema::MonitoringMode;
+use realearn_api::schema::{MidiScriptKind, MonitoringMode};
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -289,6 +289,9 @@ impl MappingPanel {
                                             P::OscAddressPattern |
                                             P::RawMidiPattern | P::TimerMillis => {
                                                 view.invalidate_source_line_3_edit_control(initiator);
+                                            }
+                                            P::MidiScriptKind => {
+                                                view.invalidate_source_line_3(initiator);
                                             }
                                             P::MidiScript | P::OscFeedbackArgs => {
                                                 view.invalidate_source_line_7_edit_control(initiator);
@@ -1274,15 +1277,25 @@ impl<'a> MutableMappingPanel<'a> {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.mapping.source_model.category() {
-            Midi => {
-                let value = match b.selected_combo_box_item_data() {
-                    -1 => None,
-                    id => Some(Channel::new(id as _)),
-                };
-                self.change_mapping(MappingCommand::ChangeSource(SourceCommand::SetChannel(
-                    value,
-                )));
-            }
+            Midi => match self.mapping.source_model.midi_source_type() {
+                MidiSourceType::Script => {
+                    let i = b.selected_combo_box_item_index();
+                    let kind = i.try_into().expect("invalid source script kind");
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetMidiScriptKind(kind),
+                    ));
+                }
+                t if t.supports_channel() => {
+                    let value = match b.selected_combo_box_item_data() {
+                        -1 => None,
+                        id => Some(Channel::new(id as _)),
+                    };
+                    self.change_mapping(MappingCommand::ChangeSource(SourceCommand::SetChannel(
+                        value,
+                    )));
+                }
+                _ => {}
+            },
             _ => {}
         };
     }
@@ -3152,6 +3165,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.source.category() {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::Raw => Some("Pattern"),
+                MidiSourceType::Script => Some("Kind"),
                 t if t.supports_channel() => Some("Channel"),
                 _ => None,
             },
@@ -3189,21 +3203,29 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category() {
-            Midi if self.source.supports_channel() => {
-                b.fill_combo_box_with_data_small(
-                    iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                        .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
-                );
-                b.show();
-                match self.source.channel() {
-                    None => {
-                        b.select_combo_box_item_by_data(-1).unwrap();
-                    }
-                    Some(ch) => {
-                        b.select_combo_box_item_by_data(ch.get() as _).unwrap();
-                    }
-                };
-            }
+            Midi => match self.source.midi_source_type() {
+                MidiSourceType::Script => {
+                    b.fill_combo_box_indexed(MidiScriptKind::into_enum_iter());
+                    b.select_combo_box_item_by_index(self.source.midi_script_kind().into())
+                        .unwrap();
+                }
+                t if t.supports_channel() => {
+                    b.fill_combo_box_with_data_small(
+                        iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                            .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
+                    );
+                    b.show();
+                    match self.source.channel() {
+                        None => {
+                            b.select_combo_box_item_by_data(-1).unwrap();
+                        }
+                        Some(ch) => {
+                            b.select_combo_box_item_by_data(ch.get() as _).unwrap();
+                        }
+                    };
+                }
+                _ => b.hide(),
+            },
             _ => {
                 b.hide();
             }
