@@ -3040,6 +3040,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     // At this point we still include controller mappings for which feedback
                     // is explicitly not enabled (not supported by controller) in order to
                     // support at least projection feedback (#414)!
+                    if self.settings.virtual_output_logging_enabled {
+                        log_virtual_feedback_output(&self.instance_id, &value);
+                    }
                     // Iterate over (controller) mappings with virtual targets.
                     for m in mappings_with_virtual_targets.values() {
                         // Should always be true.
@@ -3048,9 +3051,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 // Virtual source matched virtual target. The following method
                                 // will always produce real target values (because controller
                                 // mappings can't have virtual sources).
-                                if self.settings.virtual_output_logging_enabled {
-                                    log_virtual_feedback_output(&self.instance_id, &value);
-                                }
                                 let compound_feedback_value = m.feedback_given_target_value(
                                     // This clone is unavoidable because we are producing
                                     // real feedback values and these will be sent to another
