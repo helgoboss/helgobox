@@ -20,7 +20,7 @@ use playtime_api::{
     ChannelRange, Db, MatrixClipPlayAudioSettings, MatrixClipPlaySettings,
     MatrixClipRecordSettings, TempoRange,
 };
-use reaper_high::{OrCurrentProject, Project, Track};
+use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
 use std::thread::JoinHandle;
 use std::{cmp, thread};
@@ -201,7 +201,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn save(&self) -> api::Matrix {
         api::Matrix {
             columns: Some(self.columns.iter().map(|column| column.save()).collect()),
-            rows: None,
+            rows: Some(self.rows.iter().map(|row| row.save()).collect()),
             clip_play_settings: MatrixClipPlaySettings {
                 start_timing: self.settings.overridable.clip_play_start_timing,
                 stop_timing: self.settings.overridable.clip_play_stop_timing,
@@ -480,7 +480,7 @@ impl ClipRecordInput {
         &self,
         project: Option<Project>,
         auto_quantize_midi: bool,
-    ) -> RecordingEquipment {
+    ) -> ClipEngineResult<RecordingEquipment> {
         use ClipRecordInput::*;
         match &self {
             HardwareInput(ClipRecordHardwareInput::Midi(_)) => {
@@ -491,7 +491,7 @@ impl ClipRecordInput {
                     None
                 };
                 let equipment = MidiRecordingEquipment::new(quantization_settings);
-                RecordingEquipment::Midi(equipment)
+                Ok(RecordingEquipment::Midi(equipment))
             }
             HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
             | FxInput(virtual_input) => {
@@ -499,8 +499,10 @@ impl ClipRecordInput {
                     VirtualClipRecordAudioInput::Specific(range) => range.channel_count,
                     VirtualClipRecordAudioInput::Detect { channel_count } => *channel_count,
                 };
-                let equipment = AudioRecordingEquipment::new(project, channel_count as _);
-                RecordingEquipment::Audio(equipment)
+                let sample_rate = Reaper::get().audio_device_sample_rate()?;
+                let equipment =
+                    AudioRecordingEquipment::new(project, channel_count as _, sample_rate);
+                Ok(RecordingEquipment::Audio(equipment))
             }
         }
     }

@@ -746,7 +746,7 @@ fn create_record_stuff(
     let recording_equipment = input.create_recording_equipment(
         Some(playback_track.project()),
         matrix_record_settings.midi_settings.auto_quantize,
-    );
+    )?;
     let final_midi_overdub_instruction = if recording_equipment.is_midi() {
         desired_midi_overdub_instruction
     } else {

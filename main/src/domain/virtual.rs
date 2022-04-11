@@ -511,6 +511,8 @@ pub mod control_element_domains {
             "note",
             "device",
             "user",
+            // Found this one on the APC Key 25
+            "stop-all-clips",
         ];
     }
 }

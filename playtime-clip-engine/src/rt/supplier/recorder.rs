@@ -998,8 +998,8 @@ const RING_BUF_MAX_BLOCK_SIZE: usize = 2048;
 const RING_BUF_MAX_BLOCK_COUNT: usize = 100;
 
 impl AudioRecordingEquipment {
-    pub fn new(project: Option<Project>, channel_count: usize) -> Self {
-        let sink_outcome = create_audio_sink(project);
+    pub fn new(project: Option<Project>, channel_count: usize, sample_rate: Hz) -> Self {
+        let sink_outcome = create_audio_sink(project, channel_count, sample_rate);
         let (producer, consumer) = rtrb::RingBuffer::new(
             RING_BUF_MAX_BLOCK_COUNT * channel_count * RING_BUF_MAX_BLOCK_SIZE,
         );
@@ -1019,7 +1019,11 @@ impl AudioRecordingEquipment {
 }
 
 /// Project is necessary to create the sink.
-fn create_audio_sink(project: Option<Project>) -> AudioSinkOutcome {
+fn create_audio_sink(
+    project: Option<Project>,
+    channel_count: usize,
+    sample_rate: Hz,
+) -> AudioSinkOutcome {
     let proj_ptr = project.map(|p| p.raw().as_ptr()).unwrap_or(null_mut());
     let file_name = get_path_for_new_media_file("clip-audio", "wav", project);
     let file_name_str = file_name.to_str().unwrap();
@@ -1030,8 +1034,8 @@ fn create_audio_sink(project: Option<Project>) -> AudioSinkOutcome {
             file_name_c_string.as_ptr(),
             null(),
             0,
-            2,
-            48000,
+            channel_count as _,
+            sample_rate.get() as _,
             false,
         );
         let sink = NonNull::new(sink).expect("PCM_Sink_CreateEx returned null");
