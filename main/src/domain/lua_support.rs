@@ -1,4 +1,4 @@
-use mlua::{HookTriggers, Lua, Table, Value};
+use mlua::{ChunkMode, Function, HookTriggers, Lua, Table, Value};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -30,6 +30,47 @@ impl SafeLua {
         //     globals[key] = value;
         // }
         Ok(Self(lua))
+    }
+
+    /// Compiles as a function with return value (for later execution).
+    pub fn compile_as_function<'a>(
+        &'a self,
+        name: &str,
+        code: &str,
+        env: Table<'a>,
+    ) -> Result<Function<'a>, Box<dyn Error>> {
+        let chunk = self
+            .0
+            .load(code)
+            .set_name(name)?
+            .set_environment(env)?
+            .set_mode(ChunkMode::Text);
+        let function = chunk.into_function()?;
+        Ok(function)
+    }
+
+    /// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
+    pub fn compile_and_execute<'a>(
+        &'a self,
+        name: &str,
+        code: &str,
+        env: Table<'a>,
+    ) -> Result<Value<'a>, Box<dyn Error>> {
+        let lua_chunk = self
+            .0
+            .load(code)
+            .set_name(name)?
+            .set_mode(ChunkMode::Text)
+            .set_environment(env)?;
+        let value = lua_chunk.eval().map_err(|e| match e {
+            // Box the cause if it's a callback error (used for the execution time limit feature).
+            mlua::Error::CallbackError { cause, .. } => {
+                let boxed: Box<dyn Error> = Box::new(cause);
+                boxed
+            }
+            e => Box::new(e),
+        })?;
+        Ok(value)
     }
 
     /// Creates a fresh environment for this Lua state.

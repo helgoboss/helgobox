@@ -65,7 +65,8 @@ use crate::infrastructure::ui::util::{
     format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols,
 };
 use crate::infrastructure::ui::{
-    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
+    EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
+    ScriptEditorPanel, ScriptEngine, YamlEditorPanel,
 };
 
 #[derive(Debug)]
@@ -78,7 +79,7 @@ pub struct MappingPanel {
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
     yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
-    eel_editor: RefCell<Option<SharedView<EelEditorPanel>>>,
+    eel_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -763,7 +764,7 @@ impl MappingPanel {
 
     fn edit_midi_source_script(&self) {
         let session = self.session.clone();
-        self.edit_eel(
+        self.edit_midi_source_script_internal(
             |m| m.source_model.midi_script().to_owned(),
             move |m, eel| {
                 Session::change_mapping_from_ui_simple(
@@ -776,21 +777,28 @@ impl MappingPanel {
         );
     }
 
-    fn edit_eel(
+    fn edit_midi_source_script_internal(
         &self,
         get_initial_value: impl Fn(&MappingModel) -> String,
         apply: impl Fn(&mut MappingModel, String) + 'static,
     ) {
         let mapping = self.mapping();
+        let engine: Box<dyn ScriptEngine> = match mapping.borrow().source_model.midi_script_kind() {
+            MidiScriptKind::Eel => Box::new(EelMidiScriptEngine::new()),
+            MidiScriptKind::Lua => Box::new(LuaMidiScriptEngine::new()),
+        };
         let weak_mapping = Rc::downgrade(&mapping);
         let initial_value = { get_initial_value(&mapping.borrow()) };
-        let editor = EelEditorPanel::new(initial_value, move |edited_script| {
-            let m = match weak_mapping.upgrade() {
-                None => return,
-                Some(m) => m,
-            };
-            apply(&mut m.borrow_mut(), edited_script);
-        });
+        let help_url =
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source";
+        let editor =
+            ScriptEditorPanel::new(initial_value, engine, help_url, move |edited_script| {
+                let m = match weak_mapping.upgrade() {
+                    None => return,
+                    Some(m) => m,
+                };
+                apply(&mut m.borrow_mut(), edited_script);
+            });
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
         if let Some(existing_editor) = self.eel_editor.replace(Some(editor)) {

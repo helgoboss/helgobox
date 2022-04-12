@@ -3,7 +3,7 @@ use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
 };
-use mlua::{ChunkMode, Function, LuaSerdeExt, Table, ToLua, Value};
+use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
 use std::error::Error;
 
 #[derive(Clone, Debug)]
@@ -22,13 +22,7 @@ impl<'lua> LuaMidiSourceScript<'lua> {
             return Err("script empty".into());
         }
         let env = lua.create_fresh_environment()?;
-        let chunk = lua
-            .as_ref()
-            .load(lua_script)
-            .set_name("MIDI source script")?
-            .set_environment(env.clone())?
-            .set_mode(ChunkMode::Text);
-        let function = chunk.into_function()?;
+        let function = lua.compile_as_function("MIDI source script", lua_script, env.clone())?;
         let script = Self {
             lua,
             env,

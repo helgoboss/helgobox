@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use mlua::ChunkMode;
 use playtime_api::Matrix;
 use serde::{Deserialize, Serialize};
 
@@ -302,19 +301,5 @@ fn execute_lua_import_script<'a>(
         table
     };
     env.set("realearn", realearn_table)?;
-    // Load and evaluate script
-    let lua_chunk = lua
-        .as_ref()
-        .load(text)
-        .set_name("Import")?
-        .set_mode(ChunkMode::Text)
-        .set_environment(env)?;
-    let value = lua_chunk.eval().map_err(|e| match e {
-        mlua::Error::CallbackError { cause, .. } => {
-            let boxed: Box<dyn Error> = Box::new(cause);
-            boxed
-        }
-        e => Box::new(e),
-    })?;
-    Ok(value)
+    lua.compile_and_execute("Import", text, env)
 }
