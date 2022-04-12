@@ -1,7 +1,7 @@
 use crate::base::eel;
 use helgoboss_learn::{
-    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceScript,
-    MidiSourceScriptOutcome, RawMidiEvent,
+    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceAddress,
+    MidiSourceScript, MidiSourceScriptOutcome, RawMidiEvent,
 };
 
 use std::sync::Arc;
@@ -13,6 +13,7 @@ struct EelUnit {
     vm: eel::Vm,
     y: eel::Variable,
     msg_size: eel::Variable,
+    address: eel::Variable,
 }
 
 #[derive(Clone, Debug)]
@@ -30,11 +31,13 @@ impl EelMidiSourceScript {
         let program = vm.compile(eel_script)?;
         let y = vm.register_variable("y");
         let msg_size = vm.register_variable("msg_size");
+        let address = vm.register_variable("address");
         let eel_unit = EelUnit {
             program,
             vm,
             y,
             msg_size,
+            address,
         };
         Ok(Self {
             eel_unit: Arc::new(eel_unit),
@@ -54,15 +57,18 @@ impl MidiSourceScript for EelMidiSourceScript {
             // TODO-high Make this work by using EEL string support.
             FeedbackValue::Textual(t) => t.text.as_ptr() as isize as f64,
         };
-        let slice = unsafe {
+        let (slice, address) = unsafe {
             self.eel_unit.y.set(y_value);
             self.eel_unit.msg_size.set(0.0);
+            self.eel_unit.address.set(0.0);
             self.eel_unit.program.execute();
             let msg_size = self.eel_unit.msg_size.get().round() as i32;
             if msg_size < 0 {
                 return Err("invalid message size");
             };
-            self.eel_unit.vm.get_mem_slice(0, msg_size as u32)
+            let slice = self.eel_unit.vm.get_mem_slice(0, msg_size as u32);
+            let address = self.eel_unit.address.get();
+            (slice, address)
         };
         if slice.is_empty() {
             return Err("empty message");
@@ -75,9 +81,49 @@ impl MidiSourceScript for EelMidiSourceScript {
         }
         let raw_midi_event = RawMidiEvent::new(0, i, array);
         let outcome = MidiSourceScriptOutcome {
-            address: None,
+            address: if address == 0.0 {
+                None
+            } else {
+                Some(MidiSourceAddress::Script {
+                    bytes: address as u64,
+                })
+            },
             events: create_raw_midi_events_singleton(raw_midi_event),
         };
         Ok(outcome)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use helgoboss_learn::{FeedbackStyle, NumericFeedbackValue, UnitValue};
+
+    #[test]
+    fn basics() {
+        // Given
+        let text = "
+            address = 0x4bb0;
+            msg_size = 3;
+            0[] = 0xb0;
+            1[] = 0x4b;
+            2[] = y * 10;
+        ";
+        let script = EelMidiSourceScript::compile(text).unwrap();
+        // When
+        let fb_value = NumericFeedbackValue::new(
+            FeedbackStyle::default(),
+            AbsoluteValue::Continuous(UnitValue::new(0.5)),
+        );
+        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        // Then
+        assert_eq!(
+            outcome.address,
+            Some(MidiSourceAddress::Script { bytes: 0x4bb0 })
+        );
+        assert_eq!(
+            outcome.events,
+            vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 5]).unwrap()]
+        );
     }
 }

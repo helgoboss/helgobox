@@ -66,7 +66,7 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
             .lua
             .as_ref()
             .from_value(value)
-            .map_err(|_| "Lua script result has wrong structure")?;
+            .map_err(|_| "Lua script result has wrong type")?;
         let events = outcome
             .messages
             .into_iter()
@@ -86,4 +86,40 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
 struct LuaScriptOutcome {
     address: Option<u64>,
     messages: Vec<Vec<u8>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use helgoboss_learn::{FeedbackStyle, NumericFeedbackValue, UnitValue};
+
+    #[test]
+    fn basics() {
+        // Given
+        let text = "
+            return {
+                address = 0x4bb0,
+                messages = {
+                    { 0xb0, 0x4b, math.floor(y * 10) }
+                }
+            }
+        ";
+        let lua = SafeLua::new().unwrap();
+        let script = LuaMidiSourceScript::compile(&lua, text).unwrap();
+        // When
+        let fb_value = NumericFeedbackValue::new(
+            FeedbackStyle::default(),
+            AbsoluteValue::Continuous(UnitValue::new(0.5)),
+        );
+        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        // Then
+        assert_eq!(
+            outcome.address,
+            Some(MidiSourceAddress::Script { bytes: 0x4bb0 })
+        );
+        assert_eq!(
+            outcome.events,
+            vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 5]).unwrap()]
+        );
+    }
 }
