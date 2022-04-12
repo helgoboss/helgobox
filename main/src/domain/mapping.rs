@@ -1058,24 +1058,15 @@ impl MainMapping {
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
     ) -> Option<SpecificCompoundFeedbackValue> {
-        use FeedbackValue::*;
-        let mode_value = match feedback_value.as_ref() {
-            // Process numeric value via mode
-            Numeric(v) => {
-                let options = ModeFeedbackOptions {
-                    source_is_virtual: self.core.source.is_virtual(),
-                    max_discrete_source_value: self.core.source.max_discrete_value(),
-                };
-                let mode_value = self.core.mode.feedback_with_options_detail(
-                    v.value,
-                    options,
-                    Default::default(),
-                )?;
-                Cow::Owned(Numeric(NumericFeedbackValue::new(v.style, mode_value)))
-            }
-            // Textual feedback is not processed (created by the mode in the first place).
-            _ => feedback_value,
+        let options = ModeFeedbackOptions {
+            source_is_virtual: self.core.source.is_virtual(),
+            max_discrete_source_value: self.core.source.max_discrete_value(),
         };
+        let mode_value = self.core.mode.feedback_with_options_detail(
+            feedback_value,
+            options,
+            Default::default(),
+        )?;
         self.feedback_given_mode_value(mode_value, destinations)
     }
 

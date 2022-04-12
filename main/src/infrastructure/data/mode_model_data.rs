@@ -7,6 +7,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
     VirtualColor,
 };
+use realearn_api::schema::FeedbackValueTable;
 use serde::{Deserialize, Serialize};
 use slog::debug;
 use std::time::Duration;
@@ -84,6 +85,8 @@ pub struct ModeModelData {
     pub target_value_sequence: ValueSequence,
     #[serde(default, skip_serializing_if = "is_default")]
     pub feedback_type: FeedbackType,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub feedback_value_table: Option<FeedbackValueTable>,
 }
 
 fn default_step_size() -> SoftSymmetricUnitValue {
@@ -133,6 +136,7 @@ impl ModeModelData {
             group_interaction: model.group_interaction(),
             target_value_sequence: model.target_value_sequence().clone(),
             feedback_type: model.feedback_type(),
+            feedback_value_table: model.feedback_value_table().cloned(),
         }
     }
 
@@ -222,5 +226,6 @@ impl ModeModelData {
             self.target_value_sequence.clone(),
         ));
         model.change(P::SetFeedbackType(self.feedback_type));
+        model.change(P::SetFeedbackValueTable(self.feedback_value_table.clone()));
     }
 }

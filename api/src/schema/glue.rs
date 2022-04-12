@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -52,7 +53,15 @@ pub struct Glue {
     //region Relevant for feedback only (guaranteed)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback: Option<Feedback>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback_value_table: Option<FeedbackValueTable>,
     //endregion
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum FeedbackValueTable {
+    FromTextToDiscrete(HashMap<String, u32>),
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

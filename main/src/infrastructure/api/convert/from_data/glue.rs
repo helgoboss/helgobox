@@ -171,6 +171,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             };
             style.required_value(v)
         },
+        feedback_value_table: data.feedback_value_table,
     };
     Ok(glue)
 }

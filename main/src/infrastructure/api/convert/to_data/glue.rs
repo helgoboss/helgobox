@@ -213,6 +213,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             Default::default()
         },
         feedback_type: fb_data.feedback_type,
+        feedback_value_table: g.feedback_value_table,
     };
     Ok(data)
 }

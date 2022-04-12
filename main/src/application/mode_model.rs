@@ -9,6 +9,7 @@ use helgoboss_learn::{
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
+use realearn_api::schema::FeedbackValueTable;
 use std::time::Duration;
 
 pub enum ModeCommand {
@@ -46,6 +47,7 @@ pub enum ModeCommand {
     SetTextualFeedbackExpression(String),
     SetFeedbackColor(Option<VirtualColor>),
     SetFeedbackBackgroundColor(Option<VirtualColor>),
+    SetFeedbackValueTable(Option<FeedbackValueTable>),
     /// This doesn't reset the mode type, just all the values.
     ResetWithinType,
 }
@@ -76,6 +78,7 @@ pub enum ModeProp {
     TextualFeedbackExpression,
     FeedbackColor,
     FeedbackBackgroundColor,
+    FeedbackValueTable,
 }
 
 impl GetProcessingRelevance for ModeProp {
@@ -129,6 +132,7 @@ pub struct ModeModel {
     textual_feedback_expression: String,
     feedback_color: Option<VirtualColor>,
     feedback_background_color: Option<VirtualColor>,
+    feedback_value_table: Option<FeedbackValueTable>,
 }
 
 impl Default for ModeModel {
@@ -161,6 +165,7 @@ impl Default for ModeModel {
             textual_feedback_expression: Default::default(),
             feedback_color: Default::default(),
             feedback_background_color: Default::default(),
+            feedback_value_table: None,
         }
     }
 }
@@ -312,6 +317,10 @@ impl<'a> Change<'a> for ModeModel {
                 self.feedback_background_color = v;
                 One(P::FeedbackBackgroundColor)
             }
+            C::SetFeedbackValueTable(v) => {
+                self.feedback_value_table = v;
+                One(P::FeedbackValueTable)
+            }
             C::ResetWithinType => {
                 *self = Default::default();
                 Multiple
@@ -333,6 +342,10 @@ impl ModeModel {
             SoftSymmetricUnitValue::new(0.01),
             SoftSymmetricUnitValue::new(0.05),
         )
+    }
+
+    pub fn feedback_value_table(&self) -> Option<&FeedbackValueTable> {
+        self.feedback_value_table.as_ref()
     }
 
     pub fn absolute_mode(&self) -> AbsoluteMode {
@@ -587,6 +600,11 @@ impl ModeModel {
             } else {
                 None
             },
+            feedback_value_table: self.feedback_value_table.as_ref().map(|t| match t {
+                FeedbackValueTable::FromTextToDiscrete(v) => {
+                    helgoboss_learn::FeedbackValueTable::FromTextToDiscrete(v.clone())
+                }
+            }),
             make_absolute: if is_relevant(ModeParameter::MakeAbsolute) {
                 self.make_absolute
             } else {

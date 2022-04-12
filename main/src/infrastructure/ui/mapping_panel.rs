@@ -388,6 +388,9 @@ impl MappingPanel {
                                             P::FeedbackColor | P::FeedbackBackgroundColor => {
                                                 view.invalidate_mode_feedback_type_button();
                                             }
+                                            P::FeedbackValueTable => {
+                                                // No representation in GUI at the moment.
+                                            }
                                         }
                                     }
                                 },

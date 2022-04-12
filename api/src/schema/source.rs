@@ -1,5 +1,7 @@
+pub use keyboard::*;
 pub use midi::*;
 pub use osc::*;
+pub use reaper::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use virt::*;
@@ -168,30 +170,6 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct RealearnInstanceStartSource;
-
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
-    pub struct TimerSource {
-        pub duration: u64,
-    }
-
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
-    pub struct KeySource {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub keystroke: Option<Keystroke>,
-    }
-
-    #[derive(Copy, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
-    pub struct Keystroke {
-        pub modifiers: u8,
-        pub key: u16,
-    }
-
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiClockTransportSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub message: Option<MidiClockTransportMessage>,
@@ -345,6 +323,38 @@ mod osc {
         pub relative: Option<bool>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_arguments: Option<Vec<String>>,
+    }
+}
+
+mod reaper {
+    use super::*;
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct RealearnInstanceStartSource;
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct TimerSource {
+        pub duration: u64,
+    }
+}
+
+mod keyboard {
+    use super::*;
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct KeySource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub keystroke: Option<Keystroke>,
+    }
+
+    #[derive(Copy, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct Keystroke {
+        pub modifiers: u8,
+        pub key: u16,
     }
 }
 
