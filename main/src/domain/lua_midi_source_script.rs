@@ -91,7 +91,7 @@ struct LuaScriptOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helgoboss_learn::{FeedbackStyle, NumericFeedbackValue, UnitValue};
+    use helgoboss_learn::{FeedbackStyle, NumericFeedbackValue, TextualFeedbackValue, UnitValue};
 
     #[test]
     fn basics() {
@@ -120,6 +120,49 @@ mod tests {
         assert_eq!(
             outcome.events,
             vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 5]).unwrap()]
+        );
+    }
+
+    #[test]
+    fn text_feedback_value() {
+        // Given
+        let text = "
+            local lookup_table = {
+                playing = 5,
+                stopped = 6,
+                paused = 7,
+            }
+            return {
+                messages = {
+                    { 0xb0, 0x4b, lookup_table[y] or 0 }
+                }
+            }
+        ";
+        let lua = SafeLua::new().unwrap();
+        let script = LuaMidiSourceScript::compile(&lua, text).unwrap();
+        // When
+        let matched_outcome = script
+            .execute(FeedbackValue::Textual(TextualFeedbackValue::new(
+                FeedbackStyle::default(),
+                "playing".into(),
+            )))
+            .unwrap();
+        let unmatched_outcome = script
+            .execute(FeedbackValue::Numeric(NumericFeedbackValue::new(
+                FeedbackStyle::default(),
+                AbsoluteValue::Continuous(UnitValue::MAX),
+            )))
+            .unwrap();
+        // Then
+        assert_eq!(matched_outcome.address, None);
+        assert_eq!(
+            matched_outcome.events,
+            vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 5]).unwrap()]
+        );
+        assert_eq!(unmatched_outcome.address, None);
+        assert_eq!(
+            unmatched_outcome.events,
+            vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 0]).unwrap()]
         );
     }
 }
