@@ -1,7 +1,7 @@
 use crate::base::eel;
 use helgoboss_learn::{
-    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceScript, RawMidiEvent,
-    RawMidiEvents,
+    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceScript,
+    MidiSourceScriptOutcome, RawMidiEvent,
 };
 
 use std::sync::Arc;
@@ -43,7 +43,7 @@ impl EelMidiSourceScript {
 }
 
 impl MidiSourceScript for EelMidiSourceScript {
-    fn execute(&self, input_value: FeedbackValue) -> Result<RawMidiEvents, &'static str> {
+    fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
         let y_value = match input_value {
             // TODO-high Find a constant for this which is defined in EEL
             FeedbackValue::Off => f64::MIN,
@@ -74,6 +74,10 @@ impl MidiSourceScript for EelMidiSourceScript {
             i += 1;
         }
         let raw_midi_event = RawMidiEvent::new(0, i, array);
-        Ok(create_raw_midi_events_singleton(raw_midi_event))
+        let outcome = MidiSourceScriptOutcome {
+            address: None,
+            events: create_raw_midi_events_singleton(raw_midi_event),
+        };
+        Ok(outcome)
     }
 }

@@ -1,8 +1,9 @@
 use crate::domain::SafeLua;
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackValue, MidiSourceScript, RawMidiEvent, RawMidiEvents,
+    AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
+    RawMidiEvent,
 };
-use mlua::{ChunkMode, Function, Table, ToLua, Value};
+use mlua::{ChunkMode, Function, LuaSerdeExt, Table, ToLua, Value};
 use std::error::Error;
 
 #[derive(Clone, Debug)]
@@ -39,7 +40,7 @@ impl<'lua> LuaMidiSourceScript<'lua> {
 }
 
 impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
-    fn execute(&self, input_value: FeedbackValue) -> Result<RawMidiEvents, &'static str> {
+    fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
         // TODO-high We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
         //  scripts!
@@ -57,14 +58,32 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         self.env
             .raw_set(self.y_key.clone(), y_value)
             .map_err(|_| "couldn't set y variable")?;
-        let messages: Vec<Vec<u8>> = self
+        let value: Value = self
             .function
             .call(())
             .map_err(|_| "failed to invoke Lua script")?;
-        let events = messages
+        let outcome: LuaScriptOutcome = self
+            .lua
+            .as_ref()
+            .from_value(value)
+            .map_err(|_| "Lua script result has wrong structure")?;
+        let events = outcome
+            .messages
             .into_iter()
             .flat_map(|msg| RawMidiEvent::try_from_slice(0, &msg))
             .collect();
-        Ok(events)
+        let outcome = MidiSourceScriptOutcome {
+            address: outcome
+                .address
+                .map(|bytes| MidiSourceAddress::Script { bytes }),
+            events,
+        };
+        Ok(outcome)
     }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct LuaScriptOutcome {
+    address: Option<u64>,
+    messages: Vec<Vec<u8>>,
 }
