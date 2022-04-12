@@ -3935,7 +3935,7 @@ In all other circumstances the enable/disable target should be fine.
 
 ==== More technical explanation
 
-Conditional activation introduces a level of indirection. It allows you to look at the act of enabling/disable mappings as _two different concerns_ by introducing an intermediate concept called a "modifier" (respectively a "bank").
+Conditional activation introduces a level of indirection. It allows you to look at the act of enabling/disabling mappings as _two different concerns_ by introducing an intermediate concept called a "modifier" (respectively a "bank").
 
 In particular, it separates the following two concerns:
 
