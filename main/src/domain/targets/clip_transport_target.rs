@@ -6,7 +6,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot,
     DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, SlotPlayOptions};
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use reaper_high::Project;
@@ -193,6 +193,24 @@ impl RealearnTarget for ClipTransportTarget {
             basics: self.basics.clone(),
         };
         Some(RealTimeReaperTarget::ClipTransport(t))
+    }
+
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
+        match key {
+            "slot_state.id" => {
+                BackboneState::get()
+                    .with_clip_matrix(context.instance_state, |matrix| {
+                        // TODO-high CONTINUE Use Cow!
+                        let id_string = match matrix.clip_play_state(self.basics.slot_coordinates) {
+                            Ok(s) => s.id_string(),
+                            Err(_) => "empty",
+                        };
+                        Some(PropValue::Text(id_string.to_owned()))
+                    })
+                    .ok()?
+            }
+            _ => None,
+        }
     }
 }
 

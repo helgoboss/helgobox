@@ -1544,6 +1544,20 @@ pub enum ClipPlayState {
 }
 
 impl ClipPlayState {
+    pub fn id_string(&self) -> &'static str {
+        use ClipPlayState::*;
+        match self {
+            Stopped => "stopped",
+            ScheduledForPlayStart => "scheduled_for_play_start",
+            Playing => "playing",
+            Paused => "paused",
+            ScheduledForPlayStop => "scheduled_for_play_stop",
+            ScheduledForRecordingStart => {}
+            Recording => {}
+            ScheduledForRecordingStop => {}
+        }
+    }
+
     /// Translates this play state into a feedback value.
     pub fn feedback_value(self) -> UnitValue {
         use ClipPlayState::*;
