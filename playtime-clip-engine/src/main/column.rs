@@ -2,7 +2,8 @@ use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
-    ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings, SharedColumn, WeakColumn,
+    ColumnPlayClipArgs, ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings,
+    SharedColumn, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -256,7 +257,7 @@ impl Column {
         }
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
-            if slot.play_state().ok()?.is_advancing() {
+            if slot.clip_play_state().ok()?.is_advancing() {
                 let proportional_pos = slot.proportional_pos().unwrap_or(UnitValue::MIN);
                 let event = ClipChangedEvent::ClipPosition(proportional_pos);
                 Some((row, event))
@@ -342,6 +343,10 @@ impl Column {
         self.rt_command_sender.stop_clip(args);
     }
 
+    pub fn stop(&self, args: ColumnStopArgs) {
+        self.rt_command_sender.stop(args);
+    }
+
     pub fn pause_clip(&self, slot_index: usize) {
         self.rt_command_sender.pause_clip(slot_index);
     }
@@ -377,8 +382,12 @@ impl Column {
         self.get_slot(slot_index)?.clip_volume()
     }
 
-    pub fn slot_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
-        self.get_slot(slot_index)?.play_state()
+    pub fn is_playing_something(&self) -> bool {
+        self.slots.iter().any(|slot| slot.is_playing_something())
+    }
+
+    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
+        self.get_slot(slot_index)?.clip_play_state()
     }
 
     pub fn clip_looped(&self, slot_index: usize) -> ClipEngineResult<bool> {

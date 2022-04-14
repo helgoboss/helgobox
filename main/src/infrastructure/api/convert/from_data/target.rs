@@ -20,18 +20,19 @@ use crate::infrastructure::data::{
 use realearn_api::schema;
 use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipManagementTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
-    CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
-    CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
-    FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget, FxParameterValueTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
-    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    BookmarkRef, ClipColumnTransportActionTarget, ClipManagementTarget, ClipSeekTarget,
+    ClipTransportActionTarget, ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
+    CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
+    EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
+    FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxVisibilityTarget,
+    GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget,
+    PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
+    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget,
+    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
+    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -262,6 +263,10 @@ fn convert_real_target(
             commons,
             slot: data.clip_slot.unwrap_or_default(),
             action: convert_transport_action(data.transport_action),
+        }),
+        ClipColumnTransport => T::ClipColumnTransportAction(ClipColumnTransportActionTarget {
+            commons,
+            column: data.clip_column,
         }),
         ClipSeek => T::ClipSeek(ClipSeekTarget {
             commons,

@@ -24,9 +24,9 @@ use crate::domain::{
     TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedClipManagementTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTransportTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
     UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
@@ -42,15 +42,18 @@ use crate::domain::{
     UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
     UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
     UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
-    VirtualChainFx, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    VirtualChainFx, VirtualClipColumn, VirtualClipSlot, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
 use playtime_clip_engine::main::SlotPlayOptions;
-use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor, MonitoringMode};
+use realearn_api::schema::{
+    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, MonitoringMode,
+};
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
     TrackLocation, TrackSendDirection,
@@ -121,6 +124,7 @@ pub enum TargetCommand {
     SetOscArgValueRange(Interval<f64>),
     SetOscDevId(Option<OscDeviceId>),
     SetClipSlot(ClipSlotDescriptor),
+    SetClipColumn(ClipColumnDescriptor),
     SetClipManagementAction(ClipManagementAction),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
@@ -194,6 +198,7 @@ pub enum TargetProp {
     OscArgValueRange,
     OscDevId,
     ClipSlot,
+    ClipColumn,
     ClipManagementAction,
     PollForFeedback,
     Tags,
@@ -474,6 +479,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_slot = s;
                 One(P::ClipSlot)
             }
+            C::SetClipColumn(c) => {
+                self.clip_column = c;
+                One(P::ClipColumn)
+            }
             C::SetClipManagementAction(v) => {
                 self.clip_management_action = v;
                 One(P::ClipManagementAction)
@@ -577,6 +586,7 @@ pub struct TargetModel {
     osc_dev_id: Option<OscDeviceId>,
     // # For clip targets
     clip_slot: ClipSlotDescriptor,
+    clip_column: ClipColumnDescriptor,
     clip_management_action: ClipManagementAction,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
@@ -656,7 +666,8 @@ impl Default for TargetModel {
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
-            clip_slot: ClipSlotDescriptor::Selected,
+            clip_slot: Default::default(),
+            clip_column: Default::default(),
             clip_management_action: Default::default(),
         }
     }
@@ -1603,6 +1614,22 @@ impl TargetModel {
         Ok(slot)
     }
 
+    fn virtual_clip_column(&self) -> Result<VirtualClipColumn, &'static str> {
+        use ClipColumnDescriptor::*;
+        let column = match &self.clip_column {
+            Selected => VirtualClipColumn::Selected,
+            ByIndex { index } => VirtualClipColumn::ByIndex(*index),
+            Dynamic {
+                expression: index_expression,
+            } => {
+                let index_evaluator = ExpressionEvaluator::compile(index_expression)
+                    .map_err(|_| "couldn't evaluate index")?;
+                VirtualClipColumn::Dynamic(Box::new(index_evaluator))
+            }
+        };
+        Ok(column)
+    }
+
     pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
         let desc = FxDescriptor {
             track_descriptor: self.track_descriptor()?,
@@ -1876,6 +1903,11 @@ impl TargetModel {
                             play_options: self.slot_play_options(),
                         })
                     }
+                    ClipColumnTransport => UnresolvedReaperTarget::ClipColumnTranposrt(
+                        UnresolvedClipColumnTransportTarget {
+                            column: self.virtual_clip_column()?,
+                        },
+                    ),
                     ClipSeek => UnresolvedReaperTarget::ClipSeek(UnresolvedClipSeekTarget {
                         slot: self.virtual_clip_slot()?,
                         feedback_resolution: self.feedback_resolution,
@@ -1936,6 +1968,10 @@ impl TargetModel {
 
     pub fn clip_slot(&self) -> &ClipSlotDescriptor {
         &self.clip_slot
+    }
+
+    pub fn clip_column(&self) -> &ClipColumnDescriptor {
+        &self.clip_column
     }
 
     pub fn slot_play_options(&self) -> SlotPlayOptions {

@@ -47,6 +47,7 @@ pub enum Target {
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
     ClipTransportAction(ClipTransportActionTarget),
+    ClipColumnTransportAction(ClipColumnTransportActionTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
     ClipManagement(ClipManagementTarget),
@@ -508,6 +509,14 @@ pub struct ClipTransportActionTarget {
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
     pub action: TransportAction,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ClipColumnTransportActionTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub column: ClipColumnDescriptor,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1046,6 +1055,20 @@ pub enum ClipSlotDescriptor {
 }
 
 impl Default for ClipSlotDescriptor {
+    fn default() -> Self {
+        Self::Selected
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "address")]
+pub enum ClipColumnDescriptor {
+    Selected,
+    ByIndex { index: usize },
+    Dynamic { expression: String },
+}
+
+impl Default for ClipColumnDescriptor {
     fn default() -> Self {
         Self::Selected
     }

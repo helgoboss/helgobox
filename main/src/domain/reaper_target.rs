@@ -28,11 +28,12 @@ use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    ClipManagementTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
-    FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
-    FxParameterTouchStateTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget,
-    OscSendTarget, PlayrateTarget, RealTimeClipTransportTarget, RealTimeControlContext,
+    ClipColumnTransportTarget, ClipManagementTarget, ClipSeekTarget, ClipTransportTarget,
+    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget,
+    FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
+    RealTimeClipColumnTransportTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
     RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
     TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
@@ -125,6 +126,7 @@ pub enum ReaperTarget {
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
     ClipTransport(ClipTransportTarget),
+    ClipColumnTransport(ClipColumnTransportTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
     ClipManagement(ClipManagementTarget),
@@ -604,6 +606,7 @@ impl<'a> Target<'a> for ReaperTarget {
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
             ClipTransport(t) => t.current_value(context),
+            ClipColumnTransport(t) => t.current_value(context),
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
             ClipManagement(t) => t.current_value(context),
@@ -632,6 +635,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
             ClipTransport(t) => t.current_value(ctx),
+            ClipColumnTransport(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
     }
@@ -641,6 +645,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         match self {
             SendMidi(t) => t.control_type(()),
             ClipTransport(t) => t.control_type(ctx),
+            ClipColumnTransport(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
         }
     }
@@ -1330,6 +1335,7 @@ pub fn change_track_prop(
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
     ClipTransport(RealTimeClipTransportTarget),
+    ClipColumnTransport(RealTimeClipColumnTransportTarget),
     FxParameter(RealTimeFxParameterTarget),
 }
 

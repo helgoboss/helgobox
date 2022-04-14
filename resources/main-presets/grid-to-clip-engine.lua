@@ -91,9 +91,37 @@ local groups = {
         id = "slot-quantize",
         name = "Slot quantize",
     },
+    {
+        id = "column-stop",
+        name = "Column stop",
+    },
 }
 
 -- For each column
+for col = 0, column_count - 1 do
+    local human_col = col + 1
+    local prefix = "col" .. human_col .. "/"
+    local column_expression = "p[0] + " .. col
+    local column_stop = {
+        name = "Column " .. human_col .. " stop",
+        group = "column-stop",
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = prefix .. "stop",
+        },
+        target = {
+            kind = "ClipColumnTransportAction",
+            column = {
+                address = "Dynamic",
+                expression = column_expression,
+            },
+        },
+    }
+    table.insert(mappings, column_stop)
+end
+
+-- For each slot
 for col = 0, column_count - 1 do
     local human_col = col + 1
     for row = 0, row_count - 1 do

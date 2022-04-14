@@ -602,6 +602,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             transport_action: convert_transport_action(d.action),
             ..init(d.commons)
         },
+        Target::ClipColumnTransportAction(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipColumnTransport,
+            clip_column: d.column,
+            ..init(d.commons)
+        },
         Target::ClipSeek(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipSeek,

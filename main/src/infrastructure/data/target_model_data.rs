@@ -22,7 +22,9 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
-use realearn_api::schema::{ClipManagementAction, ClipSlotDescriptor, MonitoringMode};
+use realearn_api::schema::{
+    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, MonitoringMode,
+};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -154,6 +156,9 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.12.0-pre.5
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_slot: Option<ClipSlotDescriptor>,
+    /// New since ReaLearn v2.13.0-pre.3
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_column: ClipColumnDescriptor,
 }
 
 impl TargetModelData {
@@ -226,6 +231,7 @@ impl TargetModelData {
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
             clip_slot: Some(model.clip_slot().clone()),
+            clip_column: model.clip_column().clone(),
         }
     }
 
@@ -410,6 +416,7 @@ impl TargetModelData {
                 row_index: 0,
             });
         model.change(C::SetClipSlot(slot_descriptor));
+        model.change(C::SetClipColumn(self.clip_column.clone()));
         model.change(C::SetClipManagementAction(self.clip_management_action));
     }
 }

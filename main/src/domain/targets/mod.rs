@@ -7,6 +7,9 @@ pub use osc_send_target::*;
 mod clip_transport_target;
 pub use clip_transport_target::*;
 
+mod clip_column_transport_target;
+pub use clip_column_transport_target::*;
+
 mod clip_seek_target;
 pub use clip_seek_target::*;
 

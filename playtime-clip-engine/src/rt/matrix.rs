@@ -2,8 +2,8 @@ use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs,
-    ColumnProcessTransportChangeArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn,
-    TransportChange, WeakColumn,
+    ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs, RelevantPlayStateChange,
+    SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -196,6 +196,16 @@ impl Matrix {
             ref_pos: None,
         };
         handle.command_sender.stop_clip(args);
+        Ok(())
+    }
+
+    pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
+        let handle = self.column_handle(index)?;
+        let args = ColumnStopArgs {
+            timeline: self.timeline(),
+            ref_pos: None,
+        };
+        handle.command_sender.stop(args);
         Ok(())
     }
 

@@ -439,7 +439,7 @@ impl Slot {
         Ok(ClipChangedEvent::ClipLooped(looped))
     }
 
-    pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
+    pub fn clip_play_state(&self) -> ClipEngineResult<ClipPlayState> {
         use SlotState::*;
         match &self.state {
             Normal => Ok(self.get_content()?.runtime_data.play_state),
@@ -448,6 +448,12 @@ impl Slot {
             }
             Recording(s) => Ok(s.runtime_data.play_state),
         }
+    }
+
+    pub fn is_playing_something(&self) -> bool {
+        self.clip_play_state()
+            .map(|s| s.is_playing_something())
+            .unwrap_or(false)
     }
 
     fn runtime_data(&self) -> ClipEngineResult<&SlotRuntimeData> {

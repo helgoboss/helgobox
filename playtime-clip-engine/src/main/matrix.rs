@@ -7,8 +7,8 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
-    QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
+    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopArgs, ColumnStopClipArgs,
+    OverridableMatrixSettings, QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
@@ -296,6 +296,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
+        let timeline = self.timeline();
+        let column = get_column(&self.columns, index)?;
+        let args = ColumnStopArgs {
+            timeline,
+            ref_pos: None,
+        };
+        column.stop(args);
+        Ok(())
+    }
+
     fn timeline(&self) -> HybridTimeline {
         let project = self.permanent_project().or_current_project();
         clip_timeline(Some(project), false)
@@ -346,11 +357,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())?.slot_position_in_seconds(coordinates.row())
     }
 
+    pub fn column_is_playing_something(&self, index: usize) -> bool {
+        self.columns
+            .get(index)
+            .map(|c| c.is_playing_something())
+            .unwrap_or(false)
+    }
+
     pub fn clip_play_state(
         &self,
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<ClipPlayState> {
-        get_column(&self.columns, coordinates.column())?.slot_play_state(coordinates.row())
+        get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
     }
 
     pub fn clip_looped(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {

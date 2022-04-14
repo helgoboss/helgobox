@@ -112,6 +112,10 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::StopClip(args));
     }
 
+    pub fn stop(&self, args: ColumnStopArgs) {
+        self.send_task(ColumnCommand::Stop(args));
+    }
+
     pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
         self.send_task(ColumnCommand::SetClipLooped(args));
     }
@@ -155,6 +159,7 @@ pub enum ColumnCommand {
     ProcessTransportChange(ColumnProcessTransportChangeArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
+    Stop(ColumnStopArgs),
     PauseClip(ColumnPauseClipArgs),
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
@@ -325,28 +330,33 @@ impl Column {
         };
         get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)?;
         if self.settings.play_mode.is_exclusive() {
-            self.stop_other_clips(
+            self.stop_all_clips(
                 audio_request_props,
                 ref_pos,
                 &args.timeline,
-                args.slot_index,
+                Some(args.slot_index),
             );
         }
         Ok(())
     }
 
-    fn stop_other_clips(
+    pub fn stop(&mut self, args: ColumnStopArgs, audio_request_props: BasicAudioRequestProps) {
+        let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
+        self.stop_all_clips(audio_request_props, ref_pos, &args.timeline, None);
+    }
+
+    fn stop_all_clips(
         &mut self,
         audio_request_props: BasicAudioRequestProps,
         ref_pos: PositionInSeconds,
         timeline: &HybridTimeline,
-        this_slot_index: usize,
+        except: Option<usize>,
     ) {
         for (i, slot) in self
             .slots
             .iter_mut()
             .enumerate()
-            .filter(|(i, _)| *i != this_slot_index)
+            .filter(|(i, _)| except.map(|e| e != *i).unwrap_or(true))
         {
             let stop_args = ClipStopArgs {
                 stop_timing: None,
@@ -425,7 +435,7 @@ impl Column {
                 if self.settings.play_mode.is_exclusive() {
                     let timeline = clip_timeline(self.project, false);
                     let ref_pos = timeline.cursor_pos();
-                    self.stop_other_clips(audio_request_props, ref_pos, &timeline, slot_index);
+                    self.stop_all_clips(audio_request_props, ref_pos, &timeline, Some(slot_index));
                 }
                 (Ok(()), Ok(slot_runtime_data))
             }
@@ -434,6 +444,10 @@ impl Column {
         self.event_sender
             .record_request_acknowledged(slot_index, ack_result);
         informative_result
+    }
+
+    pub fn is_playing_something(&self) -> bool {
+        self.slots.iter().any(|slot| slot.is_playing_something())
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -524,6 +538,9 @@ impl Column {
                 StopClip(args) => {
                     let result = self.stop_clip(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
+                }
+                Stop(args) => {
+                    self.stop(args, audio_request_props);
                 }
                 PauseClip(args) => {
                     self.pause_clip(args.index).unwrap();
@@ -818,6 +835,13 @@ pub struct ColumnStopClipArgs {
     pub slot_index: usize,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
+    pub ref_pos: Option<PositionInSeconds>,
+}
+
+#[derive(Debug)]
+pub struct ColumnStopArgs {
+    pub timeline: HybridTimeline,
+    /// Set this if you already have the current timeline position or want to stop a batch of columns.
     pub ref_pos: Option<PositionInSeconds>,
 }
 
