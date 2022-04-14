@@ -605,10 +605,11 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 .unwrap_or(defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED),
             ..init(d.commons)
         },
-        Target::ClipColumnTransportAction(d) => TargetModelData {
+        Target::ClipColumnAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipColumnTransport,
+            r#type: ReaperTargetType::ClipColumn,
             clip_column: d.column,
+            clip_column_action: d.action,
             ..init(d.commons)
         },
         Target::ClipSeek(d) => TargetModelData {

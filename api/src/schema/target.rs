@@ -50,7 +50,7 @@ pub enum Target {
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
     ClipTransportAction(ClipTransportActionTarget),
-    ClipColumnTransportAction(ClipColumnTransportActionTarget),
+    ClipColumnAction(ClipColumnTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
     ClipManagement(ClipManagementTarget),
@@ -518,10 +518,11 @@ pub struct ClipTransportActionTarget {
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ClipColumnTransportActionTarget {
+pub struct ClipColumnTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub column: ClipColumnDescriptor,
+    pub action: ClipColumnAction,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -767,6 +768,34 @@ pub enum ClipTransportAction {
 impl Default for ClipTransportAction {
     fn default() -> Self {
         Self::PlayStop
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    JsonSchema,
+)]
+#[repr(usize)]
+pub enum ClipColumnAction {
+    #[display(fmt = "Stop")]
+    Stop,
+    #[display(fmt = "Arm/disarm")]
+    Arm,
+}
+
+impl Default for ClipColumnAction {
+    fn default() -> Self {
+        Self::Stop
     }
 }
 

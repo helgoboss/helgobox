@@ -24,7 +24,7 @@ use crate::domain::{
     TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTransportTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
     UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
     UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
@@ -52,8 +52,8 @@ use std::error::Error;
 
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
-    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, ClipTransportAction,
-    MonitoringMode,
+    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor,
+    ClipTransportAction, MonitoringMode,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -128,6 +128,7 @@ pub enum TargetCommand {
     SetClipColumn(ClipColumnDescriptor),
     SetClipManagementAction(ClipManagementAction),
     SetClipTransportAction(ClipTransportAction),
+    SetClipColumnAction(ClipColumnAction),
     SetRecordOnlyIfTrackArmed(bool),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
@@ -204,6 +205,7 @@ pub enum TargetProp {
     ClipColumn,
     ClipManagementAction,
     ClipTransportAction,
+    ClipColumnAction,
     RecordOnlyIfTrackArmed,
     PollForFeedback,
     Tags,
@@ -496,6 +498,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_transport_action = v;
                 One(P::ClipTransportAction)
             }
+            C::SetClipColumnAction(v) => {
+                self.clip_column_action = v;
+                One(P::ClipColumnAction)
+            }
             C::SetRecordOnlyIfTrackArmed(v) => {
                 self.record_only_if_track_armed = v;
                 One(P::RecordOnlyIfTrackArmed)
@@ -602,6 +608,7 @@ pub struct TargetModel {
     clip_column: ClipColumnDescriptor,
     clip_management_action: ClipManagementAction,
     clip_transport_action: ClipTransportAction,
+    clip_column_action: ClipColumnAction,
     record_only_if_track_armed: bool,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
@@ -685,6 +692,7 @@ impl Default for TargetModel {
             clip_column: Default::default(),
             clip_management_action: Default::default(),
             clip_transport_action: Default::default(),
+            clip_column_action: Default::default(),
             record_only_if_track_armed: false,
         }
     }
@@ -1920,11 +1928,12 @@ impl TargetModel {
                             options: self.clip_transport_options(),
                         })
                     }
-                    ClipColumnTransport => UnresolvedReaperTarget::ClipColumnTranposrt(
-                        UnresolvedClipColumnTransportTarget {
+                    ClipColumn => {
+                        UnresolvedReaperTarget::ClipColumnTranposrt(UnresolvedClipColumnTarget {
                             column: self.virtual_clip_column()?,
-                        },
-                    ),
+                            action: self.clip_column_action,
+                        })
+                    }
                     ClipSeek => UnresolvedReaperTarget::ClipSeek(UnresolvedClipSeekTarget {
                         slot: self.virtual_clip_slot()?,
                         feedback_resolution: self.feedback_resolution,
@@ -1993,6 +2002,10 @@ impl TargetModel {
 
     pub fn clip_transport_action(&self) -> ClipTransportAction {
         self.clip_transport_action
+    }
+
+    pub fn clip_column_action(&self) -> ClipColumnAction {
+        self.clip_column_action
     }
 
     pub fn record_only_if_track_armed(&self) -> bool {

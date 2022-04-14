@@ -415,6 +415,14 @@ pub mod control_element_domains {
     pub mod grid {
         pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &[&str] = &[];
         pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
+            "col1/stop",
+            "col2/stop",
+            "col3/stop",
+            "col4/stop",
+            "col5/stop",
+            "col6/stop",
+            "col7/stop",
+            "col8/stop",
             "row1/play",
             "row2/play",
             "row3/play",

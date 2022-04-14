@@ -20,8 +20,8 @@ use crate::infrastructure::data::{
 use realearn_api::schema;
 use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipColumnTransportActionTarget, ClipManagementTarget, ClipSeekTarget,
-    ClipTransportActionTarget, ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
+    BookmarkRef, ClipColumnTarget, ClipManagementTarget, ClipSeekTarget, ClipTransportActionTarget,
+    ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
     CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
     EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxVisibilityTarget,
@@ -268,9 +268,10 @@ fn convert_real_target(
                 defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED,
             ),
         }),
-        ClipColumnTransport => T::ClipColumnTransportAction(ClipColumnTransportActionTarget {
+        ClipColumn => T::ClipColumnAction(ClipColumnTarget {
             commons,
             column: data.clip_column,
+            action: data.clip_column_action,
         }),
         ClipSeek => T::ClipSeek(ClipSeekTarget {
             commons,

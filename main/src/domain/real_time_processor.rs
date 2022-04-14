@@ -1508,7 +1508,7 @@ fn process_real_mapping(
             RealTimeReaperTarget::ClipTransport(t) => {
                 return t.hit(control_value, control_context);
             }
-            RealTimeReaperTarget::ClipColumnTransport(t) => {
+            RealTimeReaperTarget::ClipColumn(t) => {
                 return t.hit(control_value, control_context);
             }
             RealTimeReaperTarget::FxParameter(t) => {

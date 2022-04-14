@@ -364,6 +364,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .unwrap_or(false)
     }
 
+    pub fn set_column_armed_for_recording(
+        &self,
+        index: usize,
+        armed: bool,
+    ) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, index)?;
+        column.set_armed_for_recording(armed)?;
+        Ok(())
+    }
+
     pub fn column_is_armed_for_recording(&self, index: usize) -> bool {
         self.columns
             .get(index)

@@ -386,6 +386,16 @@ impl Column {
         self.slots.iter().any(|slot| slot.is_stoppable())
     }
 
+    pub fn set_armed_for_recording(&self, armed: bool) -> ClipEngineResult<()> {
+        let track = self.effective_recording_track()?;
+        if armed {
+            track.arm(false);
+        } else {
+            track.disarm(false);
+        }
+        Ok(())
+    }
+
     pub fn is_armed_for_recording(&self) -> bool {
         self.effective_recording_track()
             .map(|t| t.is_armed(true))
