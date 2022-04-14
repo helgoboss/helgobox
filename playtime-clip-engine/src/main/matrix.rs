@@ -11,7 +11,7 @@ use crate::rt::{
     OverridableMatrixSettings, QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
-use crate::{rt, ClipEngineResult, HybridTimeline};
+use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
@@ -296,6 +296,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    pub fn stop(&self) {
+        let timeline = self.timeline();
+        let args = ColumnStopArgs {
+            ref_pos: Some(timeline.cursor_pos()),
+            timeline,
+        };
+        for c in &self.columns {
+            c.stop(args.clone());
+        }
+    }
+
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, index)?;
@@ -355,6 +366,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<PositionInSeconds> {
         get_column(&self.columns, coordinates.column())?.slot_position_in_seconds(coordinates.row())
+    }
+
+    pub fn is_stoppable(&self) -> bool {
+        self.columns.iter().any(|c| c.is_stoppable())
     }
 
     pub fn column_is_stoppable(&self, index: usize) -> bool {

@@ -637,6 +637,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_management_action: d.action,
             ..init(d.commons)
         },
+        Target::ClipMatrixAction(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipMatrix,
+            clip_matrix_action: d.action,
+            ..init(d.commons)
+        },
         Target::SendMidi(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SendMidi,

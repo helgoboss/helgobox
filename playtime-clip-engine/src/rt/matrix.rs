@@ -199,6 +199,27 @@ impl Matrix {
         Ok(())
     }
 
+    pub fn is_stoppable(&self) -> bool {
+        self.columns_internal().any(|h| h.lock().is_stoppable())
+    }
+
+    pub fn column_is_stoppable(&self, index: usize) -> bool {
+        self.column_internal(index)
+            .map(|c| c.lock().is_stoppable())
+            .unwrap_or(false)
+    }
+
+    pub fn stop(&self) {
+        let timeline = self.timeline();
+        let args = ColumnStopArgs {
+            ref_pos: Some(timeline.cursor_pos()),
+            timeline: timeline,
+        };
+        for handle in &self.column_handles {
+            handle.command_sender.stop(args.clone());
+        }
+    }
+
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
         let handle = self.column_handle(index)?;
         let args = ColumnStopArgs {
@@ -229,6 +250,10 @@ impl Matrix {
             .pointer
             .upgrade()
             .ok_or("column doesn't exist anymore")
+    }
+
+    fn columns_internal(&self) -> impl Iterator<Item = SharedColumn> + '_ {
+        self.column_handles.iter().flat_map(|h| h.pointer.upgrade())
     }
 
     fn column_handle(&self, index: usize) -> ClipEngineResult<&ColumnHandle> {

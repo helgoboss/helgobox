@@ -838,7 +838,7 @@ pub struct ColumnStopClipArgs {
     pub ref_pos: Option<PositionInSeconds>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ColumnStopArgs {
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of columns.

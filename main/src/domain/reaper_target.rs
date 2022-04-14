@@ -29,16 +29,16 @@ use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    ClipColumnTarget, ClipManagementTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget,
-    ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
-    FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget, GoToBookmarkTarget,
-    HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext,
-    MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
-    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
-    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget,
-    TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
+    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipSeekTarget, ClipTransportTarget,
+    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget,
+    FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
+    RealTimeClipMatrixTarget, RealTimeClipTransportTarget, RealTimeControlContext,
+    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
     TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
@@ -126,6 +126,7 @@ pub enum ReaperTarget {
     Seek(SeekTarget),
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
+    ClipMatrix(ClipMatrixTarget),
     ClipTransport(ClipTransportTarget),
     ClipColumn(ClipColumnTarget),
     ClipSeek(ClipSeekTarget),
@@ -611,6 +612,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
             ClipManagement(t) => t.current_value(context),
+            ClipMatrix(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
@@ -637,6 +639,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // more complex logic). So the target itself should support toggle play/stop etc.
             ClipTransport(t) => t.current_value(ctx),
             ClipColumn(t) => t.current_value(ctx),
+            ClipMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
     }
@@ -647,6 +650,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             SendMidi(t) => t.control_type(()),
             ClipTransport(t) => t.control_type(ctx),
             ClipColumn(t) => t.control_type(ctx),
+            ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
         }
     }
@@ -1337,6 +1341,7 @@ pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
     ClipTransport(RealTimeClipTransportTarget),
     ClipColumn(RealTimeClipColumnTarget),
+    ClipMatrix(RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
 }
 

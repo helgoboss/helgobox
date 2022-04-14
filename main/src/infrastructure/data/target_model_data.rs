@@ -23,8 +23,8 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
 use realearn_api::schema::{
-    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor,
-    ClipTransportAction, MonitoringMode,
+    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipMatrixAction,
+    ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -168,6 +168,9 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_column_action: ClipColumnAction,
+    /// New since ReaLearn v2.13.0-pre.4.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_matrix_action: ClipMatrixAction,
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(default, skip_serializing_if = "is_default")]
     pub record_only_if_track_armed: bool,
@@ -246,6 +249,7 @@ impl TargetModelData {
             clip_column: model.clip_column().clone(),
             clip_transport_action: Some(model.clip_transport_action()),
             clip_column_action: model.clip_column_action(),
+            clip_matrix_action: model.clip_matrix_action(),
             record_only_if_track_armed: model.record_only_if_track_armed(),
         }
     }
@@ -447,6 +451,7 @@ impl TargetModelData {
         });
         model.change(C::SetClipTransportAction(clip_transport_action));
         model.change(C::SetClipColumnAction(self.clip_column_action));
+        model.change(C::SetClipMatrixAction(self.clip_matrix_action));
         model.change(C::SetRecordOnlyIfTrackArmed(
             self.record_only_if_track_armed,
         ));

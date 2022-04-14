@@ -25,7 +25,21 @@ local row_count = 8
 
 -- ### Content ###
 
-local mappings = {}
+local mappings = {
+    {
+        name = "Stop all",
+        source = {
+            kind = "Virtual",
+            id = "stop-all-clips",
+            character = "Button",
+        },
+        target = {
+            kind = "ClipMatrixAction",
+            action = "Stop",
+        },
+    }
+
+}
 
 -- Slot modes
 local slot_mode_labels = {}

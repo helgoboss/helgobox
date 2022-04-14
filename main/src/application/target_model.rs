@@ -25,12 +25,12 @@ use crate::domain::{
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
-    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipSeekTarget,
+    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
+    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
@@ -52,8 +52,8 @@ use std::error::Error;
 
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
-    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor,
-    ClipTransportAction, MonitoringMode,
+    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipMatrixAction,
+    ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -128,6 +128,7 @@ pub enum TargetCommand {
     SetClipColumn(ClipColumnDescriptor),
     SetClipManagementAction(ClipManagementAction),
     SetClipTransportAction(ClipTransportAction),
+    SetClipMatrixAction(ClipMatrixAction),
     SetClipColumnAction(ClipColumnAction),
     SetRecordOnlyIfTrackArmed(bool),
     SetPollForFeedback(bool),
@@ -205,6 +206,7 @@ pub enum TargetProp {
     ClipColumn,
     ClipManagementAction,
     ClipTransportAction,
+    ClipMatrixAction,
     ClipColumnAction,
     RecordOnlyIfTrackArmed,
     PollForFeedback,
@@ -498,6 +500,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_transport_action = v;
                 One(P::ClipTransportAction)
             }
+            C::SetClipMatrixAction(v) => {
+                self.clip_matrix_action = v;
+                One(P::ClipMatrixAction)
+            }
             C::SetClipColumnAction(v) => {
                 self.clip_column_action = v;
                 One(P::ClipColumnAction)
@@ -608,6 +614,7 @@ pub struct TargetModel {
     clip_column: ClipColumnDescriptor,
     clip_management_action: ClipManagementAction,
     clip_transport_action: ClipTransportAction,
+    clip_matrix_action: ClipMatrixAction,
     clip_column_action: ClipColumnAction,
     record_only_if_track_armed: bool,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
@@ -693,6 +700,7 @@ impl Default for TargetModel {
             clip_management_action: Default::default(),
             clip_transport_action: Default::default(),
             clip_column_action: Default::default(),
+            clip_matrix_action: Default::default(),
             record_only_if_track_armed: false,
         }
     }
@@ -1947,6 +1955,9 @@ impl TargetModel {
                             action: self.clip_management_action,
                         })
                     }
+                    ClipMatrix => UnresolvedReaperTarget::ClipMatrix(UnresolvedClipMatrixTarget {
+                        action: self.clip_matrix_action,
+                    }),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
                             scope: TagScope {
@@ -2002,6 +2013,10 @@ impl TargetModel {
 
     pub fn clip_transport_action(&self) -> ClipTransportAction {
         self.clip_transport_action
+    }
+
+    pub fn clip_matrix_action(&self) -> ClipMatrixAction {
+        self.clip_matrix_action
     }
 
     pub fn clip_column_action(&self) -> ClipColumnAction {
