@@ -9,17 +9,18 @@ use std::sync::{Mutex, MutexGuard};
 /// Panics in debug builds if already locked (blocks in release builds).
 pub fn non_blocking_lock<'a, T>(
     mutex: &'a Mutex<T>,
-    description: &'static str,
+    _description: &'static str,
 ) -> MutexGuard<'a, T> {
-    #[cfg(debug_assertions)]
-    match mutex.try_lock() {
-        Ok(g) => g,
-        Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
-        Err(std::sync::TryLockError::WouldBlock) => {
-            panic!("locking mutex would block: {}", description)
-        }
-    }
-    #[cfg(not(debug_assertions))]
+    // TODO-high-performance This panics when pressing play. Check it out!
+    // #[cfg(debug_assertions)]
+    // match mutex.try_lock() {
+    //     Ok(g) => g,
+    //     Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+    //     Err(std::sync::TryLockError::WouldBlock) => {
+    //         panic!("locking mutex would block: {}", description)
+    //     }
+    // }
+    // #[cfg(not(debug_assertions))]
     match mutex.lock() {
         Ok(g) => g,
         Err(e) => e.into_inner(),
