@@ -10,6 +10,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
 use reaper_medium::{EditMode, ReaperFunctionError};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedRouteVolumeTarget {
@@ -124,8 +125,8 @@ impl RealearnTarget for RouteVolumeTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.volume().ok()?.to_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.volume().ok()?.to_string().into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

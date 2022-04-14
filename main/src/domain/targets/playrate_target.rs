@@ -9,6 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
 use reaper_medium::NormalizedPlayRate;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedPlayrateTarget;
@@ -111,11 +112,8 @@ impl RealearnTarget for PlayrateTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format!(
-            "{:.2}",
-            self.playrate().playback_speed_factor().get()
-        ))
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format!("{:.2}", self.playrate().playback_speed_factor().get()).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

@@ -13,6 +13,7 @@ use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use reaper_high::Volume;
 use reaper_medium::Db;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedClipVolumeTarget {
@@ -107,8 +108,8 @@ impl RealearnTarget for ClipVolumeTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
-        Some(self.volume(context)?.to_string())
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.volume(context)?.to_string().into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {

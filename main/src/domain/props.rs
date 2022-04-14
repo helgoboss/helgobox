@@ -284,7 +284,7 @@ impl MappingProp for MappingNameProp {
     fn get_value(&self, input: PropGetValueArgs<&MainMapping>) -> Option<PropValue> {
         let instance_state = input.control_context.instance_state.borrow();
         let info = instance_state.get_mapping_info(input.object.qualified_id())?;
-        Some(PropValue::Text(info.name.clone()))
+        Some(PropValue::Text(info.name.clone().into()))
     }
 }
 
@@ -396,7 +396,9 @@ impl TargetProp for TargetTrackNameProp {
     }
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
-        Some(PropValue::Text(get_track_name(args.object.target.track()?)))
+        Some(PropValue::Text(
+            get_track_name(args.object.target.track()?).into(),
+        ))
     }
 }
 
@@ -414,7 +416,7 @@ impl TargetProp for TargetNumericValueUnitProp {
             args.object
                 .target
                 .numeric_value_unit(args.control_context)
-                .to_string(),
+                .into(),
         ))
     }
 }
@@ -430,11 +432,7 @@ impl TargetProp for TargetTypeNameProp {
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
-            args.object
-                .target
-                .reaper_target_type()?
-                .short_name()
-                .to_string(),
+            args.object.target.reaper_target_type()?.short_name().into(),
         ))
     }
 }
@@ -450,7 +448,7 @@ impl TargetProp for TargetTypeLongNameProp {
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
-            args.object.target.reaper_target_type()?.to_string(),
+            args.object.target.reaper_target_type()?.to_string().into(),
         ))
     }
 }
@@ -481,7 +479,7 @@ struct TargetFxNameProp;
 impl TargetProp for TargetFxNameProp {
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
-            args.object.target.fx()?.name().into_string(),
+            args.object.target.fx()?.name().into_string().into(),
         ))
     }
 }
@@ -511,7 +509,7 @@ impl TargetProp for TargetRouteNameProp {
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
-            args.object.target.route()?.name().into_string(),
+            args.object.target.route()?.name().into_string().into(),
         ))
     }
 }

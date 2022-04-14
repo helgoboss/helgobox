@@ -12,6 +12,7 @@ use reaper_medium::{
     GetParamExResult, GetParameterStepSizesResult, MediaTrack, ProjectRef,
     ReaperNormalizedFxParamValue, ReaperVersion, TrackFxLocation,
 };
+use std::borrow::Cow;
 use std::convert::TryInto;
 
 #[derive(Debug)]
@@ -191,14 +192,14 @@ impl RealearnTarget for FxParameterTarget {
         Ok(result)
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.param.formatted_value().ok()?.into_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.param.formatted_value().ok()?.into_string().into())
     }
 
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
         match key {
             "fx_parameter.index" => Some(PropValue::Index(self.param.index())),
-            "fx_parameter.name" => Some(PropValue::Text(self.param.name().into_string())),
+            "fx_parameter.name" => Some(PropValue::Text(self.param.name().into_string().into())),
             _ => None,
         }
     }

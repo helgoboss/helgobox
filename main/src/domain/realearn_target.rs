@@ -36,6 +36,7 @@ use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt::{Debug, Display, Formatter};
@@ -125,7 +126,7 @@ pub trait RealearnTarget {
     }
 
     /// Shown as default textual feedback.
-    fn text_value(&self, context: ControlContext) -> Option<String> {
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let _ = context;
         None
     }

@@ -8,6 +8,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
 use reaper_medium::UndoBehavior;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTempoTarget;
@@ -109,8 +110,8 @@ impl RealearnTarget for TempoTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format!("{:.2} bpm", self.tempo().bpm().get()))
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format!("{:.2} bpm", self.tempo().bpm().get()).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

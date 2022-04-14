@@ -10,6 +10,7 @@ use helgoboss_learn::{
 };
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedSelectedTrackTarget {
@@ -151,8 +152,8 @@ impl RealearnTarget for SelectedTrackTarget {
         Ok(selected_track_unit_value(self.project, index))
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(get_track_name(&self.selected_track()?))
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(get_track_name(&self.selected_track()?).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

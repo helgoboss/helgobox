@@ -10,6 +10,7 @@ use helgoboss_learn::{
     BASE_EPSILON,
 };
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackPanTarget {
@@ -118,8 +119,8 @@ impl RealearnTarget for TrackPanTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.pan().to_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.pan().to_string().into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
@@ -134,12 +135,12 @@ impl RealearnTarget for TrackPanTarget {
         match key {
             "pan.mcu" => {
                 let pan = self.pan().reaper_value().get();
-                let text = if pan.abs() < BASE_EPSILON {
-                    "  <C>  ".to_string()
+                let text: Cow<'static, str> = if pan.abs() < BASE_EPSILON {
+                    "  <C>  ".into()
                 } else if pan < 0.0 {
-                    format!("<{:>3.0}   ", pan.abs() * 100.0)
+                    format!("<{:>3.0}   ", pan.abs() * 100.0).into()
                 } else {
-                    format!("   {:<3.0}>", pan * 100.0)
+                    format!("   {:<3.0}>", pan * 100.0).into()
                 };
                 Some(PropValue::Text(text))
             }

@@ -1552,9 +1552,9 @@ impl ClipPlayState {
             Playing => "playing",
             Paused => "paused",
             ScheduledForPlayStop => "scheduled_for_play_stop",
-            ScheduledForRecordingStart => {}
-            Recording => {}
-            ScheduledForRecordingStop => {}
+            ScheduledForRecordingStart => "scheduled_for_record_start",
+            Recording => "recording",
+            ScheduledForRecordingStop => "scheduled_for_record_stop",
         }
     }
 

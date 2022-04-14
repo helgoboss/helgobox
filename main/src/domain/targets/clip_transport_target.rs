@@ -10,6 +10,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Targe
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, SlotPlayOptions};
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use reaper_high::Project;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedClipTransportTarget {
@@ -174,8 +175,8 @@ impl RealearnTarget for ClipTransportTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
-        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).into())
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -197,18 +198,15 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         match key {
-            "slot_state.id" => {
-                BackboneState::get()
-                    .with_clip_matrix(context.instance_state, |matrix| {
-                        // TODO-high CONTINUE Use Cow!
-                        let id_string = match matrix.clip_play_state(self.basics.slot_coordinates) {
-                            Ok(s) => s.id_string(),
-                            Err(_) => "empty",
-                        };
-                        Some(PropValue::Text(id_string.to_owned()))
-                    })
-                    .ok()?
-            }
+            "slot_state.id" => BackboneState::get()
+                .with_clip_matrix(context.instance_state, |matrix| {
+                    let id_string = match matrix.clip_play_state(self.basics.slot_coordinates) {
+                        Ok(s) => s.id_string(),
+                        Err(_) => "empty",
+                    };
+                    Some(PropValue::Text(id_string.into()))
+                })
+                .ok()?,
             _ => None,
         }
     }

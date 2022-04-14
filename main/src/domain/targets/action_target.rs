@@ -9,6 +9,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target
 use helgoboss_midi::{U14, U7};
 use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
 use reaper_medium::{ActionValueChange, CommandId, MasterTrackBehavior, WindowContext};
+use std::borrow::Cow;
 use std::convert::TryFrom;
 
 #[derive(Debug)]
@@ -182,8 +183,8 @@ impl RealearnTarget for ActionTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format_bool_as_on_off(self.action.is_on()?).to_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format_bool_as_on_off(self.action.is_on()?).into())
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

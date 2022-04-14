@@ -9,6 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedNavigateWithinGroupTarget {
@@ -195,12 +196,12 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let (mapping_id, _) = self.current_mapping_with_position(context)?;
         let instance_state = context.instance_state.borrow();
         let info = instance_state
             .get_mapping_info(QualifiedMappingId::new(self.compartment, mapping_id))?;
-        Some(info.name.clone())
+        Some(info.name.clone().into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {

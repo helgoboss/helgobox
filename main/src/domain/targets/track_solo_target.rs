@@ -9,6 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::SoloMode;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackSoloTarget {
@@ -117,8 +118,8 @@ impl RealearnTarget for TrackSoloTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
-        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).into())
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

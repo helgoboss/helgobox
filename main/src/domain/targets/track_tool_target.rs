@@ -5,6 +5,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
 use reaper_high::{Project, Track};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackToolTarget {
@@ -52,8 +53,8 @@ impl RealearnTarget for TrackToolTarget {
         Some(&self.track)
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(get_track_name(&self.track))
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(get_track_name(&self.track).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

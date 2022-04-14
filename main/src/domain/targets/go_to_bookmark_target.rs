@@ -11,6 +11,7 @@ use helgoboss_learn::{
 };
 use reaper_high::{BookmarkType, ChangeEvent, FindBookmarkResult, Project, Reaper};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef};
+use std::borrow::Cow;
 use std::num::NonZeroU32;
 
 #[derive(Debug)]
@@ -149,8 +150,8 @@ impl RealearnTarget for GoToBookmarkTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
-        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).into())
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -182,7 +183,7 @@ impl RealearnTarget for GoToBookmarkTarget {
             }
             "bookmark.name" => {
                 let res = self.find_bookmark()?;
-                Some(PropValue::Text(res.bookmark.name()))
+                Some(PropValue::Text(res.bookmark.name().into()))
             }
             _ => None,
         }

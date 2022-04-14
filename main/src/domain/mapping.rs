@@ -1874,7 +1874,7 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.text_value(context),

@@ -10,6 +10,7 @@ use helgoboss_learn::{
 };
 use reaper_high::{ChangeEvent, Fx, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedFxNavigateTarget {
@@ -180,8 +181,8 @@ impl RealearnTarget for FxNavigateTarget {
         Ok(shown_fx_unit_value(&self.fx_chain, index))
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.current_fx()?.name().into_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.current_fx()?.name().into_string().into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

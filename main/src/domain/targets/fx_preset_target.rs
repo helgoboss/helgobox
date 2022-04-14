@@ -10,6 +10,7 @@ use helgoboss_learn::{
 };
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxPresetRef;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedFxPresetTarget {
@@ -151,8 +152,8 @@ impl RealearnTarget for FxPresetTarget {
         Ok(fx_preset_unit_value(&self.fx, index))
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.fx.preset_name()?.into_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.fx.preset_name()?.into_string().into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

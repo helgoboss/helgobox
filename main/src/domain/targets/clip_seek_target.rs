@@ -1,4 +1,5 @@
 use reaper_medium::PositionInSeconds;
+use std::borrow::Cow;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
@@ -109,9 +110,9 @@ impl RealearnTarget for ClipSeekTarget {
         }
     }
 
-    fn text_value(&self, context: ControlContext) -> Option<String> {
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let seconds = self.position_in_seconds(context)?;
-        Some(format!("{:.3} s", seconds.get()))
+        Some(format!("{:.3} s", seconds.get()).into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {

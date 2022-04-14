@@ -11,6 +11,7 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{
     GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeMode, TimeModeOverride,
 };
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedSeekTarget {
@@ -90,8 +91,8 @@ impl RealearnTarget for SeekTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format!("{:.3} s", self.corrected_display_pos().get()))
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(format!("{:.3} s", self.corrected_display_pos().get()).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
@@ -137,7 +138,7 @@ impl RealearnTarget for SeekTarget {
                             32,
                             TimeModeOverride::Mode(mode),
                         );
-                        Some(PropValue::Text(text.into_string()))
+                        Some(PropValue::Text(text.into_string().into()))
                     }
                     // Use format tailored to Mackie timecode display
                     Some("mcu") => {
@@ -219,7 +220,7 @@ impl RealearnTarget for SeekTarget {
                             }
                             Unknown(m) => format!("{:?}", m),
                         };
-                        Some(PropValue::Text(text))
+                        Some(PropValue::Text(text.into()))
                     }
                     _ => None,
                 }

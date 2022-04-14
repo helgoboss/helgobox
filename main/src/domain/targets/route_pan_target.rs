@@ -8,6 +8,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
 use reaper_medium::{EditMode, ReaperFunctionError};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedRoutePanTarget {
@@ -119,8 +120,8 @@ impl RealearnTarget for RoutePanTarget {
         }
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.pan().ok()?.to_string())
+    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
+        Some(self.pan().ok()?.to_string().into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
