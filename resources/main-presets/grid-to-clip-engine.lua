@@ -139,6 +139,12 @@ for col = 0, column_count - 1 do
                 character = "Button",
                 id = prefix .. "pad",
             },
+            glue = {
+                feedback = {
+                    kind = "Text",
+                    text_expression = "{{ target.slot_state.id }}",
+                },
+            },
             target = {
                 kind = "ClipTransportAction",
                 slot = {

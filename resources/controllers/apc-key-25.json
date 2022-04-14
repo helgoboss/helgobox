@@ -2,7 +2,7 @@
   "name": "Akai APC Key 25",
   "mappings": [
     {
-      "id": "1fc5be4f-1912-4d18-9fef-1cc7d7e67ca6",
+      "id": "col1/row1/pad",
       "name": "CB 1/1",
       "source": {
         "type": 1,
@@ -17,7 +17,7 @@
       }
     },
     {
-      "id": "2037d511-2e8f-43e8-961b-ddf4d6c823da",
+      "id": "col2/row1/pad",
       "name": "CB 1/2",
       "source": {
         "type": 1,
@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "ab332c71-6d32-40c2-9ca7-cb018012fef7",
+      "id": "col3/row1/pad",
       "name": "CB 1/3",
       "source": {
         "type": 1,
@@ -47,7 +47,7 @@
       }
     },
     {
-      "id": "837f3a6e-a580-41cb-8fea-9b5988cefa7a",
+      "id": "col4/row1/pad",
       "name": "CB 1/4",
       "source": {
         "type": 1,
@@ -62,7 +62,7 @@
       }
     },
     {
-      "id": "cbc58b48-0068-4f44-a9c1-0f2567abfe49",
+      "id": "col5/row1/pad",
       "name": "CB 1/5",
       "source": {
         "type": 1,
@@ -77,7 +77,7 @@
       }
     },
     {
-      "id": "aab2e614-ee8b-46fb-a3a4-47498e9aaa46",
+      "id": "col6/row1/pad",
       "name": "CB 1/6",
       "source": {
         "type": 1,
@@ -92,7 +92,7 @@
       }
     },
     {
-      "id": "33130ddc-25d6-45e2-bd8c-3c0d06637219",
+      "id": "col7/row1/pad",
       "name": "CB 1/7",
       "source": {
         "type": 1,
@@ -107,7 +107,7 @@
       }
     },
     {
-      "id": "85e48e54-848a-4191-aa4b-04f283de233c",
+      "id": "col8/row1/pad",
       "name": "CB 1/8",
       "source": {
         "type": 1,
@@ -122,7 +122,7 @@
       }
     },
     {
-      "id": "f174f99f-5c94-4aba-a3c3-006769dd33a1",
+      "id": "col1/row2/pad",
       "name": "CB 2/1",
       "source": {
         "type": 1,
@@ -137,7 +137,7 @@
       }
     },
     {
-      "id": "bb8ec4fb-a140-45c3-a252-c4a9921286cb",
+      "id": "col2/row2/pad",
       "name": "CB 2/2",
       "source": {
         "type": 1,
@@ -152,7 +152,7 @@
       }
     },
     {
-      "id": "35b2c629-eb37-4001-9fc0-18a8b65fa34a",
+      "id": "col3/row2/pad",
       "name": "CB 2/3",
       "source": {
         "type": 1,
@@ -167,7 +167,7 @@
       }
     },
     {
-      "id": "7f97b8ea-05ac-489c-9184-f0f68ba5840e",
+      "id": "col4/row2/pad",
       "name": "CB 2/4",
       "source": {
         "type": 1,
@@ -182,7 +182,7 @@
       }
     },
     {
-      "id": "956f9baf-dc29-4257-989f-707fed276a1c",
+      "id": "col5/row2/pad",
       "name": "CB 2/5",
       "source": {
         "type": 1,
@@ -197,7 +197,7 @@
       }
     },
     {
-      "id": "0ea33235-69c4-4ca8-aee1-9034d8ded89b",
+      "id": "col6/row2/pad",
       "name": "CB 2/6",
       "source": {
         "type": 1,
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "12823070-d376-46a3-b831-1e8051705830",
+      "id": "col7/row2/pad",
       "name": "CB 2/7",
       "source": {
         "type": 1,
@@ -227,7 +227,7 @@
       }
     },
     {
-      "id": "895b0ded-00f4-40a2-932e-fa85ea253ac7",
+      "id": "col8/row2/pad",
       "name": "CB 2/8",
       "source": {
         "type": 1,
@@ -242,7 +242,7 @@
       }
     },
     {
-      "id": "54c5fa7f-993e-4eb5-a9c5-7cc77e81768b",
+      "id": "col1/row3/pad",
       "name": "CB 3/1",
       "source": {
         "type": 1,
@@ -257,7 +257,7 @@
       }
     },
     {
-      "id": "1b8a6ef5-007f-4b80-8020-f4db44d33c8f",
+      "id": "col2/row3/pad",
       "name": "CB 3/2",
       "source": {
         "type": 1,
@@ -272,7 +272,7 @@
       }
     },
     {
-      "id": "1c68083c-897f-4307-bb31-463ea9827843",
+      "id": "col3/row3/pad",
       "name": "CB 3/3",
       "source": {
         "type": 1,
@@ -287,7 +287,7 @@
       }
     },
     {
-      "id": "8e76a8e3-6410-4dde-a334-5e469a1f0235",
+      "id": "col4/row3/pad",
       "name": "CB 3/4",
       "source": {
         "type": 1,
@@ -302,7 +302,7 @@
       }
     },
     {
-      "id": "7cce7952-c648-4199-98ca-3b458057f975",
+      "id": "col5/row3/pad",
       "name": "CB 3/5",
       "source": {
         "type": 1,
@@ -317,7 +317,7 @@
       }
     },
     {
-      "id": "8dbe5125-1c8a-49f6-9758-05dbefbbee81",
+      "id": "col6/row3/pad",
       "name": "CB 3/6",
       "source": {
         "type": 1,
@@ -332,7 +332,7 @@
       }
     },
     {
-      "id": "7f224f75-c675-4395-88f5-587b42eb7ec2",
+      "id": "col7/row3/pad",
       "name": "CB 3/7",
       "source": {
         "type": 1,
@@ -347,7 +347,7 @@
       }
     },
     {
-      "id": "d4dc836b-eb70-4da3-9487-bb2472fc1c5e",
+      "id": "col8/row3/pad",
       "name": "CB 3/8",
       "source": {
         "type": 1,
@@ -362,7 +362,7 @@
       }
     },
     {
-      "id": "41273cc0-5b38-4fe2-bee3-39c85d896ee8",
+      "id": "col1/row4/pad",
       "name": "CB 4/1",
       "source": {
         "type": 1,
@@ -377,7 +377,7 @@
       }
     },
     {
-      "id": "de10427e-ee6b-43ae-94dd-f3eadf0c6141",
+      "id": "col2/row4/pad",
       "name": "CB 4/2",
       "source": {
         "type": 1,
@@ -392,7 +392,7 @@
       }
     },
     {
-      "id": "74d789ad-2a15-4540-b08f-eb3d140631f0",
+      "id": "col3/row4/pad",
       "name": "CB 4/3",
       "source": {
         "type": 1,
@@ -407,7 +407,7 @@
       }
     },
     {
-      "id": "16912763-6a1a-4d28-a924-78d4bcec2d7f",
+      "id": "col4/row4/pad",
       "name": "CB 4/4",
       "source": {
         "type": 1,
@@ -422,7 +422,7 @@
       }
     },
     {
-      "id": "ca40b5ab-94d4-4f1c-87bf-17fba516e81c",
+      "id": "col5/row4/pad",
       "name": "CB 4/5",
       "source": {
         "type": 1,
@@ -437,7 +437,7 @@
       }
     },
     {
-      "id": "b2f9f4d9-4b9b-4307-8253-5e2dcda4a138",
+      "id": "col6/row4/pad",
       "name": "CB 4/6",
       "source": {
         "type": 1,
@@ -452,7 +452,7 @@
       }
     },
     {
-      "id": "865b02d3-f2e3-44ab-9199-4cdd546fc1bb",
+      "id": "col7/row4/pad",
       "name": "CB 4/7",
       "source": {
         "type": 1,
@@ -467,7 +467,7 @@
       }
     },
     {
-      "id": "0ff2a16c-70f4-4a4f-8a95-c2843d7e1689",
+      "id": "col8/row4/pad",
       "name": "CB 4/8",
       "source": {
         "type": 1,
@@ -482,7 +482,7 @@
       }
     },
     {
-      "id": "c7f10b86-5514-433d-88a9-ea9f00b90e61",
+      "id": "col1/row5/pad",
       "name": "CB 5/1",
       "source": {
         "type": 1,
@@ -497,7 +497,7 @@
       }
     },
     {
-      "id": "e272d497-c52e-4ee8-a1d6-6b053d6b0513",
+      "id": "col2/row5/pad",
       "name": "CB 5/2",
       "source": {
         "type": 1,
@@ -512,7 +512,7 @@
       }
     },
     {
-      "id": "f3880b44-ca7a-4ecc-94ab-139b1e5c31f2",
+      "id": "col3/row5/pad",
       "name": "CB 5/3",
       "source": {
         "type": 1,
@@ -527,7 +527,7 @@
       }
     },
     {
-      "id": "53d39c8b-5f96-480d-8f75-8f2391685ec4",
+      "id": "col4/row5/pad",
       "name": "CB 5/4",
       "source": {
         "type": 1,
@@ -542,7 +542,7 @@
       }
     },
     {
-      "id": "95644c76-799b-43db-82b6-da1f883b30a1",
+      "id": "col5/row5/pad",
       "name": "CB 5/5",
       "source": {
         "type": 1,
@@ -557,7 +557,7 @@
       }
     },
     {
-      "id": "318757c4-87d9-4ea0-8707-dd09f7669b7b",
+      "id": "col6/row5/pad",
       "name": "CB 5/6",
       "source": {
         "type": 1,
@@ -572,7 +572,7 @@
       }
     },
     {
-      "id": "b61527af-1f14-47eb-b4e2-7773f35d1b7f",
+      "id": "col7/row5/pad",
       "name": "CB 5/7",
       "source": {
         "type": 1,
@@ -587,7 +587,7 @@
       }
     },
     {
-      "id": "c4256cba-b3c0-48b2-965f-53c4b230c990",
+      "id": "col8/row5/pad",
       "name": "CB 5/8",
       "source": {
         "type": 1,
@@ -602,7 +602,7 @@
       }
     },
     {
-      "id": "14ee3b07-e33e-46da-ac45-70f81586f88f",
+      "id": "col1/stop",
       "name": "CSB 1",
       "source": {
         "type": 1,
@@ -617,7 +617,7 @@
       }
     },
     {
-      "id": "b34abe76-8171-4cf4-ab3f-eb2c63ac24b7",
+      "id": "col2/stop",
       "name": "CSB 2",
       "source": {
         "type": 1,
@@ -632,7 +632,7 @@
       }
     },
     {
-      "id": "b6a0b6f2-5591-46e7-b654-fe91d8d2c727",
+      "id": "col3/stop",
       "name": "CSB 3",
       "source": {
         "type": 1,
@@ -647,7 +647,7 @@
       }
     },
     {
-      "id": "a27c60e0-7aa7-47f7-b902-7f2c1af5c927",
+      "id": "col4/stop",
       "name": "CSB 4",
       "source": {
         "type": 1,
@@ -662,7 +662,7 @@
       }
     },
     {
-      "id": "303c44ca-dfbc-4552-a1db-a9043c3611e5",
+      "id": "col5/stop",
       "name": "CSB 5",
       "source": {
         "type": 1,
@@ -677,7 +677,7 @@
       }
     },
     {
-      "id": "fee9f5f6-240a-42df-8888-67f9680f0313",
+      "id": "col6/stop",
       "name": "CSB 6",
       "source": {
         "type": 1,
@@ -692,7 +692,7 @@
       }
     },
     {
-      "id": "4f70633d-1f64-4d06-b3fc-0e6de6c542b9",
+      "id": "col7/stop",
       "name": "CSB 7",
       "source": {
         "type": 1,
@@ -707,7 +707,7 @@
       }
     },
     {
-      "id": "c3314d73-4472-49fa-baf9-4ebc90dfee0c",
+      "id": "col8/stop",
       "name": "CSB 8",
       "source": {
         "type": 1,
@@ -722,7 +722,7 @@
       }
     },
     {
-      "id": "41b9fba4-a017-4989-8ee0-453c6d83a896",
+      "id": "row1/play",
       "name": "SLB 1",
       "source": {
         "type": 1,
@@ -737,7 +737,7 @@
       }
     },
     {
-      "id": "2c2b35d2-78b0-4cf9-897c-90e45ad7950b",
+      "id": "row2/play",
       "name": "SLB 2",
       "source": {
         "type": 1,
@@ -752,7 +752,7 @@
       }
     },
     {
-      "id": "280dd383-8c8e-4476-b9d6-ed6258374ce9",
+      "id": "row3/play",
       "name": "SLB 3",
       "source": {
         "type": 1,
@@ -767,7 +767,7 @@
       }
     },
     {
-      "id": "b43933f4-4fe2-4840-913e-42f69e556778",
+      "id": "row4/play",
       "name": "SLB 4",
       "source": {
         "type": 1,
@@ -782,7 +782,7 @@
       }
     },
     {
-      "id": "78f5f036-aa06-4efc-b9b0-a267fb920eb8",
+      "id": "row5/play",
       "name": "SLB 5",
       "source": {
         "type": 1,
@@ -812,7 +812,7 @@
       }
     },
     {
-      "id": "f1a9268b-32fe-4459-a6f4-0454314ac7d1",
+      "id": "k1",
       "name": "K 1",
       "source": {
         "channel": 0,
@@ -825,7 +825,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "3a43eae2-89e9-4c12-9915-23c6e4dcb1a7",
+      "id": "k2",
       "name": "K 2",
       "source": {
         "channel": 0,
@@ -839,7 +839,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "50418532-7165-450a-a7af-e7053de5e538",
+      "id": "k3",
       "name": "K 3",
       "source": {
         "channel": 0,
@@ -853,7 +853,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "ebef32fb-bc0e-43b4-99a9-ad27bb09f07c",
+      "id": "k4",
       "name": "K 4",
       "source": {
         "channel": 0,
@@ -867,7 +867,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "6f5a16f2-4f5d-486d-85b6-95d58ac0da8c",
+      "id": "k5",
       "name": "K 5",
       "source": {
         "channel": 0,
@@ -881,7 +881,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "5984fc4c-bc2b-4c1d-aa9a-40a3d74c8e10",
+      "id": "k6",
       "name": "K 6",
       "source": {
         "channel": 0,
@@ -895,7 +895,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "558c1c32-0355-49a7-9c34-b740f6f842a7",
+      "id": "k7",
       "name": "K 7",
       "source": {
         "channel": 0,
@@ -909,7 +909,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "f3147040-4ac5-402b-9f3f-7d33499a5f05",
+      "id": "k8",
       "name": "K 8",
       "source": {
         "channel": 0,
@@ -1007,7 +1007,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ab332c71-6d32-40c2-9ca7-cb018012fef7"
+            "col3/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1028,7 +1028,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "2037d511-2e8f-43e8-961b-ddf4d6c823da"
+            "col2/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1049,7 +1049,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "1fc5be4f-1912-4d18-9fef-1cc7d7e67ca6"
+            "col1/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1070,7 +1070,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "837f3a6e-a580-41cb-8fea-9b5988cefa7a"
+            "col4/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1091,7 +1091,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "cbc58b48-0068-4f44-a9c1-0f2567abfe49"
+            "col5/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1112,7 +1112,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "aab2e614-ee8b-46fb-a3a4-47498e9aaa46"
+            "col6/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1133,7 +1133,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "33130ddc-25d6-45e2-bd8c-3c0d06637219"
+            "col7/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1154,7 +1154,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "85e48e54-848a-4191-aa4b-04f283de233c"
+            "col8/row1/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1175,7 +1175,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f174f99f-5c94-4aba-a3c3-006769dd33a1"
+            "col1/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1196,7 +1196,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "bb8ec4fb-a140-45c3-a252-c4a9921286cb"
+            "col2/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1217,7 +1217,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "35b2c629-eb37-4001-9fc0-18a8b65fa34a"
+            "col3/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1238,7 +1238,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7f97b8ea-05ac-489c-9184-f0f68ba5840e"
+            "col4/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1259,7 +1259,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "956f9baf-dc29-4257-989f-707fed276a1c"
+            "col5/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1280,7 +1280,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "0ea33235-69c4-4ca8-aee1-9034d8ded89b"
+            "col6/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1301,7 +1301,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "12823070-d376-46a3-b831-1e8051705830"
+            "col7/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1322,7 +1322,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "895b0ded-00f4-40a2-932e-fa85ea253ac7"
+            "col8/row2/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1343,7 +1343,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "54c5fa7f-993e-4eb5-a9c5-7cc77e81768b"
+            "col1/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1364,7 +1364,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "1b8a6ef5-007f-4b80-8020-f4db44d33c8f"
+            "col2/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1385,7 +1385,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "1c68083c-897f-4307-bb31-463ea9827843"
+            "col3/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1406,7 +1406,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "8e76a8e3-6410-4dde-a334-5e469a1f0235"
+            "col4/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1427,7 +1427,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7cce7952-c648-4199-98ca-3b458057f975"
+            "col5/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1448,7 +1448,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "8dbe5125-1c8a-49f6-9758-05dbefbbee81"
+            "col6/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1469,7 +1469,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7f224f75-c675-4395-88f5-587b42eb7ec2"
+            "col7/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1490,7 +1490,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "d4dc836b-eb70-4da3-9487-bb2472fc1c5e"
+            "col8/row3/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1511,7 +1511,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "41273cc0-5b38-4fe2-bee3-39c85d896ee8"
+            "col1/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1532,7 +1532,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "de10427e-ee6b-43ae-94dd-f3eadf0c6141"
+            "col2/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1553,7 +1553,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "74d789ad-2a15-4540-b08f-eb3d140631f0"
+            "col3/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1574,7 +1574,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "16912763-6a1a-4d28-a924-78d4bcec2d7f"
+            "col4/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1595,7 +1595,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ca40b5ab-94d4-4f1c-87bf-17fba516e81c"
+            "col5/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1616,7 +1616,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b2f9f4d9-4b9b-4307-8253-5e2dcda4a138"
+            "col6/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1637,7 +1637,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "865b02d3-f2e3-44ab-9199-4cdd546fc1bb"
+            "col7/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1658,7 +1658,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "0ff2a16c-70f4-4a4f-8a95-c2843d7e1689"
+            "col8/row4/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1679,7 +1679,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c7f10b86-5514-433d-88a9-ea9f00b90e61"
+            "col1/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1700,7 +1700,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e272d497-c52e-4ee8-a1d6-6b053d6b0513"
+            "col2/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1721,7 +1721,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f3880b44-ca7a-4ecc-94ab-139b1e5c31f2"
+            "col3/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1742,7 +1742,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "53d39c8b-5f96-480d-8f75-8f2391685ec4"
+            "col4/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1763,7 +1763,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "95644c76-799b-43db-82b6-da1f883b30a1"
+            "col5/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1784,7 +1784,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "318757c4-87d9-4ea0-8707-dd09f7669b7b"
+            "col6/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1805,7 +1805,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b61527af-1f14-47eb-b4e2-7773f35d1b7f"
+            "col7/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1826,7 +1826,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c4256cba-b3c0-48b2-965f-53c4b230c990"
+            "col8/row5/pad"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -1847,7 +1847,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "14ee3b07-e33e-46da-ac45-70f81586f88f"
+            "col1/stop"
           ],
           "shape": "circle",
           "width": 32,
@@ -1868,7 +1868,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "fee9f5f6-240a-42df-8888-67f9680f0313"
+            "col6/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1889,7 +1889,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b34abe76-8171-4cf4-ab3f-eb2c63ac24b7"
+            "col2/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1910,7 +1910,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b6a0b6f2-5591-46e7-b654-fe91d8d2c727"
+            "col3/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1931,7 +1931,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "a27c60e0-7aa7-47f7-b902-7f2c1af5c927"
+            "col4/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1952,7 +1952,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "303c44ca-dfbc-4552-a1db-a9043c3611e5"
+            "col5/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1973,7 +1973,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "4f70633d-1f64-4d06-b3fc-0e6de6c542b9"
+            "col7/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -1994,7 +1994,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c3314d73-4472-49fa-baf9-4ebc90dfee0c"
+            "col8/stop"
           ],
           "shape": "circle",
           "width": 34,
@@ -2015,7 +2015,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "41b9fba4-a017-4989-8ee0-453c6d83a896"
+            "row1/play"
           ],
           "shape": "circle",
           "width": 34,
@@ -2036,7 +2036,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "2c2b35d2-78b0-4cf9-897c-90e45ad7950b"
+            "row2/play"
           ],
           "shape": "circle",
           "width": 34,
@@ -2057,7 +2057,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "280dd383-8c8e-4476-b9d6-ed6258374ce9"
+            "row3/play"
           ],
           "shape": "circle",
           "width": 34,
@@ -2078,7 +2078,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "78f5f036-aa06-4efc-b9b0-a267fb920eb8"
+            "row5/play"
           ],
           "shape": "circle",
           "width": 34,
@@ -2099,7 +2099,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b43933f4-4fe2-4840-913e-42f69e556778"
+            "row4/play"
           ],
           "shape": "circle",
           "width": 34,
@@ -2141,7 +2141,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f1a9268b-32fe-4459-a6f4-0454314ac7d1"
+            "k1"
           ],
           "shape": "circle",
           "width": 98,
@@ -2162,7 +2162,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "3a43eae2-89e9-4c12-9915-23c6e4dcb1a7"
+            "k2"
           ],
           "shape": "circle",
           "width": 98,
@@ -2183,7 +2183,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "50418532-7165-450a-a7af-e7053de5e538"
+            "k3"
           ],
           "shape": "circle",
           "width": 98,
@@ -2204,7 +2204,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ebef32fb-bc0e-43b4-99a9-ad27bb09f07c"
+            "k4"
           ],
           "shape": "circle",
           "width": 98,
@@ -2225,7 +2225,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "6f5a16f2-4f5d-486d-85b6-95d58ac0da8c"
+            "k5"
           ],
           "shape": "circle",
           "width": 98,
@@ -2246,7 +2246,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "5984fc4c-bc2b-4c1d-aa9a-40a3d74c8e10"
+            "k6"
           ],
           "shape": "circle",
           "width": 98,
@@ -2267,7 +2267,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "558c1c32-0355-49a7-9c34-b740f6f842a7"
+            "k7"
           ],
           "shape": "circle",
           "width": 98,
@@ -2288,7 +2288,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f3147040-4ac5-402b-9f3f-7d33499a5f05"
+            "k8"
           ],
           "shape": "circle",
           "width": 98,
