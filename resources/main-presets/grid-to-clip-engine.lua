@@ -16,7 +16,7 @@ local column_modes = {
     { label = "Solo", button = "solo" },
     { label = "Record arm", button = "record-arm" },
     { label = "Mute", button = "mute" },
-    { label = "Select", button = "select" },
+    { label = "Track select", button = "track-select" },
 }
 
 -- Number of columns and rows

@@ -1,4 +1,8 @@
+-- Configuration
+local resolve_shift = true
+
 -- Single buttons
+local parameters = {}
 local mappings = {
     {
         id = "ac49cd8a-cd98-4acd-84a0-276372aa8d05",
@@ -33,7 +37,6 @@ local mappings = {
     {
         id = "b09d6169-a7df-4dbe-b76c-73d30c8625c3",
         name = "Play",
-        feedback_enabled = false,
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -60,7 +63,80 @@ local mappings = {
             character = "Button",
         },
     },
-    {
+}
+
+-- Shift
+local no_shift_activation_condition
+if resolve_shift then
+    -- The activation condition reflecting the state that shift is not pressed.
+    no_shift_activation_condition = {
+        kind = "Modifier",
+        modifiers = {
+            {
+                parameter = 0,
+                on = false,
+            },
+        },
+    }
+    -- The shift modifier parameter
+    local parameter = {
+        index = 0,
+        name = "Shift",
+    }
+    table.insert(parameters, parameter)
+    -- Mapping to make shift button switch to other set of virtual control elements
+    local shift_mapping = {
+        name = "Shift",
+        feedback_enabled = false,
+        source = {
+            kind = "MidiNoteVelocity",
+            channel = 0,
+            key_number = 98,
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 100,
+            },
+        },
+    }
+    table.insert(mappings, shift_mapping)
+    -- Alternative set of virtual control elements
+    local shift_button_ids = {
+        "stop-clip",
+        "solo",
+        "record-arm",
+        "mute",
+        "track-select",
+    }
+    for i, id in ipairs(shift_button_ids) do
+        local mapping = {
+            activation_condition = {
+                kind = "Modifier",
+                modifiers = {
+                    {
+                        parameter = 0,
+                        on = true,
+                    },
+                },
+            },
+            source = {
+                kind = "MidiNoteVelocity",
+                channel = 0,
+                key_number = 82 + i - 1,
+            },
+            target = {
+                kind = "Virtual",
+                id = id,
+                character = "Button",
+            },
+        }
+        table.insert(mappings, mapping)
+    end
+else
+    no_shift_activation_condition = nil
+    local mapping = {
         id = "838cc9e6-5857-4dd2-952b-339f3f886f3d",
         name = "Shift",
         feedback_enabled = false,
@@ -74,8 +150,9 @@ local mappings = {
             id = "shift",
             character = "Button",
         },
-    },
-}
+    }
+    table.insert(mappings, mapping)
+end
 
 -- Knobs
 for i = 0, 7 do
@@ -151,6 +228,7 @@ for col = 0, 7 do
     local id = "col" .. human_col .. "/stop"
     local mapping = {
         id = id,
+        activation_condition = no_shift_activation_condition,
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -171,6 +249,7 @@ for row = 0, 4 do
     local id = "row" .. human_row .. "/play"
     local mapping = {
         id = id,
+        activation_condition = no_shift_activation_condition,
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -188,6 +267,7 @@ end
 return {
     kind = "ControllerCompartment",
     value = {
+        parameters = parameters,
         mappings = mappings,
     },
 }
