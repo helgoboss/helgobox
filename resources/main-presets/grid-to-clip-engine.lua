@@ -27,7 +27,7 @@ local row_count = 8
 
 local mappings = {
     {
-        name = "Stop all",
+        name = "Stop all clips",
         source = {
             kind = "Virtual",
             id = "stop-all-clips",
@@ -37,8 +37,22 @@ local mappings = {
             kind = "ClipMatrixAction",
             action = "Stop",
         },
-    }
-
+    },
+    {
+        name = "Play arrangement",
+        source = {
+            kind = "Virtual",
+            id = "play",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "ToggleButton",
+        },
+        target = {
+            kind = "TransportAction",
+            action = "PlayStop",
+        },
+    },
 }
 
 -- Slot modes
