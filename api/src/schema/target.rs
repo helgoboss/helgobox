@@ -1,4 +1,7 @@
 use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
+use derive_more::Display;
+use enum_iterator::IntoEnumIterator;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -508,7 +511,9 @@ pub struct ClipTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
-    pub action: TransportAction,
+    pub action: ClipTransportAction,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_only_if_track_armed: Option<bool>,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -690,6 +695,79 @@ pub enum TransportAction {
     Pause,
     Record,
     Repeat,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    JsonSchema,
+)]
+#[repr(usize)]
+pub enum ClipTransportAction {
+    /// Starts or stops playback.
+    ///
+    /// - If slot filled, starts or stops playback.
+    /// - If slot empty, has no effect.
+    /// - If slot recording, has no effect or stops recording.
+    #[display(fmt = "Play/stop")]
+    PlayStop,
+    /// Starts or pauses playback.
+    ///
+    /// - If slot filled, starts or pauses playback.
+    /// - If slot empty, has no effect.
+    /// - If slot recording, has no effect.
+    #[display(fmt = "Play/pause")]
+    PlayPause,
+    /// Stops playback or recording.
+    ///
+    /// - If slot filled, stops playback.
+    /// - If slot empty, has no effect.
+    /// - If slot recording, stops recording.
+    #[display(fmt = "Stop")]
+    Stop,
+    /// Pauses playback.
+    ///
+    /// - If slot filled, pauses playback.
+    /// - If slot empty, has no effect.
+    /// - If slot recording, has no effect.
+    #[display(fmt = "Pause")]
+    Pause,
+    /// Starts or stops recording.
+    ///
+    /// - If slot filled, starts recording or stops playback.
+    /// - If slot empty, starts recording or has no effect.
+    /// - If slot recording, has no effect or stops recording.
+    #[display(fmt = "Record/stop")]
+    RecordStop,
+    /// Starts or stops playback or recording.
+    ///
+    /// - If slot filled, starts or stops playback.
+    /// - If slot empty, starts recording or has no effect.
+    /// - If slot recording, has no effect or stops recording.
+    #[display(fmt = "Record/play/stop")]
+    RecordPlayStop,
+    /// Changes the loop setting.
+    ///
+    /// - If slot is filled, sets looped on or off.
+    /// - If slot empty, has no effect.
+    /// - If slot recording, has no effect.
+    #[display(fmt = "Looped")]
+    Looped,
+}
+
+impl Default for ClipTransportAction {
+    fn default() -> Self {
+        Self::PlayStop
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

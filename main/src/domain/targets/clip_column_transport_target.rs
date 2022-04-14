@@ -105,8 +105,8 @@ impl<'a> Target<'a> for ClipColumnTransportTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let is_playing_something = matrix.column_is_playing_something(self.column_index);
-                Some(AbsoluteValue::from_bool(is_playing_something))
+                let is_stoppable = matrix.column_is_stoppable(self.column_index);
+                Some(AbsoluteValue::from_bool(is_stoppable))
             })
             .ok()?
     }
@@ -144,8 +144,8 @@ impl<'a> Target<'a> for RealTimeClipColumnTransportTarget {
         let matrix = matrix.lock();
         let column = matrix.column(self.column_index).ok()?;
         let column = column.lock();
-        let is_playing_something = column.is_playing_something();
-        Some(AbsoluteValue::from_bool(is_playing_something))
+        let is_stoppable = column.is_stoppable();
+        Some(AbsoluteValue::from_bool(is_stoppable))
     }
 
     fn control_type(&self, _: RealTimeControlContext<'a>) -> ControlType {

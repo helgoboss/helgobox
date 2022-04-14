@@ -50,9 +50,10 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
-use playtime_clip_engine::main::SlotPlayOptions;
+use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
-    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, MonitoringMode,
+    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, ClipTransportAction,
+    MonitoringMode,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -126,6 +127,8 @@ pub enum TargetCommand {
     SetClipSlot(ClipSlotDescriptor),
     SetClipColumn(ClipColumnDescriptor),
     SetClipManagementAction(ClipManagementAction),
+    SetClipTransportAction(ClipTransportAction),
+    SetRecordOnlyIfTrackArmed(bool),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
     SetExclusivity(Exclusivity),
@@ -200,6 +203,8 @@ pub enum TargetProp {
     ClipSlot,
     ClipColumn,
     ClipManagementAction,
+    ClipTransportAction,
+    RecordOnlyIfTrackArmed,
     PollForFeedback,
     Tags,
     Exclusivity,
@@ -487,6 +492,14 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_management_action = v;
                 One(P::ClipManagementAction)
             }
+            C::SetClipTransportAction(v) => {
+                self.clip_transport_action = v;
+                One(P::ClipTransportAction)
+            }
+            C::SetRecordOnlyIfTrackArmed(v) => {
+                self.record_only_if_track_armed = v;
+                One(P::RecordOnlyIfTrackArmed)
+            }
         };
         Some(affected)
     }
@@ -588,6 +601,8 @@ pub struct TargetModel {
     clip_slot: ClipSlotDescriptor,
     clip_column: ClipColumnDescriptor,
     clip_management_action: ClipManagementAction,
+    clip_transport_action: ClipTransportAction,
+    record_only_if_track_armed: bool,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -669,6 +684,8 @@ impl Default for TargetModel {
             clip_slot: Default::default(),
             clip_column: Default::default(),
             clip_management_action: Default::default(),
+            clip_transport_action: Default::default(),
+            record_only_if_track_armed: false,
         }
     }
 }
@@ -1899,8 +1916,8 @@ impl TargetModel {
                     ClipTransport => {
                         UnresolvedReaperTarget::ClipTransport(UnresolvedClipTransportTarget {
                             slot: self.virtual_clip_slot()?,
-                            action: self.transport_action,
-                            play_options: self.slot_play_options(),
+                            action: self.clip_transport_action,
+                            options: self.clip_transport_options(),
                         })
                     }
                     ClipColumnTransport => UnresolvedReaperTarget::ClipColumnTranposrt(
@@ -1974,8 +1991,18 @@ impl TargetModel {
         &self.clip_column
     }
 
-    pub fn slot_play_options(&self) -> SlotPlayOptions {
-        SlotPlayOptions {}
+    pub fn clip_transport_action(&self) -> ClipTransportAction {
+        self.clip_transport_action
+    }
+
+    pub fn record_only_if_track_armed(&self) -> bool {
+        self.record_only_if_track_armed
+    }
+
+    pub fn clip_transport_options(&self) -> ClipTransportOptions {
+        ClipTransportOptions {
+            record_only_if_track_armed: self.record_only_if_track_armed,
+        }
     }
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {

@@ -2,21 +2,22 @@ use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
     transport_is_enabled_unit_value, BackboneState, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnClipMatrix, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
-use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, SlotPlayOptions};
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use realearn_api::schema::ClipTransportAction;
 use reaper_high::Project;
 use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedClipTransportTarget {
     pub slot: VirtualClipSlot,
-    pub action: TransportAction,
-    pub play_options: SlotPlayOptions,
+    pub action: ClipTransportAction,
+    pub options: ClipTransportOptions,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
@@ -31,7 +32,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
             basics: ClipTransportTargetBasics {
                 slot_coordinates: self.slot.resolve(context, compartment)?,
                 action: self.action,
-                play_options: self.play_options,
+                options: self.options,
             },
         };
         Ok(vec![ReaperTarget::ClipTransport(target)])
@@ -51,13 +52,27 @@ pub struct ClipTransportTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTargetBasics {
     pub slot_coordinates: ClipSlotCoordinates,
-    pub action: TransportAction,
-    pub play_options: SlotPlayOptions,
+    pub action: ClipTransportAction,
+    pub options: ClipTransportOptions,
+}
+
+impl ClipTransportTarget {
+    fn complain_if_arm_condition_not_met(
+        &self,
+        matrix: &RealearnClipMatrix,
+    ) -> Result<(), &'static str> {
+        if self.basics.options.record_only_if_track_armed
+            && !matrix.column_is_armed_for_recording(self.basics.slot_coordinates.column())
+        {
+            return Err("not recording because not armed");
+        }
+        Ok(())
+    }
 }
 
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        self.basics.action.control_type_and_character()
+        control_type_and_character(self.basics.action)
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -69,7 +84,7 @@ impl RealearnTarget for ClipTransportTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        use TransportAction::*;
+        use ClipTransportAction::*;
         let on = value.is_on();
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
@@ -101,20 +116,29 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     RecordStop => {
                         if on {
-                            match matrix.record_clip(self.basics.slot_coordinates) {
-                                Ok(_) => {
-                                    tracing_debug!("Record slot");
-                                }
-                                Err(e) => {
-                                    tracing_debug!("Error when recording slot: {}", e);
-                                    return Err(e);
-                                }
+                            self.complain_if_arm_condition_not_met(matrix)?;
+                            matrix.record_clip(self.basics.slot_coordinates)?;
+                        } else {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    RecordPlayStop => {
+                        if on {
+                            let slot_is_empty = matrix
+                                .slot(self.basics.slot_coordinates)
+                                .ok_or("slot doesn't exist")?
+                                .is_empty();
+                            if slot_is_empty {
+                                self.complain_if_arm_condition_not_met(matrix)?;
+                                matrix.record_clip(self.basics.slot_coordinates)?;
+                            } else {
+                                matrix.play_clip(self.basics.slot_coordinates)?;
                             }
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
                         }
                     }
-                    Repeat => {
+                    Looped => {
                         matrix.toggle_looped(self.basics.slot_coordinates)?;
                     }
                 };
@@ -146,7 +170,7 @@ impl RealearnTarget for ClipTransportTarget {
                     event,
                 },
             )) if *sc == self.basics.slot_coordinates => {
-                use TransportAction::*;
+                use ClipTransportAction::*;
                 match event {
                     ClipChangedEvent::PlayState(new_state) => match self.basics.action {
                         PlayStop | PlayPause | Stop | Pause | RecordStop => {
@@ -156,7 +180,7 @@ impl RealearnTarget for ClipTransportTarget {
                         _ => (false, None),
                     },
                     ClipChangedEvent::ClipLooped(new_state) => match self.basics.action {
-                        Repeat => (
+                        Looped => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                                 *new_state,
@@ -184,8 +208,8 @@ impl RealearnTarget for ClipTransportTarget {
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        use TransportAction::*;
-        if matches!(self.basics.action, RecordStop | Repeat) {
+        use ClipTransportAction::*;
+        if matches!(self.basics.action, RecordStop | RecordPlayStop | Looped) {
             // These are not for real-time usage.
             return None;
         }
@@ -218,14 +242,14 @@ impl<'a> Target<'a> for ClipTransportTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                use TransportAction::*;
+                use ClipTransportAction::*;
                 let val = match self.basics.action {
-                    PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                    PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                         let play_state =
                             matrix.clip_play_state(self.basics.slot_coordinates).ok()?;
                         clip_play_state_unit_value(self.basics.action, play_state)
                     }
-                    Repeat => {
+                    Looped => {
                         let is_looped = matrix.clip_looped(self.basics.slot_coordinates).ok()?;
                         transport_is_enabled_unit_value(is_looped)
                     }
@@ -253,7 +277,7 @@ impl RealTimeClipTransportTarget {
         value: ControlValue,
         context: RealTimeControlContext,
     ) -> Result<(), &'static str> {
-        use TransportAction::*;
+        use ClipTransportAction::*;
         let on = value.is_on();
         let matrix = context.clip_matrix()?;
         let matrix = matrix.lock();
@@ -286,8 +310,8 @@ impl RealTimeClipTransportTarget {
                     Ok(())
                 }
             }
-            RecordStop => Err("record not supported for real-time target"),
-            Repeat => Err("setting repeated not supported for real-time target"),
+            RecordStop | RecordPlayStop => Err("record not supported for real-time target"),
+            Looped => Err("setting looped not supported for real-time target"),
         }
     }
 }
@@ -296,6 +320,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
     type Context = RealTimeControlContext<'a>;
 
     fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
+        use ClipTransportAction::*;
         let matrix = context.clip_matrix().ok()?;
         let matrix = matrix.lock();
         let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
@@ -305,18 +330,17 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
             Ok(c) => c,
             Err(_) => return interpret_current_clip_slot_value(None),
         };
-        use TransportAction::*;
         let val = match self.basics.action {
-            PlayStop | PlayPause | Stop | Pause | RecordStop => {
+            PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                 clip_play_state_unit_value(self.basics.action, clip.play_state())
             }
-            Repeat => transport_is_enabled_unit_value(clip.looped()),
+            Looped => transport_is_enabled_unit_value(clip.looped()),
         };
         Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self, _: RealTimeControlContext<'a>) -> ControlType {
-        self.basics.action.control_type_and_character().0
+        control_type_and_character(self.basics.action).0
     }
 }
 
@@ -327,3 +351,17 @@ pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_slot: true,
     ..DEFAULT_TARGET
 };
+
+fn control_type_and_character(action: ClipTransportAction) -> (ControlType, TargetCharacter) {
+    use ClipTransportAction::*;
+    match action {
+        // Retriggerable because we want to be able to retrigger play!
+        PlayStop | PlayPause | RecordPlayStop => (
+            ControlType::AbsoluteContinuousRetriggerable,
+            TargetCharacter::Switch,
+        ),
+        Stop | Pause | RecordStop | Looped => {
+            (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+        }
+    }
+}

@@ -1605,7 +1605,7 @@ impl ClipPlayState {
         matches!(self, ScheduledForRecordingStart | Recording)
     }
 
-    pub fn is_playing_something(&self) -> bool {
+    pub fn is_stoppable(&self) -> bool {
         self.is_as_good_as_playing() || self.is_as_good_as_recording()
     }
 }

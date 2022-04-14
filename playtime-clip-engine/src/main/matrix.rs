@@ -357,10 +357,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())?.slot_position_in_seconds(coordinates.row())
     }
 
-    pub fn column_is_playing_something(&self, index: usize) -> bool {
+    pub fn column_is_stoppable(&self, index: usize) -> bool {
         self.columns
             .get(index)
-            .map(|c| c.is_playing_something())
+            .map(|c| c.is_stoppable())
+            .unwrap_or(false)
+    }
+
+    pub fn column_is_armed_for_recording(&self, index: usize) -> bool {
+        self.columns
+            .get(index)
+            .map(|c| c.is_armed_for_recording())
             .unwrap_or(false)
     }
 
@@ -578,9 +585,12 @@ pub enum ClipRecordTiming {
     StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
 }
 
-/// Contains instructions how to play a clip.
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct SlotPlayOptions {}
+pub struct ClipTransportOptions {
+    /// If this is on and one of the record actions is triggered, it will only have an effect if
+    /// the record track of the clip column is armed.
+    pub record_only_if_track_armed: bool,
+}
 
 #[derive(Copy, Clone)]
 pub struct RecordArgs {

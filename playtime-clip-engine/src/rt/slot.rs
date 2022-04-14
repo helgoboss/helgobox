@@ -326,10 +326,10 @@ impl Slot {
         })
     }
 
-    pub fn is_playing_something(&self) -> bool {
+    pub fn is_stoppable(&self) -> bool {
         self.clip
             .as_ref()
-            .map(|c| c.play_state().is_playing_something())
+            .map(|c| c.play_state().is_stoppable())
             .unwrap_or(false)
     }
 

@@ -446,8 +446,8 @@ impl Column {
         informative_result
     }
 
-    pub fn is_playing_something(&self) -> bool {
-        self.slots.iter().any(|slot| slot.is_playing_something())
+    pub fn is_stoppable(&self) -> bool {
+        self.slots.iter().any(|slot| slot.is_stoppable())
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {

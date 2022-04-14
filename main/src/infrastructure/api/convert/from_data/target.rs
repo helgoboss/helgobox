@@ -262,7 +262,11 @@ fn convert_real_target(
         ClipTransport => T::ClipTransportAction(ClipTransportActionTarget {
             commons,
             slot: data.clip_slot.unwrap_or_default(),
-            action: convert_transport_action(data.transport_action),
+            action: data.clip_transport_action.unwrap_or_default(),
+            record_only_if_track_armed: style.required_value_with_default(
+                data.record_only_if_track_armed,
+                defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED,
+            ),
         }),
         ClipColumnTransport => T::ClipColumnTransportAction(ClipColumnTransportActionTarget {
             commons,

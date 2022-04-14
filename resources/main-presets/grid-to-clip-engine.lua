@@ -154,7 +154,8 @@ for col = 0, column_count - 1 do
                     column_expression = slot_column_expression,
                     row_expression = slot_row_expression
                 },
-                action = "PlayStop",
+                action = "RecordPlayStop",
+                record_only_if_track_armed = true,
             },
         }
         local slot_play_feedback = {
@@ -208,7 +209,7 @@ for col = 0, column_count - 1 do
                     column_expression = slot_column_expression,
                     row_expression = slot_row_expression
                 },
-                action = "Record",
+                action = "RecordStop",
             },
         }
         local slot_clear = {

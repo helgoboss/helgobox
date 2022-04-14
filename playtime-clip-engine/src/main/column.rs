@@ -382,8 +382,28 @@ impl Column {
         self.get_slot(slot_index)?.clip_volume()
     }
 
-    pub fn is_playing_something(&self) -> bool {
-        self.slots.iter().any(|slot| slot.is_playing_something())
+    pub fn is_stoppable(&self) -> bool {
+        self.slots.iter().any(|slot| slot.is_stoppable())
+    }
+
+    pub fn is_armed_for_recording(&self) -> bool {
+        self.effective_recording_track()
+            .map(|t| t.is_armed(true))
+            .unwrap_or(false)
+    }
+
+    fn effective_recording_track(&self) -> ClipEngineResult<Track> {
+        let playback_track = self.playback_track()?;
+        resolve_recording_track(&self.settings.clip_record_settings, playback_track)
+    }
+
+    fn playback_track(&self) -> ClipEngineResult<&Track> {
+        self.preview_register
+            .as_ref()
+            .ok_or("column inactive")?
+            .track
+            .as_ref()
+            .ok_or("no playback track set")
     }
 
     pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
@@ -409,6 +429,7 @@ impl Column {
         containing_track: Option<&Track>,
         overridable_matrix_settings: &OverridableMatrixSettings,
     ) -> ClipEngineResult<()> {
+        let recording_track = &self.effective_recording_track()?;
         // Insert slot if it doesn't exist already.
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         slot.record_clip(
@@ -420,12 +441,7 @@ impl Column {
             handler,
             containing_track,
             overridable_matrix_settings,
-            self.preview_register
-                .as_ref()
-                .ok_or("column inactive")?
-                .track
-                .as_ref()
-                .ok_or("no playback track set")?,
+            recording_track,
             &self.rt_column,
             &self.rt_command_sender,
         )
@@ -549,4 +565,21 @@ fn fill_slot_internal(
     };
     rt_command_sender.fill_slot(Box::new(Some(args)));
     Ok(())
+}
+
+fn resolve_recording_track(
+    column_settings: &ColumnClipRecordSettings,
+    playback_track: &Track,
+) -> ClipEngineResult<Track> {
+    if let Some(track_id) = &column_settings.track {
+        let track_guid = Guid::from_string_without_braces(track_id.get())?;
+        let track = playback_track.project().track_by_guid(&track_guid);
+        if track.is_available() {
+            Ok(track)
+        } else {
+            Err("track not available")
+        }
+    } else {
+        Ok(playback_track.clone())
+    }
 }

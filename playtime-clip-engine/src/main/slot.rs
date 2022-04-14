@@ -25,7 +25,7 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
+use reaper_high::{Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput,
     RequiredViewMode, SectionId, TrackArea, UiRefreshBehavior,
@@ -142,7 +142,7 @@ impl Slot {
         handler: &H,
         containing_track: Option<&Track>,
         overridable_matrix_settings: &OverridableMatrixSettings,
-        playback_track: &Track,
+        recording_track: &Track,
         rt_column: &SharedColumn,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<()> {
@@ -150,7 +150,7 @@ impl Slot {
             return Err("recording already");
         }
         // Check preconditions and prepare stuff.
-        let project = playback_track.project();
+        let project = recording_track.project();
         let desired_midi_overdub_instruction = if let Some(content) = &self.content {
             if content.runtime_data.play_state.is_somehow_recording() {
                 return Err("recording already according to play state");
@@ -182,7 +182,7 @@ impl Slot {
             containing_track,
             matrix_record_settings,
             column_record_settings,
-            playback_track,
+            recording_track,
             rt_column,
             desired_midi_overdub_instruction,
         )?;
@@ -450,9 +450,9 @@ impl Slot {
         }
     }
 
-    pub fn is_playing_something(&self) -> bool {
+    pub fn is_stoppable(&self) -> bool {
         self.clip_play_state()
-            .map(|s| s.is_playing_something())
+            .map(|s| s.is_stoppable())
             .unwrap_or(false)
     }
 
@@ -696,7 +696,7 @@ fn create_record_stuff(
     containing_track: Option<&Track>,
     matrix_record_settings: &MatrixClipRecordSettings,
     column_settings: &ColumnClipRecordSettings,
-    playback_track: &Track,
+    recording_track: &Track,
     column_source: &SharedColumn,
     desired_midi_overdub_instruction: Option<MidiOverdubInstruction>,
 ) -> ClipEngineResult<(CommonRecordStuff, ModeSpecificRecordStuff)> {
@@ -705,8 +705,7 @@ fn create_record_stuff(
         match &column_settings.origin {
             TrackInput => {
                 debug!("Input: track input");
-                let track = resolve_recording_track(column_settings, playback_track)?;
-                let track_input = track
+                let track_input = recording_track
                     .recording_input()
                     .ok_or("track doesn't have any recording input")?;
                 let hw_input = translate_track_input_to_hw_input(track_input)?;
@@ -714,11 +713,10 @@ fn create_record_stuff(
             }
             TrackAudioOutput => {
                 debug!("Input: track audio output");
-                let track = resolve_recording_track(column_settings, playback_track)?;
                 let containing_track = containing_track.ok_or(
                     "can't recording track audio output if Playtime runs in monitoring FX chain",
                 )?;
-                let route = track.add_send_to(containing_track);
+                let route = recording_track.add_send_to(containing_track);
                 // TODO-medium At the moment, we support stereo routes only. In order to support
                 //  multi-channel routes, the user must increase the ReaLearn track channel count.
                 //  And we have to:
@@ -737,7 +735,7 @@ fn create_record_stuff(
                 // }
                 let channel_range = ChannelRange {
                     first_channel_index: 0,
-                    channel_count: track.channel_count(),
+                    channel_count: recording_track.channel_count(),
                 };
                 let fx_input = VirtualClipRecordAudioInput::Specific(channel_range);
                 (ClipRecordInput::FxInput(fx_input), Some(route))
@@ -750,7 +748,7 @@ fn create_record_stuff(
         }
     };
     let recording_equipment = input.create_recording_equipment(
-        Some(playback_track.project()),
+        Some(recording_track.project()),
         matrix_record_settings.midi_settings.auto_quantize,
     )?;
     let final_midi_overdub_instruction = if recording_equipment.is_midi() {
@@ -786,23 +784,6 @@ fn create_record_stuff(
         temporary_route,
     };
     Ok((common_stuff, mode_specific_stuff))
-}
-
-fn resolve_recording_track(
-    column_settings: &ColumnClipRecordSettings,
-    playback_track: &Track,
-) -> ClipEngineResult<Track> {
-    if let Some(track_id) = &column_settings.track {
-        let track_guid = Guid::from_string_without_braces(track_id.get())?;
-        let track = playback_track.project().track_by_guid(&track_guid);
-        if track.is_available() {
-            Ok(track)
-        } else {
-            Err("track not available")
-        }
-    } else {
-        Ok(playback_track.clone())
-    }
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";

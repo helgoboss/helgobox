@@ -23,7 +23,8 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
 use realearn_api::schema::{
-    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, MonitoringMode,
+    ClipColumnDescriptor, ClipManagementAction, ClipSlotDescriptor, ClipTransportAction,
+    MonitoringMode,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -159,6 +160,14 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.3
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_column: ClipColumnDescriptor,
+    /// New since ReaLearn v2.13.0-pre.3.
+    ///
+    /// Migrated from `transport_action` if not given.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_transport_action: Option<ClipTransportAction>,
+    /// New since ReaLearn v2.13.0-pre.3
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub record_only_if_track_armed: bool,
 }
 
 impl TargetModelData {
@@ -232,6 +241,8 @@ impl TargetModelData {
             active_mappings_only: model.active_mappings_only(),
             clip_slot: Some(model.clip_slot().clone()),
             clip_column: model.clip_column().clone(),
+            clip_transport_action: Some(model.clip_transport_action()),
+            record_only_if_track_armed: model.record_only_if_track_armed(),
         }
     }
 
@@ -418,6 +429,22 @@ impl TargetModelData {
         model.change(C::SetClipSlot(slot_descriptor));
         model.change(C::SetClipColumn(self.clip_column.clone()));
         model.change(C::SetClipManagementAction(self.clip_management_action));
+        let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
+            use ClipTransportAction as T;
+            use TransportAction::*;
+            match self.transport_action {
+                PlayStop => T::PlayStop,
+                PlayPause => T::PlayPause,
+                Stop => T::Stop,
+                Pause => T::Pause,
+                RecordStop => T::RecordStop,
+                Repeat => T::Looped,
+            }
+        });
+        model.change(C::SetClipTransportAction(clip_transport_action));
+        model.change(C::SetRecordOnlyIfTrackArmed(
+            self.record_only_if_track_armed,
+        ));
     }
 }
 
