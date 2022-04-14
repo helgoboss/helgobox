@@ -613,7 +613,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "cursor-up"
+        "controlElementIndex": "col1/stop"
       }
     },
     {
@@ -628,7 +628,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "cursor-down"
+        "controlElementIndex": "col2/stop"
       }
     },
     {
@@ -643,7 +643,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "cursor-left"
+        "controlElementIndex": "col3/stop"
       }
     },
     {
@@ -658,7 +658,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "cursor-right"
+        "controlElementIndex": "col4/stop"
       }
     },
     {
@@ -673,7 +673,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "volume"
+        "controlElementIndex": "col5/stop"
       }
     },
     {
@@ -688,7 +688,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "pan"
+        "controlElementIndex": "col6/stop"
       }
     },
     {
@@ -703,7 +703,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "sends"
+        "controlElementIndex": "col7/stop"
       }
     },
     {
@@ -718,7 +718,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "device"
+        "controlElementIndex": "col8/stop"
       }
     },
     {
@@ -733,7 +733,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "stop-clip"
+        "controlElementIndex": "row1/play"
       }
     },
     {
@@ -748,7 +748,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "solo"
+        "controlElementIndex": "row2/play"
       }
     },
     {
@@ -763,7 +763,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "record-arm"
+        "controlElementIndex": "row3/play"
       }
     },
     {
@@ -778,7 +778,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "mute"
+        "controlElementIndex": "row4/play"
       }
     },
     {
@@ -793,7 +793,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "track-select"
+        "controlElementIndex": "row5/play"
       }
     },
     {
