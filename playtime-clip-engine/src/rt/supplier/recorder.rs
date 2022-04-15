@@ -136,6 +136,7 @@ struct Recording {
     frame_rate: Hz,
     first_play_frame: Option<usize>,
     scheduled_end: Option<ScheduledEnd>,
+    latency: usize,
 }
 
 impl Recording {
@@ -817,6 +818,7 @@ impl RecordingState {
                     (start_pos, frames_to_start_pos)
                 }
             };
+            let device_latency_info = Reaper::get().medium_reaper().get_input_output_latency();
             let recording = Recording {
                 total_frame_offset: 0,
                 num_count_in_frames: frames_to_start_pos,
@@ -832,6 +834,8 @@ impl RecordingState {
                     start_pos,
                     frames_to_start_pos,
                 ),
+                latency: device_latency_info.input_latency as usize
+                    + device_latency_info.output_latency as usize,
             };
             self.recording = Some(recording);
             (
@@ -903,7 +907,7 @@ impl RecordingState {
                     assert!(recording.num_count_in_frames < end.complete_length);
                     end.complete_length - recording.num_count_in_frames
                 });
-                SectionBounds::new(start, length)
+                SectionBounds::new(start + recording.latency, length)
             },
             quantized_end_pos: recording.scheduled_end.map(|end| end.quantized_end_pos),
             downbeat_frame: recording.downbeat_frame(),
