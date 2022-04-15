@@ -798,8 +798,14 @@ impl Default for ClipTransportAction {
 pub enum ClipColumnAction {
     #[display(fmt = "Stop")]
     Stop,
+    #[display(fmt = "Solo/unsolo")]
+    Solo,
     #[display(fmt = "Arm/disarm")]
     Arm,
+    #[display(fmt = "Mute/unmute")]
+    Mute,
+    #[display(fmt = "Select/unselect")]
+    Select,
 }
 
 impl Default for ClipColumnAction {

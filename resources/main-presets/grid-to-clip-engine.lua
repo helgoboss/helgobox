@@ -281,12 +281,39 @@ local groups = {
         },
     },
     {
+        id = "column-solo",
+        name = "Column solo",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 4,
+            bank_index = 1,
+        },
+    },
+    {
         id = "column-record-arm",
         name = "Column record arm",
         activation_condition = {
             kind = "Bank",
             parameter = 4,
             bank_index = 2,
+        },
+    },
+    {
+        id = "column-mute",
+        name = "Column mute",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 4,
+            bank_index = 3,
+        },
+    },
+    {
+        id = "column-select",
+        name = "Column select",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 4,
+            bank_index = 4,
         },
     },
 }
@@ -296,45 +323,36 @@ for col = 0, column_count - 1 do
     local human_col = col + 1
     local prefix = "col" .. human_col .. "/"
     local column_expression = "p[0] + " .. col
-    local column_stop = {
-        name = "Column " .. human_col .. " stop",
-        group = "column-stop",
-        source = {
-            kind = "Virtual",
-            character = "Button",
-            id = prefix .. "stop",
-        },
-        target = {
-            kind = "ClipColumnAction",
-            column = {
-                address = "Dynamic",
-                expression = column_expression,
-            },
-            action = "Stop",
-        },
+    local column_actions = {
+        { id = "stop", action = "Stop", absolute_mode = "Normal" },
+        { id = "solo", action = "Solo", absolute_mode = "ToggleButton", },
+        { id = "record-arm", action = "Arm", absolute_mode = "ToggleButton", },
+        { id = "mute", action = "Mute", absolute_mode = "ToggleButton", },
+        { id = "select", action = "Select", absolute_mode = "ToggleButton", },
     }
-    local column_record_arm = {
-        name = "Column " .. human_col .. " record arm",
-        group = "column-record-arm",
-        source = {
-            kind = "Virtual",
-            character = "Button",
-            id = prefix .. "stop",
-        },
-        glue = {
-            absolute_mode = "ToggleButton",
-        },
-        target = {
-            kind = "ClipColumnAction",
-            column = {
-                address = "Dynamic",
-                expression = column_expression,
+    for _, action in ipairs(column_actions) do
+        local mapping = {
+            name = "Column " .. human_col .. " " .. action.id,
+            group = "column-" .. action.id,
+            source = {
+                kind = "Virtual",
+                character = "Button",
+                id = prefix .. "stop",
             },
-            action = "Arm",
-        },
-    }
-    table.insert(mappings, column_stop)
-    table.insert(mappings, column_record_arm)
+            glue = {
+                absolute_mode = action.absolute_mode,
+            },
+            target = {
+                kind = "ClipColumnAction",
+                column = {
+                    address = "Dynamic",
+                    expression = column_expression,
+                },
+                action = action.action,
+            },
+        }
+        table.insert(mappings, mapping)
+    end
 end
 
 -- For each slot

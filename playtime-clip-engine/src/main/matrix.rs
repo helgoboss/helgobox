@@ -396,6 +396,45 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .unwrap_or(false)
     }
 
+    pub fn set_column_solo(&self, index: usize, solo: bool) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, index)?;
+        column.set_solo(solo)?;
+        Ok(())
+    }
+
+    pub fn column_is_solo(&self, index: usize) -> bool {
+        self.columns
+            .get(index)
+            .map(|c| c.is_solo())
+            .unwrap_or(false)
+    }
+
+    pub fn set_column_mute(&self, index: usize, mute: bool) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, index)?;
+        column.set_mute(mute)?;
+        Ok(())
+    }
+
+    pub fn column_is_mute(&self, index: usize) -> bool {
+        self.columns
+            .get(index)
+            .map(|c| c.is_mute())
+            .unwrap_or(false)
+    }
+
+    pub fn set_column_selected(&self, index: usize, selected: bool) -> ClipEngineResult<()> {
+        let column = get_column(&self.columns, index)?;
+        column.set_selected(selected)?;
+        Ok(())
+    }
+
+    pub fn column_is_selected(&self, index: usize) -> bool {
+        self.columns
+            .get(index)
+            .map(|c| c.is_selected())
+            .unwrap_or(false)
+    }
+
     pub fn clip_play_state(
         &self,
         coordinates: ClipSlotCoordinates,
@@ -615,6 +654,7 @@ pub struct ClipTransportOptions {
     /// If this is on and one of the record actions is triggered, it will only have an effect if
     /// the record track of the clip column is armed.
     pub record_only_if_track_armed: bool,
+    // pub use_empty_slots_for_column_stop: bool,
 }
 
 #[derive(Copy, Clone)]

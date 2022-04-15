@@ -51,27 +51,33 @@ impl RealearnTarget for ClipColumnTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        match self.action {
-            ClipColumnAction::Stop => {
-                if !value.is_on() {
-                    return Ok(None);
-                }
-                BackboneState::get().with_clip_matrix_mut(
-                    context.control_context.instance_state,
-                    |matrix| {
+        BackboneState::get().with_clip_matrix(
+            context.control_context.instance_state,
+            |matrix| -> Result<(), &'static str> {
+                match self.action {
+                    ClipColumnAction::Stop => {
+                        if !value.is_on() {
+                            return Ok(());
+                        }
                         matrix.stop_column(self.column_index)?;
-                        Ok(None)
-                    },
-                )?
-            }
-            ClipColumnAction::Arm => BackboneState::get().with_clip_matrix(
-                context.control_context.instance_state,
-                |matrix| {
-                    matrix.set_column_armed_for_recording(self.column_index, value.is_on())?;
-                    Ok(None)
-                },
-            )?,
-        }
+                    }
+                    ClipColumnAction::Solo => {
+                        matrix.set_column_solo(self.column_index, value.is_on())?;
+                    }
+                    ClipColumnAction::Arm => {
+                        matrix.set_column_armed_for_recording(self.column_index, value.is_on())?;
+                    }
+                    ClipColumnAction::Mute => {
+                        matrix.set_column_mute(self.column_index, value.is_on())?;
+                    }
+                    ClipColumnAction::Select => {
+                        matrix.set_column_selected(self.column_index, value.is_on())?;
+                    }
+                }
+                Ok(())
+            },
+        )??;
+        Ok(None)
     }
 
     fn process_change_event(
@@ -94,9 +100,24 @@ impl RealearnTarget for ClipColumnTarget {
                 },
                 _ => (false, None),
             },
+            ClipColumnAction::Solo => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+                CompoundChangeEvent::Reaper(ChangeEvent::TrackSoloChanged(_)) => (true, None),
+                _ => (false, None),
+            },
             ClipColumnAction::Arm => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackArmChanged(_)) => (true, None),
+                _ => (false, None),
+            },
+            ClipColumnAction::Mute => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+                CompoundChangeEvent::Reaper(ChangeEvent::TrackMuteChanged(_)) => (true, None),
+                _ => (false, None),
+            },
+            ClipColumnAction::Select => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+                CompoundChangeEvent::Reaper(ChangeEvent::TrackSelectedChanged(_)) => (true, None),
                 _ => (false, None),
             },
         }
@@ -130,18 +151,16 @@ impl<'a> Target<'a> for ClipColumnTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        BackboneState::get()
+        let is_on = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| match self.action {
-                ClipColumnAction::Stop => {
-                    let is_stoppable = matrix.column_is_stoppable(self.column_index);
-                    Some(AbsoluteValue::from_bool(is_stoppable))
-                }
-                ClipColumnAction::Arm => {
-                    let is_armed = matrix.column_is_armed_for_recording(self.column_index);
-                    Some(AbsoluteValue::from_bool(is_armed))
-                }
+                ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
+                ClipColumnAction::Solo => matrix.column_is_solo(self.column_index),
+                ClipColumnAction::Arm => matrix.column_is_armed_for_recording(self.column_index),
+                ClipColumnAction::Mute => matrix.column_is_mute(self.column_index),
+                ClipColumnAction::Select => matrix.column_is_selected(self.column_index),
             })
-            .ok()?
+            .ok()?;
+        Some(AbsoluteValue::from_bool(is_on))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -170,7 +189,7 @@ impl RealTimeClipColumnTarget {
                 let matrix = matrix.lock();
                 matrix.stop_column(self.column_index)
             }
-            ClipColumnAction::Arm => Err("column arm not supported as real-time action"),
+            _ => Err("only column stop supported as real-time action"),
         }
     }
 }
@@ -186,7 +205,7 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
                 let is_stoppable = matrix.column_is_stoppable(self.column_index);
                 Some(AbsoluteValue::from_bool(is_stoppable))
             }
-            ClipColumnAction::Arm => None,
+            _ => None,
         }
     }
 
@@ -208,6 +227,6 @@ fn control_type_and_character(action: ClipColumnAction) -> (ControlType, TargetC
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),
-        Arm => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+        Solo | Arm | Mute | Select => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
     }
 }

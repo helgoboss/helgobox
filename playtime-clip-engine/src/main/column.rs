@@ -402,6 +402,54 @@ impl Column {
             .unwrap_or(false)
     }
 
+    pub fn set_solo(&self, solo: bool) -> ClipEngineResult<()> {
+        let track = self.effective_recording_track()?;
+        if solo {
+            track.solo()
+        } else {
+            track.unsolo();
+        }
+        Ok(())
+    }
+
+    pub fn is_solo(&self) -> bool {
+        self.effective_recording_track()
+            .map(|t| t.is_solo())
+            .unwrap_or(false)
+    }
+
+    pub fn set_mute(&self, mute: bool) -> ClipEngineResult<()> {
+        let track = self.effective_recording_track()?;
+        if mute {
+            track.mute()
+        } else {
+            track.unmute();
+        }
+        Ok(())
+    }
+
+    pub fn is_mute(&self) -> bool {
+        self.effective_recording_track()
+            .map(|t| t.is_muted())
+            .unwrap_or(false)
+    }
+
+    pub fn set_selected(&self, selected: bool) -> ClipEngineResult<()> {
+        let track = self.effective_recording_track()?;
+        if selected {
+            track.select()
+        } else {
+            track.unselect();
+        }
+        Ok(())
+    }
+
+    pub fn is_selected(&self) -> bool {
+        self.effective_recording_track()
+            .map(|t| t.is_selected())
+            .unwrap_or(false)
+    }
+
     fn effective_recording_track(&self) -> ClipEngineResult<Track> {
         let playback_track = self.playback_track()?;
         resolve_recording_track(&self.settings.clip_record_settings, playback_track)
