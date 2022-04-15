@@ -1007,6 +1007,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 if m.activation_can_be_affected_by_parameters() {
                     if let Some(update) = m.update_activation(&self.collections.parameters) {
                         mapping_updates.push(update);
+                        changed_mappings.push(m.id())
                     }
                 }
                 if m.target_can_be_affected_by_parameters() {
