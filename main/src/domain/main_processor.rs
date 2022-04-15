@@ -3062,7 +3062,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         log_virtual_feedback_output(&self.instance_id, &value);
                     }
                     // Iterate over (controller) mappings with virtual targets.
-                    for m in mappings_with_virtual_targets.values() {
+                    for m in mappings_with_virtual_targets
+                        .values()
+                        .filter(|m| m.feedback_is_effectively_on())
+                    {
                         // Should always be true.
                         if let Some(t) = m.virtual_target() {
                             if t.control_element() == value.control_element() {
