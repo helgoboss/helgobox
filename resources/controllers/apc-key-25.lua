@@ -103,14 +103,22 @@ if resolve_shift then
     }
     table.insert(mappings, shift_mapping)
     -- Alternative set of virtual control elements
-    local shift_button_ids = {
-        "stop-clip",
-        "solo",
-        "record-arm",
-        "mute",
-        "track-select",
+    local alt_elements = {
+        { key = 64, id = "cursor-up" },
+        { key = 65, id = "cursor-down" },
+        { key = 66, id = "cursor-left" },
+        { key = 67, id = "cursor-right" },
+        { key = 68, id = "volume" },
+        { key = 69, id = "pan" },
+        { key = 70, id = "sends" },
+        { key = 71, id = "device" },
+        { key = 82, id = "stop-clip" },
+        { key = 83, id = "solo" },
+        { key = 84, id = "record-arm" },
+        { key = 85, id = "mute" },
+        { key = 86, id = "track-select" },
     }
-    for i, id in ipairs(shift_button_ids) do
+    for _, element in ipairs(alt_elements) do
         local mapping = {
             activation_condition = {
                 kind = "Modifier",
@@ -124,11 +132,11 @@ if resolve_shift then
             source = {
                 kind = "MidiNoteVelocity",
                 channel = 0,
-                key_number = 82 + i - 1,
+                key_number = element.key,
             },
             target = {
                 kind = "Virtual",
-                id = id,
+                id = element.id,
                 character = "Button",
             },
         }

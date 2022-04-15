@@ -50,7 +50,85 @@ local mappings = {
         },
         target = {
             kind = "TransportAction",
-            action = "PlayStop",
+            action = "PlayPause",
+        },
+    },
+    {
+        name = "Scroll up",
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "cursor-up",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "IncrementalButton",
+            reverse = true,
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 1,
+            },
+        },
+    },
+    {
+        name = "Scroll down",
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "cursor-down",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "IncrementalButton",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 1,
+            },
+        },
+    },
+    {
+        name = "Scroll left",
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "cursor-left",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "IncrementalButton",
+            reverse = true,
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 0,
+            },
+        },
+    },
+    {
+        name = "Scroll right",
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "cursor-right",
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = "IncrementalButton",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 0,
+            },
         },
     },
 }
