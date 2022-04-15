@@ -95,6 +95,7 @@ impl RealearnTarget for ClipColumnTarget {
                 _ => (false, None),
             },
             ClipColumnAction::Arm => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackArmChanged(_)) => (true, None),
                 _ => (false, None),
             },
