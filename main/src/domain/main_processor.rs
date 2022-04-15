@@ -14,7 +14,8 @@ use crate::domain::{
     RawParamValue, RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
     SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
+    VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -932,13 +933,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 m.update_activation_from_effect(eff)
             })
             .collect();
-        // 3. Target refreshment and determine unused sources
+        // 3. Mappings with real targets: Refresh targets and determine unused sources
         let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
-        for m in all_mappings_in_compartment_mut(
-            &mut self.collections.mappings,
-            &mut self.collections.mappings_with_virtual_targets,
-            compartment,
-        ) {
+        for m in self.collections.mappings[compartment].values_mut() {
             if m.target_can_be_affected_by_parameters() {
                 let control_context = self.basics.control_context();
                 let context = ExtendedProcessorContext::new(
@@ -952,6 +949,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
             if m.feedback_is_effectively_on() {
+                // Mark source as used
+                if let Some(addr) = m.source().extract_feedback_address() {
+                    unused_sources.remove(&addr);
+                }
+            }
+        }
+        // 4. Mappings with virtual targets: Determine unused sources
+        if compartment == MappingCompartment::ControllerMappings {
+            for m in self.collections.mappings_with_virtual_targets.values() {
+                if !m.feedback_is_effectively_on() {
+                    continue;
+                }
+                // A mapping with virtual target is only considered as active if there's a
+                // corresponding active main mapping.
+                // (https://github.com/helgoboss/realearn/issues/563)
+                let has_active_main_mapping =
+                    find_active_main_mapping_connected_to_virtual_control_element(
+                        &self.collections.mappings[MappingCompartment::MainMappings],
+                        m.virtual_target_control_element().unwrap(),
+                    )
+                    .is_some();
+                if !has_active_main_mapping {
+                    continue;
+                }
                 // Mark source as used
                 if let Some(addr) = m.source().extract_feedback_address() {
                     unused_sources.remove(&addr);
@@ -1853,8 +1874,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn all_mappings_without_virtual_targets(&self) -> impl Iterator<Item = &MainMapping> {
-        MappingCompartment::enum_iter()
-            .flat_map(move |compartment| self.collections.mappings[compartment].values())
+        all_mappings_without_virtual_targets(&self.collections.mappings)
     }
 
     pub fn send_all_feedback(&self) {
@@ -1917,12 +1937,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
         if let Some(control_element) = m.virtual_target_control_element() {
-            self.collections.mappings[MappingCompartment::MainMappings]
-                .values()
-                .find(|m| {
-                    m.virtual_source_control_element() == Some(control_element)
-                        && m.feedback_is_effectively_on()
-                })
+            find_active_main_mapping_connected_to_virtual_control_element(
+                &self.collections.mappings[MappingCompartment::MainMappings],
+                control_element,
+            )
         } else {
             Some(m)
         }
@@ -3585,4 +3603,20 @@ fn track_arm_conditions_are_met(context: &ProcessorContext, settings: &BasicSett
         None => true,
         Some(t) => t.is_available() && t.is_armed(false),
     }
+}
+
+fn find_active_main_mapping_connected_to_virtual_control_element(
+    main_mappings: &OrderedMappingMap<MainMapping>,
+    control_element: VirtualControlElement,
+) -> Option<&MainMapping> {
+    main_mappings.values().find(|m| {
+        m.virtual_source_control_element() == Some(control_element)
+            && m.feedback_is_effectively_on()
+    })
+}
+
+fn all_mappings_without_virtual_targets(
+    mappings: &EnumMap<MappingCompartment, OrderedMappingMap<MainMapping>>,
+) -> impl Iterator<Item = &MainMapping> {
+    MappingCompartment::enum_iter().flat_map(move |compartment| mappings[compartment].values())
 }
