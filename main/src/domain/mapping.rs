@@ -478,9 +478,19 @@ impl MainMapping {
         self.activation_state.is_active_2 = activation_effect
             .active_2_effect
             .unwrap_or(self.activation_state.is_active_2);
+        self.post_process_activation_update(was_active_before)
+    }
+
+    fn post_process_activation_update(
+        &mut self,
+        was_active_before: bool,
+    ) -> Option<RealTimeMappingUpdate> {
         let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
+        }
+        if !now_is_active {
+            self.core.mode.on_deactivate();
         }
         let update = RealTimeMappingUpdate {
             id: self.id(),
@@ -610,23 +620,13 @@ impl MainMapping {
     }
 
     pub fn update_activation(&mut self, params: &PluginParams) -> Option<RealTimeMappingUpdate> {
-        let compartment_params = params.compartment_params(self.core.compartment);
         let was_active_before = self.is_active_in_terms_of_activation_state();
+        let compartment_params = params.compartment_params(self.core.compartment);
         self.activation_state.is_active_1 =
             self.activation_condition_1.is_fulfilled(compartment_params);
         self.activation_state.is_active_2 =
             self.activation_condition_2.is_fulfilled(compartment_params);
-        let now_is_active = self.is_active_in_terms_of_activation_state();
-        if now_is_active == was_active_before {
-            return None;
-        }
-        let update = RealTimeMappingUpdate {
-            id: self.id(),
-            activation_change: Some(ActivationChange {
-                is_active: now_is_active,
-            }),
-        };
-        Some(update)
+        self.post_process_activation_update(was_active_before)
     }
 
     /// Doesn't check if explicitly enabled or disabled.
