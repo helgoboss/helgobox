@@ -12,14 +12,56 @@ local slot_modes = {
 -- Column modes
 local column_mode_count = 100
 local column_modes = {
-    { label = "Stop clip", button = "stop-clip" },
-    { label = "Solo", button = "solo" },
-    { label = "Record arm", button = "record-arm" },
-    { label = "Mute", button = "mute" },
-    { label = "Track select", button = "track-select" },
+    {
+        id = "stop",
+        label = "Stop clip",
+        button = "stop-clip",
+        action = "Stop",
+        absolute_mode = "Normal",
+    },
+    {
+        id = "solo",
+        label = "Solo",
+        button = "solo",
+        action = "Solo",
+        absolute_mode = "ToggleButton",
+    },
+    {
+        id = "record-arm",
+        label = "Record arm",
+        button = "record-arm",
+        action = "Arm",
+        absolute_mode = "ToggleButton",
+    },
+    {
+        id = "mute",
+        label = "Mute",
+        button = "mute",
+        action = "Mute",
+        absolute_mode = "ToggleButton",
+    },
+    {
+        id = "select",
+        label = "Track select",
+        button = "track-select",
+        action = "Select",
+        absolute_mode = "ToggleButton",
+    },
+
+}
+
+-- Knob modes
+local knob_mode_count = 100
+local knob_modes = {
+    { label = "Volume", button = "volume" },
+    { label = "Pan", button = "pan" },
+    { label = "Sends", button = "sends" },
+    { label = "Device", button = "device" },
 }
 
 -- Number of columns and rows
+-- TODO-medium Would be good to take this dynamically from the controller preset as a compartment variable.
+--- However, at the moment it's not relevant. We just take a reasonable maximum.
 local column_count = 8
 local row_count = 8
 
@@ -192,6 +234,34 @@ for i, mode in ipairs(column_modes) do
     table.insert(mappings, m)
 end
 
+-- Knob modes
+local knob_mode_labels = {}
+for i, mode in ipairs(knob_modes) do
+    table.insert(knob_mode_labels, mode.label)
+    local target_value = (i - 1) / knob_mode_count
+    local m = {
+        group = "knob-modes",
+        name = mode.label,
+        source = {
+            kind = "Virtual",
+            id = mode.button,
+            character = "Button",
+        },
+        glue = {
+            target_interval = { target_value, target_value },
+            out_of_range_behavior = "Min",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 5,
+            },
+        },
+    }
+    table.insert(mappings, m)
+end
+
 -- Parameters
 local parameters = {
     {
@@ -220,6 +290,12 @@ local parameters = {
         value_count = column_mode_count,
         value_labels = column_mode_labels
     },
+    {
+        index = 5,
+        name = "Knob mode",
+        value_count = knob_mode_count,
+        value_labels = knob_mode_labels
+    },
 }
 
 local groups = {
@@ -230,6 +306,10 @@ local groups = {
     {
         id = "column-modes",
         name = "Column modes",
+    },
+    {
+        id = "knob-modes",
+        name = "Knob modes",
     },
     {
         id = "slot-feedback",
@@ -316,6 +396,42 @@ local groups = {
             bank_index = 4,
         },
     },
+    {
+        id = "knob-volume",
+        name = "Knob volume",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 5,
+            bank_index = 0,
+        },
+    },
+    {
+        id = "knob-pan",
+        name = "Knob pan",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 5,
+            bank_index = 1,
+        },
+    },
+    {
+        id = "knob-sends",
+        name = "Knob sends",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 5,
+            bank_index = 2,
+        },
+    },
+    {
+        id = "knob-device",
+        name = "Knob device",
+        activation_condition = {
+            kind = "Bank",
+            parameter = 5,
+            bank_index = 3,
+        },
+    },
 }
 
 -- For each column
@@ -323,24 +439,18 @@ for col = 0, column_count - 1 do
     local human_col = col + 1
     local prefix = "col" .. human_col .. "/"
     local column_expression = "p[0] + " .. col
-    local column_actions = {
-        { id = "stop", action = "Stop", absolute_mode = "Normal" },
-        { id = "solo", action = "Solo", absolute_mode = "ToggleButton", },
-        { id = "record-arm", action = "Arm", absolute_mode = "ToggleButton", },
-        { id = "mute", action = "Mute", absolute_mode = "ToggleButton", },
-        { id = "select", action = "Select", absolute_mode = "ToggleButton", },
-    }
-    for _, action in ipairs(column_actions) do
+    -- Buttons
+    for _, button in ipairs(column_modes) do
         local mapping = {
-            name = "Column " .. human_col .. " " .. action.id,
-            group = "column-" .. action.id,
+            name = "Column " .. human_col .. " " .. button.id,
+            group = "column-" .. button.id,
             source = {
                 kind = "Virtual",
                 character = "Button",
                 id = prefix .. "stop",
             },
             glue = {
-                absolute_mode = action.absolute_mode,
+                absolute_mode = button.absolute_mode,
             },
             target = {
                 kind = "ClipColumnAction",
@@ -348,10 +458,34 @@ for col = 0, column_count - 1 do
                     address = "Dynamic",
                     expression = column_expression,
                 },
-                action = action.action,
+                action = button.action,
             },
         }
         table.insert(mappings, mapping)
+    end
+    -- Knob
+    for _, button in ipairs(knob_modes) do
+        --local mapping = {
+        --    name = "Column " .. human_col .. " " .. button.id,
+        --    group = "column-" .. button.id,
+        --    source = {
+        --        kind = "Virtual",
+        --        character = "Button",
+        --        id = prefix .. "stop",
+        --    },
+        --    glue = {
+        --        absolute_mode = button.absolute_mode,
+        --    },
+        --    target = {
+        --        kind = "ClipColumnAction",
+        --        column = {
+        --            address = "Dynamic",
+        --            expression = column_expression,
+        --        },
+        --        action = button.action,
+        --    },
+        --}
+        --table.insert(mappings, mapping)
     end
 end
 
