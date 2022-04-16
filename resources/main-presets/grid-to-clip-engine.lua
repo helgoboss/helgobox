@@ -4,7 +4,6 @@
 local slot_mode_count = 100
 local slot_modes = {
     { label = "Normal" },
-    { label = "Record", button = "record" },
     { label = "Delete", button = "delete" },
     { label = "Quantize", button = "quantize" },
 }
@@ -21,25 +20,25 @@ local column_modes = {
         id = "solo",
         label = "Solo",
         button = "solo",
-        target = "TrackSoloState",
+        track_target = "TrackSoloState",
     },
     {
         id = "record-arm",
         label = "Record arm",
         button = "record-arm",
-        target = "TrackArmState",
+        track_target = "TrackArmState",
     },
     {
         id = "mute",
         label = "Mute",
         button = "mute",
-        target = "TrackMuteState",
+        track_target = "TrackMuteState",
     },
     {
         id = "select",
         label = "Track select",
         button = "track-select",
-        target = "TrackSelectionState",
+        track_target = "TrackSelectionState",
     },
 
 }
@@ -51,13 +50,13 @@ local knob_modes = {
         id = "volume",
         label = "Volume",
         button = "volume",
-        target = "TrackVolume",
+        track_target = "TrackVolume",
     },
     {
         id = "pan",
         label = "Pan",
         button = "pan",
-        target = "TrackPan",
+        track_target = "TrackPan",
     },
     {
         id = "sends",
@@ -471,7 +470,7 @@ for col = 0, column_count - 1 do
     }
     table.insert(mappings, column_stop_mapping)
     for _, mode in ipairs(column_modes) do
-        if mode.target then
+        if mode.track_target then
             local mapping = {
                 name = "Column " .. human_col .. " " .. mode.id,
                 group = "column-" .. mode.id,
@@ -484,7 +483,7 @@ for col = 0, column_count - 1 do
                     absolute_mode = "ToggleButton",
                 },
                 target = {
-                    kind = mode.target,
+                    kind = mode.track_target,
                     track = {
                         address = "FromClipColumn",
                         column = column,
@@ -497,7 +496,7 @@ for col = 0, column_count - 1 do
     end
     -- Column knob
     for _, mode in ipairs(knob_modes) do
-        if mode.target then
+        if mode.track_target then
             local mapping = {
                 name = "Knob " .. human_col .. " " .. mode.id,
                 group = "knob-" .. mode.id,
@@ -507,7 +506,7 @@ for col = 0, column_count - 1 do
                     id = col,
                 },
                 target = {
-                    kind = mode.target,
+                    kind = mode.track_target,
                     track = {
                         address = "FromClipColumn",
                         column = column,
@@ -578,29 +577,6 @@ for col = 0, column_count - 1 do
                 action = "PlayStop",
             },
         }
-        local slot_record = {
-            id = prefix .. "slot-record",
-            name = "Slot " .. human_col .. "/" .. human_row .. " record",
-            group = "slot-record",
-            feedback_enabled = false,
-            source = {
-                kind = "Virtual",
-                character = "Button",
-                id = prefix .. "pad",
-            },
-            glue = {
-                absolute_mode = "ToggleButton",
-            },
-            target = {
-                kind = "ClipTransportAction",
-                slot = {
-                    address = "Dynamic",
-                    column_expression = slot_column_expression,
-                    row_expression = slot_row_expression
-                },
-                action = "RecordStop",
-            },
-        }
         local slot_clear = {
             id = prefix .. "slot-clear",
             name = "Slot " .. human_col .. "/" .. human_row .. " clear",
@@ -650,7 +626,6 @@ for col = 0, column_count - 1 do
         }
         table.insert(mappings, slot_play)
         table.insert(mappings, slot_play_feedback)
-        table.insert(mappings, slot_record)
         table.insert(mappings, slot_clear)
         table.insert(mappings, slot_quantize)
     end
