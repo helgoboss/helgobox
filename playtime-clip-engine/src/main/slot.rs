@@ -8,7 +8,7 @@ use crate::main::{
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
+    ChainEquipment, ClipSource, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
     RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
@@ -25,10 +25,10 @@ use playtime_api::{
     ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
     RecordOrigin,
 };
-use reaper_high::{Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
+use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
-    Bpm, CommandId, DurationInSeconds, OwnedPcmSource, PositionInSeconds, RecordingInput,
-    RequiredViewMode, SectionId, TrackArea, UiRefreshBehavior,
+    Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
+    SectionId, TrackArea, UiRefreshBehavior,
 };
 use std::mem;
 
@@ -60,7 +60,7 @@ struct Content {
     ///
     /// Now that we have pooled MIDI anyway, we don't need to send a finished MIDI recording back
     /// to the main thread using the "mirror source" method (which we did before).
-    pooled_midi_source: Option<OwnedSource>,
+    pooled_midi_source: Option<ClipSource>,
 }
 
 impl Content {
@@ -293,7 +293,7 @@ impl Slot {
         let new_pooled_midi_source =
             if let Some(s) = &specific_stuff.instruction.in_project_midi_source {
                 let s = Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone());
-                Some(OwnedSource::new(s))
+                Some(s)
             } else {
                 None
             };
@@ -365,10 +365,11 @@ impl Slot {
         let midi_source = if let Some(s) = content.pooled_midi_source.as_ref() {
             Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
         } else {
-            OwnedSource::new(content.clip.create_pcm_source(Some(temporary_project))?)
+            content.clip.create_pcm_source(Some(temporary_project))?
         };
         let item = editor_track.add_item().map_err(|e| e.message())?;
         let take = item.add_take().map_err(|e| e.message())?;
+        let midi_source = OwnedSource::new(midi_source.into_reaper_source());
         take.set_source(midi_source);
         item.set_position(PositionInSeconds::new(0.0), UiRefreshBehavior::NoRefresh)
             .unwrap();
@@ -525,7 +526,7 @@ impl Slot {
         &mut self,
         clip: Clip,
         rt_clip: &rt::Clip,
-        pooled_midi_source: Option<OwnedSource>,
+        pooled_midi_source: Option<ClipSource>,
     ) {
         let content = Content {
             clip,
@@ -578,13 +579,13 @@ impl Slot {
 
     pub fn notify_midi_overdub_finished(
         &mut self,
-        mirror_source: OwnedPcmSource,
+        mirror_source: ClipSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
         self.remove_temporary_route();
         get_content_mut(&mut self.content)?
             .clip
-            .notify_midi_overdub_finished(&OwnedSource::new(mirror_source), temporary_project)
+            .notify_midi_overdub_finished(&mirror_source, temporary_project)
     }
 
     pub fn slot_cleared(&mut self) -> Option<ClipChangedEvent> {
@@ -646,13 +647,13 @@ enum SlotState {
 
 #[derive(Clone, Debug)]
 struct RequestedRecordingState {
-    pooled_midi_source: Option<OwnedSource>,
+    pooled_midi_source: Option<ClipSource>,
 }
 
 #[derive(Clone, Debug)]
 struct RecordingState {
     /// This must be set for MIDI recordings.
-    pooled_midi_source: Option<OwnedSource>,
+    pooled_midi_source: Option<ClipSource>,
     runtime_data: SlotRuntimeData,
 }
 
@@ -684,7 +685,7 @@ enum ModeSpecificRecordStuff {
 
 struct FromScratchRecordStuff {
     recording_equipment: RecordingEquipment,
-    pooled_midi_source: Option<OwnedSource>,
+    pooled_midi_source: Option<ClipSource>,
 }
 
 struct MidiOverdubRecordStuff {
@@ -769,9 +770,7 @@ fn create_record_stuff(
         ModeSpecificRecordStuff::MidiOverdub(MidiOverdubRecordStuff { instruction })
     } else {
         let pooled_midi_source = match &recording_equipment {
-            RecordingEquipment::Midi(e) => {
-                Some(OwnedSource::new(e.create_pooled_copy_of_midi_source()))
-            }
+            RecordingEquipment::Midi(e) => Some(e.create_pooled_copy_of_midi_source()),
             RecordingEquipment::Audio(_) => None,
         };
         ModeSpecificRecordStuff::FromScratch(FromScratchRecordStuff {
@@ -835,7 +834,7 @@ pub fn create_midi_overdub_instruction(
                 file_based_api_source,
                 true,
             )?;
-            Some(in_project_source.into_raw())
+            Some(ClipSource::new(in_project_source.into_raw()))
         }
         api::Source::MidiChunk(_) => {
             // We have an in-project MIDI source already. Great!
@@ -886,6 +885,7 @@ fn item_refers_to_clip_content(item: Item, content: &Content) -> bool {
     };
     if let Some(clip_source) = &content.pooled_midi_source {
         // TODO-medium Checks can be optimized (in terms of performance)
+        let clip_source = BorrowedSource::from_raw(clip_source.reaper_source());
         clip_source.pooled_midi_id().map(|res| res.id) == source.pooled_midi_id().map(|res| res.id)
     } else if let api::Source::File(s) = &content.clip.api_source() {
         source

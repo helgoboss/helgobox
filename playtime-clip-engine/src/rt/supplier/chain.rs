@@ -1,12 +1,12 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier, PollRecordingOutcome,
-    PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState, Recorder, RecordingArgs,
-    Resampler, Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest,
+    Amplifier, AudioSupplier, Cache, CacheRequest, ClipSource, CommandProcessor, Downbeat,
+    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier,
+    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
+    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
+    Recorder, RecordingArgs, Resampler, Section, StartEndHandler, StopRecordingOutcome,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -17,7 +17,7 @@ use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipTimeBase, Db, MidiResetMessageRange,
     PositiveBeat, PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{BorrowedMidiEventList, Bpm, OwnedPcmSource, PositionInSeconds};
+use reaper_medium::{BorrowedMidiEventList, Bpm, PositionInSeconds};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
@@ -123,7 +123,7 @@ type CacheTail = Cache<RecorderTail>;
 /// When it comes to playing (not recording), it basically represents the source = the inner-most
 /// material.
 ///
-/// It's hard-coded to sit on top of `OwnedPcmSource` because it's responsible for swapping an old
+/// It's hard-coded to sit on top of `ClipSource` because it's responsible for swapping an old
 /// source with a newly recorded source.
 type RecorderTail = Recorder;
 
@@ -289,7 +289,7 @@ impl SupplierChain {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<OwnedPcmSource>,
+        in_project_midi_source: Option<ClipSource>,
         settings: MidiOverdubSettings,
     ) {
         // With MIDI, there's no contention.

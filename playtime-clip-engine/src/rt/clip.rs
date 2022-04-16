@@ -6,7 +6,7 @@ use crate::main::ClipSlotCoordinates;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
-    AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
+    AudioSupplier, ChainEquipment, ChainSettings, ClipSource, CompleteRecordingData,
     KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
     PollRecordingOutcome, RecordState, Recorder, RecorderRequest, RecordingArgs,
     RecordingEquipment, RecordingOutcome, StopRecordingOutcome, SupplierChain, SupplyAudioRequest,
@@ -27,8 +27,8 @@ use playtime_api::{
 };
 use reaper_high::Project;
 use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, OwnedPcmSource,
-    PcmSourceTransfer, PositionInSeconds,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, PcmSourceTransfer,
+    PositionInSeconds,
 };
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
@@ -182,7 +182,7 @@ struct RollbackData {
 impl Clip {
     /// Must not call in real-time thread!
     pub fn ready(
-        pcm_source: OwnedPcmSource,
+        pcm_source: ClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
         clip_settings: &ProcessingRelevantClipSettings,
@@ -1479,7 +1479,7 @@ pub struct MidiOverdubInstruction {
     /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
     /// one, this field will contain an in-project MIDI source. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.
-    pub in_project_midi_source: Option<OwnedPcmSource>,
+    pub in_project_midi_source: Option<ClipSource>,
     pub settings: MidiOverdubSettings,
 }
 
@@ -1685,7 +1685,7 @@ struct FillSamplesOutcome {
 }
 
 pub trait HandleSlotEvent {
-    fn midi_overdub_finished(&self, mirror_source: OwnedPcmSource);
+    fn midi_overdub_finished(&self, mirror_source: ClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
     fn slot_cleared(&self, clip: Clip);
 }

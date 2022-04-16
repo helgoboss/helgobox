@@ -1,12 +1,10 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{get_cycle_at_frame, MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::supplier::{get_cycle_at_frame, ClipSource, MIDI_BASE_BPM, MIDI_FRAME_RATE};
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
-use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
-};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
@@ -44,7 +42,7 @@ pub trait MidiSupplier: Debug {
 }
 
 pub trait WithSource {
-    fn source(&self) -> Option<&OwnedPcmSource>;
+    fn source(&self) -> Option<&ClipSource>;
 }
 
 pub trait SupplyRequest {

@@ -1,4 +1,6 @@
-use crate::rt::supplier::{ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest};
+use crate::rt::supplier::{
+    ChainEquipment, ClipSource, KindSpecificRecordingOutcome, RecorderRequest,
+};
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
@@ -8,8 +10,8 @@ use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
 use playtime_api::{ClipColor, Db};
-use reaper_high::{OwnedSource, Project, Reaper};
-use reaper_medium::{Bpm, OwnedPcmSource};
+use reaper_high::{Project, Reaper};
+use reaper_medium::Bpm;
 
 /// Describes a clip.
 ///
@@ -32,7 +34,7 @@ impl Clip {
         kind_specific_outcome: KindSpecificRecordingOutcome,
         clip_settings: ProcessingRelevantClipSettings,
         temporary_project: Option<Project>,
-        pooled_midi_source: Option<&OwnedSource>,
+        pooled_midi_source: Option<&ClipSource>,
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
         let api_source = match kind_specific_outcome {
@@ -57,7 +59,7 @@ impl Clip {
     /// have been made to the source via MIDI editor are correctly saved.
     pub fn save(
         &self,
-        midi_source: Option<&OwnedSource>,
+        midi_source: Option<&ClipSource>,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
@@ -92,7 +94,7 @@ impl Clip {
 
     pub fn notify_midi_overdub_finished(
         &mut self,
-        mirror_source: &OwnedSource,
+        mirror_source: &ClipSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
         let api_source =
@@ -108,7 +110,7 @@ impl Clip {
     pub fn create_pcm_source(
         &self,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<OwnedPcmSource> {
+    ) -> ClipEngineResult<ClipSource> {
         create_pcm_source_from_api_source(&self.source, temporary_project)
     }
 
@@ -120,12 +122,12 @@ impl Clip {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::ColumnSettings,
-    ) -> ClipEngineResult<(rt::Clip, Option<OwnedSource>)> {
+    ) -> ClipEngineResult<(rt::Clip, Option<ClipSource>)> {
         let pcm_source = create_pcm_source_from_api_source(&self.source, permanent_project)?;
         let pooled_copy = if matches!(self.source, api::Source::MidiChunk(_)) {
             let clone =
                 Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
-            Some(OwnedSource::new(clone))
+            Some(clone)
         } else {
             None
         };
@@ -174,11 +176,11 @@ impl Clip {
 }
 
 pub fn create_api_source_from_recorded_midi_source(
-    midi_source: &OwnedSource,
+    midi_source: &ClipSource,
     temporary_project: Option<Project>,
 ) -> ClipEngineResult<api::Source> {
     let api_source = source_util::create_api_source_from_pcm_source(
-        midi_source,
+        midi_source.reaper_source(),
         CreateApiSourceMode::AllowEmbeddedData,
         temporary_project,
     );

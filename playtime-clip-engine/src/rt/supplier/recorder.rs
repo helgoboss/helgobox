@@ -7,7 +7,7 @@ use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::schedule_util::{calc_distance_from_pos, calc_distance_from_quantized_pos};
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
+    AudioMaterialInfo, AudioSupplier, ClipSource, MaterialInfo, MidiMaterialInfo, MidiSupplier,
     PositionTranslationSkill, SectionBounds, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithMaterialInfo, WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
@@ -29,7 +29,7 @@ use reaper_low::raw::PCM_sink;
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
-    MidiImportBehavior, OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
+    MidiImportBehavior, OwnedPcmSink, PositionInSeconds, TimeSignature,
 };
 use std::ffi::{c_void, CString};
 use std::path::{Path, PathBuf};
@@ -68,17 +68,17 @@ impl ResponseChannel {
 #[derive(Debug)]
 pub enum RecorderRequest {
     RecordAudio(AudioRecordingTask),
-    DiscardSource(OwnedPcmSource),
+    DiscardSource(ClipSource),
     DiscardAudioRecordingFinishingData {
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<OwnedPcmSource>,
+        old_source: Option<ClipSource>,
     },
 }
 
 #[derive(Debug)]
 struct AudioRecordingFinishedResponse {
-    pub source: Result<OwnedPcmSource, &'static str>,
+    pub source: Result<ClipSource, &'static str>,
 }
 
 #[derive(Debug)]
@@ -101,7 +101,7 @@ enum State {
 
 #[derive(Debug)]
 struct ReadyState {
-    source: OwnedPcmSource,
+    source: ClipSource,
     /// This is updated with every overdub request and never cleared. So it can be `Some`
     /// even we are not currently overdubbing.   
     midi_overdub_settings: Option<MidiOverdubSettings>,
@@ -116,7 +116,7 @@ pub struct MidiOverdubSettings {
 #[derive(Debug)]
 struct RecordingState {
     kind_state: KindState,
-    old_source: Option<OwnedPcmSource>,
+    old_source: Option<ClipSource>,
     project: Option<Project>,
     detect_downbeat: bool,
     tempo: Bpm,
@@ -226,7 +226,7 @@ impl RecordingAudioFinishingState {
 
 #[derive(Debug)]
 struct RecordingMidiState {
-    new_source: OwnedPcmSource,
+    new_source: ClipSource,
     quantization_settings: Option<QuantizationSettings>,
 }
 
@@ -290,7 +290,7 @@ impl Drop for Recorder {
 
 impl Recorder {
     /// Okay to call in real-time thread.
-    pub fn ready(source: OwnedPcmSource, request_sender: Sender<RecorderRequest>) -> Self {
+    pub fn ready(source: ClipSource, request_sender: Sender<RecorderRequest>) -> Self {
         let ready_state = ReadyState {
             source,
             midi_overdub_settings: None,
@@ -376,7 +376,7 @@ impl Recorder {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<OwnedPcmSource>,
+        in_project_midi_source: Option<ClipSource>,
         settings: MidiOverdubSettings,
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
@@ -966,19 +966,19 @@ impl RecordingEquipment {
 
 #[derive(Clone, Debug)]
 pub struct MidiRecordingEquipment {
-    empty_midi_source: OwnedPcmSource,
+    empty_midi_source: ClipSource,
     quantization_settings: Option<QuantizationSettings>,
 }
 
 impl MidiRecordingEquipment {
     pub fn new(quantization_settings: Option<QuantizationSettings>) -> Self {
         Self {
-            empty_midi_source: create_empty_midi_source().into_raw(),
+            empty_midi_source: ClipSource::new(create_empty_midi_source().into_raw()),
             quantization_settings,
         }
     }
 
-    pub fn create_pooled_copy_of_midi_source(&self) -> OwnedPcmSource {
+    pub fn create_pooled_copy_of_midi_source(&self) -> ClipSource {
         Reaper::get().with_pref_pool_midi_when_duplicating(true, || self.empty_midi_source.clone())
     }
 }
@@ -1240,7 +1240,7 @@ impl CompleteRecordingData {
 }
 
 impl WithSource for Recorder {
-    fn source(&self) -> Option<&OwnedPcmSource> {
+    fn source(&self) -> Option<&ClipSource> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => Some(&s.source),
             State::Recording(_) => {
@@ -1343,13 +1343,13 @@ impl RecordInteractionTiming {
 trait RecorderRequestSender {
     fn start_audio_recording(&self, task: AudioRecordingTask);
 
-    fn discard_source(&self, source: OwnedPcmSource);
+    fn discard_source(&self, source: ClipSource);
 
     fn discard_audio_recording_finishing_data(
         &self,
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<OwnedPcmSource>,
+        old_source: Option<ClipSource>,
     );
 
     fn send_request(&self, request: RecorderRequest);
@@ -1360,7 +1360,7 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
         let request = RecorderRequest::RecordAudio(task);
         self.send_request(request);
     }
-    fn discard_source(&self, source: OwnedPcmSource) {
+    fn discard_source(&self, source: ClipSource) {
         let request = RecorderRequest::DiscardSource(source);
         self.send_request(request);
     }
@@ -1369,7 +1369,7 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
         &self,
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<OwnedPcmSource>,
+        old_source: Option<ClipSource>,
     ) {
         let request = RecorderRequest::DiscardAudioRecordingFinishingData {
             temporary_audio_buffer,
@@ -1480,13 +1480,13 @@ fn finish_audio_recording(sink: OwnedPcmSink, file: &Path) -> AudioRecordingFini
     std::mem::drop(sink);
     let source = OwnedSource::from_file(file, MidiImportBehavior::ForceNoMidiImport);
     AudioRecordingFinishedResponse {
-        source: source.map(|s| s.into_raw()),
+        source: source.map(|s| ClipSource::new(s.into_raw())),
     }
 }
 
 fn write_midi(
     request: WriteMidiRequest,
-    source: &mut OwnedPcmSource,
+    source: &mut ClipSource,
     block_pos_frame: usize,
     record_mode: MidiClipRecordMode,
     quantization_settings: Option<&QuantizationSettings>,
@@ -1545,7 +1545,7 @@ fn write_midi(
         }
     );
     unsafe {
-        source.extended(
+        source.reaper_source().extended(
             PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
             &mut write_struct as *mut _ as _,
             quantize_mode_ptr,

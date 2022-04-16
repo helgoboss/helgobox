@@ -1,11 +1,11 @@
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::source_util::{get_pcm_source_type, PcmSourceType};
-use crate::rt::supplier::MIDI_BASE_BPM;
+use crate::rt::supplier::{ClipSource, MIDI_BASE_BPM};
 use crate::{rt, ClipEngineResult};
 use playtime_api as api;
 use playtime_api::{FileSource, MidiChunkSource};
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, ReaperSource};
-use reaper_medium::{MidiImportBehavior, OwnedPcmSource};
+use reaper_medium::{BorrowedPcmSource, MidiImportBehavior};
 use std::borrow::Cow;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -32,7 +32,7 @@ pub fn create_api_source_from_item(
     } else {
         CreateApiSourceMode::AllowEmbeddedData
     };
-    create_api_source_from_pcm_source(&root_pcm_source, mode, item.project())
+    create_api_source_from_pcm_source(root_pcm_source.as_raw(), mode, item.project())
 }
 
 #[allow(dead_code)]
@@ -44,10 +44,11 @@ pub enum CreateApiSourceMode {
 /// Project is used for making a file path relative and/or for determining the directory of a file
 /// to be exported.
 pub fn create_api_source_from_pcm_source(
-    pcm_source: &BorrowedSource,
+    pcm_source: &BorrowedPcmSource,
     mode: CreateApiSourceMode,
     project: Option<Project>,
 ) -> Result<api::Source, Box<dyn Error>> {
+    let pcm_source = BorrowedSource::from_raw(pcm_source);
     if let Some(source_file) = pcm_source.file_name() {
         Ok(create_file_api_source(project, &source_file))
     } else {
@@ -98,7 +99,7 @@ fn create_midi_chunk_source(chunk: String) -> api::Source {
 pub fn create_pcm_source_from_api_source(
     api_source: &api::Source,
     project_for_relative_path: Option<Project>,
-) -> ClipEngineResult<OwnedPcmSource> {
+) -> ClipEngineResult<ClipSource> {
     use api::Source::*;
     let pcm_source = match api_source {
         File(s) => {
@@ -110,7 +111,7 @@ pub fn create_pcm_source_from_api_source(
         }
         MidiChunk(s) => create_pcm_source_from_midi_chunk_based_api_source(s.clone())?,
     };
-    Ok(pcm_source.into_raw())
+    Ok(ClipSource::new(pcm_source.into_raw()))
 }
 
 fn create_pcm_source_from_midi_chunk_based_api_source(
