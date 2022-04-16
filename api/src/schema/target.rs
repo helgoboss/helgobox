@@ -515,6 +515,8 @@ pub struct ClipTransportActionTarget {
     pub action: ClipTransportAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_only_if_track_armed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_column_if_slot_empty: Option<bool>,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]

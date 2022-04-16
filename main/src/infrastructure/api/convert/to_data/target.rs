@@ -637,6 +637,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             record_only_if_track_armed: d
                 .record_only_if_track_armed
                 .unwrap_or(defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED),
+            stop_column_if_slot_empty: d
+                .stop_column_if_slot_empty
+                .unwrap_or(defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY),
             ..init(d.commons)
         },
         Target::ClipColumnAction(d) => TargetModelData {

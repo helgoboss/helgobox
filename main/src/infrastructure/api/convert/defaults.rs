@@ -42,3 +42,4 @@ pub const TARGET_SEEK_MOVE_VIEW: bool = true;
 pub const TARGET_SEEK_SEEK_PLAY: bool = true;
 pub const TARGET_LOAD_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY: bool = false;
 pub const TARGET_RECORD_ONLY_IF_TRACK_ARMED: bool = false;
+pub const TARGET_STOP_COLUMN_IF_SLOT_EMPTY: bool = false;

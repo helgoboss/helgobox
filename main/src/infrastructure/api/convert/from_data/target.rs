@@ -272,6 +272,10 @@ fn convert_real_target(
                 data.record_only_if_track_armed,
                 defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED,
             ),
+            stop_column_if_slot_empty: style.required_value_with_default(
+                data.stop_column_if_slot_empty,
+                defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY,
+            ),
         }),
         ClipColumn => T::ClipColumnAction(ClipColumnTarget {
             commons,

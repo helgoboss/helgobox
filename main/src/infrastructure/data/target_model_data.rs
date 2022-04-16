@@ -180,6 +180,9 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(default, skip_serializing_if = "is_default")]
     pub record_only_if_track_armed: bool,
+    /// New since ReaLearn v2.13.0-pre.4
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub stop_column_if_slot_empty: bool,
 }
 
 impl TargetModelData {
@@ -258,6 +261,7 @@ impl TargetModelData {
             clip_column_action: model.clip_column_action(),
             clip_matrix_action: model.clip_matrix_action(),
             record_only_if_track_armed: model.record_only_if_track_armed(),
+            stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
         }
     }
 
@@ -462,6 +466,7 @@ impl TargetModelData {
         model.change(C::SetRecordOnlyIfTrackArmed(
             self.record_only_if_track_armed,
         ));
+        model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
     }
 }
 

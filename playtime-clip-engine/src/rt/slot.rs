@@ -28,6 +28,10 @@ impl Slot {
         self.clip = Some(clip);
     }
 
+    pub fn is_filled(&self) -> bool {
+        self.clip.is_some()
+    }
+
     pub fn clip(&self) -> ClipEngineResult<&Clip> {
         self.clip_internal()
     }

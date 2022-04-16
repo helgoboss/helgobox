@@ -328,16 +328,24 @@ impl Column {
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
         };
-        get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)?;
-        if self.settings.play_mode.is_exclusive() {
-            self.stop_all_clips(
-                audio_request_props,
-                ref_pos,
-                &args.timeline,
-                Some(args.slot_index),
-            );
+        let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
+        if slot.is_filled() {
+            slot.play_clip(clip_args)?;
+            if self.settings.play_mode.is_exclusive() {
+                self.stop_all_clips(
+                    audio_request_props,
+                    ref_pos,
+                    &args.timeline,
+                    Some(args.slot_index),
+                );
+            }
+            Ok(())
+        } else if args.options.stop_column_if_slot_empty {
+            self.stop_all_clips(audio_request_props, ref_pos, &args.timeline, None);
+            Ok(())
+        } else {
+            Err("slot is empty")
         }
-        Ok(())
     }
 
     pub fn stop(&mut self, args: ColumnStopArgs, audio_request_props: BasicAudioRequestProps) {
@@ -828,6 +836,12 @@ pub struct ColumnPlayClipArgs {
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
+    pub options: ColumnPlayClipOptions,
+}
+
+#[derive(Debug)]
+pub struct ColumnPlayClipOptions {
+    pub stop_column_if_slot_empty: bool,
 }
 
 #[derive(Debug)]

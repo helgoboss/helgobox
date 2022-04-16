@@ -549,6 +549,7 @@ for col = 0, column_count - 1 do
                 },
                 action = "RecordPlayStop",
                 record_only_if_track_armed = true,
+                stop_column_if_slot_empty = true,
             },
         }
         local slot_play_feedback = {

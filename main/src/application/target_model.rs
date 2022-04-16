@@ -131,6 +131,7 @@ pub enum TargetCommand {
     SetClipMatrixAction(ClipMatrixAction),
     SetClipColumnAction(ClipColumnAction),
     SetRecordOnlyIfTrackArmed(bool),
+    SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
     SetExclusivity(Exclusivity),
@@ -209,6 +210,7 @@ pub enum TargetProp {
     ClipMatrixAction,
     ClipColumnAction,
     RecordOnlyIfTrackArmed,
+    StopColumnIfSlotEmpty,
     PollForFeedback,
     Tags,
     Exclusivity,
@@ -512,6 +514,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.record_only_if_track_armed = v;
                 One(P::RecordOnlyIfTrackArmed)
             }
+            C::SetStopColumnIfSlotEmpty(v) => {
+                self.stop_column_if_slot_empty = v;
+                One(P::StopColumnIfSlotEmpty)
+            }
         };
         Some(affected)
     }
@@ -618,6 +624,7 @@ pub struct TargetModel {
     clip_matrix_action: ClipMatrixAction,
     clip_column_action: ClipColumnAction,
     record_only_if_track_armed: bool,
+    stop_column_if_slot_empty: bool,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -703,6 +710,7 @@ impl Default for TargetModel {
             clip_column_action: Default::default(),
             clip_matrix_action: Default::default(),
             record_only_if_track_armed: false,
+            stop_column_if_slot_empty: false,
             clip_column_track_context: Default::default(),
         }
     }
@@ -2040,9 +2048,14 @@ impl TargetModel {
         self.record_only_if_track_armed
     }
 
+    pub fn stop_column_if_slot_empty(&self) -> bool {
+        self.stop_column_if_slot_empty
+    }
+
     pub fn clip_transport_options(&self) -> ClipTransportOptions {
         ClipTransportOptions {
             record_only_if_track_armed: self.record_only_if_track_armed,
+            stop_column_if_slot_empty: self.stop_column_if_slot_empty,
         }
     }
 

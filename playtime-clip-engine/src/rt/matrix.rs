@@ -1,7 +1,7 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs,
+    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs, ColumnPlayClipOptions,
     ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs, RelevantPlayStateChange,
     SharedColumn, TransportChange, WeakColumn,
 };
@@ -171,7 +171,11 @@ impl Matrix {
         }
     }
 
-    pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn play_clip(
+        &self,
+        coordinates: ClipSlotCoordinates,
+        options: ColumnPlayClipOptions,
+    ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row(),
@@ -183,6 +187,7 @@ impl Matrix {
             //  block). That amount of accuracy is probably not necessary, but it's almost too easy
             //  to implement to not do it ... same with clip stop.
             ref_pos: None,
+            options,
         };
         handle.command_sender.play_clip(args);
         Ok(())

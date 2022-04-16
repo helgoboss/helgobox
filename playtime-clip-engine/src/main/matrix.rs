@@ -7,8 +7,9 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopArgs, ColumnStopClipArgs,
-    OverridableMatrixSettings, QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
+    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnStopArgs,
+    ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangedEvent,
+    RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -272,13 +273,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         )
     }
 
-    pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn play_clip(
+        &self,
+        coordinates: ClipSlotCoordinates,
+        options: ColumnPlayClipOptions,
+    ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row,
             timeline,
             ref_pos: None,
+            options,
         };
         column.play_clip(args);
         Ok(())
@@ -609,7 +615,7 @@ pub struct ClipTransportOptions {
     /// If this is on and one of the record actions is triggered, it will only have an effect if
     /// the record track of the clip column is armed.
     pub record_only_if_track_armed: bool,
-    // pub use_empty_slots_for_column_stop: bool,
+    pub stop_column_if_slot_empty: bool,
 }
 
 #[derive(Copy, Clone)]

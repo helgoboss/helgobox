@@ -2,13 +2,14 @@ use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
     transport_is_enabled_unit_value, BackboneState, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnClipMatrix, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
-    DEFAULT_TARGET,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
-use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use playtime_clip_engine::rt::{
+    ClipChangedEvent, ColumnPlayClipOptions, QualifiedClipChangedEvent,
+};
 use realearn_api::schema::ClipTransportAction;
 use reaper_high::Project;
 use std::borrow::Cow;
@@ -56,19 +57,15 @@ pub struct ClipTransportTargetBasics {
     pub options: ClipTransportOptions,
 }
 
-impl ClipTransportTarget {
-    fn complain_if_arm_condition_not_met(
-        &self,
-        matrix: &RealearnClipMatrix,
-    ) -> Result<(), &'static str> {
-        if self.basics.options.record_only_if_track_armed
-            && !matrix.column_is_armed_for_recording(self.basics.slot_coordinates.column())
-        {
-            return Err("not recording because not armed");
+impl ClipTransportTargetBasics {
+    fn play_options(&self) -> ColumnPlayClipOptions {
+        ColumnPlayClipOptions {
+            stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
         }
-        Ok(())
     }
 }
+
+const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
 
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
@@ -92,14 +89,20 @@ impl RealearnTarget for ClipTransportTarget {
                 match self.basics.action {
                     PlayStop => {
                         if on {
-                            matrix.play_clip(self.basics.slot_coordinates)?;
+                            matrix.play_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.play_options(),
+                            )?;
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
                         }
                     }
                     PlayPause => {
                         if on {
-                            matrix.play_clip(self.basics.slot_coordinates)?;
+                            matrix.play_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.play_options(),
+                            )?;
                         } else {
                             matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
                         }
@@ -116,7 +119,13 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     RecordStop => {
                         if on {
-                            self.complain_if_arm_condition_not_met(matrix)?;
+                            if self.basics.options.record_only_if_track_armed
+                                && !matrix.column_is_armed_for_recording(
+                                    self.basics.slot_coordinates.column(),
+                                )
+                            {
+                                return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
+                            }
                             matrix.record_clip(self.basics.slot_coordinates)?;
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
@@ -129,10 +138,33 @@ impl RealearnTarget for ClipTransportTarget {
                                 .ok_or("slot doesn't exist")?
                                 .is_empty();
                             if slot_is_empty {
-                                self.complain_if_arm_condition_not_met(matrix)?;
-                                matrix.record_clip(self.basics.slot_coordinates)?;
+                                // Slot is empty.
+                                if self.basics.options.record_only_if_track_armed {
+                                    // Record only if armed.
+                                    if matrix.column_is_armed_for_recording(
+                                        self.basics.slot_coordinates.column(),
+                                    ) {
+                                        // Is armed, so record.
+                                        matrix.record_clip(self.basics.slot_coordinates)?;
+                                    } else if self.basics.options.stop_column_if_slot_empty {
+                                        // Not armed but column stopping on empty slots enabled.
+                                        // Since we already know that the slot is empty, we do
+                                        // it explicitly without invoking play passing that option.
+                                        matrix
+                                            .stop_column(self.basics.slot_coordinates.column())?;
+                                    } else {
+                                        return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
+                                    }
+                                } else {
+                                    // Definitely record.
+                                    matrix.record_clip(self.basics.slot_coordinates)?;
+                                }
                             } else {
-                                matrix.play_clip(self.basics.slot_coordinates)?;
+                                // Slot is filled.
+                                matrix.play_clip(
+                                    self.basics.slot_coordinates,
+                                    self.basics.play_options(),
+                                )?;
                             }
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
@@ -284,14 +316,14 @@ impl RealTimeClipTransportTarget {
         match self.basics.action {
             PlayStop => {
                 if on {
-                    matrix.play_clip(self.basics.slot_coordinates)
+                    matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
                     matrix.stop_clip(self.basics.slot_coordinates)
                 }
             }
             PlayPause => {
                 if on {
-                    matrix.play_clip(self.basics.slot_coordinates)
+                    matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
                     matrix.pause_clip(self.basics.slot_coordinates)
                 }
