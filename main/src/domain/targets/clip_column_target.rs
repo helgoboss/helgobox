@@ -8,7 +8,6 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValu
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use realearn_api::schema::ClipColumnAction;
-use reaper_high::ChangeEvent;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -61,18 +60,6 @@ impl RealearnTarget for ClipColumnTarget {
                         }
                         matrix.stop_column(self.column_index)?;
                     }
-                    ClipColumnAction::SoloState => {
-                        matrix.set_column_solo(self.column_index, value.is_on())?;
-                    }
-                    ClipColumnAction::ArmState => {
-                        matrix.set_column_armed_for_recording(self.column_index, value.is_on())?;
-                    }
-                    ClipColumnAction::MuteState => {
-                        matrix.set_column_mute(self.column_index, value.is_on())?;
-                    }
-                    ClipColumnAction::SelectionState => {
-                        matrix.set_column_selected(self.column_index, value.is_on())?;
-                    }
                 }
                 Ok(())
             },
@@ -98,26 +85,6 @@ impl RealearnTarget for ClipColumnTarget {
                     ClipChangedEvent::Removed => (true, None),
                     _ => (false, None),
                 },
-                _ => (false, None),
-            },
-            ClipColumnAction::SoloState => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::Reaper(ChangeEvent::TrackSoloChanged(_)) => (true, None),
-                _ => (false, None),
-            },
-            ClipColumnAction::ArmState => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::Reaper(ChangeEvent::TrackArmChanged(_)) => (true, None),
-                _ => (false, None),
-            },
-            ClipColumnAction::MuteState => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::Reaper(ChangeEvent::TrackMuteChanged(_)) => (true, None),
-                _ => (false, None),
-            },
-            ClipColumnAction::SelectionState => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::Reaper(ChangeEvent::TrackSelectedChanged(_)) => (true, None),
                 _ => (false, None),
             },
         }
@@ -154,12 +121,6 @@ impl<'a> Target<'a> for ClipColumnTarget {
         let is_on = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| match self.action {
                 ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
-                ClipColumnAction::SoloState => matrix.column_is_solo(self.column_index),
-                ClipColumnAction::ArmState => {
-                    matrix.column_is_armed_for_recording(self.column_index)
-                }
-                ClipColumnAction::MuteState => matrix.column_is_mute(self.column_index),
-                ClipColumnAction::SelectionState => matrix.column_is_selected(self.column_index),
             })
             .ok()?;
         Some(AbsoluteValue::from_bool(is_on))
@@ -191,7 +152,6 @@ impl RealTimeClipColumnTarget {
                 let matrix = matrix.lock();
                 matrix.stop_column(self.column_index)
             }
-            _ => Err("only column stop supported as real-time action"),
         }
     }
 }
@@ -207,7 +167,6 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
                 let is_stoppable = matrix.column_is_stoppable(self.column_index);
                 Some(AbsoluteValue::from_bool(is_stoppable))
             }
-            _ => None,
         }
     }
 
@@ -229,8 +188,5 @@ fn control_type_and_character(action: ClipColumnAction) -> (ControlType, TargetC
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),
-        SoloState | ArmState | MuteState | SelectionState => {
-            (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
-        }
     }
 }

@@ -386,67 +386,9 @@ impl Column {
         self.slots.iter().any(|slot| slot.is_stoppable())
     }
 
-    pub fn set_armed_for_recording(&self, armed: bool) -> ClipEngineResult<()> {
-        let track = self.effective_recording_track()?;
-        if armed {
-            track.arm(false);
-        } else {
-            track.disarm(false);
-        }
-        Ok(())
-    }
-
     pub fn is_armed_for_recording(&self) -> bool {
         self.effective_recording_track()
             .map(|t| t.is_armed(true))
-            .unwrap_or(false)
-    }
-
-    pub fn set_solo(&self, solo: bool) -> ClipEngineResult<()> {
-        let track = self.effective_recording_track()?;
-        if solo {
-            track.solo()
-        } else {
-            track.unsolo();
-        }
-        Ok(())
-    }
-
-    pub fn is_solo(&self) -> bool {
-        self.effective_recording_track()
-            .map(|t| t.is_solo())
-            .unwrap_or(false)
-    }
-
-    pub fn set_mute(&self, mute: bool) -> ClipEngineResult<()> {
-        let track = self.effective_recording_track()?;
-        if mute {
-            track.mute()
-        } else {
-            track.unmute();
-        }
-        Ok(())
-    }
-
-    pub fn is_mute(&self) -> bool {
-        self.effective_recording_track()
-            .map(|t| t.is_muted())
-            .unwrap_or(false)
-    }
-
-    pub fn set_selected(&self, selected: bool) -> ClipEngineResult<()> {
-        let track = self.effective_recording_track()?;
-        if selected {
-            track.select()
-        } else {
-            track.unselect();
-        }
-        Ok(())
-    }
-
-    pub fn is_selected(&self) -> bool {
-        self.effective_recording_track()
-            .map(|t| t.is_selected())
             .unwrap_or(false)
     }
 
