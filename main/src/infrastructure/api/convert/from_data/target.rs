@@ -20,10 +20,10 @@ use crate::infrastructure::data::{
 use realearn_api::schema;
 use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipSeekTarget,
-    ClipTransportActionTarget, ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
-    CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
-    EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
+    BookmarkRef, ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
+    ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget, CycleThroughFxPresetsTarget,
+    CycleThroughFxTarget, CycleThroughGroupMappingsTarget, CycleThroughTracksTarget,
+    EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxVisibilityTarget,
     GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget,
     PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
@@ -93,6 +93,7 @@ fn convert_real_target(
                 convert_track_descriptor(
                     data.track_data,
                     data.enable_only_if_track_is_selected,
+                    &data.clip_column,
                     style,
                 )
             } else {
@@ -138,6 +139,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -148,6 +150,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -158,6 +161,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -176,6 +180,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -356,6 +361,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -365,6 +371,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -378,6 +385,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -387,6 +395,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
         }),
@@ -395,6 +404,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -408,6 +418,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -425,6 +436,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
         }),
@@ -433,6 +445,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
         }),
@@ -441,6 +454,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
         }),
@@ -449,6 +463,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
         }),
@@ -457,6 +472,7 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
+                &data.clip_column,
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
@@ -673,9 +689,10 @@ fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> sche
 fn convert_track_descriptor(
     data: TrackData,
     only_if_track_selected: bool,
+    clip_column: &ClipColumnDescriptor,
     style: ConversionStyle,
 ) -> Option<schema::TrackDescriptor> {
-    let props = deserialize_track(&data);
+    let props = deserialize_track(&data, clip_column);
     use schema::TrackDescriptor as T;
     use VirtualTrackType::*;
     let commons = schema::TrackDescriptorCommons {
@@ -713,6 +730,11 @@ fn convert_track_descriptor(
             commons,
             index: props.index,
         },
+        FromClipColumn => T::FromClipColumn {
+            commons,
+            column: props.clip_column,
+            context: props.clip_column_track_context,
+        },
     };
     style.required_value(desc)
 }
@@ -725,6 +747,7 @@ fn convert_fx_chain_descriptor(
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
+            &data.clip_column,
             style,
         ),
         chain: convert_fx_chain(data.fx_data.is_input_fx, style),
@@ -778,6 +801,7 @@ fn convert_route_descriptor(
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
+            &data.clip_column,
             style,
         ),
         kind: {

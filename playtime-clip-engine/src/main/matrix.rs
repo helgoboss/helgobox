@@ -450,6 +450,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.columns.len()
     }
 
+    pub fn column(&self, index: usize) -> ClipEngineResult<&Column> {
+        get_column(&self.columns, index)
+    }
+
     pub fn row_count(&self) -> usize {
         let max_slot_count_per_col = self
             .columns

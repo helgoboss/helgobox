@@ -61,16 +61,16 @@ impl RealearnTarget for ClipColumnTarget {
                         }
                         matrix.stop_column(self.column_index)?;
                     }
-                    ClipColumnAction::Solo => {
+                    ClipColumnAction::SoloState => {
                         matrix.set_column_solo(self.column_index, value.is_on())?;
                     }
-                    ClipColumnAction::Arm => {
+                    ClipColumnAction::ArmState => {
                         matrix.set_column_armed_for_recording(self.column_index, value.is_on())?;
                     }
-                    ClipColumnAction::Mute => {
+                    ClipColumnAction::MuteState => {
                         matrix.set_column_mute(self.column_index, value.is_on())?;
                     }
-                    ClipColumnAction::Select => {
+                    ClipColumnAction::SelectionState => {
                         matrix.set_column_selected(self.column_index, value.is_on())?;
                     }
                 }
@@ -100,22 +100,22 @@ impl RealearnTarget for ClipColumnTarget {
                 },
                 _ => (false, None),
             },
-            ClipColumnAction::Solo => match evt {
+            ClipColumnAction::SoloState => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackSoloChanged(_)) => (true, None),
                 _ => (false, None),
             },
-            ClipColumnAction::Arm => match evt {
+            ClipColumnAction::ArmState => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackArmChanged(_)) => (true, None),
                 _ => (false, None),
             },
-            ClipColumnAction::Mute => match evt {
+            ClipColumnAction::MuteState => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackMuteChanged(_)) => (true, None),
                 _ => (false, None),
             },
-            ClipColumnAction::Select => match evt {
+            ClipColumnAction::SelectionState => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::Reaper(ChangeEvent::TrackSelectedChanged(_)) => (true, None),
                 _ => (false, None),
@@ -154,10 +154,12 @@ impl<'a> Target<'a> for ClipColumnTarget {
         let is_on = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| match self.action {
                 ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
-                ClipColumnAction::Solo => matrix.column_is_solo(self.column_index),
-                ClipColumnAction::Arm => matrix.column_is_armed_for_recording(self.column_index),
-                ClipColumnAction::Mute => matrix.column_is_mute(self.column_index),
-                ClipColumnAction::Select => matrix.column_is_selected(self.column_index),
+                ClipColumnAction::SoloState => matrix.column_is_solo(self.column_index),
+                ClipColumnAction::ArmState => {
+                    matrix.column_is_armed_for_recording(self.column_index)
+                }
+                ClipColumnAction::MuteState => matrix.column_is_mute(self.column_index),
+                ClipColumnAction::SelectionState => matrix.column_is_selected(self.column_index),
             })
             .ok()?;
         Some(AbsoluteValue::from_bool(is_on))
@@ -227,6 +229,8 @@ fn control_type_and_character(action: ClipColumnAction) -> (ControlType, TargetC
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),
-        Solo | Arm | Mute | Select => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+        SoloState | ArmState | MuteState | SelectionState => {
+            (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+        }
     }
 }

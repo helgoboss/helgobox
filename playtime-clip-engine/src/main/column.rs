@@ -450,12 +450,12 @@ impl Column {
             .unwrap_or(false)
     }
 
-    fn effective_recording_track(&self) -> ClipEngineResult<Track> {
+    pub fn effective_recording_track(&self) -> ClipEngineResult<Track> {
         let playback_track = self.playback_track()?;
         resolve_recording_track(&self.settings.clip_record_settings, playback_track)
     }
 
-    fn playback_track(&self) -> ClipEngineResult<&Track> {
+    pub fn playback_track(&self) -> ClipEngineResult<&Track> {
         self.preview_register
             .as_ref()
             .ok_or("column inactive")?

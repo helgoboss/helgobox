@@ -52,8 +52,8 @@ use std::error::Error;
 
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
-    ClipColumnAction, ClipColumnDescriptor, ClipManagementAction, ClipMatrixAction,
-    ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
+    ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
+    ClipMatrixAction, ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -541,6 +541,7 @@ pub struct TargetModel {
     track_index: u32,
     track_expression: String,
     enable_only_if_track_selected: bool,
+    clip_column_track_context: ClipColumnTrackContext,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -702,6 +703,7 @@ impl Default for TargetModel {
             clip_column_action: Default::default(),
             clip_matrix_action: Default::default(),
             record_only_if_track_armed: false,
+            clip_column_track_context: Default::default(),
         }
     }
 }
@@ -1194,6 +1196,11 @@ impl TargetModel {
                 self.track_name = track.name;
                 Some(Affected::Multiple)
             }
+            FromClipColumn => {
+                self.clip_column = track.clip_column;
+                self.clip_column_track_context = track.clip_column_track_context;
+                Some(Affected::Multiple)
+            }
             Selected | AllSelected | Dynamic | Master => None,
         }
     }
@@ -1509,6 +1516,10 @@ impl TargetModel {
                 let evaluator = ExpressionEvaluator::compile(&self.track_expression).ok()?;
                 VirtualTrack::Dynamic(Box::new(evaluator))
             }
+            FromClipColumn => VirtualTrack::FromClipColumn {
+                column: self.virtual_clip_column().ok()?,
+                context: self.clip_column_track_context,
+            },
         };
         Some(track)
     }
@@ -1520,6 +1531,8 @@ impl TargetModel {
             name: self.track_name.clone(),
             expression: self.track_expression.clone(),
             index: self.track_index,
+            clip_column: self.clip_column.clone(),
+            clip_column_track_context: self.clip_column_track_context,
         }
     }
 
@@ -2750,6 +2763,8 @@ pub enum VirtualTrackType {
     ByIndex,
     #[display(fmt = "By ID or name")]
     ByIdOrName,
+    #[display(fmt = "From clip column")]
+    FromClipColumn,
 }
 
 impl Default for VirtualTrackType {
@@ -2809,6 +2824,7 @@ impl VirtualTrackType {
                 }
             }
             ByIndex(_) => Self::ByIndex,
+            FromClipColumn { .. } => Self::FromClipColumn,
         }
     }
 
@@ -3064,6 +3080,8 @@ pub struct TrackPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
+    pub clip_column: ClipColumnDescriptor,
+    pub clip_column_track_context: ClipColumnTrackContext,
 }
 
 impl TrackPropValues {
@@ -3073,7 +3091,15 @@ impl TrackPropValues {
             id: track.id(),
             name: track.name().unwrap_or_default(),
             index: track.index().unwrap_or_default(),
+            clip_column: match track.clip_column().unwrap_or(&Default::default()) {
+                VirtualClipColumn::Selected => ClipColumnDescriptor::Selected,
+                VirtualClipColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex { index: *i },
+                VirtualClipColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
+                    expression: Default::default(),
+                },
+            },
             expression: Default::default(),
+            clip_column_track_context: track.clip_column_track_context().unwrap_or_default(),
         }
     }
 }

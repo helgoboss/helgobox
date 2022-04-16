@@ -799,13 +799,13 @@ pub enum ClipColumnAction {
     #[display(fmt = "Stop")]
     Stop,
     #[display(fmt = "Solo/unsolo")]
-    Solo,
+    SoloState,
     #[display(fmt = "Arm/disarm")]
-    Arm,
+    ArmState,
     #[display(fmt = "Mute/unmute")]
-    Mute,
+    MuteState,
     #[display(fmt = "Select/unselect")]
-    Select,
+    SelectionState,
 }
 
 impl Default for ClipColumnAction {
@@ -908,6 +908,24 @@ pub enum TrackDescriptor {
         #[serde(skip_serializing_if = "Option::is_none")]
         allow_multiple: Option<bool>,
     },
+    FromClipColumn {
+        #[serde(flatten)]
+        commons: TrackDescriptorCommons,
+        column: ClipColumnDescriptor,
+        context: ClipColumnTrackContext,
+    },
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum ClipColumnTrackContext {
+    Playback,
+    Recording,
+}
+
+impl Default for ClipColumnTrackContext {
+    fn default() -> Self {
+        Self::Playback
+    }
 }
 
 impl Default for TrackDescriptor {

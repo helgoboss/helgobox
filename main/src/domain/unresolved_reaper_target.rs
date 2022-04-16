@@ -29,6 +29,7 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
+use realearn_api::schema::ClipColumnTrackContext;
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
@@ -506,6 +507,12 @@ pub enum VirtualClipColumn {
     Dynamic(Box<ExpressionEvaluator>),
 }
 
+impl Default for VirtualClipColumn {
+    fn default() -> Self {
+        Self::Selected
+    }
+}
+
 impl VirtualClipColumn {
     pub fn resolve(
         &self,
@@ -571,6 +578,11 @@ pub enum VirtualTrack {
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
     ByIdOrName(Guid, WildMatch),
+    /// Uses the track from the given clip column.
+    FromClipColumn {
+        column: VirtualClipColumn,
+        context: ClipColumnTrackContext,
+    },
 }
 
 #[derive(Debug)]
@@ -768,6 +780,7 @@ impl fmt::Display for VirtualTrack {
                 if *allow_multiple { " (all)" } else { "" }
             ),
             ByIndex(i) => write!(f, "#{}", i + 1),
+            FromClipColumn { .. } => f.write_str("From a clip column"),
         }
     }
 }
@@ -905,6 +918,31 @@ impl VirtualTrack {
                 let single = resolve_track_by_index(project, *index as i32)?;
                 vec![single]
             }
+            FromClipColumn {
+                column,
+                context: track_context,
+            } => {
+                // TODO-low Not very helpful. Do we even use this error type?
+                let generic_error = || TrackResolveError::TrackNotFound {
+                    guid: None,
+                    name: None,
+                    index: None,
+                };
+                let clip_column_index = column
+                    .resolve(context, compartment)
+                    .map_err(|_| generic_error())?;
+                let track = BackboneState::get()
+                    .with_clip_matrix(context.control_context.instance_state, |matrix| {
+                        let column = matrix.column(clip_column_index)?;
+                        match track_context {
+                            ClipColumnTrackContext::Playback => column.playback_track().cloned(),
+                            ClipColumnTrackContext::Recording => column.effective_recording_track(),
+                        }
+                    })
+                    .map_err(|_| generic_error())?
+                    .map_err(|_| generic_error())?;
+                vec![track]
+            }
         };
         Ok(tracks)
     }
@@ -1000,6 +1038,22 @@ impl VirtualTrack {
             }
             | ByIdOrName(_, name) => Some(name.to_string()),
             _ => None,
+        }
+    }
+
+    pub fn clip_column(&self) -> Option<&VirtualClipColumn> {
+        if let VirtualTrack::FromClipColumn { column, .. } = self {
+            Some(column)
+        } else {
+            None
+        }
+    }
+
+    pub fn clip_column_track_context(&self) -> Option<ClipColumnTrackContext> {
+        if let VirtualTrack::FromClipColumn { context, .. } = self {
+            Some(*context)
+        } else {
+            None
         }
     }
 }

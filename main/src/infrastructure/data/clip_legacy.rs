@@ -85,7 +85,7 @@ fn determine_legacy_clip_track(
                 && matches!(m.target.transport_action, TransportAction::PlayPause | TransportAction::PlayStop)
                 && m.target.slot_index == slot_index
             {
-                let prop_values = deserialize_track(&m.target.track_data);
+                let prop_values = deserialize_track(&m.target.track_data, &m.target.clip_column);
                 use VirtualTrackType::*;
                 let t = match prop_values.r#type {
                     This => LegacyClipOutput::ThisTrack,
@@ -107,7 +107,9 @@ fn determine_legacy_clip_track(
                         LegacyClipOutput::TrackById(id)
                     } else {
                         LegacyClipOutput::TrackByName(prop_values.name)
-                    }
+                    },
+                    // We didn't have this before.
+                    FromClipColumn => return None
                 };
                 Some(t)
             } else {

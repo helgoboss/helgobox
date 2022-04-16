@@ -16,36 +16,30 @@ local column_modes = {
         id = "stop",
         label = "Stop clip",
         button = "stop-clip",
-        action = "Stop",
-        absolute_mode = "Normal",
     },
     {
         id = "solo",
         label = "Solo",
         button = "solo",
-        action = "Solo",
-        absolute_mode = "ToggleButton",
+        target = "TrackSoloState",
     },
     {
         id = "record-arm",
         label = "Record arm",
         button = "record-arm",
-        action = "Arm",
-        absolute_mode = "ToggleButton",
+        target = "TrackArmState",
     },
     {
         id = "mute",
         label = "Mute",
         button = "mute",
-        action = "Mute",
-        absolute_mode = "ToggleButton",
+        target = "TrackMuteState",
     },
     {
         id = "select",
         label = "Track select",
         button = "track-select",
-        action = "Select",
-        absolute_mode = "ToggleButton",
+        target = "TrackSelectionState",
     },
 
 }
@@ -53,10 +47,28 @@ local column_modes = {
 -- Knob modes
 local knob_mode_count = 100
 local knob_modes = {
-    { label = "Volume", button = "volume" },
-    { label = "Pan", button = "pan" },
-    { label = "Sends", button = "sends" },
-    { label = "Device", button = "device" },
+    {
+        id = "volume",
+        label = "Volume",
+        button = "volume",
+        target = "TrackVolume",
+    },
+    {
+        id = "pan",
+        label = "Pan",
+        button = "pan",
+        target = "TrackPan",
+    },
+    {
+        id = "sends",
+        label = "Sends",
+        button = "sends"
+    },
+    {
+        id = "device",
+        label = "Device",
+        button = "device"
+    },
 }
 
 -- Number of columns and rows
@@ -438,54 +450,73 @@ local groups = {
 for col = 0, column_count - 1 do
     local human_col = col + 1
     local prefix = "col" .. human_col .. "/"
-    local column_expression = "p[0] + " .. col
-    -- Buttons
-    for _, button in ipairs(column_modes) do
-        local mapping = {
-            name = "Column " .. human_col .. " " .. button.id,
-            group = "column-" .. button.id,
-            source = {
-                kind = "Virtual",
-                character = "Button",
-                id = prefix .. "stop",
-            },
-            glue = {
-                absolute_mode = button.absolute_mode,
-            },
-            target = {
-                kind = "ClipColumnAction",
-                column = {
-                    address = "Dynamic",
-                    expression = column_expression,
+    local column = {
+        address = "Dynamic",
+        expression = "p[0] + " .. col,
+    }
+    -- Column button
+    local column_stop_mapping = {
+        name = "Column " .. human_col .. " stop",
+        group = "column-stop",
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = prefix .. "stop",
+        },
+        target = {
+            kind = "ClipColumnAction",
+            column = column,
+            action = "Stop",
+        },
+    }
+    table.insert(mappings, column_stop_mapping)
+    for _, mode in ipairs(column_modes) do
+        if mode.target then
+            local mapping = {
+                name = "Column " .. human_col .. " " .. mode.id,
+                group = "column-" .. mode.id,
+                source = {
+                    kind = "Virtual",
+                    character = "Button",
+                    id = prefix .. "stop",
                 },
-                action = button.action,
-            },
-        }
-        table.insert(mappings, mapping)
+                glue = {
+                    absolute_mode = "ToggleButton",
+                },
+                target = {
+                    kind = mode.target,
+                    track = {
+                        address = "FromClipColumn",
+                        column = column,
+                        context = "Playback",
+                    },
+                },
+            }
+            table.insert(mappings, mapping)
+        end
     end
-    -- Knob
-    for _, button in ipairs(knob_modes) do
-        --local mapping = {
-        --    name = "Column " .. human_col .. " " .. button.id,
-        --    group = "column-" .. button.id,
-        --    source = {
-        --        kind = "Virtual",
-        --        character = "Button",
-        --        id = prefix .. "stop",
-        --    },
-        --    glue = {
-        --        absolute_mode = button.absolute_mode,
-        --    },
-        --    target = {
-        --        kind = "ClipColumnAction",
-        --        column = {
-        --            address = "Dynamic",
-        --            expression = column_expression,
-        --        },
-        --        action = button.action,
-        --    },
-        --}
-        --table.insert(mappings, mapping)
+    -- Column knob
+    for _, mode in ipairs(knob_modes) do
+        if mode.target then
+            local mapping = {
+                name = "Knob " .. human_col .. " " .. mode.id,
+                group = "knob-" .. mode.id,
+                source = {
+                    kind = "Virtual",
+                    character = "Multi",
+                    id = col,
+                },
+                target = {
+                    kind = mode.target,
+                    track = {
+                        address = "FromClipColumn",
+                        column = column,
+                        context = "Playback",
+                    },
+                },
+            }
+            table.insert(mappings, mapping)
+        end
     end
 end
 
