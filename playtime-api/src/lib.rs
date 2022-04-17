@@ -209,6 +209,9 @@ pub struct MatrixClipRecordMidiSettings {
     /// Applies quantization while recording using the current quantization settings.
     // TODO-clip-implement
     pub auto_quantize: bool,
+    /// These are the MIDI settings each recorded clip will get.
+    #[serde(default)]
+    pub clip_settings: ClipMidiSettings,
 }
 
 impl Default for MatrixClipRecordMidiSettings {
@@ -218,6 +221,7 @@ impl Default for MatrixClipRecordMidiSettings {
             detect_downbeat: true,
             detect_input: true,
             auto_quantize: false,
+            clip_settings: Default::default(),
         }
     }
 }
@@ -835,6 +839,8 @@ pub struct MidiResetMessageRange {
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessages {
+    /// Only supported at "right" position at the moment.
+    #[serde(default)]
     pub on_notes_off: bool,
     pub all_notes_off: bool,
     pub all_sound_off: bool,
@@ -844,7 +850,8 @@ pub struct MidiResetMessages {
 
 impl MidiResetMessages {
     pub fn at_least_one_enabled(&self) -> bool {
-        self.all_notes_off
+        self.on_notes_off
+            || self.all_notes_off
             || self.all_sound_off
             || self.reset_all_controllers
             || self.damper_pedal_off

@@ -22,8 +22,8 @@ use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ClipAudioSettings, ClipMidiSettings, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db,
-    EvenQuantization, MatrixClipRecordSettings, PositiveSecond,
+    ClipAudioSettings, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization,
+    MatrixClipRecordSettings, PositiveSecond,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -1786,7 +1786,7 @@ impl ProcessingRelevantClipSettings {
                 resample_mode: None,
                 cache_behavior: None,
             },
-            midi_settings: ClipMidiSettings::default(),
+            midi_settings: record_settings.midi_settings.clip_settings,
         };
         Ok(settings)
     }

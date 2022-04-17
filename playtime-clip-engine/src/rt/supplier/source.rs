@@ -17,7 +17,7 @@ use helgoboss_midi::{
 };
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiEvent,
-    MidiFrameOffset, MidiMessage, OwnedPcmSource, PcmSourceTransfer,
+    MidiFrameOffset, OwnedPcmSource, PcmSourceTransfer,
 };
 
 #[derive(Clone, Debug)]
@@ -38,14 +38,14 @@ impl MidiState {
         }
     }
 
-    pub fn update(&mut self, msg: &MidiMessage) {
+    pub fn update(&mut self, msg: &impl ShortMessage) {
         match msg.to_structured() {
             StructuredShortMessage::NoteOn {
                 channel,
                 key_number,
                 velocity,
             } => {
-                let mut state = self.note_states_by_channel[channel.get() as usize];
+                let state = &mut self.note_states_by_channel[channel.get() as usize];
                 if velocity.get() > 0 {
                     state.add_note(key_number);
                 } else {
@@ -83,11 +83,13 @@ impl NoteState {
     }
 
     pub fn add_note(&mut self, note: KeyNumber) {
-        self.0 |= 1 << note.get();
+        self.0 |= 1 << (note.get() as u128);
+        debug!("Added note {} => {}", note, self.0);
     }
 
     pub fn remove_note(&mut self, note: KeyNumber) {
-        self.0 &= !(note.get() as u128);
+        self.0 &= !(1 << (note.get() as u128));
+        debug!("Removed note {} => {}", note, self.0);
     }
 
     pub fn on_notes(&self) -> impl Iterator<Item = KeyNumber> + '_ {
@@ -281,6 +283,7 @@ impl MidiSupplier for ClipSource {
     ) {
         for (ch, note) in self.midi_state.on_notes() {
             let msg = RawShortMessage::note_off(ch, note, U7::MIN);
+            debug!("Sending {:?}", msg);
             let mut event = MidiEvent::default();
             event.set_frame_offset(frame_offset);
             event.set_message(msg);
@@ -308,3 +311,106 @@ pub const MIDI_FRAME_RATE: Hz = unsafe { Hz::new_unchecked(169_344_000.0) };
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
 pub const MIDI_BASE_BPM: Bpm = unsafe { Bpm::new_unchecked(120.0) };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use helgoboss_midi::test_util::*;
+
+    #[test]
+    fn note_state_basics() {
+        // Given
+        let mut note_state = NoteState::default();
+        // When
+        note_state.add_note(KeyNumber::new(5));
+        note_state.add_note(KeyNumber::new(7));
+        note_state.add_note(KeyNumber::new(105));
+        // Then
+        assert!(!note_state.note_is_on(0));
+        assert!(note_state.note_is_on(5));
+        assert!(note_state.note_is_on(7));
+        assert!(!note_state.note_is_on(100));
+        assert!(note_state.note_is_on(105));
+        let on_notes: Vec<_> = note_state.on_notes().collect();
+        assert_eq!(
+            on_notes,
+            vec![KeyNumber::new(5), KeyNumber::new(7), KeyNumber::new(105)]
+        );
+    }
+
+    #[test]
+    fn note_state_remove() {
+        // Given
+        let mut note_state = NoteState::default();
+        // When
+        note_state.add_note(key_number(5));
+        note_state.add_note(key_number(7));
+        note_state.remove_note(key_number(5));
+        note_state.add_note(key_number(105));
+        note_state.remove_note(key_number(105));
+        // Then
+        assert!(!note_state.note_is_on(0));
+        assert!(!note_state.note_is_on(5));
+        assert!(note_state.note_is_on(7));
+        assert!(!note_state.note_is_on(100));
+        let on_notes: Vec<_> = note_state.on_notes().collect();
+        assert_eq!(on_notes, vec![key_number(7)]);
+    }
+
+    #[test]
+    fn midi_state_update() {
+        // Given
+        let mut midi_state = MidiState::default();
+        // When
+        midi_state.update(&note_on(0, 7, 100));
+        midi_state.update(&note_on(0, 120, 120));
+        midi_state.update(&note_on(0, 5, 120));
+        midi_state.update(&note_on(0, 7, 0));
+        midi_state.update(&note_on(0, 120, 1));
+        midi_state.update(&note_off(0, 5, 20));
+        // Then
+        let on_notes: Vec<_> = midi_state.on_notes().collect();
+        assert_eq!(on_notes, vec![(channel(0), key_number(120))]);
+    }
+
+    #[test]
+    fn midi_state_reset() {
+        // Given
+        let mut midi_state = MidiState::default();
+        // When
+        midi_state.update(&note_on(0, 7, 100));
+        midi_state.update(&note_on(0, 120, 120));
+        midi_state.update(&note_on(0, 5, 120));
+        midi_state.update(&note_on(0, 7, 0));
+        midi_state.update(&note_on(5, 120, 1));
+        midi_state.update(&note_off(7, 5, 20));
+        midi_state.reset();
+        // Then
+        let on_notes: Vec<_> = midi_state.on_notes().collect();
+        assert_eq!(on_notes, vec![]);
+    }
+
+    #[test]
+    fn midi_state_update_with_channels() {
+        // Given
+        let mut midi_state = MidiState::default();
+        // When
+        midi_state.update(&note_on(0, 7, 100));
+        midi_state.update(&note_on(0, 120, 120));
+        midi_state.update(&note_on(0, 5, 120));
+        midi_state.update(&note_on(1, 7, 0));
+        midi_state.update(&note_on(3, 7, 50));
+        midi_state.update(&note_on(0, 120, 1));
+        midi_state.update(&note_off(0, 5, 20));
+        // Then
+        let on_notes: Vec<_> = midi_state.on_notes().collect();
+        assert_eq!(
+            on_notes,
+            vec![
+                (channel(0), key_number(7)),
+                (channel(0), key_number(120)),
+                (channel(3), key_number(7))
+            ]
+        );
+    }
+}

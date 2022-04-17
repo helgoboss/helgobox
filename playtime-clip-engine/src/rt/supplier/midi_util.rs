@@ -29,7 +29,11 @@ pub fn silence_midi(
             .map(|o| MidiFrameOffset::new(o.get() + 1))
             .unwrap_or(MidiFrameOffset::MIN),
     };
-    if reset_messages.on_notes_off {
+    // At the moment, resetting on-notes is only supported as append (= at the end). If we would ask
+    // to release notes when prepending (at the start), we would need to make sure that the
+    // to-be-released notes are captured *before* filling the event list. But this function is
+    // usually called *after* filling the event list.
+    if reset_messages.on_notes_off && block_mode == Append {
         supplier.release_notes(frame_offset, event_list);
     }
     for ch in 0..16 {
@@ -52,6 +56,7 @@ pub fn silence_midi(
     }
 }
 
+#[derive(PartialEq)]
 pub enum SilenceMidiBlockMode {
     Prepend,
     Append,
