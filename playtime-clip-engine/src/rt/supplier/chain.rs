@@ -17,7 +17,7 @@ use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipTimeBase, Db, MidiResetMessageRange,
     PositiveBeat, PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{BorrowedMidiEventList, Bpm, PositionInSeconds};
+use reaper_medium::{BorrowedMidiEventList, Bpm, MidiFrameOffset, PositionInSeconds};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
@@ -566,6 +566,14 @@ impl MidiSupplier for SupplierChain {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         self.head.supply_midi(request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.head.release_notes(frame_offset, event_list);
     }
 }
 

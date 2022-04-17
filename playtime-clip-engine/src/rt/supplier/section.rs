@@ -11,7 +11,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::{MidiResetMessageRange, PositiveSecond};
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, MidiFrameOffset};
 
 #[derive(Debug)]
 pub struct Section<S> {
@@ -305,6 +305,7 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
                 event_list,
                 self.midi_reset_msg_range.left,
                 SilenceMidiBlockMode::Prepend,
+                &mut self.supplier,
             );
         }
         // Reset MIDI at end if necessary
@@ -318,9 +319,18 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
                 event_list,
                 self.midi_reset_msg_range.right,
                 SilenceMidiBlockMode::Append,
+                &mut self.supplier,
             );
         }
         self.generate_outer_response(inner_response, data.phase_two)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

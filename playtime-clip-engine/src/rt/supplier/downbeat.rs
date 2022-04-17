@@ -7,7 +7,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::PositiveBeat;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, MidiFrameOffset};
 
 #[derive(Debug)]
 pub struct Downbeat<S> {
@@ -122,6 +122,14 @@ impl<S: MidiSupplier> MidiSupplier for Downbeat<S> {
             general_info: request.general_info,
         };
         self.supplier.supply_midi(&inner_request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

@@ -1125,6 +1125,19 @@ impl MidiSupplier for Recorder {
             }
         }
     }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => {
+                s.source.release_notes(frame_offset, event_list);
+            }
+            State::Recording(_) => {}
+        }
+    }
 }
 
 impl WithMaterialInfo for Recorder {

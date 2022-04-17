@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crossbeam_channel::{Receiver, Sender};
 use playtime_api::AudioCacheBehavior;
-use reaper_medium::BorrowedMidiEventList;
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
@@ -259,6 +259,14 @@ impl<S: MidiSupplier> MidiSupplier for Cache<S> {
     ) -> SupplyResponse {
         // MIDI doesn't need caching.
         self.supplier.supply_midi(request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

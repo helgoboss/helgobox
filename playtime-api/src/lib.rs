@@ -835,6 +835,7 @@ pub struct MidiResetMessageRange {
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessages {
+    pub on_notes_off: bool,
     pub all_notes_off: bool,
     pub all_sound_off: bool,
     pub reset_all_controllers: bool,

@@ -1,3 +1,4 @@
+use crate::rt::supplier::MidiSupplier;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use playtime_api::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};
@@ -6,6 +7,7 @@ pub fn silence_midi(
     event_list: &mut BorrowedMidiEventList,
     reset_messages: MidiResetMessages,
     block_mode: SilenceMidiBlockMode,
+    supplier: &mut dyn MidiSupplier,
 ) {
     if !reset_messages.at_least_one_enabled() {
         return;
@@ -27,6 +29,9 @@ pub fn silence_midi(
             .map(|o| MidiFrameOffset::new(o.get() + 1))
             .unwrap_or(MidiFrameOffset::MIN),
     };
+    if reset_messages.on_notes_off {
+        supplier.release_notes(frame_offset, event_list);
+    }
     for ch in 0..16 {
         let mut append_reset = |cc| {
             let msg = RawShortMessage::control_change(Channel::new(ch), cc, U7::MIN);

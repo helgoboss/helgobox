@@ -11,20 +11,101 @@ use crate::rt::supplier::{
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
+use helgoboss_midi::{
+    Channel, KeyNumber, RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage,
+    U7,
+};
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
-    PcmSourceTransfer,
+    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiEvent,
+    MidiFrameOffset, MidiMessage, OwnedPcmSource, PcmSourceTransfer,
 };
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Debug)]
 pub struct ClipSource {
     source: OwnedPcmSource,
+    midi_state: MidiState,
+}
+
+#[derive(Clone, Debug, Default)]
+struct MidiState {
+    note_states_by_channel: [NoteState; 16],
+}
+
+impl MidiState {
+    pub fn reset(&mut self) {
+        for state in &mut self.note_states_by_channel {
+            state.reset();
+        }
+    }
+
+    pub fn update(&mut self, msg: &MidiMessage) {
+        match msg.to_structured() {
+            StructuredShortMessage::NoteOn {
+                channel,
+                key_number,
+                velocity,
+            } => {
+                let mut state = self.note_states_by_channel[channel.get() as usize];
+                if velocity.get() > 0 {
+                    state.add_note(key_number);
+                } else {
+                    state.remove_note(key_number);
+                }
+            }
+            StructuredShortMessage::NoteOff {
+                channel,
+                key_number,
+                ..
+            } => {
+                self.note_states_by_channel[channel.get() as usize].remove_note(key_number);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn on_notes(&self) -> impl Iterator<Item = (Channel, KeyNumber)> + '_ {
+        self.note_states_by_channel
+            .iter()
+            .enumerate()
+            .flat_map(|(ch, note_state)| {
+                let ch = Channel::new(ch as _);
+                note_state.on_notes().map(move |note| (ch, note))
+            })
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Default, Debug)]
+struct NoteState(u128);
+
+impl NoteState {
+    pub fn reset(&mut self) {
+        self.0 = 0;
+    }
+
+    pub fn add_note(&mut self, note: KeyNumber) {
+        self.0 |= 1 << note.get();
+    }
+
+    pub fn remove_note(&mut self, note: KeyNumber) {
+        self.0 &= !(note.get() as u128);
+    }
+
+    pub fn on_notes(&self) -> impl Iterator<Item = KeyNumber> + '_ {
+        (0u8..128u8)
+            .filter(|note| self.note_is_on(*note))
+            .map(|note| KeyNumber::new(note))
+    }
+
+    fn note_is_on(&self, note: u8) -> bool {
+        (self.0 & (1 << note)) > 0
+    }
 }
 
 impl ClipSource {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
             source: reaper_source,
+            midi_state: MidiState::default(),
         }
     }
 
@@ -179,6 +260,10 @@ impl MidiSupplier for ClipSource {
             // midi_realtime_write_struct_t. So that's not necessary anymore
             transfer.samples_out() as usize
         };
+        // Track playing notes
+        for evt in event_list {
+            self.midi_state.update(evt.message())
+        }
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
         SupplyResponse::limited_by_total_frame_count(
@@ -187,6 +272,21 @@ impl MidiSupplier for ClipSource {
             request.start_frame,
             self.calculate_midi_frame_count(),
         )
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        for (ch, note) in self.midi_state.on_notes() {
+            let msg = RawShortMessage::note_off(ch, note, U7::MIN);
+            let mut event = MidiEvent::default();
+            event.set_frame_offset(frame_offset);
+            event.set_message(msg);
+            event_list.add_item(&event);
+        }
+        self.midi_state.reset();
     }
 }
 

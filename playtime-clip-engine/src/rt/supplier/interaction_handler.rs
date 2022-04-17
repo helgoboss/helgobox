@@ -10,7 +10,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
-use reaper_medium::BorrowedMidiEventList;
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 use std::cmp;
 
 #[derive(Debug)]
@@ -303,6 +303,7 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                     event_list,
                     self.midi_reset_msg_range.left,
                     SilenceMidiBlockMode::Prepend,
+                    &mut self.supplier,
                 );
                 self.interaction = None;
                 inner_response
@@ -348,6 +349,7 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                                 event_list,
                                 self.midi_reset_msg_range.right,
                                 SilenceMidiBlockMode::Append,
+                                &mut self.supplier,
                             );
                             self.interaction = None;
                             SupplyResponse::reached_end(
@@ -365,6 +367,14 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                 }
             }
         }
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

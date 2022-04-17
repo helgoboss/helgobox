@@ -4,7 +4,9 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{get_cycle_at_frame, ClipSource, MIDI_BASE_BPM, MIDI_FRAME_RATE};
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiFrameOffset, PositionInSeconds,
+};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
@@ -39,6 +41,13 @@ pub trait MidiSupplier: Debug {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse;
+
+    /// Releases all currently playing notes.
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    );
 }
 
 pub trait WithSource {
@@ -362,6 +371,14 @@ impl<T: MidiSupplier> MidiSupplier for Arc<Mutex<T>> {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         non_blocking_lock(&*self, "supply MIDI").supply_midi(request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        non_blocking_lock(&*self, "release notes").release_notes(frame_offset, event_list);
     }
 }
 

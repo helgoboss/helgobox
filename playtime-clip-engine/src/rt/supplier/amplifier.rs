@@ -8,7 +8,7 @@ use helgoboss_midi::{
     RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage, U7,
 };
 use reaper_high::Reaper;
-use reaper_medium::{BorrowedMidiEventList, Db, VolumeSliderValue};
+use reaper_medium::{BorrowedMidiEventList, Db, MidiFrameOffset, VolumeSliderValue};
 use std::cmp;
 
 #[derive(Debug)]
@@ -85,6 +85,14 @@ impl<S: MidiSupplier> MidiSupplier for Amplifier<S> {
             }
         }
         response
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

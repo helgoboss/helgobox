@@ -10,7 +10,7 @@ use crate::ClipEngineResult;
 use playtime_api::VirtualTimeStretchMode;
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
-use reaper_medium::{BorrowedMidiEventList, OwnedReaperPitchShift};
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset, OwnedReaperPitchShift};
 
 #[derive(Debug)]
 pub struct TimeStretcher<S> {
@@ -193,6 +193,14 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
         // With MIDI, the resampler takes care of adjusting the tempo (since it needs to adjust
         // the frame rate anyway).
         self.supplier.supply_midi(request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

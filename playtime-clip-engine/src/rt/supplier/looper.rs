@@ -7,7 +7,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
-use reaper_medium::BorrowedMidiEventList;
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 #[derive(Debug)]
 pub struct Looper<S> {
@@ -260,6 +260,7 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
                     event_list,
                     self.midi_reset_msg_range.left,
                     SilenceMidiBlockMode::Prepend,
+                    &mut self.supplier,
                 );
             }
         }
@@ -273,6 +274,7 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
                         event_list,
                         self.midi_reset_msg_range.right,
                         SilenceMidiBlockMode::Append,
+                        &mut self.supplier,
                     );
                     modulo_response
                 } else if num_frames_written == request.dest_frame_count {
@@ -307,6 +309,14 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
                 }
             }
         }
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

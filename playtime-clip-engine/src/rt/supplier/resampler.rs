@@ -11,7 +11,7 @@ use crate::ClipEngineResult;
 use playtime_api::VirtualResampleMode;
 use reaper_high::Reaper;
 use reaper_low::raw;
-use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperResample};
+use reaper_medium::{BorrowedMidiEventList, Hz, MidiFrameOffset, OwnedReaperResample};
 use std::ffi::c_void;
 use std::ptr::null_mut;
 
@@ -263,6 +263,14 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
                 }
             },
         }
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

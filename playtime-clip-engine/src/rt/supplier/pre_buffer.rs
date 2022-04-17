@@ -8,7 +8,7 @@ use crate::ClipEngineResult;
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use derive_more::Display;
-use reaper_medium::BorrowedMidiEventList;
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -569,6 +569,14 @@ impl<S: MidiSupplier, F: Debug, C: Debug> MidiSupplier for PreBuffer<S, F, C> {
     ) -> SupplyResponse {
         // MIDI doesn't need pre-buffering.
         self.supplier.supply_midi(request, event_list)
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

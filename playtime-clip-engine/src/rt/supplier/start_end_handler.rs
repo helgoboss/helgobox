@@ -9,7 +9,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
-use reaper_medium::BorrowedMidiEventList;
+use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 #[derive(Debug)]
 pub struct StartEndHandler<S> {
@@ -97,6 +97,7 @@ impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {
                     event_list,
                     self.midi_reset_msg_range.left,
                     SilenceMidiBlockMode::Prepend,
+                    &mut self.supplier,
                 );
             }
         }
@@ -106,9 +107,18 @@ impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {
                 event_list,
                 self.midi_reset_msg_range.right,
                 SilenceMidiBlockMode::Append,
+                &mut self.supplier,
             );
         }
         response
+    }
+
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 
