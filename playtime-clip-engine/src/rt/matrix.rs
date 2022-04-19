@@ -2,8 +2,8 @@ use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs, ColumnPlayClipOptions,
-    ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs, RelevantPlayStateChange,
-    SharedColumn, TransportChange, WeakColumn,
+    ColumnPlayRowArgs, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs,
+    RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -235,8 +235,17 @@ impl Matrix {
         Ok(())
     }
 
-    pub fn play_row(&self, index: usize) -> ClipEngineResult<()> {
-        todo!()
+    pub fn play_row(&self, index: usize) {
+        let timeline = self.timeline();
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let args = ColumnPlayRowArgs {
+            slot_index: index,
+            timeline,
+            ref_pos: timeline_cursor_pos,
+        };
+        for handle in &self.column_handles {
+            handle.command_sender.play_row(args.clone());
+        }
     }
 
     fn timeline(&self) -> HybridTimeline {

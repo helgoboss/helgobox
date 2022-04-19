@@ -1,8 +1,8 @@
 -- ### Configuration ###
 
 -- Device type
-local device = "generic"
---local device = "apc_key_25"
+--local device = "generic"
+local device = "apc_key_25"
 --local device = "launchpad_pro_mk2"
 
 -- Slot modes
@@ -212,6 +212,7 @@ local device_specific = {
         mute = button("mute"),
         track_select = button("track-select"),
         column_normal_condition = {},
+        row_normal_condition = {},
         slot_normal_condition = slot_mode_is(0),
         slot_delete_condition = slot_mode_is(1),
         slot_quantize_condition = slot_mode_is(2),
@@ -229,12 +230,13 @@ local device_specific = {
         pan = shift + button("col6/stop"),
         sends = shift + button("col7/stop"),
         device = shift + button("col8/stop"),
-        stop_clip = button("row1/play"),
-        solo = button("row2/play"),
-        record_arm = button("row3/play"),
-        mute = button("row4/play"),
-        track_select = button("row5/play"),
+        stop_clip = shift + button("row1/play"),
+        solo = shift + button("row2/play"),
+        record_arm = shift + button("row3/play"),
+        mute = shift + button("row4/play"),
+        track_select = shift + button("row5/play"),
         column_normal_condition = not_shift,
+        row_normal_condition = not_shift,
         slot_normal_condition = not_shift,
         slot_delete_condition = shift + long_press,
         slot_quantize_condition = shift + double_press,
@@ -517,6 +519,10 @@ local groups = {
         },
     },
     {
+        id = "row-stop",
+        name = "Row stop",
+    },
+    {
         id = "column-solo",
         name = "Column solo",
         activation_condition = {
@@ -662,6 +668,31 @@ for col = 0, column_count - 1 do
             table.insert(mappings, mapping)
         end
     end
+end
+
+-- For each row
+for row = 0, row_count - 1 do
+    local human_row = row + 1
+    local prefix = "row" .. human_row .. "/"
+    local mapping = device_specific[device].row_normal_condition + {
+        name = "Row " .. human_row .. " play",
+        group = "row-play",
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = prefix .. "play",
+        },
+        target = {
+            kind = "ClipRowAction",
+            row = {
+                address = "Dynamic",
+                expression = "p[1] + " .. row,
+            },
+            action = "Play",
+        },
+    }
+    table.insert(mappings, mapping)
 end
 
 -- For each slot

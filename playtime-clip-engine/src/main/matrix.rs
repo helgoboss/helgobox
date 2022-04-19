@@ -9,8 +9,8 @@ use crate::rt::supplier::{
 };
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions,
-    ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangedEvent,
-    RtMatrixCommandSender, WeakColumn,
+    ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings,
+    QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -359,8 +359,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn play_row(&self, index: usize) -> ClipEngineResult<()> {
-        todo!()
+    pub fn play_row(&self, index: usize) {
+        let timeline = self.timeline();
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let args = ColumnPlayRowArgs {
+            slot_index: index,
+            timeline,
+            ref_pos: timeline_cursor_pos,
+        };
+        for c in &self.columns {
+            c.play_row(args.clone());
+        }
     }
 
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {

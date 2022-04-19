@@ -20,8 +20,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipRowTarget {
-            row_index: self.row.resolve(context, compartment)?,
-            action: self.action,
+            basics: ClipRowTargetBasics {
+                row_index: self.row.resolve(context, compartment)?,
+                action: self.action,
+            },
         };
         Ok(vec![ReaperTarget::ClipRow(target)])
     }
@@ -29,13 +31,18 @@ impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipRowTarget {
+    basics: ClipRowTargetBasics,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ClipRowTargetBasics {
     pub row_index: usize,
     pub action: ClipRowAction,
 }
 
 impl RealearnTarget for ClipRowTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        control_type_and_character(self.action)
+        control_type_and_character(self.basics.action)
     }
 
     fn hit(
@@ -46,12 +53,12 @@ impl RealearnTarget for ClipRowTarget {
         BackboneState::get().with_clip_matrix(
             context.control_context.instance_state,
             |matrix| -> Result<(), &'static str> {
-                match self.action {
+                match self.basics.action {
                     ClipRowAction::Play => {
                         if !value.is_on() {
                             return Ok(());
                         }
-                        matrix.play_row(self.row_index)?;
+                        matrix.play_row(self.basics.row_index);
                     }
                 }
                 Ok(())
@@ -65,12 +72,11 @@ impl RealearnTarget for ClipRowTarget {
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        if !matches!(self.action, ClipRowAction::Play) {
+        if !matches!(self.basics.action, ClipRowAction::Play) {
             return None;
         }
         let t = RealTimeClipRowTarget {
-            row_index: self.row_index,
-            action: self.action,
+            basics: self.basics.clone(),
         };
         Some(RealTimeReaperTarget::ClipRow(t))
     }
@@ -98,8 +104,7 @@ impl<'a> Target<'a> for ClipRowTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RealTimeClipRowTarget {
-    row_index: usize,
-    action: ClipRowAction,
+    basics: ClipRowTargetBasics,
 }
 
 impl RealTimeClipRowTarget {
@@ -108,14 +113,15 @@ impl RealTimeClipRowTarget {
         value: ControlValue,
         context: RealTimeControlContext,
     ) -> Result<(), &'static str> {
-        match self.action {
+        match self.basics.action {
             ClipRowAction::Play => {
                 if !value.is_on() {
                     return Ok(());
                 }
                 let matrix = context.clip_matrix()?;
                 let matrix = matrix.lock();
-                matrix.play_row(self.row_index)
+                matrix.play_row(self.basics.row_index);
+                Ok(())
             }
         }
     }
@@ -129,7 +135,7 @@ impl<'a> Target<'a> for RealTimeClipRowTarget {
     }
 
     fn control_type(&self, _: RealTimeControlContext<'a>) -> ControlType {
-        control_type_and_character(self.action).0
+        control_type_and_character(self.basics.action).0
     }
 }
 

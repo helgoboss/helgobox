@@ -2,8 +2,8 @@ use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
-    ColumnPlayClipArgs, ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings,
-    SharedColumn, WeakColumn,
+    ColumnPlayClipArgs, ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs,
+    OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -336,6 +336,10 @@ impl Column {
         //     self.project,
         // )
         Err("not yet implemented")
+    }
+
+    pub fn play_row(&self, args: ColumnPlayRowArgs) {
+        self.rt_command_sender.play_row(args);
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {

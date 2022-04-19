@@ -56,6 +56,8 @@ impl History {
     }
 }
 
+// TODO-medium Make use of label
+#[allow(dead_code)]
 #[derive(Debug)]
 struct State {
     label: String,

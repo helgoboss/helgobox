@@ -108,6 +108,10 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::PlayClip(args));
     }
 
+    pub fn play_row(&self, args: ColumnPlayRowArgs) {
+        self.send_task(ColumnCommand::PlayRow(args));
+    }
+
     pub fn stop_clip(&self, args: ColumnStopClipArgs) {
         self.send_task(ColumnCommand::StopClip(args));
     }
@@ -158,6 +162,7 @@ pub enum ColumnCommand {
     FillSlot(Box<Option<ColumnFillSlotArgs>>),
     ProcessTransportChange(ColumnProcessTransportChangeArgs),
     PlayClip(ColumnPlayClipArgs),
+    PlayRow(ColumnPlayRowArgs),
     StopClip(ColumnStopClipArgs),
     Stop(ColumnStopArgs),
     PauseClip(ColumnPauseClipArgs),
@@ -328,7 +333,7 @@ impl Column {
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
         };
-        let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
+        let slot = get_slot_mut_insert(&mut self.slots, args.slot_index);
         if slot.is_filled() {
             slot.play_clip(clip_args)?;
             if self.settings.play_mode.is_exclusive() {
@@ -346,6 +351,28 @@ impl Column {
         } else {
             Err("slot is empty")
         }
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the row doesn't exist.
+    pub fn play_row(
+        &mut self,
+        args: ColumnPlayRowArgs,
+        audio_request_props: BasicAudioRequestProps,
+    ) -> ClipEngineResult<()> {
+        if !self.settings.play_mode.follows_scene() {
+            return Ok(());
+        }
+        let play_args = ColumnPlayClipArgs {
+            slot_index: args.slot_index,
+            timeline: args.timeline,
+            ref_pos: Some(args.ref_pos),
+            options: ColumnPlayClipOptions {
+                stop_column_if_slot_empty: true,
+            },
+        };
+        self.play_clip(play_args, audio_request_props)
     }
 
     pub fn stop(&mut self, args: ColumnStopArgs, audio_request_props: BasicAudioRequestProps) {
@@ -538,6 +565,10 @@ impl Column {
                 }
                 PlayClip(args) => {
                     let result = self.play_clip(args, audio_request_props);
+                    self.notify_user_about_failed_interaction(result);
+                }
+                PlayRow(args) => {
+                    let result = self.play_row(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
                 }
                 ProcessTransportChange(args) => {
@@ -830,7 +861,7 @@ pub struct ColumnSetClipAudioTimeStretchModeArgs {
     pub mode: AudioTimeStretchMode,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ColumnPlayClipArgs {
     pub slot_index: usize,
     pub timeline: HybridTimeline,
@@ -839,7 +870,14 @@ pub struct ColumnPlayClipArgs {
     pub options: ColumnPlayClipOptions,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub struct ColumnPlayRowArgs {
+    pub slot_index: usize,
+    pub timeline: HybridTimeline,
+    pub ref_pos: PositionInSeconds,
+}
+
+#[derive(Clone, Debug)]
 pub struct ColumnPlayClipOptions {
     pub stop_column_if_slot_empty: bool,
 }

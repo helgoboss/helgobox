@@ -46,12 +46,12 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {
-    pub project: Project,
-    pub basics: ClipTransportTargetBasics,
+    project: Project,
+    basics: ClipTransportTargetBasics,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ClipTransportTargetBasics {
+struct ClipTransportTargetBasics {
     pub slot_coordinates: ClipSlotCoordinates,
     pub action: ClipTransportAction,
     pub options: ClipTransportOptions,
@@ -299,8 +299,8 @@ impl<'a> Target<'a> for ClipTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RealTimeClipTransportTarget {
-    pub project: Project,
-    pub basics: ClipTransportTargetBasics,
+    project: Project,
+    basics: ClipTransportTargetBasics,
 }
 
 impl RealTimeClipTransportTarget {
