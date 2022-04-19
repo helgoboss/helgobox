@@ -74,8 +74,14 @@ impl SafeLua {
     }
 
     /// Creates a fresh environment for this Lua state.
-    pub fn create_fresh_environment(&self) -> Result<Table, Box<dyn Error>> {
-        build_safe_lua_env(&self.0, self.0.globals())
+    ///
+    /// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
+    /// fresh Lua state for each execution.
+    pub fn create_fresh_environment(
+        &self,
+        allow_side_effects: bool,
+    ) -> Result<Table, Box<dyn Error>> {
+        build_safe_lua_env(&self.0, self.0.globals(), allow_side_effects)
     }
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
@@ -116,10 +122,22 @@ impl Error for RealearnScriptError {}
 
 /// Creates a Lua environment in which we can't execute potentially malicious code
 /// (by only including safe functions according to http://lua-users.org/wiki/SandBoxes).
-fn build_safe_lua_env<'a>(lua: &'a Lua, original_env: Table) -> Result<Table<'a>, Box<dyn Error>> {
+///
+/// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
+/// fresh Lua state for each execution.
+fn build_safe_lua_env<'a>(
+    lua: &'a Lua,
+    original_env: Table,
+    allow_side_effects: bool,
+) -> Result<Table<'a>, Box<dyn Error>> {
     let safe_env = lua.create_table()?;
     for var in SAFE_LUA_VARS {
         copy_var_to_table(lua, &safe_env, &original_env, var)?;
+    }
+    if allow_side_effects {
+        for var in EXTENDED_SAFE_LUA_VARS {
+            copy_var_to_table(lua, &safe_env, &original_env, var)?;
+        }
     }
     Ok(safe_env)
 }
@@ -220,3 +238,10 @@ const SAFE_LUA_VARS: &[&str] = &[
     "os.difftime",
     "os.time",
 ];
+
+/// An extended set of Lua vars that can be considered safe under certain circumstances.
+///
+/// Some vars are unsafe according to http://lua-users.org/wiki/SandBoxes, but only because of the
+/// side effects that it could have on other code executed in the same Lua state. In situations
+/// where we create a fresh Lua state everytime, this doesn't matter.
+const EXTENDED_SAFE_LUA_VARS: &[&str] = &["setmetatable"];

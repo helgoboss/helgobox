@@ -1,5 +1,10 @@
 -- ### Configuration ###
 
+-- Device type
+--local device = "generic"
+local device = "apc_key_25"
+--local device = "launchpad_pro_mk2"
+
 -- Slot modes
 local slot_mode_count = 100
 local slot_modes = {
@@ -14,7 +19,7 @@ local column_modes = {
     {
         id = "stop",
         label = "Stop clip",
-        button = "stop-clip",
+        button = "stop_clip",
     },
     {
         id = "solo",
@@ -25,7 +30,7 @@ local column_modes = {
     {
         id = "record-arm",
         label = "Record arm",
-        button = "record-arm",
+        button = "record_arm",
         track_target = "TrackArmState",
     },
     {
@@ -37,7 +42,7 @@ local column_modes = {
     {
         id = "select",
         label = "Track select",
-        button = "track-select",
+        button = "track_select",
         track_target = "TrackSelectionState",
     },
 
@@ -78,6 +83,100 @@ local row_count = 8
 
 -- ### Content ###
 
+-- Common functions
+
+function merged(t1, t2)
+    local new_table = {}
+    for k, v in pairs(t1) do
+        new_table[k] = v
+    end
+    for k, v in pairs(t2) do
+        new_table[k] = v
+    end
+    return new_table
+end
+
+function make_mergeable(t)
+    local metatable = {
+        __add = merged
+    }
+    setmetatable(t, metatable)
+end
+
+-- Device-specific resolutions
+
+function button(id)
+    return {
+        source = {
+            kind = "Virtual",
+            id = id,
+            character = "Button",
+        },
+    }
+end
+
+function shift_pressed(state)
+    local partial_mapping = {
+        activation_condition = {
+            kind = "Modifier",
+            modifiers = {
+                {
+                    parameter = 2,
+                    on = state,
+                },
+            },
+        },
+    }
+    make_mergeable(partial_mapping)
+    return partial_mapping
+end
+
+local shift = shift_pressed(true)
+local not_shift = shift_pressed(false)
+
+local device_specific = {
+    generic = {
+        cursor_up = button("cursor-up"),
+        cursor_down = button("cursor-down"),
+        cursor_left = button("cursor-left"),
+        cursor_right = button("cursor-right"),
+        volume = button("volume"),
+        pan = button("pan"),
+        sends = button("sends"),
+        device = button("device"),
+        stop_clip = button("stop-clip"),
+        solo = button("solo"),
+        record_arm = button("record-arm"),
+        mute = button("mute"),
+        track_select = button("track-select"),
+        normal_function = {},
+    },
+    apc_key_25 = {
+        cursor_up = shift + button("col1/stop"),
+        cursor_down = shift + button("col2/stop"),
+        cursor_left = shift + button("col3/stop"),
+        cursor_right = shift + button("col4/stop"),
+        volume = shift + button("col5/stop"),
+        pan = shift + button("col6/stop"),
+        sends = shift + button("col7/stop"),
+        device = shift + button("col8/stop"),
+        stop_clip = button("row1/play"),
+        solo = button("row2/play"),
+        record_arm = button("row3/play"),
+        mute = button("row4/play"),
+        track_select = button("row5/play"),
+        normal_function = not_shift,
+    },
+}
+
+for _, t1 in pairs(device_specific) do
+    for _, t2 in pairs(t1) do
+        make_mergeable(t2)
+    end
+end
+
+-- Global mappings
+
 local mappings = {
     {
         name = "Stop all clips",
@@ -106,14 +205,9 @@ local mappings = {
             action = "PlayPause",
         },
     },
-    {
+    device_specific[device].cursor_up + {
         name = "Scroll up",
         feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "cursor-up",
-            character = "Button",
-        },
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
@@ -126,14 +220,9 @@ local mappings = {
             },
         },
     },
-    {
+    device_specific[device].cursor_down + {
         name = "Scroll down",
         feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "cursor-down",
-            character = "Button",
-        },
         glue = {
             absolute_mode = "IncrementalButton",
         },
@@ -145,14 +234,9 @@ local mappings = {
             },
         },
     },
-    {
+    device_specific[device].cursor_left + {
         name = "Scroll left",
         feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "cursor-left",
-            character = "Button",
-        },
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
@@ -165,14 +249,9 @@ local mappings = {
             },
         },
     },
-    {
+    device_specific[device].cursor_right + {
         name = "Scroll right",
         feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "cursor-right",
-            character = "Button",
-        },
         glue = {
             absolute_mode = "IncrementalButton",
         },
@@ -181,6 +260,21 @@ local mappings = {
             parameter = {
                 address = "ById",
                 index = 0,
+            },
+        },
+    },
+    {
+        name = "Shift",
+        source = {
+            kind = "Virtual",
+            id = "shift",
+            character = "Button",
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 2,
             },
         },
     },
@@ -222,14 +316,9 @@ local column_mode_labels = {}
 for i, mode in ipairs(column_modes) do
     table.insert(column_mode_labels, mode.label)
     local target_value = (i - 1) / column_mode_count
-    local m = {
+    local m = device_specific[device][mode.button] + {
         group = "column-modes",
         name = mode.label,
-        source = {
-            kind = "Virtual",
-            id = mode.button,
-            character = "Button",
-        },
         glue = {
             target_interval = { target_value, target_value },
             out_of_range_behavior = "Min",
@@ -250,14 +339,9 @@ local knob_mode_labels = {}
 for i, mode in ipairs(knob_modes) do
     table.insert(knob_mode_labels, mode.label)
     local target_value = (i - 1) / knob_mode_count
-    local m = {
+    local m = device_specific[device][mode.button] + {
         group = "knob-modes",
         name = mode.label,
-        source = {
-            kind = "Virtual",
-            id = mode.button,
-            character = "Button",
-        },
         glue = {
             target_interval = { target_value, target_value },
             out_of_range_behavior = "Min",
@@ -445,7 +529,7 @@ local groups = {
     },
 }
 
--- For each column
+-- Normal (non-shift) column-mode-dependent functions for each column
 for col = 0, column_count - 1 do
     local human_col = col + 1
     local prefix = "col" .. human_col .. "/"
@@ -454,7 +538,7 @@ for col = 0, column_count - 1 do
         expression = "p[0] + " .. col,
     }
     -- Column button
-    local column_stop_mapping = {
+    local column_stop_mapping = device_specific[device].normal_function + {
         name = "Column " .. human_col .. " stop",
         group = "column-stop",
         source = {
@@ -471,7 +555,7 @@ for col = 0, column_count - 1 do
     table.insert(mappings, column_stop_mapping)
     for _, mode in ipairs(column_modes) do
         if mode.track_target then
-            local mapping = {
+            local mapping = device_specific[device].normal_function + {
                 name = "Column " .. human_col .. " " .. mode.id,
                 group = "column-" .. mode.id,
                 source = {

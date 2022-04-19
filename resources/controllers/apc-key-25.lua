@@ -1,8 +1,18 @@
 -- Configuration
-local resolve_shift = true
+local resolve_shift = false
 
 -- Single buttons
-local parameters = {}
+local parameters
+if resolve_shift then
+    parameters = {
+        {
+            index = 0,
+            name = "Shift",
+        }
+    }
+else
+    parameters = nil
+end
 local mappings = {
     {
         id = "ac49cd8a-cd98-4acd-84a0-276372aa8d05",
@@ -78,12 +88,6 @@ if resolve_shift then
             },
         },
     }
-    -- The shift modifier parameter
-    local parameter = {
-        index = 0,
-        name = "Shift",
-    }
-    table.insert(parameters, parameter)
     -- Mapping to make shift button switch to other set of virtual control elements
     local shift_mapping = {
         name = "Shift",

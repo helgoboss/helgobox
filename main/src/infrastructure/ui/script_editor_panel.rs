@@ -51,7 +51,7 @@ impl ScriptEngine for Vm {
 
 impl ScriptEngine for SafeLua {
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
-        let env = self.create_fresh_environment()?;
+        let env = self.create_fresh_environment(false)?;
         self.compile_as_function("MIDI script", code, env)?;
         Ok(())
     }

@@ -21,7 +21,7 @@ impl<'lua> LuaMidiSourceScript<'lua> {
         if lua_script.trim().is_empty() {
             return Err("script empty".into());
         }
-        let env = lua.create_fresh_environment()?;
+        let env = lua.create_fresh_environment(false)?;
         let function = lua.compile_as_function("MIDI source script", lua_script, env.clone())?;
         let script = Self {
             lua,

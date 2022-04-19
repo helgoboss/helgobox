@@ -276,7 +276,7 @@ fn execute_lua_import_script<'a>(
     lua: &'a SafeLua,
     text: &str,
 ) -> Result<mlua::Value<'a>, Box<dyn Error>> {
-    let env = lua.create_fresh_environment()?;
+    let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)
     let realearn_table = {
         let lua: &Lua = lua.as_ref();
