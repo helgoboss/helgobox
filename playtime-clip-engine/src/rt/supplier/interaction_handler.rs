@@ -73,7 +73,7 @@ enum InteractionKind {
     Stop,
 }
 
-impl<S: WithMaterialInfo> InteractionHandler<S> {
+impl<S> InteractionHandler<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             interaction: None,
@@ -112,7 +112,10 @@ impl<S: WithMaterialInfo> InteractionHandler<S> {
     ///
     /// MIDI:
     /// - Installs some stop interaction reset messages.
-    pub fn start_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()> {
+    pub fn start_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()>
+    where
+        S: WithMaterialInfo,
+    {
         self.install_immediate_interaction(InteractionKind::Start, current_frame)
     }
 
@@ -124,7 +127,10 @@ impl<S: WithMaterialInfo> InteractionHandler<S> {
     ///
     /// MIDI:
     /// - Installs some stop interaction reset messages.
-    pub fn stop_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()> {
+    pub fn stop_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()>
+    where
+        S: WithMaterialInfo,
+    {
         self.install_immediate_interaction(InteractionKind::Stop, current_frame)
     }
 
@@ -144,7 +150,10 @@ impl<S: WithMaterialInfo> InteractionHandler<S> {
         &mut self,
         kind: InteractionKind,
         current_frame: isize,
-    ) -> ClipEngineResult<()> {
+    ) -> ClipEngineResult<()>
+    where
+        S: WithMaterialInfo,
+    {
         let is_midi = self.material_info()?.is_midi();
         let new_interaction = Interaction::immediate(kind, current_frame, is_midi);
         let new_interaction = if is_midi {
@@ -188,6 +197,20 @@ impl<S: WithMaterialInfo> InteractionHandler<S> {
         let fixed_interaction =
             Interaction::new(new_interaction.kind, new_interaction.frame + adjustment);
         Some(fixed_interaction)
+    }
+
+    fn silence_midi_at_stop_interaction(&mut self, event_list: &mut BorrowedMidiEventList)
+    where
+        S: MidiSupplier,
+    {
+        debug!("Silence MIDI at stop interaction");
+        midi_util::silence_midi(
+            event_list,
+            self.midi_reset_msg_range.right,
+            SilenceMidiBlockMode::Append,
+            &mut self.supplier,
+        );
+        self.interaction = None;
     }
 }
 
@@ -311,9 +334,10 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
             Stop => {
                 let distance_to_interaction = interaction.frame - request.start_frame;
                 if distance_to_interaction <= 0 {
-                    // Exceeded end. Shouldn't usually happen because playback is continuous, but
-                    // let's handle this gracefully.
-                    self.interaction = None;
+                    // Exceeded end.
+                    // Usually this is caused by an instant stop interaction. In this case, the
+                    // distance is exactly 0.
+                    self.silence_midi_at_stop_interaction(event_list);
                     return SupplyResponse::exceeded_end();
                 }
                 // This logic assumes that the destination frame rate is comparable to the
@@ -344,14 +368,7 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                             inner_response
                         } else {
                             // Time to reset. Also, we can uninstall the interaction.
-                            debug!("Silence MIDI at stop interaction");
-                            midi_util::silence_midi(
-                                event_list,
-                                self.midi_reset_msg_range.right,
-                                SilenceMidiBlockMode::Append,
-                                &mut self.supplier,
-                            );
-                            self.interaction = None;
+                            self.silence_midi_at_stop_interaction(event_list);
                             SupplyResponse::reached_end(
                                 inner_response.num_frames_consumed,
                                 num_frames_to_write,
