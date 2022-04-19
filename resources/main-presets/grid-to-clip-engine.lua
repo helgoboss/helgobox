@@ -85,22 +85,42 @@ local row_count = 8
 
 -- Common functions
 
-function merged(t1, t2)
+-- Clones a table.
+function clone(t)
     local new_table = {}
-    for k, v in pairs(t1) do
-        new_table[k] = v
-    end
-    for k, v in pairs(t2) do
+    for k, v in pairs(t) do
         new_table[k] = v
     end
     return new_table
 end
 
+-- Returns a new table that is the result of merging t2 into t1.
+--
+-- Values in t2 have precedence.
+--
+-- The result will be mergeable as well. This is good for "modifier chaining".
+function merged(t1, t2)
+    local result = clone(t1)
+    for key, new_value in pairs(t2) do
+        local old_value = result[key]
+        if old_value and type(old_value) == "table" and type(new_value) == "table" then
+            -- Merge table value as well
+            result[key] = merged(old_value, new_value)
+        else
+            -- Simple use new value
+            result[key] = new_value
+        end
+    end
+    return make_mergeable(result)
+end
+
+-- Makes it possible to merge this table with another one via "+" operator.
 function make_mergeable(t)
     local metatable = {
         __add = merged
     }
     setmetatable(t, metatable)
+    return t
 end
 
 -- Device-specific resolutions
@@ -116,7 +136,7 @@ function button(id)
 end
 
 function shift_pressed(state)
-    local partial_mapping = {
+    return {
         activation_condition = {
             kind = "Modifier",
             modifiers = {
@@ -127,12 +147,54 @@ function shift_pressed(state)
             },
         },
     }
-    make_mergeable(partial_mapping)
-    return partial_mapping
 end
 
-local shift = shift_pressed(true)
-local not_shift = shift_pressed(false)
+function fire_after_timeout(millis)
+    return {
+        glue = {
+            fire_mode = {
+                kind = "AfterTimeout",
+                timeout = millis,
+            },
+        },
+    }
+end
+
+function fire_on_single_press()
+    return {
+        glue = {
+            fire_mode = {
+                kind = "OnSinglePress",
+            },
+        },
+    }
+end
+
+function fire_on_double_press()
+    return {
+        glue = {
+            fire_mode = {
+                kind = "OnDoublePress",
+            },
+        },
+    }
+end
+
+function slot_mode_is(slot_mode_index)
+    return {
+        activation_condition = {
+            kind = "Bank",
+            parameter = 3,
+            bank_index = slot_mode_index,
+        },
+    }
+end
+
+local shift = make_mergeable(shift_pressed(true))
+local not_shift = make_mergeable(shift_pressed(false))
+local long_press = make_mergeable(fire_after_timeout(1000))
+local single_press = make_mergeable(fire_on_single_press())
+local double_press = make_mergeable(fire_on_double_press())
 
 local device_specific = {
     generic = {
@@ -149,7 +211,12 @@ local device_specific = {
         record_arm = button("record-arm"),
         mute = button("mute"),
         track_select = button("track-select"),
-        normal_function = {},
+        column_normal_condition = {},
+        slot_normal_condition = slot_mode_is(0),
+        slot_delete_condition = slot_mode_is(1),
+        slot_quantize_condition = slot_mode_is(2),
+        undo = button("undo"),
+        redo = button("redo"),
     },
     apc_key_25 = {
         cursor_up = shift + button("col1/stop"),
@@ -165,7 +232,12 @@ local device_specific = {
         record_arm = button("row3/play"),
         mute = button("row4/play"),
         track_select = button("row5/play"),
-        normal_function = not_shift,
+        column_normal_condition = not_shift,
+        slot_normal_condition = not_shift,
+        slot_delete_condition = shift + long_press,
+        slot_quantize_condition = shift + double_press,
+        undo = nil,
+        redo = nil,
     },
 }
 
@@ -413,38 +485,14 @@ local groups = {
     {
         id = "slot-play",
         name = "Slot play",
-        activation_condition = {
-            kind = "Bank",
-            parameter = 3,
-            bank_index = 0,
-        },
-    },
-    {
-        id = "slot-record",
-        name = "Slot record",
-        activation_condition = {
-            kind = "Bank",
-            parameter = 3,
-            bank_index = 1,
-        },
     },
     {
         id = "slot-clear",
         name = "Slot clear",
-        activation_condition = {
-            kind = "Bank",
-            parameter = 3,
-            bank_index = 2,
-        },
     },
     {
         id = "slot-quantize",
         name = "Slot quantize",
-        activation_condition = {
-            kind = "Bank",
-            parameter = 3,
-            bank_index = 3,
-        },
     },
     {
         id = "column-stop",
@@ -538,7 +586,7 @@ for col = 0, column_count - 1 do
         expression = "p[0] + " .. col,
     }
     -- Column button
-    local column_stop_mapping = device_specific[device].normal_function + {
+    local column_stop_mapping = device_specific[device].column_normal_condition + {
         name = "Column " .. human_col .. " stop",
         group = "column-stop",
         source = {
@@ -555,7 +603,7 @@ for col = 0, column_count - 1 do
     table.insert(mappings, column_stop_mapping)
     for _, mode in ipairs(column_modes) do
         if mode.track_target then
-            local mapping = device_specific[device].normal_function + {
+            local mapping = device_specific[device].column_normal_condition + {
                 name = "Column " .. human_col .. " " .. mode.id,
                 group = "column-" .. mode.id,
                 source = {
@@ -611,7 +659,7 @@ for col = 0, column_count - 1 do
         local prefix = "col" .. human_col .. "/row" .. human_row .. "/"
         local slot_column_expression = "p[0] + " .. col
         local slot_row_expression = "p[1] + " .. row
-        local slot_play = {
+        local slot_play = device_specific[device].slot_normal_condition + {
             id = prefix .. "slot-play",
             name = "Slot " .. human_col .. "/" .. human_row .. " play",
             group = "slot-play",
@@ -662,7 +710,7 @@ for col = 0, column_count - 1 do
                 action = "PlayStop",
             },
         }
-        local slot_clear = {
+        local slot_clear = device_specific[device].slot_delete_condition + {
             id = prefix .. "slot-clear",
             name = "Slot " .. human_col .. "/" .. human_row .. " clear",
             group = "slot-clear",
@@ -684,7 +732,7 @@ for col = 0, column_count - 1 do
                 },
             },
         }
-        local slot_quantize = {
+        local slot_quantize = device_specific[device].slot_quantize_condition + {
             id = prefix .. "slot-quantize",
             name = "Slot " .. human_col .. "/" .. human_row .. " quantize",
             group = "slot-quantize",
