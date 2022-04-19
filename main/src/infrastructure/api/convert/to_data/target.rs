@@ -649,6 +649,13 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_column_action: d.action,
             ..init(d.commons)
         },
+        Target::ClipRowAction(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::ClipRow,
+            clip_row: d.row,
+            clip_row_action: d.action,
+            ..init(d.commons)
+        },
         Target::ClipSeek(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipSeek,

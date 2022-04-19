@@ -24,7 +24,8 @@ use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
 use realearn_api::schema::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
-    ClipMatrixAction, ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
+    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
+    MonitoringMode,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -166,6 +167,9 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_column: ClipColumnDescriptor,
+    /// New since ReaLearn v2.13.0-pre.4
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_row: ClipRowDescriptor,
     /// New since ReaLearn v2.13.0-pre.4.
     ///
     /// Migrated from `transport_action` if not given.
@@ -174,6 +178,9 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_column_action: ClipColumnAction,
+    /// New since ReaLearn v2.13.0-pre.4.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_row_action: ClipRowAction,
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(default, skip_serializing_if = "is_default")]
     pub clip_matrix_action: ClipMatrixAction,
@@ -257,8 +264,10 @@ impl TargetModelData {
             active_mappings_only: model.active_mappings_only(),
             clip_slot: Some(model.clip_slot().clone()),
             clip_column: track_selector_clip_column.unwrap_or_else(|| model.clip_column().clone()),
+            clip_row: model.clip_row().clone(),
             clip_transport_action: Some(model.clip_transport_action()),
             clip_column_action: model.clip_column_action(),
+            clip_row_action: model.clip_row_action(),
             clip_matrix_action: model.clip_matrix_action(),
             record_only_if_track_armed: model.record_only_if_track_armed(),
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
@@ -447,6 +456,7 @@ impl TargetModelData {
             });
         model.change(C::SetClipSlot(slot_descriptor));
         model.change(C::SetClipColumn(self.clip_column.clone()));
+        model.change(C::SetClipRow(self.clip_row.clone()));
         model.change(C::SetClipManagementAction(self.clip_management_action));
         let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
             use ClipTransportAction as T;
@@ -462,6 +472,7 @@ impl TargetModelData {
         });
         model.change(C::SetClipTransportAction(clip_transport_action));
         model.change(C::SetClipColumnAction(self.clip_column_action));
+        model.change(C::SetClipRowAction(self.clip_row_action));
         model.change(C::SetClipMatrixAction(self.clip_matrix_action));
         model.change(C::SetRecordOnlyIfTrackArmed(
             self.record_only_if_track_armed,

@@ -29,17 +29,17 @@ use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOnlineTarget,
-    FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
+    ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
+    FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
     GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
     MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
-    RealTimeClipMatrixTarget, RealTimeClipTransportTarget, RealTimeControlContext,
-    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget,
+    TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
+    TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -129,6 +129,7 @@ pub enum ReaperTarget {
     ClipMatrix(ClipMatrixTarget),
     ClipTransport(ClipTransportTarget),
     ClipColumn(ClipColumnTarget),
+    ClipRow(ClipRowTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
     ClipManagement(ClipManagementTarget),
@@ -609,6 +610,7 @@ impl<'a> Target<'a> for ReaperTarget {
             Seek(t) => t.current_value(context),
             ClipTransport(t) => t.current_value(context),
             ClipColumn(t) => t.current_value(context),
+            ClipRow(t) => t.current_value(context),
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
             ClipManagement(t) => t.current_value(context),
@@ -639,6 +641,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // more complex logic). So the target itself should support toggle play/stop etc.
             ClipTransport(t) => t.current_value(ctx),
             ClipColumn(t) => t.current_value(ctx),
+            ClipRow(t) => t.current_value(ctx),
             ClipMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
@@ -650,6 +653,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             SendMidi(t) => t.control_type(()),
             ClipTransport(t) => t.control_type(ctx),
             ClipColumn(t) => t.control_type(ctx),
+            ClipRow(t) => t.control_type(ctx),
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
         }
@@ -1341,6 +1345,7 @@ pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
     ClipTransport(RealTimeClipTransportTarget),
     ClipColumn(RealTimeClipColumnTarget),
+    ClipRow(RealTimeClipRowTarget),
     ClipMatrix(RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
 }

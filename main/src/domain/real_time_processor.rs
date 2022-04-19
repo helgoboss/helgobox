@@ -1511,6 +1511,9 @@ fn process_real_mapping(
             RealTimeReaperTarget::ClipColumn(t) => {
                 return t.hit(control_value, control_context);
             }
+            RealTimeReaperTarget::ClipRow(t) => {
+                return t.hit(control_value, control_context);
+            }
             RealTimeReaperTarget::ClipMatrix(t) => {
                 return t.hit(control_value, control_context);
             }

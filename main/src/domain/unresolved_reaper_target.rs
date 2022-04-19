@@ -5,12 +5,12 @@ use crate::domain::{
     FeedbackResolution, MappingCompartment, ReaperTarget, UnresolvedActionTarget,
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipSeekTarget,
-    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
+    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
@@ -88,7 +88,8 @@ pub enum UnresolvedReaperTarget {
     SendMidi(UnresolvedMidiSendTarget),
     SendOsc(UnresolvedOscSendTarget),
     ClipTransport(UnresolvedClipTransportTarget),
-    ClipColumnTranposrt(UnresolvedClipColumnTarget),
+    ClipColumn(UnresolvedClipColumnTarget),
+    ClipRow(UnresolvedClipRowTarget),
     ClipSeek(UnresolvedClipSeekTarget),
     ClipVolume(UnresolvedClipVolumeTarget),
     ClipManagement(UnresolvedClipManagementTarget),
@@ -534,6 +535,45 @@ impl VirtualClipColumn {
             })?;
         if !column_exists {
             return Err("column doesn't exist");
+        }
+        Ok(index)
+    }
+}
+
+#[derive(Debug)]
+pub enum VirtualClipRow {
+    Selected,
+    ByIndex(usize),
+    Dynamic(Box<ExpressionEvaluator>),
+}
+
+impl Default for VirtualClipRow {
+    fn default() -> Self {
+        Self::Selected
+    }
+}
+
+impl VirtualClipRow {
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<usize, &'static str> {
+        use VirtualClipRow::*;
+        let index = match self {
+            Selected => return Err("the concept of a selected row is not yet supported"),
+            ByIndex(index) => *index,
+            Dynamic(evaluator) => {
+                let compartment_params = context.params().compartment_params(compartment);
+                to_slot_coordinate(evaluator.evaluate(compartment_params))?
+            }
+        };
+        let row_exists = BackboneState::get()
+            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
+                index < matrix.row_count()
+            })?;
+        if !row_exists {
+            return Err("row doesn't exist");
         }
         Ok(index)
     }

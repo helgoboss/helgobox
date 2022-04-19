@@ -235,6 +235,10 @@ impl Matrix {
         Ok(())
     }
 
+    pub fn play_row(&self, index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
     fn timeline(&self) -> HybridTimeline {
         clip_timeline(self.project, false)
     }

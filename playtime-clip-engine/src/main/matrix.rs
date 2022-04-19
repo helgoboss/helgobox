@@ -359,6 +359,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    pub fn play_row(&self, index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, index)?;

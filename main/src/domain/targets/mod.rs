@@ -10,6 +10,9 @@ pub use clip_transport_target::*;
 mod clip_column_target;
 pub use clip_column_target::*;
 
+mod clip_row_target;
+pub use clip_row_target::*;
+
 mod clip_matrix_target;
 pub use clip_matrix_target::*;
 

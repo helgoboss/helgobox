@@ -25,12 +25,13 @@ use crate::domain::{
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipSeekTarget,
-    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget,
-    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
-    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
+    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
@@ -42,7 +43,7 @@ use crate::domain::{
     UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
     UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
     UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
-    VirtualChainFx, VirtualClipColumn, VirtualClipSlot, VirtualControlElement,
+    VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
     VirtualTrackRoute,
 };
@@ -53,7 +54,8 @@ use std::error::Error;
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
-    ClipMatrixAction, ClipSlotDescriptor, ClipTransportAction, MonitoringMode,
+    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
+    MonitoringMode,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -126,10 +128,12 @@ pub enum TargetCommand {
     SetOscDevId(Option<OscDeviceId>),
     SetClipSlot(ClipSlotDescriptor),
     SetClipColumn(ClipColumnDescriptor),
+    SetClipRow(ClipRowDescriptor),
     SetClipManagementAction(ClipManagementAction),
     SetClipTransportAction(ClipTransportAction),
     SetClipMatrixAction(ClipMatrixAction),
     SetClipColumnAction(ClipColumnAction),
+    SetClipRowAction(ClipRowAction),
     SetRecordOnlyIfTrackArmed(bool),
     SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
@@ -205,10 +209,12 @@ pub enum TargetProp {
     OscDevId,
     ClipSlot,
     ClipColumn,
+    ClipRow,
     ClipManagementAction,
     ClipTransportAction,
     ClipMatrixAction,
     ClipColumnAction,
+    ClipRowAction,
     RecordOnlyIfTrackArmed,
     StopColumnIfSlotEmpty,
     PollForFeedback,
@@ -494,6 +500,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_column = c;
                 One(P::ClipColumn)
             }
+            C::SetClipRow(r) => {
+                self.clip_row = r;
+                One(P::ClipRow)
+            }
             C::SetClipManagementAction(v) => {
                 self.clip_management_action = v;
                 One(P::ClipManagementAction)
@@ -509,6 +519,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetClipColumnAction(v) => {
                 self.clip_column_action = v;
                 One(P::ClipColumnAction)
+            }
+            C::SetClipRowAction(v) => {
+                self.clip_row_action = v;
+                One(P::ClipRowAction)
             }
             C::SetRecordOnlyIfTrackArmed(v) => {
                 self.record_only_if_track_armed = v;
@@ -619,10 +633,12 @@ pub struct TargetModel {
     // # For clip targets
     clip_slot: ClipSlotDescriptor,
     clip_column: ClipColumnDescriptor,
+    clip_row: ClipRowDescriptor,
     clip_management_action: ClipManagementAction,
     clip_transport_action: ClipTransportAction,
     clip_matrix_action: ClipMatrixAction,
     clip_column_action: ClipColumnAction,
+    clip_row_action: ClipRowAction,
     record_only_if_track_armed: bool,
     stop_column_if_slot_empty: bool,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
@@ -705,6 +721,7 @@ impl Default for TargetModel {
             active_mappings_only: false,
             clip_slot: Default::default(),
             clip_column: Default::default(),
+            clip_row: Default::default(),
             clip_management_action: Default::default(),
             clip_transport_action: Default::default(),
             clip_column_action: Default::default(),
@@ -712,6 +729,7 @@ impl Default for TargetModel {
             record_only_if_track_armed: false,
             stop_column_if_slot_empty: false,
             clip_column_track_context: Default::default(),
+            clip_row_action: Default::default(),
         }
     }
 }
@@ -1677,11 +1695,27 @@ impl TargetModel {
                 expression: index_expression,
             } => {
                 let index_evaluator = ExpressionEvaluator::compile(index_expression)
-                    .map_err(|_| "couldn't evaluate index")?;
+                    .map_err(|_| "couldn't evaluate column index")?;
                 VirtualClipColumn::Dynamic(Box::new(index_evaluator))
             }
         };
         Ok(column)
+    }
+
+    fn virtual_clip_row(&self) -> Result<VirtualClipRow, &'static str> {
+        use ClipRowDescriptor::*;
+        let row = match &self.clip_row {
+            Selected => VirtualClipRow::Selected,
+            ByIndex { index } => VirtualClipRow::ByIndex(*index),
+            Dynamic {
+                expression: index_expression,
+            } => {
+                let index_evaluator = ExpressionEvaluator::compile(index_expression)
+                    .map_err(|_| "couldn't evaluate row index")?;
+                VirtualClipRow::Dynamic(Box::new(index_evaluator))
+            }
+        };
+        Ok(row)
     }
 
     pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
@@ -1957,12 +1991,14 @@ impl TargetModel {
                             options: self.clip_transport_options(),
                         })
                     }
-                    ClipColumn => {
-                        UnresolvedReaperTarget::ClipColumnTranposrt(UnresolvedClipColumnTarget {
-                            column: self.virtual_clip_column()?,
-                            action: self.clip_column_action,
-                        })
-                    }
+                    ClipColumn => UnresolvedReaperTarget::ClipColumn(UnresolvedClipColumnTarget {
+                        column: self.virtual_clip_column()?,
+                        action: self.clip_column_action,
+                    }),
+                    ClipRow => UnresolvedReaperTarget::ClipRow(UnresolvedClipRowTarget {
+                        row: self.virtual_clip_row()?,
+                        action: self.clip_row_action,
+                    }),
                     ClipSeek => UnresolvedReaperTarget::ClipSeek(UnresolvedClipSeekTarget {
                         slot: self.virtual_clip_slot()?,
                         feedback_resolution: self.feedback_resolution,
@@ -2032,6 +2068,10 @@ impl TargetModel {
         &self.clip_column
     }
 
+    pub fn clip_row(&self) -> &ClipRowDescriptor {
+        &self.clip_row
+    }
+
     pub fn clip_transport_action(&self) -> ClipTransportAction {
         self.clip_transport_action
     }
@@ -2042,6 +2082,10 @@ impl TargetModel {
 
     pub fn clip_column_action(&self) -> ClipColumnAction {
         self.clip_column_action
+    }
+
+    pub fn clip_row_action(&self) -> ClipRowAction {
+        self.clip_row_action
     }
 
     pub fn record_only_if_track_armed(&self) -> bool {

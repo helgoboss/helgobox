@@ -51,6 +51,7 @@ pub enum Target {
     RouteTouchState(RouteTouchStateTarget),
     ClipTransportAction(ClipTransportActionTarget),
     ClipColumnAction(ClipColumnTarget),
+    ClipRowAction(ClipRowTarget),
     ClipMatrixAction(ClipMatrixTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
@@ -530,6 +531,15 @@ pub struct ClipColumnTarget {
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct ClipRowTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub row: ClipRowDescriptor,
+    pub action: ClipRowAction,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ClipMatrixTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -805,6 +815,32 @@ pub enum ClipColumnAction {
 impl Default for ClipColumnAction {
     fn default() -> Self {
         Self::Stop
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    JsonSchema,
+)]
+#[repr(usize)]
+pub enum ClipRowAction {
+    #[display(fmt = "Play")]
+    Play,
+}
+
+impl Default for ClipRowAction {
+    fn default() -> Self {
+        Self::Play
     }
 }
 
@@ -1233,6 +1269,20 @@ pub enum ClipColumnDescriptor {
 }
 
 impl Default for ClipColumnDescriptor {
+    fn default() -> Self {
+        Self::Selected
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "address")]
+pub enum ClipRowDescriptor {
+    Selected,
+    ByIndex { index: usize },
+    Dynamic { expression: String },
+}
+
+impl Default for ClipRowDescriptor {
     fn default() -> Self {
         Self::Selected
     }
