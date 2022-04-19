@@ -218,10 +218,13 @@ impl Column {
                     mirror_source,
                 } => {
                     if let Some(slot) = self.slots.get_mut(slot_index) {
-                        slot.notify_midi_overdub_finished(mirror_source, self.project)
+                        let event = slot
+                            .notify_midi_overdub_finished(mirror_source, self.project)
                             .unwrap();
+                        Some((slot_index, event))
+                    } else {
+                        None
                     }
-                    None
                 }
                 NormalRecordingFinished {
                     slot_index,
@@ -231,7 +234,7 @@ impl Column {
                         let event = slot
                             .notify_normal_recording_finished(outcome, self.project)
                             .unwrap();
-                        event.map(|e| (slot_index, e))
+                        Some((slot_index, event))
                     } else {
                         None
                     }

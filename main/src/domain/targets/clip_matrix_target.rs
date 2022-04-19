@@ -47,20 +47,26 @@ impl RealearnTarget for ClipMatrixTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        match self.action {
-            ClipMatrixAction::Stop => {
+        BackboneState::get().with_clip_matrix_mut(
+            context.control_context.instance_state,
+            |matrix| {
                 if !value.is_on() {
                     return Ok(None);
                 }
-                BackboneState::get().with_clip_matrix_mut(
-                    context.control_context.instance_state,
-                    |matrix| {
+                match self.action {
+                    ClipMatrixAction::Stop => {
                         matrix.stop();
-                        Ok(None)
-                    },
-                )?
-            }
-        }
+                    }
+                    ClipMatrixAction::Undo => {
+                        let _ = matrix.undo();
+                    }
+                    ClipMatrixAction::Redo => {
+                        let _ = matrix.redo();
+                    }
+                }
+                Ok(None)
+            },
+        )?
     }
 
     fn process_change_event(
@@ -78,6 +84,10 @@ impl RealearnTarget for ClipMatrixTarget {
                     ClipChangedEvent::Removed => (true, None),
                     _ => (false, None),
                 },
+                _ => (false, None),
+            },
+            ClipMatrixAction::Undo | ClipMatrixAction::Redo => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 _ => (false, None),
             },
         }
@@ -111,11 +121,13 @@ impl<'a> Target<'a> for ClipMatrixTarget {
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         BackboneState::get()
-            .with_clip_matrix(context.instance_state, |matrix| match self.action {
-                ClipMatrixAction::Stop => {
-                    let is_stoppable = matrix.is_stoppable();
-                    Some(AbsoluteValue::from_bool(is_stoppable))
-                }
+            .with_clip_matrix(context.instance_state, |matrix| {
+                let bool_value = match self.action {
+                    ClipMatrixAction::Stop => matrix.is_stoppable(),
+                    ClipMatrixAction::Undo => matrix.can_undo(),
+                    ClipMatrixAction::Redo => matrix.can_redo(),
+                };
+                Some(AbsoluteValue::from_bool(bool_value))
             })
             .ok()?
     }
@@ -146,6 +158,7 @@ impl RealTimeClipMatrixTarget {
                 matrix.stop();
                 Ok(())
             }
+            _ => Err("only matrix stop has real-time target support"),
         }
     }
 }
@@ -161,6 +174,7 @@ impl<'a> Target<'a> for RealTimeClipMatrixTarget {
                 let is_stoppable = matrix.is_stoppable();
                 Some(AbsoluteValue::from_bool(is_stoppable))
             }
+            _ => None,
         }
     }
 
@@ -178,7 +192,7 @@ pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
 fn control_type_and_character(action: ClipMatrixAction) -> (ControlType, TargetCharacter) {
     use ClipMatrixAction::*;
     match action {
-        Stop => (
+        Stop | Undo | Redo => (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),

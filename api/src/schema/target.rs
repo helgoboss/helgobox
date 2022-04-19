@@ -826,6 +826,10 @@ impl Default for ClipColumnAction {
 pub enum ClipMatrixAction {
     #[display(fmt = "Stop")]
     Stop,
+    #[display(fmt = "Undo")]
+    Undo,
+    #[display(fmt = "Redo")]
+    Redo,
 }
 
 impl Default for ClipMatrixAction {

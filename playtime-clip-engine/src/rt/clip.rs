@@ -1623,6 +1623,7 @@ pub enum ClipChangedEvent {
     ClipLooped(bool),
     ClipPosition(UnitValue),
     Removed,
+    RecordingFinished,
 }
 
 #[derive(Debug)]

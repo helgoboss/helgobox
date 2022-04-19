@@ -1,3 +1,4 @@
+use crate::main::history::History;
 use crate::main::row::Row;
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
@@ -7,8 +8,8 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnStopArgs,
-    ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangedEvent,
+    ClipChangedEvent, ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions,
+    ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangedEvent,
     RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
@@ -39,6 +40,7 @@ pub struct Matrix<H> {
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::MatrixCommand>,
+    history: History,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
 }
@@ -140,6 +142,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             containing_track,
             command_receiver: main_command_receiver,
             rt_command_sender,
+            history: History::default(),
             _worker_pool: worker_pool,
         }
     }
@@ -149,6 +152,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+        self.load_internal(api_matrix)?;
+        self.history.clear();
+        Ok(())
+    }
+
+    // TODO-medium We might be able to improve that to take API matrix by reference. This would
+    //  slightly benefit undo/redo performance.
+    fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         self.clear_columns();
         let permanent_project = self.permanent_project();
         // Main settings
@@ -221,10 +232,39 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.containing_track.as_ref().map(|t| t.project())
     }
 
-    pub fn clear_columns(&mut self) {
+    fn clear_columns(&mut self) {
         // TODO-medium How about suspension?
         self.columns.clear();
         self.rt_command_sender.clear_columns();
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.history.can_undo()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.history.can_redo()
+    }
+
+    pub fn undo(&mut self) -> ClipEngineResult<()> {
+        let api_matrix = self.history.undo()?.clone();
+        self.load_internal(api_matrix)?;
+        Ok(())
+    }
+
+    pub fn redo(&mut self) -> ClipEngineResult<()> {
+        let api_matrix = self.history.redo()?.clone();
+        self.load_internal(api_matrix)?;
+        Ok(())
+    }
+
+    fn undoable<R>(&mut self, label: impl Into<String>, f: impl FnOnce(&mut Self) -> R) -> R {
+        let owned_label = label.into();
+        self.history
+            .add(format!("Before {}", owned_label), self.save());
+        let result = f(self);
+        self.history.add(owned_label, self.save());
+        result
     }
 
     /// Definitely returns a slot as long as it is within the current matrix bounds (even if empty).
@@ -236,7 +276,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         column.slot(coordinates.row(), row_count)
     }
 
-    pub fn clear_slot(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn clear_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        // The undo point after clip removal is created later, in response to the upcoming event
+        // that indicates that the slot has actually been cleared.
+        self.history
+            .add("Before clip removal".to_owned(), self.save());
         let column = get_column(&self.columns, coordinates.column)?;
         column.clear_slot(coordinates.row);
         Ok(())
@@ -264,13 +308,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         &mut self,
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
-        column.fill_slot_with_selected_item(
-            coordinates.row,
-            &self.chain_equipment,
-            &self.recorder_request_sender,
-            &self.settings,
-        )
+        self.undoable("Fill slot", |matrix| {
+            let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
+            column.fill_slot_with_selected_item(
+                coordinates.row,
+                &matrix.chain_equipment,
+                &matrix.recorder_request_sender,
+                &matrix.settings,
+            )
+        })
     }
 
     pub fn play_clip(
@@ -339,7 +385,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
         self.process_commands();
-        self.columns
+        let events: Vec<_> = self
+            .columns
             .iter_mut()
             .enumerate()
             .flat_map(|(column_index, column)| {
@@ -353,18 +400,31 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         })
                     })
             })
-            .collect()
+            .collect();
+        let undo_point_label = if events.iter().any(|evt| evt.is_clip_removal()) {
+            Some("Clip removed")
+        } else if events.iter().any(|evt| evt.is_clip_recording_finished()) {
+            Some("Clip recorded")
+        } else {
+            None
+        };
+        if let Some(l) = undo_point_label {
+            self.history.add(l.into(), self.save());
+        }
+        events
     }
 
     pub fn toggle_looped(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        let event = get_column_mut(&mut self.columns, coordinates.column())?
-            .toggle_clip_looped(coordinates.row())?;
-        let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
-            slot_coordinates: coordinates,
-            event,
-        });
-        self.handler.emit_event(event);
-        Ok(())
+        self.undoable("Toggle looped", |matrix| {
+            let event = get_column_mut(&mut matrix.columns, coordinates.column())?
+                .toggle_clip_looped(coordinates.row())?;
+            let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
+                slot_coordinates: coordinates,
+                event,
+            });
+            matrix.handler.emit_event(event);
+            Ok(())
+        })
     }
 
     pub fn clip_position_in_seconds(
@@ -426,6 +486,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn record_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        self.history
+            .add("Before clip recording".into(), self.save());
         get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
             &self.settings.clip_record_settings,
@@ -601,6 +663,28 @@ pub trait ClipMatrixHandler {
 pub enum ClipMatrixEvent {
     AllClipsChanged,
     ClipChanged(QualifiedClipChangedEvent),
+}
+
+impl ClipMatrixEvent {
+    pub fn is_clip_removal(&self) -> bool {
+        matches!(
+            self,
+            Self::ClipChanged(QualifiedClipChangedEvent {
+                event: ClipChangedEvent::Removed,
+                ..
+            })
+        )
+    }
+
+    pub fn is_clip_recording_finished(&self) -> bool {
+        matches!(
+            self,
+            Self::ClipChanged(QualifiedClipChangedEvent {
+                event: ClipChangedEvent::RecordingFinished,
+                ..
+            })
+        )
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

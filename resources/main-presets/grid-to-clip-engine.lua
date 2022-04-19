@@ -217,6 +217,8 @@ local device_specific = {
         slot_quantize_condition = slot_mode_is(2),
         undo = button("undo"),
         redo = button("redo"),
+        play = button("play"),
+        rec = button("record"),
     },
     apc_key_25 = {
         cursor_up = shift + button("col1/stop"),
@@ -236,8 +238,10 @@ local device_specific = {
         slot_normal_condition = not_shift,
         slot_delete_condition = shift + long_press,
         slot_quantize_condition = shift + double_press,
-        undo = nil,
-        redo = nil,
+        undo = shift + button("play"),
+        redo = shift + button("record"),
+        play = not_shift + button("play"),
+        rec = not_shift + button("record"),
     },
 }
 
@@ -262,13 +266,8 @@ local mappings = {
             action = "Stop",
         },
     },
-    {
+    device_specific[device].play + {
         name = "Play arrangement",
-        source = {
-            kind = "Virtual",
-            id = "play",
-            character = "Button",
-        },
         glue = {
             absolute_mode = "ToggleButton",
         },
@@ -348,6 +347,20 @@ local mappings = {
                 address = "ById",
                 index = 2,
             },
+        },
+    },
+    device_specific[device].undo + {
+        name = "Undo",
+        target = {
+            kind = "ClipMatrixAction",
+            action = "Undo",
+        },
+    },
+    device_specific[device].redo + {
+        name = "Redo",
+        target = {
+            kind = "ClipMatrixAction",
+            action = "Redo",
         },
     },
 }

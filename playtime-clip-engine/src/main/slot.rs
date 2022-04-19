@@ -581,11 +581,12 @@ impl Slot {
         &mut self,
         mirror_source: ClipSource,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<()> {
+    ) -> ClipEngineResult<ClipChangedEvent> {
         self.remove_temporary_route();
         get_content_mut(&mut self.content)?
             .clip
-            .notify_midi_overdub_finished(&mirror_source, temporary_project)
+            .notify_midi_overdub_finished(&mirror_source, temporary_project)?;
+        Ok(ClipChangedEvent::RecordingFinished)
     }
 
     pub fn slot_cleared(&mut self) -> Option<ClipChangedEvent> {
@@ -596,7 +597,7 @@ impl Slot {
         &mut self,
         outcome: NormalRecordingOutcome,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<Option<ClipChangedEvent>> {
+    ) -> ClipEngineResult<ClipChangedEvent> {
         self.remove_temporary_route();
         match outcome {
             NormalRecordingOutcome::Committed(recording) => match mem::take(&mut self.state) {
@@ -619,13 +620,13 @@ impl Slot {
                     };
                     self.content = Some(content);
                     self.state = SlotState::Normal;
-                    Ok(None)
+                    Ok(ClipChangedEvent::RecordingFinished)
                 }
             },
             NormalRecordingOutcome::Canceled => {
                 debug!("Recording canceled");
                 self.state = SlotState::Normal;
-                Ok(Some(ClipChangedEvent::Removed))
+                Ok(ClipChangedEvent::Removed)
             }
         }
     }
