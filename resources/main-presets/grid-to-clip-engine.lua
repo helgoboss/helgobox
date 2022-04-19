@@ -1,8 +1,8 @@
 -- ### Configuration ###
 
 -- Device type
---local device = "generic"
-local device = "apc_key_25"
+local device = "generic"
+--local device = "apc_key_25"
 --local device = "launchpad_pro_mk2"
 
 -- Slot modes
