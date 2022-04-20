@@ -34,16 +34,16 @@ end
 -- Modes
 
 local modes = {
-    -- Record/play/stop clips (push)
-    -- Set clip volume (turn)
+    -- OK Record/play/stop clips (push)
+    -- OK Set clip volume (turn)
     normal = {
         index = 0,
         label = "Normal",
     },
-    -- Undo/redo
+    -- OK Undo/redo
     -- OK Stop all
-    -- Play
-    -- Click
+    -- OK Play
+    -- OK Click
     -- Cycle through normal mode knob functions (vol, pan, send)
     global = {
         index = 1,
@@ -56,15 +56,15 @@ local modes = {
         label = "Column track functions",
         button = "cursor-left",
     },
-    -- Delete clip (long press)
-    -- Quantize clip (double press)
+    -- OK Delete clip (long press)
+    -- OK Quantize clip (double press)
     slot = {
         index = 3,
         label = "Slot functions",
         button = "ch-left",
     },
-    -- Scroll horizontally
-    -- Scroll vertically
+    -- OK Scroll horizontally
+    -- OK Scroll vertically
     global_nav = {
         index = 4,
         label = "Global navigation functions",
@@ -107,17 +107,17 @@ function mode_is(mode_index)
     }
 end
 
-function mode_is_normal_or_global_nav()
+function display_slot_feedback_condition()
     return {
         kind = "Expression",
-        condition = "p[2] == 0 || p[2] == 4",
+        condition = "p[2] == 0 || p[2] == 4 || p[2] == 3",
     }
 end
 
 local groups = {
     slot_state_feedback = {
         name = "Slot state feedback",
-        activation_condition = mode_is_normal_or_global_nav(),
+        activation_condition = display_slot_feedback_condition(),
     },
     clip_play = {
         name = "Clip play",
@@ -129,7 +129,7 @@ local groups = {
     },
     clip_pos_feedback = {
         name = "Clip position feedback",
-        activation_condition = mode_is_normal_or_global_nav(),
+        activation_condition = display_slot_feedback_condition(),
     },
     global = {
         name = "Global functions",
@@ -168,6 +168,14 @@ function create_row_expression(row)
     return create_coordinate_expression(params.row_offset.index, row)
 end
 
+function create_slot_selector(col, row)
+    return {
+        address = "Dynamic",
+        column_expression = create_col_expression(col),
+        row_expression = create_row_expression(row)
+    }
+end
+
 function clip_play(col, row)
     return {
         group = groups.clip_play.id,
@@ -182,11 +190,7 @@ function clip_play(col, row)
         },
         target = {
             kind = "ClipTransportAction",
-            slot = {
-                address = "Dynamic",
-                column_expression = create_col_expression(col),
-                row_expression = create_row_expression(row)
-            },
+            slot = create_slot_selector(col, row),
             action = "RecordPlayStop",
             record_only_if_track_armed = true,
             stop_column_if_slot_empty = true,
@@ -205,11 +209,7 @@ function clip_volume(col, row)
         },
         target = {
             kind = "ClipVolume",
-            slot = {
-                address = "Dynamic",
-                column_expression = create_col_expression(col),
-                row_expression = create_row_expression(row)
-            },
+            slot = create_slot_selector(col, row),
         },
     }
 end
@@ -231,11 +231,7 @@ function slot_state_feedback(col, row)
         },
         target = {
             kind = "ClipTransportAction",
-            slot = {
-                address = "Dynamic",
-                column_expression = create_col_expression(col),
-                row_expression = create_row_expression(row)
-            },
+            slot = create_slot_selector(col, row),
             action = "PlayStop",
         },
     }
@@ -252,11 +248,7 @@ function clip_position_feedback(col, row)
         },
         target = {
             kind = "ClipSeek",
-            slot = {
-                address = "Dynamic",
-                column_expression = create_col_expression(col),
-                row_expression = create_row_expression(row),
-            },
+            slot = create_slot_selector(col, row),
             feedback_resolution = "High",
         },
     }
@@ -277,10 +269,43 @@ function global_matrix_button(button_id, matrix_action)
     }
 end
 
+function global_transport_button(button_id, transport_action, absolute_mode)
+    return {
+        activation_condition = mode_is(modes.global.index),
+        source = {
+            kind = "Virtual",
+            id = button_id,
+            character = "Button",
+        },
+        glue = {
+            absolute_mode = absolute_mode,
+        },
+        target = {
+            kind = "TransportAction",
+            action = transport_action,
+        },
+    }
+end
+
+function global_reaper_action_button(button_id, command_id)
+    return {
+        activation_condition = mode_is(modes.global.index),
+        source = {
+            kind = "Virtual",
+            id = button_id,
+            character = "Button",
+        },
+        target = {
+            kind = "ReaperAction",
+            command = command_id,
+            invocation = "Trigger",
+        },
+    }
+end
+
 function scroll(multi_id, offset_param_index)
     return {
         group = groups.global_nav.id,
-        activation_condition = mode_is(modes.global_nav.index),
         source = {
             kind = "Virtual",
             id = multi_id,
@@ -294,6 +319,56 @@ function scroll(multi_id, offset_param_index)
             parameter = {
                 address = "ById",
                 index = offset_param_index,
+            },
+        },
+    }
+end
+
+function clip_delete(col, row)
+    return {
+        group = groups.slot.id,
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = create_cell_id(col, row, "pad"),
+        },
+        glue = {
+            fire_mode = {
+                kind = "AfterTimeout",
+                timeout = 1000,
+            },
+        },
+        target = {
+            kind = "ClipManagement",
+            slot = create_slot_selector(col, row),
+            action = {
+                kind = "ClearSlot",
+            },
+        },
+    }
+end
+
+function clip_quantize(col, row)
+    return {
+        group = groups.slot.id,
+        feedback_enabled = false,
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = create_cell_id(col, row, "pad"),
+        },
+        glue = {
+            absolute_mode = "ToggleButton",
+            fire_mode = {
+                kind = "OnDoublePress",
+            },
+        },
+        target = {
+            kind = "ClipManagement",
+            slot = create_slot_selector(col, row),
+            action = {
+                kind = "EditClip",
             },
         },
     }
@@ -328,6 +403,11 @@ end
 
 local mappings = {
     global_matrix_button("col4/row4/pad", "Stop"),
+    global_matrix_button("col3/row1/pad", "Undo"),
+    global_matrix_button("col4/row1/pad", "Redo"),
+    global_transport_button("col4/row3/pad", "PlayPause", "ToggleButton"),
+    global_transport_button("col3/row3/pad", "Stop", "Normal"),
+    global_reaper_action_button("col4/row2/pad", 40364),
     scroll("col1/row1/knob", params.row_offset.index),
     scroll("col1/row2/knob", params.column_offset.index),
 }
@@ -346,6 +426,8 @@ for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
         table.insert(mappings, clip_play(col, row))
         table.insert(mappings, clip_volume(col, row))
+        table.insert(mappings, clip_delete(col, row))
+        table.insert(mappings, clip_quantize(col, row))
         table.insert(mappings, slot_state_feedback(col, row))
         table.insert(mappings, clip_position_feedback(col, row))
     end
