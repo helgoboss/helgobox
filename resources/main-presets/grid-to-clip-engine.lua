@@ -365,6 +365,23 @@ local mappings = {
             action = "Redo",
         },
     },
+    device_specific[device].sends + {
+        name = "Switch send",
+        group = "knob-sends",
+        feedback_enabled = false,
+        glue = {
+            absolute_mode = "IncrementalButton",
+            wrap = true,
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 6,
+            },
+        },
+    }
+
 }
 
 -- Slot modes
@@ -477,6 +494,11 @@ local parameters = {
         name = "Knob mode",
         value_count = knob_mode_count,
         value_labels = knob_mode_labels
+    },
+    {
+        index = 6,
+        name = "Send",
+        value_count = 2,
     },
 }
 
@@ -663,7 +685,7 @@ for col = 0, column_count - 1 do
                     column = column,
                     context = "Playback",
                 },
-                expression = "0",
+                expression = "p[6]",
             },
         },
     }
