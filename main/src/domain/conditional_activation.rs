@@ -1,9 +1,10 @@
 use crate::base::eel;
 use crate::domain::{
-    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, RawParamValue,
-    COMPARTMENT_PARAMETER_COUNT,
+    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator,
+    RawParamValue, COMPARTMENT_PARAMETER_COUNT,
 };
 use std::collections::HashSet;
+use std::error::Error;
 
 #[derive(Debug)]
 pub enum ActivationCondition {
@@ -15,6 +16,7 @@ pub enum ActivationCondition {
     },
     // Boxed in order to keep the enum variants at a similar size (clippy gave that hint)
     Eel(Box<EelCondition>),
+    Expression(Box<ExpressionCondition>),
 }
 
 impl ActivationCondition {
@@ -38,6 +40,7 @@ impl ActivationCondition {
                 condition.notify_params_changed(params);
                 condition.is_fulfilled()
             }
+            Expression(condition) => condition.is_fulfilled(params),
         }
     }
 
@@ -92,6 +95,7 @@ impl ActivationCondition {
                 }
                 condition.is_fulfilled()
             }
+            Expression(condition) => condition.is_fulfilled(params),
             Always => return None,
         };
         Some(is_fulfilled)
@@ -152,6 +156,25 @@ impl ModifierCondition {
         let param_value = params.at(self.param_index).raw_value();
         let is_on = param_value_is_on(param_value);
         is_on == self.is_on
+    }
+}
+
+#[derive(Debug)]
+pub struct ExpressionCondition {
+    evaluator: ExpressionEvaluator,
+}
+
+impl ExpressionCondition {
+    pub fn compile(expression: &str) -> Result<Self, Box<dyn Error>> {
+        let condition = Self {
+            evaluator: ExpressionEvaluator::compile(expression)?,
+        };
+        Ok(condition)
+    }
+
+    pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
+        let result = self.evaluator.evaluate(params);
+        result.map(|v| v > 0.0).unwrap_or(false)
     }
 }
 

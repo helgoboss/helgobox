@@ -201,5 +201,11 @@ fn convert_activation_condition(
             };
             Some(T::Eel(condition))
         }
+        Expression => {
+            let condition = schema::ExpressionActivationCondition {
+                condition: condition_data.eel_condition,
+            };
+            Some(T::Expression(condition))
+        }
     }
 }

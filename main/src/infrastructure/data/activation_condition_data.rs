@@ -27,7 +27,7 @@ impl ActivationConditionData {
             modifier_condition_1: model.modifier_condition_1(),
             modifier_condition_2: model.modifier_condition_2(),
             program_condition: model.bank_condition(),
-            eel_condition: model.eel_condition().to_owned(),
+            eel_condition: model.script().to_owned(),
         }
     }
 
@@ -37,6 +37,6 @@ impl ActivationConditionData {
         model.change(V::SetModifierCondition1(self.modifier_condition_1));
         model.change(V::SetModifierCondition2(self.modifier_condition_2));
         model.change(V::SetBankCondition(self.program_condition));
-        model.change(V::SetEelCondition(self.eel_condition.clone()));
+        model.change(V::SetScript(self.eel_condition.clone()));
     }
 }

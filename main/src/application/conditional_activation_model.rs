@@ -30,6 +30,9 @@ pub enum ActivationType {
     #[serde(rename = "eel")]
     #[display(fmt = "When EEL result > 0")]
     Eel,
+    #[serde(rename = "expression")]
+    #[display(fmt = "When expression > 0")]
+    Expression,
 }
 
 impl Default for ActivationType {

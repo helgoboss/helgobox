@@ -66,6 +66,7 @@ pub enum ActivationCondition {
     Modifier(ModifierActivationCondition),
     Bank(BankActivationCondition),
     Eel(EelActivationCondition),
+    Expression(ExpressionActivationCondition),
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -91,6 +92,12 @@ pub struct BankActivationCondition {
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EelActivationCondition {
+    pub condition: String,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExpressionActivationCondition {
     pub condition: String,
 }
 

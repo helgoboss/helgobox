@@ -130,6 +130,11 @@ fn convert_activation(
             eel_condition: c.condition,
             ..Default::default()
         },
+        Expression(c) => ActivationConditionData {
+            activation_type: ActivationType::Expression,
+            eel_condition: c.condition,
+            ..Default::default()
+        },
     };
     Ok(data)
 }

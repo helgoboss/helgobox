@@ -48,8 +48,8 @@ pub trait Item: Debug {
     fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel);
     fn bank_condition(&self) -> BankConditionModel;
     fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel);
-    fn eel_condition(&self) -> &str;
-    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32);
+    fn script(&self) -> &str;
+    fn set_script(&mut self, session: WeakSession, value: String, initiator: u32);
 }
 
 pub enum ItemProp {
@@ -61,7 +61,7 @@ pub enum ItemProp {
     ModifierCondition1,
     ModifierCondition2,
     BankCondition,
-    EelCondition,
+    Script,
 }
 
 impl ItemProp {
@@ -72,7 +72,7 @@ impl ItemProp {
             S::ModifierCondition1 => Self::ModifierCondition1,
             S::ModifierCondition2 => Self::ModifierCondition2,
             S::BankCondition => Self::BankCondition,
-            S::EelCondition => Self::EelCondition,
+            S::Script => Self::Script,
         }
     }
 }
@@ -185,7 +185,7 @@ impl MappingHeaderPanel {
         self.invalidate_activation_type_combo_box(item);
         self.invalidate_activation_setting_1_controls(item);
         self.invalidate_activation_setting_2_controls(item);
-        self.invalidate_activation_eel_condition_edit_control(item, None);
+        self.invalidate_activation_script_edit_control(item, None);
     }
 
     fn invalidate_activation_control_appearance(&self, item: &dyn Item) {
@@ -200,7 +200,7 @@ impl MappingHeaderPanel {
             Always => None,
             Modifiers => Some(("Modifier A", "Modifier B")),
             Bank => Some(("Parameter", "Bank")),
-            Eel => None,
+            Eel | Expression => None,
         };
         if let Some((first, second)) = label {
             self.view
@@ -292,7 +292,10 @@ impl MappingHeaderPanel {
             ],
         );
         self.show_if(
-            show && activation_type == ActivationType::Eel,
+            show && matches!(
+                activation_type,
+                ActivationType::Eel | ActivationType::Expression
+            ),
             &[
                 root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
@@ -441,7 +444,7 @@ impl MappingHeaderPanel {
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        item.set_eel_condition(session, value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
+        item.set_script(session, value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
     }
 
     fn update_activation_type(&self, session: WeakSession, item: &mut dyn Item) {
@@ -524,17 +527,13 @@ impl MappingHeaderPanel {
         set(session, item, current.with_param_index(index));
     }
 
-    fn invalidate_activation_eel_condition_edit_control(
-        &self,
-        item: &dyn Item,
-        initiator: Option<u32>,
-    ) {
+    fn invalidate_activation_script_edit_control(&self, item: &dyn Item, initiator: Option<u32>) {
         if initiator == Some(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL) {
             return;
         }
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
-            .set_text(item.eel_condition());
+            .set_text(item.script());
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -574,9 +573,7 @@ impl MappingHeaderPanel {
                         self.invalidate_activation_setting_1_controls(item);
                         self.invalidate_activation_setting_2_controls(item);
                     }
-                    EelCondition => {
-                        self.invalidate_activation_eel_condition_edit_control(item, initiator)
-                    }
+                    Script => self.invalidate_activation_script_edit_control(item, initiator),
                 };
             });
         });
@@ -835,17 +832,15 @@ impl Item for MappingModel {
         );
     }
 
-    fn eel_condition(&self) -> &str {
-        self.activation_condition_model().eel_condition()
+    fn script(&self) -> &str {
+        self.activation_condition_model().script()
     }
 
-    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32) {
+    fn set_script(&mut self, session: WeakSession, value: String, initiator: u32) {
         Session::change_mapping_from_ui_simple(
             session,
             self,
-            MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
-                value,
-            )),
+            MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetScript(value)),
             Some(initiator),
         );
     }
@@ -976,17 +971,15 @@ impl Item for GroupModel {
         );
     }
 
-    fn eel_condition(&self) -> &str {
-        self.activation_condition_model().eel_condition()
+    fn script(&self) -> &str {
+        self.activation_condition_model().script()
     }
 
-    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32) {
+    fn set_script(&mut self, session: WeakSession, value: String, initiator: u32) {
         Session::change_group_from_ui_simple(
             session,
             self,
-            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
-                value,
-            )),
+            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetScript(value)),
             Some(initiator),
         );
     }

@@ -2,7 +2,7 @@ use crate::application::{
     ActivationType, Affected, BankConditionModel, Change, GetProcessingRelevance,
     ModifierConditionModel, ProcessingRelevance,
 };
-use crate::domain::{ActivationCondition, EelCondition};
+use crate::domain::{ActivationCondition, EelCondition, ExpressionCondition};
 
 #[allow(clippy::enum_variant_names)]
 pub enum ActivationConditionCommand {
@@ -10,7 +10,7 @@ pub enum ActivationConditionCommand {
     SetModifierCondition1(ModifierConditionModel),
     SetModifierCondition2(ModifierConditionModel),
     SetBankCondition(BankConditionModel),
-    SetEelCondition(String),
+    SetScript(String),
 }
 
 #[derive(PartialEq)]
@@ -19,7 +19,7 @@ pub enum ActivationConditionProp {
     ModifierCondition1,
     ModifierCondition2,
     BankCondition,
-    EelCondition,
+    Script,
 }
 
 impl GetProcessingRelevance for ActivationConditionProp {
@@ -34,7 +34,7 @@ pub struct ActivationConditionModel {
     modifier_condition_1: ModifierConditionModel,
     modifier_condition_2: ModifierConditionModel,
     bank_condition: BankConditionModel,
-    eel_condition: String,
+    script: String,
 }
 
 impl<'a> Change<'a> for ActivationConditionModel {
@@ -65,9 +65,9 @@ impl<'a> Change<'a> for ActivationConditionModel {
                 self.bank_condition = v;
                 One(P::BankCondition)
             }
-            C::SetEelCondition(v) => {
-                self.eel_condition = v;
-                One(P::EelCondition)
+            C::SetScript(v) => {
+                self.script = v;
+                One(P::Script)
             }
         };
         Some(affected)
@@ -91,8 +91,8 @@ impl ActivationConditionModel {
         self.bank_condition
     }
 
-    pub fn eel_condition(&self) -> &str {
-        &self.eel_condition
+    pub fn script(&self) -> &str {
+        &self.script
     }
 
     pub fn create_activation_condition(&self) -> ActivationCondition {
@@ -110,8 +110,12 @@ impl ActivationConditionModel {
                 param_index: self.bank_condition().param_index(),
                 program_index: self.bank_condition().bank_index(),
             },
-            Eel => match EelCondition::compile(self.eel_condition()) {
+            Eel => match EelCondition::compile(self.script()) {
                 Ok(c) => ActivationCondition::Eel(Box::new(c)),
+                Err(_) => ActivationCondition::Always,
+            },
+            Expression => match ExpressionCondition::compile(self.script()) {
+                Ok(e) => ActivationCondition::Expression(Box::new(e)),
                 Err(_) => ActivationCondition::Always,
             },
         }
