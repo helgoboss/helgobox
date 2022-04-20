@@ -291,16 +291,28 @@ impl MappingHeaderPanel {
                 root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
             ],
         );
+        let edit_control_label = if show {
+            match activation_type {
+                ActivationType::Eel => Some("EEL (e.g. y = p1 > 0)"),
+                ActivationType::Expression => Some("e.g. p[0] == 2"),
+                _ => None,
+            }
+        } else {
+            None
+        };
         self.show_if(
-            show && matches!(
-                activation_type,
-                ActivationType::Eel | ActivationType::Expression
-            ),
+            edit_control_label.is_some(),
             &[
                 root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
             ],
         );
+        let text_control = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT);
+        if let Some(l) = edit_control_label {
+            text_control.set_text(l);
+        }
     }
 
     fn invalidate_activation_type_combo_box(&self, item: &dyn Item) {
