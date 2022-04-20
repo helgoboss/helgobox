@@ -119,6 +119,6 @@ impl<'a> Target<'a> for ClipManagementTarget {
 pub const CLIP_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip: Management",
     short_name: "Clip management",
-    supports_slot: true,
+    supports_clip_slot: true,
     ..DEFAULT_TARGET
 };

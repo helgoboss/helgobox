@@ -163,6 +163,6 @@ pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip: Seek",
     short_name: "Clip seek",
     supports_feedback_resolution: true,
-    supports_slot: true,
+    supports_clip_slot: true,
     ..DEFAULT_TARGET
 };

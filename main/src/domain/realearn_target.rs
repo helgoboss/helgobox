@@ -678,8 +678,8 @@ impl ReaperTargetType {
         self.definition().supports_track_scrolling()
     }
 
-    pub fn supports_slot(self) -> bool {
-        self.definition().supports_slot()
+    pub fn supports_clip_slot(self) -> bool {
+        self.definition().supports_clip_slot()
     }
 
     pub fn supports_fx(self) -> bool {
@@ -741,7 +741,7 @@ pub struct TargetTypeDef {
     pub supports_track: bool,
     pub if_so_supports_track_must_be_selected: bool,
     pub supports_track_scrolling: bool,
-    pub supports_slot: bool,
+    pub supports_clip_slot: bool,
     pub supports_fx: bool,
     pub supports_fx_parameter: bool,
     pub supports_fx_chain: bool,
@@ -775,8 +775,8 @@ impl TargetTypeDef {
     pub const fn supports_track_scrolling(&self) -> bool {
         self.supports_track_scrolling
     }
-    pub const fn supports_slot(&self) -> bool {
-        self.supports_slot
+    pub const fn supports_clip_slot(&self) -> bool {
+        self.supports_clip_slot
     }
     pub const fn supports_fx(&self) -> bool {
         self.supports_fx
@@ -825,7 +825,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track: false,
     if_so_supports_track_must_be_selected: true,
     supports_track_scrolling: false,
-    supports_slot: false,
+    supports_clip_slot: false,
     supports_fx: false,
     supports_fx_parameter: false,
     supports_fx_chain: false,

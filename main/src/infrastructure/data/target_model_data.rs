@@ -262,10 +262,18 @@ impl TargetModelData {
                 .group_key_by_id(model.group_id())
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
-            clip_slot: Some(model.clip_slot().clone()),
+            clip_slot: if model.target_type().supports_clip_slot() {
+                Some(model.clip_slot().clone())
+            } else {
+                None
+            },
             clip_column: track_selector_clip_column.unwrap_or_else(|| model.clip_column().clone()),
             clip_row: model.clip_row().clone(),
-            clip_transport_action: Some(model.clip_transport_action()),
+            clip_transport_action: if model.target_type() == ReaperTargetType::ClipTransport {
+                Some(model.clip_transport_action())
+            } else {
+                None
+            },
             clip_column_action: model.clip_column_action(),
             clip_row_action: model.clip_row_action(),
             clip_matrix_action: model.clip_matrix_action(),

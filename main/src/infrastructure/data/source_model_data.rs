@@ -72,6 +72,7 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_feedback_args: Vec<String>,
     // Keyboard
+    #[serde(default, skip_serializing_if = "is_default")]
     pub keystroke: Option<Keystroke>,
     // Virtual
     #[serde(default, skip_serializing_if = "is_default")]

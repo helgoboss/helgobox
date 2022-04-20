@@ -52,6 +52,7 @@ pub struct ModeModelData {
     pub eel_feedback_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub reverse_is_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub feedback_color: Option<VirtualColor>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub feedback_background_color: Option<VirtualColor>,
