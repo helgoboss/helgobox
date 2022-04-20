@@ -6,7 +6,8 @@ use helgoboss_learn::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
+    Action, BookmarkType, Fx, FxChain, FxParameter, Guid, Project, Track, TrackRoute,
+    TrackRoutePartner,
 };
 
 use serde::{Deserialize, Serialize};
@@ -2635,6 +2636,16 @@ impl<'a> TargetModelWithContext<'a> {
 
     pub fn project(&self) -> Project {
         self.context.context().project_or_current_project()
+    }
+
+    pub fn first_fx_chain(&self) -> Result<FxChain, &'static str> {
+        let track = self.first_effective_track()?;
+        let chain = if self.target.fx_is_input_fx {
+            track.input_fx_chain()
+        } else {
+            track.normal_fx_chain()
+        };
+        Ok(chain)
     }
 
     pub fn first_effective_track(&self) -> Result<Track, &'static str> {

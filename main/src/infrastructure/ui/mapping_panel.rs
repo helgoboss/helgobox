@@ -6386,9 +6386,15 @@ fn invalidat_target_line_3_expression_result(
         TargetCategory::Reaper => {
             if target.target_type().supports_fx() && target.fx_type() == VirtualFxType::Dynamic {
                 target
-                    .virtual_chain_fx()
-                    .and_then(|fx| fx.calculated_fx_index(context, compartment))
-                    .map(|i| i.to_string())
+                    .with_context(context, compartment)
+                    .first_fx_chain()
+                    .ok()
+                    .and_then(|chain| {
+                        target
+                            .virtual_chain_fx()
+                            .and_then(|fx| fx.calculated_fx_index(context, compartment, &chain))
+                            .map(|i| i.to_string())
+                    })
             } else {
                 None
             }
@@ -6410,9 +6416,17 @@ fn invalidate_target_line_4_expression_result(
                 && target.param_type() == VirtualFxParameterType::Dynamic =>
             {
                 target
-                    .virtual_fx_parameter()
-                    .and_then(|p| p.calculated_fx_parameter_index(context, compartment))
-                    .map(|i| i.to_string())
+                    .with_context(context, compartment)
+                    .first_fx()
+                    .ok()
+                    .and_then(|fx| {
+                        target
+                            .virtual_fx_parameter()
+                            .and_then(|p| {
+                                p.calculated_fx_parameter_index(context, compartment, &fx)
+                            })
+                            .map(|i| i.to_string())
+                    })
             }
             t if t.supports_send()
                 && target.route_selector_type() == TrackRouteSelectorType::Dynamic =>

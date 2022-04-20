@@ -643,7 +643,7 @@ impl VirtualFxParameter {
         use VirtualFxParameter::*;
         match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment)?;
+                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment, fx)?;
                 resolve_parameter_by_index(fx, i)
             }
             ByName(name) => fx
@@ -662,9 +662,10 @@ impl VirtualFxParameter {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
+        fx: &Fx,
     ) -> Option<u32> {
         if let VirtualFxParameter::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_parameter_index(evaluator, context, compartment).ok()?)
+            Some(Self::evaluate_to_fx_parameter_index(evaluator, context, compartment, fx).ok()?)
         } else {
             None
         }
@@ -674,10 +675,28 @@ impl VirtualFxParameter {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
+        fx: &Fx,
     ) -> Result<u32, FxParameterResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate(compartment_params)
+            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
+                "tcp_fx_parameter_indexes" => {
+                    let i = extract_first_arg_as_positive_integer(args)?;
+                    let project = context.context.project_or_current_project();
+                    let index = fx
+                        .track()
+                        .and_then(|t| unsafe {
+                            Reaper::get()
+                                .medium_reaper()
+                                .get_tcp_fx_parm(project.context(), t.raw(), i)
+                                .ok()
+                        })
+                        .map(|res| res.param_index as f64)
+                        .unwrap_or(EXPRESSION_NONE_VALUE);
+                    Some(index)
+                }
+                _ => None,
+            })
             .map_err(|_| FxParameterResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {
@@ -791,7 +810,8 @@ impl ExpressionEvaluator {
 }
 
 /// If fasteval encounters usage of a non-existing variable, it fails. Good. But sometimes we need
-/// to express that the variable is there but the value is just "None". fasteval doesn't have a
+/// to express that the variable is there and the value is just "None", e.g. in order to use it in a
+/// boolean check and react to it accordingly. fasteval doesn't have a
 /// dedicated value for that, so we just define an exotic f64 to represent it! We need one that
 /// is equal to itself, so NAN and NEG_INFINITY are no options.
 pub const EXPRESSION_NONE_VALUE: f64 = f64::MIN;
@@ -1021,27 +1041,20 @@ impl VirtualTrack {
                     Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
                 }
                 "selected_track_indexes" => {
-                    if let [i] = args {
-                        if *i < 0.0 {
-                            return None;
+                    let i = extract_first_arg_as_positive_integer(args)?;
+                    let reaper = Reaper::get().medium_reaper();
+                    let project = context.context().project_or_current_project();
+                    let raw_track = reaper.get_selected_track_2(
+                        project.context(),
+                        i,
+                        MasterTrackBehavior::IncludeMasterTrack,
+                    );
+                    match raw_track {
+                        None => Some(EXPRESSION_NONE_VALUE),
+                        Some(raw_track) => {
+                            let t = Track::new(raw_track, Some(project.raw()));
+                            Some(get_track_index_for_expression(&t))
                         }
-                        let i = i.round() as u32;
-                        let reaper = Reaper::get().medium_reaper();
-                        let project = context.context().project_or_current_project();
-                        let raw_track = reaper.get_selected_track_2(
-                            project.context(),
-                            i,
-                            MasterTrackBehavior::IncludeMasterTrack,
-                        );
-                        match raw_track {
-                            None => Some(EXPRESSION_NONE_VALUE),
-                            Some(raw_track) => {
-                                let t = Track::new(raw_track, Some(project.raw()));
-                                Some(get_track_index_for_expression(&t))
-                            }
-                        }
-                    } else {
-                        None
                     }
                 }
                 _ => None,
@@ -1211,21 +1224,20 @@ impl VirtualChainFx {
     ) -> Result<Vec<Fx>, FxResolveError> {
         use VirtualChainFx::*;
         let fxs = match self {
-            Dynamic(evaluator) => {
-                let index = Self::evaluate_to_fx_index(evaluator, context, compartment)?;
-                fx_chains
-                    .iter()
-                    .flat_map(|fx_chain| {
-                        get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
-                            FxResolveError::FxNotFound {
-                                guid: None,
-                                name: None,
-                                index: Some(index),
-                            }
-                        })
+            Dynamic(evaluator) => fx_chains
+                .iter()
+                .flat_map(|fx_chain| {
+                    let index =
+                        Self::evaluate_to_fx_index(evaluator, context, compartment, fx_chain)?;
+                    get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
+                        FxResolveError::FxNotFound {
+                            guid: None,
+                            name: None,
+                            index: Some(index),
+                        }
                     })
-                    .collect()
-            }
+                })
+                .collect(),
             ById(guid, index) => {
                 let fx_not_found_error = || FxResolveError::FxNotFound {
                     guid: Some(*guid),
@@ -1286,9 +1298,10 @@ impl VirtualChainFx {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
+        chain: &FxChain,
     ) -> Option<u32> {
         if let VirtualChainFx::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_index(evaluator, context, compartment).ok()?)
+            Some(Self::evaluate_to_fx_index(evaluator, context, compartment, chain).ok()?)
         } else {
             None
         }
@@ -1298,10 +1311,32 @@ impl VirtualChainFx {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
+        chain: &FxChain,
     ) -> Result<u32, FxResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate(compartment_params)
+            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
+                "tcp_fx_indexes" => {
+                    let i = extract_first_arg_as_positive_integer(args)?;
+                    if chain.is_input_fx() {
+                        // Only FX parameters from the normal FX chain can be displayed in TCP.
+                        return Some(EXPRESSION_NONE_VALUE);
+                    }
+                    let project = context.context.project_or_current_project();
+                    let index = chain
+                        .track()
+                        .and_then(|t| unsafe {
+                            Reaper::get()
+                                .medium_reaper()
+                                .get_tcp_fx_parm(project.context(), t.raw(), i)
+                                .ok()
+                        })
+                        .map(|res| res.fx_location.to_raw() as f64)
+                        .unwrap_or(EXPRESSION_NONE_VALUE);
+                    Some(index)
+                }
+                _ => None,
+            })
             .map_err(|_| FxResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {
@@ -1675,4 +1710,15 @@ pub trait UnresolvedReaperTargetDef {
 /// Special: Index -1 means master track.
 fn get_track_index_for_expression(track: &Track) -> f64 {
     track.index().map(|i| i as f64).unwrap_or(-1.0)
+}
+
+fn extract_first_arg_as_positive_integer(args: &[f64]) -> Option<u32> {
+    let i = match args {
+        [i] => i,
+        _ => return None,
+    };
+    if *i < 0.0 {
+        return None;
+    }
+    Some(i.round() as u32)
 }
