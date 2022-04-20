@@ -87,6 +87,16 @@ impl ParamSetting {
         self.key.is_none() && self.name.is_empty() && self.value_count.is_none()
     }
 
+    pub fn discrete_values(&self) -> Option<impl Iterator<Item = Cow<str>> + '_> {
+        let value_count = self.value_count?;
+        let iter = (0..value_count.get()).map(|v| {
+            self.find_label_for_value(v)
+                .map(|v| v.into())
+                .unwrap_or_else(|| v.to_string().into())
+        });
+        Some(iter)
+    }
+
     /// Checks if the given key matches the key of this parameter (if a key is defined).
     pub fn key_matches(&self, key: &str) -> bool {
         if let Some(k) = self.key.as_ref() {

@@ -247,14 +247,18 @@ impl MappingHeaderPanel {
             .params()
             .compartment_params(item.compartment())
             .at(bank_param_index);
-        let bank_count = if let Some(value_count) = bank_param.setting().value_count {
-            value_count.get()
+        let data = if let Some(discrete_values) = bank_param.setting().discrete_values() {
+            discrete_values
+                .enumerate()
+                .map(|(i, s)| (i as isize, s.to_string()))
+                .collect()
         } else {
-            100
+            // For continuous parameters we just choose a default of 100 values.
+            let bank_count = 100;
+            (0..bank_count)
+                .map(|i| (i as isize, i.to_string()))
+                .collect()
         };
-        let data = (0..bank_count)
-            .map(|i| (i as isize, i.to_string()))
-            .collect();
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
             .fill_combo_box_with_data_vec(data);
