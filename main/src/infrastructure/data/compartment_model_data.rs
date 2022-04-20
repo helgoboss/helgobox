@@ -24,6 +24,9 @@ pub struct CompartmentModelData {
     // (https://github.com/serde-rs/serde/issues/1183)
     #[serde(default, skip_serializing_if = "is_default")]
     pub parameters: HashMap<String, ParamSetting>,
+    /// At the moment, custom data is only used in the controller compartment.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub custom_data: HashMap<String, serde_json::Value>,
 }
 
 impl ModelToDataConversionContext for CompartmentModel {
@@ -52,6 +55,7 @@ impl CompartmentModelData {
                 .iter()
                 .map(|(key, value)| (key.to_string(), value.clone()))
                 .collect(),
+            custom_data: model.custom_data.clone(),
         }
     }
 
@@ -110,6 +114,7 @@ impl CompartmentModelData {
                 })
                 .collect(),
             groups,
+            custom_data: self.custom_data.clone(),
         };
         Ok(model)
     }

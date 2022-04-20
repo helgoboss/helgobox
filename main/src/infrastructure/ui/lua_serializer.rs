@@ -120,8 +120,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_str(self, v: &str) -> Result<()> {
         if self.serialize_string_as_map_key {
-            ensure_proper_identifier(v)?;
-            self.output += v;
+            write_map_key(&mut self.output, v);
         } else {
             let contains_newlines = v.contains(&['\r', '\n'][..]);
             if contains_newlines {
@@ -374,6 +373,16 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
 fn indent(wr: &mut String, n: usize, s: &str) {
     for _ in 0..n {
         wr.push_str(s);
+    }
+}
+
+fn write_map_key(wr: &mut String, v: &str) {
+    if ensure_proper_identifier(v).is_ok() {
+        wr.push_str(v);
+    } else {
+        wr.push_str("[\"");
+        wr.push_str(v);
+        wr.push_str("\"]");
     }
 }
 

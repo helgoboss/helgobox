@@ -1,6 +1,8 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
-use crate::application::{Preset, PresetManager, Session, SourceCategory, TargetCategory};
+use crate::application::{
+    ControllerPreset, Preset, PresetManager, Session, SourceCategory, TargetCategory,
+};
 use crate::base::NamedChannelSender;
 use crate::domain::{
     MappingCompartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
@@ -83,15 +85,7 @@ pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPreset
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let session = session.borrow();
-    let controller_id = session
-        .active_controller_preset_id()
-        .ok_or(DataError::SessionHasNoActiveController)?;
-    let controller = App::get()
-        .controller_preset_manager()
-        .borrow()
-        .find_by_id(controller_id)
-        .ok_or(DataError::ControllerNotFound)?;
-    Ok(ControllerPresetData::from_model(&controller))
+    get_controller_preset_data_internal(&session)
 }
 
 #[cfg(feature = "realearn-metrics")]
@@ -314,6 +308,29 @@ enum EventType {
 }
 
 fn get_controller(session: &Session) -> Option<ControllerPresetData> {
-    let controller = session.active_controller_preset()?;
-    Some(ControllerPresetData::from_model(&controller))
+    get_controller_preset_data_internal(session).ok()
+}
+
+fn get_controller_preset_data_internal(
+    session: &Session,
+) -> Result<ControllerPresetData, DataError> {
+    let data = session.extract_compartment_model(MappingCompartment::ControllerMappings);
+    if data.mappings.is_empty() {
+        return Err(DataError::SessionHasNoActiveController);
+    }
+    let id = session.active_controller_preset_id();
+    let name = id
+        .and_then(|id| {
+            App::get()
+                .controller_preset_manager()
+                .borrow()
+                .find_by_id(id)
+        })
+        .map(|preset| preset.name().to_string());
+    let preset = ControllerPreset::new(
+        id.map(|id| id.to_string()).unwrap_or_default(),
+        name.unwrap_or_else(|| "<Not saved>".to_string()),
+        data,
+    );
+    Ok(ControllerPresetData::from_model(&preset))
 }

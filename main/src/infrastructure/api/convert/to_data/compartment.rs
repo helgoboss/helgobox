@@ -60,6 +60,7 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelD
             .map(|(key, value)| (key.to_string(), value.clone()))
             .collect(),
         groups: context.groups,
+        custom_data: c.custom_data.unwrap_or_default(),
     };
     Ok(data)
 }

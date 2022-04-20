@@ -76,6 +76,8 @@ pub struct SessionData {
     #[serde(default, skip_serializing_if = "is_default")]
     controller_mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
+    controller_custom_data: HashMap<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "is_default")]
     active_controller_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     active_main_preset_id: Option<String>,
@@ -177,6 +179,7 @@ impl Default for SessionData {
             controller_groups: vec![],
             mappings: vec![],
             controller_mappings: vec![],
+            controller_custom_data: Default::default(),
             active_controller_id: None,
             active_main_preset_id: None,
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
@@ -256,6 +259,9 @@ impl SessionData {
             controller_groups: from_groups(MappingCompartment::ControllerMappings),
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
+            controller_custom_data: session
+                .custom_compartment_data(MappingCompartment::ControllerMappings)
+                .clone(),
             active_controller_id: session
                 .active_preset_id(MappingCompartment::ControllerMappings)
                 .map(|id| id.to_string()),
@@ -457,6 +463,10 @@ impl SessionData {
         apply_mappings(
             MappingCompartment::ControllerMappings,
             &self.controller_mappings,
+        );
+        session.set_custom_compartment_data(
+            MappingCompartment::ControllerMappings,
+            self.controller_custom_data.clone(),
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         session.set_active_main_preset_id_without_notification(self.active_main_preset_id.clone());

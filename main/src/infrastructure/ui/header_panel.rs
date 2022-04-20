@@ -2209,16 +2209,8 @@ impl HeaderPanel {
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
-                let custom_data = session
-                    .active_controller_preset()
-                    .map(|c| c.custom_data().clone())
-                    .unwrap_or_default();
-                let controller = ControllerPreset::new(
-                    preset_id.clone(),
-                    preset_name,
-                    compartment_model,
-                    custom_data,
-                );
+                let controller =
+                    ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
                     .controller_preset_manager()
                     .borrow_mut()

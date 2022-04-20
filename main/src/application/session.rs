@@ -95,6 +95,8 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
+    /// At the moment, custom data is only used in the controller compartment.
+    custom_compartment_data: EnumMap<MappingCompartment, HashMap<String, serde_json::Value>>,
     default_main_group: SharedGroup,
     default_controller_group: SharedGroup,
     groups: EnumMap<MappingCompartment, Vec<SharedGroup>>,
@@ -231,6 +233,7 @@ impl Session {
             active_main_preset_id: None,
             processor_context: context,
             mappings: Default::default(),
+            custom_compartment_data: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
                 MappingCompartment::MainMappings,
             ))),
@@ -1804,9 +1807,19 @@ impl Session {
         id.as_deref()
     }
 
-    pub fn active_controller_preset(&self) -> Option<ControllerPreset> {
-        let id = self.active_preset_id(MappingCompartment::ControllerMappings)?;
-        self.controller_preset_manager.find_by_id(id)
+    pub fn set_custom_compartment_data(
+        &mut self,
+        compartment: MappingCompartment,
+        data: HashMap<String, serde_json::Value>,
+    ) {
+        self.custom_compartment_data[compartment] = data;
+    }
+
+    pub fn custom_compartment_data(
+        &self,
+        compartment: MappingCompartment,
+    ) -> &HashMap<String, serde_json::Value> {
+        &self.custom_compartment_data[compartment]
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
@@ -1877,6 +1890,7 @@ impl Session {
                 .mappings(compartment)
                 .map(|ptr| ptr.borrow().clone())
                 .collect(),
+            custom_data: self.custom_compartment_data[compartment].clone(),
         }
     }
 
@@ -1909,6 +1923,7 @@ impl Session {
             compartment_params.apply_given_settings(model.parameters);
             self.param_container
                 .update_compartment_params(compartment, compartment_params.clone());
+            self.custom_compartment_data[compartment] = model.custom_data;
         } else {
             self.clear_compartment_data(compartment);
         }

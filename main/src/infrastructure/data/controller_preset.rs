@@ -9,7 +9,6 @@ use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub type FileBasedControllerPresetManager =
@@ -54,8 +53,6 @@ pub struct ControllerPresetData {
     name: String,
     #[serde(flatten)]
     data: CompartmentModelData,
-    #[serde(default, skip_serializing_if = "is_default")]
-    custom_data: HashMap<String, serde_json::Value>,
 }
 
 impl PresetData for ControllerPresetData {
@@ -67,7 +64,6 @@ impl PresetData for ControllerPresetData {
             id: Some(preset.id().to_string()),
             data: CompartmentModelData::from_model(preset.data()),
             name: preset.name().to_string(),
-            custom_data: preset.custom_data().clone(),
         }
     }
 
@@ -79,7 +75,6 @@ impl PresetData for ControllerPresetData {
                 self.version.as_ref(),
                 MappingCompartment::ControllerMappings,
             )?,
-            self.custom_data.clone(),
         );
         Ok(preset)
     }
