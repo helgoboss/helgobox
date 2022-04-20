@@ -250,6 +250,9 @@ impl MappingHeaderPanel {
         let data = if let Some(discrete_values) = bank_param.setting().discrete_values() {
             discrete_values
                 .enumerate()
+                // Don't block GUI if we come across a parameter that has insanely many
+                // discrete values (and is probably not intended to be used with banks).
+                .take(500)
                 .map(|(i, s)| (i as isize, s.to_string()))
                 .collect()
         } else {
