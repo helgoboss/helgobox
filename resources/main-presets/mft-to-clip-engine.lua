@@ -1,5 +1,11 @@
 -- ### Preparation ###
 
+-- Constants
+
+local column_count = 4
+local row_count = 4
+local mode_count = 100
+
 -- Utilities
 
 function set_keys_as_ids(t)
@@ -18,21 +24,15 @@ end
 
 function sorted_by_index(t)
     local sorted = to_array(t)
-    local compare_index = function (left, right)
+    local compare_index = function(left, right)
         return left.index < right.index
     end
     table.sort(sorted, compare_index)
     return sorted
 end
 
--- Grid constants
-
-local column_count = 4
-local row_count = 4
-
 -- Modes
 
-local mode_count = 100
 local modes = {
     -- Record/play/stop clips (push)
     -- Set clip volume (turn)
@@ -41,15 +41,13 @@ local modes = {
         label = "Normal",
     },
     -- Undo/redo
-    -- Scroll horizontally (turn)
-    -- Scroll vertically (push + turn)
-    -- Stop all
+    -- OK Stop all
     -- Play
     -- Click
     -- Cycle through normal mode knob functions (vol, pan, send)
     global = {
         index = 1,
-        label = "Global",
+        label = "Global functions",
         button = "bank-left",
     },
     -- Solo/arm/mute/select column tracks
@@ -64,6 +62,13 @@ local modes = {
         index = 3,
         label = "Slot functions",
         button = "ch-left",
+    },
+    -- Scroll horizontally
+    -- Scroll vertically
+    global_nav = {
+        index = 4,
+        label = "Global navigation functions",
+        button = "bank-right",
     },
 }
 local sorted_modes = sorted_by_index(modes)
@@ -92,6 +97,7 @@ local params = {
         value_labels = mode_labels,
     },
 }
+-- Groups
 
 function mode_is(mode_index)
     return {
@@ -101,9 +107,17 @@ function mode_is(mode_index)
     }
 end
 
+function mode_is_normal_or_global_nav()
+    return {
+        kind = "Expression",
+        condition = "p[2] == 0 || p[2] == 4",
+    }
+end
+
 local groups = {
     slot_state_feedback = {
         name = "Slot state feedback",
+        activation_condition = mode_is_normal_or_global_nav(),
     },
     clip_play = {
         name = "Clip play",
@@ -115,7 +129,23 @@ local groups = {
     },
     clip_pos_feedback = {
         name = "Clip position feedback",
-        activation_condition = mode_is(modes.normal.index),
+        activation_condition = mode_is_normal_or_global_nav(),
+    },
+    global = {
+        name = "Global functions",
+        activation_condition = mode_is(modes.global.index),
+    },
+    global_nav = {
+        name = "Global navigation functions",
+        activation_condition = mode_is(modes.global_nav.index),
+    },
+    track = {
+        name = "Track functions",
+        activation_condition = mode_is(modes.track.index),
+    },
+    slot = {
+        name = "Slot functions",
+        activation_condition = mode_is(modes.slot.index),
     },
 }
 set_keys_as_ids(groups)
@@ -232,25 +262,38 @@ function clip_position_feedback(col, row)
     }
 end
 
-function inc_button(button_id, param_index, amount)
-    local amount_abs = math.abs(amount)
+function global_matrix_button(button_id, matrix_action)
     return {
-        feedback_enabled = false,
+        activation_condition = mode_is(modes.global.index),
         source = {
             kind = "Virtual",
             id = button_id,
             character = "Button",
         },
+        target = {
+            kind = "ClipMatrixAction",
+            action = matrix_action,
+        },
+    }
+end
+
+function scroll(multi_id, offset_param_index)
+    return {
+        group = groups.global_nav.id,
+        activation_condition = mode_is(modes.global_nav.index),
+        source = {
+            kind = "Virtual",
+            id = multi_id,
+            character = "Multi",
+        },
         glue = {
-            absolute_mode = "IncrementalButton",
-            reverse = amount < 0,
-            step_factor_interval = { amount_abs, amount_abs }
+            step_factor_interval = { -3, -3 },
         },
         target = {
             kind = "FxParameterValue",
             parameter = {
                 address = "ById",
-                index = param_index,
+                index = offset_param_index,
             },
         },
     }
@@ -283,7 +326,11 @@ end
 
 -- Content
 
-local mappings = {}
+local mappings = {
+    global_matrix_button("col4/row4/pad", "Stop"),
+    scroll("col1/row1/knob", params.row_offset.index),
+    scroll("col1/row2/knob", params.column_offset.index),
+}
 
 -- Mode buttons
 
