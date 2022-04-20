@@ -646,6 +646,28 @@ for col = 0, column_count - 1 do
         end
     end
     -- Column knob
+    local send_vol_mapping = {
+        name = "Knob " .. human_col .. " sends",
+        group = "knob-sends",
+        source = {
+            kind = "Virtual",
+            character = "Multi",
+            id = col,
+        },
+        target = {
+            kind = "RouteVolume",
+            route = {
+                address = "Dynamic",
+                track = {
+                    address = "FromClipColumn",
+                    column = column,
+                    context = "Playback",
+                },
+                expression = "0",
+            },
+        },
+    }
+    table.insert(mappings, send_vol_mapping)
     for _, mode in ipairs(knob_modes) do
         if mode.track_target then
             local mapping = {
