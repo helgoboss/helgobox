@@ -1676,6 +1676,6 @@ return {
         mappings = mappings,
         custom_data = {
             companion = companion_data,
-        }
+        },
     },
 }
