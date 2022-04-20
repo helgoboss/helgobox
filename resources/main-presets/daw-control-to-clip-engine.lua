@@ -1,15 +1,17 @@
--- ### Configuration ###
+-- Preparation
 
+local col_param = 0
+local row_param = 1
 
 -- ### Content ###
 
 local parameters = {
     {
-        index = 0,
+        index = col_param,
         name = "Column offset",
     },
     {
-        index = 1,
+        index = row_param,
         name = "Row offset",
     },
 }

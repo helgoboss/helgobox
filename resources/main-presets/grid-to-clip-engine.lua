@@ -389,7 +389,7 @@ local slot_mode_labels = {}
 for i, mode in ipairs(slot_modes) do
     table.insert(slot_mode_labels, mode.label)
     if mode.button then
-        local target_value = (i - 1) / slot_mode_count
+        local target_value = i / (slot_mode_count - 1)
         local m = {
             group = "slot-modes",
             name = mode.label,
