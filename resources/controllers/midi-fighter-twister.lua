@@ -541,6 +541,48 @@ local companion_data = {
             x = 500,
             y = 250,
         },
+        {
+            height = 50,
+            id = "cursor-left",
+            ["labelOne"] = {
+                angle = 0,
+                position = "aboveTop",
+                ["sizeConstrained"] = true,
+            },
+            ["labelTwo"] = {
+                angle = 0,
+                position = "belowBottom",
+                ["sizeConstrained"] = true,
+            },
+            mappings = {
+                "cursor-left",
+            },
+            shape = "rectangle",
+            width = 50,
+            x = 0,
+            y = 150,
+        },
+        {
+            height = 50,
+            id = "cursor-right",
+            ["labelOne"] = {
+                angle = 0,
+                position = "aboveTop",
+                ["sizeConstrained"] = true,
+            },
+            ["labelTwo"] = {
+                angle = 0,
+                position = "belowBottom",
+                ["sizeConstrained"] = true,
+            },
+            mappings = {
+                "cursor-right",
+            },
+            shape = "rectangle",
+            width = 50,
+            x = 500,
+            y = 150,
+        },
     },
     ["gridDivisionCount"] = 2,
     ["gridSize"] = 50,

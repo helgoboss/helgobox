@@ -50,10 +50,10 @@ local modes = {
         label = "Global functions",
         button = "bank-left",
     },
-    -- Solo/arm/mute/select column tracks
+    -- OK Solo/arm/mute/select column tracks
     track = {
         index = 2,
-        label = "Column track functions",
+        label = "Track functions",
         button = "cursor-left",
     },
     -- OK Delete clip (long press)
@@ -65,10 +65,16 @@ local modes = {
     },
     -- OK Scroll horizontally
     -- OK Scroll vertically
-    global_nav = {
+    nav = {
         index = 4,
-        label = "Global navigation functions",
+        label = "Navigation functions",
         button = "bank-right",
+    },
+    -- OK Stop column
+    column = {
+        index = 5,
+        label = "Column functions",
+        button = "cursor-right",
     },
 }
 local sorted_modes = sorted_by_index(modes)
@@ -132,20 +138,24 @@ local groups = {
         activation_condition = display_slot_feedback_condition(),
     },
     global = {
-        name = "Global functions",
+        name = modes.global.label,
         activation_condition = mode_is(modes.global.index),
     },
-    global_nav = {
-        name = "Global navigation functions",
-        activation_condition = mode_is(modes.global_nav.index),
+    nav = {
+        name = modes.nav.label,
+        activation_condition = mode_is(modes.nav.index),
     },
     track = {
-        name = "Track functions",
+        name = modes.track.label,
         activation_condition = mode_is(modes.track.index),
     },
     slot = {
-        name = "Slot functions",
+        name = modes.slot.label,
         activation_condition = mode_is(modes.slot.index),
+    },
+    column = {
+        name = modes.column.label,
+        activation_condition = mode_is(modes.column.index),
     },
 }
 set_keys_as_ids(groups)
@@ -178,6 +188,7 @@ end
 
 function clip_play(col, row)
     return {
+        name = "Rec/play",
         group = groups.clip_play.id,
         feedback_enabled = false,
         source = {
@@ -200,6 +211,7 @@ end
 
 function clip_volume(col, row)
     return {
+        name = "Vol",
         group = groups.clip_volume.id,
         feedback_enabled = false,
         source = {
@@ -218,6 +230,7 @@ function slot_state_feedback(col, row)
     return {
         group = groups.slot_state_feedback.id,
         control_enabled = false,
+        visible_in_projection = false,
         source = {
             kind = "Virtual",
             character = "Button",
@@ -240,6 +253,7 @@ end
 function clip_position_feedback(col, row)
     return {
         group = groups.clip_pos_feedback.id,
+        visible_in_projection = false,
         control_enabled = false,
         source = {
             kind = "Virtual",
@@ -254,8 +268,9 @@ function clip_position_feedback(col, row)
     }
 end
 
-function global_matrix_button(button_id, matrix_action)
+function global_matrix_button(button_id, matrix_action, name)
     return {
+        name = name or matrix_action,
         activation_condition = mode_is(modes.global.index),
         source = {
             kind = "Virtual",
@@ -287,8 +302,9 @@ function global_transport_button(button_id, transport_action, absolute_mode)
     }
 end
 
-function global_reaper_action_button(button_id, command_id)
+function global_reaper_action_button(button_id, command_id, name)
     return {
+        name = name,
         activation_condition = mode_is(modes.global.index),
         source = {
             kind = "Virtual",
@@ -303,9 +319,10 @@ function global_reaper_action_button(button_id, command_id)
     }
 end
 
-function scroll(multi_id, offset_param_index)
+function scroll(multi_id, offset_param_index, name)
     return {
-        group = groups.global_nav.id,
+        name = name,
+        group = groups.nav.id,
         source = {
             kind = "Virtual",
             id = multi_id,
@@ -326,6 +343,7 @@ end
 
 function clip_delete(col, row)
     return {
+        name = "Quantize/delete",
         group = groups.slot.id,
         feedback_enabled = false,
         source = {
@@ -349,9 +367,56 @@ function clip_delete(col, row)
     }
 end
 
+function track_toggle_target(col, row, target_kind, name)
+    return {
+        name = name,
+        group = groups.track.id,
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = create_cell_id(col, row, "pad"),
+        },
+        glue = {
+            absolute_mode = "ToggleButton",
+        },
+        target = {
+            kind = target_kind,
+            track = {
+                address = "FromClipColumn",
+                column = {
+                    address = "Dynamic",
+                    expression = create_col_expression(col),
+                },
+                context = "Playback",
+            },
+        },
+    }
+end
+
+function column_action(col, row, action)
+    return {
+        name = action,
+        group = groups.column.id,
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = create_cell_id(col, row, "pad"),
+        },
+        target = {
+            kind = "ClipColumnAction",
+            column = {
+                address = "Dynamic",
+                expression = create_col_expression(col),
+            },
+            action = action
+        },
+    }
+end
+
 function clip_quantize(col, row)
     return {
         group = groups.slot.id,
+        visible_in_projection = false,
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -377,9 +442,10 @@ end
 -- TODO-high Make short press toggle and long press be momentary.
 --  Problem 1: "Fire after timeout" somehow doesn't have an effect.
 --  Problem 2: "Fire after timeout" doesn't switch off when button released.
-function mode_button(button_id, mode_index)
-    local target_value = mode_index / (mode_count - 1)
+function mode_button(button_id, mode)
+    local target_value = mode.index / (mode_count - 1)
     return {
+        name = mode.label,
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -402,27 +468,32 @@ end
 -- Content
 
 local mappings = {
-    global_matrix_button("col4/row4/pad", "Stop"),
+    global_matrix_button("col4/row4/pad", "Stop", "Stop all clips"),
     global_matrix_button("col3/row1/pad", "Undo"),
     global_matrix_button("col4/row1/pad", "Redo"),
     global_transport_button("col4/row3/pad", "PlayPause", "ToggleButton"),
     global_transport_button("col3/row3/pad", "Stop", "Normal"),
-    global_reaper_action_button("col4/row2/pad", 40364),
-    scroll("col1/row1/knob", params.row_offset.index),
-    scroll("col1/row2/knob", params.column_offset.index),
+    global_reaper_action_button("col4/row2/pad", 40364, "Click"),
+    scroll("col1/row1/knob", params.column_offset.index, "Scroll left/right"),
+    scroll("col1/row2/knob", params.row_offset.index, "Scroll up/down"),
 }
 
 -- Mode buttons
 
 for _, mode in pairs(modes) do
     if mode.button then
-        table.insert(mappings, mode_button(mode.button, mode.index))
+        table.insert(mappings, mode_button(mode.button, mode))
     end
 end
 
 -- Grid
 
 for col = 0, column_count - 1 do
+    table.insert(mappings, track_toggle_target(col, 0, "TrackSoloState", "Solo"))
+    table.insert(mappings, track_toggle_target(col, 1, "TrackArmState", "Arm"))
+    table.insert(mappings, track_toggle_target(col, 2, "TrackMuteState", "Mute"))
+    table.insert(mappings, track_toggle_target(col, 3, "TrackSelectionState", "Select"))
+    table.insert(mappings, column_action(col, 3, "Stop"))
     for row = 0, row_count - 1 do
         table.insert(mappings, clip_play(col, row))
         table.insert(mappings, clip_volume(col, row))
