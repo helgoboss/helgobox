@@ -96,8 +96,8 @@ impl RealTimeProcessor {
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
-                ControllerMappings => ordered_map_with_capacity(1000),
-                MainMappings => ordered_map_with_capacity(5000),
+                Controller => ordered_map_with_capacity(1000),
+                Main => ordered_map_with_capacity(5000),
             },
             nrpn_scanner: PollingParameterNumberMessageScanner::new(Duration::from_millis(1)),
             cc_14_bit_scanner: Default::default(),
@@ -609,13 +609,13 @@ impl RealTimeProcessor {
             ",
                 self.instance_id,
                 self.control_mode,
-                self.mappings[Compartment::MainMappings].len(),
-                self.mappings[Compartment::MainMappings]
+                self.mappings[Compartment::Main].len(),
+                self.mappings[Compartment::Main]
                     .values()
                     .filter(|m| m.control_is_effectively_on())
                     .count(),
-                self.mappings[Compartment::ControllerMappings].len(),
-                self.mappings[Compartment::ControllerMappings]
+                self.mappings[Compartment::Controller].len(),
+                self.mappings[Compartment::Controller]
                     .values()
                     .filter(|m| m.control_is_effectively_on())
                     .count(),
@@ -990,7 +990,7 @@ impl RealTimeProcessor {
         source_value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
     ) -> MatchOutcome {
-        let compartment = Compartment::MainMappings;
+        let compartment = Compartment::Main;
         let mut match_outcome = MatchOutcome::Unmatched;
         for m in self.mappings[compartment]
             .values_mut()
@@ -1433,7 +1433,7 @@ fn control_controller_mappings_midi(
                         m,
                         main_task_sender,
                         rt_feedback_sender,
-                        Compartment::ControllerMappings,
+                        Compartment::Controller,
                         value_event.with_payload(MidiEvent::new(
                             value_event.payload().offset(),
                             control_value,
@@ -1654,7 +1654,7 @@ fn control_main_mappings_virtual(
                     m,
                     main_task_sender,
                     rt_feedback_sender,
-                    Compartment::MainMappings,
+                    Compartment::Main,
                     value_event.with_payload(MidiEvent::new(midi_event.offset(), control_value)),
                     ControlOptions {
                         enforce_target_refresh: match_outcome.matched(),

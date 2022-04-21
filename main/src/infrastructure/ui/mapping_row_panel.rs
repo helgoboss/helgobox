@@ -231,7 +231,7 @@ impl MappingRowPanel {
         let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
-            let controller_mappings = session.mappings(Compartment::ControllerMappings);
+            let controller_mappings = session.mappings(Compartment::Controller);
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();

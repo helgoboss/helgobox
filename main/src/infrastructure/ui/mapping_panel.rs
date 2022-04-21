@@ -607,10 +607,7 @@ impl MappingPanel {
         let controller_mappings: Vec<_> = {
             let session = self.session();
             let session = session.borrow();
-            session
-                .mappings(Compartment::ControllerMappings)
-                .cloned()
-                .collect()
+            session.mappings(Compartment::Controller).cloned().collect()
         };
         let grouped_mappings =
             group_mappings_by_virtual_control_element(controller_mappings.iter());
@@ -3115,7 +3112,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_enabled(self.mapping.compartment() != Compartment::MainMappings);
+            .set_enabled(self.mapping.compartment() != Compartment::Main);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item_by_index(self.target.category().into())
@@ -5682,7 +5679,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
-        let is_main_mapping = self.mapping.compartment() == Compartment::MainMappings;
+        let is_main_mapping = self.mapping.compartment() == Compartment::Main;
         b.fill_combo_box_small(
             SourceCategory::into_enum_iter()
                 // Don't allow controller mappings to have virtual source

@@ -319,8 +319,8 @@ impl PluginParams {
             .compartment_params(compartment)
             .get_parameter_name(index);
         let compartment_label = match compartment {
-            Compartment::ControllerMappings => "Ctrl",
-            Compartment::MainMappings => "Main",
+            Compartment::Controller => "Ctrl",
+            Compartment::Main => "Main",
         };
         format!(
             "{} p{}: {}",

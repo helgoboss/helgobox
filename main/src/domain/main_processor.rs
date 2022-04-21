@@ -957,7 +957,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         }
         // 4. Mappings with virtual targets: Determine unused sources
-        if compartment == Compartment::ControllerMappings {
+        if compartment == Compartment::Controller {
             for m in self.collections.mappings_with_virtual_targets.values() {
                 if !m.feedback_is_effectively_on() {
                     continue;
@@ -967,7 +967,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // (https://github.com/helgoboss/realearn/issues/563)
                 let has_active_main_mapping =
                     find_active_main_mapping_connected_to_virtual_control_element(
-                        &self.collections.mappings[Compartment::MainMappings],
+                        &self.collections.mappings[Compartment::Main],
                         m.virtual_target_control_element().unwrap(),
                     )
                     .is_some();
@@ -1272,7 +1272,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Put into hash map in order to quickly look up mappings by ID
         let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
-        if compartment == Compartment::ControllerMappings {
+        if compartment == Compartment::Controller {
             let (virtual_target_mappings, normal_mappings) =
                 mapping_tuples.partition(|(_, m)| m.has_virtual_target());
             self.collections.mappings[compartment] = normal_mappings;
@@ -1341,7 +1341,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn any_main_mapping_is_effectively_on(&self) -> bool {
-        self.collections.mappings[Compartment::MainMappings]
+        self.collections.mappings[Compartment::Main]
             .values()
             .any(|m| m.is_effectively_on())
     }
@@ -1350,7 +1350,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // A device is only considered to be "in use" if there's at least one
         // *main* mapping. It doesn't depend on
         // controller mappings.
-        if compartment == Compartment::MainMappings {
+        if compartment == Compartment::Main {
             let event = self.basics.feedback_output_usage_might_have_changed_event(
                 self.any_main_mapping_is_effectively_on(),
             );
@@ -1375,7 +1375,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         id: MappingId,
     ) -> Option<&MainMapping> {
         self.collections.mappings[compartment].get(&id).or(
-            if compartment == Compartment::ControllerMappings {
+            if compartment == Compartment::Controller {
                 self.collections.mappings_with_virtual_targets.get(&id)
             } else {
                 None
@@ -1389,7 +1389,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) -> Option<&mut MainMapping> {
         self.collections.mappings[id.compartment]
             .get_mut(&id.id)
-            .or(if id.compartment == Compartment::ControllerMappings {
+            .or(if id.compartment == Compartment::Controller {
                 self.collections
                     .mappings_with_virtual_targets
                     .get_mut(&id.id)
@@ -1575,7 +1575,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
-                &mut self.collections.mappings[Compartment::MainMappings],
+                &mut self.collections.mappings[Compartment::Main],
                 evt,
                 &self.collections.parameters,
             );
@@ -1627,7 +1627,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
-                &mut self.collections.mappings[Compartment::MainMappings],
+                &mut self.collections.mappings[Compartment::Main],
                 evt,
                 &self.collections.parameters,
             );
@@ -1865,7 +1865,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .mappings_with_virtual_targets
                 .values()
                 // Include virtual target mappings if we are talking about controller compartment.
-                .filter(move |_| compartment == Compartment::ControllerMappings),
+                .filter(move |_| compartment == Compartment::Controller),
         )
     }
 
@@ -1931,7 +1931,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
         if let Some(control_element) = m.virtual_target_control_element() {
             find_active_main_mapping_connected_to_virtual_control_element(
-                &self.collections.mappings[Compartment::MainMappings],
+                &self.collections.mappings[Compartment::Main],
                 control_element,
             )
         } else {
@@ -2075,13 +2075,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - Parameters: {:?} \n\
             ",
             self.basics.control_mode,
-            self.collections.mappings[Compartment::MainMappings].len(),
-            self.collections.mappings[Compartment::MainMappings]
+            self.collections.mappings[Compartment::Main].len(),
+            self.collections.mappings[Compartment::Main]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.collections.mappings[Compartment::ControllerMappings].len(),
-            self.collections.mappings[Compartment::ControllerMappings]
+            self.collections.mappings[Compartment::Controller].len(),
+            self.collections.mappings[Compartment::Controller]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
@@ -2983,7 +2983,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                 };
                 self.event_handler
-                    .notify_mapping_matched(Compartment::ControllerMappings, m.id());
+                    .notify_mapping_matched(Compartment::Controller, m.id());
                 let results = self.process_main_mappings_with_virtual_sources(
                     main_mappings,
                     evt.with_payload(virtual_source_value),
@@ -3313,7 +3313,7 @@ fn all_mappings_in_compartment_mut<'a>(
         mappings_with_virtual_targets
             .values_mut()
             // Include virtual target mappings if we are talking about controller compartment.
-            .filter(move |_| compartment == Compartment::ControllerMappings),
+            .filter(move |_| compartment == Compartment::Controller),
     )
 }
 
@@ -3325,7 +3325,7 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
 ) -> Option<&'a mut MainMapping> {
     mappings[compartment]
         .get_mut(&id)
-        .or(if compartment == Compartment::ControllerMappings {
+        .or(if compartment == Compartment::Controller {
             mappings_with_virtual_targets.get_mut(&id)
         } else {
             None

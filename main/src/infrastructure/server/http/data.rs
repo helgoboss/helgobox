@@ -106,7 +106,7 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
     });
     let instance_state = session.instance_state().borrow();
     let routes = session
-        .mappings(Compartment::ControllerMappings)
+        .mappings(Compartment::Controller)
         .filter_map(|m| {
             let m = m.borrow();
             if !m.visible_in_projection() {
@@ -116,14 +116,13 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
                 if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_main_mappings =
-                        session.mappings(Compartment::MainMappings).filter(|mp| {
-                            let mp = mp.borrow();
-                            mp.visible_in_projection()
-                                && mp.source_model.category() == SourceCategory::Virtual
-                                && mp.source_model.create_control_element() == control_element
-                                && instance_state.mapping_is_on(mp.qualified_id())
-                        });
+                    let matching_main_mappings = session.mappings(Compartment::Main).filter(|mp| {
+                        let mp = mp.borrow();
+                        mp.visible_in_projection()
+                            && mp.source_model.category() == SourceCategory::Virtual
+                            && mp.source_model.create_control_element() == control_element
+                            && instance_state.mapping_is_on(mp.qualified_id())
+                    });
                     let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {
                             let m = m.borrow();
@@ -313,7 +312,7 @@ fn get_controller(session: &Session) -> Option<ControllerPresetData> {
 fn get_controller_preset_data_internal(
     session: &Session,
 ) -> Result<ControllerPresetData, DataError> {
-    let data = session.extract_compartment_model(Compartment::ControllerMappings);
+    let data = session.extract_compartment_model(Compartment::Controller);
     if data.mappings.is_empty() {
         return Err(DataError::SessionHasNoActiveController);
     }

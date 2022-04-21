@@ -887,15 +887,15 @@ impl SourceCategory {
     pub fn default_for(compartment: Compartment) -> Self {
         use SourceCategory::*;
         match compartment {
-            Compartment::ControllerMappings => Midi,
-            Compartment::MainMappings => Midi,
+            Compartment::Controller => Midi,
+            Compartment::Main => Midi,
         }
     }
 
     pub fn is_allowed_in(self, compartment: Compartment) -> bool {
         use SourceCategory::*;
         match compartment {
-            Compartment::ControllerMappings => match self {
+            Compartment::Controller => match self {
                 Never => true,
                 Midi => true,
                 Osc => true,
@@ -903,7 +903,7 @@ impl SourceCategory {
                 Keyboard => true,
                 Virtual => false,
             },
-            Compartment::MainMappings => true,
+            Compartment::Main => true,
         }
     }
 }

@@ -1661,7 +1661,7 @@ impl SpecificCompoundFeedbackValue {
         } else {
             // Real source
             let projection = if destinations.with_projection_feedback
-                && compartment == Compartment::ControllerMappings
+                && compartment == Compartment::Controller
             {
                 // TODO-medium Support textual projection feedback
                 mode_value.to_numeric().map(|v| {
@@ -2191,9 +2191,9 @@ pub enum Compartment {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
     #[display(fmt = "controller compartment")]
-    ControllerMappings,
+    Controller,
     #[display(fmt = "main compartment")]
-    MainMappings,
+    Main,
 }
 
 impl Compartment {
@@ -2236,8 +2236,8 @@ impl Compartment {
 
     fn plugin_param_offset(self) -> PluginParamIndex {
         let raw_offset = match self {
-            Compartment::ControllerMappings => 100u32,
-            Compartment::MainMappings => 0u32,
+            Compartment::Controller => 100u32,
+            Compartment::Main => 0u32,
         };
         PluginParamIndex::try_from(raw_offset).unwrap()
     }

@@ -77,10 +77,10 @@ impl Default for MainState {
             is_learning_target_filter: prop(false),
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
-            active_compartment: prop(Compartment::MainMappings),
+            active_compartment: prop(Compartment::Main),
             displayed_group: enum_map! {
-                Compartment::ControllerMappings => prop(Some(GroupFilter::default())),
-                Compartment::MainMappings => prop(Some(GroupFilter::default())),
+                Compartment::Controller => prop(Some(GroupFilter::default())),
+                Compartment::Main => prop(Some(GroupFilter::default())),
             },
             search_expression: Default::default(),
             status_msg: Default::default(),
@@ -99,9 +99,9 @@ impl MainState {
     pub fn displayed_group_for_any_compartment_changed(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.displayed_group[Compartment::ControllerMappings]
+        self.displayed_group[Compartment::Controller]
             .changed()
-            .merge(self.displayed_group[Compartment::MainMappings].changed())
+            .merge(self.displayed_group[Compartment::Main].changed())
     }
 
     pub fn displayed_group_for_active_compartment(&self) -> Option<GroupFilter> {

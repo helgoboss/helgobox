@@ -673,8 +673,8 @@ impl App {
 
     pub fn preset_manager(&self, compartment: Compartment) -> Box<dyn ExtendedPresetManager> {
         match compartment {
-            Compartment::ControllerMappings => Box::new(self.controller_preset_manager()),
-            Compartment::MainMappings => Box::new(self.main_preset_manager()),
+            Compartment::Controller => Box::new(self.controller_preset_manager()),
+            Compartment::Main => Box::new(self.main_preset_manager()),
         }
     }
 
@@ -935,7 +935,7 @@ impl App {
                     None => return,
                     Some(t) => t,
                 };
-                App::get().start_learning_source_for_target(Compartment::MainMappings, target);
+                App::get().start_learning_source_for_target(Compartment::Main, target);
             },
             ActionKind::NotToggleable,
         );
@@ -945,7 +945,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .learn_mapping_reassigning_source(Compartment::MainMappings, false)
+                        .learn_mapping_reassigning_source(Compartment::Main, false)
                         .await;
                 });
             },
@@ -957,7 +957,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .learn_mapping_reassigning_source(Compartment::MainMappings, true)
+                        .learn_mapping_reassigning_source(Compartment::Main, true)
                         .await;
                 });
             },
@@ -969,7 +969,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .find_first_mapping_by_source(Compartment::MainMappings)
+                        .find_first_mapping_by_source(Compartment::Main)
                         .await;
                 });
             },
@@ -981,7 +981,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .find_first_mapping_by_target(Compartment::MainMappings)
+                        .find_first_mapping_by_target(Compartment::Main)
                         .await;
                 });
             },

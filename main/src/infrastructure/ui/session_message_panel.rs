@@ -41,7 +41,7 @@ impl SessionMessagePanel {
                         control_element_type,
                     } => {
                         let msg = match state.compartment {
-                            Compartment::ControllerMappings => match control_element_type {
+                            Compartment::Controller => match control_element_type {
                                 VirtualControlElementType::Multi => {
                                     "Move a multi-like control element!"
                                 }
@@ -49,7 +49,7 @@ impl SessionMessagePanel {
                                     "Press a button-like control element!"
                                 }
                             },
-                            Compartment::MainMappings => "Touch a control element!",
+                            Compartment::Main => "Touch a control element!",
                         };
                         (
                             format!("Learning source for {}", mapping_label),

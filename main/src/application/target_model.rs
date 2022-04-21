@@ -1508,8 +1508,8 @@ impl TargetModel {
         use Compartment::*;
         TargetModel {
             category: match compartment {
-                ControllerMappings => TargetCategory::Virtual,
-                MainMappings => TargetCategory::Reaper,
+                Controller => TargetCategory::Virtual,
+                Main => TargetCategory::Reaper,
             },
             ..Default::default()
         }
@@ -2701,16 +2701,16 @@ impl TargetCategory {
     pub fn default_for(compartment: Compartment) -> Self {
         use TargetCategory::*;
         match compartment {
-            Compartment::ControllerMappings => Virtual,
-            Compartment::MainMappings => Reaper,
+            Compartment::Controller => Virtual,
+            Compartment::Main => Reaper,
         }
     }
 
     pub fn is_allowed_in(self, compartment: Compartment) -> bool {
         use TargetCategory::*;
         match compartment {
-            Compartment::ControllerMappings => true,
-            Compartment::MainMappings => match self {
+            Compartment::Controller => true,
+            Compartment::Main => match self {
                 Reaper => true,
                 Virtual => false,
             },

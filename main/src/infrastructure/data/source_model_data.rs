@@ -288,7 +288,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, Compartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
         assert_eq!(
             model.midi_source_type(),
@@ -321,7 +321,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, Compartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
         assert_eq!(model.midi_source_type(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel(), None);

@@ -230,10 +230,10 @@ impl Session {
             mappings: Default::default(),
             custom_compartment_data: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
-                Compartment::MainMappings,
+                Compartment::Main,
             ))),
             default_controller_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
-                Compartment::ControllerMappings,
+                Compartment::Controller,
             ))),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
@@ -355,7 +355,7 @@ impl Session {
     }
 
     pub fn virtualize_main_mappings(&mut self) -> Result<(), String> {
-        let count = self.mappings[Compartment::MainMappings]
+        let count = self.mappings[Compartment::Main]
             .iter()
             .filter(|m| {
                 let mut m = m.borrow_mut();
@@ -376,7 +376,7 @@ impl Session {
 
     pub fn mappings_are_read_only(&self, compartment: Compartment) -> bool {
         self.is_learning_many_mappings()
-            || (compartment == Compartment::MainMappings && self.main_preset_auto_load_is_active())
+            || (compartment == Compartment::Main && self.main_preset_auto_load_is_active())
     }
 
     fn full_sync(&mut self) {
@@ -636,21 +636,20 @@ impl Session {
         &'a self,
         instance_state: &'a InstanceState,
     ) -> impl Iterator<Item = &SharedMapping> {
-        self.mappings(Compartment::ControllerMappings)
-            .filter(move |m| {
-                let m = m.borrow();
-                if !m.control_is_enabled() {
-                    return false;
-                }
-                if m.target_model.category() != TargetCategory::Virtual {
-                    return false;
-                }
-                if !instance_state.mapping_is_on(m.qualified_id()) {
-                    // Since virtual mappings support conditional activation, too!
-                    return false;
-                }
-                true
-            })
+        self.mappings(Compartment::Controller).filter(move |m| {
+            let m = m.borrow();
+            if !m.control_is_enabled() {
+                return false;
+            }
+            if m.target_model.category() != TargetCategory::Virtual {
+                return false;
+            }
+            if !instance_state.mapping_is_on(m.qualified_id()) {
+                // Since virtual mappings support conditional activation, too!
+                return false;
+            }
+            true
+        })
     }
 
     pub fn incoming_msg_captured(
@@ -1203,7 +1202,7 @@ impl Session {
         let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
         let new_name = self.generate_name_for_new_mapping(compartment);
         let _ = mapping.change(MappingCommand::SetName(new_name));
-        if compartment == Compartment::ControllerMappings {
+        if compartment == Compartment::Controller {
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
             mapping.target_model =
@@ -1264,7 +1263,7 @@ impl Session {
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
         let max_index_so_far = self
-            .mappings(Compartment::ControllerMappings)
+            .mappings(Compartment::Controller)
             .filter_map(|m| {
                 let m = m.borrow();
                 let target = &m.target_model;
@@ -1311,9 +1310,9 @@ impl Session {
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
-            Compartment::ControllerMappings => &self.mapping_which_learns_source,
+            Compartment::Controller => &self.mapping_which_learns_source,
             // For main mappings we want to learn a target before moving on to the next mapping.
-            Compartment::MainMappings => &self.mapping_which_learns_target,
+            Compartment::Main => &self.mapping_which_learns_target,
         };
         when(
             prop_to_observe
@@ -1344,13 +1343,13 @@ impl Session {
             // When batch-learning controller mappings, we just want to learn sources that have
             // not yet been learned. Otherwise when we move a fader, we create many mappings in
             // one go.
-            Compartment::ControllerMappings => self
+            Compartment::Controller => self
                 .mappings(compartment)
                 .map(|m| m.borrow().source_model.create_source())
                 .collect(),
             // When batch-learning main mappings, we always wait for a target touch between the
             // mappings, so this is not necessary.
-            Compartment::MainMappings => vec![],
+            Compartment::Main => vec![],
         };
         let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let qualified_mapping_id = mapping.borrow().qualified_id();
@@ -1365,13 +1364,13 @@ impl Session {
             mapping,
             false,
             ignore_sources,
-            compartment != Compartment::ControllerMappings,
+            compartment != Compartment::Controller,
         );
         // If this is a main mapping, start learning target as soon as source learned. For
         // controller mappings we don't need to do this because adding the default mapping will
         // automatically increase the virtual target control element index (which is usually what
         // one wants when creating a controller mapping).
-        if compartment == Compartment::MainMappings {
+        if compartment == Compartment::Main {
             when(
                 self.mapping_which_learns_source
                     .changed_to(None)
@@ -1449,8 +1448,8 @@ impl Session {
 
     pub fn default_group(&self, compartment: Compartment) -> &SharedGroup {
         match compartment {
-            Compartment::ControllerMappings => &self.default_controller_group,
-            Compartment::MainMappings => &self.default_main_group,
+            Compartment::Controller => &self.default_controller_group,
+            Compartment::Main => &self.default_main_group,
         }
     }
 
@@ -1507,7 +1506,7 @@ impl Session {
                 mapping.clone(),
                 true,
                 vec![],
-                mapping.borrow().compartment() != Compartment::ControllerMappings,
+                mapping.borrow().compartment() != Compartment::Controller,
             );
         } else {
             self.stop_learning_source();
@@ -1773,8 +1772,8 @@ impl Session {
 
     pub fn active_preset_id(&self, compartment: Compartment) -> Option<&str> {
         let id = match compartment {
-            Compartment::ControllerMappings => &self.active_controller_preset_id,
-            Compartment::MainMappings => &self.active_main_preset_id,
+            Compartment::Controller => &self.active_controller_preset_id,
+            Compartment::Main => &self.active_main_preset_id,
         };
         id.as_deref()
     }
@@ -1795,7 +1794,7 @@ impl Session {
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
-        let id = self.active_preset_id(Compartment::MainMappings)?;
+        let id = self.active_preset_id(Compartment::Main)?;
         self.main_preset_manager.find_by_id(id)
     }
 
@@ -1812,7 +1811,7 @@ impl Session {
     }
 
     pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
-        let compartment = Compartment::ControllerMappings;
+        let compartment = Compartment::Controller;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .controller_preset_manager
@@ -1830,7 +1829,7 @@ impl Session {
     }
 
     pub fn activate_main_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
-        let compartment = Compartment::MainMappings;
+        let compartment = Compartment::Main;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .main_preset_manager
@@ -1880,8 +1879,8 @@ impl Session {
     fn replace_compartment(&mut self, compartment: Compartment, model: Option<CompartmentModel>) {
         if let Some(model) = model {
             let default_group = match compartment {
-                Compartment::MainMappings => &mut self.default_main_group,
-                Compartment::ControllerMappings => &mut self.default_controller_group,
+                Compartment::Main => &mut self.default_main_group,
+                Compartment::Controller => &mut self.default_controller_group,
             };
             default_group.replace(model.default_group);
             self.set_groups_without_notification(compartment, model.groups.into_iter());
@@ -2043,12 +2042,12 @@ impl Session {
             ",
             self.instance_id,
             self.id.get_ref(),
-            self.mappings[Compartment::MainMappings].len(),
-            self.mapping_subscriptions[Compartment::MainMappings].len(),
+            self.mappings[Compartment::Main].len(),
+            self.mapping_subscriptions[Compartment::Main].len(),
             self.groups.len(),
             self.group_subscriptions.len(),
-            self.mappings[Compartment::ControllerMappings].len(),
-            self.mapping_subscriptions[Compartment::ControllerMappings].len(),
+            self.mappings[Compartment::Controller].len(),
+            self.mapping_subscriptions[Compartment::Controller].len(),
         );
         Reaper::get().show_console_msg(msg);
         // Detailled
@@ -2210,8 +2209,8 @@ impl Session {
         let group_id = mapping.group_id();
         if group_id.is_default() {
             let group = match mapping.compartment() {
-                Compartment::ControllerMappings => &self.default_controller_group,
-                Compartment::MainMappings => &self.default_main_group,
+                Compartment::Controller => &self.default_controller_group,
+                Compartment::Main => &self.default_main_group,
             };
             Some(group)
         } else {

@@ -153,11 +153,11 @@ impl HeaderPanel {
         } else {
             let compartment = self.active_compartment();
             let control_element_type = match compartment {
-                Compartment::ControllerMappings => match self.prompt_for_control_element_type() {
+                Compartment::Controller => match self.prompt_for_control_element_type() {
                     None => return,
                     Some(t) => t,
                 },
-                Compartment::MainMappings => {
+                Compartment::Main => {
                     // Doesn't matter
                     VirtualControlElementType::Multi
                 }
@@ -963,7 +963,7 @@ impl HeaderPanel {
                     .borrow()
                     .incoming_msg_captured(
                         true,
-                        active_compartment != Compartment::ControllerMappings,
+                        active_compartment != Compartment::Controller,
                         None,
                     )
                     .take_until(learning.changed_to(false))
@@ -1185,11 +1185,11 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_MAIN_COMPARTMENT_RADIO_BUTTON);
         match self.active_compartment() {
-            Compartment::ControllerMappings => {
+            Compartment::Controller => {
                 controller_radio.check();
                 main_radio.uncheck();
             }
-            Compartment::MainMappings => {
+            Compartment::Main => {
                 controller_radio.uncheck();
                 main_radio.check()
             }
@@ -1199,7 +1199,7 @@ impl HeaderPanel {
     fn invalidate_preset_auto_load_mode_combo_box(&self) {
         let label = self.view.require_control(root::ID_AUTO_LOAD_LABEL_TEXT);
         let combo = self.view.require_control(root::ID_AUTO_LOAD_COMBO_BOX);
-        if self.active_compartment() == Compartment::MainMappings {
+        if self.active_compartment() == Compartment::Main {
             label.show();
             combo.show();
             combo
@@ -1301,8 +1301,8 @@ impl HeaderPanel {
 
     fn invalidate_preset_label_text(&self) {
         let text = match self.active_compartment() {
-            Compartment::ControllerMappings => "Controller preset",
-            Compartment::MainMappings => "Main preset",
+            Compartment::Controller => "Controller preset",
+            Compartment::Main => "Main preset",
         };
         self.view
             .require_control(root::ID_PRESET_LABEL_TEXT)
@@ -1721,7 +1721,7 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
-        let compartment = Compartment::MainMappings;
+        let compartment = Compartment::Main;
         self.main_state.borrow_mut().stop_filter_learning();
         let mode = self
             .view
@@ -1777,10 +1777,10 @@ impl HeaderPanel {
         };
         let mut session = session.borrow_mut();
         match compartment {
-            Compartment::ControllerMappings => {
+            Compartment::Controller => {
                 session.activate_controller_preset(preset_id).unwrap();
             }
-            Compartment::MainMappings => session.activate_main_preset(preset_id).unwrap(),
+            Compartment::Main => session.activate_main_preset(preset_id).unwrap(),
         };
     }
 
@@ -1797,7 +1797,7 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
         button.set_text(learn_button_text);
-        let enabled = !(self.active_compartment() == Compartment::MainMappings
+        let enabled = !(self.active_compartment() == Compartment::Main
             && self.session().borrow().main_preset_auto_load_is_active());
         button.set_enabled(enabled);
     }
@@ -1905,12 +1905,12 @@ impl HeaderPanel {
                 }
             }
             Tagged(DataObject::MainCompartment(Envelope {value})) => {
-                let compartment = Compartment::MainMappings;
+                let compartment = Compartment::Main;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::ControllerCompartment(Envelope {value})) => {
-                let compartment = Compartment::ControllerMappings;
+                let compartment = Compartment::Controller;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
@@ -2060,8 +2060,8 @@ impl HeaderPanel {
                     value: Box::new(data),
                 };
                 let data_object = match compartment {
-                    Compartment::ControllerMappings => DataObject::ControllerCompartment(envelope),
-                    Compartment::MainMappings => DataObject::MainCompartment(envelope),
+                    Compartment::Controller => DataObject::ControllerCompartment(envelope),
+                    Compartment::Main => DataObject::MainCompartment(envelope),
                 };
                 let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
@@ -2093,8 +2093,8 @@ impl HeaderPanel {
             .ok_or("no preset selected")?
             .to_string();
         match compartment {
-            Compartment::ControllerMappings => session.activate_controller_preset(None)?,
-            Compartment::MainMappings => session.activate_main_preset(None)?,
+            Compartment::Controller => session.activate_controller_preset(None)?,
+            Compartment::Main => session.activate_main_preset(None)?,
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
@@ -2132,7 +2132,7 @@ impl HeaderPanel {
             .ok_or("no active preset")?;
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            Compartment::ControllerMappings => {
+            Compartment::Controller => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
@@ -2142,7 +2142,7 @@ impl HeaderPanel {
                     .borrow_mut()
                     .update_preset(controller_preset)?;
             }
-            Compartment::MainMappings => {
+            Compartment::Main => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
@@ -2204,7 +2204,7 @@ impl HeaderPanel {
         let preset_id = slug::slugify(&preset_name);
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            Compartment::ControllerMappings => {
+            Compartment::Controller => {
                 let controller =
                     ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
@@ -2213,7 +2213,7 @@ impl HeaderPanel {
                     .add_preset(controller)?;
                 session.activate_controller_preset(Some(preset_id))?;
             }
-            Compartment::MainMappings => {
+            Compartment::Main => {
                 let main_preset =
                     MainPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
@@ -2379,9 +2379,9 @@ impl HeaderPanel {
         });
         // Enables/disables save button depending on dirty state.
         when(
-            session.compartment_is_dirty[Compartment::ControllerMappings]
+            session.compartment_is_dirty[Compartment::Controller]
                 .changed()
-                .merge(session.compartment_is_dirty[Compartment::MainMappings].changed())
+                .merge(session.compartment_is_dirty[Compartment::Main].changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2466,11 +2466,9 @@ impl View for HeaderPanel {
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(Compartment::ControllerMappings)
+                self.update_compartment(Compartment::Controller)
             }
-            root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(Compartment::MainMappings)
-            }
+            root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => self.update_compartment(Compartment::Main),
             _ => {}
         }
     }
