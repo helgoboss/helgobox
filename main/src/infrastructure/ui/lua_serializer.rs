@@ -388,7 +388,7 @@ fn write_map_key(wr: &mut String, v: &str) {
 
 fn ensure_proper_identifier(v: &str) -> Result<()> {
     fn is_identifier_char(ch: char) -> bool {
-        (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
+        ch.is_ascii_alphanumeric() || ch == '_'
     }
     let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
     if contains_non_identifier_chars {
