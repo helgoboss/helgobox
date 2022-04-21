@@ -17,7 +17,7 @@ for col, column_key_set in ipairs(column_key_sets) do
             source = {
                 kind = "Virtual",
                 character = "Button",
-                id = row_key,
+                id = "key/" .. row_key,
             },
             glue = {
                 --absolute_mode = "Toggle",

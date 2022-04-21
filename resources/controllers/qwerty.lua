@@ -12,7 +12,7 @@ function key_mapping(modifiers, ascii_code)
         target = {
             kind = "Virtual",
             character = "Button",
-            id = string.lower(string.char(ascii_code)),
+            id = "key/" .. string.lower(string.char(ascii_code)),
         },
     }
 end
