@@ -7,6 +7,7 @@ use crate::rt::{
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
+use playtime_api::ClipPlayStopTiming;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::mem;
@@ -193,12 +194,17 @@ impl Matrix {
         Ok(())
     }
 
-    pub fn stop_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn stop_clip(
+        &self,
+        coordinates: ClipSlotCoordinates,
+        stop_timing: Option<ClipPlayStopTiming>,
+    ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row(),
             timeline: self.timeline(),
             ref_pos: None,
+            stop_timing,
         };
         handle.command_sender.stop_clip(args);
         Ok(())

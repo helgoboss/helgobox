@@ -2,6 +2,7 @@ use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlE
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -518,6 +519,10 @@ pub struct ClipTransportActionTarget {
     pub record_only_if_track_armed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_column_if_slot_empty: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub play_start_timing: Option<ClipPlayStartTiming>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]

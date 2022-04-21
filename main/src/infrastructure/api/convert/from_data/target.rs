@@ -276,6 +276,8 @@ fn convert_real_target(
                 data.stop_column_if_slot_empty,
                 defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY,
             ),
+            play_start_timing: data.clip_play_start_timing,
+            play_stop_timing: data.clip_play_stop_timing,
         }),
         ClipColumn => T::ClipColumnAction(ClipColumnTarget {
             commons,

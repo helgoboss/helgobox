@@ -332,6 +332,7 @@ impl Column {
             ref_pos: Some(ref_pos),
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
+            start_timing: args.options.start_timing,
         };
         let slot = get_slot_mut_insert(&mut self.slots, args.slot_index);
         if slot.is_filled() {
@@ -370,6 +371,7 @@ impl Column {
             ref_pos: Some(args.ref_pos),
             options: ColumnPlayClipOptions {
                 stop_column_if_slot_empty: true,
+                start_timing: None,
             },
         };
         self.play_clip(play_args, audio_request_props)
@@ -416,7 +418,7 @@ impl Column {
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<()> {
         let clip_args = ClipStopArgs {
-            stop_timing: None,
+            stop_timing: args.stop_timing,
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
             enforce_play_stop: false,
@@ -880,6 +882,7 @@ pub struct ColumnPlayRowArgs {
 #[derive(Clone, Debug)]
 pub struct ColumnPlayClipOptions {
     pub stop_column_if_slot_empty: bool,
+    pub start_timing: Option<ClipPlayStartTiming>,
 }
 
 #[derive(Debug)]
@@ -888,6 +891,7 @@ pub struct ColumnStopClipArgs {
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
+    pub stop_timing: Option<ClipPlayStopTiming>,
 }
 
 #[derive(Clone, Debug)]

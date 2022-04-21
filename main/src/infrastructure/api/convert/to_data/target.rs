@@ -640,6 +640,8 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             stop_column_if_slot_empty: d
                 .stop_column_if_slot_empty
                 .unwrap_or(defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY),
+            clip_play_start_timing: d.play_start_timing,
+            clip_play_stop_timing: d.play_stop_timing,
             ..init(d.commons)
         },
         Target::ClipColumnAction(d) => TargetModelData {

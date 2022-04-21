@@ -19,8 +19,8 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api as api;
 use playtime_api::{
-    ChannelRange, Db, MatrixClipPlayAudioSettings, MatrixClipPlaySettings,
-    MatrixClipRecordSettings, TempoRange,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, Db, MatrixClipPlayAudioSettings,
+    MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
@@ -336,13 +336,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn stop_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn stop_clip(
+        &self,
+        coordinates: ClipSlotCoordinates,
+        stop_timing: Option<ClipPlayStopTiming>,
+    ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row,
             timeline,
             ref_pos: None,
+            stop_timing,
         };
         column.stop_clip(args);
         Ok(())
@@ -719,6 +724,8 @@ pub struct ClipTransportOptions {
     /// the record track of the clip column is armed.
     pub record_only_if_track_armed: bool,
     pub stop_column_if_slot_empty: bool,
+    pub play_start_timing: Option<ClipPlayStartTiming>,
+    pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 #[derive(Copy, Clone)]

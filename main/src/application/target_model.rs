@@ -52,6 +52,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::schema::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
@@ -135,6 +136,8 @@ pub enum TargetCommand {
     SetClipMatrixAction(ClipMatrixAction),
     SetClipColumnAction(ClipColumnAction),
     SetClipRowAction(ClipRowAction),
+    SetClipPlayStartTiming(Option<ClipPlayStartTiming>),
+    SetClipPlayStopTiming(Option<ClipPlayStopTiming>),
     SetRecordOnlyIfTrackArmed(bool),
     SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
@@ -216,6 +219,8 @@ pub enum TargetProp {
     ClipMatrixAction,
     ClipColumnAction,
     ClipRowAction,
+    ClipPlayStartTiming,
+    ClipPlayStopTiming,
     RecordOnlyIfTrackArmed,
     StopColumnIfSlotEmpty,
     PollForFeedback,
@@ -525,6 +530,14 @@ impl<'a> Change<'a> for TargetModel {
                 self.clip_row_action = v;
                 One(P::ClipRowAction)
             }
+            C::SetClipPlayStartTiming(v) => {
+                self.clip_play_start_timing = v;
+                One(P::ClipPlayStartTiming)
+            }
+            C::SetClipPlayStopTiming(v) => {
+                self.clip_play_stop_timing = v;
+                One(P::ClipPlayStopTiming)
+            }
             C::SetRecordOnlyIfTrackArmed(v) => {
                 self.record_only_if_track_armed = v;
                 One(P::RecordOnlyIfTrackArmed)
@@ -642,6 +655,8 @@ pub struct TargetModel {
     clip_row_action: ClipRowAction,
     record_only_if_track_armed: bool,
     stop_column_if_slot_empty: bool,
+    clip_play_start_timing: Option<ClipPlayStartTiming>,
+    clip_play_stop_timing: Option<ClipPlayStopTiming>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -729,8 +744,10 @@ impl Default for TargetModel {
             clip_matrix_action: Default::default(),
             record_only_if_track_armed: false,
             stop_column_if_slot_empty: false,
+            clip_play_start_timing: None,
             clip_column_track_context: Default::default(),
             clip_row_action: Default::default(),
+            clip_play_stop_timing: None,
         }
     }
 }
@@ -2097,10 +2114,20 @@ impl TargetModel {
         self.stop_column_if_slot_empty
     }
 
+    pub fn clip_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+        self.clip_play_start_timing
+    }
+
+    pub fn clip_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+        self.clip_play_stop_timing
+    }
+
     pub fn clip_transport_options(&self) -> ClipTransportOptions {
         ClipTransportOptions {
             record_only_if_track_armed: self.record_only_if_track_armed,
             stop_column_if_slot_empty: self.stop_column_if_slot_empty,
+            play_start_timing: self.clip_play_start_timing,
+            play_stop_timing: self.clip_play_stop_timing,
         }
     }
 

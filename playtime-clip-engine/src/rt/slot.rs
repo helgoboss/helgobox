@@ -284,13 +284,7 @@ impl Slot {
                     ) {
                         return Ok(());
                     }
-                    clip.play(ClipPlayArgs {
-                        timeline: &args.column_args.timeline,
-                        ref_pos: Some(args.column_args.timeline_cursor_pos),
-                        matrix_settings: args.matrix_settings,
-                        column_settings: args.column_settings,
-                    })?;
-                    None
+                    play_clip_by_transport(clip, args)
                 }
             }
         };
@@ -419,6 +413,7 @@ fn play_clip_by_transport(
         ref_pos: Some(args.column_args.timeline_cursor_pos),
         matrix_settings: args.matrix_settings,
         column_settings: args.column_settings,
+        start_timing: None,
     };
     clip.play(args).unwrap();
     None

@@ -49,7 +49,7 @@ for col = 0, 7 do
                     column_index = col,
                     row_index = row,
                 },
-                action = "PlayStop",
+                action = "RecordPlayStop",
                 record_only_if_track_armed = true,
                 stop_column_if_slot_empty = true,
             },

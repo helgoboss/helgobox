@@ -1384,6 +1384,7 @@ pub struct ClipPlayArgs<'a> {
     pub ref_pos: Option<PositionInSeconds>,
     pub matrix_settings: &'a OverridableMatrixSettings,
     pub column_settings: &'a ColumnSettings,
+    pub start_timing: Option<ClipPlayStartTiming>,
 }
 
 impl<'a> ClipPlayArgs<'a> {
@@ -1391,7 +1392,8 @@ impl<'a> ClipPlayArgs<'a> {
         &self,
         clip_start_timing: Option<ClipPlayStartTiming>,
     ) -> ClipPlayStartTiming {
-        clip_start_timing
+        self.start_timing
+            .or(clip_start_timing)
             .or(self.column_settings.clip_play_start_timing)
             .unwrap_or(self.matrix_settings.clip_play_start_timing)
     }

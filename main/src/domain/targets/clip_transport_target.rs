@@ -61,6 +61,7 @@ impl ClipTransportTargetBasics {
     fn play_options(&self) -> ColumnPlayClipOptions {
         ColumnPlayClipOptions {
             stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
+            start_timing: self.options.play_start_timing,
         }
     }
 }
@@ -94,7 +95,10 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.play_options(),
                             )?;
                         } else {
-                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                            matrix.stop_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.options.play_stop_timing,
+                            )?;
                         }
                     }
                     PlayPause => {
@@ -109,7 +113,10 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     Stop => {
                         if on {
-                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                            matrix.stop_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.options.play_stop_timing,
+                            )?;
                         }
                     }
                     Pause => {
@@ -128,7 +135,10 @@ impl RealearnTarget for ClipTransportTarget {
                             }
                             matrix.record_clip(self.basics.slot_coordinates)?;
                         } else {
-                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                            matrix.stop_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.options.play_stop_timing,
+                            )?;
                         }
                     }
                     RecordPlayStop => {
@@ -167,7 +177,10 @@ impl RealearnTarget for ClipTransportTarget {
                                 )?;
                             }
                         } else {
-                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                            matrix.stop_clip(
+                                self.basics.slot_coordinates,
+                                self.basics.options.play_stop_timing,
+                            )?;
                         }
                     }
                     Looped => {
@@ -318,7 +331,10 @@ impl RealTimeClipTransportTarget {
                 if on {
                     matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
-                    matrix.stop_clip(self.basics.slot_coordinates)
+                    matrix.stop_clip(
+                        self.basics.slot_coordinates,
+                        self.basics.options.play_stop_timing,
+                    )
                 }
             }
             PlayPause => {
@@ -330,7 +346,10 @@ impl RealTimeClipTransportTarget {
             }
             Stop => {
                 if on {
-                    matrix.stop_clip(self.basics.slot_coordinates)
+                    matrix.stop_clip(
+                        self.basics.slot_coordinates,
+                        self.basics.options.play_stop_timing,
+                    )
                 } else {
                     Ok(())
                 }

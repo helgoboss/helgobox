@@ -22,6 +22,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::schema::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
@@ -190,6 +191,12 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(default, skip_serializing_if = "is_default")]
     pub stop_column_if_slot_empty: bool,
+    /// New since ReaLearn v2.13.0-pre.4
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_play_start_timing: Option<ClipPlayStartTiming>,
+    /// New since ReaLearn v2.13.0-pre.4
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 impl TargetModelData {
@@ -279,6 +286,8 @@ impl TargetModelData {
             clip_matrix_action: model.clip_matrix_action(),
             record_only_if_track_armed: model.record_only_if_track_armed(),
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
+            clip_play_start_timing: model.clip_play_start_timing(),
+            clip_play_stop_timing: model.clip_play_stop_timing(),
         }
     }
 
@@ -482,6 +491,8 @@ impl TargetModelData {
         model.change(C::SetClipColumnAction(self.clip_column_action));
         model.change(C::SetClipRowAction(self.clip_row_action));
         model.change(C::SetClipMatrixAction(self.clip_matrix_action));
+        model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
+        model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
         model.change(C::SetRecordOnlyIfTrackArmed(
             self.record_only_if_track_armed,
         ));
