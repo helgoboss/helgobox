@@ -1,7 +1,3 @@
--- Constants
-
-local channel_count = 1
-
 -- Utility functions
 
 --- Converts the given key-value table to an array table.

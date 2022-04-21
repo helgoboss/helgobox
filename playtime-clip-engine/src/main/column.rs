@@ -367,7 +367,11 @@ impl Column {
         self.rt_command_sender.seek_clip(slot_index, desired_pos);
     }
 
-    pub fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
+    pub fn set_clip_volume(
+        &mut self,
+        slot_index: usize,
+        volume: Db,
+    ) -> ClipEngineResult<ClipChangedEvent> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
         slot.set_clip_volume(volume, &self.rt_command_sender)
     }

@@ -423,11 +423,11 @@ impl Slot {
         &mut self,
         volume: Db,
         column_command_sender: &ColumnCommandSender,
-    ) -> ClipEngineResult<()> {
+    ) -> ClipEngineResult<ClipChangedEvent> {
         let content = get_content_mut(&mut self.content)?;
         content.clip.set_volume(volume);
         column_command_sender.set_clip_volume(self.index, volume);
-        Ok(())
+        Ok(ClipChangedEvent::ClipVolume(volume))
     }
 
     pub fn toggle_clip_looped(

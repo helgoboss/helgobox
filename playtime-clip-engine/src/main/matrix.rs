@@ -531,8 +531,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         coordinates: ClipSlotCoordinates,
         volume: Db,
     ) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, coordinates.column())?
-            .set_clip_volume(coordinates.row(), volume)
+        let event = get_column_mut(&mut self.columns, coordinates.column())?
+            .set_clip_volume(coordinates.row(), volume)?;
+        let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
+            slot_coordinates: coordinates,
+            event,
+        });
+        self.handler.emit_event(event);
+        Ok(())
     }
 
     pub fn proportional_clip_position(
