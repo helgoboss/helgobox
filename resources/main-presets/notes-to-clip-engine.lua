@@ -20,8 +20,12 @@ for i = 0, 127 do
             action = "RecordPlayStop",
             record_only_if_track_armed = true,
             stop_column_if_slot_empty = true,
-            play_start_timing = "Immediately",
-            play_stop_timing = "Immediately",
+            play_start_timing = {
+                kind = "Immediately"
+            },
+            play_stop_timing = {
+                kind = "Immediately"
+            },
         },
     }
     table.insert(mappings, mapping)
