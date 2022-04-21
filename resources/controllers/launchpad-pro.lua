@@ -388,24 +388,27 @@ local mappings = {
 
 -- Clip launch buttons
 local feedback_value_table = {
-    -- Off
-    empty = 0,
-    -- Yellow
-    stopped = 5,
-    -- Green blinking
-    scheduled_for_play_start = 2,
-    -- Green
-    playing = 1,
-    -- Yellow
-    paused = 5,
-    -- Yellow blinking
-    scheduled_for_play_stop = 6,
-    -- Red blinking
-    scheduled_for_record_start = 4,
-    -- Red
-    recording = 3,
-    -- Yellow blinking
-    scheduled_for_record_stop = 6,
+    kind = "FromTextToDiscrete",
+    value = {
+        -- Off
+        empty = 0,
+        -- Yellow
+        stopped = 5,
+        -- Green blinking
+        scheduled_for_play_start = 2,
+        -- Green
+        playing = 1,
+        -- Yellow
+        paused = 5,
+        -- Yellow blinking
+        scheduled_for_play_stop = 6,
+        -- Red blinking
+        scheduled_for_record_start = 4,
+        -- Red
+        recording = 3,
+        -- Yellow blinking
+        scheduled_for_record_stop = 6,
+    }
 }
 
 for col = 0, 7 do

@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::Hash;
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -59,9 +60,15 @@ pub struct Glue {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged)]
+#[serde(tag = "kind")]
 pub enum FeedbackValueTable {
-    FromTextToDiscrete(HashMap<String, u32>),
+    FromTextToDiscrete(FeedbackValueTableContent<String, u32>),
+    FromTextToContinuous(FeedbackValueTableContent<String, f64>),
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
+    pub value: HashMap<K, V>,
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

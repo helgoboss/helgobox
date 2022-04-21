@@ -602,7 +602,10 @@ impl ModeModel {
             },
             feedback_value_table: self.feedback_value_table.as_ref().map(|t| match t {
                 FeedbackValueTable::FromTextToDiscrete(v) => {
-                    helgoboss_learn::FeedbackValueTable::FromTextToDiscrete(v.clone())
+                    helgoboss_learn::FeedbackValueTable::FromTextToDiscrete(v.value.clone())
+                }
+                FeedbackValueTable::FromTextToContinuous(v) => {
+                    helgoboss_learn::FeedbackValueTable::FromTextToContinuous(v.value.clone())
                 }
             }),
             make_absolute: if is_relevant(ModeParameter::MakeAbsolute) {

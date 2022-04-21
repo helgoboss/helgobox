@@ -1,23 +1,26 @@
 -- Preparation
 local feedback_value_table = {
-    -- Off (hopefully black, depends on MFT utility configuration)
-    empty = 0,
-    -- Blue
-    stopped = 1,
-    -- Yellow
-    scheduled_for_play_start = 64,
-    -- Green
-    playing = 43,
-    -- Blue
-    paused = 1,
-    -- Yellow
-    scheduled_for_play_stop = 64,
-    -- Yellow
-    scheduled_for_record_start = 64,
-    -- Red
-    recording = 86,
-    -- Yellow
-    scheduled_for_record_stop = 64,
+    kind = "FromTextToDiscrete",
+    value = {
+        -- Off (hopefully black, depends on MFT utility configuration)
+        empty = 0,
+        -- Blue
+        stopped = 1,
+        -- Yellow
+        scheduled_for_play_start = 64,
+        -- Green
+        playing = 43,
+        -- Blue
+        paused = 1,
+        -- Yellow
+        scheduled_for_play_stop = 64,
+        -- Yellow
+        scheduled_for_record_start = 64,
+        -- Red
+        recording = 86,
+        -- Yellow
+        scheduled_for_record_stop = 64,
+    }
 }
 
 function create_cell_id(col, row, id)
