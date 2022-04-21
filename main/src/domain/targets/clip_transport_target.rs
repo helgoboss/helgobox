@@ -205,7 +205,7 @@ impl RealearnTarget for ClipTransportTarget {
                 use ClipTransportAction::*;
                 match event {
                     ClipChangedEvent::PlayState(new_state) => match self.basics.action {
-                        PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                        PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                             let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }

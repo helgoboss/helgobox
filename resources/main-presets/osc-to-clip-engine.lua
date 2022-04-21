@@ -32,6 +32,8 @@ for col = 0, 7 do
         local mapping = {
             source = multitoggle_button(row * 8 + col + 1),
             glue = {
+                -- Standard TouchOSC template tries to be too clever and toggles itself :(
+                -- So we use a toggle-always transformation.
                 absolute_mode = "Normal",
                 control_transformation = "y = y > 0.5 ? 0 : 1",
                 feedback = {
