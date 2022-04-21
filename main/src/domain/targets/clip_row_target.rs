@@ -27,6 +27,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
         };
         Ok(vec![ReaperTarget::ClipRow(target)])
     }
+
+    fn clip_row_descriptor(&self) -> Option<&VirtualClipRow> {
+        Some(&self.row)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

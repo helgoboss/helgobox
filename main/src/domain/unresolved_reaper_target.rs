@@ -138,39 +138,37 @@ impl UnresolvedReaperTarget {
     pub fn can_be_affected_by_parameters(&self) -> bool {
         let descriptors = self.unpack_descriptors();
         if let Some(desc) = descriptors.track {
-            if matches!(&desc.track, VirtualTrack::Dynamic(_)) {
+            if desc.track.can_be_affected_by_parameters() {
                 return true;
             }
         }
         if let Some(desc) = descriptors.fx {
-            if matches!(
-                &desc.fx,
-                VirtualFx::ChainFx {
-                    chain_fx: VirtualChainFx::Dynamic(_),
-                    ..
-                }
-            ) {
+            if desc.fx.can_be_affected_by_parameters() {
                 return true;
             }
         }
         if let Some(desc) = descriptors.route {
-            if matches!(
-                &desc.route,
-                VirtualTrackRoute {
-                    selector: TrackRouteSelector::Dynamic(_),
-                    ..
-                }
-            ) {
+            if desc.route.can_be_affected_by_parameters() {
                 return true;
             }
         }
         if let Some(desc) = descriptors.fx_param {
-            if matches!(&desc.fx_parameter, VirtualFxParameter::Dynamic(_)) {
+            if desc.fx_parameter.can_be_affected_by_parameters() {
                 return true;
             }
         }
-        if let Some(desc) = descriptors.clip_slot {
-            if matches!(&desc, VirtualClipSlot::Dynamic { .. }) {
+        if let Some(slot) = descriptors.clip_slot {
+            if slot.can_be_affected_by_parameters() {
+                return true;
+            }
+        }
+        if let Some(col) = descriptors.clip_column {
+            if col.can_be_affected_by_parameters() {
+                return true;
+            }
+        }
+        if let Some(row) = descriptors.clip_row {
+            if row.can_be_affected_by_parameters() {
                 return true;
             }
         }
@@ -209,6 +207,18 @@ impl UnresolvedReaperTarget {
         if let Some(d) = self.clip_slot_descriptor() {
             return Descriptors {
                 clip_slot: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.clip_column_descriptor() {
+            return Descriptors {
+                clip_column: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.clip_row_descriptor() {
+            return Descriptors {
+                clip_row: Some(d),
                 ..Default::default()
             };
         }
@@ -419,6 +429,16 @@ impl VirtualTrackRoute {
     pub fn name(&self) -> Option<String> {
         self.selector.name()
     }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(
+            self,
+            VirtualTrackRoute {
+                selector: TrackRouteSelector::Dynamic(_),
+                ..
+            }
+        )
+    }
 }
 
 #[derive(
@@ -499,6 +519,10 @@ impl VirtualClipSlot {
         }
         Ok(coordinates)
     }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(self, VirtualClipSlot::Dynamic { .. })
+    }
 }
 
 #[derive(Debug)]
@@ -530,13 +554,17 @@ impl VirtualClipColumn {
             }
         };
         let column_exists = BackboneState::get()
-            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
+            .with_clip_matrix(context.control_context.instance_state, |matrix| {
                 index < matrix.column_count()
             })?;
         if !column_exists {
             return Err("column doesn't exist");
         }
         Ok(index)
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(self, VirtualClipColumn::Dynamic { .. })
     }
 }
 
@@ -576,6 +604,10 @@ impl VirtualClipRow {
             return Err("row doesn't exist");
         }
         Ok(index)
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(self, VirtualClipRow::Dynamic { .. })
     }
 }
 
@@ -669,6 +701,10 @@ impl VirtualFxParameter {
         } else {
             None
         }
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(self, VirtualFxParameter::Dynamic(_))
     }
 
     fn evaluate_to_fx_parameter_index(
@@ -911,6 +947,16 @@ impl VirtualFx {
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }
     }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        matches!(
+            self,
+            VirtualFx::ChainFx {
+                chain_fx: VirtualChainFx::Dynamic(_),
+                ..
+            }
+        )
+    }
 }
 
 impl VirtualTrack {
@@ -1005,6 +1051,17 @@ impl VirtualTrack {
             }
         };
         Ok(tracks)
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        match self {
+            VirtualTrack::Dynamic(_) => true,
+            VirtualTrack::FromClipColumn {
+                column: VirtualClipColumn::Dynamic(_),
+                ..
+            } => true,
+            _ => false,
+        }
     }
 
     pub fn calculated_track_index(
@@ -1655,6 +1712,8 @@ struct Descriptors<'a> {
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
     clip_slot: Option<&'a VirtualClipSlot>,
+    clip_column: Option<&'a VirtualClipColumn>,
+    clip_row: Option<&'a VirtualClipRow>,
 }
 
 #[enum_dispatch(UnresolvedReaperTarget)]
@@ -1703,6 +1762,14 @@ pub trait UnresolvedReaperTargetDef {
     }
 
     fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        None
+    }
+
+    fn clip_column_descriptor(&self) -> Option<&VirtualClipColumn> {
+        None
+    }
+
+    fn clip_row_descriptor(&self) -> Option<&VirtualClipRow> {
         None
     }
 }

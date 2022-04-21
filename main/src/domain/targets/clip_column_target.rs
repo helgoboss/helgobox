@@ -28,6 +28,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipColumnTarget {
         };
         Ok(vec![ReaperTarget::ClipColumn(target)])
     }
+
+    fn clip_column_descriptor(&self) -> Option<&VirtualClipColumn> {
+        Some(&self.column)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -84,10 +84,17 @@ local params = {
 -- Domain functions
 
 function current_slot(channel_index)
-    return PartialMapping {
+    return {
         address = "Dynamic",
         column_expression = "p[0] + " .. channel_index,
         row_expression = "p[1]"
+    }
+end
+
+function current_column(channel_index)
+    return {
+        address = "Dynamic",
+        expression = "p[0] + " .. channel_index,
     }
 end
 
@@ -148,7 +155,8 @@ function clip_position_feedback(channel_index)
         target = {
             kind = "ClipSeek",
             slot = current_slot(channel_index),
-            feedback_resolution = "High",
+            -- TODO-high The Platform M+ seems to don't like resolution High (skips messages). Maybe time for #533.
+            feedback_resolution = "Beat",
         },
     }
 end
@@ -208,6 +216,34 @@ function channel_multi(channel_index, id)
     return multi("ch" .. (channel_index + 1) .. "/" .. id)
 end
 
+function control_off()
+    return PartialMapping {
+        control_enabled = false,
+    }
+end
+
+function feedback_off()
+    return PartialMapping {
+        feedback_enabled = false,
+    }
+end
+
+function column_track_target(channel_index, target_kind)
+    return {
+        glue = {
+            absolute_mode = "ToggleButton",
+        },
+        target = {
+            kind = target_kind,
+            track = {
+                address = "FromClipColumn",
+                column = current_column(channel_index),
+                context = "Playback",
+            },
+        },
+    }
+end
+
 -- Mappings
 
 local mappings = {
@@ -215,19 +251,23 @@ local mappings = {
     --button("stop") + clip_transport_action("Stop"),
     --button("play") + press_only() + clip_transport_action("PlayStop"),
     --button("record") + toggle() + clip_transport_action("RecordStop"),
-    --button("cursor-left") + scroll_horizontally(-1),
-    --button("cursor-right")+ scroll_horizontally(1),
-    --button("cursor-up") + scroll_vertically(-1),
-    --button("cursor-down") + scroll_vertically(1),
+    button("cursor-left") + scroll_horizontally(-1),
+    button("cursor-right")+ scroll_horizontally(1),
+    button("cursor-up") + scroll_vertically(-1),
+    button("cursor-down") + scroll_vertically(1),
     --multi("ch1/fader") + clip_volume(),
     --multi("ch1/lcd/line1") + clip_name_feedback(),
     --multi("ch1/lcd/line2") + clip_position_feedback(),
 }
 
 for ch = 0, channel_count - 1 do
-    table.insert(mappings, channel_button(ch, "select") + toggle() + clip_transport_action("RecordPlayStop", ch))
+    table.insert(mappings, channel_button(ch, "v-select") + toggle() + feedback_off() + clip_transport_action("RecordPlayStop", ch))
+    table.insert(mappings, channel_button(ch, "select") + toggle() + control_off() + clip_transport_action("RecordPlayStop", ch))
     table.insert(mappings, channel_multi(ch, "fader") + clip_position_feedback(ch))
     table.insert(mappings, channel_multi(ch, "v-pot") + clip_volume(ch))
+    table.insert(mappings, channel_button(ch, "mute") + column_track_target(ch, "TrackMuteState"))
+    table.insert(mappings, channel_button(ch, "solo") + column_track_target(ch, "TrackSoloState"))
+    table.insert(mappings, channel_button(ch, "record-ready") + column_track_target(ch, "TrackArmState"))
 end
 
 -- Result

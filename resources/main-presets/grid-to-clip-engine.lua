@@ -1,5 +1,7 @@
 -- ### Configuration ###
 
+-- TODO-high Split this into separate Lua files (one for each device)
+
 -- Device type
 local device = "generic"
 --local device = "apc_key_25"

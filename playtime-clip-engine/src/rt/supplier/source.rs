@@ -84,12 +84,10 @@ impl NoteState {
 
     pub fn add_note(&mut self, note: KeyNumber) {
         self.0 |= 1 << (note.get() as u128);
-        debug!("Added note {} => {}", note, self.0);
     }
 
     pub fn remove_note(&mut self, note: KeyNumber) {
         self.0 &= !(1 << (note.get() as u128));
-        debug!("Removed note {} => {}", note, self.0);
     }
 
     pub fn on_notes(&self) -> impl Iterator<Item = KeyNumber> + '_ {
@@ -283,7 +281,6 @@ impl MidiSupplier for ClipSource {
     ) {
         for (ch, note) in self.midi_state.on_notes() {
             let msg = RawShortMessage::note_off(ch, note, U7::MIN);
-            debug!("Sending {:?}", msg);
             let mut event = MidiEvent::default();
             event.set_frame_offset(frame_offset);
             event.set_message(msg);
