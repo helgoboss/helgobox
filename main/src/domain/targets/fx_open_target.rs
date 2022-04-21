@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, get_fxs, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    FxDescriptor, FxDisplayType, HitInstructionReturnValue, MappingCompartment,
+    format_value_as_on_off, get_fxs, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FxDescriptor, FxDisplayType, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOpenTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(get_fxs(context, &self.fx_descriptor, compartment)?
             .into_iter()

@@ -1,7 +1,6 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    BackboneState, ExtendedProcessorContext, MappingCompartment, ReaperTarget,
-    UnresolvedReaperTargetDef,
+    BackboneState, Compartment, ExtendedProcessorContext, ReaperTarget, UnresolvedReaperTargetDef,
 };
 
 #[derive(Debug)]
@@ -11,7 +10,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let last_touched_target = BackboneState::get()
             .last_touched_target()

@@ -1,10 +1,10 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, mute_unit_value,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMuteTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

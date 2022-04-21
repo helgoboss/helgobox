@@ -1,10 +1,10 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_params, AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext,
+    get_fx_params, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
         let targets = params

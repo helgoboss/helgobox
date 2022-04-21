@@ -1,6 +1,6 @@
 use crate::application::{MainPreset, Preset, PresetManager};
 use crate::base::default_util::is_default;
-use crate::domain::MappingCompartment;
+use crate::domain::Compartment;
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
 };
@@ -71,7 +71,7 @@ impl PresetData for MainPresetData {
             id,
             self.name.clone(),
             self.data
-                .to_model(self.version.as_ref(), MappingCompartment::MainMappings)?,
+                .to_model(self.version.as_ref(), Compartment::MainMappings)?,
         );
         Ok(preset)
     }

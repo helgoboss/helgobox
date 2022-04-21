@@ -3,7 +3,7 @@ use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
-use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
+use crate::domain::{Compartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -47,7 +47,7 @@ impl IndependentPanelManager {
 
     fn do_with_mapping_panel(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_id: MappingId,
         f: impl Fn(SharedView<MappingPanel>),
     ) {
@@ -115,7 +115,7 @@ impl IndependentPanelManager {
         self.mapping_panels.clear();
     }
 
-    pub fn hide_all_with_compartment(&mut self, compartment: MappingCompartment) {
+    pub fn hide_all_with_compartment(&mut self, compartment: Compartment) {
         for p in &self.mapping_panels {
             if let Some(m) = p.displayed_mapping() {
                 if m.borrow().compartment() == compartment {

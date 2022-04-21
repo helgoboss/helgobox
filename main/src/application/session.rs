@@ -10,11 +10,11 @@ use crate::base::{
     SenderToRealTimeThread,
 };
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, BackboneState, BasicSettings, CompartmentParamIndex,
-    CompartmentParams, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
-    InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
+    convert_plugin_param_index_range_to_iter, BackboneState, BasicSettings, Compartment,
+    CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
+    InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
     NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
     ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
@@ -39,7 +39,7 @@ use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
-    fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
+    fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
@@ -53,11 +53,7 @@ pub trait SessionUi {
 }
 
 pub trait ParamContainer {
-    fn update_compartment_params(
-        &mut self,
-        compartment: MappingCompartment,
-        params: CompartmentParams,
-    );
+    fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -85,7 +81,7 @@ pub struct Session {
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     pub lives_on_upper_floor: Prop<bool>,
     pub tags: Prop<Vec<Tag>>,
-    pub compartment_is_dirty: EnumMap<MappingCompartment, Prop<bool>>,
+    pub compartment_is_dirty: EnumMap<Compartment, Prop<bool>>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -94,19 +90,18 @@ pub struct Session {
     active_controller_preset_id: Option<String>,
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
-    mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
+    mappings: EnumMap<Compartment, Vec<SharedMapping>>,
     /// At the moment, custom data is only used in the controller compartment.
-    custom_compartment_data: EnumMap<MappingCompartment, HashMap<String, serde_json::Value>>,
+    custom_compartment_data: EnumMap<Compartment, HashMap<String, serde_json::Value>>,
     default_main_group: SharedGroup,
     default_controller_group: SharedGroup,
-    groups: EnumMap<MappingCompartment, Vec<SharedGroup>>,
+    groups: EnumMap<Compartment, Vec<SharedGroup>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
-    mapping_list_changed_subject:
-        LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
-    group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    mapping_list_changed_subject: LocalSubject<'static, (Compartment, Option<MappingId>), ()>,
+    group_list_changed_subject: LocalSubject<'static, Compartment, ()>,
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
-    mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
+    mapping_subscriptions: EnumMap<Compartment, Vec<SubscriptionGuard<LocalSubscription>>>,
+    group_subscriptions: EnumMap<Compartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
@@ -133,7 +128,7 @@ pub struct Session {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct LearnManyState {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub current_mapping_id: MappingId,
     pub sub_state: LearnManySubState,
 }
@@ -149,7 +144,7 @@ pub enum LearnManySubState {
 
 impl LearnManyState {
     pub fn learning_source(
-        compartment: MappingCompartment,
+        compartment: Compartment,
         current_mapping_id: MappingId,
         control_element_type: VirtualControlElementType,
     ) -> LearnManyState {
@@ -163,7 +158,7 @@ impl LearnManyState {
     }
 
     pub fn learning_target(
-        compartment: MappingCompartment,
+        compartment: Compartment,
         current_mapping_id: MappingId,
     ) -> LearnManyState {
         LearnManyState {
@@ -235,10 +230,10 @@ impl Session {
             mappings: Default::default(),
             custom_compartment_data: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
-                MappingCompartment::MainMappings,
+                Compartment::MainMappings,
             ))),
             default_controller_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
-                MappingCompartment::ControllerMappings,
+                Compartment::ControllerMappings,
             ))),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
@@ -325,7 +320,7 @@ impl Session {
 
     pub fn find_mapping_with_source(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
         let virtual_source_value = self.virtualize_source_value(source_value);
@@ -347,11 +342,11 @@ impl Session {
         })
     }
 
-    pub fn mappings_have_project_references(&self, compartment: MappingCompartment) -> bool {
+    pub fn mappings_have_project_references(&self, compartment: Compartment) -> bool {
         mappings_have_project_references(self.mappings[compartment].iter())
     }
 
-    pub fn make_mappings_project_independent(&mut self, compartment: MappingCompartment) {
+    pub fn make_mappings_project_independent(&mut self, compartment: Compartment) {
         let context = self.extended_context();
         for m in &self.mappings[compartment] {
             let _ = m.borrow_mut().make_project_independent(context);
@@ -360,7 +355,7 @@ impl Session {
     }
 
     pub fn virtualize_main_mappings(&mut self) -> Result<(), String> {
-        let count = self.mappings[MappingCompartment::MainMappings]
+        let count = self.mappings[Compartment::MainMappings]
             .iter()
             .filter(|m| {
                 let mut m = m.borrow_mut();
@@ -379,10 +374,9 @@ impl Session {
         Ok(())
     }
 
-    pub fn mappings_are_read_only(&self, compartment: MappingCompartment) -> bool {
+    pub fn mappings_are_read_only(&self, compartment: Compartment) -> bool {
         self.is_learning_many_mappings()
-            || (compartment == MappingCompartment::MainMappings
-                && self.main_preset_auto_load_is_active())
+            || (compartment == Compartment::MainMappings && self.main_preset_auto_load_is_active())
     }
 
     fn full_sync(&mut self) {
@@ -391,7 +385,7 @@ impl Session {
         self.sync_settings();
         self.sync_upper_floor_membership();
         // Now sync mappings - which includes initial feedback.
-        for compartment in MappingCompartment::enum_iter() {
+        for compartment in Compartment::enum_iter() {
             self.sync_all_mappings_full(compartment);
         }
     }
@@ -642,7 +636,7 @@ impl Session {
         &'a self,
         instance_state: &'a InstanceState,
     ) -> impl Iterator<Item = &SharedMapping> {
-        self.mappings(MappingCompartment::ControllerMappings)
+        self.mappings(Compartment::ControllerMappings)
             .filter(move |m| {
                 let m = m.borrow();
                 if !m.control_is_enabled() {
@@ -747,14 +741,14 @@ impl Session {
 
     pub fn add_group_with_default_values(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         name: String,
     ) -> GroupId {
         let group = GroupModel::new_from_ui(compartment, name);
         self.add_group(compartment, group)
     }
 
-    fn add_group(&mut self, compartment: MappingCompartment, group: GroupModel) -> GroupId {
+    fn add_group(&mut self, compartment: Compartment, group: GroupModel) -> GroupId {
         let id = group.id();
         let shared_group = Rc::new(RefCell::new(group));
         self.groups[compartment].push(shared_group);
@@ -765,14 +759,14 @@ impl Session {
     /// Also finds default group.
     pub fn find_group_index_by_id_sorted(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         id: GroupId,
     ) -> Option<usize> {
         self.groups_sorted(compartment)
             .position(|g| g.borrow().id() == id)
     }
 
-    pub fn group_contains_mappings(&self, compartment: MappingCompartment, id: GroupId) -> bool {
+    pub fn group_contains_mappings(&self, compartment: Compartment, id: GroupId) -> bool {
         self.mappings(compartment)
             .filter(|m| m.borrow().group_id() == id)
             .count()
@@ -780,11 +774,7 @@ impl Session {
     }
 
     /// Doesn't find default group.
-    pub fn find_group_by_id(
-        &self,
-        compartment: MappingCompartment,
-        id: GroupId,
-    ) -> Option<&SharedGroup> {
+    pub fn find_group_by_id(&self, compartment: Compartment, id: GroupId) -> Option<&SharedGroup> {
         self.groups[compartment]
             .iter()
             .find(|g| g.borrow().id() == id)
@@ -792,7 +782,7 @@ impl Session {
 
     pub fn find_group_by_key(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         key: &GroupKey,
     ) -> Option<&SharedGroup> {
         self.groups[compartment]
@@ -802,7 +792,7 @@ impl Session {
 
     pub fn find_group_by_id_including_default_group(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         id: GroupId,
     ) -> Option<&SharedGroup> {
         if id.is_default() {
@@ -814,16 +804,13 @@ impl Session {
 
     pub fn find_group_by_index_sorted(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         index: usize,
     ) -> Option<&SharedGroup> {
         self.groups_sorted(compartment).nth(index)
     }
 
-    pub fn groups_sorted(
-        &self,
-        compartment: MappingCompartment,
-    ) -> impl Iterator<Item = &SharedGroup> {
+    pub fn groups_sorted(&self, compartment: Compartment) -> impl Iterator<Item = &SharedGroup> {
         iter::once(self.default_group(compartment)).chain(
             self.groups[compartment]
                 .iter()
@@ -833,7 +820,7 @@ impl Session {
 
     pub fn move_mappings_to_group(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_ids: &[MappingId],
         group_id: GroupId,
         weak_session: WeakSession,
@@ -850,12 +837,7 @@ impl Session {
         Ok(())
     }
 
-    pub fn remove_group(
-        &mut self,
-        compartment: MappingCompartment,
-        id: GroupId,
-        delete_mappings: bool,
-    ) {
+    pub fn remove_group(&mut self, compartment: Compartment, id: GroupId, delete_mappings: bool) {
         self.groups[compartment].retain(|g| g.borrow().id() != id);
         if delete_mappings {
             self.mappings[compartment].retain(|m| m.borrow().group_id() != id);
@@ -1032,7 +1014,7 @@ impl Session {
 
     pub fn notify_compartment_has_changed(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         weak_session: WeakSession,
     ) {
         use Affected::*;
@@ -1162,7 +1144,7 @@ impl Session {
 
     fn change_compartment_internal(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         cmd: CompartmentCommand,
     ) -> ChangeResult<CompartmentProp> {
         use CompartmentCommand as C;
@@ -1203,7 +1185,7 @@ impl Session {
             .map(|affected| One(CompartmentProp::InMapping(mapping.id(), affected))))
     }
 
-    pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
+    pub fn compartment_in_session(&self, compartment: Compartment) -> CompartmentInSession {
         CompartmentInSession {
             session: self,
             compartment,
@@ -1212,7 +1194,7 @@ impl Session {
 
     pub fn add_default_mapping(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
@@ -1221,7 +1203,7 @@ impl Session {
         let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
         let new_name = self.generate_name_for_new_mapping(compartment);
         let _ = mapping.change(MappingCommand::SetName(new_name));
-        if compartment == MappingCompartment::ControllerMappings {
+        if compartment == Compartment::ControllerMappings {
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
             mapping.target_model =
@@ -1233,7 +1215,7 @@ impl Session {
     /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn insert_mappings_at(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         index: usize,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
@@ -1257,7 +1239,7 @@ impl Session {
     /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn replace_mappings_of_group(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         group_id: GroupId,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
@@ -1273,7 +1255,7 @@ impl Session {
         self.notify_mapping_list_changed(compartment, None);
     }
 
-    fn mapping_key_set(&self, compartment: MappingCompartment) -> HashSet<MappingKey> {
+    fn mapping_key_set(&self, compartment: Compartment) -> HashSet<MappingKey> {
         self.mappings[compartment]
             .iter()
             .map(|m| m.borrow().key().clone())
@@ -1282,7 +1264,7 @@ impl Session {
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
         let max_index_so_far = self
-            .mappings(MappingCompartment::ControllerMappings)
+            .mappings(Compartment::ControllerMappings)
             .filter_map(|m| {
                 let m = m.borrow();
                 let target = &m.target_model;
@@ -1308,7 +1290,7 @@ impl Session {
     pub fn start_learning_many_mappings(
         &mut self,
         session: &SharedSession,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
@@ -1329,9 +1311,9 @@ impl Session {
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
-            MappingCompartment::ControllerMappings => &self.mapping_which_learns_source,
+            Compartment::ControllerMappings => &self.mapping_which_learns_source,
             // For main mappings we want to learn a target before moving on to the next mapping.
-            MappingCompartment::MainMappings => &self.mapping_which_learns_target,
+            Compartment::MainMappings => &self.mapping_which_learns_target,
         };
         when(
             prop_to_observe
@@ -1352,7 +1334,7 @@ impl Session {
     fn add_and_learn_one_of_many_mappings(
         &mut self,
         session: &SharedSession,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
@@ -1362,13 +1344,13 @@ impl Session {
             // When batch-learning controller mappings, we just want to learn sources that have
             // not yet been learned. Otherwise when we move a fader, we create many mappings in
             // one go.
-            MappingCompartment::ControllerMappings => self
+            Compartment::ControllerMappings => self
                 .mappings(compartment)
                 .map(|m| m.borrow().source_model.create_source())
                 .collect(),
             // When batch-learning main mappings, we always wait for a target touch between the
             // mappings, so this is not necessary.
-            MappingCompartment::MainMappings => vec![],
+            Compartment::MainMappings => vec![],
         };
         let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let qualified_mapping_id = mapping.borrow().qualified_id();
@@ -1383,13 +1365,13 @@ impl Session {
             mapping,
             false,
             ignore_sources,
-            compartment != MappingCompartment::ControllerMappings,
+            compartment != Compartment::ControllerMappings,
         );
         // If this is a main mapping, start learning target as soon as source learned. For
         // controller mappings we don't need to do this because adding the default mapping will
         // automatically increase the virtual target control element index (which is usually what
         // one wants when creating a controller mapping).
-        if compartment == MappingCompartment::MainMappings {
+        if compartment == Compartment::MainMappings {
             when(
                 self.mapping_which_learns_source
                     .changed_to(None)
@@ -1440,7 +1422,7 @@ impl Session {
         self.learn_many_state.get_ref().as_ref()
     }
 
-    pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
+    pub fn mapping_count(&self, compartment: Compartment) -> usize {
         self.mappings[compartment].len()
     }
 
@@ -1453,7 +1435,7 @@ impl Session {
 
     pub fn find_mapping_and_index_by_id(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_id: MappingId,
     ) -> Option<(usize, &SharedMapping)> {
         self.mappings(compartment)
@@ -1461,33 +1443,30 @@ impl Session {
             .find(|(_, m)| m.borrow().id() == mapping_id)
     }
 
-    pub fn mappings(
-        &self,
-        compartment: MappingCompartment,
-    ) -> impl Iterator<Item = &SharedMapping> {
+    pub fn mappings(&self, compartment: Compartment) -> impl Iterator<Item = &SharedMapping> {
         self.mappings[compartment].iter()
     }
 
-    pub fn default_group(&self, compartment: MappingCompartment) -> &SharedGroup {
+    pub fn default_group(&self, compartment: Compartment) -> &SharedGroup {
         match compartment {
-            MappingCompartment::ControllerMappings => &self.default_controller_group,
-            MappingCompartment::MainMappings => &self.default_main_group,
+            Compartment::ControllerMappings => &self.default_controller_group,
+            Compartment::MainMappings => &self.default_main_group,
         }
     }
 
-    pub fn groups(&self, compartment: MappingCompartment) -> impl Iterator<Item = &SharedGroup> {
+    pub fn groups(&self, compartment: Compartment) -> impl Iterator<Item = &SharedGroup> {
         self.groups[compartment].iter()
     }
 
     fn groups_including_default_group(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> impl Iterator<Item = &SharedGroup> {
         std::iter::once(self.default_group(compartment)).chain(self.groups[compartment].iter())
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        MappingCompartment::enum_iter().flat_map(move |compartment| self.mappings(compartment))
+        Compartment::enum_iter().flat_map(move |compartment| self.mappings(compartment))
     }
 
     pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {
@@ -1528,7 +1507,7 @@ impl Session {
                 mapping.clone(),
                 true,
                 vec![],
-                mapping.borrow().compartment() != MappingCompartment::ControllerMappings,
+                mapping.borrow().compartment() != Compartment::ControllerMappings,
             );
         } else {
             self.stop_learning_source();
@@ -1656,7 +1635,7 @@ impl Session {
 
     fn find_index_of_closest_mapping(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping: &SharedMapping,
         index: usize,
         within_same_group: bool,
@@ -1686,7 +1665,7 @@ impl Session {
 
     pub fn move_mapping_within_list(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_id: MappingId,
         within_same_group: bool,
         increment: isize,
@@ -1731,21 +1710,14 @@ impl Session {
         self.all_mappings().any(|m| m.as_ptr() == mapping as _)
     }
 
-    fn index_of_mapping(
-        &self,
-        compartment: MappingCompartment,
-        mapping_id: MappingId,
-    ) -> Option<usize> {
+    fn index_of_mapping(&self, compartment: Compartment, mapping_id: MappingId) -> Option<usize> {
         self.mappings[compartment]
             .iter()
             .position(|m| m.borrow().id() == mapping_id)
     }
 
-    pub fn location_of_mapping(
-        &self,
-        mapping_id: MappingId,
-    ) -> Option<(MappingCompartment, usize)> {
-        MappingCompartment::enum_iter().find_map(|compartment| {
+    pub fn location_of_mapping(&self, mapping_id: MappingId) -> Option<(Compartment, usize)> {
+        Compartment::enum_iter().find_map(|compartment| {
             let index = self.index_of_mapping(compartment, mapping_id)?;
             Some((compartment, index))
         })
@@ -1799,17 +1771,17 @@ impl Session {
         self.active_controller_preset_id.as_deref()
     }
 
-    pub fn active_preset_id(&self, compartment: MappingCompartment) -> Option<&str> {
+    pub fn active_preset_id(&self, compartment: Compartment) -> Option<&str> {
         let id = match compartment {
-            MappingCompartment::ControllerMappings => &self.active_controller_preset_id,
-            MappingCompartment::MainMappings => &self.active_main_preset_id,
+            Compartment::ControllerMappings => &self.active_controller_preset_id,
+            Compartment::MainMappings => &self.active_main_preset_id,
         };
         id.as_deref()
     }
 
     pub fn set_custom_compartment_data(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         data: HashMap<String, serde_json::Value>,
     ) {
         self.custom_compartment_data[compartment] = data;
@@ -1817,19 +1789,19 @@ impl Session {
 
     pub fn custom_compartment_data(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> &HashMap<String, serde_json::Value> {
         &self.custom_compartment_data[compartment]
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
-        let id = self.active_preset_id(MappingCompartment::MainMappings)?;
+        let id = self.active_preset_id(Compartment::MainMappings)?;
         self.main_preset_manager.find_by_id(id)
     }
 
     /// Returns `true` if the preset has unsaved changes (if a preset is active) or if at least one
     /// mapping or group exists (if no preset is active).
-    pub fn compartment_or_preset_is_dirty(&self, compartment: MappingCompartment) -> bool {
+    pub fn compartment_or_preset_is_dirty(&self, compartment: Compartment) -> bool {
         if self.active_preset_id(compartment).is_some() {
             // Preset active.
             self.compartment_is_dirty[compartment].get()
@@ -1840,7 +1812,7 @@ impl Session {
     }
 
     pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
-        let compartment = MappingCompartment::ControllerMappings;
+        let compartment = Compartment::ControllerMappings;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .controller_preset_manager
@@ -1858,7 +1830,7 @@ impl Session {
     }
 
     pub fn activate_main_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
-        let compartment = MappingCompartment::MainMappings;
+        let compartment = Compartment::MainMappings;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .main_preset_manager
@@ -1875,7 +1847,7 @@ impl Session {
         Ok(())
     }
 
-    pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
+    pub fn extract_compartment_model(&self, compartment: Compartment) -> CompartmentModel {
         CompartmentModel {
             parameters: self
                 .params
@@ -1897,7 +1869,7 @@ impl Session {
     /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
     pub fn import_compartment(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         model: Option<CompartmentModel>,
     ) {
         self.replace_compartment(compartment, model);
@@ -1905,15 +1877,11 @@ impl Session {
     }
 
     /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
-    fn replace_compartment(
-        &mut self,
-        compartment: MappingCompartment,
-        model: Option<CompartmentModel>,
-    ) {
+    fn replace_compartment(&mut self, compartment: Compartment, model: Option<CompartmentModel>) {
         if let Some(model) = model {
             let default_group = match compartment {
-                MappingCompartment::MainMappings => &mut self.default_main_group,
-                MappingCompartment::ControllerMappings => &mut self.default_controller_group,
+                Compartment::MainMappings => &mut self.default_main_group,
+                Compartment::ControllerMappings => &mut self.default_controller_group,
             };
             default_group.replace(model.default_group);
             self.set_groups_without_notification(compartment, model.groups.into_iter());
@@ -1931,7 +1899,7 @@ impl Session {
         self.notify_everything_has_changed();
     }
 
-    fn reset_parameters(&self, compartment: MappingCompartment) {
+    fn reset_parameters(&self, compartment: Compartment) {
         let fx = self.processor_context.containing_fx().clone();
         let _ = Global::task_support().do_later_in_main_thread_from_main_thread_asap(move || {
             for i in convert_plugin_param_index_range_to_iter(&compartment.plugin_param_range()) {
@@ -1942,7 +1910,7 @@ impl Session {
         });
     }
 
-    fn clear_compartment_data(&mut self, compartment: MappingCompartment) {
+    fn clear_compartment_data(&mut self, compartment: Compartment) {
         self.default_group(compartment)
             .replace(GroupModel::default_for_compartment(compartment));
         self.set_groups_without_notification(compartment, std::iter::empty());
@@ -1952,7 +1920,7 @@ impl Session {
 
     pub fn update_certain_param_settings(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         settings: Vec<(CompartmentParamIndex, ParamSetting)>,
     ) {
         let compartment_params = self.params.compartment_params_mut(compartment);
@@ -1978,7 +1946,7 @@ impl Session {
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(
         &self,
-    ) -> impl LocalObservable<'static, Item = (MappingCompartment, Option<MappingId>), Err = ()> + 'static
+    ) -> impl LocalObservable<'static, Item = (Compartment, Option<MappingId>), Err = ()> + 'static
     {
         self.mapping_list_changed_subject.clone()
     }
@@ -1988,7 +1956,7 @@ impl Session {
     /// Doesn't fire if a group in the list or if the complete list has changed.
     pub fn group_list_changed(
         &self,
-    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
+    ) -> impl LocalObservable<'static, Item = Compartment, Err = ()> + 'static {
         self.group_list_changed_subject.clone()
     }
 
@@ -1998,7 +1966,7 @@ impl Session {
 
     pub fn set_mappings_without_notification(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mappings: impl IntoIterator<Item = MappingModel>,
     ) {
         self.mappings[compartment] = mappings.into_iter().map(share_mapping).collect();
@@ -2006,17 +1974,13 @@ impl Session {
 
     pub fn set_groups_without_notification(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         groups: impl IntoIterator<Item = GroupModel>,
     ) {
         self.groups[compartment] = groups.into_iter().map(share_group).collect();
     }
 
-    fn add_mapping(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping: MappingModel,
-    ) -> SharedMapping {
+    fn add_mapping(&mut self, compartment: Compartment, mapping: MappingModel) -> SharedMapping {
         let mapping_id = mapping.id();
         let shared_mapping = share_mapping(mapping);
         self.mappings[compartment].push(shared_mapping.clone());
@@ -2039,7 +2003,7 @@ impl Session {
 
     pub fn log_mapping(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_id: MappingId,
     ) -> Result<(), &'static str> {
         let (_, mapping) = self
@@ -2079,12 +2043,12 @@ impl Session {
             ",
             self.instance_id,
             self.id.get_ref(),
-            self.mappings[MappingCompartment::MainMappings].len(),
-            self.mapping_subscriptions[MappingCompartment::MainMappings].len(),
+            self.mappings[Compartment::MainMappings].len(),
+            self.mapping_subscriptions[Compartment::MainMappings].len(),
             self.groups.len(),
             self.group_subscriptions.len(),
-            self.mappings[MappingCompartment::ControllerMappings].len(),
-            self.mapping_subscriptions[MappingCompartment::ControllerMappings].len(),
+            self.mappings[Compartment::ControllerMappings].len(),
+            self.mapping_subscriptions[Compartment::ControllerMappings].len(),
         );
         Reaper::get().show_console_msg(msg);
         // Detailled
@@ -2101,7 +2065,7 @@ impl Session {
 
     pub fn find_mapping_with_target(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         target: &ReaperTarget,
     ) -> Option<&SharedMapping> {
         self.mappings(compartment).find(|m| {
@@ -2114,7 +2078,7 @@ impl Session {
     pub fn toggle_learn_source_for_target(
         &mut self,
         session: &SharedSession,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         target: &ReaperTarget,
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
@@ -2147,7 +2111,7 @@ impl Session {
         mapping
     }
 
-    pub fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    pub fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         self.ui.show_mapping(compartment, mapping_id);
     }
 
@@ -2168,7 +2132,7 @@ impl Session {
     /// Shouldn't be used if the complete list has changed.
     fn notify_mapping_list_changed(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         new_mapping_id: Option<MappingId>,
     ) {
         AsyncNotifier::notify(
@@ -2180,7 +2144,7 @@ impl Session {
     /// Notifies listeners async that something in a group list has changed.
     ///
     /// Shouldn't be used if the complete list has changed.
-    fn notify_group_list_changed(&mut self, compartment: MappingCompartment) {
+    fn notify_group_list_changed(&mut self, compartment: Compartment) {
         AsyncNotifier::notify(&mut self.group_list_changed_subject, &compartment);
     }
 
@@ -2246,8 +2210,8 @@ impl Session {
         let group_id = mapping.group_id();
         if group_id.is_default() {
             let group = match mapping.compartment() {
-                MappingCompartment::ControllerMappings => &self.default_controller_group,
-                MappingCompartment::MainMappings => &self.default_main_group,
+                Compartment::ControllerMappings => &self.default_controller_group,
+                Compartment::MainMappings => &self.default_main_group,
             };
             Some(group)
         } else {
@@ -2256,7 +2220,7 @@ impl Session {
     }
 
     /// Does a full mapping sync.
-    fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
+    fn sync_all_mappings_full(&self, compartment: Compartment) {
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateAllMappings(
@@ -2266,7 +2230,7 @@ impl Session {
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
-    fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
+    fn create_main_mappings(&self, compartment: Compartment) -> Vec<MainMapping> {
         let group_map: HashMap<GroupId, Ref<GroupModel>> = self
             .groups_including_default_group(compartment)
             .map(|group| {
@@ -2292,7 +2256,7 @@ impl Session {
             .collect()
     }
 
-    fn generate_name_for_new_mapping(&self, compartment: MappingCompartment) -> String {
+    fn generate_name_for_new_mapping(&self, compartment: Compartment) -> String {
         format!("{}", self.mappings[compartment].len() + 1)
     }
 
@@ -2301,7 +2265,7 @@ impl Session {
     }
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
-    pub fn mark_compartment_dirty(&mut self, compartment: MappingCompartment) {
+    pub fn mark_compartment_dirty(&mut self, compartment: Compartment) {
         debug!(self.logger, "Marking compartment as dirty");
         self.compartment_is_dirty[compartment].set(true);
         self.mark_dirty();
@@ -2481,17 +2445,17 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 
 #[allow(dead_code)]
 pub enum SessionCommand {
-    ChangeCompartment(MappingCompartment, CompartmentCommand),
+    ChangeCompartment(Compartment, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
 }
 
 pub enum SessionProp {
-    InCompartment(MappingCompartment, Affected<CompartmentProp>),
+    InCompartment(Compartment, Affected<CompartmentProp>),
 }
 
 pub struct CompartmentInSession<'a> {
     pub session: &'a Session,
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
 }
 
 pub struct MappingChangeContext<'a> {

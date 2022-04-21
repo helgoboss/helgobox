@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, GroupId, HitInstruction,
-    HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, GroupId,
+    HitInstruction, HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingControlContext, MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget,
     ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -13,7 +13,7 @@ use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedNavigateWithinGroupTarget {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::NavigateWithinGroup(
             NavigateWithinGroupTarget {
@@ -38,7 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
 pub struct NavigateWithinGroupTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// not have any effect when controlling (only when querying the values).
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }

@@ -1,5 +1,5 @@
 use crate::application::{ControllerPreset, Preset, PresetManager};
-use crate::domain::MappingCompartment;
+use crate::domain::Compartment;
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
 };
@@ -71,10 +71,8 @@ impl PresetData for ControllerPresetData {
         let preset = ControllerPreset::new(
             id,
             self.name.clone(),
-            self.data.to_model(
-                self.version.as_ref(),
-                MappingCompartment::ControllerMappings,
-            )?,
+            self.data
+                .to_model(self.version.as_ref(), Compartment::ControllerMappings)?,
         );
         Ok(preset)
     }

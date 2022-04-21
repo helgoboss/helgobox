@@ -1,8 +1,8 @@
 use crate::base::NamedChannelSender;
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    ControlContext, ExtendedProcessorContext, FeedbackOutput, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget,
+    Compartment, ControlContext, ExtendedProcessorContext, FeedbackOutput,
+    HitInstructionReturnValue, MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedOscSendTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SendOsc(OscSendTarget::new(
             self.address_pattern.clone(),

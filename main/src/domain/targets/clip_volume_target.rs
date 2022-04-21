@@ -3,8 +3,8 @@ use crate::domain::ui_util::{
     volume_unit_value,
 };
 use crate::domain::{
-    interpret_current_clip_slot_value, BackboneState, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    interpret_current_clip_slot_value, BackboneState, Compartment, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
@@ -24,7 +24,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

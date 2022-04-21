@@ -17,7 +17,7 @@ use std::cmp;
 use crate::application::{
     Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
-use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
+use crate::domain::{Compartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -107,7 +107,7 @@ impl MappingRowsPanel {
     }
 
     /// Doesn't switch compartment!
-    fn ensure_mapping_is_visible(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    fn ensure_mapping_is_visible(&self, compartment: Compartment, mapping_id: MappingId) {
         let index = match self.determine_index_of_mapping_in_list(compartment, mapping_id) {
             None => return,
             Some(i) => i,
@@ -140,7 +140,7 @@ impl MappingRowsPanel {
 
     fn determine_index_of_mapping_in_list(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_id: MappingId,
     ) -> Option<usize> {
         let shared_session = self.session();
@@ -150,7 +150,7 @@ impl MappingRowsPanel {
         mappings.position(|m| m.borrow().id() == mapping_id)
     }
 
-    pub fn edit_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         if let Some((_, m)) = self
             .session()
             .borrow()
@@ -164,7 +164,7 @@ impl MappingRowsPanel {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn active_compartment(&self) -> MappingCompartment {
+    fn active_compartment(&self) -> Compartment {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -310,7 +310,7 @@ impl MappingRowsPanel {
     pub fn filtered_mappings<'a>(
         session: &'a Session,
         main_state: &'a MainState,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         ignore_group: bool,
     ) -> impl Iterator<Item = &'a SharedMapping> {
         let filter_is_active = main_state.filter_and_displayed_group_is_active();
@@ -406,7 +406,7 @@ impl MappingRowsPanel {
         &self,
         session: &Session,
         main_state: &MainState,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         displayed_mapping_count: usize,
     ) {
         let (label_text, button_text) = if displayed_mapping_count == 0 {
@@ -444,7 +444,7 @@ impl MappingRowsPanel {
         &self,
         session: &Session,
         main_state: &MainState,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> EmptyMappingListCase {
         if session.mapping_count(compartment) == 0 {
             EmptyMappingListCase::CompartmentEmpty

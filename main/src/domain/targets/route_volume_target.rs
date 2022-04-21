@@ -2,9 +2,9 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    get_track_routes, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
+    get_track_routes, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes

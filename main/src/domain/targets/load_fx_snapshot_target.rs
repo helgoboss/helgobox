@@ -1,10 +1,10 @@
 use crate::base::hash_util;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, get_fxs, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, get_fxs, AdditionalFeedbackEvent, BackboneState, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(get_fxs(context, &self.fx_descriptor, compartment)?
             .into_iter()

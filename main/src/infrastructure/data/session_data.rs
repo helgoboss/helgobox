@@ -4,9 +4,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    compartment_param_index_iter, BackboneState, ClipMatrixRef, CompartmentParamIndex,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
+    compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MidiControlInput,
+    MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -128,10 +128,7 @@ struct CompartmentState {
 }
 
 impl CompartmentState {
-    fn from_instance_state(
-        instance_state: &InstanceState,
-        compartment: MappingCompartment,
-    ) -> Self {
+    fn from_instance_state(instance_state: &InstanceState, compartment: Compartment) -> Self {
         CompartmentState {
             active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
             active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
@@ -253,26 +250,26 @@ impl SessionData {
                     FeedbackOutput::Osc(dev_id) => FeedbackDeviceId::Osc(dev_id),
                 })
             },
-            default_group: from_group(MappingCompartment::MainMappings),
-            default_controller_group: from_group(MappingCompartment::ControllerMappings),
-            groups: from_groups(MappingCompartment::MainMappings),
-            controller_groups: from_groups(MappingCompartment::ControllerMappings),
-            mappings: from_mappings(MappingCompartment::MainMappings),
-            controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
+            default_group: from_group(Compartment::MainMappings),
+            default_controller_group: from_group(Compartment::ControllerMappings),
+            groups: from_groups(Compartment::MainMappings),
+            controller_groups: from_groups(Compartment::ControllerMappings),
+            mappings: from_mappings(Compartment::MainMappings),
+            controller_mappings: from_mappings(Compartment::ControllerMappings),
             controller_custom_data: session
-                .custom_compartment_data(MappingCompartment::ControllerMappings)
+                .custom_compartment_data(Compartment::ControllerMappings)
                 .clone(),
             active_controller_id: session
-                .active_preset_id(MappingCompartment::ControllerMappings)
+                .active_preset_id(Compartment::ControllerMappings)
                 .map(|id| id.to_string()),
             active_main_preset_id: session
-                .active_preset_id(MappingCompartment::MainMappings)
+                .active_preset_id(Compartment::MainMappings)
                 .map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
-            parameters: get_parameter_data_map(plugin_params, MappingCompartment::MainMappings),
+            parameters: get_parameter_data_map(plugin_params, Compartment::MainMappings),
             controller_parameters: get_parameter_data_map(
                 plugin_params,
-                MappingCompartment::ControllerMappings,
+                Compartment::ControllerMappings,
             ),
             clip_slots: vec![],
             clip_matrix: {
@@ -291,12 +288,9 @@ impl SessionData {
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
-                MappingCompartment::ControllerMappings,
+                Compartment::ControllerMappings,
             ),
-            main: CompartmentState::from_instance_state(
-                &instance_state,
-                MappingCompartment::MainMappings,
-            ),
+            main: CompartmentState::from_instance_state(&instance_state, Compartment::MainMappings),
             active_instance_tags: instance_state.active_instance_tags().clone(),
             instance_preset_link_config: session.instance_preset_link_config().clone(),
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
@@ -409,40 +403,35 @@ impl SessionData {
         }
         // Groups
         let get_final_default_group =
-            |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
+            |def_group: Option<&GroupModelData>, compartment: Compartment| {
                 def_group
                     .map(|g| g.to_model(compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
-        let main_default_group = get_final_default_group(
-            self.default_group.as_ref(),
-            MappingCompartment::MainMappings,
-        );
+        let main_default_group =
+            get_final_default_group(self.default_group.as_ref(), Compartment::MainMappings);
         let controller_default_group = get_final_default_group(
             self.default_controller_group.as_ref(),
-            MappingCompartment::ControllerMappings,
+            Compartment::ControllerMappings,
         );
         session
-            .default_group(MappingCompartment::MainMappings)
+            .default_group(Compartment::MainMappings)
             .replace(main_default_group);
         let main_groups: Vec<_> = self
             .groups
             .iter()
-            .map(|g| g.to_model(MappingCompartment::MainMappings, false))
+            .map(|g| g.to_model(Compartment::MainMappings, false))
             .collect();
         let controller_groups: Vec<_> = self
             .controller_groups
             .iter()
-            .map(|g| g.to_model(MappingCompartment::ControllerMappings, false))
+            .map(|g| g.to_model(Compartment::ControllerMappings, false))
             .collect();
-        session.set_groups_without_notification(MappingCompartment::MainMappings, main_groups);
+        session.set_groups_without_notification(Compartment::MainMappings, main_groups);
         session
-            .default_group(MappingCompartment::ControllerMappings)
+            .default_group(Compartment::ControllerMappings)
             .replace(controller_default_group);
-        session.set_groups_without_notification(
-            MappingCompartment::ControllerMappings,
-            controller_groups,
-        );
+        session.set_groups_without_notification(Compartment::ControllerMappings, controller_groups);
         // Mappings
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             let mappings: Vec<_> = mappings
@@ -459,13 +448,10 @@ impl SessionData {
                 .collect();
             session.set_mappings_without_notification(compartment, mappings);
         };
-        apply_mappings(MappingCompartment::MainMappings, &self.mappings);
-        apply_mappings(
-            MappingCompartment::ControllerMappings,
-            &self.controller_mappings,
-        );
+        apply_mappings(Compartment::MainMappings, &self.mappings);
+        apply_mappings(Compartment::ControllerMappings, &self.controller_mappings);
         session.set_custom_compartment_data(
-            MappingCompartment::ControllerMappings,
+            Compartment::ControllerMappings,
             self.controller_custom_data.clone(),
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
@@ -528,19 +514,19 @@ impl SessionData {
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific
             instance_state.set_active_mapping_by_group(
-                MappingCompartment::ControllerMappings,
+                Compartment::ControllerMappings,
                 self.controller.active_mapping_by_group.clone(),
             );
             instance_state.set_active_mapping_by_group(
-                MappingCompartment::MainMappings,
+                Compartment::MainMappings,
                 self.main.active_mapping_by_group.clone(),
             );
             instance_state.set_active_mapping_tags(
-                MappingCompartment::ControllerMappings,
+                Compartment::ControllerMappings,
                 self.controller.active_mapping_tags.clone(),
             );
             instance_state.set_active_mapping_tags(
-                MappingCompartment::MainMappings,
+                Compartment::MainMappings,
                 self.main.active_mapping_tags.clone(),
             );
             // Check if some other instances waited for the clip matrix of this instance.
@@ -592,7 +578,7 @@ impl SessionData {
 
 fn get_parameter_data_map(
     plugin_params: &PluginParams,
-    compartment: MappingCompartment,
+    compartment: Compartment,
 ) -> HashMap<String, ParameterData> {
     let compartment_params = plugin_params.compartment_params(compartment);
     compartment_param_index_iter()

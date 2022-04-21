@@ -1,9 +1,8 @@
 use crate::domain::{
-    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan,
+    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
@@ -19,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePanTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes

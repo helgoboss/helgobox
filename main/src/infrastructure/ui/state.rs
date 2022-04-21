@@ -1,7 +1,7 @@
 use crate::base::{prop, Prop};
 use crate::domain::{
-    CompoundMappingSource, GroupId, IncomingCompoundSourceValue, MappingCompartment,
-    MessageCaptureResult, ReaperTarget, Tag, VirtualSourceValue,
+    Compartment, CompoundMappingSource, GroupId, IncomingCompoundSourceValue, MessageCaptureResult,
+    ReaperTarget, Tag, VirtualSourceValue,
 };
 
 use crate::application::{MappingModel, Session};
@@ -20,8 +20,8 @@ pub struct MainState {
     pub is_learning_target_filter: Prop<bool>,
     pub source_filter: Prop<Option<SourceFilter>>,
     pub is_learning_source_filter: Prop<bool>,
-    pub active_compartment: Prop<MappingCompartment>,
-    pub displayed_group: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,
+    pub active_compartment: Prop<Compartment>,
+    pub displayed_group: EnumMap<Compartment, Prop<Option<GroupFilter>>>,
     pub search_expression: Prop<SearchExpression>,
     pub status_msg: Prop<String>,
 }
@@ -77,10 +77,10 @@ impl Default for MainState {
             is_learning_target_filter: prop(false),
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
-            active_compartment: prop(MappingCompartment::MainMappings),
+            active_compartment: prop(Compartment::MainMappings),
             displayed_group: enum_map! {
-                MappingCompartment::ControllerMappings => prop(Some(GroupFilter::default())),
-                MappingCompartment::MainMappings => prop(Some(GroupFilter::default())),
+                Compartment::ControllerMappings => prop(Some(GroupFilter::default())),
+                Compartment::MainMappings => prop(Some(GroupFilter::default())),
             },
             search_expression: Default::default(),
             status_msg: Default::default(),
@@ -91,7 +91,7 @@ impl Default for MainState {
 impl MainState {
     pub fn clear_all_filters_and_displayed_group(&mut self) {
         self.clear_all_filters();
-        for c in MappingCompartment::enum_iter() {
+        for c in Compartment::enum_iter() {
             self.clear_displayed_group(c);
         }
     }
@@ -99,9 +99,9 @@ impl MainState {
     pub fn displayed_group_for_any_compartment_changed(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.displayed_group[MappingCompartment::ControllerMappings]
+        self.displayed_group[Compartment::ControllerMappings]
             .changed()
-            .merge(self.displayed_group[MappingCompartment::MainMappings].changed())
+            .merge(self.displayed_group[Compartment::MainMappings].changed())
     }
 
     pub fn displayed_group_for_active_compartment(&self) -> Option<GroupFilter> {
@@ -119,7 +119,7 @@ impl MainState {
         self.stop_filter_learning();
     }
 
-    pub fn clear_displayed_group(&mut self, compartment: MappingCompartment) {
+    pub fn clear_displayed_group(&mut self, compartment: Compartment) {
         self.displayed_group[compartment].set(None);
     }
 

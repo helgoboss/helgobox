@@ -2,7 +2,7 @@ use crate::application::{
     LearnManySubState, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
-use crate::domain::MappingCompartment;
+use crate::domain::Compartment;
 use crate::infrastructure::ui::bindings::root;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -41,7 +41,7 @@ impl SessionMessagePanel {
                         control_element_type,
                     } => {
                         let msg = match state.compartment {
-                            MappingCompartment::ControllerMappings => match control_element_type {
+                            Compartment::ControllerMappings => match control_element_type {
                                 VirtualControlElementType::Multi => {
                                     "Move a multi-like control element!"
                                 }
@@ -49,7 +49,7 @@ impl SessionMessagePanel {
                                     "Press a button-like control element!"
                                 }
                             },
-                            MappingCompartment::MainMappings => "Touch a control element!",
+                            Compartment::MainMappings => "Touch a control element!",
                         };
                         (
                             format!("Learning source for {}", mapping_label),

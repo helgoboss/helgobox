@@ -207,7 +207,7 @@ impl ActivationState {
 impl MainMapping {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        compartment: MappingCompartment,
+        compartment: Compartment,
         id: MappingId,
         key: &MappingKey,
         group_id: GroupId,
@@ -353,7 +353,7 @@ impl MainMapping {
         }
     }
 
-    pub fn compartment(&self) -> MappingCompartment {
+    pub fn compartment(&self) -> Compartment {
         self.core.compartment
     }
 
@@ -1242,7 +1242,7 @@ impl RealTimeMapping {
         self.core.id
     }
 
-    pub fn compartment(&self) -> MappingCompartment {
+    pub fn compartment(&self) -> Compartment {
         self.core.compartment
     }
     pub fn lifecycle_midi_messages(&self, phase: LifecyclePhase) -> &[LifecycleMidiMessage] {
@@ -1356,7 +1356,7 @@ pub enum PartialControlMatch {
 
 #[derive(Clone, Debug)]
 pub struct MappingCore {
-    compartment: MappingCompartment,
+    compartment: Compartment,
     id: MappingId,
     group_id: GroupId,
     pub source: CompoundMappingSource,
@@ -1397,7 +1397,7 @@ pub enum CompoundMappingSourceAddress {
 
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub mapping_key: Rc<str>,
     pub source: CompoundMappingSource,
 }
@@ -1643,7 +1643,7 @@ impl FeedbackDestinations {
 
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mapping_key: Rc<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
@@ -1661,7 +1661,7 @@ impl SpecificCompoundFeedbackValue {
         } else {
             // Real source
             let projection = if destinations.with_projection_feedback
-                && compartment == MappingCompartment::ControllerMappings
+                && compartment == Compartment::ControllerMappings
             {
                 // TODO-medium Support textual projection feedback
                 mode_value.to_numeric().map(|v| {
@@ -1710,13 +1710,13 @@ impl RealFeedbackValue {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: MappingCompartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
+    pub fn new(compartment: Compartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
         Self {
             compartment,
             mapping_key,
@@ -1753,7 +1753,7 @@ impl UnresolvedCompoundMappingTarget {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved_targets = match self {
@@ -2161,12 +2161,12 @@ impl<'a> Target<'a> for CompoundMappingTarget {
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct QualifiedMappingId {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub id: MappingId,
 }
 
 impl QualifiedMappingId {
-    pub fn new(compartment: MappingCompartment, id: MappingId) -> Self {
+    pub fn new(compartment: Compartment, id: MappingId) -> Self {
         Self { compartment, id }
     }
 }
@@ -2187,8 +2187,7 @@ impl QualifiedMappingId {
     Deserialize,
 )]
 #[repr(usize)]
-// TODO-medium Rename to just Compartment
-pub enum MappingCompartment {
+pub enum Compartment {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
     #[display(fmt = "controller compartment")]
@@ -2197,15 +2196,15 @@ pub enum MappingCompartment {
     MainMappings,
 }
 
-impl MappingCompartment {
+impl Compartment {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
-    pub fn enum_iter() -> impl Iterator<Item = MappingCompartment> + ExactSizeIterator {
-        MappingCompartment::into_enum_iter()
+    pub fn enum_iter() -> impl Iterator<Item = Compartment> + ExactSizeIterator {
+        Compartment::into_enum_iter()
     }
 
     /// Returns the compartment to which the given plug-in parameter index belongs.
-    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> MappingCompartment {
+    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> Compartment {
         Self::enum_iter()
             .find(|c| c.plugin_param_range().contains(&plugin_param_index))
             .unwrap()
@@ -2214,7 +2213,7 @@ impl MappingCompartment {
     /// Translates the given plug-in parameter index to a compartment-local index.
     pub fn translate_plugin_param_index(
         index: PluginParamIndex,
-    ) -> (MappingCompartment, CompartmentParamIndex) {
+    ) -> (Compartment, CompartmentParamIndex) {
         let compartment = Self::by_plugin_param_index(index);
         (compartment, compartment.to_compartment_param_index(index))
     }
@@ -2237,8 +2236,8 @@ impl MappingCompartment {
 
     fn plugin_param_offset(self) -> PluginParamIndex {
         let raw_offset = match self {
-            MappingCompartment::ControllerMappings => 100u32,
-            MappingCompartment::MainMappings => 0u32,
+            Compartment::ControllerMappings => 100u32,
+            Compartment::MainMappings => 0u32,
         };
         PluginParamIndex::try_from(raw_offset).unwrap()
     }

@@ -8,9 +8,8 @@ use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    BackboneState, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask, InstanceId,
-    MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId,
-    Tag,
+    BackboneState, Compartment, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask,
+    InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
 };
 use playtime_clip_engine::main::{
     ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -41,12 +40,12 @@ pub struct InstanceState {
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
     ///   but it's very related to the active mapping by group, so we decided to keep it here too.
-    mappings_by_group: EnumMap<MappingCompartment, HashMap<GroupId, Vec<MappingId>>>,
+    mappings_by_group: EnumMap<Compartment, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
     /// - Set by target "ReaLearn: Navigate within group".
     /// - Non-redundant state!
-    active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
+    active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
     /// - Completely derived from mappings, so it's redundant state.
@@ -62,7 +61,7 @@ pub struct InstanceState {
     ///
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
-    active_mapping_tags: EnumMap<MappingCompartment, HashSet<Tag>>,
+    active_mapping_tags: EnumMap<Compartment, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
     /// - Set by target "ReaLearn: Enable/disable instances".
@@ -268,7 +267,7 @@ impl InstanceState {
 
     pub fn only_these_mapping_tags_are_active(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         tags: &HashSet<Tag>,
     ) -> bool {
         tags == &self.active_mapping_tags[compartment]
@@ -276,7 +275,7 @@ impl InstanceState {
 
     pub fn at_least_those_mapping_tags_are_active(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         tags: &HashSet<Tag>,
     ) -> bool {
         tags.is_subset(&self.active_mapping_tags[compartment])
@@ -284,7 +283,7 @@ impl InstanceState {
 
     pub fn activate_or_deactivate_mapping_tags(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         tags: &HashSet<Tag>,
         activate: bool,
     ) {
@@ -296,12 +295,12 @@ impl InstanceState {
         self.notify_active_mapping_tags_changed(compartment);
     }
 
-    pub fn set_active_mapping_tags(&mut self, compartment: MappingCompartment, tags: HashSet<Tag>) {
+    pub fn set_active_mapping_tags(&mut self, compartment: Compartment, tags: HashSet<Tag>) {
         self.active_mapping_tags[compartment] = tags;
         self.notify_active_mapping_tags_changed(compartment);
     }
 
-    fn notify_active_mapping_tags_changed(&mut self, compartment: MappingCompartment) {
+    fn notify_active_mapping_tags_changed(&mut self, compartment: Compartment) {
         let instance_event = InstanceStateChanged::ActiveMappingTags { compartment };
         self.instance_feedback_event_sender
             .send_complaining(instance_event);
@@ -368,18 +367,18 @@ impl InstanceState {
 
     pub fn active_mapping_by_group(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> &HashMap<GroupId, MappingId> {
         &self.active_mapping_by_group[compartment]
     }
 
-    pub fn active_mapping_tags(&self, compartment: MappingCompartment) -> &HashSet<Tag> {
+    pub fn active_mapping_tags(&self, compartment: Compartment) -> &HashSet<Tag> {
         &self.active_mapping_tags[compartment]
     }
 
     pub fn set_active_mapping_by_group(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         value: HashMap<GroupId, MappingId>,
     ) {
         self.active_mapping_by_group[compartment] = value;
@@ -388,7 +387,7 @@ impl InstanceState {
     /// Sets the ID of the currently active mapping within the given group.
     pub fn set_active_mapping_within_group(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         group_id: GroupId,
         mapping_id: MappingId,
     ) {
@@ -405,7 +404,7 @@ impl InstanceState {
     /// Gets the ID of the currently active mapping within the given group.
     pub fn get_active_mapping_within_group(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         group_id: GroupId,
     ) -> Option<MappingId> {
         self.active_mapping_by_group[compartment]
@@ -415,7 +414,7 @@ impl InstanceState {
 
     pub fn set_mappings_by_group(
         &mut self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
@@ -433,7 +432,7 @@ impl InstanceState {
 
     pub fn get_on_mappings_within_group(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         group_id: GroupId,
     ) -> impl Iterator<Item = MappingId> + '_ {
         self.mappings_by_group[compartment]
@@ -455,12 +454,12 @@ impl Drop for InstanceState {
 #[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
     ActiveMappingWithinGroup {
-        compartment: MappingCompartment,
+        compartment: Compartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
     ActiveMappingTags {
-        compartment: MappingCompartment,
+        compartment: Compartment,
     },
     ActiveInstanceTags,
 }

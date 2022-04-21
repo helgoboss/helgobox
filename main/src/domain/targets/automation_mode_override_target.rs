@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, global_automation_mode_override_unit_value, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment,
+    format_value_as_on_off, global_automation_mode_override_unit_value, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -18,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAutomationModeOverrideTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::AutomationModeOverride(
             AutomationModeOverrideTarget {

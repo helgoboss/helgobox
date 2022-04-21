@@ -1,9 +1,9 @@
 use crate::domain::{
     automation_mode_unit_value, change_track_prop, format_value_as_on_off, get_effective_tracks,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackAutomationModeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

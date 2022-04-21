@@ -23,9 +23,9 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef,
-    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MappingCompartment,
-    MessageCaptureEvent, OscDeviceId, ParamSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef, Compartment,
+    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
+    ParamSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -128,7 +128,7 @@ impl HeaderPanel {
         f();
     }
 
-    fn active_compartment(&self) -> MappingCompartment {
+    fn active_compartment(&self) -> Compartment {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -153,13 +153,11 @@ impl HeaderPanel {
         } else {
             let compartment = self.active_compartment();
             let control_element_type = match compartment {
-                MappingCompartment::ControllerMappings => {
-                    match self.prompt_for_control_element_type() {
-                        None => return,
-                        Some(t) => t,
-                    }
-                }
-                MappingCompartment::MainMappings => {
+                Compartment::ControllerMappings => match self.prompt_for_control_element_type() {
+                    None => return,
+                    Some(t) => t,
+                },
+                Compartment::MainMappings => {
                     // Doesn't matter
                     VirtualControlElementType::Multi
                 }
@@ -881,7 +879,7 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn get_listened_mappings(&self, compartment: MappingCompartment) -> Vec<SharedMapping> {
+    fn get_listened_mappings(&self, compartment: Compartment) -> Vec<SharedMapping> {
         let main_state = self.main_state.borrow();
         let session = self.session();
         let session = session.borrow();
@@ -965,7 +963,7 @@ impl HeaderPanel {
                     .borrow()
                     .incoming_msg_captured(
                         true,
-                        active_compartment != MappingCompartment::ControllerMappings,
+                        active_compartment != Compartment::ControllerMappings,
                         None,
                     )
                     .take_until(learning.changed_to(false))
@@ -1187,11 +1185,11 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_MAIN_COMPARTMENT_RADIO_BUTTON);
         match self.active_compartment() {
-            MappingCompartment::ControllerMappings => {
+            Compartment::ControllerMappings => {
                 controller_radio.check();
                 main_radio.uncheck();
             }
-            MappingCompartment::MainMappings => {
+            Compartment::MainMappings => {
                 controller_radio.uncheck();
                 main_radio.check()
             }
@@ -1201,7 +1199,7 @@ impl HeaderPanel {
     fn invalidate_preset_auto_load_mode_combo_box(&self) {
         let label = self.view.require_control(root::ID_AUTO_LOAD_LABEL_TEXT);
         let combo = self.view.require_control(root::ID_AUTO_LOAD_COMBO_BOX);
-        if self.active_compartment() == MappingCompartment::MainMappings {
+        if self.active_compartment() == Compartment::MainMappings {
             label.show();
             combo.show();
             combo
@@ -1303,8 +1301,8 @@ impl HeaderPanel {
 
     fn invalidate_preset_label_text(&self) {
         let text = match self.active_compartment() {
-            MappingCompartment::ControllerMappings => "Controller preset",
-            MappingCompartment::MainMappings => "Main preset",
+            Compartment::ControllerMappings => "Controller preset",
+            Compartment::MainMappings => "Main preset",
         };
         self.view
             .require_control(root::ID_PRESET_LABEL_TEXT)
@@ -1629,7 +1627,7 @@ impl HeaderPanel {
         }
     }
 
-    fn update_compartment(&self, compartment: MappingCompartment) {
+    fn update_compartment(&self, compartment: Compartment) {
         let mut main_state = self.main_state.borrow_mut();
         main_state.stop_filter_learning();
         main_state.active_compartment.set(compartment);
@@ -1723,7 +1721,7 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
-        let compartment = MappingCompartment::MainMappings;
+        let compartment = Compartment::MainMappings;
         self.main_state.borrow_mut().stop_filter_learning();
         let mode = self
             .view
@@ -1779,10 +1777,10 @@ impl HeaderPanel {
         };
         let mut session = session.borrow_mut();
         match compartment {
-            MappingCompartment::ControllerMappings => {
+            Compartment::ControllerMappings => {
                 session.activate_controller_preset(preset_id).unwrap();
             }
-            MappingCompartment::MainMappings => session.activate_main_preset(preset_id).unwrap(),
+            Compartment::MainMappings => session.activate_main_preset(preset_id).unwrap(),
         };
     }
 
@@ -1799,7 +1797,7 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
         button.set_text(learn_button_text);
-        let enabled = !(self.active_compartment() == MappingCompartment::MainMappings
+        let enabled = !(self.active_compartment() == Compartment::MainMappings
             && self.session().borrow().main_preset_auto_load_is_active());
         button.set_enabled(enabled);
     }
@@ -1907,12 +1905,12 @@ impl HeaderPanel {
                 }
             }
             Tagged(DataObject::MainCompartment(Envelope {value})) => {
-                let compartment = MappingCompartment::MainMappings;
+                let compartment = Compartment::MainMappings;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::ControllerCompartment(Envelope {value})) => {
-                let compartment = MappingCompartment::ControllerMappings;
+                let compartment = Compartment::ControllerMappings;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
@@ -1935,7 +1933,7 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn import_compartment(&self, compartment: MappingCompartment, data: Box<CompartmentModelData>) {
+    fn import_compartment(&self, compartment: Compartment, data: Box<CompartmentModelData>) {
         if self.view.require_window().confirm(
             "ReaLearn",
             format!(
@@ -2062,10 +2060,8 @@ impl HeaderPanel {
                     value: Box::new(data),
                 };
                 let data_object = match compartment {
-                    MappingCompartment::ControllerMappings => {
-                        DataObject::ControllerCompartment(envelope)
-                    }
-                    MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
+                    Compartment::ControllerMappings => DataObject::ControllerCompartment(envelope),
+                    Compartment::MainMappings => DataObject::MainCompartment(envelope),
                 };
                 let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
@@ -2097,8 +2093,8 @@ impl HeaderPanel {
             .ok_or("no preset selected")?
             .to_string();
         match compartment {
-            MappingCompartment::ControllerMappings => session.activate_controller_preset(None)?,
-            MappingCompartment::MainMappings => session.activate_main_preset(None)?,
+            Compartment::ControllerMappings => session.activate_controller_preset(None)?,
+            Compartment::MainMappings => session.activate_main_preset(None)?,
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
@@ -2136,7 +2132,7 @@ impl HeaderPanel {
             .ok_or("no active preset")?;
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            MappingCompartment::ControllerMappings => {
+            Compartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
@@ -2146,7 +2142,7 @@ impl HeaderPanel {
                     .borrow_mut()
                     .update_preset(controller_preset)?;
             }
-            MappingCompartment::MainMappings => {
+            Compartment::MainMappings => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
@@ -2208,7 +2204,7 @@ impl HeaderPanel {
         let preset_id = slug::slugify(&preset_name);
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            MappingCompartment::ControllerMappings => {
+            Compartment::ControllerMappings => {
                 let controller =
                     ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
@@ -2217,7 +2213,7 @@ impl HeaderPanel {
                     .add_preset(controller)?;
                 session.activate_controller_preset(Some(preset_id))?;
             }
-            MappingCompartment::MainMappings => {
+            Compartment::MainMappings => {
                 let main_preset =
                     MainPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
@@ -2383,9 +2379,9 @@ impl HeaderPanel {
         });
         // Enables/disables save button depending on dirty state.
         when(
-            session.compartment_is_dirty[MappingCompartment::ControllerMappings]
+            session.compartment_is_dirty[Compartment::ControllerMappings]
                 .changed()
-                .merge(session.compartment_is_dirty[MappingCompartment::MainMappings].changed())
+                .merge(session.compartment_is_dirty[Compartment::MainMappings].changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2470,10 +2466,10 @@ impl View for HeaderPanel {
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(MappingCompartment::ControllerMappings)
+                self.update_compartment(Compartment::ControllerMappings)
             }
             root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(MappingCompartment::MainMappings)
+                self.update_compartment(Compartment::MainMappings)
             }
             _ => {}
         }
@@ -2683,7 +2679,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 
 fn edit_compartment_parameter(
     session: SharedSession,
-    compartment: MappingCompartment,
+    compartment: Compartment,
     range: RangeInclusive<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
     let current_settings: Vec<_> = {
@@ -2834,7 +2830,7 @@ enum ContextMenuAction {
     ToggleOscDeviceControl(OscDeviceId),
     ToggleOscDeviceFeedback(OscDeviceId),
     ToggleOscDeviceBundles(OscDeviceId),
-    EditCompartmentParameter(MappingCompartment, RangeInclusive<CompartmentParamIndex>),
+    EditCompartmentParameter(Compartment, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,
 }

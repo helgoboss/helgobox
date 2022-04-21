@@ -1,9 +1,9 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, shown_fx_unit_value,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDisplayType,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDisplayType,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fx_chains = get_fx_chains(
             context,

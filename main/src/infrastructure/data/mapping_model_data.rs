@@ -1,8 +1,7 @@
 use crate::application::{Change, MappingCommand, MappingModel};
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingCompartment,
-    MappingKey, Tag,
+    Compartment, ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingKey, Tag,
 };
 use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData, MigrationDescriptor,
@@ -85,7 +84,7 @@ impl MappingModelData {
 
     pub fn to_model(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         conversion_context: impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
     ) -> MappingModel {
@@ -101,7 +100,7 @@ impl MappingModelData {
     /// Use this for integrating the resulting model into a preset.
     pub fn to_model_for_preset(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         conversion_context: impl DataToModelConversionContext,
@@ -122,7 +121,7 @@ impl MappingModelData {
     /// ReaLearn < 1.12.0.
     pub fn to_model_flexible(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         conversion_context: impl DataToModelConversionContext,

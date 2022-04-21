@@ -1,7 +1,7 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAllTrackFxEnableTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

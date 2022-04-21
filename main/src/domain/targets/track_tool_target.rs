@@ -1,6 +1,6 @@
 use crate::domain::{
-    get_effective_tracks, get_track_name, percentage_for_track_within_project, ControlContext,
-    ExtendedProcessorContext, MappingCompartment, RealearnTarget, ReaperTarget, ReaperTargetType,
+    get_effective_tracks, get_track_name, percentage_for_track_within_project, Compartment,
+    ControlContext, ExtendedProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
@@ -16,7 +16,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

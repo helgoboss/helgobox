@@ -1,6 +1,6 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    FeedbackResolution, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         Ok(vec![ReaperTarget::Seek(SeekTarget {

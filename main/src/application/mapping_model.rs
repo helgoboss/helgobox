@@ -6,8 +6,8 @@ use crate::application::{
     TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
 };
 use crate::domain::{
-    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
-    ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
+    ActivationCondition, Compartment, CompoundMappingSource, CompoundMappingTarget,
+    ExtendedProcessorContext, ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping,
     MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
     QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
     UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
@@ -82,7 +82,7 @@ impl GetProcessingRelevance for MappingProp {
 pub struct MappingModel {
     id: MappingId,
     key: MappingKey,
-    compartment: MappingCompartment,
+    compartment: Compartment,
     name: String,
     tags: Vec<Tag>,
     group_id: GroupId,
@@ -191,11 +191,7 @@ impl<'a> Change<'a> for MappingModel {
 }
 
 impl MappingModel {
-    pub fn new(
-        compartment: MappingCompartment,
-        initial_group_id: GroupId,
-        key: MappingKey,
-    ) -> Self {
+    pub fn new(compartment: Compartment, initial_group_id: GroupId, key: MappingKey) -> Self {
         Self {
             id: MappingId::random(),
             key,
@@ -375,7 +371,7 @@ impl MappingModel {
         }
     }
 
-    pub fn compartment(&self) -> MappingCompartment {
+    pub fn compartment(&self) -> Compartment {
         self.compartment
     }
 

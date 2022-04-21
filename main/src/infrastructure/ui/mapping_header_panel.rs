@@ -12,7 +12,7 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{compartment_param_index_iter, CompartmentParamIndex, MappingCompartment, Tag};
+use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, Tag};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -29,7 +29,7 @@ pub struct MappingHeaderPanel {
 }
 
 pub trait Item: Debug {
-    fn compartment(&self) -> MappingCompartment;
+    fn compartment(&self) -> Compartment;
     fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
@@ -598,7 +598,7 @@ impl MappingHeaderPanel {
         &self,
         control_id: u32,
         with_none: bool,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) {
         let b = self.view.require_control(control_id);
         let start = if with_none {
@@ -723,7 +723,7 @@ impl View for MappingHeaderPanel {
 }
 
 impl Item for MappingModel {
-    fn compartment(&self) -> MappingCompartment {
+    fn compartment(&self) -> Compartment {
         self.compartment()
     }
 
@@ -862,7 +862,7 @@ impl Item for MappingModel {
 }
 
 impl Item for GroupModel {
-    fn compartment(&self) -> MappingCompartment {
+    fn compartment(&self) -> Compartment {
         self.compartment()
     }
 

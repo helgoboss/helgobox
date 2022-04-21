@@ -4,9 +4,7 @@ use crate::application::{
     WeakSession,
 };
 use crate::base::when;
-use crate::domain::{
-    GroupId, GroupKey, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget,
-};
+use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
@@ -233,7 +231,7 @@ impl MappingRowPanel {
         let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
-            let controller_mappings = session.mappings(MappingCompartment::ControllerMappings);
+            let controller_mappings = session.mappings(Compartment::ControllerMappings);
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();
@@ -479,7 +477,7 @@ impl MappingRowPanel {
         Ok(())
     }
 
-    fn active_compartment(&self) -> MappingCompartment {
+    fn active_compartment(&self) -> Compartment {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -894,7 +892,7 @@ impl Drop for MappingRowPanel {
 
 fn move_mapping_to_group(
     session: SharedSession,
-    compartment: MappingCompartment,
+    compartment: Compartment,
     mapping_id: MappingId,
     group_id: Option<GroupId>,
 ) -> Result<(), &'static str> {
@@ -913,7 +911,7 @@ fn move_mapping_to_group(
 
 fn copy_mapping_object(
     session: SharedSession,
-    compartment: MappingCompartment,
+    compartment: Compartment,
     mapping_id: MappingId,
     object_type: ObjectType,
     format: SerializationFormat,
@@ -1018,7 +1016,7 @@ fn paste_data_object_in_place(
 pub fn paste_mappings(
     mapping_datas: Vec<MappingModelData>,
     session: SharedSession,
-    compartment: MappingCompartment,
+    compartment: Compartment,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,
 ) -> Result<(), Box<dyn Error>> {
@@ -1060,7 +1058,7 @@ pub fn paste_mappings(
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
 
 struct MappingTriple {
-    compartment: MappingCompartment,
+    compartment: Compartment,
     mapping_id: MappingId,
     group_id: GroupId,
 }

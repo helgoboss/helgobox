@@ -1,6 +1,6 @@
 use crate::application::{CompartmentModel, GroupModel};
 use crate::base::default_util::is_default;
-use crate::domain::{CompartmentParamIndex, GroupId, GroupKey, MappingCompartment, ParamSetting};
+use crate::domain::{Compartment, CompartmentParamIndex, GroupId, GroupKey, ParamSetting};
 use crate::infrastructure::data::{
     DataToModelConversionContext, GroupModelData, MappingModelData, MigrationDescriptor,
     ModelToDataConversionContext,
@@ -62,7 +62,7 @@ impl CompartmentModelData {
     pub fn to_model(
         &self,
         version: Option<&Version>,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<CompartmentModel, String> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,

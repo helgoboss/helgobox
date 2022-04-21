@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, CompoundChangeEvent, ControlContext, EnableInstancesArgs, Exclusivity,
-    ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, EnableInstancesArgs,
+    Exclusivity, ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableInstancesTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
             scope: self.scope.clone(),

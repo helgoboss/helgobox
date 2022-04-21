@@ -1,5 +1,5 @@
 use crate::domain::{
-    CompoundMappingTarget, MappingCompartment, MappingId, MessageCaptureResult, PluginParamIndex,
+    Compartment, CompoundMappingTarget, MappingId, MessageCaptureResult, PluginParamIndex,
     PluginParams, ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
 use helgoboss_learn::AbsoluteValue;
@@ -39,19 +39,19 @@ pub struct UpdatedSingleMappingOnStateEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingEnabledChangeRequestedEvent {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub mapping_id: MappingId,
     pub is_enabled: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingMatchedEvent {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub mapping_id: MappingId,
 }
 
 impl MappingMatchedEvent {
-    pub fn new(compartment: MappingCompartment, mapping_id: MappingId) -> Self {
+    pub fn new(compartment: Compartment, mapping_id: MappingId) -> Self {
         MappingMatchedEvent {
             compartment,
             mapping_id,
@@ -61,7 +61,7 @@ impl MappingMatchedEvent {
 
 #[derive(Debug)]
 pub struct TargetValueChangedEvent<'a> {
-    pub compartment: MappingCompartment,
+    pub compartment: Compartment,
     pub mapping_id: MappingId,
     pub targets: &'a [CompoundMappingTarget],
     pub new_value: AbsoluteValue,
@@ -70,7 +70,7 @@ pub struct TargetValueChangedEvent<'a> {
 pub trait DomainEventHandler: Debug {
     fn handle_event(&self, event: DomainEvent);
 
-    fn notify_mapping_matched(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    fn notify_mapping_matched(&self, compartment: Compartment, mapping_id: MappingId) {
         self.handle_event(DomainEvent::MappingMatched(MappingMatchedEvent::new(
             compartment,
             mapping_id,

@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAnyOnTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::AnyOn(AnyOnTarget {
             project: context.context().project_or_current_project(),

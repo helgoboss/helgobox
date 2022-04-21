@@ -1,9 +1,8 @@
 use crate::domain::{
-    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
+    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, PanExt, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    MappingControlContext, PanExt, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -21,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

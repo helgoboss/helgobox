@@ -1,9 +1,9 @@
 use crate::domain::{
-    format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent,
+    format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TransportAction,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
@@ -18,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTransportTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Transport(TransportTarget {
             project: context.context().project_or_current_project(),

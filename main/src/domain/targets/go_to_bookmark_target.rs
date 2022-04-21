@@ -1,10 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::{
     current_value_of_bookmark, find_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
@@ -27,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         let res = find_bookmark(

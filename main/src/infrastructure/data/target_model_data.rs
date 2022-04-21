@@ -11,8 +11,8 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chains, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
-    FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
+    get_fx_chains, ActionInvocationType, AnyOnParameter, Compartment, Exclusivity,
+    ExtendedProcessorContext, FxDisplayType, GroupKey, OscDeviceId, ReaperTargetType, SeekOptions,
     SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType, TouchedTrackParameterType,
     TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
@@ -285,7 +285,7 @@ impl TargetModelData {
     pub fn apply_to_model(
         &self,
         model: &mut TargetModel,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         context: ExtendedProcessorContext,
         conversion_context: impl DataToModelConversionContext,
     ) {
@@ -306,7 +306,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         conversion_context: impl DataToModelConversionContext,
     ) {
         use TargetCommand as C;
@@ -959,7 +959,7 @@ pub fn deserialize_track(
 /// The context and so on is only necessary if you want to load < 1.12.0 presets.
 pub fn deserialize_fx(
     fx_data: &FxData,
-    ctx: Option<(ExtendedProcessorContext, MappingCompartment, &VirtualTrack)>,
+    ctx: Option<(ExtendedProcessorContext, Compartment, &VirtualTrack)>,
 ) -> FxPropValues {
     match fx_data {
         // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
@@ -1230,7 +1230,7 @@ pub fn get_first_guid_based_fx_at_index(
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
-    compartment: MappingCompartment,
+    compartment: Compartment,
 ) -> Result<Fx, &'static str> {
     let fx_chains = get_fx_chains(context, track, is_input_fx, compartment)?;
     let fx_chain = fx_chains.first().ok_or("empty list of FX chains")?;

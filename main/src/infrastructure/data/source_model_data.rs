@@ -5,7 +5,7 @@ use crate::application::{
 };
 use crate::base::default_util::is_default;
 use crate::base::notification;
-use crate::domain::{Keystroke, MappingCompartment};
+use crate::domain::{Compartment, Keystroke};
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
@@ -123,7 +123,7 @@ impl SourceModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut SourceModel, compartment: MappingCompartment) {
+    pub fn apply_to_model(&self, model: &mut SourceModel, compartment: Compartment) {
         self.apply_to_model_flexible(model, compartment, None);
     }
 
@@ -131,7 +131,7 @@ impl SourceModelData {
     pub fn apply_to_model_flexible(
         &self,
         model: &mut SourceModel,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         preset_version: Option<&Version>,
     ) {
         use SourceCommand as P;
@@ -288,7 +288,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, Compartment::MainMappings, None);
         // Then
         assert_eq!(
             model.midi_source_type(),
@@ -321,7 +321,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, Compartment::MainMappings, None);
         // Then
         assert_eq!(model.midi_source_type(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel(), None);

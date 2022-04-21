@@ -6,9 +6,9 @@ use crate::base::{
     notification, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, EnableInstancesArgs, Exclusivity,
-    FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
-    InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, Compartment, EnableInstancesArgs,
+    Exclusivity, FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor,
+    InstanceContainer, InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
     OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
     RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
@@ -671,13 +671,10 @@ impl App {
         self.main_preset_manager.clone()
     }
 
-    pub fn preset_manager(
-        &self,
-        compartment: MappingCompartment,
-    ) -> Box<dyn ExtendedPresetManager> {
+    pub fn preset_manager(&self, compartment: Compartment) -> Box<dyn ExtendedPresetManager> {
         match compartment {
-            MappingCompartment::ControllerMappings => Box::new(self.controller_preset_manager()),
-            MappingCompartment::MainMappings => Box::new(self.main_preset_manager()),
+            Compartment::ControllerMappings => Box::new(self.controller_preset_manager()),
+            Compartment::MainMappings => Box::new(self.main_preset_manager()),
         }
     }
 
@@ -938,8 +935,7 @@ impl App {
                     None => return,
                     Some(t) => t,
                 };
-                App::get()
-                    .start_learning_source_for_target(MappingCompartment::MainMappings, target);
+                App::get().start_learning_source_for_target(Compartment::MainMappings, target);
             },
             ActionKind::NotToggleable,
         );
@@ -949,7 +945,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .learn_mapping_reassigning_source(MappingCompartment::MainMappings, false)
+                        .learn_mapping_reassigning_source(Compartment::MainMappings, false)
                         .await;
                 });
             },
@@ -961,7 +957,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .learn_mapping_reassigning_source(MappingCompartment::MainMappings, true)
+                        .learn_mapping_reassigning_source(Compartment::MainMappings, true)
                         .await;
                 });
             },
@@ -973,7 +969,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .find_first_mapping_by_source(MappingCompartment::MainMappings)
+                        .find_first_mapping_by_source(Compartment::MainMappings)
                         .await;
                 });
             },
@@ -985,7 +981,7 @@ impl App {
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
                     let _ = App::get()
-                        .find_first_mapping_by_target(MappingCompartment::MainMappings)
+                        .find_first_mapping_by_target(Compartment::MainMappings)
                         .await;
                 });
             },
@@ -1005,7 +1001,7 @@ impl App {
 
     async fn find_first_mapping_by_source(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
@@ -1041,7 +1037,7 @@ impl App {
 
     async fn find_first_mapping_by_target(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
@@ -1063,7 +1059,7 @@ impl App {
 
     async fn learn_mapping_reassigning_source(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         open_mapping: bool,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
@@ -1229,11 +1225,7 @@ impl App {
         receiver
     }
 
-    fn start_learning_source_for_target(
-        &self,
-        compartment: MappingCompartment,
-        target: &ReaperTarget,
-    ) {
+    fn start_learning_source_for_target(&self, compartment: Compartment, target: &ReaperTarget) {
         // Try to find an existing session which has a target with that parameter
         let session = self
             .find_first_relevant_session_with_target(compartment, target)
@@ -1263,7 +1255,7 @@ impl App {
 
     fn find_first_relevant_session_with_target(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         target: &ReaperTarget,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.find_first_session_with_target(
@@ -1277,7 +1269,7 @@ impl App {
     fn find_first_session_with_target(
         &self,
         project: Option<Project>,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         target: &ReaperTarget,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.sessions.borrow().iter().find_map(|session| {
@@ -1338,7 +1330,7 @@ impl App {
 
     fn find_first_relevant_session_with_source_matching(
         &self,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.find_first_session_with_source_matching(
@@ -1352,7 +1344,7 @@ impl App {
     fn find_first_session_with_source_matching(
         &self,
         project: Option<Project>,
-        compartment: MappingCompartment,
+        compartment: Compartment,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.sessions.borrow().iter().find_map(|session| {

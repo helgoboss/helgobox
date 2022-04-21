@@ -5,7 +5,7 @@ use crate::application::{
 };
 use crate::base::NamedChannelSender;
 use crate::domain::{
-    MappingCompartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
+    Compartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
 };
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
@@ -106,7 +106,7 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
     });
     let instance_state = session.instance_state().borrow();
     let routes = session
-        .mappings(MappingCompartment::ControllerMappings)
+        .mappings(Compartment::ControllerMappings)
         .filter_map(|m| {
             let m = m.borrow();
             if !m.visible_in_projection() {
@@ -116,9 +116,8 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
                 if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_main_mappings = session
-                        .mappings(MappingCompartment::MainMappings)
-                        .filter(|mp| {
+                    let matching_main_mappings =
+                        session.mappings(Compartment::MainMappings).filter(|mp| {
                             let mp = mp.borrow();
                             mp.visible_in_projection()
                                 && mp.source_model.category() == SourceCategory::Virtual
@@ -314,7 +313,7 @@ fn get_controller(session: &Session) -> Option<ControllerPresetData> {
 fn get_controller_preset_data_internal(
     session: &Session,
 ) -> Result<ControllerPresetData, DataError> {
-    let data = session.extract_compartment_model(MappingCompartment::ControllerMappings);
+    let data = session.extract_compartment_model(Compartment::ControllerMappings);
     if data.mappings.is_empty() {
         return Err(DataError::SessionHasNoActiveController);
     }

@@ -3,9 +3,9 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{
-    get_effective_tracks, width_unit_value, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
-    PanExt, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    get_effective_tracks, width_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, PanExt,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

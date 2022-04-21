@@ -12,8 +12,7 @@ use std::cell::{Cell, RefCell};
 use crate::application::{Affected, CompartmentProp, Session, SessionProp, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
-    MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
-    TargetValueChangedEvent,
+    Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::http::{
@@ -112,7 +111,7 @@ impl MainPanel {
         }
     }
 
-    pub fn edit_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         if let Some(data) = self.active_data.borrow() {
             data.mapping_rows_panel
                 .edit_mapping(compartment, mapping_id);
@@ -299,7 +298,7 @@ impl View for MainPanel {
 }
 
 impl SessionUi for Weak<MainPanel> {
-    fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         upgrade_panel(self).edit_mapping(compartment, mapping_id);
     }
 

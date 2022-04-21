@@ -1,6 +1,6 @@
 use crate::application::{Change, GroupCommand, GroupModel};
 use crate::base::default_util::is_default;
-use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
+use crate::domain::{Compartment, GroupId, GroupKey, Tag};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,7 @@ impl GroupModelData {
         }
     }
 
-    pub fn to_model(&self, compartment: MappingCompartment, is_default_group: bool) -> GroupModel {
+    pub fn to_model(&self, compartment: Compartment, is_default_group: bool) -> GroupModel {
         let mut model = GroupModel::new_from_data(
             compartment,
             if is_default_group {

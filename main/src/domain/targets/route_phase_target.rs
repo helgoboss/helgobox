@@ -1,9 +1,9 @@
 use crate::domain::{
-    format_value_as_on_off, get_track_routes, mute_unit_value, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
+    format_value_as_on_off, get_track_routes, mute_unit_value, Compartment, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
@@ -19,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePhaseTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes

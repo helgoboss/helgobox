@@ -1,5 +1,5 @@
 use crate::application::SharedSession;
-use crate::domain::{GroupId, MappingCompartment};
+use crate::domain::{Compartment, GroupId};
 use reaper_high::Reaper;
 
 /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
@@ -14,7 +14,7 @@ pub fn prompt_for(caption: &str, initial_value: &str) -> Option<String> {
 
 pub fn add_group_via_dialog(
     session: SharedSession,
-    compartment: MappingCompartment,
+    compartment: Compartment,
 ) -> Result<GroupId, &'static str> {
     if let Some(name) = prompt_for("Group name", "") {
         if name.trim().is_empty() {

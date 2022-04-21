@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, BackboneState, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    format_value_as_on_off, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
     RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -19,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipMatrixTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipMatrixTarget {
             action: self.action,

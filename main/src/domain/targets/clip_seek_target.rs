@@ -4,10 +4,11 @@ use std::borrow::Cow;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
 use crate::domain::{
-    interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
+    DEFAULT_TARGET,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
@@ -22,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipSeekTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

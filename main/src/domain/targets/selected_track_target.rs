@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
-    selected_track_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    selected_track_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSelectedTrackTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SelectedTrack(SelectedTrackTarget {
             project: context.context().project_or_current_project(),

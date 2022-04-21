@@ -2,8 +2,8 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
 use crate::domain::{
-    BackboneState, CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter,
-    FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript, MappingCompartment,
+    BackboneState, Compartment, CompoundMappingSource, EelMidiSourceScript,
+    ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
     MidiSource, ReaperSource, TimerSource, VirtualControlElement, VirtualControlElementId,
     VirtualSource, VirtualTarget,
 };
@@ -884,18 +884,18 @@ pub enum SourceCategory {
 }
 
 impl SourceCategory {
-    pub fn default_for(compartment: MappingCompartment) -> Self {
+    pub fn default_for(compartment: Compartment) -> Self {
         use SourceCategory::*;
         match compartment {
-            MappingCompartment::ControllerMappings => Midi,
-            MappingCompartment::MainMappings => Midi,
+            Compartment::ControllerMappings => Midi,
+            Compartment::MainMappings => Midi,
         }
     }
 
-    pub fn is_allowed_in(self, compartment: MappingCompartment) -> bool {
+    pub fn is_allowed_in(self, compartment: Compartment) -> bool {
         use SourceCategory::*;
         match compartment {
-            MappingCompartment::ControllerMappings => match self {
+            Compartment::ControllerMappings => match self {
                 Never => true,
                 Midi => true,
                 Osc => true,
@@ -903,7 +903,7 @@ impl SourceCategory {
                 Keyboard => true,
                 Virtual => false,
             },
-            MappingCompartment::MainMappings => true,
+            Compartment::MainMappings => true,
         }
     }
 }

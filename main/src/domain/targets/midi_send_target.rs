@@ -1,9 +1,9 @@
 use crate::base::NamedChannelSender;
 use crate::domain::{
-    ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
-    MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SendMidiDestination, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, HitInstructionReturnValue, MappingControlContext, MidiDestination,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SendMidi(MidiSendTarget::new(
             self.pattern.clone(),

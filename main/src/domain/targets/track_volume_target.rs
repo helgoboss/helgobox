@@ -2,8 +2,8 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    get_effective_tracks, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    get_effective_tracks, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

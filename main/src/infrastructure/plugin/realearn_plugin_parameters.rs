@@ -7,7 +7,7 @@ use slog::debug;
 
 use crate::application::{ParamContainer, SharedSession, WeakSession};
 use crate::domain::{
-    CompartmentParams, MappingCompartment, ParameterMainTask, PluginParamIndex, PluginParams,
+    Compartment, CompartmentParams, ParameterMainTask, PluginParamIndex, PluginParams,
     RawParamValue,
 };
 use crate::infrastructure::data::SessionData;
@@ -265,11 +265,7 @@ impl PluginParameters for RealearnPluginParameters {
 }
 
 impl ParamContainer for Arc<RealearnPluginParameters> {
-    fn update_compartment_params(
-        &mut self,
-        compartment: MappingCompartment,
-        params: CompartmentParams,
-    ) {
+    fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams) {
         let mut plugin_params = self.params_mut();
         let compartment_params = plugin_params.compartment_params_mut(compartment);
         *compartment_params = params;

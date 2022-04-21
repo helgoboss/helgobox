@@ -1,8 +1,9 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    BackboneState, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_clip_engine::main::ClipSlotCoordinates;
@@ -18,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipManagementTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipManagementTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

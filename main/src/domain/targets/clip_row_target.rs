@@ -1,6 +1,6 @@
 use crate::domain::{
-    BackboneState, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    MappingCompartment, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipRowTarget {
             basics: ClipRowTargetBasics {

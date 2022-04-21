@@ -1,7 +1,7 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
-    transport_is_enabled_unit_value, BackboneState, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    transport_is_enabled_unit_value, BackboneState, Compartment, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
     RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
+        compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context.project_or_current_project();
         let target = ClipTransportTarget {
