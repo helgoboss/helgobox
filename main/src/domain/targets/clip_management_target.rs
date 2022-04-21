@@ -4,7 +4,7 @@ use crate::domain::{
     MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_clip_engine::main::ClipSlotCoordinates;
 use realearn_api::schema::ClipManagementAction;
 
@@ -87,6 +87,23 @@ impl RealearnTarget for ClipManagementTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::ClipManagement)
+    }
+
+    // TODO-high Return clip as result of clip() function for all clip targets (just like track())
+    //  and make this property available in all clip targets.
+    // TODO-high Also add a "Clip" target, just like "Track" target
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
+        match key {
+            "clip.name" => BackboneState::get()
+                .with_clip_matrix_mut(context.instance_state, |matrix| {
+                    let slot = matrix.slot(self.slot_coordinates)?;
+                    let clip = slot.clip()?;
+                    let name = clip.name()?;
+                    Some(PropValue::Text(name.to_string().into()))
+                })
+                .ok()?,
+            _ => None,
+        }
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

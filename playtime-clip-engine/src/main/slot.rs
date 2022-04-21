@@ -407,6 +407,10 @@ impl Slot {
         }
     }
 
+    pub fn clip(&self) -> Option<&Clip> {
+        Some(&self.content.as_ref()?.clip)
+    }
+
     pub fn clip_volume(&self) -> ClipEngineResult<Db> {
         Ok(self.get_content()?.clip.volume())
     }
@@ -597,6 +601,7 @@ impl Slot {
         &mut self,
         outcome: NormalRecordingOutcome,
         temporary_project: Option<Project>,
+        recording_track: &Track,
     ) -> ClipEngineResult<ClipChangedEvent> {
         self.remove_temporary_route();
         match outcome {
@@ -610,6 +615,7 @@ impl Slot {
                         recording.clip_settings,
                         temporary_project,
                         s.pooled_midi_source.as_ref(),
+                        recording_track,
                     )?;
                     s.runtime_data.material_info = recording.material_info;
                     debug!("Fill slot with clip: {:#?}", &clip);

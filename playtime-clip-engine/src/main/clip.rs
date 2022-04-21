@@ -10,7 +10,7 @@ use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
 use playtime_api::{ClipColor, Db};
-use reaper_high::{Project, Reaper};
+use reaper_high::{Project, Reaper, Track};
 use reaper_medium::Bpm;
 
 /// Describes a clip.
@@ -18,6 +18,7 @@ use reaper_medium::Bpm;
 /// Not loaded yet.
 #[derive(Clone, Debug)]
 pub struct Clip {
+    name: Option<String>,
     source: api::Source,
     processing_relevant_settings: ProcessingRelevantClipSettings,
 }
@@ -26,6 +27,7 @@ impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
+            name: api_clip.name,
             source: api_clip.source,
         }
     }
@@ -35,6 +37,7 @@ impl Clip {
         clip_settings: ProcessingRelevantClipSettings,
         temporary_project: Option<Project>,
         pooled_midi_source: Option<&ClipSource>,
+        recording_track: &Track,
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
         let api_source = match kind_specific_outcome {
@@ -46,10 +49,15 @@ impl Clip {
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
+            name: recording_track.name().map(|n| n.into_string()),
             source: api_source,
             processing_relevant_settings: clip_settings,
         };
         Ok(clip)
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_ref().map(|s| s.as_str())
     }
 
     /// Creates an API clip.
@@ -63,6 +71,7 @@ impl Clip {
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
+            name: self.name.clone(),
             source: {
                 if let Some(midi_source) = midi_source {
                     create_api_source_from_recorded_midi_source(midi_source, temporary_project)?

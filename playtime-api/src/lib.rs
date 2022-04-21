@@ -719,6 +719,8 @@ pub struct Slot {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Clip {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Source of the audio/MIDI material of this clip.
     pub source: Source,
     /// Time base of the material provided by that source.

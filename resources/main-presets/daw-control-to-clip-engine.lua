@@ -1,84 +1,150 @@
--- Preparation
+-- Constants
 
-local col_param = 0
-local row_param = 1
+local channel_count = 1
 
--- ### Content ###
+-- Utility functions
 
-local parameters = {
-    {
-        index = col_param,
+--- Converts the given key-value table to an array table.
+function to_array(t)
+    local array = {}
+    for _, v in pairs(t) do
+        table.insert(array, v)
+    end
+    return array
+end
+
+--- Returns a new table that's the given table turned into an array
+--- and sorted by the `index` key.
+function sorted_by_index(t)
+    local sorted = to_array(t)
+    local compare_index = function(left, right)
+        return left.index < right.index
+    end
+    table.sort(sorted, compare_index)
+    return sorted
+end
+
+--- Clones a table.
+function clone(t)
+    local new_table = {}
+    for k, v in pairs(t) do
+        new_table[k] = v
+    end
+    return new_table
+end
+
+--- Returns a new table that is the result of merging t2 into t1.
+---
+--- Values in t2 have precedence.
+---
+--- The result will be mergeable as well. This is good for "modifier chaining".
+function merged(t1, t2)
+    local result = clone(t1)
+    for key, new_value in pairs(t2) do
+        local old_value = result[key]
+        if old_value and type(old_value) == "table" and type(new_value) == "table" then
+            -- Merge table value as well
+            result[key] = merged(old_value, new_value)
+        else
+            -- Simple use new value
+            result[key] = new_value
+        end
+    end
+    return make_mergeable(result)
+end
+
+--- Makes it possible to merge this table with another one via "+" operator.
+function make_mergeable(t)
+    local metatable = {
+        __add = merged
+    }
+    setmetatable(t, metatable)
+    return t
+end
+
+function PartialMapping(t)
+    return make_mergeable(t)
+end
+
+-- Parameters
+
+local params = {
+    column_offset = {
+        index = 0,
         name = "Column offset",
+        value_count = 10000,
     },
-    {
-        index = row_param,
+    row_offset = {
+        index = 1,
         name = "Row offset",
+        value_count = 10000,
     },
 }
 
-local groups = {
-    {
-        id = "slot-transport",
-        name = "Slot transport",
-    },
-}
+-- Domain functions
 
-local column_expression = "p[0] * 100"
-local row_expression = "p[1] * 100"
+function current_slot()
+    return PartialMapping {
+        address = "Dynamic",
+        column_expression = "p[0]",
+        row_expression = "p[1]"
+    }
+end
 
-local mappings = {
-    {
-        id = "slot-play",
-        name = "Slot play/pause",
-        group = "slot-transport",
+function button(id)
+    return PartialMapping {
         source = {
             kind = "Virtual",
             character = "Button",
-            id = "play",
+            id = id,
         },
-        glue = {
-            absolute_mode = "ToggleButton",
-        },
-        target = {
-            kind = "ClipTransportAction",
-            slot = {
-                address = "Dynamic",
-                column_expression = column_expression,
-                row_expression = row_expression,
-            },
-            action = "PlayPause",
-        },
-    },
-    {
-        id = "slot-stop",
-        name = "Slot stop",
-        group = "slot-transport",
+    }
+end
+
+function multi(id)
+    return PartialMapping {
         source = {
             kind = "Virtual",
-            character = "Button",
-            id = "stop",
+            character = "Multi",
+            id = id,
         },
-        glue = {
-            absolute_mode = "Normal",
-        },
+    }
+end
+
+function clip_transport_action(action)
+    return PartialMapping {
         target = {
             kind = "ClipTransportAction",
-            slot = {
-                address = "Dynamic",
-                column_expression = column_expression,
-                row_expression = row_expression,
-            },
-            action = "Stop",
+            slot = current_slot(),
+            action = action,
+            record_only_if_track_armed = true,
+            stop_column_if_slot_empty = true,
         },
-    },
-    {
-        id = "position",
-        name = "Position",
+    }
+end
+
+function clip_name_feedback()
+    return PartialMapping {
         control_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "ch1/lcd/line1",
+        glue = {
+            feedback = {
+                kind = "Text",
+                text_expression = "{{ target.clip.name }}"
+            },
         },
+        target = {
+            kind = "ClipManagement",
+            slot = current_slot(),
+            action = {
+                kind = "EditClip",
+            },
+        },
+    }
+end
+
+function clip_position_feedback()
+    return PartialMapping {
+        control_enabled = false,
         glue = {
             feedback = {
                 kind = "Text",
@@ -86,119 +152,89 @@ local mappings = {
         },
         target = {
             kind = "ClipSeek",
-            slot = {
-                address = "Dynamic",
-                column_expression = column_expression,
-                row_expression = row_expression,
-            },
+            slot = current_slot(),
             feedback_resolution = "High",
         },
-    },
-    {
-        id = "volume",
-        name = "Volume",
-        source = {
-            kind = "Virtual",
-            id = "ch1/fader",
-        },
+    }
+end
+
+function clip_volume()
+    return {
         target = {
             kind = "ClipVolume",
-            slot = {
-                address = "Dynamic",
-                column_expression = column_expression,
-                row_expression = row_expression,
-            },
+            slot = current_slot(),
         },
-    },
-    {
-        id = "NjmzrUDIo-EgoOxRMpBk-",
-        name = "Col <",
-        feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "bank-left",
-            character = "Button",
+    }
+end
+
+function press_only()
+    return PartialMapping {
+        glue = {
+            button_filter = "PressOnly",
         },
+    }
+end
+
+function toggle()
+    return PartialMapping {
+        glue = {
+            absolute_mode = "ToggleButton",
+        },
+    }
+end
+
+function scroll_horizontally(amount)
+    return scroll(params.column_offset.index, amount)
+end
+
+function scroll_vertically(amount)
+    return scroll(params.row_offset.index, amount)
+end
+
+function scroll(param_index, amount)
+    local abs_amount = math.abs(amount)
+    return {
         glue = {
             absolute_mode = "IncrementalButton",
-            reverse = true,
+            step_factor_interval = { abs_amount, abs_amount },
+            reverse = amount < 0,
+            feedback = {
+                kind = "Numeric",
+                transformation = "x = 1",
+            },
         },
         target = {
             kind = "FxParameterValue",
             parameter = {
                 address = "ById",
-                index = 0,
+                index = param_index,
             },
         },
-    },
-    {
-        id = "XEhlV0MCzkK8cNKupBJry",
-        name = "Col >",
-        feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "bank-right",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "IncrementalButton",
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
-    },
-    {
-        id = "YfPj7gMNNTwhqufds9REa",
-        name = "Row <",
-        feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "ch-left",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "IncrementalButton",
-            reverse = true,
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 1,
-            },
-        },
-    },
-    {
-        id = "EYJC65-wDyclogn8HOoxe",
-        name = "Row >",
-        feedback_enabled = false,
-        source = {
-            kind = "Virtual",
-            id = "ch-right",
-            character = "Button",
-        },
-        glue = {
-            absolute_mode = "IncrementalButton",
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 1,
-            },
-        },
-    },
+    }
+end
+
+-- Mappings
+
+local mappings = {
+    button("cycle") + toggle() + clip_transport_action("Looped"),
+    button("stop") + clip_transport_action("Stop"),
+    button("play") + press_only() + clip_transport_action("PlayStop"),
+    button("record") + toggle() + clip_transport_action("RecordStop"),
+    button("cursor-left") + scroll_horizontally(-1),
+    button("cursor-right")+ scroll_horizontally(1),
+    button("cursor-up") + scroll_vertically(-1),
+    button("cursor-down") + scroll_vertically(1),
+    multi("ch1/fader") + clip_volume(),
+    multi("ch1/lcd/line1") + clip_name_feedback(),
+    multi("ch1/lcd/line2") + clip_position_feedback(),
 }
+
+-- Result
 
 return {
     kind = "MainCompartment",
     value = {
-        parameters = parameters,
-        groups = groups,
+        parameters = sorted_by_index(params),
         mappings = mappings,
     },
 }

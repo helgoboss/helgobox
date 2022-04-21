@@ -230,9 +230,14 @@ impl Column {
                     slot_index,
                     outcome,
                 } => {
+                    let recording_track = &self.effective_recording_track().unwrap();
                     if let Some(slot) = self.slots.get_mut(slot_index) {
                         let event = slot
-                            .notify_normal_recording_finished(outcome, self.project)
+                            .notify_normal_recording_finished(
+                                outcome,
+                                self.project,
+                                recording_track,
+                            )
                             .unwrap();
                         Some((slot_index, event))
                     } else {

@@ -83,7 +83,7 @@ local row_count = 8
 
 -- ### Content ###
 
--- Common functions
+-- Utility functions
 
 -- Clones a table.
 function clone(t)

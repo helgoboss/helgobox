@@ -1,5 +1,3 @@
--- ### Preparation ###
-
 -- Constants
 
 local column_count = 4

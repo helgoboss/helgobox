@@ -32,6 +32,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                         clip_record_settings: Default::default(),
                         slots: {
                             let api_clip = api::Clip {
+                                name: None,
                                 source: match desc.descriptor.content.clone() {
                                     ClipContent::File { file } => {
                                         api::Source::File(api::FileSource { path: file })
