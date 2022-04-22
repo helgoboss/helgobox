@@ -160,25 +160,35 @@ impl Recording {
         total_frame_count.saturating_sub(self.num_count_in_frames)
     }
 
-    pub fn downbeat_frame(&self) -> usize {
-        if let Some(first_play_frame) = self.first_play_frame {
-            // In most cases, first_play_frame will be < num_count_in_frames because we stop
-            // looking for the first play frame as soon as the count-in phase is exceeded.
-            // However, that's just a performance optimization and we shouldn't rely on it.
-            // Also, when doing that optimization, we just check if the *start* of the block
-            // is < num_count_in_frames, but the actual first play frame within that block could
-            // be > num_count_in_frames! So we must check here again.
-            if first_play_frame < self.num_count_in_frames {
-                // We detected material that should play at count-in phase
-                // (also called pick-up beat or anacrusis). So the position of the downbeat in
-                // the material is greater than zero.
-                self.num_count_in_frames - first_play_frame
-            } else {
-                0
-            }
-        } else {
-            0
+    pub fn calculate_downbeat_frame(&self) -> usize {
+        let first_play_frame = match self.first_play_frame {
+            None => return 0,
+            Some(f) => f,
+        };
+        // In most cases, first_play_frame will be < num_count_in_frames because we stop
+        // looking for the first play frame as soon as the count-in phase is exceeded.
+        // However, that's just a performance optimization and we shouldn't rely on it.
+        // Also, when doing that optimization, we just check if the *start* of the block
+        // is < num_count_in_frames, but the actual first play frame within that block could
+        // be > num_count_in_frames! So we must check here again.
+        if first_play_frame >= self.num_count_in_frames {
+            return 0;
         }
+        // We detected material that should play at count-in phase
+        // (also called pick-up beat or anacrusis). So the position of the downbeat in
+        // the material is greater than zero.
+        let downbeat_frame = self.num_count_in_frames - first_play_frame;
+        if !self.downbeat_frame_is_large_enough(downbeat_frame) {
+            return 0;
+        }
+        downbeat_frame
+    }
+
+    fn downbeat_frame_is_large_enough(&self, downbeat_frame: usize) -> bool {
+        // TODO-low Maybe better to base this on current tempo and time signature?
+        let seconds = convert_duration_in_frames_to_seconds(downbeat_frame, self.frame_rate);
+        // This would be roughly a 8th note with tempo 120.
+        seconds.get() >= 0.1
     }
 }
 
@@ -782,7 +792,8 @@ impl RecordingState {
             recording.total_frame_offset = next_frame_offset;
             // Commit recording if end exceeded
             if let Some(scheduled_end) = recording.scheduled_end {
-                let end_frame = scheduled_end.complete_length - recording.downbeat_frame();
+                let end_frame =
+                    scheduled_end.complete_length - recording.calculate_downbeat_frame();
                 if next_frame_offset > end_frame {
                     // Exceeded scheduled end.
                     let recording = *recording;
@@ -907,11 +918,10 @@ impl RecordingState {
                 (outcome, State::Ready(ready_state))
             }
         };
+        let downbeat_frame = recording.calculate_downbeat_frame();
         let section_and_downbeat_data = SectionAndDownbeatData {
             section_bounds: {
-                let start = recording
-                    .first_play_frame
-                    .unwrap_or(recording.num_count_in_frames);
+                let start = recording.num_count_in_frames - downbeat_frame;
                 let length = recording.scheduled_end.map(|end| {
                     assert!(recording.num_count_in_frames < end.complete_length);
                     end.complete_length - recording.num_count_in_frames
@@ -919,7 +929,7 @@ impl RecordingState {
                 SectionBounds::new(start + recording.latency, length)
             },
             quantized_end_pos: recording.scheduled_end.map(|end| end.quantized_end_pos),
-            downbeat_frame: recording.downbeat_frame(),
+            downbeat_frame,
         };
         let recording_outcome = RecordingOutcome {
             data: CompleteRecordingData {
