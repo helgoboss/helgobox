@@ -813,13 +813,6 @@ impl Default for ClipAudioSettings {
     }
 }
 
-// struct Canvas {
-//     /// Should be long enough to let the source section fit in.
-//     length: DurationInSeconds,
-//     /// Position of the source section.
-//     section_pos: PositionInSeconds,
-// }
-
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {

@@ -9,7 +9,7 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
-use playtime_api::{ClipColor, Db};
+use playtime_api::{ClipColor, ClipTimeBase, Db, Section};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::Bpm;
 
@@ -176,6 +176,14 @@ impl Clip {
         } else {
             1.0
         }
+    }
+
+    pub fn time_base(&self) -> &ClipTimeBase {
+        &self.processing_relevant_settings.time_base
+    }
+
+    pub fn section(&self) -> &Section {
+        &self.processing_relevant_settings.section
     }
 
     /// Returns `None` if time base is not "Beat".

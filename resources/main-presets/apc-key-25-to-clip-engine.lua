@@ -352,13 +352,13 @@ function route_target(col, route_target_kind)
     }
 end
 
-function clip_transport_action(col, row, action)
+function clip_transport_action(col, row, action, record_only_if_track_armed)
     return PartialMapping {
         target = {
             kind = "ClipTransportAction",
             slot = create_slot_selector(col, row),
             action = action,
-            record_only_if_track_armed = true,
+            record_only_if_track_armed = record_only_if_track_armed,
             stop_column_if_slot_empty = true,
         },
     }
@@ -601,8 +601,8 @@ set_keys_as_ids(groups)
 -- Mappings
 
 local mappings = {
-    button("stop-all-clips") + clip_matrix_action("Stop"),
-    no_shift + button("play") + toggle() + transport_action("PlayPause"),
+    no_shift + button("stop-all-clips") + clip_matrix_action("Stop"),
+    no_shift + button("play") + toggle() + transport_action("PlayStop"),
     shift + button("col1/stop") + feedback_disabled() + scroll_vertically(-1),
     shift + button("col2/stop") + feedback_disabled() + scroll_vertically(1),
     shift + button("col3/stop") + feedback_disabled() + scroll_horizontally(-1),
@@ -624,7 +624,6 @@ local mappings = {
 }
 
 -- For each column
-
 for col = 0, column_count - 1 do
     -- Column stop button functions
     table.insert(mappings, group(groups.column_stop) + no_shift + column_stop_button(col) + clip_column_action(col, "Stop"))
@@ -646,8 +645,9 @@ end
 -- For each slot
 for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
-        table.insert(mappings, group(groups.slot_play) + feedback_disabled() + no_shift + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop"))
-        table.insert(mappings, group(groups.slot_feedback) + control_disabled() + slot_button(col, row) + slot_state_text_feedback() + clip_transport_action(col, row, "RecordPlayStop"))
+        table.insert(mappings, group(groups.slot_play) + feedback_disabled() + no_shift + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
+        --table.insert(mappings, group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
+        table.insert(mappings, group(groups.slot_feedback) + control_disabled() + slot_button(col, row) + slot_state_text_feedback() + clip_transport_action(col, row, "RecordPlayStop", true))
         table.insert(mappings, group(groups.slot_clear) + feedback_disabled() + shift + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
         table.insert(mappings, group(groups.slot_quantize) + feedback_disabled() + shift + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
     end

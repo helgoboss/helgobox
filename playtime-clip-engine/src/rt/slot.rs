@@ -423,6 +423,7 @@ fn play_clip_by_transport(
 pub struct SlotRuntimeData {
     pub play_state: ClipPlayState,
     pub pos: SharedPos,
+    /// The frame count in this material info is supposed to take the section bounds into account.
     pub material_info: MaterialInfo,
 }
 

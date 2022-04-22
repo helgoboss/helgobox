@@ -17,13 +17,13 @@ use crate::rt::{
     RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::create_pcm_source_from_file_based_api_source;
-use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
+use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ChannelRange, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiClipRecordMode,
-    RecordOrigin,
+    ChannelRange, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
+    MidiClipRecordMode, RecordOrigin,
 };
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
@@ -52,6 +52,7 @@ pub struct Slot {
 #[derive(Clone, Debug)]
 struct Content {
     clip: Clip,
+    /// The frame count in the material info is supposed to take the section bounds into account.
     runtime_data: SlotRuntimeData,
     /// A copy of the real-time MIDI source. Only set for in-project MIDI, not file MIDI.
     ///
@@ -64,7 +65,8 @@ struct Content {
 }
 
 impl Content {
-    pub fn length_in_seconds(
+    /// Returns the effective length (tempo adjusted and taking the section into account).
+    pub fn effective_length_in_seconds(
         &self,
         timeline: &HybridTimeline,
     ) -> ClipEngineResult<DurationInSeconds> {
@@ -359,8 +361,28 @@ impl Slot {
         if !content.runtime_data.material_info.is_midi() {
             return Err("editing not supported for audio");
         }
-        let timeline = clip_timeline(Some(temporary_project), false);
-        let item_length = content.length_in_seconds(&timeline)?;
+        let timeline = clip_timeline(Some(temporary_project), true);
+        // We must put the item exactly how we would play it so the grid is correct.
+        let item_length = content.effective_length_in_seconds(&timeline)?;
+        let section_start_pos = DurationInSeconds::new(content.clip.section().start_pos.get());
+        let (item_pos, take_offset) = match content.clip.time_base() {
+            // Place section start exactly on start of project.
+            ClipTimeBase::Time => (
+                PositionInSeconds::ZERO,
+                PositionInSeconds::from(section_start_pos),
+            ),
+            ClipTimeBase::Beat(t) => {
+                // Place downbeat exactly on start of 2nd bar of project.
+                let second_bar_pos = timeline.pos_of_quantized_pos(QuantizedPosition::bar(1));
+                let bpm = timeline.tempo_at(second_bar_pos);
+                let bps = bpm.get() / 60.0;
+                let downbeat_pos = t.downbeat.get() / bps;
+                (
+                    second_bar_pos - downbeat_pos,
+                    PositionInSeconds::from(section_start_pos),
+                )
+            }
+        };
         let editor_track = find_or_create_editor_track(temporary_project);
         let midi_source = if let Some(s) = content.pooled_midi_source.as_ref() {
             Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
@@ -371,7 +393,8 @@ impl Slot {
         let take = item.add_take().map_err(|e| e.message())?;
         let midi_source = OwnedSource::new(midi_source.into_reaper_source());
         take.set_source(midi_source);
-        item.set_position(PositionInSeconds::new(0.0), UiRefreshBehavior::NoRefresh)
+        take.set_start_offset(take_offset).unwrap();
+        item.set_position(item_pos, UiRefreshBehavior::NoRefresh)
             .unwrap();
         item.set_length(item_length, UiRefreshBehavior::NoRefresh)
             .unwrap();
@@ -862,8 +885,8 @@ pub fn create_midi_overdub_instruction(
 fn find_or_create_editor_track(project: Project) -> Track {
     find_editor_track(project).unwrap_or_else(|| {
         let track = project.add_track();
-        track.set_shown(TrackArea::Mcp, false);
-        track.set_shown(TrackArea::Tcp, false);
+        // track.set_shown(TrackArea::Mcp, false);
+        // track.set_shown(TrackArea::Tcp, false);
         track.set_name(EDITOR_TRACK_NAME);
         track
     })
@@ -951,13 +974,13 @@ fn configure_midi_editor() {
     let source_beats_command_id = CommandId::new(40470);
     let zoom_command_id = CommandId::new(40466);
     let required_view_mode = RequiredViewMode::Normal;
-    // Switch piano roll time base to "Source beats" if not already happened.
-    if reaper.get_toggle_command_state_ex(midi_editor_section_id, source_beats_command_id)
-        != Some(true)
-    {
-        let _ =
-            reaper.midi_editor_last_focused_on_command(source_beats_command_id, required_view_mode);
-    }
+    // // Switch piano roll time base to "Source beats" if not already happened.
+    // if reaper.get_toggle_command_state_ex(midi_editor_section_id, source_beats_command_id)
+    //     != Some(true)
+    // {
+    //     let _ =
+    //         reaper.midi_editor_last_focused_on_command(source_beats_command_id, required_view_mode);
+    // }
     // Zoom to content
     let _ = reaper.midi_editor_last_focused_on_command(zoom_command_id, required_view_mode);
 }
