@@ -162,11 +162,20 @@ impl Recording {
 
     pub fn downbeat_frame(&self) -> usize {
         if let Some(first_play_frame) = self.first_play_frame {
-            assert!(self.num_count_in_frames > first_play_frame);
-            // We detected material that should play at count-in phase
-            // (also called pick-up beat or anacrusis). So the position of the downbeat in
-            // the material is greater than zero.
-            self.num_count_in_frames - first_play_frame
+            // In most cases, first_play_frame will be < num_count_in_frames because we stop
+            // looking for the first play frame as soon as the count-in phase is exceeded.
+            // However, that's just a performance optimization and we shouldn't rely on it.
+            // Also, when doing that optimization, we just check if the *start* of the block
+            // is < num_count_in_frames, but the actual first play frame within that block could
+            // be > num_count_in_frames! So we must check here again.
+            if first_play_frame < self.num_count_in_frames {
+                // We detected material that should play at count-in phase
+                // (also called pick-up beat or anacrusis). So the position of the downbeat in
+                // the material is greater than zero.
+                self.num_count_in_frames - first_play_frame
+            } else {
+                0
+            }
         } else {
             0
         }
