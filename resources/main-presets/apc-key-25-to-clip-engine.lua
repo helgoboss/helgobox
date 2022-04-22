@@ -330,11 +330,12 @@ function clip_column_track(col)
     }
 end
 
-function column_track_target(col, track_target_kind)
+function column_track_target(col, track_target_kind, exclusive)
     return PartialMapping {
         target = {
             kind = track_target_kind,
             track = clip_column_track(col),
+            exclusivity = exclusive and "WithinFolderOnOnly",
         },
     }
 end
@@ -628,9 +629,9 @@ for col = 0, column_count - 1 do
     -- Column stop button functions
     table.insert(mappings, group(groups.column_stop) + no_shift + column_stop_button(col) + clip_column_action(col, "Stop"))
     table.insert(mappings, group(groups.column_solo) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
-    table.insert(mappings, group(groups.column_record_arm) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState"))
+    table.insert(mappings, group(groups.column_record_arm) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", true))
     table.insert(mappings, group(groups.column_mute) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
-    table.insert(mappings, group(groups.column_select) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState"))
+    table.insert(mappings, group(groups.column_select) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
     -- Knob functions
     table.insert(mappings, group(groups.knob_volume) + multi(col) + column_track_target(col, "TrackVolume"))
     table.insert(mappings, group(groups.knob_pan) + multi(col) + column_track_target(col, "TrackPan"))

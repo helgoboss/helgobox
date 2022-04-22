@@ -228,7 +228,7 @@ function feedback_off()
     }
 end
 
-function column_track_target(channel_index, target_kind)
+function column_track_target(channel_index, target_kind, exclusive)
     return {
         glue = {
             absolute_mode = "ToggleButton",
@@ -240,6 +240,7 @@ function column_track_target(channel_index, target_kind)
                 column = current_column(channel_index),
                 context = "Playback",
             },
+            exclusivity = exclusive and "WithinFolderOnOnly",
         },
     }
 end
@@ -267,7 +268,7 @@ for ch = 0, channel_count - 1 do
     table.insert(mappings, channel_multi(ch, "v-pot") + clip_volume(ch))
     table.insert(mappings, channel_button(ch, "mute") + column_track_target(ch, "TrackMuteState"))
     table.insert(mappings, channel_button(ch, "solo") + column_track_target(ch, "TrackSoloState"))
-    table.insert(mappings, channel_button(ch, "record-ready") + column_track_target(ch, "TrackArmState"))
+    table.insert(mappings, channel_button(ch, "record-ready") + column_track_target(ch, "TrackArmState", true))
 end
 
 -- Result

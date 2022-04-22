@@ -365,7 +365,7 @@ function clip_delete(col, row)
     }
 end
 
-function track_toggle_target(col, row, target_kind, name)
+function track_toggle_target(col, row, target_kind, name, exclusive)
     return {
         name = name,
         group = groups.track.id,
@@ -387,6 +387,7 @@ function track_toggle_target(col, row, target_kind, name)
                 },
                 context = "Playback",
             },
+            exclusivity = exclusive and "WithinFolderOnOnly",
         },
     }
 end
@@ -488,9 +489,9 @@ end
 
 for col = 0, column_count - 1 do
     table.insert(mappings, track_toggle_target(col, 0, "TrackSoloState", "Solo"))
-    table.insert(mappings, track_toggle_target(col, 1, "TrackArmState", "Arm"))
+    table.insert(mappings, track_toggle_target(col, 1, "TrackArmState", "Arm", true))
     table.insert(mappings, track_toggle_target(col, 2, "TrackMuteState", "Mute"))
-    table.insert(mappings, track_toggle_target(col, 3, "TrackSelectionState", "Select"))
+    table.insert(mappings, track_toggle_target(col, 3, "TrackSelectionState", "Select", true))
     table.insert(mappings, column_action(col, 3, "Stop"))
     for row = 0, row_count - 1 do
         table.insert(mappings, clip_play(col, row))
