@@ -504,6 +504,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn record_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        if self.is_recording() {
+            return Err("recording already");
+        }
         self.history
             .add("Before clip recording".into(), self.save());
         get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
@@ -515,6 +518,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             self.containing_track.as_ref(),
             &self.settings.overridable,
         )
+    }
+
+    pub fn is_recording(&self) -> bool {
+        self.columns.iter().any(|c| c.is_recording())
     }
 
     pub fn pause_clip_legacy(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {

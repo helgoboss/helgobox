@@ -133,6 +133,10 @@ impl Slot {
         Some(api_slot)
     }
 
+    pub fn is_recording(&self) -> bool {
+        self.state.is_pretty_much_recording()
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn record_clip<H: ClipMatrixHandler>(
         &mut self,
@@ -885,8 +889,8 @@ pub fn create_midi_overdub_instruction(
 fn find_or_create_editor_track(project: Project) -> Track {
     find_editor_track(project).unwrap_or_else(|| {
         let track = project.add_track();
-        // track.set_shown(TrackArea::Mcp, false);
-        // track.set_shown(TrackArea::Tcp, false);
+        track.set_shown(TrackArea::Mcp, false);
+        track.set_shown(TrackArea::Tcp, false);
         track.set_name(EDITOR_TRACK_NAME);
         track
     })
@@ -970,11 +974,10 @@ fn open_midi_editor_via_action(project: Project, item: Item) {
 
 fn configure_midi_editor() {
     let reaper = Reaper::get().medium_reaper();
-    let midi_editor_section_id = SectionId::new(32060);
-    let source_beats_command_id = CommandId::new(40470);
-    let zoom_command_id = CommandId::new(40466);
     let required_view_mode = RequiredViewMode::Normal;
     // // Switch piano roll time base to "Source beats" if not already happened.
+    // let midi_editor_section_id = SectionId::new(32060);
+    // let source_beats_command_id = CommandId::new(40470);
     // if reaper.get_toggle_command_state_ex(midi_editor_section_id, source_beats_command_id)
     //     != Some(true)
     // {
@@ -982,6 +985,7 @@ fn configure_midi_editor() {
     //         reaper.midi_editor_last_focused_on_command(source_beats_command_id, required_view_mode);
     // }
     // Zoom to content
+    let zoom_command_id = CommandId::new(40466);
     let _ = reaper.midi_editor_last_focused_on_command(zoom_command_id, required_view_mode);
 }
 

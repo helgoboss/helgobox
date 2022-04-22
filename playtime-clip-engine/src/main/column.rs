@@ -434,6 +434,10 @@ impl Column {
         self.get_slot(slot_index)?.proportional_pos()
     }
 
+    pub fn is_recording(&self) -> bool {
+        self.slots.iter().any(|s| s.is_recording())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn record_clip<H: ClipMatrixHandler>(
         &mut self,
