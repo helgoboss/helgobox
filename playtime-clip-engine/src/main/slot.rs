@@ -362,11 +362,10 @@ impl Slot {
 
     pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
-        if !content.runtime_data.material_info.is_midi() {
-            return Err("editing not supported for audio");
-        }
+        let is_midi = content.runtime_data.material_info.is_midi();
         let timeline = clip_timeline(Some(temporary_project), true);
-        // We must put the item exactly how we would play it so the grid is correct.
+        // We must put the item exactly how we would play it so the grid is correct (important
+        // for MIDI editor).
         let item_length = content.effective_length_in_seconds(&timeline)?;
         let section_start_pos = DurationInSeconds::new(content.clip.section().start_pos.get());
         let (item_pos, take_offset) = match content.clip.time_base() {
@@ -387,23 +386,27 @@ impl Slot {
                 )
             }
         };
-        let editor_track = find_or_create_editor_track(temporary_project);
-        let midi_source = if let Some(s) = content.pooled_midi_source.as_ref() {
+        let editor_track = find_or_create_editor_track(temporary_project, !is_midi);
+        let source = if let Some(s) = content.pooled_midi_source.as_ref() {
             Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
         } else {
             content.clip.create_pcm_source(Some(temporary_project))?
         };
         let item = editor_track.add_item().map_err(|e| e.message())?;
         let take = item.add_take().map_err(|e| e.message())?;
-        let midi_source = OwnedSource::new(midi_source.into_reaper_source());
-        take.set_source(midi_source);
+        let source = OwnedSource::new(source.into_reaper_source());
+        take.set_source(source);
         take.set_start_offset(take_offset).unwrap();
         item.set_position(item_pos, UiRefreshBehavior::NoRefresh)
             .unwrap();
         item.set_length(item_length, UiRefreshBehavior::NoRefresh)
             .unwrap();
-        // open_midi_editor_via_action(temporary_project, item);
-        open_midi_editor_directly(editor_track, take);
+        if is_midi {
+            // open_midi_editor_via_action(temporary_project, item);
+            open_midi_editor_directly(editor_track, take);
+        } else {
+            open_audio_editor(temporary_project, item);
+        }
         Ok(())
     }
 
@@ -418,6 +421,13 @@ impl Slot {
         };
         if editor_track.item_count() == 0 {
             editor_track.project().remove_track(&editor_track);
+        }
+        if !content.runtime_data.material_info.is_midi() {
+            // Restore previous zoom/scroll
+            Reaper::get()
+                .main_section()
+                .action_by_command_id(CommandId::new(40848))
+                .invoke_as_trigger(Some(temporary_project));
         }
         Ok(())
     }
@@ -886,14 +896,15 @@ pub fn create_midi_overdub_instruction(
     Ok(instruction)
 }
 
-fn find_or_create_editor_track(project: Project) -> Track {
-    find_editor_track(project).unwrap_or_else(|| {
+fn find_or_create_editor_track(project: Project, show_track: bool) -> Track {
+    let track = find_editor_track(project).unwrap_or_else(|| {
         let track = project.add_track();
-        track.set_shown(TrackArea::Mcp, false);
-        track.set_shown(TrackArea::Tcp, false);
         track.set_name(EDITOR_TRACK_NAME);
         track
-    })
+    });
+    track.set_shown(TrackArea::Mcp, show_track);
+    track.set_shown(TrackArea::Tcp, show_track);
+    track
 }
 
 fn find_editor_track(project: Project) -> Option<Track> {
@@ -963,13 +974,25 @@ fn open_midi_editor_directly(editor_track: Track, take: Take) {
 #[allow(dead_code)]
 fn open_midi_editor_via_action(project: Project, item: Item) {
     project.select_item_exclusively(item);
+    // Open built-in MIDI editor
     let open_midi_editor_command_id = CommandId::new(40153);
+    // Open items in primary external editor
     // let open_midi_editor_command_id = CommandId::new(40109);
     Reaper::get()
         .main_section()
         .action_by_command_id(open_midi_editor_command_id)
         .invoke_as_trigger(item.project());
     configure_midi_editor();
+}
+
+fn open_audio_editor(project: Project, item: Item) {
+    project.select_item_exclusively(item);
+    // Toggle zoom to selected items
+    let open_midi_editor_command_id = CommandId::new(41622);
+    Reaper::get()
+        .main_section()
+        .action_by_command_id(open_midi_editor_command_id)
+        .invoke_as_trigger(item.project());
 }
 
 fn configure_midi_editor() {
