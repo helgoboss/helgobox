@@ -375,7 +375,15 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         let matrix = context.clip_matrix().ok()?;
         let matrix = matrix.lock();
         let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
-        let column = column.lock();
+        // Performance hint: This *will* sometimes be blocking IF we have live FX multiprocessing
+        // turned on in REAPER. That's because then multiple threads will prepare stuff for the
+        // main audio callback. According to Justin this is not a big deal though (given that we
+        // lock only very shortly), so we allow blocking here. The only other alternative would be
+        // to not acquire the value at this point and design the real-time clip transport target
+        // in a way that the glue section doesn't need to know the current target value, leaving
+        // the glue section powerless and making things such as "Toggle button" not work. This
+        // would hurt the usual ReaLearn experience.
+        let column = column.lock_allow_blocking();
         let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
         let clip = match slot.clip() {
             Ok(c) => c,

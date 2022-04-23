@@ -6,16 +6,32 @@ use std::sync::{Mutex, MutexGuard, TryLockError};
 ///
 /// # Panics
 ///
-/// Panics if already locked.
+/// Panics in debug builds if already locked (blocks in release builds).
 pub fn non_blocking_lock<'a, T>(
     mutex: &'a Mutex<T>,
     description: &'static str,
 ) -> MutexGuard<'a, T> {
+    #[cfg(debug_assertions)]
     match mutex.try_lock() {
         Ok(g) => g,
-        Err(TryLockError::Poisoned(e)) => e.into_inner(),
-        // TODO-medium When going into production, we should probably acquire the lock anyway.
-        //  It's just a good error catching tool for the pre-release phase.
-        Err(TryLockError::WouldBlock) => panic!("locking mutex would block: {}", description),
+        Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            panic!("locking mutex would block: {}", description)
+        }
+    }
+    #[cfg(not(debug_assertions))]
+    match mutex.lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    }
+}
+
+/// Locks the given mutex, potentially blocking.
+///
+/// Returns the guard even if mutex is poisoned.
+pub fn blocking_lock<T>(mutex: &Mutex<T>) -> MutexGuard<T> {
+    match mutex.lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
     }
 }

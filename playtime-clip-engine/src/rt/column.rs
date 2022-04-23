@@ -1,4 +1,4 @@
-use crate::mutex_util::non_blocking_lock;
+use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
@@ -53,6 +53,10 @@ impl SharedColumn {
 
     pub fn lock(&self) -> MutexGuard<Column> {
         non_blocking_lock(&self.0, "real-time column")
+    }
+
+    pub fn lock_allow_blocking(&self) -> MutexGuard<Column> {
+        blocking_lock(&self.0)
     }
 
     pub fn downgrade(&self) -> WeakColumn {

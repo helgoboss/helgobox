@@ -900,7 +900,7 @@ impl RecordingState {
                 //  and get accurate timing. However, that also means that we have a gap at the
                 //  end. The section will exceed the recorded source by exactly l samples. This
                 //  results in a little click at the end (which we can only hear if we switch off
-                //  audio source fades ... got for testing). We need to continue recording the l
+                //  audio source fades ... good for testing). We need to continue recording the l
                 //  samples (and maybe even a bit more, just to be safe and to have more
                 //  possibilities in future, e.g. creating crossfades).
                 let outcome = KindSpecificRecordingOutcome::Audio {
