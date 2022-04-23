@@ -1,4 +1,4 @@
-use std::sync::{Mutex, MutexGuard, TryLockError};
+use std::sync::{Mutex, MutexGuard};
 
 /// Attempts to lock the given mutex.
 ///

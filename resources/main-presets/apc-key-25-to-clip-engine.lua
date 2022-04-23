@@ -557,6 +557,9 @@ local groups = {
     slot_quantize = {
         name = "Slot quantize",
     },
+    slot_copy_or_paste = {
+        name = "Slot copy or paste",
+    },
     column_stop = {
         name = "Column stop",
         activation_condition = column_mode_is(column_modes.stop),
@@ -647,10 +650,11 @@ end
 for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
         table.insert(mappings, group(groups.slot_play) + feedback_disabled() + no_shift + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
-        --table.insert(mappings, group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
         table.insert(mappings, group(groups.slot_feedback) + control_disabled() + slot_button(col, row) + slot_state_text_feedback() + clip_transport_action(col, row, "RecordPlayStop", true))
         table.insert(mappings, group(groups.slot_clear) + feedback_disabled() + shift + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
         table.insert(mappings, group(groups.slot_quantize) + feedback_disabled() + shift + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
+        --table.insert(mappings, group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
+        table.insert(mappings, group(groups.slot_copy_or_paste) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
     end
 end
 

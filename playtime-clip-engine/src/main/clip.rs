@@ -61,11 +61,16 @@ impl Clip {
     }
 
     /// Creates an API clip.
+    pub fn save(&self, temporary_project: Option<Project>) -> ClipEngineResult<api::Clip> {
+        self.save_flexible(None, temporary_project)
+    }
+
+    /// Creates an API clip.
     ///
     /// If the MIDI source is given, it will create the API source by inspecting the contents of
     /// this MIDI source (instead of just cloning the API source field). With this, changes that
     /// have been made to the source via MIDI editor are correctly saved.
-    pub fn save(
+    pub fn save_flexible(
         &self,
         midi_source: Option<&ClipSource>,
         temporary_project: Option<Project>,

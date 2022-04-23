@@ -299,6 +299,31 @@ impl Column {
         }
     }
 
+    pub fn fill_slot_with_clip(
+        &mut self,
+        slot_index: usize,
+        api_clip: api::Clip,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &MatrixSettings,
+    ) -> ClipEngineResult<ClipChangedEvent> {
+        let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+        if !slot.is_empty() {
+            return Err("slot is not empty");
+        }
+        let clip = Clip::load(api_clip);
+        fill_slot_internal(
+            slot,
+            clip,
+            chain_equipment,
+            recorder_request_sender,
+            matrix_settings,
+            &self.rt_settings,
+            &self.rt_command_sender,
+            self.project,
+        )
+    }
+
     // TODO-high Implement
     pub fn fill_slot_with_selected_item(
         &mut self,
@@ -307,10 +332,6 @@ impl Column {
         _recorder_request_sender: &Sender<RecorderRequest>,
         _matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        // let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        // if !slot.is_empty() {
-        //     return Err("slot is not empty");
-        // }
         // let item = self
         //     .project
         //     .or_current_project()
@@ -329,17 +350,7 @@ impl Column {
         //     audio_settings: todo!(),
         //     midi_settings: todo!(),
         // };
-        // let clip = Clip::load(clip);
-        // fill_slot_internal(
-        //     slot,
-        //     clip,
-        //     chain_equipment,
-        //     recorder_request_sender,
-        //     matrix_settings,
-        //     &self.rt_settings,
-        //     &self.rt_command_sender,
-        //     self.project,
-        // )
+        // self.fill_slot_with_clip(_slot_index, clip)
         Err("not yet implemented")
     }
 
@@ -570,7 +581,7 @@ fn fill_slot_internal(
     column_settings: &rt::ColumnSettings,
     rt_command_sender: &ColumnCommandSender,
     project: Option<Project>,
-) -> ClipEngineResult<()> {
+) -> ClipEngineResult<ClipChangedEvent> {
     let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
         project,
         chain_equipment,
@@ -584,7 +595,7 @@ fn fill_slot_internal(
         clip: rt_clip,
     };
     rt_command_sender.fill_slot(Box::new(Some(args)));
-    Ok(())
+    Ok(ClipChangedEvent::PlayState(ClipPlayState::Stopped))
 }
 
 fn resolve_recording_track(

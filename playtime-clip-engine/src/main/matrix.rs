@@ -304,6 +304,24 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    pub fn fill_slot_with_clip(
+        &mut self,
+        coordinates: ClipSlotCoordinates,
+        api_clip: api::Clip,
+    ) -> ClipEngineResult<()> {
+        let column = get_column_mut(&mut self.columns, coordinates.column)?;
+        let event = column.fill_slot_with_clip(
+            coordinates.row,
+            api_clip,
+            &self.chain_equipment,
+            &self.recorder_request_sender,
+            &self.settings,
+        )?;
+        self.handler
+            .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
+        Ok(())
+    }
+
     pub fn fill_slot_with_selected_item(
         &mut self,
         coordinates: ClipSlotCoordinates,
@@ -412,10 +430,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     .poll(timeline_tempo)
                     .into_iter()
                     .map(move |(row_index, event)| {
-                        ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
-                            slot_coordinates: ClipSlotCoordinates::new(column_index, row_index),
+                        ClipMatrixEvent::clip_changed(
+                            ClipSlotCoordinates::new(column_index, row_index),
                             event,
-                        })
+                        )
                     })
             })
             .collect();
@@ -436,11 +454,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Toggle looped", |matrix| {
             let event = get_column_mut(&mut matrix.columns, coordinates.column())?
                 .toggle_clip_looped(coordinates.row())?;
-            let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
-                slot_coordinates: coordinates,
-                event,
-            });
-            matrix.handler.emit_event(event);
+            matrix
+                .handler
+                .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
             Ok(())
         })
     }
@@ -545,11 +561,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         let event = get_column_mut(&mut self.columns, coordinates.column())?
             .set_clip_volume(coordinates.row(), volume)?;
-        let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
-            slot_coordinates: coordinates,
-            event,
-        });
-        self.handler.emit_event(event);
+        self.handler
+            .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
         Ok(())
     }
 
@@ -697,6 +710,13 @@ pub enum ClipMatrixEvent {
 }
 
 impl ClipMatrixEvent {
+    pub fn clip_changed(slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent) -> Self {
+        Self::ClipChanged(QualifiedClipChangedEvent {
+            slot_coordinates,
+            event,
+        })
+    }
+
     pub fn is_clip_removal(&self) -> bool {
         matches!(
             self,

@@ -1,6 +1,6 @@
 use crate::conversion_util::{
-    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
-    convert_position_in_frames_to_seconds,
+    adjust_duration_in_secs_anti_proportionally, adjust_duration_in_secs_proportionally,
+    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{
     create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
@@ -72,7 +72,7 @@ impl Content {
     ) -> ClipEngineResult<DurationInSeconds> {
         let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         let tempo_factor = self.tempo_factor(timeline_tempo);
-        let tempo_adjusted_secs = adjust_duration_in_secs_anti_proportionally(
+        let tempo_adjusted_secs = adjust_duration_in_secs_proportionally(
             self.runtime_data.material_info.duration(),
             tempo_factor,
         );
@@ -124,7 +124,7 @@ impl Slot {
         };
         let clip = content
             .clip
-            .save(pooled_midi_source, temporary_project)
+            .save_flexible(pooled_midi_source, temporary_project)
             .ok()?;
         let api_slot = api::Slot {
             row: self.index,

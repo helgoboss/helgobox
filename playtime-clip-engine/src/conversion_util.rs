@@ -30,6 +30,13 @@ pub fn adjust_duration_in_secs_anti_proportionally(
     DurationInSeconds::new(pos.get() / factor)
 }
 
+pub fn adjust_duration_in_secs_proportionally(
+    pos: DurationInSeconds,
+    factor: f64,
+) -> DurationInSeconds {
+    DurationInSeconds::new(pos.get() * factor)
+}
+
 pub fn convert_duration_in_frames_to_seconds(
     frame_count: usize,
     sample_rate: Hz,

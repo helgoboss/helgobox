@@ -584,6 +584,7 @@ pub enum ClipManagementAction {
     ClearSlot,
     FillSlotWithSelectedItem,
     EditClip,
+    CopyOrPasteClip,
 }
 
 impl Default for ClipManagementAction {

@@ -67,6 +67,7 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
+    copied_clip: Option<playtime_api::Clip>,
 }
 
 #[derive(Debug)]
@@ -165,6 +166,7 @@ impl InstanceState {
             on_mappings: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
+            copied_clip: None,
         }
     }
 
@@ -180,6 +182,14 @@ impl InstanceState {
             Some(Foreign(id)) => id,
         };
         instance_id == our_instance_id
+    }
+
+    pub fn copy_clip(&mut self, clip: playtime_api::Clip) {
+        self.copied_clip = Some(clip);
+    }
+
+    pub fn copied_clip(&self) -> Option<&playtime_api::Clip> {
+        self.copied_clip.as_ref()
     }
 
     pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
