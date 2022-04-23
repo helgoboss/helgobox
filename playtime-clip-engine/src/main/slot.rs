@@ -28,7 +28,7 @@ use playtime_api::{
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
-    SectionId, TrackArea, UiRefreshBehavior,
+    TrackArea, UiRefreshBehavior,
 };
 use std::mem;
 

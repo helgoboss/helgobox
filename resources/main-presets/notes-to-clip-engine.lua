@@ -17,7 +17,7 @@ for i = 0, 127 do
                 column_index = math.floor(i / 12),
                 row_index = i % 12,
             },
-            action = "RecordPlayStop",
+            action = "PlayStop",
             record_only_if_track_armed = true,
             stop_column_if_slot_empty = true,
             play_start_timing = {

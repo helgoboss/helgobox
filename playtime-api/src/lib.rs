@@ -554,6 +554,10 @@ pub enum ColumnPlayMode {
     /// - Clips are not started/stopped if the corresponding scene is started/stopped.
     ExclusiveIgnoringScene,
     /// - Multiple clips can play simultaneously.
+    /// - Clips are started/stopped if the corresponding scene is started/stopped
+    ///   (in an exclusive manner).
+    NonExclusiveFollowingScene,
+    /// - Multiple clips can play simultaneously.
     /// - Clips are not started/stopped if the corresponding scene is started/stopped.
     Free,
 }
@@ -571,7 +575,10 @@ impl ColumnPlayMode {
     }
 
     pub fn follows_scene(&self) -> bool {
-        matches!(self, ColumnPlayMode::ExclusiveFollowingScene)
+        matches!(
+            self,
+            ColumnPlayMode::ExclusiveFollowingScene | ColumnPlayMode::NonExclusiveFollowingScene
+        )
     }
 }
 

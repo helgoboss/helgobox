@@ -612,7 +612,7 @@ local mappings = {
     shift + button("play") + clip_matrix_action("Undo"),
     shift + button("record") + clip_matrix_action("Redo"),
     shift + button("stop-all-clips") + reaper_action(40364),
-    group(groups.knob_sends) + shift + button("col7/stop") + incremental() + wrap() + set_param(params.send.index),
+    group(groups.knob_sends) + feedback_disabled() + shift + button("col7/stop") + incremental() + wrap() + set_param(params.send.index),
     group(groups.column_modes) + shift + button("row1/play") + set_column_mode(column_modes.stop),
     group(groups.column_modes) + shift + button("row2/play") + set_column_mode(column_modes.solo),
     group(groups.column_modes) + shift + button("row3/play") + set_column_mode(column_modes.record_arm),

@@ -365,6 +365,17 @@ impl Column {
         if !self.settings.play_mode.follows_scene() {
             return Ok(());
         }
+        if !self.settings.play_mode.is_exclusive() {
+            // When in column play mode "NonExclusiveFollowingScene", playing the clip itself
+            // doesn't take care of stopping the other clips. But when playing scenes, we want
+            // other clips to stop (otherwise they would accumulate). Do it manually.
+            self.stop_all_clips(
+                audio_request_props,
+                args.ref_pos,
+                &args.timeline,
+                Some(args.slot_index),
+            );
+        }
         let play_args = ColumnPlayClipArgs {
             slot_index: args.slot_index,
             timeline: args.timeline,
