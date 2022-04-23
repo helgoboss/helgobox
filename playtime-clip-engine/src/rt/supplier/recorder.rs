@@ -521,17 +521,20 @@ impl Recorder {
                                 write_chunk.commit_all();
                                 // Write into temporary buffer
                                 let start_frame = recording.total_frame_offset;
-                                let ideal_end_frame = start_frame + block_length;
-                                let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
-                                let num_frames_writable = end_frame - start_frame;
-                                let temp_buf_slice = temp_buf.data_as_mut_slice();
-                                for ch in 0..channel_count {
-                                    if let Some(channel_buf) = request.get_channel_buffer(ch) {
-                                        let offset = start_frame * channel_count;
-                                        for i in 0..num_frames_writable {
-                                            let temp_index = offset + i * channel_count + ch;
-                                            temp_buf_slice[temp_index] =
-                                                channel_buf.data_as_slice()[i];
+                                if start_frame < temp_buf.frame_count() {
+                                    let ideal_end_frame = start_frame + block_length;
+                                    let end_frame =
+                                        cmp::min(ideal_end_frame, temp_buf.frame_count());
+                                    let num_frames_writable = end_frame - start_frame;
+                                    let temp_buf_slice = temp_buf.data_as_mut_slice();
+                                    for ch in 0..channel_count {
+                                        if let Some(channel_buf) = request.get_channel_buffer(ch) {
+                                            let offset = start_frame * channel_count;
+                                            for i in 0..num_frames_writable {
+                                                let temp_index = offset + i * channel_count + ch;
+                                                temp_buf_slice[temp_index] =
+                                                    channel_buf.data_as_slice()[i];
+                                            }
                                         }
                                     }
                                 }
