@@ -160,9 +160,11 @@ impl<S> Section<S> {
                 let ideal_end_frame_in_source =
                     start_frame_in_source + ideal_num_frames_to_be_consumed as isize;
                 let (reached_bound, effective_end_frame_in_source) =
-                    if ideal_end_frame_in_source < right_bound_in_source as isize {
+                    if ideal_end_frame_in_source <= right_bound_in_source as isize {
+                        // End of block is located before or on end of section end
                         (false, ideal_end_frame_in_source)
                     } else {
+                        // End of block is located behind section end
                         (true, right_bound_in_source as isize)
                     };
                 let bounded_num_frames_to_be_consumed =
