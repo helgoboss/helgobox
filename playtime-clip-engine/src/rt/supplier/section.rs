@@ -64,16 +64,12 @@ impl<S> Section<S> {
         }
     }
 
-    pub fn start_frame(&self) -> usize {
-        self.bounds.start_frame
-    }
-
-    pub fn length(&self) -> Option<usize> {
-        self.bounds.length
-    }
-
     pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
         self.midi_reset_msg_range = range;
+    }
+
+    pub fn bounds(&self) -> SectionBounds {
+        self.bounds
     }
 
     pub fn set_bounds(&mut self, start_frame: usize, length: Option<usize>) {
@@ -97,11 +93,12 @@ impl<S> Section<S> {
         &mut self,
         start: PositiveSecond,
         length: Option<PositiveSecond>,
+        material_info: &MaterialInfo,
     ) -> ClipEngineResult<()>
     where
         S: WithMaterialInfo,
     {
-        let source_frame_rate = self.supplier.material_info()?.frame_rate();
+        let source_frame_rate = material_info.frame_rate();
         let start_frame = convert_duration_in_seconds_to_frames(
             DurationInSeconds::new(start.get()),
             source_frame_rate,

@@ -4,9 +4,9 @@ use crate::rt::supplier::{
     InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier,
     PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
     PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
-    Recorder, RecordingArgs, Resampler, Section, StartEndHandler, StopRecordingOutcome,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
-    WriteAudioRequest, WriteMidiRequest,
+    Recorder, RecordingArgs, Resampler, Section, SectionBounds, StartEndHandler,
+    StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -608,10 +608,6 @@ pub enum ChainPreBufferCommand {
     KeepPlayingUntilEndOfCurrentCycle {
         pos: isize,
     },
-    SetSectionBoundsInFrames {
-        start: usize,
-        length: Option<usize>,
-    },
     SetSectionBoundsInSeconds {
         start: PositiveSecond,
         length: Option<PositiveSecond>,
@@ -655,23 +651,17 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
                     .keep_playing_until_end_of_current_cycle(pos)
                     .unwrap();
             }
-            SetSectionBoundsInFrames { start, length } => {
-                entrance.section().set_bounds(start, length);
-                configure_start_end_handler_on_section_change(
-                    entrance.start_end_handler(),
-                    start > 0,
-                    length.is_some(),
-                );
-            }
             SetSectionBoundsInSeconds { start, length } => {
-                entrance
-                    .section()
-                    .set_bounds_in_seconds(start, length)
+                let source_material_info = entrance.recorder().material_info().unwrap();
+                let section_handler = entrance.section();
+                section_handler
+                    .set_bounds_in_seconds(start, length, &source_material_info)
                     .unwrap();
+                let bounds = section_handler.bounds();
                 configure_start_end_handler_on_section_change(
                     entrance.start_end_handler(),
-                    start.get() > 0.0,
-                    length.is_some(),
+                    bounds,
+                    source_material_info.frame_count(),
                 );
             }
         }
@@ -680,13 +670,20 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
 
 fn configure_start_end_handler_on_section_change(
     start_end_handler: &mut StartEndHandlerTail,
-    start_is_set: bool,
-    length_is_set: bool,
+    bounds: SectionBounds,
+    source_length: usize,
 ) {
-    // Let the section handle the start/end fades etc. if appropriate (in order to not have
-    // unnecessary fades).
-    start_end_handler.set_enabled_for_start(!start_is_set);
-    start_end_handler.set_enabled_for_end(!length_is_set);
+    // Let the section handle the start fade if appropriate (in order to not have overlaps).
+    start_end_handler.set_enabled_for_start(bounds.start_frame() == 0);
+    // However, it's important that we still have an end fade if the section exceeds the source!
+    // Otherwise we get a nice click.
+    let enabled_for_end = if let Some(l) = bounds.length() {
+        let end_in_source = bounds.start_frame() + l;
+        end_in_source > source_length
+    } else {
+        true
+    };
+    start_end_handler.set_enabled_for_end(enabled_for_end);
 }
 
 #[derive(Clone, Debug)]
