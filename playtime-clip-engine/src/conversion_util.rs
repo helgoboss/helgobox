@@ -30,6 +30,7 @@ pub fn adjust_duration_in_secs_anti_proportionally(
     DurationInSeconds::new(pos.get() / factor)
 }
 
+#[allow(dead_code)]
 pub fn adjust_duration_in_secs_proportionally(
     pos: DurationInSeconds,
     factor: f64,

@@ -1,6 +1,6 @@
 use crate::conversion_util::{
-    adjust_duration_in_secs_anti_proportionally, adjust_duration_in_secs_proportionally,
-    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
+    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
+    convert_position_in_frames_to_seconds,
 };
 use crate::main::{
     create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
@@ -72,7 +72,7 @@ impl Content {
     ) -> ClipEngineResult<DurationInSeconds> {
         let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         let tempo_factor = self.tempo_factor(timeline_tempo);
-        let tempo_adjusted_secs = adjust_duration_in_secs_proportionally(
+        let tempo_adjusted_secs = adjust_duration_in_secs_anti_proportionally(
             self.runtime_data.material_info.duration(),
             tempo_factor,
         );
@@ -392,6 +392,15 @@ impl Slot {
         } else {
             content.clip.create_pcm_source(Some(temporary_project))?
         };
+        // TODO-high Because we set a constant preview tempo for our MIDI sources (which is
+        //  important for our internal processing), IGNTEMPO is set to 1, which means the source
+        //  is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
+        //  editor because in reality they are beat-based. Waiting for an answer from Justin if we
+        //  can easily set IGNTEMPO to 0. Hoping that this is then only valid for this particular
+        //  pooled copy. This problem might disappear though as soon as we can use
+        //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
+        //  on sections).
+        // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
         let item = editor_track.add_item().map_err(|e| e.message())?;
         let take = item.add_take().map_err(|e| e.message())?;
         let source = OwnedSource::new(source.into_reaper_source());
