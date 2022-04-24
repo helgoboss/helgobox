@@ -1228,7 +1228,7 @@ fn build_short_midi_vst_event(event: MidiEvent<RawShortMessage>) -> vst::api::Mi
 }
 
 #[derive(Copy, Clone)]
-enum Caller<'a> {
+pub enum Caller<'a> {
     Vst(&'a HostCallback),
     AudioHook,
 }
@@ -1475,62 +1475,72 @@ fn process_real_mapping(
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
-        // Try to process directly here in real-time.
-        let control_context = RealTimeControlContext { clip_matrix };
-        let control_value: Option<ControlValue> = mapping
-            .core
-            .mode
-            .control_with_options(
-                pure_control_event,
-                reaper_target,
-                control_context,
-                options.mode_control_options,
-                // Performance control not supported when controlling real-time
-                None,
-            )
-            .ok_or("mode didn't return control value")?
-            .into();
-        let control_value = control_value.ok_or("target already has desired value")?;
-        match reaper_target {
-            RealTimeReaperTarget::SendMidi(t) => {
-                return real_time_target_send_midi(
-                    t,
-                    caller,
-                    control_value,
-                    midi_feedback_output,
-                    output_logging_enabled,
-                    main_task_sender,
-                    rt_feedback_sender,
-                    value_event.payload(),
-                );
-            }
-            RealTimeReaperTarget::ClipTransport(t) => {
-                return t.hit(control_value, control_context);
-            }
-            RealTimeReaperTarget::ClipColumn(t) => {
-                return t.hit(control_value, control_context);
-            }
-            RealTimeReaperTarget::ClipRow(t) => {
-                return t.hit(control_value, control_context);
-            }
-            RealTimeReaperTarget::ClipMatrix(t) => {
-                return t.hit(control_value, control_context);
-            }
-            RealTimeReaperTarget::FxParameter(t) => {
-                if t.should_control_in_real_time(caller.is_vst()) {
-                    return t.hit(control_value);
+        if reaper_target.wants_real_time_control(caller) {
+            // Try to process directly here in real-time.
+            let control_context = RealTimeControlContext { clip_matrix };
+            let control_value: Option<ControlValue> = mapping
+                .core
+                .mode
+                .control_with_options(
+                    pure_control_event,
+                    reaper_target,
+                    control_context,
+                    options.mode_control_options,
+                    // Performance control not supported when controlling real-time
+                    None,
+                )
+                .ok_or("mode didn't return control value")?
+                .into();
+            let control_value = control_value.ok_or("target already has desired value")?;
+            match reaper_target {
+                RealTimeReaperTarget::SendMidi(t) => {
+                    return real_time_target_send_midi(
+                        t,
+                        caller,
+                        control_value,
+                        midi_feedback_output,
+                        output_logging_enabled,
+                        main_task_sender,
+                        rt_feedback_sender,
+                        value_event.payload(),
+                    );
+                }
+                RealTimeReaperTarget::ClipTransport(t) => {
+                    t.hit(control_value, control_context)?;
+                }
+                RealTimeReaperTarget::ClipColumn(t) => {
+                    t.hit(control_value, control_context)?;
+                }
+                RealTimeReaperTarget::ClipRow(t) => {
+                    t.hit(control_value, control_context)?;
+                }
+                RealTimeReaperTarget::ClipMatrix(t) => {
+                    t.hit(control_value, control_context)?;
+                }
+                RealTimeReaperTarget::FxParameter(t) => {
+                    t.hit(control_value)?;
                 }
             }
+        } else {
+            // Forward to main processor.
+            forward_control_to_main_processor(
+                main_task_sender,
+                compartment,
+                mapping.id(),
+                pure_control_event,
+                options,
+            );
         }
+    } else {
+        // Forward to main processor.
+        forward_control_to_main_processor(
+            main_task_sender,
+            compartment,
+            mapping.id(),
+            pure_control_event,
+            options,
+        );
     };
-    // If we made it until here, real-time processing was not meant to be or not possible.
-    forward_control_to_main_processor(
-        main_task_sender,
-        compartment,
-        mapping.id(),
-        pure_control_event,
-        options,
-    );
     Ok(())
 }
 
