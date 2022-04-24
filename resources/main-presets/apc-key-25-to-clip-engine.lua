@@ -262,11 +262,12 @@ function fire_after_timeout(millis)
     }
 end
 
-function fire(kind)
+function fire(kind, max_duration)
     return {
         glue = {
             fire_mode = {
                 kind = kind,
+                max_duration = max_duration
             },
         },
     }
@@ -275,7 +276,7 @@ end
 local shift = shift_pressed(true)
 local no_shift = shift_pressed(false)
 local long_press = fire_after_timeout(1000)
-local single_press = fire("OnSinglePress")
+local single_press = fire("OnSinglePress", 200)
 local double_press = fire("OnDoublePress")
 
 local device_specific = {
