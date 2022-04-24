@@ -131,7 +131,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             use schema::FireMode as T;
             use FireMode::*;
             let v = match data.fire_mode {
-                WhenButtonReleased => T::Normal(schema::NormalFireMode {
+                Normal => T::Normal(schema::NormalFireMode {
                     press_duration_interval: {
                         let interval = schema::Interval(
                             data.min_press_millis as _,

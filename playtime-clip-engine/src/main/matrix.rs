@@ -1,6 +1,6 @@
 use crate::main::history::History;
 use crate::main::row::Row;
-use crate::main::{Column, Slot};
+use crate::main::{Clip, Column};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -267,13 +267,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         result
     }
 
-    /// Definitely returns a slot as long as it is within the current matrix bounds (even if empty).
-    ///
-    /// Returns `None` if out of current matrix bounds.
-    pub fn slot(&mut self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
-        let row_count = self.row_count();
-        let column = get_column_mut(&mut self.columns, coordinates.column).ok()?;
-        column.slot(coordinates.row(), row_count)
+    /// Takes the current effective matrix dimensions into account, so even if a slot doesn't exist
+    /// yet physically in the column, it returns `true` if it should exist.
+    pub fn slot_exists(&self, coordinates: ClipSlotCoordinates) -> bool {
+        coordinates.column < self.columns.len() && coordinates.row < self.row_count()
+    }
+
+    pub fn clip(&self, coordinates: ClipSlotCoordinates) -> Option<&Clip> {
+        self.columns.get(coordinates.column)?.clip(coordinates.row)
     }
 
     pub fn clear_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
@@ -393,6 +394,64 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         for c in &self.columns {
             c.play_row(args.clone());
         }
+    }
+
+    pub fn capture_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        if !self.row_is_empty(row_index) {
+            return Err("row is not empty");
+        }
+        let playing_clips = self.capture_playing_clips()?;
+        self.distribute_clips_to_row(playing_clips, row_index)?;
+        self.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
+        Ok(())
+    }
+
+    fn distribute_clips_to_row(
+        &mut self,
+        clips: Vec<ClipInColumn>,
+        row_index: usize,
+    ) -> ClipEngineResult<()> {
+        for clip in clips {
+            // First try to put it within same column as clip itself
+            let column = get_column_mut(&mut self.columns, clip.column_index)?;
+            if column.slot_is_empty(row_index) {
+                // We have space in that column, good.
+                column.fill_slot_with_clip(
+                    row_index,
+                    clip.clip,
+                    &self.chain_equipment,
+                    &self.recorder_request_sender,
+                    &self.settings,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn slot_is_empty(&self, coordinates: ClipSlotCoordinates) -> bool {
+        let column = match self.columns.get(coordinates.column) {
+            None => return false,
+            Some(c) => c,
+        };
+        column.slot_is_empty(coordinates.row)
+    }
+
+    fn row_is_empty(&self, row_index: usize) -> bool {
+        self.columns.iter().all(|c| c.slot_is_empty(row_index))
+    }
+
+    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ClipInColumn>> {
+        let project = self.permanent_project();
+        self.columns
+            .iter()
+            .enumerate()
+            .flat_map(|(col_index, col)| {
+                col.playing_clips().map(move |(_, clip)| {
+                    let api_clip = clip.save(project)?;
+                    Ok(ClipInColumn::new(col_index, api_clip))
+                })
+            })
+            .collect()
     }
 
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
@@ -768,4 +827,15 @@ pub enum RecordKind {
         detect_downbeat: bool,
     },
     MidiOverdub,
+}
+
+struct ClipInColumn {
+    column_index: usize,
+    clip: api::Clip,
+}
+
+impl ClipInColumn {
+    fn new(column_index: usize, clip: api::Clip) -> Self {
+        Self { column_index, clip }
+    }
 }

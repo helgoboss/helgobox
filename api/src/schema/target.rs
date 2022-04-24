@@ -842,6 +842,8 @@ impl Default for ClipColumnAction {
 pub enum ClipRowAction {
     #[display(fmt = "Play")]
     Play,
+    #[display(fmt = "Capture scene")]
+    CaptureScene,
 }
 
 impl Default for ClipRowAction {

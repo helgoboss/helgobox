@@ -143,13 +143,7 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     RecordPlayStop => {
                         if on {
-                            let slot_is_empty = matrix
-                                .slot(self.basics.slot_coordinates)
-                                .map(|s| s.is_empty())
-                                // If slot out of bounds, we also consider it as empty and
-                                // available for recording.
-                                .unwrap_or(true);
-                            if slot_is_empty {
+                            if matrix.slot_is_empty(self.basics.slot_coordinates) {
                                 // Slot is empty.
                                 if self.basics.options.record_only_if_track_armed {
                                     // Record only if armed.

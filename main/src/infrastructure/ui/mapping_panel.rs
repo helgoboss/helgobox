@@ -2027,7 +2027,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration, initiator: Option<u32>) {
         match self.mapping.mode_model.fire_mode() {
-            FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
+            FireMode::Normal | FireMode::OnSinglePress | FireMode::OnDoublePress => {
                 self.change_mapping_with_initiator(
                     MappingCommand::ChangeMode(ModeCommand::SetMaxPressDuration(value)),
                     initiator,
@@ -5390,7 +5390,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_2_controls(&self, initiator: Option<u32>) {
         let label = match self.mapping.mode_model.fire_mode() {
-            FireMode::WhenButtonReleased => Some("Min"),
+            FireMode::Normal => Some("Min"),
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => Some("Timeout"),
             FireMode::OnDoublePress | FireMode::OnSinglePress => None,
         };
@@ -5429,7 +5429,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_3_controls(&self, initiator: Option<u32>) {
         let option = match self.mapping.mode_model.fire_mode() {
-            FireMode::WhenButtonReleased | FireMode::OnSinglePress => {
+            FireMode::Normal | FireMode::OnSinglePress => {
                 Some(("Max", self.mode.press_duration_interval().max_val()))
             }
             FireMode::AfterTimeout | FireMode::OnDoublePress => None,

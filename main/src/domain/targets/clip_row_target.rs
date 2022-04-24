@@ -54,7 +54,7 @@ impl RealearnTarget for ClipRowTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        BackboneState::get().with_clip_matrix(
+        BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| -> Result<(), &'static str> {
                 match self.basics.action {
@@ -63,6 +63,12 @@ impl RealearnTarget for ClipRowTarget {
                             return Ok(());
                         }
                         matrix.play_row(self.basics.row_index);
+                    }
+                    ClipRowAction::CaptureScene => {
+                        if !value.is_on() {
+                            return Ok(());
+                        }
+                        matrix.capture_scene(self.basics.row_index)?;
                     }
                 }
                 Ok(())
@@ -127,6 +133,7 @@ impl RealTimeClipRowTarget {
                 matrix.play_row(self.basics.row_index);
                 Ok(())
             }
+            ClipRowAction::CaptureScene => Err("only row-play is supported in real-time"),
         }
     }
 }
@@ -152,7 +159,7 @@ pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
 fn control_type_and_character(action: ClipRowAction) -> (ControlType, TargetCharacter) {
     use ClipRowAction::*;
     match action {
-        Play => (
+        Play | CaptureScene => (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),

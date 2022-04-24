@@ -1,10 +1,10 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_params, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor, HitInstructionReturnValue,
-    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    get_fx_params, AdditionalFeedbackEvent, Caller, Compartment, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
+    HitInstructionReturnValue, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
@@ -247,8 +247,8 @@ pub struct RealTimeFxParameterTarget {
 unsafe impl Send for RealTimeFxParameterTarget {}
 
 impl RealTimeFxParameterTarget {
-    pub fn should_control_in_real_time(&self, is_called_from_vst: bool) -> bool {
-        if !is_called_from_vst {
+    pub fn wants_real_time_control(&self, caller: Caller) -> bool {
+        if !caller.is_vst() {
             // Setting the target FX parameter value in real-time is only safe if we are in the
             // processing callstack of the target FX track. The resolve step of this target makes
             // sure that a real-time target doesn't even exist if the ReaLearn track doesn't match

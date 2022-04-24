@@ -50,7 +50,7 @@ pub struct Slot {
 }
 
 #[derive(Clone, Debug)]
-struct Content {
+pub struct Content {
     clip: Clip,
     /// The frame count in the material info is supposed to take the section bounds into account.
     runtime_data: SlotRuntimeData,

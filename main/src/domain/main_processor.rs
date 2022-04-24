@@ -548,6 +548,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         control_event: ControlEvent<ControlValue>,
         options: ControlOptions,
     ) -> Result<(), &'static str> {
+        tracing_debug!("Control target with {}", control_event);
         // Resolving mappings with virtual targets is not necessary anymore. It has
         // been done in the real-time processor already.
         let (control_result, group_interaction) = {
@@ -3449,7 +3450,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     )
 }
 
-/// Executes stage one of a typical mapping control invocation.
+/// Executes stage two of a typical mapping control invocation.
 ///
 /// Takes care of:
 ///

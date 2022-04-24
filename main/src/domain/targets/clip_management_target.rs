@@ -99,13 +99,10 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(None);
                 }
                 let clip_in_slot = self.with_matrix(context, |matrix| {
-                    matrix
-                        .slot(self.slot_coordinates)
-                        .and_then(|s| s.clip())
-                        .and_then(|clip| {
-                            clip.save(context.control_context.processor_context.project())
-                                .ok()
-                        })
+                    matrix.clip(self.slot_coordinates).and_then(|clip| {
+                        clip.save(context.control_context.processor_context.project())
+                            .ok()
+                    })
                 })?;
                 match clip_in_slot {
                     None => {
@@ -145,8 +142,7 @@ impl RealearnTarget for ClipManagementTarget {
         match key {
             "clip.name" => BackboneState::get()
                 .with_clip_matrix_mut(context.instance_state, |matrix| {
-                    let slot = matrix.slot(self.slot_coordinates)?;
-                    let clip = slot.clip()?;
+                    let clip = matrix.clip(self.slot_coordinates)?;
                     let name = clip.name()?;
                     Some(PropValue::Text(name.to_string().into()))
                 })

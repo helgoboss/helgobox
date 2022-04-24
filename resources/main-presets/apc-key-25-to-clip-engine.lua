@@ -251,6 +251,17 @@ function shift_pressed(on)
     }
 end
 
+function fire_max(millis)
+    return PartialMapping {
+        glue = {
+            fire_mode = {
+                kind = "Normal",
+                press_duration_interval = { 0, millis }
+            },
+        },
+    }
+end
+
 function fire_after_timeout(millis)
     return PartialMapping {
         glue = {
@@ -275,24 +286,10 @@ end
 
 local shift = shift_pressed(true)
 local no_shift = shift_pressed(false)
+local short_press = fire_max(200)
 local long_press = fire_after_timeout(1000)
 local single_press = fire("OnSinglePress", 200)
 local double_press = fire("OnDoublePress")
-
-local device_specific = {
-    apc_key_25 = {
-        volume = shift + button("col5/stop"),
-        pan = shift + button("col6/stop"),
-        device = shift + button("col8/stop"),
-        solo = shift + button("row2/play"),
-        record_arm = shift + button("row3/play"),
-        mute = shift + button("row4/play"),
-        track_select = shift + button("row5/play"),
-        slot_normal_condition = no_shift,
-        slot_quantize_condition = shift + double_press,
-        rec = no_shift + button("record"),
-    },
-}
 
 function clip_matrix_action(action)
     return PartialMapping {
@@ -568,6 +565,9 @@ local groups = {
     row_play = {
         name = "Row play",
     },
+    row_capture_scene = {
+        name = "Row capture scene",
+    },
     column_solo = {
         name = "Column solo",
         activation_condition = column_mode_is(column_modes.solo),
@@ -617,11 +617,11 @@ local mappings = {
     shift + button("record") + clip_matrix_action("Redo"),
     shift + button("stop-all-clips") + reaper_action(40364),
     group(groups.knob_sends) + feedback_disabled() + shift + button("col7/stop") + incremental() + wrap() + set_param(params.send.index),
-    group(groups.column_modes) + shift + button("row1/play") + set_column_mode(column_modes.stop),
-    group(groups.column_modes) + shift + button("row2/play") + set_column_mode(column_modes.solo),
-    group(groups.column_modes) + shift + button("row3/play") + set_column_mode(column_modes.record_arm),
-    group(groups.column_modes) + shift + button("row4/play") + set_column_mode(column_modes.mute),
-    group(groups.column_modes) + shift + button("row5/play") + set_column_mode(column_modes.select),
+    group(groups.column_modes) + shift + short_press + button("row1/play") + set_column_mode(column_modes.stop),
+    group(groups.column_modes) + shift + short_press + button("row2/play") + set_column_mode(column_modes.solo),
+    group(groups.column_modes) + shift + short_press + button("row3/play") + set_column_mode(column_modes.record_arm),
+    group(groups.column_modes) + shift + short_press + button("row4/play") + set_column_mode(column_modes.mute),
+    group(groups.column_modes) + shift + short_press + button("row5/play") + set_column_mode(column_modes.select),
     group(groups.knob_modes) + shift + button("col5/stop") + set_knob_mode(knob_modes.volume),
     group(groups.knob_modes) + shift + button("col6/stop") + set_knob_mode(knob_modes.pan),
     group(groups.knob_modes) + shift + button("col7/stop") + set_knob_mode(knob_modes.sends),
@@ -645,6 +645,7 @@ end
 -- For each row
 for row = 0, row_count - 1 do
     table.insert(mappings, group(groups.row_play) + feedback_disabled() + no_shift + row_play_button(row) + clip_row_action(row, "Play"))
+    table.insert(mappings, group(groups.row_capture_scene) + feedback_disabled() + shift + long_press + row_play_button(row) + clip_row_action(row, "CaptureScene"))
 end
 
 -- For each slot

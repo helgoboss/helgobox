@@ -127,15 +127,31 @@ impl Column {
         Ok(())
     }
 
+    /// Returns all clips that are currently playing (along with slot index) .
+    pub fn playing_clips(&self) -> impl Iterator<Item = (usize, &Clip)> + '_ {
+        self.slots.iter().enumerate().filter_map(|(i, s)| {
+            if s.clip_play_state().ok()?.is_as_good_as_playing() {
+                Some((i, s.clip()?))
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn clear_slots(&mut self) {
         self.slots.clear();
         self.rt_command_sender.clear_slots();
     }
 
-    /// Is mutable because empty slots are created lazily up to `row_count`.
-    pub(super) fn slot(&mut self, index: usize, row_count: usize) -> Option<&Slot> {
-        upsize_if_necessary(&mut self.slots, row_count);
-        self.slots.get(index)
+    pub fn clip(&self, index: usize) -> Option<&Clip> {
+        self.slots.get(index)?.clip()
+    }
+
+    pub fn slot_is_empty(&self, index: usize) -> bool {
+        match self.slots.get(index) {
+            None => true,
+            Some(s) => s.is_empty(),
+        }
     }
 
     /// Returns the actual number of slots in this column.

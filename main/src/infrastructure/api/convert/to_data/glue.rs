@@ -145,7 +145,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             use helgoboss_learn::FireMode as T;
             use FireMode::*;
             match &fire_mode {
-                Normal(_) => T::WhenButtonReleased,
+                Normal(_) => T::Normal,
                 AfterTimeout(_) => T::AfterTimeout,
                 AfterTimeoutKeepFiring(_) => T::AfterTimeoutKeepFiring,
                 OnSinglePress(_) => T::OnSinglePress,

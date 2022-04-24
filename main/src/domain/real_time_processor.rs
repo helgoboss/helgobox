@@ -1494,7 +1494,7 @@ fn process_real_mapping(
             let control_value = control_value.ok_or("target already has desired value")?;
             match reaper_target {
                 RealTimeReaperTarget::SendMidi(t) => {
-                    return real_time_target_send_midi(
+                    real_time_target_send_midi(
                         t,
                         caller,
                         control_value,
@@ -1503,7 +1503,7 @@ fn process_real_mapping(
                         main_task_sender,
                         rt_feedback_sender,
                         value_event.payload(),
-                    );
+                    )?;
                 }
                 RealTimeReaperTarget::ClipTransport(t) => {
                     t.hit(control_value, control_context)?;

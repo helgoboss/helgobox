@@ -28,7 +28,7 @@ use crate::base::default_util::is_default;
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
+    handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget, Caller,
     ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
     ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
     FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
@@ -1348,6 +1348,18 @@ pub enum RealTimeReaperTarget {
     ClipRow(RealTimeClipRowTarget),
     ClipMatrix(RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
+}
+
+impl RealTimeReaperTarget {
+    /// Some targets such as the FX parameter target are not always controlled from the
+    /// real-time thread. Only under certain conditions.
+    pub fn wants_real_time_control(&self, caller: Caller) -> bool {
+        use RealTimeReaperTarget::*;
+        match self {
+            FxParameter(t) => t.wants_real_time_control(caller),
+            _ => true,
+        }
+    }
 }
 
 pub fn get_control_type_and_character_for_track_exclusivity(

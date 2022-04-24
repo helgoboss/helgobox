@@ -510,8 +510,8 @@ impl VirtualClipSlot {
             }
         };
         let slot_exists = BackboneState::get()
-            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
-                matrix.slot(coordinates).is_some()
+            .with_clip_matrix(context.control_context.instance_state, |matrix| {
+                matrix.slot_exists(coordinates)
             })?;
         if !slot_exists {
             return Err("slot doesn't exist");
