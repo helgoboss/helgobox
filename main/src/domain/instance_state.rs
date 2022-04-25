@@ -68,6 +68,7 @@ pub struct InstanceState {
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
     copied_clip: Option<playtime_api::Clip>,
+    copied_clips: Vec<Option<playtime_api::Clip>>,
 }
 
 #[derive(Debug)]
@@ -167,6 +168,7 @@ impl InstanceState {
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
             copied_clip: None,
+            copied_clips: vec![],
         }
     }
 
@@ -190,6 +192,14 @@ impl InstanceState {
 
     pub fn copied_clip(&self) -> Option<&playtime_api::Clip> {
         self.copied_clip.as_ref()
+    }
+
+    pub fn copy_clips(&mut self, clips: Vec<Option<playtime_api::Clip>>) {
+        self.copied_clips = clips;
+    }
+
+    pub fn copied_clips(&self) -> &[Option<playtime_api::Clip>] {
+        &self.copied_clips
     }
 
     pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {

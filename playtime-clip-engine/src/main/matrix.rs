@@ -277,6 +277,23 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.columns.get(coordinates.column)?.clip(coordinates.row)
     }
 
+    pub fn all_clips_in_row(&self, row_index: usize) -> impl Iterator<Item = Option<&Clip>> + '_ {
+        self.columns.iter().map(move |c| c.clip(row_index))
+    }
+
+    pub fn clear_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        if row_index >= self.row_count() {
+            return Err("row doesn't exist");
+        }
+        self.history
+            .add("Before clearing row".to_owned(), self.save());
+        // TODO-medium This is not optimal because it will create multiple undo points.
+        for column in &self.columns {
+            column.clear_slot(row_index);
+        }
+        Ok(())
+    }
+
     pub fn clear_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         // The undo point after clip removal is created later, in response to the upcoming event
         // that indicates that the slot has actually been cleared.
@@ -305,29 +322,60 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    pub fn fill_row_with_clips(
+        &mut self,
+        row_index: usize,
+        api_clips: Vec<Option<api::Clip>>,
+    ) -> ClipEngineResult<()> {
+        self.undoable("Fill row with clips", |matrix| {
+            for (i, api_clip) in api_clips.into_iter().enumerate() {
+                let api_clip = match api_clip {
+                    None => continue,
+                    Some(c) => c,
+                };
+                let column = match get_column_mut(&mut matrix.columns, i).ok() {
+                    None => break,
+                    Some(c) => c,
+                };
+                column.fill_slot_with_clip(
+                    row_index,
+                    api_clip,
+                    &matrix.chain_equipment,
+                    &matrix.recorder_request_sender,
+                    &matrix.settings,
+                )?;
+            }
+            matrix.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
+            Ok(())
+        })
+    }
+
     pub fn fill_slot_with_clip(
         &mut self,
         coordinates: ClipSlotCoordinates,
         api_clip: api::Clip,
     ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
-        let event = column.fill_slot_with_clip(
-            coordinates.row,
-            api_clip,
-            &self.chain_equipment,
-            &self.recorder_request_sender,
-            &self.settings,
-        )?;
-        self.handler
-            .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
-        Ok(())
+        self.undoable("Fill slot with clip", |matrix| {
+            let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
+            let event = column.fill_slot_with_clip(
+                coordinates.row,
+                api_clip,
+                &matrix.chain_equipment,
+                &matrix.recorder_request_sender,
+                &matrix.settings,
+            )?;
+            matrix
+                .handler
+                .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
+            Ok(())
+        })
     }
 
     pub fn fill_slot_with_selected_item(
         &mut self,
         coordinates: ClipSlotCoordinates,
     ) -> ClipEngineResult<()> {
-        self.undoable("Fill slot", |matrix| {
+        self.undoable("Fill slot with selected item", |matrix| {
             let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
             column.fill_slot_with_selected_item(
                 coordinates.row,
@@ -396,10 +444,21 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn capture_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+    pub fn build_scene_in_first_empty_row(&mut self) -> ClipEngineResult<()> {
+        let empty_row_index = (0usize..)
+            .find(|row_index| self.row_is_empty(*row_index))
+            .expect("there's always an empty row");
+        self.build_scene_internal(empty_row_index)
+    }
+
+    pub fn build_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if !self.row_is_empty(row_index) {
             return Err("row is not empty");
         }
+        self.build_scene_internal(row_index)
+    }
+
+    fn build_scene_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
         let playing_clips = self.capture_playing_clips()?;
         self.distribute_clips_to_row(playing_clips, row_index)?;
         self.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
@@ -424,6 +483,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     &self.settings,
                 )?;
             }
+            // TODO-high Handle case that slot in same column is already occupied
+            // TODO-high Only accept columns that follow the scene
         }
         Ok(())
     }
@@ -436,7 +497,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         column.slot_is_empty(coordinates.row)
     }
 
-    fn row_is_empty(&self, row_index: usize) -> bool {
+    pub fn row_is_empty(&self, row_index: usize) -> bool {
         self.columns.iter().all(|c| c.slot_is_empty(row_index))
     }
 

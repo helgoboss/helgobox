@@ -1,8 +1,8 @@
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext,
     HitInstructionReturnValue, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
+    RealearnClipMatrix, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::schema::ClipRowAction;
@@ -38,6 +38,16 @@ pub struct ClipRowTarget {
     basics: ClipRowTargetBasics,
 }
 
+impl ClipRowTarget {
+    fn with_matrix<R>(
+        &self,
+        context: ControlContext,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        BackboneState::get().with_clip_matrix_mut(context.instance_state, f)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 struct ClipRowTargetBasics {
     pub row_index: usize,
@@ -54,27 +64,68 @@ impl RealearnTarget for ClipRowTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        BackboneState::get().with_clip_matrix_mut(
-            context.control_context.instance_state,
-            |matrix| -> Result<(), &'static str> {
-                match self.basics.action {
-                    ClipRowAction::Play => {
-                        if !value.is_on() {
-                            return Ok(());
-                        }
-                        matrix.play_row(self.basics.row_index);
-                    }
-                    ClipRowAction::CaptureScene => {
-                        if !value.is_on() {
-                            return Ok(());
-                        }
-                        matrix.capture_scene(self.basics.row_index)?;
-                    }
+        match self.basics.action {
+            ClipRowAction::Play => {
+                if !value.is_on() {
+                    return Ok(None);
                 }
-                Ok(())
-            },
-        )??;
-        Ok(None)
+                self.with_matrix(context.control_context, |matrix| {
+                    matrix.play_row(self.basics.row_index);
+                })?;
+                Ok(None)
+            }
+            ClipRowAction::BuildScene => {
+                if !value.is_on() {
+                    return Ok(None);
+                }
+                self.with_matrix(context.control_context, |matrix| {
+                    matrix.build_scene(self.basics.row_index)?;
+                    Ok(None)
+                })?
+            }
+            ClipRowAction::CopyOrPaste => {
+                if !value.is_on() {
+                    return Ok(None);
+                }
+                let project = context.control_context.processor_context.project();
+                let clips_in_row: Vec<_> = self.with_matrix(context.control_context, |matrix| {
+                    matrix
+                        .all_clips_in_row(self.basics.row_index)
+                        .map(|clip| clip.and_then(|c| c.save(project).ok()))
+                        .collect()
+                })?;
+                if clips_in_row.iter().all(|c| c.is_none()) {
+                    // Row is empty. Check if there's something to paste.
+                    let copied_clips = context
+                        .control_context
+                        .instance_state
+                        .borrow()
+                        .copied_clips()
+                        .to_vec();
+                    if copied_clips.is_empty() {
+                        return Err("no clips to paste");
+                    }
+                    self.with_matrix(context.control_context, |matrix| {
+                        matrix.fill_row_with_clips(self.basics.row_index, copied_clips)?;
+                        Ok(None)
+                    })?
+                } else {
+                    // Row has clips. Copy them.
+                    let mut instance_state = context.control_context.instance_state.borrow_mut();
+                    instance_state.copy_clips(clips_in_row);
+                    Ok(None)
+                }
+            }
+            ClipRowAction::Clear => {
+                if !value.is_on() {
+                    return Ok(None);
+                }
+                self.with_matrix(context.control_context, |matrix| {
+                    matrix.clear_row(self.basics.row_index)?;
+                    Ok(None)
+                })?
+            }
+        }
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -96,15 +147,30 @@ impl RealearnTarget for ClipRowTarget {
     }
 
     fn can_report_current_value(&self) -> bool {
-        false
+        match self.basics.action {
+            ClipRowAction::Play => false,
+            ClipRowAction::BuildScene => false,
+            ClipRowAction::CopyOrPaste => true,
+            ClipRowAction::Clear => true,
+        }
     }
 }
 
 impl<'a> Target<'a> for ClipRowTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ControlContext<'a>) -> Option<AbsoluteValue> {
-        None
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
+        use ClipRowAction::*;
+        match self.basics.action {
+            Play => None,
+            BuildScene => None,
+            CopyOrPaste | Clear => {
+                let row_is_empty = self
+                    .with_matrix(context, |matrix| matrix.row_is_empty(self.basics.row_index))
+                    .ok()?;
+                Some(AbsoluteValue::from_bool(!row_is_empty))
+            }
+        }
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -133,7 +199,7 @@ impl RealTimeClipRowTarget {
                 matrix.play_row(self.basics.row_index);
                 Ok(())
             }
-            ClipRowAction::CaptureScene => Err("only row-play is supported in real-time"),
+            _ => Err("only row-play is supported in real-time"),
         }
     }
 }
@@ -156,12 +222,9 @@ pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
     ..DEFAULT_TARGET
 };
 
-fn control_type_and_character(action: ClipRowAction) -> (ControlType, TargetCharacter) {
-    use ClipRowAction::*;
-    match action {
-        Play | CaptureScene => (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Trigger,
-        ),
-    }
+fn control_type_and_character(_action: ClipRowAction) -> (ControlType, TargetCharacter) {
+    (
+        ControlType::AbsoluteContinuousRetriggerable,
+        TargetCharacter::Trigger,
+    )
 }

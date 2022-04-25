@@ -63,6 +63,9 @@ impl RealearnTarget for ClipMatrixTarget {
                     ClipMatrixAction::Redo => {
                         let _ = matrix.redo();
                     }
+                    ClipMatrixAction::BuildScene => {
+                        matrix.build_scene_in_first_empty_row()?;
+                    }
                 }
                 Ok(None)
             },
@@ -75,7 +78,7 @@ impl RealearnTarget for ClipMatrixTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match self.action {
-            ClipMatrixAction::Stop => match evt {
+            ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
                     QualifiedClipChangedEvent { event, .. },
@@ -123,7 +126,7 @@ impl<'a> Target<'a> for ClipMatrixTarget {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let bool_value = match self.action {
-                    ClipMatrixAction::Stop => matrix.is_stoppable(),
+                    ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => matrix.is_stoppable(),
                     ClipMatrixAction::Undo => matrix.can_undo(),
                     ClipMatrixAction::Redo => matrix.can_redo(),
                 };
@@ -192,7 +195,7 @@ pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
 fn control_type_and_character(action: ClipMatrixAction) -> (ControlType, TargetCharacter) {
     use ClipMatrixAction::*;
     match action {
-        Stop | Undo | Redo => (
+        Stop | Undo | Redo | BuildScene => (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),

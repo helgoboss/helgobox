@@ -166,6 +166,10 @@ local params = {
         name = "Send",
         value_count = 2,
     },
+    sustain = {
+        index = 7,
+        name = "Sustain modifier",
+    },
 }
 
 
@@ -246,7 +250,38 @@ function shift_pressed(on)
                     parameter = params.shift.index,
                     on = on,
                 },
+                {
+                    parameter = params.sustain.index,
+                    on = false,
+                },
             },
+        },
+    }
+end
+
+function sustain_pressed(on)
+    return PartialMapping {
+        activation_condition = {
+            kind = "Modifier",
+            modifiers = {
+                {
+                    parameter = params.sustain.index,
+                    on = on,
+                },
+                {
+                    parameter = params.shift.index,
+                    on = false,
+                },
+            },
+        },
+    }
+end
+
+function shift_or_sustain_pressed(on)
+    return PartialMapping {
+        activation_condition = {
+            kind = "Expression",
+            condition = "p[2] || p[7]",
         },
     }
 end
@@ -284,8 +319,10 @@ function fire(kind, max_duration)
     }
 end
 
+local no_mod = shift_pressed(false)
 local shift = shift_pressed(true)
-local no_shift = shift_pressed(false)
+local sustain = sustain_pressed(true)
+local shift_or_sustain = shift_or_sustain_pressed()
 local short_press = fire_max(200)
 local long_press = fire_after_timeout(1000)
 local single_press = fire("OnSinglePress", 200)
@@ -565,8 +602,14 @@ local groups = {
     row_play = {
         name = "Row play",
     },
-    row_capture_scene = {
-        name = "Row capture scene",
+    row_build_scene = {
+        name = "Row build scene",
+    },
+    row_copy_or_paste = {
+        name = "Row copy or paste",
+    },
+    row_clear = {
+        name = "Row clear",
     },
     column_solo = {
         name = "Column solo",
@@ -606,15 +649,17 @@ set_keys_as_ids(groups)
 -- Mappings
 
 local mappings = {
-    no_shift + button("stop-all-clips") + clip_matrix_action("Stop"),
-    no_shift + button("play") + toggle() + transport_action("PlayStop"),
-    shift + button("col1/stop") + feedback_disabled() + scroll_vertically(-1),
-    shift + button("col2/stop") + feedback_disabled() + scroll_vertically(1),
-    shift + button("col3/stop") + feedback_disabled() + scroll_horizontally(-1),
-    shift + button("col4/stop") + feedback_disabled() + scroll_horizontally(1),
+    no_mod + button("stop-all-clips") + clip_matrix_action("Stop"),
+    no_mod + button("play") + toggle() + transport_action("PlayStop"),
+    shift_or_sustain + button("col1/stop") + feedback_disabled() + scroll_vertically(-1),
+    shift_or_sustain + button("col2/stop") + feedback_disabled() + scroll_vertically(1),
+    shift_or_sustain + button("col3/stop") + feedback_disabled() + scroll_horizontally(-1),
+    shift_or_sustain + button("col4/stop") + feedback_disabled() + scroll_horizontally(1),
     button("shift") + set_param(params.shift.index),
+    button("sustain") + set_param(params.sustain.index),
     shift + button("play") + clip_matrix_action("Undo"),
     shift + button("record") + clip_matrix_action("Redo"),
+    sustain + button("record") + clip_matrix_action("BuildScene"),
     shift + button("stop-all-clips") + reaper_action(40364),
     group(groups.knob_sends) + feedback_disabled() + shift + button("col7/stop") + incremental() + wrap() + set_param(params.send.index),
     group(groups.column_modes) + shift + short_press + button("row1/play") + set_column_mode(column_modes.stop),
@@ -631,11 +676,11 @@ local mappings = {
 -- For each column
 for col = 0, column_count - 1 do
     -- Column stop button functions
-    table.insert(mappings, group(groups.column_stop) + no_shift + column_stop_button(col) + clip_column_action(col, "Stop"))
-    table.insert(mappings, group(groups.column_solo) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
-    table.insert(mappings, group(groups.column_record_arm) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", true))
-    table.insert(mappings, group(groups.column_mute) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
-    table.insert(mappings, group(groups.column_select) + no_shift + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
+    table.insert(mappings, group(groups.column_stop) + no_mod + column_stop_button(col) + clip_column_action(col, "Stop"))
+    table.insert(mappings, group(groups.column_solo) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
+    table.insert(mappings, group(groups.column_record_arm) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", true))
+    table.insert(mappings, group(groups.column_mute) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
+    table.insert(mappings, group(groups.column_select) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
     -- Knob functions
     table.insert(mappings, group(groups.knob_volume) + multi(col) + column_track_target(col, "TrackVolume"))
     table.insert(mappings, group(groups.knob_pan) + multi(col) + column_track_target(col, "TrackPan"))
@@ -644,19 +689,23 @@ end
 
 -- For each row
 for row = 0, row_count - 1 do
-    table.insert(mappings, group(groups.row_play) + feedback_disabled() + no_shift + row_play_button(row) + clip_row_action(row, "Play"))
-    table.insert(mappings, group(groups.row_capture_scene) + feedback_disabled() + shift + long_press + row_play_button(row) + clip_row_action(row, "CaptureScene"))
+    table.insert(mappings, group(groups.row_play) + feedback_disabled() + no_mod + row_play_button(row) + clip_row_action(row, "Play"))
+    table.insert(mappings, group(groups.row_copy_or_paste) + sustain + short_press + row_play_button(row) + clip_row_action(row, "CopyOrPaste"))
+    table.insert(mappings, group(groups.row_build_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "BuildScene"))
+    table.insert(mappings, group(groups.row_clear) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "Clear"))
 end
 
 -- For each slot
 for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
-        table.insert(mappings, group(groups.slot_play) + feedback_disabled() + no_shift + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
+        -- Feedback
         table.insert(mappings, group(groups.slot_feedback) + control_disabled() + slot_button(col, row) + slot_state_text_feedback() + clip_transport_action(col, row, "RecordPlayStop", true))
-        table.insert(mappings, group(groups.slot_clear) + feedback_disabled() + shift + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
-        table.insert(mappings, group(groups.slot_quantize) + feedback_disabled() + shift + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
+        -- Control
+        table.insert(mappings, group(groups.slot_play) + feedback_disabled() + no_mod + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
+        table.insert(mappings, group(groups.slot_clear) + feedback_disabled() + sustain + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
+        table.insert(mappings, group(groups.slot_quantize) + feedback_disabled() + sustain + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
         --table.insert(mappings, group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
-        table.insert(mappings, group(groups.slot_copy_or_paste) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
+        table.insert(mappings, group(groups.slot_copy_or_paste) + feedback_disabled() + sustain + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
     end
 end
 

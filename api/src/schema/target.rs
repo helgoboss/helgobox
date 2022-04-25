@@ -842,8 +842,15 @@ impl Default for ClipColumnAction {
 pub enum ClipRowAction {
     #[display(fmt = "Play")]
     Play,
-    #[display(fmt = "Capture scene")]
-    CaptureScene,
+    #[display(fmt = "Build scene")]
+    // TODO-high Get the wording row/scene right
+    // TODO-high Remove alias
+    #[serde(alias = "CaptureScene")]
+    BuildScene,
+    #[display(fmt = "Clear")]
+    Clear,
+    #[display(fmt = "Copy or paste")]
+    CopyOrPaste,
 }
 
 impl Default for ClipRowAction {
@@ -874,6 +881,8 @@ pub enum ClipMatrixAction {
     Undo,
     #[display(fmt = "Redo")]
     Redo,
+    #[display(fmt = "Build scene")]
+    BuildScene,
 }
 
 impl Default for ClipMatrixAction {
