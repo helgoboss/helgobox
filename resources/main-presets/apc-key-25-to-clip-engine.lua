@@ -286,6 +286,18 @@ function shift_or_sustain_pressed(on)
     }
 end
 
+function turbo()
+    return PartialMapping {
+        glue = {
+            fire_mode = {
+                kind = "AfterTimeoutKeepFiring",
+                timeout = 0,
+                rate = 100,
+            },
+        },
+    }
+end
+
 function fire_max(millis)
     return PartialMapping {
         glue = {
@@ -651,10 +663,10 @@ set_keys_as_ids(groups)
 local mappings = {
     no_mod + button("stop-all-clips") + clip_matrix_action("Stop"),
     no_mod + button("play") + toggle() + transport_action("PlayStop"),
-    shift_or_sustain + button("col1/stop") + feedback_disabled() + scroll_vertically(-1),
-    shift_or_sustain + button("col2/stop") + feedback_disabled() + scroll_vertically(1),
-    shift_or_sustain + button("col3/stop") + feedback_disabled() + scroll_horizontally(-1),
-    shift_or_sustain + button("col4/stop") + feedback_disabled() + scroll_horizontally(1),
+    shift_or_sustain + button("col1/stop") + feedback_disabled() + turbo() + scroll_vertically(-1),
+    shift_or_sustain + button("col2/stop") + feedback_disabled() + turbo() + scroll_vertically(1),
+    shift_or_sustain + button("col3/stop") + feedback_disabled() + turbo() + scroll_horizontally(-1),
+    shift_or_sustain + button("col4/stop") + feedback_disabled() + turbo() + scroll_horizontally(1),
     button("shift") + set_param(params.shift.index),
     button("sustain") + set_param(params.sustain.index),
     shift + button("play") + clip_matrix_action("Undo"),

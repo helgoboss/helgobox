@@ -509,13 +509,13 @@ impl VirtualClipSlot {
                 ClipSlotCoordinates::new(column_index, row_index)
             }
         };
-        let slot_exists = BackboneState::get()
-            .with_clip_matrix(context.control_context.instance_state, |matrix| {
-                matrix.slot_exists(coordinates)
-            })?;
-        if !slot_exists {
-            return Err("slot doesn't exist");
-        }
+        // let slot_exists = BackboneState::get()
+        //     .with_clip_matrix(context.control_context.instance_state, |matrix| {
+        //         matrix.slot_exists(coordinates)
+        //     })?;
+        // if !slot_exists {
+        //     return Err("slot doesn't exist");
+        // }
         Ok(coordinates)
     }
 
@@ -552,13 +552,13 @@ impl VirtualClipColumn {
                 to_slot_coordinate(evaluator.evaluate(compartment_params))?
             }
         };
-        let column_exists = BackboneState::get()
-            .with_clip_matrix(context.control_context.instance_state, |matrix| {
-                index < matrix.column_count()
-            })?;
-        if !column_exists {
-            return Err("column doesn't exist");
-        }
+        // let column_exists = BackboneState::get()
+        //     .with_clip_matrix(context.control_context.instance_state, |matrix| {
+        //         index < matrix.column_count()
+        //     })?;
+        // if !column_exists {
+        //     return Err("column doesn't exist");
+        // }
         Ok(index)
     }
 
@@ -595,13 +595,13 @@ impl VirtualClipRow {
                 to_slot_coordinate(evaluator.evaluate(compartment_params))?
             }
         };
-        let row_exists = BackboneState::get()
-            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
-                index < matrix.row_count()
-            })?;
-        if !row_exists {
-            return Err("row doesn't exist");
-        }
+        // let row_exists = BackboneState::get()
+        //     .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
+        //         index < matrix.row_count()
+        //     })?;
+        // if !row_exists {
+        //     return Err("row doesn't exist");
+        // }
         Ok(index)
     }
 
