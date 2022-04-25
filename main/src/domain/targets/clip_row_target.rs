@@ -65,7 +65,7 @@ impl RealearnTarget for ClipRowTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         match self.basics.action {
-            ClipRowAction::Play => {
+            ClipRowAction::PlayScene => {
                 if !value.is_on() {
                     return Ok(None);
                 }
@@ -83,7 +83,7 @@ impl RealearnTarget for ClipRowTarget {
                     Ok(None)
                 })?
             }
-            ClipRowAction::CopyOrPaste => {
+            ClipRowAction::CopyOrPasteScene => {
                 if !value.is_on() {
                     return Ok(None);
                 }
@@ -116,7 +116,7 @@ impl RealearnTarget for ClipRowTarget {
                     Ok(None)
                 }
             }
-            ClipRowAction::Clear => {
+            ClipRowAction::ClearScene => {
                 if !value.is_on() {
                     return Ok(None);
                 }
@@ -133,7 +133,7 @@ impl RealearnTarget for ClipRowTarget {
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        if !matches!(self.basics.action, ClipRowAction::Play) {
+        if !matches!(self.basics.action, ClipRowAction::PlayScene) {
             return None;
         }
         let t = RealTimeClipRowTarget {
@@ -148,10 +148,10 @@ impl RealearnTarget for ClipRowTarget {
 
     fn can_report_current_value(&self) -> bool {
         match self.basics.action {
-            ClipRowAction::Play => false,
+            ClipRowAction::PlayScene => false,
             ClipRowAction::BuildScene => false,
-            ClipRowAction::CopyOrPaste => true,
-            ClipRowAction::Clear => true,
+            ClipRowAction::CopyOrPasteScene => true,
+            ClipRowAction::ClearScene => true,
         }
     }
 }
@@ -162,9 +162,9 @@ impl<'a> Target<'a> for ClipRowTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         use ClipRowAction::*;
         match self.basics.action {
-            Play => None,
+            PlayScene => None,
             BuildScene => None,
-            CopyOrPaste | Clear => {
+            CopyOrPasteScene | ClearScene => {
                 let row_is_empty = self
                     .with_matrix(context, |matrix| matrix.row_is_empty(self.basics.row_index))
                     .ok()?;
@@ -190,7 +190,7 @@ impl RealTimeClipRowTarget {
         context: RealTimeControlContext,
     ) -> Result<(), &'static str> {
         match self.basics.action {
-            ClipRowAction::Play => {
+            ClipRowAction::PlayScene => {
                 if !value.is_on() {
                     return Ok(());
                 }

@@ -605,6 +605,23 @@ pub struct ColumnClipPlayAudioSettings {
     pub cache_behavior: Option<AudioCacheBehavior>,
 }
 
+/// A row represents a complete row in a matrix.
+///
+/// A scene is a very related concept and sometimes used interchangeably with row because there's
+/// a one-to-one relationship between a row and a scene.
+///
+/// The difference between row and scene is of conceptual nature: A scene represents a part of a
+/// song that's played exclusively whereas a row is just a row in the clip matrix. This distinction
+/// results in some practical differences:
+///
+/// - A column can be configured to not follow scenes. The clips in that column are of
+///   course still structured in rows, but they are not part of the scenes anymore.
+/// - In practice, this means that whenever you launch the scene, the clips in that independent
+///   column are not launched. Or when you clear the scene, the slots in that column are not
+///   cleared.
+/// - Whenever you read "Scene", it will only affect the columns that are configured to follow
+///   scenes. Whenever you read "Row", it will affect the complete matrix row, no matter the
+///   column type.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Row {

@@ -617,17 +617,17 @@ local groups = {
         name = "Column stop",
         activation_condition = column_mode_is(column_modes.stop),
     },
-    row_play = {
-        name = "Row play",
+    row_play_scene = {
+        name = "Row play scene",
     },
     row_build_scene = {
         name = "Row build scene",
     },
-    row_copy_or_paste = {
-        name = "Row copy or paste",
+    row_copy_or_paste_scene = {
+        name = "Row copy or paste scene",
     },
-    row_clear = {
-        name = "Row clear",
+    row_clear_scene = {
+        name = "Row clear scene",
     },
     column_solo = {
         name = "Column solo",
@@ -707,10 +707,10 @@ end
 
 -- For each row
 for row = 0, row_count - 1 do
-    table.insert(mappings, name("Play row") + group(groups.row_play) + feedback_disabled() + no_mod + row_play_button(row) + clip_row_action(row, "Play"))
-    table.insert(mappings, name("Copy or paste row") + group(groups.row_copy_or_paste) + sustain + short_press + row_play_button(row) + clip_row_action(row, "CopyOrPaste"))
-    table.insert(mappings, name("Build scene into row") + group(groups.row_build_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "BuildScene"))
-    table.insert(mappings, name("Clear row") + group(groups.row_clear) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "Clear"))
+    table.insert(mappings, name("Play scene") + group(groups.row_play_scene) + feedback_disabled() + no_mod + row_play_button(row) + clip_row_action(row, "PlayScene"))
+    table.insert(mappings, name("Copy or paste scene") + group(groups.row_copy_or_paste_scene) + sustain + short_press + row_play_button(row) + clip_row_action(row, "CopyOrPasteScene"))
+    table.insert(mappings, name("Build scene") + group(groups.row_build_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "BuildScene"))
+    table.insert(mappings, name("Clear scene") + group(groups.row_clear_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "ClearScene"))
 end
 
 -- For each slot
