@@ -392,14 +392,18 @@ impl Slot {
         } else {
             content.clip.create_pcm_source(Some(temporary_project))?
         };
-        // TODO-high Because we set a constant preview tempo for our MIDI sources (which is
-        //  important for our internal processing), IGNTEMPO is set to 1, which means the source
-        //  is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
-        //  editor because in reality they are beat-based. Waiting for an answer from Justin if we
-        //  can easily set IGNTEMPO to 0. Hoping that this is then only valid for this particular
-        //  pooled copy. This problem might disappear though as soon as we can use
-        //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
-        //  on sections).
+        if is_midi {
+            // Because we set a constant preview tempo for our MIDI sources (which is
+            // important for our internal processing), IGNTEMPO is set to 1, which means the source
+            // is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
+            // editor because in reality they are beat-based. The following sets IGNTEMPO to 0
+            // for recent REAPER versions. Hopefully this is then only valid for this particular
+            // pooled copy.
+            // TODO-low This problem might disappear though as soon as we can use
+            //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
+            //  on sections).
+            source.reaper_source().ext_set_preview_tempo(None);
+        }
         // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
         let item = editor_track.add_item().map_err(|e| e.message())?;
         let take = item.add_take().map_err(|e| e.message())?;

@@ -124,7 +124,7 @@ fn create_pcm_source_from_midi_chunk_based_api_source(
     // another slot) because that could lead to unpleasant surprises.
     source.remove_from_midi_pool().map_err(|e| e.message())?;
     source
-        .set_preview_tempo(MIDI_BASE_BPM)
+        .set_preview_tempo(Some(MIDI_BASE_BPM))
         .map_err(|e| e.message())?;
     post_process_midi_source(&source);
     Ok(source)
@@ -188,7 +188,7 @@ fn post_process_midi_source(source: &BorrowedSource) {
     // However, now we set the constant preview tempo at source creation time, which makes
     // the source completely project tempo/pos-independent, also when doing recording via
     // midi_realtime_write_struct_t. So that's not necessary anymore.
-    source.set_preview_tempo(MIDI_BASE_BPM).unwrap();
+    source.set_preview_tempo(Some(MIDI_BASE_BPM)).unwrap();
 }
 
 fn make_relative(project: Option<Project>, file: &Path) -> PathBuf {
