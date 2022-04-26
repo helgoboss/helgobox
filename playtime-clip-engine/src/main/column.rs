@@ -11,8 +11,8 @@ use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
-    MatrixClipRecordSettings,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
+    Db, MatrixClipRecordSettings,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -70,6 +70,20 @@ impl Column {
         }
     }
 
+    pub fn set_play_mode(&mut self, play_mode: ColumnPlayMode) {
+        self.rt_settings.play_mode = play_mode;
+    }
+
+    pub fn duplicate_without_contents(&self) -> Self {
+        let mut duplicate = Self::new(self.project);
+        duplicate.settings = self.settings.clone();
+        duplicate.rt_settings = self.rt_settings.clone();
+        if let Some(pr) = &self.preview_register {
+            duplicate.init_preview_register(pr.track.clone());
+        }
+        duplicate
+    }
+
     pub fn rt_command_sender(&self) -> ColumnCommandSender {
         self.rt_command_sender.clone()
     }
@@ -89,7 +103,7 @@ impl Column {
         } else {
             None
         };
-        self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
+        self.init_preview_register(track);
         // Settings
         self.settings.clip_record_settings = api_column.clip_record_settings;
         self.rt_settings.audio_resample_mode =
@@ -103,10 +117,6 @@ impl Column {
         self.rt_settings.play_mode = api_column.clip_play_settings.mode.unwrap_or_default();
         self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
-        self.rt_command_sender
-            .update_settings(self.rt_settings.clone());
-        self.rt_command_sender
-            .update_matrix_settings(matrix_settings.overridable.clone());
         // Slots
         for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
@@ -125,6 +135,17 @@ impl Column {
             }
         }
         Ok(())
+    }
+
+    fn init_preview_register(&mut self, track: Option<Track>) {
+        self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
+    }
+
+    pub fn sync_settings_to_rt(&self, matrix_settings: &MatrixSettings) {
+        self.rt_command_sender
+            .update_settings(self.rt_settings.clone());
+        self.rt_command_sender
+            .update_matrix_settings(matrix_settings.overridable.clone());
     }
 
     /// Returns all clips that are currently playing (along with slot index) .
@@ -459,6 +480,10 @@ impl Column {
 
     pub fn proportional_slot_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
         self.get_slot(slot_index)?.proportional_pos()
+    }
+
+    pub fn follows_scene(&self) -> bool {
+        self.rt_settings.play_mode.follows_scene()
     }
 
     pub fn is_recording(&self) -> bool {

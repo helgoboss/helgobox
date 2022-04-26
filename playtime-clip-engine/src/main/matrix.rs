@@ -19,8 +19,8 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api as api;
 use playtime_api::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, Db, MatrixClipPlayAudioSettings,
-    MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
+    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
@@ -191,12 +191,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 &self.recorder_request_sender,
                 &self.settings,
             )?;
-            let handle = ColumnHandle {
-                pointer: column.rt_column(),
-                command_sender: column.rt_command_sender(),
-            };
-            self.rt_command_sender.insert_column(i, handle);
-            self.columns.push(column);
+            column.sync_settings_to_rt(&self.settings);
+            initialize_new_column(i, column, &self.rt_command_sender, &mut self.columns);
         }
         // Rows
         self.rows = api_matrix
@@ -277,21 +273,37 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.columns.get(coordinates.column)?.clip(coordinates.row)
     }
 
-    pub fn all_clips_in_row(&self, row_index: usize) -> impl Iterator<Item = Option<&Clip>> + '_ {
-        self.columns.iter().map(move |c| c.clip(row_index))
+    pub fn all_clips_in_scene(
+        &self,
+        row_index: usize,
+    ) -> impl Iterator<Item = ClipWithColumn> + '_ {
+        let project = self.permanent_project();
+        self.columns
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.follows_scene())
+            .filter_map(move |(i, c)| {
+                let clip = c.clip(row_index)?;
+                let api_clip = clip.save(project).ok()?;
+                Some(ClipWithColumn::new(i, api_clip))
+            })
     }
 
-    pub fn clear_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
+    pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
         }
         self.history
-            .add("Before clearing row".to_owned(), self.save());
+            .add("Before clearing scene".to_owned(), self.save());
         // TODO-medium This is not optimal because it will create multiple undo points.
-        for column in &self.columns {
+        for column in self.scene_columns() {
             column.clear_slot(row_index);
         }
         Ok(())
+    }
+
+    fn scene_columns(&self) -> impl Iterator<Item = &Column> {
+        self.columns.iter().filter(|c| c.follows_scene())
     }
 
     pub fn clear_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
@@ -325,21 +337,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn fill_row_with_clips(
         &mut self,
         row_index: usize,
-        api_clips: Vec<Option<api::Clip>>,
+        clips: Vec<ClipWithColumn>,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill row with clips", |matrix| {
-            for (i, api_clip) in api_clips.into_iter().enumerate() {
-                let api_clip = match api_clip {
-                    None => continue,
-                    Some(c) => c,
-                };
-                let column = match get_column_mut(&mut matrix.columns, i).ok() {
+            for clip in clips {
+                let column = match get_column_mut(&mut matrix.columns, clip.column_index).ok() {
                     None => break,
                     Some(c) => c,
                 };
                 column.fill_slot_with_clip(
                     row_index,
-                    api_clip,
+                    clip.clip,
                     &matrix.chain_equipment,
                     &matrix.recorder_request_sender,
                     &matrix.settings,
@@ -446,45 +454,73 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn build_scene_in_first_empty_row(&mut self) -> ClipEngineResult<()> {
         let empty_row_index = (0usize..)
-            .find(|row_index| self.row_is_empty(*row_index))
+            .find(|row_index| self.scene_is_empty(*row_index))
             .expect("there's always an empty row");
         self.build_scene_internal(empty_row_index)
     }
 
     pub fn build_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        if !self.row_is_empty(row_index) {
+        if !self.scene_is_empty(row_index) {
             return Err("row is not empty");
         }
         self.build_scene_internal(row_index)
     }
 
     fn build_scene_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        let playing_clips = self.capture_playing_clips()?;
-        self.distribute_clips_to_row(playing_clips, row_index)?;
-        self.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
-        Ok(())
+        self.undoable("Build scene", |matrix| {
+            let playing_clips = matrix.capture_playing_clips()?;
+            matrix.distribute_clips_to_scene(playing_clips, row_index)?;
+            matrix.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
+            Ok(())
+        })
     }
 
-    fn distribute_clips_to_row(
+    fn distribute_clips_to_scene(
         &mut self,
-        clips: Vec<ClipInColumn>,
+        clips: Vec<ClipWithColumn>,
         row_index: usize,
     ) -> ClipEngineResult<()> {
         for clip in clips {
             // First try to put it within same column as clip itself
-            let column = get_column_mut(&mut self.columns, clip.column_index)?;
-            if column.slot_is_empty(row_index) {
-                // We have space in that column, good.
-                column.fill_slot_with_clip(
-                    row_index,
-                    clip.clip,
-                    &self.chain_equipment,
-                    &self.recorder_request_sender,
-                    &self.settings,
-                )?;
-            }
-            // TODO-high Handle case that slot in same column is already occupied
-            // TODO-high Only accept columns that follow the scene
+            let original_column = get_column_mut(&mut self.columns, clip.column_index)?;
+            let dest_column =
+                if original_column.follows_scene() && original_column.slot_is_empty(row_index) {
+                    // We have space in that column, good.
+                    original_column
+                } else {
+                    // We need to find another appropriate column.
+                    let original_column_track = original_column.playback_track().ok().cloned();
+                    let existing_column = self.columns.iter_mut().find(|c| {
+                        c.follows_scene()
+                            && c.slot_is_empty(row_index)
+                            && c.playback_track().ok() == original_column_track.as_ref()
+                    });
+                    if let Some(c) = existing_column {
+                        // Found.
+                        c
+                    } else {
+                        // Not found. Create a new one.
+                        let same_column = self.columns.get(clip.column_index).unwrap();
+                        let mut duplicate = same_column.duplicate_without_contents();
+                        duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
+                        duplicate.sync_settings_to_rt(&self.settings);
+                        let duplicate_index = self.columns.len();
+                        initialize_new_column(
+                            duplicate_index,
+                            duplicate,
+                            &self.rt_command_sender,
+                            &mut self.columns,
+                        );
+                        self.columns.last_mut().unwrap()
+                    }
+                };
+            dest_column.fill_slot_with_clip(
+                row_index,
+                clip.clip,
+                &self.chain_equipment,
+                &self.recorder_request_sender,
+                &self.settings,
+            )?;
         }
         Ok(())
     }
@@ -497,11 +533,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         column.slot_is_empty(coordinates.row)
     }
 
-    pub fn row_is_empty(&self, row_index: usize) -> bool {
-        self.columns.iter().all(|c| c.slot_is_empty(row_index))
+    pub fn scene_is_empty(&self, row_index: usize) -> bool {
+        self.scene_columns().all(|c| c.slot_is_empty(row_index))
     }
 
-    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ClipInColumn>> {
+    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ClipWithColumn>> {
         let project = self.permanent_project();
         self.columns
             .iter()
@@ -509,7 +545,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .flat_map(|(col_index, col)| {
                 col.playing_clips().map(move |(_, clip)| {
                     let api_clip = clip.save(project)?;
-                    Ok(ClipInColumn::new(col_index, api_clip))
+                    Ok(ClipWithColumn::new(col_index, api_clip))
                 })
             })
             .collect()
@@ -890,13 +926,28 @@ pub enum RecordKind {
     MidiOverdub,
 }
 
-struct ClipInColumn {
+#[derive(Clone, Debug)]
+pub struct ClipWithColumn {
     column_index: usize,
     clip: api::Clip,
 }
 
-impl ClipInColumn {
+impl ClipWithColumn {
     fn new(column_index: usize, clip: api::Clip) -> Self {
         Self { column_index, clip }
     }
+}
+
+fn initialize_new_column(
+    column_index: usize,
+    column: Column,
+    rt_command_sender: &Sender<rt::MatrixCommand>,
+    columns: &mut Vec<Column>,
+) {
+    let handle = ColumnHandle {
+        pointer: column.rt_column(),
+        command_sender: column.rt_command_sender(),
+    };
+    rt_command_sender.insert_column(column_index, handle);
+    columns.push(column);
 }

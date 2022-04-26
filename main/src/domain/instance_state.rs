@@ -12,7 +12,7 @@ use crate::domain::{
     InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
 };
 use playtime_clip_engine::main::{
-    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
+    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, ClipWithColumn, Matrix,
 };
 use playtime_clip_engine::rt;
 
@@ -68,7 +68,7 @@ pub struct InstanceState {
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
     copied_clip: Option<playtime_api::Clip>,
-    copied_clips: Vec<Option<playtime_api::Clip>>,
+    copied_clips_in_row: Vec<ClipWithColumn>,
 }
 
 #[derive(Debug)]
@@ -168,7 +168,7 @@ impl InstanceState {
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
             copied_clip: None,
-            copied_clips: vec![],
+            copied_clips_in_row: vec![],
         }
     }
 
@@ -194,12 +194,12 @@ impl InstanceState {
         self.copied_clip.as_ref()
     }
 
-    pub fn copy_clips(&mut self, clips: Vec<Option<playtime_api::Clip>>) {
-        self.copied_clips = clips;
+    pub fn copy_clips_in_row(&mut self, clips: Vec<ClipWithColumn>) {
+        self.copied_clips_in_row = clips;
     }
 
-    pub fn copied_clips(&self) -> &[Option<playtime_api::Clip>] {
-        &self.copied_clips
+    pub fn copied_clips_in_row(&self) -> &[ClipWithColumn] {
+        &self.copied_clips_in_row
     }
 
     pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
