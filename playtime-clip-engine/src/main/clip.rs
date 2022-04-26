@@ -9,7 +9,7 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api as api;
-use playtime_api::{ClipColor, ClipTimeBase, Db, Section};
+use playtime_api::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::Bpm;
 
@@ -20,6 +20,8 @@ use reaper_medium::Bpm;
 pub struct Clip {
     name: Option<String>,
     source: api::Source,
+    frozen_source: Option<api::Source>,
+    active_source: SourceOrigin,
     processing_relevant_settings: ProcessingRelevantClipSettings,
 }
 
@@ -29,6 +31,8 @@ impl Clip {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
             name: api_clip.name,
             source: api_clip.source,
+            frozen_source: api_clip.frozen_source,
+            active_source: api_clip.active_source,
         }
     }
 
@@ -51,6 +55,8 @@ impl Clip {
         let clip = Self {
             name: recording_track.name().map(|n| n.into_string()),
             source: api_source,
+            frozen_source: None,
+            active_source: SourceOrigin::Normal,
             processing_relevant_settings: clip_settings,
         };
         Ok(clip)
@@ -84,6 +90,8 @@ impl Clip {
                     self.source.clone()
                 }
             },
+            frozen_source: self.frozen_source.clone(),
+            active_source: self.active_source,
             time_base: self.processing_relevant_settings.time_base,
             start_timing: self.processing_relevant_settings.start_timing,
             stop_timing: self.processing_relevant_settings.stop_timing,
@@ -137,7 +145,14 @@ impl Clip {
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::ColumnSettings,
     ) -> ClipEngineResult<(rt::Clip, Option<ClipSource>)> {
-        let pcm_source = create_pcm_source_from_api_source(&self.source, permanent_project)?;
+        let api_source = match self.active_source {
+            SourceOrigin::Normal => &self.source,
+            SourceOrigin::Frozen => &self
+                .frozen_source
+                .as_ref()
+                .ok_or("no frozen source given")?,
+        };
+        let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
         let pooled_copy = if matches!(self.source, api::Source::MidiChunk(_)) {
             let clone =
                 Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());

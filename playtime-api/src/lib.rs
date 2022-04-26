@@ -718,6 +718,20 @@ pub enum RecordOrigin {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum SourceOrigin {
+    /// Normal source.
+    Normal,
+    /// Frozen source.
+    Frozen,
+}
+
+impl Default for SourceOrigin {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChannelRange {
     pub first_channel_index: u32,
@@ -747,6 +761,12 @@ pub struct Clip {
     pub name: Option<String>,
     /// Source of the audio/MIDI material of this clip.
     pub source: Source,
+    /// Source with effects "rendered in", usually audio.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frozen_source: Option<Source>,
+    /// Which of the sources is the active one.
+    #[serde(default)]
+    pub active_source: SourceOrigin,
     /// Time base of the material provided by that source.
     pub time_base: ClipTimeBase,
     /// Start timing override.

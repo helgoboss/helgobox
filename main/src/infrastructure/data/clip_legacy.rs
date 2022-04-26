@@ -3,6 +3,7 @@ use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::{ReaperTargetType, TransportAction};
 use crate::infrastructure::data::{deserialize_track, MappingModelData};
+use playtime_api::SourceOrigin;
 use reaper_high::{Guid, Track};
 use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,8 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                                         api::Source::MidiChunk(api::MidiChunkSource { chunk })
                                     }
                                 },
+                                frozen_source: None,
+                                active_source: SourceOrigin::Normal,
                                 time_base: api::ClipTimeBase::Time,
                                 start_timing: None,
                                 stop_timing: None,
