@@ -180,7 +180,7 @@ impl SupplierChain {
         self.set_looped(settings.looped);
         self.set_time_base(&settings.time_base, material_info.is_midi())?;
         self.set_volume(settings.volume);
-        self.set_section_bounds_in_seconds(settings.section.start_pos, settings.section.length);
+        self.set_section(settings.section.start_pos, settings.section.length);
         self.set_audio_fades_enabled_for_source(settings.audio_apply_source_fades);
         self.set_audio_time_stretch_mode(settings.audio_time_stretch_mode);
         self.set_audio_resample_mode(settings.audio_resample_mode);
@@ -442,11 +442,7 @@ impl SupplierChain {
         self.pre_buffer_supplier().send_command(command);
     }
 
-    fn set_section_bounds_in_seconds(
-        &mut self,
-        start: PositiveSecond,
-        length: Option<PositiveSecond>,
-    ) {
+    pub fn set_section(&mut self, start: PositiveSecond, length: Option<PositiveSecond>) {
         let command = ChainPreBufferCommand::SetSectionBoundsInSeconds { start, length };
         self.pre_buffer_supplier().send_command(command);
     }

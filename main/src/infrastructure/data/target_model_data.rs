@@ -259,7 +259,7 @@ impl TargetModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
-            clip_management_action: model.clip_management_action(),
+            clip_management_action: model.clip_management_action().clone(),
             next_bar: false,
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
@@ -474,7 +474,9 @@ impl TargetModelData {
         model.change(C::SetClipSlot(slot_descriptor));
         model.change(C::SetClipColumn(self.clip_column.clone()));
         model.change(C::SetClipRow(self.clip_row.clone()));
-        model.change(C::SetClipManagementAction(self.clip_management_action));
+        model.change(C::SetClipManagementAction(
+            self.clip_management_action.clone(),
+        ));
         let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
             use ClipTransportAction as T;
             use TransportAction::*;

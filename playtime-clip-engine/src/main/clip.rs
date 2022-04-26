@@ -187,8 +187,12 @@ impl Clip {
         &self.processing_relevant_settings.time_base
     }
 
-    pub fn section(&self) -> &Section {
-        &self.processing_relevant_settings.section
+    pub fn section(&self) -> Section {
+        self.processing_relevant_settings.section
+    }
+
+    pub fn set_section(&mut self, section: Section) {
+        self.processing_relevant_settings.section = section;
     }
 
     /// Returns `None` if time base is not "Beat".

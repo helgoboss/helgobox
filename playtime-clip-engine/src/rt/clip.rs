@@ -290,6 +290,17 @@ impl Clip {
         }
     }
 
+    pub fn set_section(&mut self, section: api::Section) -> ClipEngineResult<()> {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => {
+                s.set_section(section, &mut self.supplier_chain);
+                Ok(())
+            }
+            Recording(_) => Err("can't set section while recording"),
+        }
+    }
+
     pub fn looped(&self) -> bool {
         use ClipState::*;
         match self.state {
@@ -506,6 +517,10 @@ impl ReadyState {
             }
         }
         supplier_chain.set_looped(self.play_settings.looped);
+    }
+
+    pub fn set_section(&mut self, section: api::Section, supplier_chain: &mut SupplierChain) {
+        supplier_chain.set_section(section.start_pos, section.length);
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {

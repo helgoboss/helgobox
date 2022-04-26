@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipManagementTarget {
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = ClipManagementTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
-            action: self.action,
+            action: self.action.clone(),
         };
         Ok(vec![ReaperTarget::ClipManagement(target)])
     }
@@ -53,7 +53,10 @@ impl RealearnTarget for ClipManagementTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use ClipManagementAction as A;
         match self.action {
-            A::ClearSlot | A::FillSlotWithSelectedItem | A::CopyOrPasteClip => (
+            A::ClearSlot
+            | A::FillSlotWithSelectedItem
+            | A::CopyOrPasteClip
+            | A::AdjustClipSectionLength(_) => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
@@ -67,7 +70,7 @@ impl RealearnTarget for ClipManagementTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use ClipManagementAction as A;
-        match self.action {
+        match &self.action {
             A::ClearSlot => {
                 if !value.is_on() {
                     return Ok(None);
@@ -94,6 +97,15 @@ impl RealearnTarget for ClipManagementTarget {
                 }
                 Ok(None)
             })?,
+            A::AdjustClipSectionLength(a) => {
+                if !value.is_on() {
+                    return Ok(None);
+                }
+                self.with_matrix(context, |matrix| {
+                    matrix.adjust_clip_section_length(self.slot_coordinates, a.factor)?;
+                    Ok(None)
+                })?
+            }
             A::CopyOrPasteClip => {
                 if !value.is_on() {
                     return Ok(None);
@@ -162,9 +174,10 @@ impl<'a> Target<'a> for ClipManagementTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         use ClipManagementAction as A;
         match self.action {
-            A::ClearSlot | A::FillSlotWithSelectedItem | A::CopyOrPasteClip => {
-                Some(AbsoluteValue::default())
-            }
+            A::ClearSlot
+            | A::FillSlotWithSelectedItem
+            | A::CopyOrPasteClip
+            | A::AdjustClipSectionLength(_) => Some(AbsoluteValue::default()),
             A::EditClip => BackboneState::get()
                 .with_clip_matrix(context.instance_state, |matrix| {
                     let is_editing = matrix.is_editing_clip(self.slot_coordinates);

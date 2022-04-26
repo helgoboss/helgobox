@@ -318,6 +318,15 @@ impl Column {
         self.rt_command_sender.clear_slot(slot_index);
     }
 
+    pub fn adjust_clip_section_length(
+        &mut self,
+        slot_index: usize,
+        factor: f64,
+    ) -> ClipEngineResult<()> {
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        slot.adjust_clip_section_length(factor, &self.rt_command_sender)
+    }
+
     pub fn start_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
         let slot = self.get_slot(slot_index)?;
         slot.start_editing_clip(self.project.or_current_project())

@@ -316,6 +316,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    pub fn adjust_clip_section_length(
+        &mut self,
+        coordinates: ClipSlotCoordinates,
+        factor: f64,
+    ) -> ClipEngineResult<()> {
+        let column = get_column_mut(&mut self.columns, coordinates.column)?;
+        column.adjust_clip_section_length(coordinates.row, factor)
+    }
+
     pub fn start_editing_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let column = get_column(&self.columns, coordinates.column)?;
         column.start_editing_clip(coordinates.row)

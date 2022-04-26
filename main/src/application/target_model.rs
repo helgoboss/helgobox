@@ -989,8 +989,8 @@ impl TargetModel {
         self.osc_dev_id
     }
 
-    pub fn clip_management_action(&self) -> ClipManagementAction {
-        self.clip_management_action
+    pub fn clip_management_action(&self) -> &ClipManagementAction {
+        &self.clip_management_action
     }
 
     pub fn poll_for_feedback(&self) -> bool {
@@ -2027,7 +2027,7 @@ impl TargetModel {
                     ClipManagement => {
                         UnresolvedReaperTarget::ClipManagement(UnresolvedClipManagementTarget {
                             slot: self.virtual_clip_slot()?,
-                            action: self.clip_management_action,
+                            action: self.clip_management_action.clone(),
                         })
                     }
                     ClipMatrix => UnresolvedReaperTarget::ClipMatrix(UnresolvedClipMatrixTarget {

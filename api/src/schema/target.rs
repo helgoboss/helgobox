@@ -578,19 +578,26 @@ pub struct ClipManagementTarget {
     pub action: ClipManagementAction,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipManagementAction {
     ClearSlot,
     FillSlotWithSelectedItem,
     EditClip,
     CopyOrPasteClip,
+    AdjustClipSectionLength(AdjustClipSectionLengthAction),
 }
 
 impl Default for ClipManagementAction {
     fn default() -> Self {
         Self::ClearSlot
     }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AdjustClipSectionLengthAction {
+    pub factor: f64,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

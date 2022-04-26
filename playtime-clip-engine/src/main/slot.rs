@@ -23,7 +23,7 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     ChannelRange, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
-    MidiClipRecordMode, RecordOrigin,
+    MidiClipRecordMode, PositiveSecond, RecordOrigin,
 };
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
@@ -358,6 +358,27 @@ impl Slot {
 
     fn get_content(&self) -> ClipEngineResult<&Content> {
         self.content.as_ref().ok_or(SLOT_NOT_FILLED)
+    }
+
+    pub fn adjust_clip_section_length(
+        &mut self,
+        factor: f64,
+        column_command_sender: &ColumnCommandSender,
+    ) -> ClipEngineResult<()> {
+        let content = get_content_mut(&mut self.content)?;
+        let current_section = content.clip.section();
+        let current_length = if let Some(current_length) = current_section.length {
+            current_length.get()
+        } else {
+            content.runtime_data.material_info.duration().get()
+        };
+        let new_section = api::Section {
+            start_pos: current_section.start_pos,
+            length: Some(PositiveSecond::new(current_length * factor)?),
+        };
+        content.clip.set_section(new_section);
+        column_command_sender.set_clip_section(self.index, new_section);
+        Ok(())
     }
 
     pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {

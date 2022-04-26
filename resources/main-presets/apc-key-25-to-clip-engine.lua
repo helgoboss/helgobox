@@ -424,6 +424,19 @@ function clip_management_action(col, row, action)
     }
 end
 
+function adjust_clip_section_length_action(col, row, factor)
+    return PartialMapping {
+        target = {
+            kind = "ClipManagement",
+            slot = create_slot_selector(col, row),
+            action = {
+                kind = "AdjustClipSectionLength",
+                factor = factor,
+            },
+        },
+    }
+end
+
 function slot_state_text_feedback()
     return PartialMapping {
         glue = {
@@ -613,6 +626,12 @@ local groups = {
     slot_copy_or_paste = {
         name = "Slot copy or paste",
     },
+    slot_double = {
+        name = "Slot double section",
+    },
+    slot_halve = {
+        name = "Slot halve section",
+    },
     column_stop = {
         name = "Column stop",
         activation_condition = column_mode_is(column_modes.stop),
@@ -724,6 +743,8 @@ for col = 0, column_count - 1 do
         table.insert(mappings, name("Edit clip") + group(groups.slot_quantize) + feedback_disabled() + sustain + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
         --table.insert(mappings, name("Overdub clip") + group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
         table.insert(mappings, name("Copy or paste clip") + group(groups.slot_copy_or_paste) + feedback_disabled() + sustain + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
+        table.insert(mappings, name("Double section") + group(groups.slot_double) + feedback_disabled() + shift + double_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 2))
+        table.insert(mappings, name("Double section") + group(groups.slot_double) + feedback_disabled() + shift + single_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 0.5))
     end
 end
 

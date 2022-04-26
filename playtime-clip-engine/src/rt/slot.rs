@@ -7,6 +7,7 @@ use crate::rt::{
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
+use playtime_api as api;
 use playtime_api::{ClipPlayStopTiming, Db};
 use reaper_medium::PlayState;
 
@@ -106,6 +107,10 @@ impl Slot {
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
         self.clip_mut_internal()?.set_looped(repeated)
+    }
+
+    pub fn set_clip_section(&mut self, section: api::Section) -> ClipEngineResult<()> {
+        self.clip_mut_internal()?.set_section(section)
     }
 
     /// # Errors

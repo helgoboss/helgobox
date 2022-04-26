@@ -10,6 +10,7 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
+use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming,
     ColumnPlayMode, Db, VirtualResampleMode,
@@ -143,6 +144,14 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::SetClipVolume(args));
     }
 
+    pub fn set_clip_section(&self, slot_index: usize, section: api::Section) {
+        let args = ColumnSetClipSectionArgs {
+            slot_index,
+            section,
+        };
+        self.send_task(ColumnCommand::SetClipSection(args));
+    }
+
     pub fn record_clip(&self, slot_index: usize, instruction: SlotRecordInstruction) {
         let args = ColumnRecordClipArgs {
             slot_index,
@@ -173,6 +182,7 @@ pub enum ColumnCommand {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipLooped(ColumnSetClipLoopedArgs),
+    SetClipSection(ColumnSetClipSectionArgs),
     RecordClip(Box<Option<ColumnRecordClipArgs>>),
 }
 
@@ -450,6 +460,10 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_looped(args.looped)
     }
 
+    pub fn set_clip_section(&mut self, args: ColumnSetClipSectionArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_section(args.section)
+    }
+
     pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
         Ok(get_slot(&self.slots, slot_index)?.clip()?.play_state())
     }
@@ -609,6 +623,9 @@ impl Column {
                 }
                 SetClipLooped(args) => {
                     self.set_clip_looped(args).unwrap();
+                }
+                SetClipSection(args) => {
+                    self.set_clip_section(args).unwrap();
                 }
                 RecordClip(mut boxed_args) => {
                     let args = boxed_args.take().unwrap();
@@ -943,6 +960,12 @@ pub struct ColumnRecordClipArgs {
 pub struct ColumnSetClipLoopedArgs {
     pub slot_index: usize,
     pub looped: bool,
+}
+
+#[derive(Debug)]
+pub struct ColumnSetClipSectionArgs {
+    pub slot_index: usize,
+    pub section: api::Section,
 }
 
 pub struct ColumnWithSlotArgs<'a> {
