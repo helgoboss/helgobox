@@ -402,7 +402,7 @@ impl Slot {
             // TODO-low This problem might disappear though as soon as we can use
             //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
             //  on sections).
-            source.reaper_source().ext_set_preview_tempo(None);
+            let _ = source.reaper_source().ext_set_preview_tempo(None);
         }
         // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
         let item = editor_track.add_item().map_err(|e| e.message())?;

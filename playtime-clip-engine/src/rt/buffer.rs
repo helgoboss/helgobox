@@ -202,11 +202,12 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
             .copied()
     }
 
+    /// Works pretty much like indexing slices with a range.
+    ///
+    /// - Ranges that yield an empty buffer are allowed.
+    /// - Panics when out of bounds.
     pub fn slice(&self, bounds: impl RangeBounds<usize>) -> AudioBuf {
         let desc = self.prepare_slice(bounds);
-        if desc.new_frame_count == 0 {
-            panic!("slicing results in buffer with a frame count of zero");
-        }
         AudioBuf {
             data: &self.data.as_ref()[desc.data_start_index..desc.data_end_index],
             frame_count: desc.new_frame_count,
@@ -226,7 +227,7 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
             Excluded(i) => *i,
             Unbounded => self.frame_count,
         };
-        if start_frame >= self.frame_count || end_frame > self.frame_count {
+        if start_frame > self.frame_count || end_frame > self.frame_count {
             panic!("slice range out of bounds");
         }
         if start_frame > end_frame {
@@ -253,6 +254,10 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
         self.data.as_mut()
     }
 
+    /// Works pretty much like indexing slices with a range.
+    ///
+    /// - Ranges that yield an empty buffer are allowed.
+    /// - Panics when out of bounds.
     pub fn slice_mut(&mut self, bounds: impl RangeBounds<usize>) -> AudioBufMut {
         let desc = self.prepare_slice(bounds);
         AudioBufMut {
