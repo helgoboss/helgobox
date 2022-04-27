@@ -727,15 +727,13 @@ impl MainMapping {
             processor_context,
             false,
             |options, context, mode, target| {
-                let bla = mode.control_with_options(
+                mode.control_with_options(
                     source_control_event,
                     target,
                     context,
                     options.mode_control_options,
                     last_non_performance_target_value,
-                );
-                tracing_debug!("Bla: {:?}", &bla);
-                bla
+                )
             },
         )
     }

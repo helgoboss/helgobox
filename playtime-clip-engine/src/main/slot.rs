@@ -16,7 +16,7 @@ use crate::rt::{
     MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
     RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
 };
-use crate::source_util::create_pcm_source_from_file_based_api_source;
+use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -381,65 +381,66 @@ impl Slot {
         Ok(())
     }
 
+    pub fn is_freezeable(&self) -> bool {
+        let content = match self.content.as_ref() {
+            None => return false,
+            Some(c) => c,
+        };
+        if !content.runtime_data.material_info.is_midi() {
+            // At the moment, we only freeze MIDI to audio.
+            return false;
+        }
+        true
+    }
+
+    pub fn freeze<H: ClipMatrixHandler>(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
+        let content = match self.content.as_mut() {
+            None => return Err("no content"),
+            Some(c) => c,
+        };
+        // TODO-high CONTINUE Prevent the borrow errors by deferring each clip freezing.
+        // TODO-high CONTINUE Get the clip-to-item layout 100% right.
+        // TODO-high CONTINUE Sync the frozen clips to the real-time thread when finished.
+        // TODO-high CONTINUE Provide a header panel action to go back to unfrozen version.
+        // TODO-high CONTINUE Provide a header panel action to go back to frozen version.
+        // TODO-high CONTINUE Don't freeze tracks whose FX chain contains ReaLearn FX only.
+        // TODO-high CONTINUE Take relevant FX offline/online when freezing/unfreezing.
+        let project = playback_track.project();
+        let manifestation = manifest_clip_on_track(project, content, playback_track)?;
+        project.select_item_exclusively(manifestation.item);
+        // Item: Apply track/take FX to items
+        let apply_fx_id = CommandId::new(40209);
+        Reaper::get()
+            .main_section()
+            .action_by_command_id(apply_fx_id)
+            .invoke_as_trigger(Some(project));
+        let frozen_take = manifestation
+            .item
+            .active_take()
+            .expect("frozen item doesn't have frozen take");
+        let frozen_pcm_source = frozen_take
+            .source()
+            .expect("frozen take doesn't have a source");
+        let file_name = frozen_pcm_source
+            .file_name()
+            .expect("frozen source doesn't have file name");
+        let frozen_api_source = create_file_api_source(Some(project), &file_name);
+        content
+            .clip
+            .activate_frozen_source(frozen_api_source, manifestation.tempo);
+        Ok(())
+    }
+
     pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
         let is_midi = content.runtime_data.material_info.is_midi();
-        let timeline = clip_timeline(Some(temporary_project), true);
-        // We must put the item exactly how we would play it so the grid is correct (important
-        // for MIDI editor).
-        let item_length = content.effective_length_in_seconds(&timeline)?;
-        let section_start_pos = DurationInSeconds::new(content.clip.section().start_pos.get());
-        let (item_pos, take_offset) = match content.clip.time_base() {
-            // Place section start exactly on start of project.
-            ClipTimeBase::Time => (
-                PositionInSeconds::ZERO,
-                PositionInSeconds::from(section_start_pos),
-            ),
-            ClipTimeBase::Beat(t) => {
-                // Place downbeat exactly on start of 2nd bar of project.
-                let second_bar_pos = timeline.pos_of_quantized_pos(QuantizedPosition::bar(1));
-                let bpm = timeline.tempo_at(second_bar_pos);
-                let bps = bpm.get() / 60.0;
-                let downbeat_pos = t.downbeat.get() / bps;
-                (
-                    second_bar_pos - downbeat_pos,
-                    PositionInSeconds::from(section_start_pos),
-                )
-            }
-        };
         let editor_track = find_or_create_editor_track(temporary_project, !is_midi);
-        let source = if let Some(s) = content.pooled_midi_source.as_ref() {
-            Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
-        } else {
-            content.clip.create_pcm_source(Some(temporary_project))?
-        };
-        if is_midi {
-            // Because we set a constant preview tempo for our MIDI sources (which is
-            // important for our internal processing), IGNTEMPO is set to 1, which means the source
-            // is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
-            // editor because in reality they are beat-based. The following sets IGNTEMPO to 0
-            // for recent REAPER versions. Hopefully this is then only valid for this particular
-            // pooled copy.
-            // TODO-low This problem might disappear though as soon as we can use
-            //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
-            //  on sections).
-            let _ = source.reaper_source().ext_set_preview_tempo(None);
-        }
-        // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
-        let item = editor_track.add_item().map_err(|e| e.message())?;
-        let take = item.add_take().map_err(|e| e.message())?;
-        let source = OwnedSource::new(source.into_reaper_source());
-        take.set_source(source);
-        take.set_start_offset(take_offset).unwrap();
-        item.set_position(item_pos, UiRefreshBehavior::NoRefresh)
-            .unwrap();
-        item.set_length(item_length, UiRefreshBehavior::NoRefresh)
-            .unwrap();
+        let manifestation = manifest_clip_on_track(temporary_project, content, &editor_track)?;
         if is_midi {
             // open_midi_editor_via_action(temporary_project, item);
-            open_midi_editor_directly(editor_track, take);
+            open_midi_editor_directly(editor_track, manifestation.take);
         } else {
-            open_audio_editor(temporary_project, item);
+            open_audio_editor(temporary_project, manifestation.item);
         }
         Ok(())
     }
@@ -1050,4 +1051,72 @@ fn find_clip_item(content: &Content, editor_track: &Track) -> Option<Item> {
     editor_track.items().find(|item| {
         item_refers_to_clip_content(*item, content) && item_is_open_in_midi_editor(*item)
     })
+}
+
+fn manifest_clip_on_track(
+    temporary_project: Project,
+    content: &Content,
+    track: &Track,
+) -> ClipEngineResult<ClipOnTrackManifestation> {
+    // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
+    let item = track.add_item().map_err(|e| e.message())?;
+    let timeline = clip_timeline(Some(temporary_project), true);
+    // We must put the item exactly how we would play it so the grid is correct (important
+    // for MIDI editor).
+    let item_length = content.effective_length_in_seconds(&timeline)?;
+    let section_start_pos = DurationInSeconds::new(content.clip.section().start_pos.get());
+    let (item_pos, take_offset, tempo) = match content.clip.time_base() {
+        // Place section start exactly on start of project.
+        ClipTimeBase::Time => (
+            PositionInSeconds::ZERO,
+            PositionInSeconds::from(section_start_pos),
+            None,
+        ),
+        ClipTimeBase::Beat(t) => {
+            // Place downbeat exactly on start of 2nd bar of project.
+            let second_bar_pos = timeline.pos_of_quantized_pos(QuantizedPosition::bar(1));
+            let bpm = timeline.tempo_at(second_bar_pos);
+            let bps = bpm.get() / 60.0;
+            let downbeat_pos = t.downbeat.get() / bps;
+            (
+                second_bar_pos - downbeat_pos,
+                PositionInSeconds::from(section_start_pos),
+                Some(bpm),
+            )
+        }
+    };
+    let source = if let Some(s) = content.pooled_midi_source.as_ref() {
+        Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
+    } else {
+        content.clip.create_pcm_source(Some(temporary_project))?
+    };
+    if content.runtime_data.material_info.is_midi() {
+        // Because we set a constant preview tempo for our MIDI sources (which is
+        // important for our internal processing), IGNTEMPO is set to 1, which means the source
+        // is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
+        // editor because in reality they are beat-based. The following sets IGNTEMPO to 0
+        // for recent REAPER versions. Hopefully this is then only valid for this particular
+        // pooled copy.
+        // TODO-low This problem might disappear though as soon as we can use
+        //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
+        //  on sections).
+        let _ = source.reaper_source().ext_set_preview_tempo(None);
+    }
+    let take = item.add_take().map_err(|e| e.message())?;
+    let source = OwnedSource::new(source.into_reaper_source());
+    take.set_source(source);
+    take.set_start_offset(take_offset).unwrap();
+    item.set_position(item_pos, UiRefreshBehavior::NoRefresh)
+        .unwrap();
+    item.set_length(item_length, UiRefreshBehavior::NoRefresh)
+        .unwrap();
+    let manifestation = ClipOnTrackManifestation { item, take, tempo };
+    Ok(manifestation)
+}
+
+pub struct ClipOnTrackManifestation {
+    item: Item,
+    take: Take,
+    /// Always set if beat-based.
+    tempo: Option<Bpm>,
 }

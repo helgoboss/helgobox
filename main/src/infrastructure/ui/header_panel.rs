@@ -232,6 +232,11 @@ impl HeaderPanel {
                 !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
+            let has_clip_matrix = session
+                .instance_state()
+                .borrow()
+                .owned_clip_matrix()
+                .is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
@@ -319,6 +324,14 @@ impl HeaderPanel {
                                 checked: false,
                             },
                             move || ContextMenuAction::DryRunLuaScript(text_from_clipboard_clone),
+                        ),
+                        item_with_opts(
+                            "Freeze clip matrix",
+                            ItemOpts {
+                                enabled: has_clip_matrix,
+                                checked: false,
+                            },
+                            || ContextMenuAction::FreezeClipMatrix,
                         ),
                     ],
                 ),
@@ -596,6 +609,9 @@ impl HeaderPanel {
             }
             ContextMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
+            }
+            ContextMenuAction::FreezeClipMatrix => {
+                let _ = self.freeze_clip_matrix();
             }
             ContextMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             ContextMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
@@ -1059,6 +1075,17 @@ impl HeaderPanel {
                     .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
                     .is_checked(),
             );
+    }
+
+    fn freeze_clip_matrix(&self) -> Result<(), &'static str> {
+        self.session()
+            .borrow()
+            .instance_state()
+            .borrow()
+            .owned_clip_matrix()
+            .ok_or("this instance has no clip matrix")?
+            .freeze();
+        Ok(())
     }
 
     fn toggle_send_feedback_only_if_armed(&self) {
@@ -2801,6 +2828,7 @@ enum ContextMenuAction {
     PasteReplaceAllInGroup(Vec<MappingModelData>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
+    FreezeClipMatrix,
     ToggleAutoCorrectSettings,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,

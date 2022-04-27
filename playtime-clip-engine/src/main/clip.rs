@@ -105,6 +105,15 @@ impl Clip {
         Ok(clip)
     }
 
+    pub fn activate_frozen_source(&mut self, frozen_source: api::Source, tempo: Option<Bpm>) {
+        self.frozen_source = Some(frozen_source);
+        self.active_source = SourceOrigin::Frozen;
+        if let ClipTimeBase::Beat(tb) = &mut self.processing_relevant_settings.time_base {
+            let tempo = tempo.expect("tempo not given although beat time base");
+            tb.audio_tempo = Some(api::Bpm::new(tempo.get()).unwrap())
+        }
+    }
+
     /// Update API source in case project needs to be saved during recording.
     ///
     /// (Before recording, we should serialize the latest MIDI editor changes to the source

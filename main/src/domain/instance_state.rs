@@ -6,7 +6,7 @@ use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{Global, NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     BackboneState, Compartment, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask,
     InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
@@ -135,6 +135,21 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
             event,
         };
         self.event_sender.send_complaining(event);
+    }
+
+    fn defer(&self, f: Box<dyn FnOnce(&mut Matrix<Self>)>) {
+        let instance_id = self.instance_id;
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                let instance_state = match BackboneState::get().find_instance_state(instance_id) {
+                    None => return,
+                    Some(s) => s,
+                };
+                BackboneState::get()
+                    .with_clip_matrix_mut(&instance_state, f)
+                    .expect("failure while executing deferred clip matrix operation");
+            })
+            .expect("unable to defer matrix op");
     }
 }
 

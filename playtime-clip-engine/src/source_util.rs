@@ -35,6 +35,7 @@ pub fn create_api_source_from_item(
     create_api_source_from_pcm_source(root_pcm_source.as_raw(), mode, item.project())
 }
 
+/// Determines how to handle MIDI PCM sources.
 #[allow(dead_code)]
 pub enum CreateApiSourceMode {
     AllowEmbeddedData,
