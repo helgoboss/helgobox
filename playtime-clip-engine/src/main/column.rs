@@ -328,28 +328,11 @@ impl Column {
     }
 
     /// Freezes the complete column.
-    pub fn freeze<H: ClipMatrixHandler>(&self, column_index: usize, handler: &H) {
-        if self.playback_track().is_err() {
-            // No playback track, no freeze.
-            return;
-        };
-        for (row_index, slot) in self.slots.iter().enumerate() {
-            if !slot.is_freezeable() {
-                continue;
-            }
-            let coordinates = ClipSlotCoordinates::new(column_index, row_index);
-            let closure = move |matrix: &mut Matrix<H>| {
-                matrix.freeze_slot(coordinates).unwrap();
-            };
-            handler.defer(Box::new(closure));
+    pub async fn freeze(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        let playback_track = self.playback_track()?.clone();
+        for (row_index, slot) in self.slots.iter_mut().enumerate() {
+            let _ = slot.freeze(&playback_track).await;
         }
-    }
-
-    /// Freezes a specific slot.
-    pub fn freeze_slot(&mut self, slot_index: usize) -> ClipEngineResult<()> {
-        let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        let playback_track = self.playback_track()?;
-        // slot.freeze(playback_track)
         Ok(())
     }
 

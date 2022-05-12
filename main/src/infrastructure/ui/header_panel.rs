@@ -21,7 +21,7 @@ use crate::application::{
     PresetLinkMutator, PresetManager, SessionProp, SharedMapping, SharedSession,
     VirtualControlElementType, WeakSession,
 };
-use crate::base::when;
+use crate::base::{when, Global};
 use crate::domain::{
     convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef, Compartment,
     CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
@@ -611,7 +611,7 @@ impl HeaderPanel {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
             ContextMenuAction::FreezeClipMatrix => {
-                let _ = self.freeze_clip_matrix();
+                self.freeze_clip_matrix();
             }
             ContextMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             ContextMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
@@ -1077,15 +1077,19 @@ impl HeaderPanel {
             );
     }
 
-    fn freeze_clip_matrix(&self) -> Result<(), &'static str> {
-        self.session()
-            .borrow()
-            .instance_state()
-            .borrow()
-            .owned_clip_matrix()
-            .ok_or("this instance has no clip matrix")?
-            .freeze();
-        Ok(())
+    fn freeze_clip_matrix(&self) {
+        let weak_session = self.session.clone();
+        Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+            let session = weak_session.upgrade().expect("session gone");
+            session
+                .borrow()
+                .instance_state()
+                .borrow_mut()
+                .owned_clip_matrix_mut()
+                .expect("this instance has no clip matrix")
+                .freeze()
+                .await;
+        });
     }
 
     fn toggle_send_feedback_only_if_armed(&self) {

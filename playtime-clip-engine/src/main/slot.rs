@@ -393,12 +393,11 @@ impl Slot {
         true
     }
 
-    pub fn freeze<H: ClipMatrixHandler>(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
+    pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
         let content = match self.content.as_mut() {
             None => return Err("no content"),
             Some(c) => c,
         };
-        // TODO-high CONTINUE Prevent the borrow errors by deferring each clip freezing.
         // TODO-high CONTINUE Get the clip-to-item layout 100% right.
         // TODO-high CONTINUE Sync the frozen clips to the real-time thread when finished.
         // TODO-high CONTINUE Provide a header panel action to go back to unfrozen version.

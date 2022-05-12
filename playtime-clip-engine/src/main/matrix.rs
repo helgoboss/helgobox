@@ -264,16 +264,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Freezes the complete matrix.
-    pub fn freeze(&self) {
-        for (i, column) in self.columns.iter().enumerate() {
-            column.freeze(i, &self.handler);
+    pub async fn freeze(&mut self) {
+        for (i, column) in self.columns.iter_mut().enumerate() {
+            column.freeze(i).await;
         }
-    }
-
-    /// Freezes a specific slot.
-    pub fn freeze_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
-        column.freeze_slot(coordinates.row)
     }
 
     /// Takes the current effective matrix dimensions into account, so even if a slot doesn't exist
@@ -879,7 +873,6 @@ impl VirtualClipRecordAudioInput {
 pub trait ClipMatrixHandler: Sized {
     fn request_recording_input(&self, task: ClipRecordTask);
     fn emit_event(&self, event: ClipMatrixEvent);
-    fn defer(&self, f: Box<dyn FnOnce(&mut Matrix<Self>)>);
 }
 
 #[derive(Debug)]
