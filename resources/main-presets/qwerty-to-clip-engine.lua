@@ -6,10 +6,35 @@ local column_key_sets = {
     { "5", "t", "g", "b", },
     { "6", "y", "h", "n", },
     { "7", "u", "j", "m", },
-    { "8", "i", "k", ",", },
+    { "8", "i", "k", "comma", },
 }
 
-local mappings = {}
+function scene_play(key, row_index)
+    return {
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = "key/" .. key,
+        },
+        target = {
+            kind = "ClipRowAction",
+            row = {
+                address = "ByIndex",
+                index = row_index,
+            },
+            action = "PlayScene",
+        },
+    }
+end
+
+local mappings = {
+    scene_play("9", 0),
+    scene_play("o", 1),
+    scene_play("l", 2),
+    scene_play("period", 3),
+}
+
+
 
 for col, column_key_set in ipairs(column_key_sets) do
     for row, row_key in ipairs(column_key_set) do
@@ -29,8 +54,7 @@ for col, column_key_set in ipairs(column_key_sets) do
                     column_index = col - 1,
                     row_index = row - 1,
                 },
-                action = "RecordPlayStop",
-                record_only_if_track_armed = true,
+                action = "PlayStop",
                 stop_column_if_slot_empty = true,
                 play_start_timing = {
                     kind = "Immediately"
