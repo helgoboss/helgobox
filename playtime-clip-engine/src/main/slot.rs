@@ -756,6 +756,8 @@ struct CommonRecordStuff {
     temporary_route: Option<TrackRoute>,
 }
 
+// TODO-high Maybe fix the clippy warning
+#[allow(clippy::large_enum_variant)]
 enum ModeSpecificRecordStuff {
     FromScratch(FromScratchRecordStuff),
     MidiOverdub(MidiOverdubRecordStuff),

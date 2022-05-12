@@ -1,4 +1,4 @@
-use crate::main::{Clip, ClipMatrixHandler, ClipSlotCoordinates, Matrix, MatrixSettings, Slot};
+use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
@@ -328,9 +328,10 @@ impl Column {
     }
 
     /// Freezes the complete column.
-    pub async fn freeze(&mut self, column_index: usize) -> ClipEngineResult<()> {
+    pub async fn freeze(&mut self, _column_index: usize) -> ClipEngineResult<()> {
         let playback_track = self.playback_track()?.clone();
-        for (row_index, slot) in self.slots.iter_mut().enumerate() {
+        for (_, slot) in self.slots.iter_mut().enumerate() {
+            // TODO-high implement
             let _ = slot.freeze(&playback_track).await;
         }
         Ok(())

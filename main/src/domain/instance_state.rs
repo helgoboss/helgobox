@@ -6,7 +6,7 @@ use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::{Global, NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     BackboneState, Compartment, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask,
     InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,

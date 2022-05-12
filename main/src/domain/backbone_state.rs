@@ -309,6 +309,7 @@ impl BackboneState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn find_instance_state(&self, instance_id: InstanceId) -> Option<SharedInstanceState> {
         let weak_instance_states = self.instance_states.borrow();
         let weak_instance_state = weak_instance_states.get(&instance_id)?;

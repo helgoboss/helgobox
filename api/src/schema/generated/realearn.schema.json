@@ -3,6 +3,11 @@
   "title": "Compartment",
   "type": "object",
   "properties": {
+    "custom_data": {
+      "description": "At the moment, custom data is only used in the controller compartment.\n\nAttention: Custom data in the main compartment is not fully supported, i.e. it's not saved together with the session.",
+      "type": "object",
+      "additionalProperties": true
+    },
     "default_group": {
       "$ref": "#/definitions/Group"
     },
@@ -33,7 +38,8 @@
         "Normal",
         "IncrementalButton",
         "ToggleButton",
-        "MakeRelative"
+        "MakeRelative",
+        "PerformanceControl"
       ]
     },
     "ActionInvocationKind": {
@@ -107,6 +113,25 @@
               "type": "string",
               "enum": [
                 "Eel"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "condition",
+            "kind"
+          ],
+          "properties": {
+            "condition": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Expression"
               ]
             }
           },
@@ -265,6 +290,75 @@
         "ReleaseOnly"
       ]
     },
+    "ClipColumnAction": {
+      "type": "string",
+      "enum": [
+        "Stop"
+      ]
+    },
+    "ClipColumnDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "address"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "Selected"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "index"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "ByIndex"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "expression"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "Dynamic"
+              ]
+            },
+            "expression": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "ClipColumnTrackContext": {
+      "type": "string",
+      "enum": [
+        "Playback",
+        "Recording"
+      ]
+    },
     "ClipManagementAction": {
       "oneOf": [
         {
@@ -306,6 +400,238 @@
               "enum": [
                 "EditClip"
               ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "CopyOrPasteClip"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "factor",
+            "kind"
+          ],
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "AdjustClipSectionLength"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ClipMatrixAction": {
+      "type": "string",
+      "enum": [
+        "Stop",
+        "Undo",
+        "Redo",
+        "BuildScene"
+      ]
+    },
+    "ClipPlayStartTiming": {
+      "oneOf": [
+        {
+          "description": "Starts playing immediately.",
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Immediately"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Starts playing according to the given quantization.",
+          "type": "object",
+          "required": [
+            "denominator",
+            "kind",
+            "numerator"
+          ],
+          "properties": {
+            "denominator": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Quantized"
+              ]
+            },
+            "numerator": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ClipPlayStopTiming": {
+      "oneOf": [
+        {
+          "description": "Uses the play start timing.",
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "LikeClipStartTiming"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Stops playing immediately.",
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Immediately"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Stops playing according to the given quantization.",
+          "type": "object",
+          "required": [
+            "denominator",
+            "kind",
+            "numerator"
+          ],
+          "properties": {
+            "denominator": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Quantized"
+              ]
+            },
+            "numerator": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Keeps playing until the end of the clip.",
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "UntilEndOfClip"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ClipRowAction": {
+      "type": "string",
+      "enum": [
+        "PlayScene",
+        "BuildScene",
+        "ClearScene",
+        "CopyOrPasteScene"
+      ]
+    },
+    "ClipRowDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "address"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "Selected"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "index"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "ByIndex"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "expression"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "Dynamic"
+              ]
+            },
+            "expression": {
+              "type": "string"
             }
           }
         }
@@ -375,6 +701,18 @@
             }
           }
         }
+      ]
+    },
+    "ClipTransportAction": {
+      "type": "string",
+      "enum": [
+        "PlayStop",
+        "PlayPause",
+        "Stop",
+        "Pause",
+        "RecordStop",
+        "RecordPlayStop",
+        "Looped"
       ]
     },
     "EncoderFilter": {
@@ -449,6 +787,55 @@
       "enum": [
         "Beat",
         "High"
+      ]
+    },
+    "FeedbackValueTable": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "FromTextToDiscrete"
+              ]
+            },
+            "value": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "FromTextToContinuous"
+              ]
+            },
+            "value": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          }
+        }
       ]
     },
     "FireMode": {
@@ -880,6 +1267,9 @@
         "feedback": {
           "$ref": "#/definitions/Feedback"
         },
+        "feedback_value_table": {
+          "$ref": "#/definitions/FeedbackValueTable"
+        },
         "fire_mode": {
           "$ref": "#/definitions/FireMode"
         },
@@ -1167,6 +1557,14 @@
             }
           }
         }
+      ]
+    },
+    "MidiScriptKind": {
+      "description": "Kind of a MIDI script",
+      "type": "string",
+      "enum": [
+        "eel",
+        "lua"
       ]
     },
     "ModifierState": {
@@ -1867,10 +2265,7 @@
           ],
           "properties": {
             "kind": {
-              "type": "string",
-              "enum": [
-                "MidiScript"
-              ]
+              "$ref": "#/definitions/MidiScriptKind"
             },
             "script": {
               "type": "string"
@@ -3039,7 +3434,7 @@
           ],
           "properties": {
             "action": {
-              "$ref": "#/definitions/TransportAction"
+              "$ref": "#/definitions/ClipTransportAction"
             },
             "kind": {
               "type": "string",
@@ -3047,8 +3442,94 @@
                 "ClipTransportAction"
               ]
             },
+            "play_start_timing": {
+              "$ref": "#/definitions/ClipPlayStartTiming"
+            },
+            "play_stop_timing": {
+              "$ref": "#/definitions/ClipPlayStopTiming"
+            },
+            "record_only_if_track_armed": {
+              "type": "boolean"
+            },
             "slot": {
               "$ref": "#/definitions/ClipSlotDescriptor"
+            },
+            "stop_column_if_slot_empty": {
+              "type": "boolean"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "action",
+            "column",
+            "kind"
+          ],
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/ClipColumnAction"
+            },
+            "column": {
+              "$ref": "#/definitions/ClipColumnDescriptor"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "ClipColumnAction"
+              ]
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "action",
+            "kind",
+            "row"
+          ],
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/ClipRowAction"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "ClipRowAction"
+              ]
+            },
+            "row": {
+              "$ref": "#/definitions/ClipRowDescriptor"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "action",
+            "kind"
+          ],
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/ClipMatrixAction"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "ClipMatrixAction"
+              ]
             },
             "unit": {
               "$ref": "#/definitions/TargetUnit"
@@ -3478,6 +3959,32 @@
             },
             "name": {
               "type": "string"
+            },
+            "track_must_be_selected": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "column",
+            "context"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "enum": [
+                "FromClipColumn"
+              ]
+            },
+            "column": {
+              "$ref": "#/definitions/ClipColumnDescriptor"
+            },
+            "context": {
+              "$ref": "#/definitions/ClipColumnTrackContext"
             },
             "track_must_be_selected": {
               "type": "boolean"

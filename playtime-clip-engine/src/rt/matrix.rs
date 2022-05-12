@@ -224,7 +224,7 @@ impl Matrix {
         let timeline = self.timeline();
         let args = ColumnStopArgs {
             ref_pos: Some(timeline.cursor_pos()),
-            timeline: timeline,
+            timeline,
         };
         for handle in &self.column_handles {
             handle.command_sender.stop(args.clone());

@@ -266,7 +266,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Freezes the complete matrix.
     pub async fn freeze(&mut self) {
         for (i, column) in self.columns.iter_mut().enumerate() {
-            column.freeze(i).await;
+            let _ = column.freeze(i).await;
         }
     }
 

@@ -1052,6 +1052,7 @@ impl VirtualTrack {
         Ok(tracks)
     }
 
+    #[allow(clippy::match_like_matches_macro)]
     pub fn can_be_affected_by_parameters(&self) -> bool {
         match self {
             VirtualTrack::Dynamic(_) => true,

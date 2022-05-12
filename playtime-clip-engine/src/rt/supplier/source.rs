@@ -93,7 +93,7 @@ impl NoteState {
     pub fn on_notes(&self) -> impl Iterator<Item = KeyNumber> + '_ {
         (0u8..128u8)
             .filter(|note| self.note_is_on(*note))
-            .map(|note| KeyNumber::new(note))
+            .map(KeyNumber::new)
     }
 
     fn note_is_on(&self, note: u8) -> bool {

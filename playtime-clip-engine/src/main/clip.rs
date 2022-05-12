@@ -63,7 +63,7 @@ impl Clip {
     }
 
     pub fn name(&self) -> Option<&str> {
-        self.name.as_ref().map(|s| s.as_str())
+        self.name.as_deref()
     }
 
     /// Creates an API clip.
@@ -156,7 +156,7 @@ impl Clip {
     ) -> ClipEngineResult<(rt::Clip, Option<ClipSource>)> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
-            SourceOrigin::Frozen => &self
+            SourceOrigin::Frozen => self
                 .frozen_source
                 .as_ref()
                 .ok_or("no frozen source given")?,
