@@ -45,33 +45,33 @@ local modes = {
     -- Cycle through normal mode knob functions (vol, pan, send)
     global = {
         index = 1,
-        label = "Global functions",
+        label = "Global",
         button = "bank-left",
     },
     -- OK Solo/arm/mute/select column tracks
     track = {
         index = 2,
-        label = "Track functions",
+        label = "Track",
         button = "cursor-left",
     },
     -- OK Delete clip (long press)
     -- OK Quantize clip (double press)
     slot = {
         index = 3,
-        label = "Slot functions",
+        label = "Slot",
         button = "ch-left",
     },
     -- OK Scroll horizontally
     -- OK Scroll vertically
     nav = {
         index = 4,
-        label = "Navigation functions",
+        label = "Navigation",
         button = "bank-right",
     },
     -- OK Stop column
     column = {
         index = 5,
-        label = "Column functions",
+        label = "Column",
         button = "cursor-right",
     },
 }
