@@ -1,0 +1,288 @@
+= Playtime 2 - Clip Engine
+:toc:
+:toclevels: 3
+
+== User-facing features
+
+NOTE: This is a work-in-progress feature list of the Playtime 2 Clip Engine. Not very polished yet.
+
+=== Clips playback and recording
+
+* Launch and record MIDI and audio clips
+
+=== Operates also when REAPER project not playing
+
+* The engine uses REAPER's preview register mechanism to inject MIDI or audio material directly into REAPER tracks.
+* That means, it's not necessary anymore to have the REAPER transport running in order to play or record clips.
+
+=== Doesn't mess with timeline items
+
+* For playback and recording, the engine doesn't touch items on the project timeline.
+
+=== Record performance as multi-track audio
+
+* One can simply record a clip engine performance as audio items on column tracks by choosing to record "Track output" in REAPER's track settings and pressing the REAPER record button.
+
+=== Timeline sync
+
+* Playback of clips is synchronized with REAPER transport actions (play, pause, stop).
+* Clips that have been playing when the REAPER's stop button was pressed are memorized and will start playing again when pressing the REAPER's play button.
+
+=== Automatic tempo adjustment
+
+* Tempo of beat-based clips is automatically adjusted to the current project tempo.
+
+=== Support for different time signatures
+
+* This hasn't been tested thoroughly yet but in theory, the engine should be fine with arbitrary time signatures (signature changes during the project might be problematic though).
+
+=== Combined audio/MIDI columns
+
+* One column can hold both audio and MIDI clips
+
+=== Non-exclusive columnss
+
+* If requested, a column can play multiple clips simultaneously.
+
+=== Columns that don't follow scenes
+
+* If requested, columns can be configured to ignore scenes.
+
+=== Customizable clip start/stop timing
+
+* Start/stop timing of playback and recording is completely customizable.
+* One can use arbitrary even quantizations (such as 1 bar, 2 bars or 3/8th).
+* Or choose to start/stop immediately.
+* When stopping a clip, an additional option is available: Stop at end of clip
+
+=== Meta clips
+
+* Record and play MIDI clips that control the clip matrix itself (or other clip matrix instances).
+
+
+
+=== Record with predefined length
+
+* Clip recording can stop automatically after a predefined length (arbitrary even quantizations, e.g. 4 bars)
+
+=== Scenes
+
+* Launch complete rows of clips
+
+[#downbeat]
+=== Adjustable downbeat position
+
+* It's possible to start clip playback in the count-in phase.
+* This makes it possible to play pickup beats (also known as anacrusis).
+
+=== Support for project play rate changes
+
+* Playback doesn't just react to tempo changes but also to play rate changes.
+
+=== Non-destructive sections
+
+* Play just a portion of the audio/MIDI material
+
+=== Backpedaling
+
+* Backpedal from certain clip start/stop actions before they actually happen.
+* That's useful e.g. when you decide you didn't want to stop a clip and let it keep playing, or when you are still in the count-in phase of a clip and decide to not let the clip play anymore.
+
+=== Recording input modes
+
+* Choose from where to record material.
+* Audio can be recorded from:
+** Track input
+** Track output
+*** With this, you can record virtual instruments as audio instead of MIDI.
+** FX input of ReaLearn
+*** Lets you record any audio that you send to the ReaLearn track.
+* MIDI can be recorded from
+** Track input
+** FX input of ReaLearn
+
+=== Extensive controller integration
+
+* Thanks to the deep ReaLearn integration, you can add support for MIDI/OSC controllers yourself and customize existing presets to your needs.
+* Not just for the control direction, but also for the feedback direction. See what's actually happening by mapping clip properties to LEDs motor faders or displays.
+* Display things like the clip play state, whether it's looped or not or real-time position within the clip.
+- This also includes text feedback to hardware displays.
+
+=== Rollback to previous clip
+
+* When cancelling recording on an already filled clip slot, the previous clip is restored.
+
+=== Multiple matrices
+
+* It's possible to open multiple completely independent clip matrices within one project (by using multiple ReaLearn instances).
+
+=== Seek within clips
+
+* Seek within playing or paused clips (useful for long tempo-independent material).
+
+=== Pause clips
+
+* Pause playing clips (useful for long tempo-independent material)
+
+=== Support for different time bases
+
+* Switch between time base _Beat_ (tempo-dependent) and _Time_ (tempo-independent).
+
+=== Flexible inheritance structure
+
+* Column settings can override matrix settings
+* Clip settings can override column settings
+
+=== Lua import/export
+
+* The complete matrix settings and contents can be exported/imported as Lua code.
+* That makes it for example possible to modify a clip matrix in programmatic ways or to generate a clip matrix.
+
+=== Features related to audio clips only
+
+==== Broad audio format support
+
+* The engine supports all audio formats for playback which are supported by REAPER itself because it uses REAPER's PCM source system under the hood.
+
+==== Auto-fades
+
+* The reason why you don't hear crazy clicking when recording audio loops is that the engine automatically introduces non-destructive fades for ensuring smooth and click-less audio playback.
+* There are different kinds of fades: Source fades, section fades, fades for sudden start/stop ... it's all very customizable.
+
+
+==== Resampling algorithms
+
+* For resampling and VariSpeed, you can choose among all resampling engines available in REAPER.
+
+==== Time stretching algorithms
+
+* For time stretching, you can choose among all pitch shift engines available in REAPER.
+
+==== Multi-channel support
+
+* Basic support multi-channel audio clips.
+
+==== In-memory caching
+
+* One can load the source audio file completely into memory, which ensures that the clip engine doesn't run into problems where it cannot read from the disk quickly enough.
+
+=== Features related to MIDI clips only
+
+==== MIDI file support
+
+Supported MIDI data modes for playback:
+
+* External MIDI files
+* In-matrix clips
+** Means that MIDI data of the clip is embedded in the clip matrix instance itself.
+
+==== MIDI overdub
+
+* You can overdub more material onto an existing MIDI clip.
+
+==== Reset messages
+
+* Complete customization which MIDI reset messages will be sent:
+** Playing-notes-off
+** All-notes-off
+** All-sounds-off
+** Sustain off
+** Reset all controllers
+* Per event:
+** Sudden start/stop
+** Complete loop (not yet implemented)
+** Section
+** Source
+
+==== Downbeat / pickup beat detection
+
+* When recording MIDI, notes preceding the start of the bar can be recorded and change the downbeat position accordingly (see <<downbeat>> feature).
+
+== Internal features
+
+The following list of features is probably more interesting for developers than for users.
+
+=== Open source (GPL v3.0)
+
+* The engine is available as open-source, which is an important precondition to future proofness, given that it's not backed by a big company but created by a solo developer.
+
+=== Scalable
+
+* The biggest issue with Playtime 1 was that it was not scalable, neither in terms of further development (old frameworks, bad code base) nor in terms of possibilities (relying too much on REAPER's linear workflow, which comes with severe limitations).
+* The Playtime 2 Clip Engine fixes that. It's built with scalability in mind, uses a more modern programming language allowing for more productivity (Rust) and builds on lower-level primitives of the REAPER API.
+
+=== Sample-accurate continuity
+
+* The engines advances clips with the primary focus on continuity of playback.
+* The big part of the engine operates in the real-time thread and can therefore operate on sample accuracy.
+
+=== Native
+
+* This is a clean native implementation of a clip engine, it's not a script! Neither a ReaScript nor a JS FX. It wouldn't be possible nor desirable to write a clip engine with this performance and broad feature set in these languages.
+* The clip engine is written in Rust, a modern C++ alternative which is just as fast (no garbage collection) but more modern, clean and safe in many ways.
+
+=== Lock- and allocation-free design for real-time threads
+
+* In most places, the engine doesn't use lock mutexes in real-time threads.
+** In the few places where locks are used, they are contention-free - rigorously asserted at debug time by panicking when attempting to lock a mutex that's already locked.
+* Also, great care is taken to not allocate in real-time threads.
+** This is rigorously asserted at debug time by aborting on allocation in real-time threads.
+* In other words: The engine is conceived for live usage where it's important that most interactions don't cause crackling and dropouts
++
+[CAUTION]
+====
+It's not there yet because we are in an early alpha stage!
+====
+
+=== Integer arithmetics
+
+* In order to avoid rounding issues, the engine uses integer arithmetics wherever feasible.
+* For example, at runtime it addresses clip positions in frames instead of seconds.
+
+=== Clean separation of processing responsibilities
+
+* The clip processing code is cleanly separated according to its responsibility (_supplier chain_ concept).
+
+=== Clean state machine modeling of clip play/record logic
+
+* Instead of maintaining dozens of booleans and integers, the clip processing states are modeled cleanly as state machine, making use of Rusts's awesome "rich" enum data structures.
+
+=== Isolated module
+
+* Although the engine is shipped with ReaLearn, it doesn't depend on it.
+* The engine code is located in a separate module. ReaLearn depends on that module.
+
+=== Asynchronous real-time debug logging
+
+* In order to allow easier debugging of real-time processing issues, the engine has built-in asynchronous logging, which doesn't block the real-time thread.
+
+=== Asynchronous real-time metrics
+
+* The engine can easily expose metrics to Prometheus, even asynchronously, which is important to not distort the metrics in real-time code.
+
+=== GUI-agnostic
+
+* The engine is built in a way that allows different GUIs to be built on top of it.
+* The first one will be Playtime App (the main GUI).
+
+
+== Roadmap
+
+Some of the things that I plan to add or improve:
+
+* Quantization of MIDI clips
+* Auto quantization of MIDI clips during recording
+* Tempo detection (let length of first recorded clip determine global tempo)
+* Time stretching performance improvements
+* Improve pre-buffering of audio material
+* Runtime scriptability (e.g. for adding small in-REAPER GUIs)
+* Follow actions
+* Legato
+* Repeat
+* Scenes with associated tempo and time signature changes
+* Use time stretching as an effect for time-based material (as effect)
+* Reverse
+* Pendulum looping
+* Auto-detect input with global record button
+* Wait for input (gives you more time to get ready for playing after having pressed the record button)
+* Downbeat detection for audio recordings
