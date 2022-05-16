@@ -64,13 +64,13 @@ It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), but t
 
 ==== Instructions
 
-At the moment, only a few controllers are supported out-of-the-box (see the following subsections). It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it because Clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
+At first, open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then pick one of below supported controllers and follow the controller-specific instructions. At the moment, only a few controllers are supported out-of-the-box.
 
 TIP: In order to get a basic feel for ReaLearn and make sure that your controller generally works, I strongly suggest following the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project!
 
-Because the Clip Engine controller support is in a state of flux at the moment, you won't find suitable ReaLearn presets in ReaPack as usual. Instead, you need to copy Lua snippets from link:https://github.com/helgoboss/realearn[ReaLearn's project website on GitHub] and import them into ReaLearn via _Import from Clipboard_.
+Because the Clip Engine controller support is in a state of flux at the moment, you won't find suitable ReaLearn presets in ReaPack yet. Instead, you will need to copy Lua snippets from ReaLearn's project website on GitHub and import them into ReaLearn via _Import from Clipboard_.
 
-At first, open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then follow below controller-specific instructions.
+It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it because clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
 
 [TIP]
 ====
