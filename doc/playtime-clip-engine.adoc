@@ -56,15 +56,15 @@ The basic template project contains a preconfigured ReaLearn instance with the C
 
 === Step 4: Set up your specific controller in ReaLearn
 
-==== Supported controllers
+==== Suitable controllers
 
 In order to exhaust the full potential of the Clip Engine, you need a grid controller. One that provides visual feedback, otherwise you don't see what's going on (remember, we don't have the Playtime App yet, so you don't see anything on the screen).
 
 It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), but they are not ideal for this purpose because they lack visual feedback. DAW controllers with MCU support are possible as well but their control elements are not aligned in columns and rows, so they are only feasible for controlling one clip at a time (one-channel controllers) or one row (multi-channel controllers).
 
-At the moment, only a few controllers are supported out-of-the-box. It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it ( Clip-engine-related targets can't be configured via ReaLearn's GUI)! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
-
 ==== Instructions
+
+At the moment, only a few controllers are supported out-of-the-box (see the following subsections). It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it because Clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
 
 TIP: In order to get a basic feel for ReaLearn and make sure that your controller generally works, I strongly suggest following the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project!
 
@@ -475,7 +475,7 @@ It's not there yet because we are in an early alpha stage!
 
 == Roadmap
 
-Some of the things that I plan to add or improve:
+Some things that I plan to add or improve:
 
 * Quantization of MIDI clips
 * Auto quantization of MIDI clips during recording
