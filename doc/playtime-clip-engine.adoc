@@ -1,6 +1,6 @@
 = Playtime 2 - Clip Engine
 :toc:
-:toclevels: 12
+:toclevels: 2
 
 == Usage
 
@@ -28,6 +28,8 @@ The Clip Engine is built into the REAPER plug-in ReaLearn, so you first need to 
 
 IMPORTANT: Make absolutely sure to install the latest *pre-release* (>= v2.13.0-pre.4), otherwise it will not work! Pre-releases can be installed by right-clicking the package in ReaPack.
 
+TIP: First things first: If you are new to ReaLearn, it's helpful to get a basic feel for it and make sure that your controller generally works, so I strongly suggest walking through the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project! It doesn't take long.
+
 === Step 2: Optimize the REAPER preferences
 
 In order to get the best experience, adjust the REAPER preferences like this:
@@ -47,7 +49,7 @@ In order to get the best experience, adjust the REAPER preferences like this:
 
 === Step 3: Open the Clip Engine template project in REAPER
 
-You also need a template project as a starting point:
+You need a template project as a starting point:
 
 . Download the basic Clip Engine project template (RPP file) from link:https://github.com/helgoboss/realearn/tree/master/resources/template-projects/clip-engine-basic[here].
 . Open it in REAPER.
@@ -64,114 +66,14 @@ It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), but t
 
 ==== Instructions
 
-At first, open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then pick one of below supported controllers and follow the controller-specific instructions. At the moment, only a few controllers are supported out-of-the-box.
+Open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then follow the general and controller-specific instructions in the <<supported-controllers>> section.
 
-TIP: In order to get a basic feel for ReaLearn and make sure that your controller generally works, I strongly suggest following the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project!
+=== Step 5: Adjust the column tracks to your needs (optional)
 
-Because the Clip Engine controller support is in a state of flux at the moment, you won't find suitable ReaLearn presets in ReaPack yet. Instead, you will need to copy Lua snippets from ReaLearn's project website on GitHub and import them into ReaLearn via _Import from Clipboard_.
+By default ...
 
-It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it because clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
-
-[TIP]
-====
-In the instructions, you'll see the words _controller preset_ and _main preset_. If you are unfamiliar with these, here's an explanation.
-
-A _controller preset_ takes care of giving the knobs/faders/buttons on a hardware controller descriptive names and sometimes even provides a visual layout for ReaLearn's link:https://www.youtube.com/watch?v=dUPyqYaIkYA&t=1603s[Projection feature]. For CSI users: It's somewhat comparable to the widgets defined in MST files.
-
-A _main preset_ takes care of mapping knobs/faders/buttons to actions/parameters in REAPER, ReaLearn or the Clip Engine. For CSI users: It's comparable to the zone files.
-====
-
-===== Akai APC Key 25
-
-This controller has the best support so far because it's my main test hardware. Except for the _Device_ button, it mainly works as demonstrated in this link:https://youtu.be/9yr7aeg354U[Ableton-Live-specific video]. Plus, it adds some much-needed mappings for undo/redo, deleting clips, etc.
-
-. Select the device both as _Control input_ and _Feedback output_.
-. Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import it into ReaLearn.
-. Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, check if the _PLAY/PAUSE_ button plays the project.
-
-In order to see which knob/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold _Shift_ or _Sustain_ to see alternative functions.
-
-===== DJ TechTools Midi Fighter Twister
-
-This is not the typical grid controller, so my main preset is quite opinionated. Nevertheless, due to its grid-like alignment of the push encoders and rich visual feedback options, it's quite suitable for recording and launching clips. It can even show the current position within the clip.
-
-. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
-+
-IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
-+
-. Select the device both as _Control input_ and _Feedback output_.
-. Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import it into ReaLearn.
-. Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, press the upper-left push encoder. It should play a test clip.
-
-In order to see which encoder/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold the side buttons to see alternative functions.
-
-===== DAW controllers (MCU)
-
-Support for DAW controllers is very incomplete and experimental because they are not grid controllers and therefore not my first priority. But the basics work and improving the presets is just a matter of adding additional mappings. I tested this with a Behringer X-Touch One and an iCON Platform M+.
-
-. Make sure your controller is operating in Mackie mode (MCU).
-. Select the device both as _Control input_ and _Feedback output_.
-. Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import it into ReaLearn.
-. Import the main preset
-* If you have a DAW controller with one channel only, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/one-channel-daw-control-to-clip-engine.lua[one-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
-* If you have a DAW controller with multiple channels, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/multi-channel-daw-control-to-clip-engine.lua[multi-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, press the _Play_ button (one-channel controller) or the first push encoder (multi-channel controller). It should play a test clip.
-
-The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which buttons does what. But you can use "Filter source" in the main compartment and press some buttons to see what action would be triggered when invoking a control. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
-
-===== OSC apps
-
-There are plenty of OSC apps out there and even more layouts. Unless you are satisfied with my super simplistic TouchOSC Mk2 preset, you'll need to adjust the main preset Lua code. Recording is not implemented at the moment because it would need some tweaking of the OSC layout to get proper visual feedback for it (red color). Feel free to adjust it to your needs.
-
-. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
-. Select the device as both _Control input_ and _Feedback output_.
-. In TouchOSC: Choose the built-in "Simple Mk2" layout and open the tab "Matrix".
-. Import the main preset
-* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/osc-to-clip-engine.lua[osc-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, press the top-left grid button. It should play a test clip.
-
-===== MIDI keyboards
-
-You can play clips with a simple MIDI keyboard. Every octave covers one column. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
-
-. Select the device as _Control input_.
-. Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import it into ReaLearn.
-. Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, press and hold key "C0" (the deepest note, so you might need to press "Octave down" a few times). It should play a test clip.
-
-===== Computer keyboard
-
-You can play clips with the computer keyboard. [1, Q, A, Z] to [8, I, K, comma] are mapped to clip launching. [9, O, L, period] are mapped to scene launching. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
-
-. Make sure your keyboard layout is switched to English, QWERTY.
-. Select "Computer keyboard" as _Control input_.
-. Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import it into ReaLearn.
-. Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import it into ReaLearn.
-
-For a basic test, press and hold key "1". It should play a test clip.
-
-=== Step 5: Adjust the column tracks to your needs
-
-By default:
-
-- The first 4 column tracks are configured to record MIDI from all MIDI inputs, have input monitoring enabled and ReaSynth on the FX chain.
-- The first 4 column tracks are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
+- ... the first 4 column tracks are configured to record MIDI from all MIDI inputs, have input monitoring enabled and ReaSynth on the FX chain.
+- ... the first 4 column tracks are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
 
 You can adjust those tracks to your needs:
 
@@ -201,6 +103,109 @@ The best way to do that is by strictly using the export-modify-import process wh
 
 Reminder: You should not become attached to content recorded with the Clip Engine anyway because we are in alpha stage.
 ====
+
+[#supported-controllers]
+== Supported controllers
+
+At the moment, only a few controllers are supported  out-of-the-box. Here you will find a list and setup instructions.
+
+Because the Clip Engine controller support is still in a state of flux, you won't find suitable ReaLearn presets in ReaPack yet. Instead, you will need to copy Lua snippets from ReaLearn's project website on GitHub and import them into ReaLearn via _Import from Clipboard_.
+
+It's possible to integrate other controllers than the ones presented here, but you'll need to write Lua code to achieve that because clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua], it's the easiest one.
+
+[TIP]
+====
+In the following instructions, you'll see the words _controller preset_ and _main preset_. If you are unfamiliar with these, here's an explanation.
+
+A _controller preset_ takes care of giving the knobs/faders/buttons on a hardware controller descriptive names and sometimes even provides a visual layout for ReaLearn's link:https://www.youtube.com/watch?v=dUPyqYaIkYA&t=1603s[Projection feature]. For CSI users: It's somewhat comparable to the widgets defined in MST files.
+
+A _main preset_ takes care of mapping knobs/faders/buttons to actions/parameters in REAPER, ReaLearn or the Clip Engine. For CSI users: It's comparable to the zone files.
+====
+
+=== Akai APC Key 25
+
+This controller has the best support so far because it's my main test hardware. Except for the _Device_ button, it mainly works as demonstrated in this link:https://youtu.be/9yr7aeg354U[Ableton-Live-specific video]. Plus, it adds some much-needed mappings for undo/redo, deleting clips, etc.
+
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import it into ReaLearn.
+. Import the main preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, check if the _PLAY/PAUSE_ button plays the project.
+
+In order to see which knob/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold _Shift_ or _Sustain_ to see alternative functions.
+
+=== DJ TechTools Midi Fighter Twister
+
+This is not the typical grid controller, so my main preset is quite opinionated. Nevertheless, due to its grid-like alignment of the push encoders and rich visual feedback options, it's quite suitable for recording and launching clips. It can even show the current position within the clip.
+
+. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
++
+IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
++
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import it into ReaLearn.
+. Import the main preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the upper-left push encoder. It should play a test clip.
+
+In order to see which encoder/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold the side buttons to see alternative functions.
+
+=== DAW controllers (MCU)
+
+Support for DAW controllers is very incomplete and experimental because they are not grid controllers and therefore not my first priority. But the basics work and improving the presets is just a matter of adding additional mappings. I tested this with a Behringer X-Touch One and an iCON Platform M+.
+
+. Make sure your controller is operating in Mackie mode (MCU).
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import it into ReaLearn.
+. Import the main preset
+* If you have a DAW controller with one channel only, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/one-channel-daw-control-to-clip-engine.lua[one-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
+* If you have a DAW controller with multiple channels, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/multi-channel-daw-control-to-clip-engine.lua[multi-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the _Play_ button (one-channel controller) or the first push encoder (multi-channel controller). It should play a test clip.
+
+The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which buttons does what. But you can use "Filter source" in the main compartment and press some buttons to see what action would be triggered when invoking a control. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
+
+=== OSC apps
+
+There are plenty of OSC apps out there and even more layouts. Unless you are satisfied with my super simplistic TouchOSC Mk2 preset, you'll need to adjust the main preset Lua code. Recording is not implemented at the moment because it would need some tweaking of the OSC layout to get proper visual feedback for it (red color). Feel free to adjust it to your needs.
+
+. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
+. Select the device as both _Control input_ and _Feedback output_.
+. In TouchOSC: Choose the built-in "Simple Mk2" layout and open the tab "Matrix".
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/osc-to-clip-engine.lua[osc-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the top-left grid button. It should play a test clip.
+
+=== MIDI keyboards
+
+You can play clips with a simple MIDI keyboard. Every octave covers one column. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Select the device as _Control input_.
+. Import the controller preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import it into ReaLearn.
+. Import the main preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press and hold key "C0" (the deepest note, so you might need to press "Octave down" a few times). It should play a test clip.
+
+=== Computer keyboard
+
+You can play clips with the computer keyboard. [1, Q, A, Z] to [8, I, K, comma] are mapped to clip launching. [9, O, L, period] are mapped to scene launching. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Make sure your keyboard layout is switched to English, QWERTY.
+. Select "Computer keyboard" as _Control input_.
+. Import the controller preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import it into ReaLearn.
+. Import the main preset
+* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press and hold key "1". It should play a test clip.
 
 == Features
 
