@@ -72,8 +72,8 @@ Open the ReaLearn FX instance "Clip Engine" on the track with the same name. The
 
 By default ...
 
-- ... the first 4 column tracks are configured to record MIDI from all MIDI inputs, have input monitoring enabled and ReaSynth on the FX chain.
-- ... the first 4 column tracks are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
+- ... column tracks 1 to 4 are configured to record MIDI from all MIDI inputs, have input monitoring enabled and a ReaSynth instance on the FX chain.
+- ... column tracks 5 to 8 are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
 
 You can adjust those tracks to your needs:
 
