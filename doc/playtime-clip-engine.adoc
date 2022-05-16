@@ -62,7 +62,7 @@ The basic template project contains a preconfigured ReaLearn instance with the C
 
 In order to exhaust the full potential of the Clip Engine, you need a grid controller. One that provides visual feedback, otherwise you don't see what's going on (remember, we don't have the Playtime App yet, so you don't see anything on the screen).
 
-It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), but they are not ideal for this purpose because they lack visual feedback. DAW controllers with MCU support are possible as well but their control elements are not aligned in columns and rows, so they are only feasible for controlling one clip at a time (one-channel controllers) or one row (multi-channel controllers).
+It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), although they are not ideal for this purpose because they lack visual feedback. DAW controllers with MCU support are possible as well but as their control elements are not aligned in columns and rows, they are only feasible for controlling one clip at a time (one-channel controllers) or one row (multi-channel controllers).
 
 ==== Instructions
 
