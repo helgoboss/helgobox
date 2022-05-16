@@ -4270,24 +4270,28 @@ such as the indicator type are currently not configurable from the ReaLearn user
 [discrete]
 ==== Preparation
 
-By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC").
+The following instructions relate to firmware 02 Oct 2019.
+
+* *Encoders:* By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC").
 I strongly recommend changing this to transmit relative values (Encoder MIDI Type = "ENC 3FH/41H") in order to unlock
-the full potential of this awesome device. Use the https://djtechtools.com/midi-fighter-setup/[Midi Fighter Utility]
+the full potential of this awesome device.
+** Use the https://djtechtools.com/midi-fighter-setup/[Midi Fighter Utility]
 to apply this change to each encoder:
-
++
 image:images/midi-fighter-twister-setup.png[Midi Fighter Twister Setup]
-
++
 You can also do this using the "MULTIPLE" button:
-
 . Press the "MULTIPLE" button.
 . Select all controls via mouse clicks.
 . Change the Encoder MIDI Type.
 . Press "CANCEL"
-
-If you want to make use of the Twister's built-in encoder acceleration, you should set the _encoder_ sensitivity to
+** If you want to make use of the Twister's built-in encoder acceleration, you should set the _encoder_ sensitivity to
 "Velocity sensitive". In order to make use of it, make sure that ReaLearn's _Step size Max_ or _Speed Max_ is set high
 enough, both in the controller mappings (already done in the latest Twister controller presets) and your
 specific main mapping.
+* *Colors*: For most usage scenarios, I suggest switching the OFF COLOR to black instead of the default of blue. The ON COLOR doesn't matter as it can be controlled by ReaLearn.
+* *Side key functions:* In order to make all side keys available in ReaLearn, make sure to set all Side Key Functions (in Global Settings pane) to "CC Hold" and disable "Bank Side Buttons".
+
 
 [discrete]
 ==== Presets

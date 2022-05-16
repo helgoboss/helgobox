@@ -1,10 +1,209 @@
 = Playtime 2 - Clip Engine
 :toc:
-:toclevels: 3
+:toclevels: 12
 
-== User-facing features
+== Usage
 
-NOTE: This is a work-in-progress feature list of the Playtime 2 Clip Engine. Not very polished yet.
+This section describes how to use the Clip Engine without the Playtime App.
+
+[NOTE]
+====
+The Clip Engine is basically Playtime without a graphical user interface. That means usage is not straightforward and needs to be explained.
+
+If you are not up for it, wait for the Playtime App. For more info, watch the link:https://youtu.be/6iEMKUcwzMs[Clip Engine introduction video].
+====
+
+[WARNING]
+====
+At this point, the Clip Engine is in early alpha stage. I can't guarantee that projects or presets that you save with the current version can be loaded in future versions of the Clip Engine!
+
+The current version is intended for alpha testing and experimentation, *not* for live usage or building your dream setup.
+====
+
+Using the Clip Engine involves all the steps explained in the following sections.
+
+=== Step 1: Install the latest pre-release of ReaLearn
+
+The Clip Engine is built into the REAPER plug-in ReaLearn, so you first need to install it by following the instructions on the link:https://github.com/helgoboss/realearn#installation[ReaLearn project website].
+
+IMPORTANT: Make absolutely sure to install the latest *pre-release* (>= v2.13.0-pre.4), otherwise it will not work! Pre-releases can be installed by right-clicking the package in ReaPack.
+
+=== Step 2: Optimize the REAPER preferences
+
+In order to get the best experience, adjust the REAPER preferences like this:
+
+
+|===
+|Category | Option | Value
+
+|Audio
+|Close audio device when stopped and application is inactive
+|Off
+
+|Audio → Playback
+|Stop/Repeat playback at end of project
+|Off
+|===
+
+=== Step 3: Open the Clip Engine template project in REAPER
+
+You also need a template project as a starting point:
+
+. Download the basic Clip Engine project template (RPP file) from link:https://github.com/helgoboss/realearn/tree/master/resources/template-projects/clip-engine-basic[here].
+. Open it in REAPER.
+
+The basic template project contains a preconfigured ReaLearn instance with the Clip Engine enabled, a folder track, 8 column tracks and a few demonstration MIDI clips in the first 4 columns and rows. The folder track is optional, it just makes the project look a bit more tidy in case you add other non-column tracks later.
+
+=== Step 4: Set up your specific controller in ReaLearn
+
+==== Supported controllers
+
+In order to exhaust the full potential of the Clip Engine, you need a grid controller. One that provides visual feedback, otherwise you don't see what's going on (remember, we don't have the Playtime App yet, so you don't see anything on the screen).
+
+It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), but they are not ideal for this purpose because they lack visual feedback. DAW controllers with MCU support are possible as well but their control elements are not aligned in columns and rows, so they are only feasible for controlling one clip at a time (one-channel controllers) or one row (multi-channel controllers).
+
+At the moment, only a few controllers are supported out-of-the-box. It's possible to integrate other controllers via ReaLearn but you'll need to write Lua code for it ( Clip-engine-related targets can't be configured via ReaLearn's GUI)! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with `notes-to-clip-engine.lua`, it's the easiest one.
+
+==== Instructions
+
+TIP: In order to get a basic feel for ReaLearn and make sure that your controller generally works, I strongly suggest following the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project!
+
+Because the Clip Engine controller support is in a state of flux at the moment, you won't find suitable ReaLearn presets in ReaPack as usual. Instead, you need to copy Lua snippets from link:https://github.com/helgoboss/realearn[ReaLearn's project website on GitHub] and import them into ReaLearn via _Import from Clipboard_.
+
+At first, open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then follow below controller-specific instructions.
+
+[TIP]
+====
+In the instructions, you'll see the words _controller preset_ and _main preset_. If you are unfamiliar with these, here's an explanation.
+
+A _controller preset_ takes care of giving the knobs/faders/buttons on a hardware controller descriptive names and sometimes even provides a visual layout for ReaLearn's link:https://www.youtube.com/watch?v=dUPyqYaIkYA&t=1603s[Projection feature]. For CSI users: It's somewhat comparable to the widgets defined in MST files.
+
+A _main preset_ takes care of mapping knobs/faders/buttons to actions/parameters in REAPER, ReaLearn or the Clip Engine. For CSI users: It's comparable to the zone files.
+====
+
+===== Akai APC Key 25
+
+This controller has the best support so far because it's my main test hardware. Except for the _Device_ button, it mainly works as demonstrated in this link:https://youtu.be/9yr7aeg354U[Ableton-Live-specific video]. Plus, it adds some much-needed mappings for undo/redo, deleting clips, etc.
+
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import them into ReaLearn.
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import them into ReaLearn.
+
+For a basic test, check if the _PLAY/PAUSE_ button plays the project.
+
+In order to see which knob/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold _Shift_ or _Sustain_ to see alternative functions.
+
+===== DJ TechTools Midi Fighter Twister
+
+This is not the typical grid controller, so my main preset is quite opinionated. Nevertheless, due to its grid-like alignment of the push encoders and rich visual feedback options, it's quite suitable for recording and launching clips. It can even show the current position within the clip.
+
+. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
++
+IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
++
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import them into ReaLearn.
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import them into ReaLearn.
+
+For a basic test, press the upper-left push encoder. It should play a test clip.
+
+In order to see which encoder/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold the side buttons to see alternative functions.
+
+===== DAW controllers (MCU)
+
+Support for DAW controllers is very incomplete and experimental because they are not grid controllers and therefore not my first priority. But you can roll your own integration by tweaking the Lua code. I tested this with a Behringer X-Touch One and an iCON Platform M+.
+
+. Make sure your controller is operating in Mackie mode (MCU).
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import them into ReaLearn.
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/one-channel-daw-control-to-clip-engine.lua[one-channel-daw-control-to-clip-engine.lua] or link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/multi-channel-daw-control-to-clip-engine.lua[multi-channel-daw-control-to-clip-engine.lua] (depending on how many faders your control surface offers) and import them into ReaLearn.
+
+For a basic test, press the _Play_ button. It should play a test clip.
+
+The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which buttons does what. But you can use "Filter source" in the main compartment and press some buttons to see what action would be triggered when invoking a control. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
+
+===== OSC apps
+
+There are plenty of OSC apps out there and even more layouts. Unless you are satisfied with my super simplistic TouchOSC Mk2 preset, you'll need to adjust the main preset Lua code. Recording is not implemented at the moment because it would need some tweaking of the OSC layout to get proper visual feedback for it (red color). Feel free to adjust it to your needs.
+
+. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
+. Select the device as both _Control input_ and _Feedback output_.
+. In TouchOSC: Choose the built-in "Simple Mk2" layout and open the tab "Matrix".
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/osc-to-clip-engine.lua[osc-to-clip-engine.lua] and import them into ReaLearn.
+
+For a basic test, press the top-left grid button. It should play a test clip.
+
+===== MIDI keyboards
+
+You can play clips with a simple MIDI keyboard. Every octave covers one column. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Select the device as _Control input_.
+. Import the controller preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import them into ReaLearn.
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import them into ReaLearn.
+
+For a basic test, press and hold key "C0" (the deepest note, so you might need to press "Octave down" a few times). It should play a test clip.
+
+===== Computer keyboard
+
+You can play clips with the computer keyboard. [1, Q, A, Z] to [8, I, K, comma] are mapped to clip launching. [9, O, L, period] are mapped to scene launching. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Make sure your keyboard layout is switched to English, QWERTY.
+. Select "Computer keyboard" as _Control input_.
+. Import the controller preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import them into ReaLearn.
+. Import the main preset
+* Copy the contents of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import them into ReaLearn.
+
+For a basic test, press and hold key "1". It should play a test clip.
+
+=== Step 5: Adjust the column tracks to your needs
+
+By default:
+
+- The first 4 column tracks are configured to record MIDI from all MIDI inputs, have input monitoring enabled and ReaSynth on the FX chain.
+- The first 4 column tracks are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
+
+You can adjust those tracks to your needs:
+
+* Change name
+* Change input
+* Enable/disable input monitoring
+* Add/remove effects or virtual instruments if desired
+
+CAUTION: *Don't delete column tracks*, otherwise you will get error messages next time you load the project. You can move them, rename them but not delete them. Future versions of the Clip Engine will handle deleted tracks more gracefully.
+
+=== Step 6: Adjust the clip matrix settings to your needs (optional)
+
+As we don't have the Playtime App yet, you need to do this by adjusting Lua code.
+
+. Press _Export to clipboard_ and choose _Export clip matrix as Lua_.
+. Paste the code into a text editor of your choice.
+. Adjust the code and copy it.
+. Press _Import from clipboard_ and confirm.
+
+Sorry, there's no good documentation yet of the clip matrix data structure. If you are not afraid of Rust, have a look link:https://github.com/helgoboss/realearn/blob/master/playtime-api/src/lib.rs[here] to get an idea of what's possible. Not all attributes are implemented yet.
+
+[CAUTION]
+====
+The Lua export also contains the clips! Take care not to accidentally overwrite already recorded clips.
+
+The best way to do that is by strictly using the export-modify-import process whenever you want to do a modification.
+
+Reminder: You should not become attached to content recorded with the Clip Engine anyway because we are in alpha stage.
+====
+
+== Features
+
+NOTE: This is a work-in-progress feature list of the Clip Engine. Not very polished yet.
 
 === Clips playback and recording
 
@@ -39,6 +238,11 @@ NOTE: This is a work-in-progress feature list of the Playtime 2 Clip Engine. Not
 === Combined audio/MIDI columns
 
 * One column can hold both audio and MIDI clips
+
+=== Volume adjustment per clip
+
+* It's possible to adjust the volume of a clip, not just the volume of column tracks.
+* Adjusting the volume of MIDI clips modifies the velocity.
 
 === Non-exclusive columnss
 
@@ -137,6 +341,10 @@ NOTE: This is a work-in-progress feature list of the Playtime 2 Clip Engine. Not
 
 * The complete matrix settings and contents can be exported/imported as Lua code.
 * That makes it for example possible to modify a clip matrix in programmatic ways or to generate a clip matrix.
+
+=== Undo/redo history
+
+* Because REAPER's undo/redo sometimes is a bit too coarse- or fine-grained, the Clip Engine provides its own undo/redo history on instance basis.
 
 === Features related to audio clips only
 
@@ -265,7 +473,6 @@ It's not there yet because we are in an early alpha stage!
 * The engine is built in a way that allows different GUIs to be built on top of it.
 * The first one will be Playtime App (the main GUI).
 
-
 == Roadmap
 
 Some of the things that I plan to add or improve:
@@ -286,3 +493,4 @@ Some of the things that I plan to add or improve:
 * Auto-detect input with global record button
 * Wait for input (gives you more time to get ready for playing after having pressed the record button)
 * Downbeat detection for audio recordings
+* Velocity-sensitive clip launching
