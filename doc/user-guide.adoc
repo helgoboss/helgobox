@@ -961,7 +961,7 @@ using _batch learning_:
 ** ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong. If so,
  just adjust the character in the corresponding mapping panel.
 
-You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;]. I will add it to https://github.com/helgoboss/realearn/tree/master/resources/controllers[this
+You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;]. I will add it to https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[this
 list].
 
 ==== Main compartment
@@ -1696,7 +1696,7 @@ return {
 +
 [TIP]
 ====
-Please note that this kind of simple mapping from text values to integer numbers doesn't need a script. You can use the `feedback_value_table` <<glue>> property instead, which can only be set via API though. Do a full-text search for `feedback_value_table` in directory `resources/controllers`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
+Please note that this kind of simple mapping from text values to integer numbers doesn't need a script. You can use the `feedback_value_table` <<glue>> property instead, which can only be set via API though. Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 
 [#display-source]
@@ -3902,7 +3902,7 @@ https://vital.audio/[Vital]. The procedure for other plug-ins is the same.
 
 Before you start, I strongly recommend downloading a ReaLearn controller preset for your specific controller from ReaPack and activate it in the _controller compartment_. You will need to right-click the header panel and choose
 _Reload all presets from disk_ to make a a newly downloaded controller preset appear in the preset list. If there's no
-suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets], build your own.
+suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets], build your own.
 
 This step is completely optional but it gives you many advantages, both in the short and long run. Please see
 section <<controller-compartment,Controller compartment>> for details.
@@ -4076,9 +4076,9 @@ Consider the following general usage hints:
 
 [IMPORTANT]
 ====
-Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets]!
+Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets]!
 
-Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
+Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
 ====
 
 
