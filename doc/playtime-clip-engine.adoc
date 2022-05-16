@@ -128,9 +128,9 @@ This controller has the best support so far because it's my main test hardware. 
 
 . Select the device both as _Control input_ and _Feedback output_.
 . Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import it into ReaLearn.
 . Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import it into ReaLearn.
 
 For a basic test, check if the _PLAY/PAUSE_ button plays the project.
 
@@ -146,9 +146,9 @@ IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
 +
 . Select the device both as _Control input_ and _Feedback output_.
 . Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import it into ReaLearn.
 . Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import it into ReaLearn.
 
 For a basic test, press the upper-left push encoder. It should play a test clip.
 
@@ -161,14 +161,14 @@ Support for DAW controllers is very incomplete and experimental because they are
 . Make sure your controller is operating in Mackie mode (MCU).
 . Select the device both as _Control input_ and _Feedback output_.
 . Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import it into ReaLearn.
 . Import the main preset
 * If you have a DAW controller with one channel only, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/one-channel-daw-control-to-clip-engine.lua[one-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
 * If you have a DAW controller with multiple channels, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/multi-channel-daw-control-to-clip-engine.lua[multi-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
 
 For a basic test, press the _Play_ button (one-channel controller) or the first push encoder (multi-channel controller). It should play a test clip.
 
-The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which buttons does what. But you can use "Filter source" in the main compartment and press some buttons to see what action would be triggered when invoking a control. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
+The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which control has which effect. But you can use "Filter source" in the main compartment and touch some controls to see what action would be triggered when invoking it. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
 
 === OSC apps
 
@@ -188,9 +188,9 @@ You can play clips with a simple MIDI keyboard. Every octave covers one column. 
 
 . Select the device as _Control input_.
 . Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import it into ReaLearn.
 . Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import it into ReaLearn.
 
 For a basic test, press and hold key "C0" (the deepest note, so you might need to press "Octave down" a few times). It should play a test clip.
 
@@ -201,9 +201,9 @@ You can play clips with the computer keyboard. [1, Q, A, Z] to [8, I, K, comma] 
 . Make sure your keyboard layout is switched to English, QWERTY.
 . Select "Computer keyboard" as _Control input_.
 . Import the controller preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import it into ReaLearn.
 . Import the main preset
-* copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import it into ReaLearn.
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import it into ReaLearn.
 
 For a basic test, press and hold key "1". It should play a test clip.
 
@@ -211,7 +211,7 @@ For a basic test, press and hold key "1". It should play a test clip.
 
 NOTE: This is a work-in-progress feature list of the Clip Engine. Not very polished yet.
 
-=== Clips playback and recording
+=== Clip playback and recording
 
 * Launch and record MIDI and audio clips
 
