@@ -494,6 +494,7 @@ end
 function control_disabled()
     return PartialMapping {
         control_enabled = false,
+        visible_in_projection = false,
     }
 end
 
@@ -727,9 +728,8 @@ end
 -- For each row
 for row = 0, row_count - 1 do
     table.insert(mappings, name("Play scene") + group(groups.row_play_scene) + feedback_disabled() + no_mod + row_play_button(row) + clip_row_action(row, "PlayScene"))
-    table.insert(mappings, name("Copy or paste scene") + group(groups.row_copy_or_paste_scene) + sustain + short_press + row_play_button(row) + clip_row_action(row, "CopyOrPasteScene"))
-    table.insert(mappings, name("Build scene") + group(groups.row_build_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "BuildScene"))
-    table.insert(mappings, name("Clear scene") + group(groups.row_clear_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "ClearScene"))
+    table.insert(mappings, name("Copy or paste") + group(groups.row_copy_or_paste_scene) + sustain + short_press + row_play_button(row) + clip_row_action(row, "CopyOrPasteScene"))
+    table.insert(mappings, name("Long = Clear") + group(groups.row_clear_scene) + feedback_disabled() + sustain + long_press + row_play_button(row) + clip_row_action(row, "ClearScene"))
 end
 
 -- For each slot
@@ -738,13 +738,13 @@ for col = 0, column_count - 1 do
         -- Feedback
         table.insert(mappings, name("Slot feedback") + group(groups.slot_feedback) + control_disabled() + slot_button(col, row) + slot_state_text_feedback() + clip_transport_action(col, row, "RecordPlayStop", true))
         -- Control
-        table.insert(mappings, name("Record/play/stop") + group(groups.slot_play) + feedback_disabled() + no_mod + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
-        table.insert(mappings, name("Clear slot") + group(groups.slot_clear) + feedback_disabled() + sustain + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
-        table.insert(mappings, name("Edit clip") + group(groups.slot_quantize) + feedback_disabled() + sustain + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
+        table.insert(mappings, name("Rec/play/stop") + group(groups.slot_play) + feedback_disabled() + no_mod + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordPlayStop", true))
+        table.insert(mappings, name("Copy or paste") + group(groups.slot_copy_or_paste) + feedback_disabled() + sustain + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
+        table.insert(mappings, name("Long = Delete") + group(groups.slot_clear) + feedback_disabled() + sustain + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
+        table.insert(mappings, name("2x = Edit") + group(groups.slot_quantize) + feedback_disabled() + sustain + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
         --table.insert(mappings, name("Overdub clip") + group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
-        table.insert(mappings, name("Copy or paste clip") + group(groups.slot_copy_or_paste) + feedback_disabled() + sustain + single_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "CopyOrPasteClip"))
-        table.insert(mappings, name("Double section") + group(groups.slot_double) + feedback_disabled() + shift + double_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 2))
-        table.insert(mappings, name("Double section") + group(groups.slot_double) + feedback_disabled() + shift + single_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 0.5))
+        table.insert(mappings, name("2x = Double section") + group(groups.slot_double) + feedback_disabled() + shift + double_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 2))
+        table.insert(mappings, name("1x = Halve section") + group(groups.slot_double) + feedback_disabled() + shift + single_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 0.5))
     end
 end
 

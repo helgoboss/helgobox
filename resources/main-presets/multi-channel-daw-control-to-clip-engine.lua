@@ -118,6 +118,15 @@ function multi(id)
     }
 end
 
+function transport_action(action)
+    return PartialMapping {
+        target = {
+            kind = "TransportAction",
+            action = action,
+        },
+    }
+end
+
 function clip_transport_action(action, channel_index)
     return PartialMapping {
         target = {
@@ -248,17 +257,12 @@ end
 -- Mappings
 
 local mappings = {
-    --button("cycle") + toggle() + clip_transport_action("Looped"),
-    --button("stop") + clip_transport_action("Stop"),
-    --button("play") + press_only() + clip_transport_action("PlayStop"),
-    --button("record") + toggle() + clip_transport_action("RecordStop"),
+    button("play") + toggle() + transport_action("PlayPause"),
+    button("stop") + transport_action("Stop"),
     button("cursor-left") + scroll_horizontally(-1),
     button("cursor-right")+ scroll_horizontally(1),
     button("cursor-up") + scroll_vertically(-1),
     button("cursor-down") + scroll_vertically(1),
-    --multi("ch1/fader") + clip_volume(),
-    --multi("ch1/lcd/line1") + clip_name_feedback(),
-    --multi("ch1/lcd/line2") + clip_position_feedback(),
 }
 
 for ch = 0, channel_count - 1 do

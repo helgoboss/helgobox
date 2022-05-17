@@ -1,0 +1,502 @@
+= Playtime 2 - Clip Engine
+:toc:
+:toclevels: 2
+
+== Usage
+
+This section describes how to use the Clip Engine without the Playtime App.
+
+[NOTE]
+====
+The Clip Engine is basically Playtime without a graphical user interface. That means usage is not straightforward and needs to be explained.
+
+If you are not up for it, wait for the Playtime App. For more info, watch the link:https://youtu.be/6iEMKUcwzMs[Clip Engine introduction video].
+====
+
+[WARNING]
+====
+At this point, the Clip Engine is in early alpha stage. I can't guarantee that projects or presets that you save with the current version can be loaded in future versions of the Clip Engine!
+
+The current version is intended for alpha testing and experimentation, *not* for live usage or building your dream setup.
+====
+
+Using the Clip Engine involves all the steps explained in the following sections.
+
+=== Step 1: Install the latest pre-release of ReaLearn
+
+The Clip Engine is built into the REAPER plug-in ReaLearn, so you first need to install it by following the instructions on the link:https://github.com/helgoboss/realearn#installation[ReaLearn project website].
+
+IMPORTANT: Make absolutely sure to install the latest *pre-release* (>= v2.13.0-pre.4), otherwise it will not work! Pre-releases can be installed by right-clicking the package in ReaPack.
+
+TIP: First things first: If you are new to ReaLearn, it's helpful to get a basic feel for it and make sure that your controller generally works, so I strongly suggest walking through the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project! It doesn't take long.
+
+=== Step 2: Optimize the REAPER preferences
+
+In order to get the best experience, adjust the REAPER preferences like this:
+
+
+|===
+|Category | Option | Value
+
+|Audio
+|Close audio device when stopped and application is inactive
+|Off
+
+|Audio → Playback
+|Stop/Repeat playback at end of project
+|Off
+|===
+
+=== Step 3: Open the Clip Engine template project in REAPER
+
+You need a template project as a starting point:
+
+. Download the basic Clip Engine project template (RPP file) from link:https://github.com/helgoboss/realearn/tree/master/resources/template-projects/clip-engine-basic[here].
+. Open it in REAPER.
+
+The basic template project contains a preconfigured ReaLearn instance with the Clip Engine enabled, a folder track, 8 column tracks and a few demonstration MIDI clips in the first 4 columns and rows. The folder track is optional, it just makes the project look a bit more tidy in case you add other non-column tracks later.
+
+=== Step 4: Set up your specific controller in ReaLearn
+
+==== Suitable controllers
+
+In order to exhaust the full potential of the Clip Engine, you need a grid controller. One that provides visual feedback, otherwise you don't see what's going on (remember, we don't have the Playtime App yet, so you don't see anything on the screen).
+
+It's possible to use simple MIDI keyboards or computer keyboards (QWERTY), although they are not ideal for this purpose because they lack visual feedback. DAW controllers with MCU support are possible as well but as their control elements are not aligned in columns and rows, they are only feasible for controlling one clip at a time (one-channel controllers) or one row (multi-channel controllers).
+
+==== Instructions
+
+Open the ReaLearn FX instance "Clip Engine" on the track with the same name. Then follow the general and controller-specific instructions in the <<supported-controllers>> section.
+
+=== Step 5: Adjust the column tracks to your needs (optional)
+
+By default ...
+
+- ... column tracks 1 to 4 are configured to record MIDI from all MIDI inputs, have input monitoring enabled and a ReaSynth instance on the FX chain.
+- ... column tracks 5 to 8 are configured to record audio from the first hardware input (mono) and have input monitoring disabled.
+
+You can adjust those tracks to your needs:
+
+* Change name
+* Change input
+* Enable/disable input monitoring
+* Add/remove effects or virtual instruments if desired
+
+CAUTION: *Don't delete column tracks*, otherwise you will get error messages next time you load the project. You can move them, rename them but not delete them. Future versions of the Clip Engine will handle deleted tracks more gracefully.
+
+=== Step 6: Adjust the clip matrix settings to your needs (optional)
+
+As we don't have the Playtime App yet, you need to do this by adjusting Lua code.
+
+. Press _Export to clipboard_ and choose _Export clip matrix as Lua_.
+. Paste the code into a text editor of your choice.
+. Adjust the code and copy it.
+. Press _Import from clipboard_ and confirm.
+
+Sorry, there's no good documentation yet of the clip matrix data structure. If you are not afraid of Rust, have a look link:https://github.com/helgoboss/realearn/blob/master/playtime-api/src/lib.rs[here] to get an idea of what's possible. Not all attributes are implemented yet.
+
+[CAUTION]
+====
+The Lua export also contains the clips! Take care not to accidentally overwrite already recorded clips.
+
+The best way to do that is by strictly using the export-modify-import process whenever you want to do a modification.
+
+Reminder: You should not become attached to content recorded with the Clip Engine anyway because we are in alpha stage.
+====
+
+[#supported-controllers]
+== Supported controllers
+
+At the moment, only a few controllers are supported  out-of-the-box. Here you will find a list and setup instructions.
+
+Because the Clip Engine controller support is still in a state of flux, you won't find suitable ReaLearn presets in ReaPack yet. Instead, you will need to copy Lua snippets from ReaLearn's project website on GitHub and import them into ReaLearn via _Import from Clipboard_.
+
+It's possible to integrate other controllers than the ones presented here, but you'll need to write Lua code to achieve that because clip-engine-related targets can't be configured via ReaLearn's GUI! If you want to do this, have a look at the existing link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[main presets] ending with `-to-clip-engine.lua`. Start with link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua], it's the easiest one.
+
+[TIP]
+====
+In the following instructions, you'll see the words _controller preset_ and _main preset_. If you are unfamiliar with these, here's an explanation.
+
+A _controller preset_ takes care of giving the knobs/faders/buttons on a hardware controller descriptive names and sometimes even provides a visual layout for ReaLearn's link:https://www.youtube.com/watch?v=dUPyqYaIkYA&t=1603s[Projection feature]. For CSI users: It's somewhat comparable to the widgets defined in MST files.
+
+A _main preset_ takes care of mapping knobs/faders/buttons to actions/parameters in REAPER, ReaLearn or the Clip Engine. For CSI users: It's comparable to the zone files.
+====
+
+=== Akai APC Key 25
+
+This controller has the best support so far because it's my main test hardware. Except for the _Device_ button, it mainly works as demonstrated in this link:https://youtu.be/9yr7aeg354U[Ableton-Live-specific video]. Plus, it adds some much-needed mappings for undo/redo, deleting clips, etc.
+
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/apc-key-25.lua[apc-key-25.lua] and import it into ReaLearn.
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/apc-key-25-to-clip-engine.lua[apc-key-25-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, check if the _PLAY/PAUSE_ button plays the project.
+
+In order to see which knob/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold _Shift_ or _Sustain_ to see alternative functions.
+
+=== DJ TechTools Midi Fighter Twister
+
+This is not the typical grid controller, so my main preset is quite opinionated. Nevertheless, due to its grid-like alignment of the push encoders and rich visual feedback options, it's quite suitable for recording and launching clips. It can even show the current position within the clip.
+
+. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
++
+IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
++
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/midi-fighter-twister.lua[midi-fighter-twister.lua] and import it into ReaLearn.
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/mft-to-clip-engine.lua[mft-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the upper-left push encoder. It should play a test clip.
+
+In order to see which encoder/button has which effect, you can use ReaLearn's _Projection_ button. When seeing the projection, press and hold the side buttons to see alternative functions.
+
+=== DAW controllers (MCU)
+
+Support for DAW controllers is very incomplete and experimental because they are not grid controllers and therefore not my first priority. But the basics work and improving the presets is just a matter of adding additional mappings. I tested this with a Behringer X-Touch One and an iCON Platform M+.
+
+. Make sure your controller is operating in Mackie mode (MCU).
+. Select the device both as _Control input_ and _Feedback output_.
+. Import the controller preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/mackie-control.lua[mackie-control.lua] and import it into ReaLearn.
+. Import the main preset
+* If you have a DAW controller with one channel only, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/one-channel-daw-control-to-clip-engine.lua[one-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
+* If you have a DAW controller with multiple channels, copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/multi-channel-daw-control-to-clip-engine.lua[multi-channel-daw-control-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the _Play_ button (one-channel controller) or the first push encoder (multi-channel controller). It should play a test clip.
+
+The Mackie Control controller preset doesn't define any Projection layout, so you can't see easily which control has which effect. But you can use "Filter source" in the main compartment and touch some controls to see what action would be triggered when invoking it. Or you have a look into the Lua file of the main preset (scroll down to see the actual mappings).
+
+=== OSC apps
+
+There are plenty of OSC apps out there and even more layouts. Unless you are satisfied with my super simplistic TouchOSC Mk2 preset, you'll need to adjust the main preset Lua code. Recording is not implemented at the moment because it would need some tweaking of the OSC layout to get proper visual feedback for it (red color). Feel free to adjust it to your needs.
+
+. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
+. Select the device as both _Control input_ and _Feedback output_.
+. In TouchOSC: Choose the built-in "Simple Mk2" layout and open the tab "Matrix".
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/osc-to-clip-engine.lua[osc-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press the top-left grid button. It should play a test clip.
+
+=== MIDI keyboards
+
+You can play clips with a simple MIDI keyboard. Every octave covers one column. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Select the device as _Control input_.
+. Import the controller preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/notes.lua[notes.lua] and import it into ReaLearn.
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/notes-to-clip-engine.lua[notes-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press and hold key "C0" (the deepest note, so you might need to press "Octave down" a few times). It should play a test clip.
+
+=== Computer keyboard
+
+You can play clips with the computer keyboard. [1, Q, A, Z] to [8, I, K, comma] are mapped to clip launching. [9, O, L, period] are mapped to scene launching. Clips start immediately, not quantized (irrespective of the quantization settings of the clip matrix). Clip recording is disabled because it would be a bit confusing without proper visual feedback.
+
+. Make sure your keyboard layout is switched to English, QWERTY.
+. Select "Computer keyboard" as _Control input_.
+. Import the controller preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/controller-presets/qwerty.lua[qwerty.lua] and import it into ReaLearn.
+. Import the main preset
+* Copy the content of link:https://github.com/helgoboss/realearn/blob/master/resources/main-presets/qwerty-to-clip-engine.lua[qwerty-to-clip-engine.lua] and import it into ReaLearn.
+
+For a basic test, press and hold key "1". It should play a test clip.
+
+== Features
+
+NOTE: This is a work-in-progress feature list of the Clip Engine. Not very polished yet.
+
+=== Clip playback and recording
+
+* Launch and record MIDI and audio clips
+
+=== Operates also when REAPER project not playing
+
+* The engine uses REAPER's preview register mechanism to inject MIDI or audio material directly into REAPER tracks.
+* That means, it's not necessary anymore to have the REAPER transport running in order to play or record clips.
+
+=== Doesn't mess with timeline items
+
+* For playback and recording, the engine doesn't touch items on the project timeline.
+
+=== Record performance as multi-track audio
+
+* One can simply record a clip engine performance as audio items on column tracks by choosing to record "Track output" in REAPER's track settings and pressing the REAPER record button.
+
+=== Timeline sync
+
+* Playback of clips is synchronized with REAPER transport actions (play, pause, stop).
+* Clips that have been playing when the REAPER's stop button was pressed are memorized and will start playing again when pressing the REAPER's play button.
+
+=== Automatic tempo adjustment
+
+* Tempo of beat-based clips is automatically adjusted to the current project tempo.
+
+=== Support for different time signatures
+
+* This hasn't been tested thoroughly yet but in theory, the engine should be fine with arbitrary time signatures (signature changes during the project might be problematic though).
+
+=== Combined audio/MIDI columns
+
+* One column can hold both audio and MIDI clips
+
+=== Volume adjustment per clip
+
+* It's possible to adjust the volume of a clip, not just the volume of column tracks.
+* Adjusting the volume of MIDI clips modifies the velocity.
+
+=== Non-exclusive columnss
+
+* If requested, a column can play multiple clips simultaneously.
+
+=== Columns that don't follow scenes
+
+* If requested, columns can be configured to ignore scenes.
+
+=== Customizable clip start/stop timing
+
+* Start/stop timing of playback and recording is completely customizable.
+* One can use arbitrary even quantizations (such as 1 bar, 2 bars or 3/8th).
+* Or choose to start/stop immediately.
+* When stopping a clip, an additional option is available: Stop at end of clip
+
+=== Meta clips
+
+* Record and play MIDI clips that control the clip matrix itself (or other clip matrix instances).
+
+
+
+=== Record with predefined length
+
+* Clip recording can stop automatically after a predefined length (arbitrary even quantizations, e.g. 4 bars)
+
+=== Scenes
+
+* Launch complete rows of clips
+
+[#downbeat]
+=== Adjustable downbeat position
+
+* It's possible to start clip playback in the count-in phase.
+* This makes it possible to play pickup beats (also known as anacrusis).
+
+=== Support for project play rate changes
+
+* Playback doesn't just react to tempo changes but also to play rate changes.
+
+=== Non-destructive sections
+
+* Play just a portion of the audio/MIDI material
+
+=== Backpedaling
+
+* Backpedal from certain clip start/stop actions before they actually happen.
+* That's useful e.g. when you decide you didn't want to stop a clip and let it keep playing, or when you are still in the count-in phase of a clip and decide to not let the clip play anymore.
+
+=== Recording input modes
+
+* Choose from where to record material.
+* Audio can be recorded from:
+** Track input
+** Track output
+*** With this, you can record virtual instruments as audio instead of MIDI.
+** FX input of ReaLearn
+*** Lets you record any audio that you send to the ReaLearn track.
+* MIDI can be recorded from
+** Track input
+** FX input of ReaLearn
+
+=== Extensive controller integration
+
+* Thanks to the deep ReaLearn integration, you can add support for MIDI/OSC controllers yourself and customize existing presets to your needs.
+* Not just for the control direction, but also for the feedback direction. See what's actually happening by mapping clip properties to LEDs motor faders or displays.
+* Display things like the clip play state, whether it's looped or not or real-time position within the clip.
+- This also includes text feedback to hardware displays.
+
+=== Rollback to previous clip
+
+* When cancelling recording on an already filled clip slot, the previous clip is restored.
+
+=== Multiple matrices
+
+* It's possible to open multiple completely independent clip matrices within one project (by using multiple ReaLearn instances).
+
+=== Seek within clips
+
+* Seek within playing or paused clips (useful for long tempo-independent material).
+
+=== Pause clips
+
+* Pause playing clips (useful for long tempo-independent material)
+
+=== Support for different time bases
+
+* Switch between time base _Beat_ (tempo-dependent) and _Time_ (tempo-independent).
+
+=== Flexible inheritance structure
+
+* Column settings can override matrix settings
+* Clip settings can override column settings
+
+=== Lua import/export
+
+* The complete matrix settings and contents can be exported/imported as Lua code.
+* That makes it for example possible to modify a clip matrix in programmatic ways or to generate a clip matrix.
+
+=== Undo/redo history
+
+* Because REAPER's undo/redo sometimes is a bit too coarse- or fine-grained, the Clip Engine provides its own undo/redo history on instance basis.
+
+=== Features related to audio clips only
+
+==== Broad audio format support
+
+* The engine supports all audio formats for playback which are supported by REAPER itself because it uses REAPER's PCM source system under the hood.
+
+==== Auto-fades
+
+* The reason why you don't hear crazy clicking when recording audio loops is that the engine automatically introduces non-destructive fades for ensuring smooth and click-less audio playback.
+* There are different kinds of fades: Source fades, section fades, fades for sudden start/stop ... it's all very customizable.
+
+
+==== Resampling algorithms
+
+* For resampling and VariSpeed, you can choose among all resampling engines available in REAPER.
+
+==== Time stretching algorithms
+
+* For time stretching, you can choose among all pitch shift engines available in REAPER.
+
+==== Multi-channel support
+
+* Basic support multi-channel audio clips.
+
+==== In-memory caching
+
+* One can load the source audio file completely into memory, which ensures that the clip engine doesn't run into problems where it cannot read from the disk quickly enough.
+
+=== Features related to MIDI clips only
+
+==== MIDI file support
+
+Supported MIDI data modes for playback:
+
+* External MIDI files
+* In-matrix clips
+** Means that MIDI data of the clip is embedded in the clip matrix instance itself.
+
+==== MIDI overdub
+
+* You can overdub more material onto an existing MIDI clip.
+
+==== Reset messages
+
+* Complete customization which MIDI reset messages will be sent:
+** Playing-notes-off
+** All-notes-off
+** All-sounds-off
+** Sustain off
+** Reset all controllers
+* Per event:
+** Sudden start/stop
+** Complete loop (not yet implemented)
+** Section
+** Source
+
+==== Downbeat / pickup beat detection
+
+* When recording MIDI, notes preceding the start of the bar can be recorded and change the downbeat position accordingly (see <<downbeat>> feature).
+
+== Internal features
+
+The following list of features is probably more interesting for developers than for users.
+
+=== Open source (GPL v3.0)
+
+* The engine is available as open-source, which is an important precondition to future proofness, given that it's not backed by a big company but created by a solo developer.
+
+=== Scalable
+
+* The biggest issue with Playtime 1 was that it was not scalable, neither in terms of further development (old frameworks, bad code base) nor in terms of possibilities (relying too much on REAPER's linear workflow, which comes with severe limitations).
+* The Playtime 2 Clip Engine fixes that. It's built with scalability in mind, uses a more modern programming language allowing for more productivity (Rust) and builds on lower-level primitives of the REAPER API.
+
+=== Sample-accurate continuity
+
+* The engines advances clips with the primary focus on continuity of playback.
+* The big part of the engine operates in the real-time thread and can therefore operate on sample accuracy.
+
+=== Native
+
+* This is a clean native implementation of a clip engine, it's not a script! Neither a ReaScript nor a JS FX. It wouldn't be possible nor desirable to write a clip engine with this performance and broad feature set in these languages.
+* The clip engine is written in Rust, a modern C++ alternative which is just as fast (no garbage collection) but more modern, clean and safe in many ways.
+
+=== Lock- and allocation-free design for real-time threads
+
+* In most places, the engine doesn't use lock mutexes in real-time threads.
+** In the few places where locks are used, they are contention-free - rigorously asserted at debug time by panicking when attempting to lock a mutex that's already locked.
+* Also, great care is taken to not allocate in real-time threads.
+** This is rigorously asserted at debug time by aborting on allocation in real-time threads.
+* In other words: The engine is conceived for live usage where it's important that most interactions don't cause crackling and dropouts
++
+[CAUTION]
+====
+It's not there yet because we are in an early alpha stage!
+====
+
+=== Integer arithmetics
+
+* In order to avoid rounding issues, the engine uses integer arithmetics wherever feasible.
+* For example, at runtime it addresses clip positions in frames instead of seconds.
+
+=== Clean separation of processing responsibilities
+
+* The clip processing code is cleanly separated according to its responsibility (_supplier chain_ concept).
+
+=== Clean state machine modeling of clip play/record logic
+
+* Instead of maintaining dozens of booleans and integers, the clip processing states are modeled cleanly as state machine, making use of Rusts's awesome "rich" enum data structures.
+
+=== Isolated module
+
+* Although the engine is shipped with ReaLearn, it doesn't depend on it.
+* The engine code is located in a separate module. ReaLearn depends on that module.
+
+=== Asynchronous real-time debug logging
+
+* In order to allow easier debugging of real-time processing issues, the engine has built-in asynchronous logging, which doesn't block the real-time thread.
+
+=== Asynchronous real-time metrics
+
+* The engine can easily expose metrics to Prometheus, even asynchronously, which is important to not distort the metrics in real-time code.
+
+=== GUI-agnostic
+
+* The engine is built in a way that allows different GUIs to be built on top of it.
+* The first one will be Playtime App (the main GUI).
+
+== Roadmap
+
+Some things that I plan to add or improve:
+
+* Quantization of MIDI clips
+* Auto quantization of MIDI clips during recording
+* Tempo detection (let length of first recorded clip determine global tempo)
+* Time stretching performance improvements
+* Improve pre-buffering of audio material
+* Runtime scriptability (e.g. for adding small in-REAPER GUIs)
+* Follow actions
+* Legato
+* Repeat
+* Scenes with associated tempo and time signature changes
+* Use time stretching as an effect for time-based material (as effect)
+* Reverse
+* Pendulum looping
+* Auto-detect input with global record button
+* Wait for input (gives you more time to get ready for playing after having pressed the record button)
+* Downbeat detection for audio recordings
+* Velocity-sensitive clip launching

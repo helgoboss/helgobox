@@ -138,7 +138,7 @@ function clip_name_feedback()
     }
 end
 
-function clip_position_feedback()
+function clip_position_text_feedback()
     return PartialMapping {
         control_enabled = false,
         glue = {
@@ -146,6 +146,17 @@ function clip_position_feedback()
                 kind = "Text",
             },
         },
+        target = {
+            kind = "ClipSeek",
+            slot = current_slot(),
+            feedback_resolution = "High",
+        },
+    }
+end
+
+function clip_position_numeric_feedback()
+    return PartialMapping {
+        control_enabled = false,
         target = {
             kind = "ClipSeek",
             slot = current_slot(),
@@ -220,9 +231,10 @@ local mappings = {
     button("cursor-right")+ scroll_horizontally(1),
     button("cursor-up") + scroll_vertically(-1),
     button("cursor-down") + scroll_vertically(1),
-    multi("ch1/fader") + clip_volume(),
+    --multi("ch1/fader") + clip_volume(),
+    multi("ch1/fader") + clip_position_numeric_feedback(),
     multi("ch1/lcd/line1") + clip_name_feedback(),
-    multi("ch1/lcd/line2") + clip_position_feedback(),
+    multi("lcd/timecode") + clip_position_text_feedback(),
 }
 
 -- Result
