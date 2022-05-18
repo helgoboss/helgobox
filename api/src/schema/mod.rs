@@ -88,7 +88,7 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write("src/schema/test/example.json", json).unwrap();
+        // std::fs::write("src/schema/test/example.json", json).unwrap();
     }
 
     #[test]
@@ -98,6 +98,6 @@ mod tests {
         let value = lua.load(include_str!("test/example.lua")).eval().unwrap();
         let mapping: Mapping = lua.from_value(value).unwrap();
         let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write("src/schema/test/example_from_lua.json", json).unwrap();
+        // std::fs::write("src/schema/test/example_from_lua.json", json).unwrap();
     }
 }
