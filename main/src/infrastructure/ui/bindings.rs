@@ -228,4 +228,8 @@ pub mod root {
     pub const ID_SOURCE_LINE_5_EDIT_CONTROL: u32 = 40138;
     pub const ID_TARGET_LINE_5_LABEL_1: u32 = 40139;
     pub const ID_TARGET_LINE_5_EDIT_CONTROL: u32 = 40140;
+    pub const ID_SETTINGS_TARGET_GROUP: u32 = 40141;
+    pub const ID_SETTINGS_TARGET_JUMP_GROUP: u32 = 40142;
+    pub const ID_SETTINGS_STEP_SIZE_GROUP: u32 = 40143;
+    pub const ID_SETTINGS_SOURCE_GROUP: u32 = 40144;
 }

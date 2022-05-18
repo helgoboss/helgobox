@@ -5039,6 +5039,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 show_source_min_max,
                 &[
                     root::ID_SETTINGS_SOURCE_LABEL,
+                    root::ID_SETTINGS_SOURCE_GROUP,
                     root::ID_SETTINGS_SOURCE_MIN_LABEL,
                     root::ID_SETTINGS_SOURCE_MAX_LABEL,
                     root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
@@ -5080,6 +5081,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 show_target_min_max,
                 &[
                     root::ID_SETTINGS_TARGET_LABEL_TEXT,
+                    root::ID_SETTINGS_TARGET_GROUP,
                     root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
                     root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
                     root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
@@ -5113,6 +5115,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 show_jump,
                 &[
                     root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+                    root::ID_SETTINGS_TARGET_JUMP_GROUP,
                     root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
                     root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
                     root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
@@ -5176,6 +5179,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 step_min_is_relevant,
                 &[
                     root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+                    root::ID_SETTINGS_STEP_SIZE_GROUP,
                     root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
                     root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
                     root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,

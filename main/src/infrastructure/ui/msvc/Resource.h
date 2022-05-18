@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
-// Von Microsoft Visual C++ generierte Includedatei.
-// Verwendet durch msvc.rc
+// Microsoft Visual C++ generated include file.
+// Used by msvc.rc
 //
 #define ID_HEADER_PANEL                 119
 #define ID_MAIN_PANEL                   120
@@ -226,6 +226,10 @@
 #define ID_SOURCE_LINE_5_EDIT_CONTROL   40138
 #define ID_TARGET_LINE_5_LABEL_1        40139
 #define ID_TARGET_LINE_5_EDIT_CONTROL   40140
+#define ID_SETTINGS_TARGET_GROUP        40141
+#define ID_SETTINGS_TARGET_JUMP_GROUP   40142
+#define ID_SETTINGS_STEP_SIZE_GROUP     40143
+#define ID_SETTINGS_SOURCE_GROUP        40144
 
 // Next default values for new objects
 // 
@@ -234,7 +238,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1007
+#define _APS_NEXT_CONTROL_VALUE         1010
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif
