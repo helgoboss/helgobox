@@ -510,7 +510,27 @@ impl Window {
                 point.y.as_raw(),
                 0,
                 0,
-                raw::SWP_NOSIZE as _,
+                ( raw::SWP_NOSIZE | raw::SWP_NOZORDER ) as _,
+            );
+        }
+    }
+
+    pub fn taborder_first(self) {
+        /// zorder is used to set taborder,
+        /// note HWND_BOTTOM should be drawn as the first (to be the last in zorder),
+        /// and so it is the first child (and so the first in taborder)
+
+        /// to check: I have not found HWND_xxx constants in reaper-low bindings...
+        const HWND_BOTTOM: raw::HWND = 0x1 as raw::HWND;
+        unsafe {
+            Swell::get().SetWindowPos(
+                self.raw,
+                HWND_BOTTOM,
+                0,
+                0,
+                0,
+                0,
+                ( raw::SWP_NOSIZE | raw::SWP_NOMOVE ) as _,
             );
         }
     }
