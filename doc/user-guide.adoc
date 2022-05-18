@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-04-08 (v2.13.0-pre.3)`
+|Last update of text: |`2022-05-13 (v2.13.0-pre.4)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -94,8 +94,7 @@ Nevertheless, since version 2, ReaLearn is also a great choice for setting up gl
 
 ReaLearn is designed to get the most out of general-purpose MIDI controllers, which - compared to the big
 and bulky DAW consoles - usually have the advantage of being small, USB-powered, more versatile and easier on the
-budget. ReaLearn doesn't impose many requirements on your controller. Thanks to features like conditional
-activation and projection, it can turn even the cheapest MIDI controller into a powerhouse for controlling
+budget. ReaLearn doesn't impose many requirements on your controller. Thanks to features like <<conditional-activation>> and <<projection>>, it can turn even the cheapest MIDI controller into a powerhouse for controlling
 your DAW. 
 
 The usual ReaLearn workflow for a single mapping goes like this:
@@ -466,7 +465,7 @@ You can also use the export for some very basic A/B testing:
 
 1. Choose _Export session as JSON_
 2. Change some settings and test them
-3. Restore the old settings by pressing _Import from clipboard_).
+3. Restore the old settings by pressing _Import from clipboard_.
 ====
 +
 [TIP]
@@ -481,6 +480,7 @@ For the programmers and script junkies out there: It's perfectly possible to pro
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 
+[#projection]
 ===== Projection
 
 This is a quite unique feature that allows you to project a schematic representation
@@ -644,6 +644,23 @@ Provides access to expert features.
 * *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
 * *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
 * *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
+* *Dry-run Lua script from clipboard*: Executes the Lua code in the clipboard and opens the returned data structure in a text editor.
++
+[NOTE]
+====
+The way Lua import works in ReaLearn is:
+
+. ReaLearn executes the Lua script (from clipboard).
+. ReaLearn attempts to interpret the return value as ReaLearn API object.
+. ReaLearn loads the API object
+
+If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
+
+If step 2 fails, ReaLearn shows a validation error message.
+
+The command _Dry-run Lua script from clipboard_ enables you to just execute step 1 and see the "expanded" result. This can help to make sense of a possible validation error message in step 2.
+====
+* *Freeze clip matrix*: Don't use this, this feature is not ready yet!
 
 ====== Options
 
@@ -682,7 +699,7 @@ Provides access to expert features.
 * *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
  displays instructions how to do it.
 * *Change session ID…:* This lets you customize the ID used to address this particular ReaLearn
- instance when using the projection feature.
+ instance when using the <<projection>> feature.
 ** By default, the session ID is a random cryptic string
  which ensures that every instance is uniquely addressable. The result is that scanning the QR code
  of this ReaLearn instance will let your mobile device connect for sure with this unique
@@ -690,9 +707,9 @@ Provides access to expert features.
  is usually what you want.
 ** But a side effect is that with every new ReaLearn instance that you create,
  you first have to point your mobile device to it in order to see its
- projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
+ <<projection>> (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
  that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
- your mobile device that it should always show the projection of this very ReaLearn instance -
+ your mobile device that it should always show the <<projection>> of this very ReaLearn instance -
  no matter in which REAPER project you are and even if they control the volumes of totally
  different tracks.
 ** You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
@@ -737,7 +754,7 @@ Allows one to display and modify the list of (globally) configured OSC devices.
 ====
 When you configure your OSC device, you must provide a _host_ as well. There you should enter the IP address of the computer which runs REAPER and ReaLearn.
 
-You can easily find it by pressing the _Projection_ button in ReaLearn and scrolling down a bit. It's the value next to *Host* and should start with `192.168.`.
+You can easily find it by pressing the <<Projection>> button in ReaLearn and scrolling down a bit. It's the value next to *Host* and should start with `192.168.`.
 ====
 ** *Device port:* Required for feedback only. The UDP port on which the OSC device listens for OSC feedback
  messages.
@@ -886,8 +903,8 @@ by adding mappings. Almost everything in ReaLearn is a mapping :)
 
 Defining your own controllers can have a bunch of benefits:
 
-* You can use the awesome https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[controller projection feature]
- to project your controller mapping to your smartphone or tablet.
+* You can use the awesome <<projection>> feature
+ to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
 * You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
  yourself!
 * You can make your main mappings independent of the actual controller that you use. This is done using so-called
@@ -929,7 +946,7 @@ have just mapped: Take note how ReaLearn will assign a _virtual_ source this tim
 display the name of the control element as source label. Now, let's say at some point you swap your controller device
 with another one that has a similar layout, all you need to do is switch the controller preset and you are golden! You
 have decoupled your main mappings from the actual controller. Plus, as soon as you have saved your controller mappings
-as a preset, you can take full advantage of the _Projection_ feature.
+as a preset, you can take full advantage of the <<projection>> feature.
 
 All of this might be a bit of an effort but it's well worth it! Plus, there's a way to do this _a lot_ faster by
 using _batch learning_:
@@ -944,7 +961,7 @@ using _batch learning_:
 ** ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong. If so,
  just adjust the character in the corresponding mapping panel.
 
-You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;]. I will add it to https://github.com/helgoboss/realearn/tree/master/resources/controllers[this
+You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;]. I will add it to https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[this
 list].
 
 ==== Main compartment
@@ -1148,16 +1165,23 @@ There are 4 different activation modes:
 * *Always:* Mapping is always active (the default)
 * *When modifiers on/off:* Mapping becomes active only if something is pressed / not pressed
 * *When bank selected:* Allows you to step through different groups of mappings (sometimes also called "pages")
-* *When EEL result &gt; 0:* Let a formula decide (total freedom)
+* *When EEL result &gt; 0:* Let an EEL formula decide (total freedom)
+* *When expression > 0:* Let an expression decide (total freedom)
 
-For details, see below.
+[NOTE]
+====
+At this occasion, some words about ReaLearn's own freely assignable FX parameters.
 
-At this occasion some words about ReaLearn's own freely assignable FX parameters. ReaLearn itself isn't just able to
-control parameters of other FX, it also offers FX parameters itself. At the moment it offers 200 FX parameters,
-100 for the main compartment and 100 for the controller compartment. You can control them just like parameters in other
-FX: Via automation envelopes, via track controls, via REAPER's own MIDI/OSC learn … and of course via ReaLearn itself.
-Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
-in activation conditions or `&lt;Dynamic&gt;` selector expressions.
+ReaLearn itself isn't just able to
+control parameters of other FX, it also offers FX parameters itself. At the moment it offers 200 FX parameters, 100 for the main compartment and 100 for the controller compartment. You can control them just like parameters in other FX:
+
+- Via automation envelopes,
+- via track controls,
+- via REAPER's own MIDI/OSC learn
+- … and of course via ReaLearn itself.
+
+Initially, they don't do anything at all. First, you need to give meaning to them by referring to them in activation conditions or `&lt;Dynamic&gt;` selector expressions.
+====
 
 [discrete]
 ===== When modifiers on/off
@@ -1234,7 +1258,7 @@ With _Conditional activation_ you can do the same (and more) within just one Rea
 TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameters>>).
 
 [discrete]
-===== When EEL result &gt; 0
+===== When EEL result > 0
 
 This is for experts. It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language
 that determines if the mapping becomes active or not, based on potentially all parameter values.
@@ -1243,7 +1267,6 @@ modifier condition scenario mentioned above written as formula would be:
 
 ----
 y = p1 > 0 && p2 > 0
-
 ----
 
 `y` represents the result. If `y` is greater than zero, the mapping will become active, otherwise
@@ -1252,6 +1275,18 @@ value between 0.0 (= 0%) and 1.0 (= 100%).
 
 This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
 one particular use case. If you feel limited by the other activation modes, just use EEL.
+
+TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
+
+[#expression-based-activation-condition]
+[discrete]
+===== When expression > 0
+
+This is very similar to the previous EEL activation mode. But instead of EEL, it lets you use the same expression language as used in <<dynamic-selector,dynamic selectors>> to express the activation condition.
+
+The equivalent expression to above EEL example is:
+
+`p[0] > 0 && p[1] > 0`
 
 [discrete]
 ===== Custom parameter names
@@ -1584,37 +1619,85 @@ E0 [0gfe dcba] [0nml kjih]
 [#script-source]
 ====== MIDI Script
 
-This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source. It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
+This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source. It lets you write an EEL or Lua script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
 
-* *Script:* The EEL script. Is disabled if the script contains more than one line.
+* *Kind:* Whether to use the EEL or Lua language.
+* *Script:* The script. Is disabled if the script contains more than one line.
 * *…:* Opens the script in a separate window (for multi-line scripts).
 
-*Script input*
+TIP: Prefer the <<display-source>> source over this one whenever possible. It's faster and easier to use.
 
-The input of the script is the current normalized feedback value. You can access it via EEL variable `y`, a floating
-point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the
-"Glue" section of the mapping.
+*General mechanics*
 
-*Script output*
+* The script receives an input and must produce an output.
+* *Script input*
+** The main input is the current feedback value, which the script can access as a variable.
+* *Script output*
+** The main output that the script is supposed to provide is the MIDI message to be sent to the MIDI device.
+** Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display. It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED. By convention, the constant (non-variable) bytes of the MIDI message should be used as address. The examples below might help to understand.
 
-The script's task is to provide a list of bytes to be sent to the MIDI device. In order to do this, you must assign
-the bytes to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
-setting the variable `msg_size` to the number of bytes to be sent. If you forget the latter step, nothing will be sent
-because that variable defaults to zero!
+*EEL script specifics*
 
-*Example*
-
-The following example creates a 3-byte MIDI message. 
-
+* *Script input*
+** EEL scripts can access numeric feedback values only. The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
+* *Script output*
+** In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
+set the variable `msg_size` to the number of bytes to be sent. If you forget the latter step, nothing will be sent because that variable defaults to zero!
+** In order to provide the address, simply assign an appropriate number to the `address` variable.
+* *Examples*
+** The following example creates a 3-byte MIDI message.
++
 [source,eel]
 ----
+address = 0x4bb0;
 msg_size = 3;
 0[] = 0xb0; 
 1[] = 0x4b; 
 2[] = y * 64; 
 ----
 
-TIP: Prefer the <<display-source>> source over this one whenever possible. Unlike the display source, the MIDI script source is not capable of processing textual target properties. Plus, it can't handle feedback relay correctly.
+*Lua script specifics*
+
+* *Script input*
+** Lua scripts can access both numeric and text feedback values. The feedback value is contained in the variable `y`.
+* *Script output*
+** A Lua script can even generate multiple output messages.
+** You need to return a table which contains the following keys:
+*** `address`: The feedback address.
+*** `messages`: An array containing all the messages, where each message itself is an array contaning the message bytes.
+* *Examples*
+** The following example creates a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
++
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, math.floor(y * 10) }
+    }
+}
+----
++
+** The following example creates a 3-byte MIDI message, assuming that `y` is a text value.
++
+[source,lua]
+----
+local lookup_table = {
+    playing = 5,
+    stopped = 6,
+    paused = 7,
+}
+return {
+    messages = {
+        { 0xb0, 0x4b, lookup_table[y] or 0 }
+    }
+}
+----
++
+[TIP]
+====
+Please note that this kind of simple mapping from text values to integer numbers doesn't need a script. You can use the `feedback_value_table` <<glue>> property instead, which can only be set via API though. Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
+====
 
 [#display-source]
 ====== Display
@@ -1960,76 +2043,57 @@ When you choose this option, a text field will appear next to it. This lets you 
 
 NOTE: Please note
 that the expression language is _not EEL_ - this is a notable difference to ReaLearn's control/feedback
-transformation and EEL activation condition text fields! The expression language used here just
+transformation text fields! The expression language used here just
 provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also
 doesn't allow or need any assignment to an output variable.
 
 The dynamic selector is a very powerful tool because you can use some special variables:
 
 
-[cols="m,1,3"]
+[cols="m,1,1,3"]
 |===
-| Variable | Type | Description
+| Variable | Type | Applicable to | Description
 
-|
-none
-|
--
-|
+| none | - | All selectors |
 Special value that represents a "not set" value. See below for examples.
 
-
-|
-p
-|
-Array of floating-point numbers
-|
+| p | Array of floating-point numbers | All selectors |
 Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
 
 By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see <<compartment-parameters>>).
 
-|
-p1 ... p100
-|
-Floating-point numbers
-|
+| p1 ... p100 | Floating-point numbers | All selectors |
 Values of ReaLearn's internal parameters as single variables.
 
 _Deprecated_: Recent ReaLearn versions offer the `p` array instead. Better use that one.
 
 
-|
-selected_track_index
-|
-Integer >= -1
-|
+| selected_track_index | Integer >= -1 | Track selectors |
 Resolves to the zero-based index of the first currently selected track within the containing project.
 If no track is selected, this resolves to `none`. If the master track is selected, `-1`.
 
-Available in dynamic _track_ selectors only.
-
-
-|
-selected_track_indexes
-|
-Array of integers >= -1
-|
+| selected_track_indexes | Array of integers >= -1 | Track selectors |
 Lets you access the indexes of multiple selected tracks.
 
 E.g. if 2 tracks are selected, `selected_track_indexes[0]` gives you the index of the first selected track whereas `selected_track_indexes[1]` gives you the index of the second selected track. `selected_track_indexes[2]` would resolve to `none`.
 
-Available in dynamic _track_ selectors only.
-
-
-|
-this_track_index
-|
-Integer >= -1
-|
+| this_track_index | Integer >= -1 | Track selectors |
 
 Resolves to the zero-based index of the track on which this ReaLearn instance is located.
 
-Available in dynamic _track_ selectors only.
+| tcp_fx_indexes | Array of integers >= 0 | FX selectors |
+
+Lets you access the indexes of FXs in a track control panel.
+
+E.g. `tcp_fx_indexes[2]` will resolve to the index of the third FX displayed in the track control panel.
+
+| tcp_fx_parameter_indexes | Array of integers >= 0 | FX parameter selectors |
+
+Lets you access the indexes of FX parameters in a track control panel.
+
+E.g. `selected_fx_parameter_indexes[2]` will resolve to the index of the third FX parameter displayed in the track control panel.
+
+This only makes sense if used in conjunction with `tcp_fx_indexes`.
 
 |===
 
@@ -3587,8 +3651,7 @@ ReaLearn will ignore any unknown properties.
 [#companion-app]
 == Companion app
 
-This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's
-_projection_ feature. 
+This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's <<projection>> feature.
 
 At the moment it comes as https://play.google.com/store/apps/details?id=org.helgoboss.realearn_companion[Android app]
 and https://realearn.helgoboss.org/[web app]. The iOS app has not been published yet.
@@ -3600,7 +3663,7 @@ The start screen lets you connect to a specific ReaLearn instance by scanning th
 pressing ReaLearn's <<header-panel,Projection button>>. It's also possible to enter the connection data manually, in
 case your device doesn't have a camera or in case you are using the web app (in which QR code scanning often doesn't
 work so well). If you are experiencing issues, follow the instructions given by the app and the setup guide which is
-displayed when pressing the _Projection_ button!
+displayed when pressing the <<Projection>> button!
 
 Please note, if all you want is to open the web app on the computer that also runs REAPER/ReaLearn, you don't need to
 bother with QR codes or connection data at all. Just follow the link that is displayed in the setup guide.
@@ -3839,7 +3902,7 @@ https://vital.audio/[Vital]. The procedure for other plug-ins is the same.
 
 Before you start, I strongly recommend downloading a ReaLearn controller preset for your specific controller from ReaPack and activate it in the _controller compartment_. You will need to right-click the header panel and choose
 _Reload all presets from disk_ to make a a newly downloaded controller preset appear in the preset list. If there's no
-suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets], build your own.
+suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets], build your own.
 
 This step is completely optional but it gives you many advantages, both in the short and long run. Please see
 section <<controller-compartment,Controller compartment>> for details.
@@ -4013,9 +4076,9 @@ Consider the following general usage hints:
 
 [IMPORTANT]
 ====
-Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets]!
+Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets]!
 
-Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
+Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
 ====
 
 
@@ -4207,24 +4270,28 @@ such as the indicator type are currently not configurable from the ReaLearn user
 [discrete]
 ==== Preparation
 
-By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC").
+The following instructions relate to firmware 02 Oct 2019.
+
+* *Encoders:* By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC").
 I strongly recommend changing this to transmit relative values (Encoder MIDI Type = "ENC 3FH/41H") in order to unlock
-the full potential of this awesome device. Use the https://djtechtools.com/midi-fighter-setup/[Midi Fighter Utility]
+the full potential of this awesome device.
+** Use the https://djtechtools.com/midi-fighter-setup/[Midi Fighter Utility]
 to apply this change to each encoder:
-
++
 image:images/midi-fighter-twister-setup.png[Midi Fighter Twister Setup]
-
++
 You can also do this using the "MULTIPLE" button:
-
 . Press the "MULTIPLE" button.
 . Select all controls via mouse clicks.
 . Change the Encoder MIDI Type.
 . Press "CANCEL"
-
-If you want to make use of the Twister's built-in encoder acceleration, you should set the _encoder_ sensitivity to
+** If you want to make use of the Twister's built-in encoder acceleration, you should set the _encoder_ sensitivity to
 "Velocity sensitive". In order to make use of it, make sure that ReaLearn's _Step size Max_ or _Speed Max_ is set high
 enough, both in the controller mappings (already done in the latest Twister controller presets) and your
 specific main mapping.
+* *Colors*: For most usage scenarios, I suggest switching the OFF COLOR to black instead of the default of blue. The ON COLOR doesn't matter as it can be controlled by ReaLearn.
+* *Side key functions:* In order to make all side keys available in ReaLearn, make sure to set all Side Key Functions (in Global Settings pane) to "CC Hold" and disable "Bank Side Buttons".
+
 
 [discrete]
 ==== Presets
