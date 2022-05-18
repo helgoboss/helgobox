@@ -1103,3 +1103,20 @@ impl Db {
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 type PlaytimeApiResult<T> = Result<T, &'static str>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn export_json_schema() {
+        let settings = schemars::gen::SchemaSettings::draft07().with(|s| {
+            s.option_nullable = false;
+            s.option_add_null_type = false;
+        });
+        let gen = settings.into_generator();
+        let schema = gen.into_root_schema_for::<Matrix>();
+        let schema_json = serde_json::to_string_pretty(&schema).unwrap();
+        std::fs::write("src/generated/playtime.schema.json", schema_json).unwrap();
+    }
+}
