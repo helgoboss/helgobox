@@ -1,12 +1,12 @@
 use crate::base::Global;
 use crate::infrastructure::data::ControllerPresetData;
 use crate::infrastructure::plugin::RealearnControlSurfaceServerTaskSender;
-use crate::infrastructure::server::http::{
-    get_controller_preset_data, get_controller_routing_by_session_id, get_session_data,
-    obtain_control_surface_metrics_snapshot, patch_controller, send_initial_events,
-    ControllerRouting, DataError, PatchRequest, ServerClients, SessionResponseData, Topics,
-    WebSocketClient,
+use crate::infrastructure::server::data::{
+    get_clip_matrix_data, get_controller_preset_data, get_controller_routing_by_session_id,
+    obtain_control_surface_metrics_snapshot, patch_controller, ControllerRouting, DataError,
+    DataErrorCategory, PatchRequest, SessionResponseData, Topics,
 };
+use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
 use axum::body::{boxed, Body, BoxBody};
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::Path;
@@ -28,8 +28,17 @@ pub async fn welcome_handler() -> Html<&'static str> {
 pub async fn session_handler(
     Path(session_id): Path<String>,
 ) -> Result<Json<SessionResponseData>, SimpleResponse> {
-    let session_data = get_session_data(session_id).map_err(translate_data_error)?;
+    let session_data = crate::infrastructure::server::data::get_session_data(session_id)
+        .map_err(translate_data_error)?;
     Ok(Json(session_data))
+}
+
+/// Needs to be executed in the main thread!
+pub async fn clip_matrix_handler(
+    Path(session_id): Path<String>,
+) -> Result<Json<playtime_api::Matrix>, SimpleResponse> {
+    let clip_matrix_data = get_clip_matrix_data(&session_id).map_err(translate_data_error)?;
+    Ok(Json(clip_matrix_data))
 }
 
 /// Needs to be executed in the main thread!
@@ -153,26 +162,12 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
 }
 
 fn translate_data_error(e: DataError) -> SimpleResponse {
-    use DataError::*;
-    match e {
-        SessionNotFound => not_found("session not found"),
-        SessionHasNoActiveController => not_found("session doesn't have an active controller"),
-        ControllerNotFound => not_found("session has controller but controller not found"),
-        OnlyPatchReplaceIsSupported => (
-            StatusCode::METHOD_NOT_ALLOWED,
-            "only 'replace' is supported as op",
-        ),
-        OnlyCustomDataKeyIsSupportedAsPatchPath => (
-            StatusCode::BAD_REQUEST,
-            "only '/customData/{key}' is supported as path",
-        ),
-        CouldntUpdateController => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "couldn't update controller",
-        ),
-    }
-}
-
-const fn not_found(msg: &'static str) -> SimpleResponse {
-    (StatusCode::NOT_FOUND, msg)
+    use DataErrorCategory::*;
+    let status_code = match e.category() {
+        NotFound => StatusCode::NOT_FOUND,
+        BadRequest => StatusCode::BAD_REQUEST,
+        MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
+        InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    (status_code, e.description())
 }

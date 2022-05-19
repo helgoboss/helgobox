@@ -274,11 +274,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.poll_clip_matrixes();
         self.process_incoming_clip_matrix_events();
         self.run_main_processors(timestamp);
-        // // TODO-high-grpc Just an experiment
-        // if let Some(t) = Reaper::get().current_project().first_track() {
-        //     let vol = t.volume();
-        //     let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
-        // }
+        // TODO-high-grpc Just an experiment
+        if let Some(t) = Reaper::get().current_project().first_track() {
+            let vol = t.volume();
+            let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
+        }
         #[cfg(feature = "realearn-metrics")]
         if self.metrics_enabled {
             self.process_metrics();

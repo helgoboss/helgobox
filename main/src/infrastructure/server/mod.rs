@@ -9,13 +9,14 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use tokio::sync::broadcast;
 use url::Url;
 
+use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
 use derivative::Derivative;
@@ -25,6 +26,7 @@ use std::time::Duration;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
+mod data;
 pub mod grpc;
 pub mod http;
 mod layers;
@@ -275,7 +277,7 @@ async fn start_servers(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
-    _grpc_shutdown_receiver: broadcast::Receiver<()>,
+    grpc_shutdown_receiver: broadcast::Receiver<()>,
     control_surface_metrics_enabled: bool,
     prometheus_handle: PrometheusHandle,
 ) {
@@ -290,15 +292,14 @@ async fn start_servers(
         control_surface_metrics_enabled,
         prometheus_handle,
     );
-    http_server_future.await.expect("HTTP server error");
-    // let grpc_server_future = start_grpc_server(
-    //     SocketAddr::from(([127, 0, 0, 1], 50051)),
-    //     grpc_shutdown_receiver,
-    // );
-    // let (http_result, grpc_result) =
-    //     futures::future::join(http_server_future, grpc_server_future).await;
-    // http_result.expect("HTTP server error");
-    // grpc_result.expect("gRPC server error");
+    let grpc_server_future = start_grpc_server(
+        SocketAddr::from(([127, 0, 0, 1], 50051)),
+        grpc_shutdown_receiver,
+    );
+    let (http_result, grpc_result) =
+        futures::future::join(http_server_future, grpc_server_future).await;
+    http_result.expect("HTTP server error");
+    grpc_result.expect("gRPC server error");
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

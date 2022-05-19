@@ -5,7 +5,8 @@ use crate::application::{
 };
 use crate::base::NamedChannelSender;
 use crate::domain::{
-    Compartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
+    BackboneState, Compartment, MappingKey, ProjectionFeedbackValue,
+    RealearnControlSurfaceServerTask,
 };
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
@@ -27,7 +28,45 @@ pub enum DataError {
     ControllerNotFound,
     OnlyPatchReplaceIsSupported,
     OnlyCustomDataKeyIsSupportedAsPatchPath,
-    CouldntUpdateController,
+    ControllerUpdateFailed,
+    ClipMatrixNotFound,
+}
+
+pub enum DataErrorCategory {
+    NotFound,
+    BadRequest,
+    MethodNotAllowed,
+    InternalServerError,
+}
+
+impl DataError {
+    pub fn description(&self) -> &'static str {
+        use DataError::*;
+        match self {
+            SessionNotFound => "session not found",
+            SessionHasNoActiveController => "session doesn't have an active controller",
+            ControllerNotFound => "session has controller but controller not found",
+            OnlyPatchReplaceIsSupported => "only 'replace' is supported as op",
+            OnlyCustomDataKeyIsSupportedAsPatchPath => {
+                "only '/customData/{key}' is supported as path"
+            }
+            ControllerUpdateFailed => "couldn't update controller",
+            ClipMatrixNotFound => "clip matrix not found",
+        }
+    }
+
+    pub fn category(&self) -> DataErrorCategory {
+        use DataError::*;
+        match self {
+            SessionNotFound
+            | SessionHasNoActiveController
+            | ControllerNotFound
+            | ClipMatrixNotFound => DataErrorCategory::NotFound,
+            OnlyPatchReplaceIsSupported => DataErrorCategory::MethodNotAllowed,
+            OnlyCustomDataKeyIsSupportedAsPatchPath => DataErrorCategory::BadRequest,
+            ControllerUpdateFailed => DataErrorCategory::InternalServerError,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -68,6 +107,16 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
+}
+
+pub fn get_clip_matrix_data(session_id: &str) -> Result<playtime_api::Matrix, DataError> {
+    let session = App::get()
+        .find_session_by_id(session_id)
+        .ok_or(DataError::SessionNotFound)?;
+    let session = session.borrow();
+    BackboneState::get()
+        .with_clip_matrix(session.instance_state(), |matrix| matrix.save())
+        .map_err(|_| DataError::ClipMatrixNotFound)
 }
 
 pub fn get_controller_routing_by_session_id(
@@ -172,7 +221,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     controller.update_custom_data(custom_data_key.to_string(), req.value);
     controller_manager
         .update_preset(controller)
-        .map_err(|_| DataError::CouldntUpdateController)?;
+        .map_err(|_| DataError::ControllerUpdateFailed)?;
     Ok(())
 }
 

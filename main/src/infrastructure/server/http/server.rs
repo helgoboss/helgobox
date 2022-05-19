@@ -1,5 +1,5 @@
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
-use crate::infrastructure::server::http::{ServerClients, WebSocketRequest};
+use crate::infrastructure::server::http::ServerClients;
 use axum::extract::{Query, WebSocketUpgrade};
 use axum::handler::Handler;
 use axum::http::header::CONTENT_TYPE;
@@ -15,6 +15,7 @@ use tokio::sync::broadcast;
 use tower_http::cors::{any, CorsLayer};
 
 use crate::base::Global;
+use crate::infrastructure::server::data::WebSocketRequest;
 pub use crate::infrastructure::server::http::handlers::*;
 use crate::infrastructure::server::layers::MainThreadLayer;
 
@@ -104,6 +105,10 @@ fn create_router(
         .route(
             "/realearn/session/:id/controller-routing",
             get(controller_routing_handler.layer(MainThreadLayer)),
+        )
+        .route(
+            "/realearn/session/:id/clip-matrix",
+            get(clip_matrix_handler.layer(MainThreadLayer)),
         )
         .route(
             "/realearn/controller/:id",

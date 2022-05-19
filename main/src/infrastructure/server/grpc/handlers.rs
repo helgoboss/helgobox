@@ -1,26 +1,26 @@
 use crate::domain::BackboneState;
-use crate::infrastructure::server::grpc::proto::{greeter_server, DoubleReply, DoubleRequest};
-use crate::infrastructure::server::grpc::proto::{HelloReply, HelloRequest};
+use crate::infrastructure::server::data::{get_clip_matrix_data, DataError, DataErrorCategory};
+use crate::infrastructure::server::grpc::proto::{
+    greeter_server, DoubleReply, DoubleRequest, GetClipMatrixReply, GetClipMatrixRequest,
+};
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio_stream::wrappers::BroadcastStream;
-use tonic::{Request, Response, Status};
+use tonic::{Code, Request, Response, Status};
 
 #[derive(Debug, Default)]
 pub struct MyGreeter {}
 
 #[tonic::async_trait]
 impl greeter_server::Greeter for MyGreeter {
-    async fn say_hello(
+    async fn get_clip_matrix(
         &self,
-        request: Request<HelloRequest>,
-    ) -> Result<Response<HelloReply>, Status> {
-        println!("Got a request: {:?}", request);
-
-        let reply = HelloReply {
-            message: format!("Hello {}!", request.into_inner().name),
-        };
-
+        request: Request<GetClipMatrixRequest>,
+    ) -> Result<Response<GetClipMatrixReply>, Status> {
+        let matrix =
+            get_clip_matrix_data(&request.get_ref().session_id).map_err(translate_data_error)?;
+        let json = serde_json::to_string(&matrix).map_err(|e| Status::unknown(e.to_string()))?;
+        let reply = GetClipMatrixReply { value: json };
         Ok(Response::new(reply))
     }
 
@@ -40,3 +40,14 @@ impl greeter_server::Greeter for MyGreeter {
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
+
+fn translate_data_error(e: DataError) -> Status {
+    use DataErrorCategory::*;
+    let code = match e.category() {
+        NotFound => Code::NotFound,
+        BadRequest => Code::FailedPrecondition,
+        MethodNotAllowed => Code::NotFound,
+        InternalServerError => Code::Unknown,
+    };
+    Status::new(code, e.description())
+}

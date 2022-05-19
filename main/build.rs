@@ -4,11 +4,13 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn Error>> {
     // Generate Rust code from gRPC / Protocol Buffers schema
     {
+        let proto_file = "../proto/realearn.proto";
+        println!("cargo:rerun-if-changed={}", proto_file);
         let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
         let _ = std::fs::remove_file(out_dir.join("realearn.rs"));
         tonic_build::configure()
             .build_client(false)
-            .compile(&["../proto/realearn.proto"], &["../proto"])?;
+            .compile(&[proto_file], &["../proto"])?;
     }
 
     // Generate "built" file (containing build-time information)
