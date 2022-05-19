@@ -2,7 +2,7 @@
 openapi: 3.0.0
 info:
   title: ReaLearn
-  description: ReaLearn API
+  description: ReaLearn API without aliased types (for compatibility with swagger-dart-code-generator)
   version: 0.1.0
 paths: {}
 components:
@@ -206,9 +206,6 @@ components:
               type: string
               enum:
                 - Region
-    Bpm:
-      type: number
-      format: double
     ButtonFilter:
       type: string
       enum:
@@ -270,8 +267,8 @@ components:
             - $ref: "#/components/schemas/ClipTimeBase"
         volume:
           description: Relative volume adjustment of clip.
-          allOf:
-            - $ref: "#/components/schemas/Db"
+          type: number
+          format: double
       additionalProperties: false
     ClipAudioSettings:
       type: object
@@ -807,12 +804,12 @@ components:
           properties:
             audio_tempo:
               description: "The clip's native tempo.\n\nMust be set for audio. Is ignored for MIDI.\n\nThis information is used by the clip engine to determine how much to speed up or slow down the material depending on the current project tempo."
-              allOf:
-                - $ref: "#/components/schemas/Bpm"
+              type: number
+              format: double
             downbeat:
               description: Defines which position (in beats) is the downbeat.
-              allOf:
-                - $ref: "#/components/schemas/PositiveBeat"
+              type: number
+              format: double
             kind:
               type: string
               enum:
@@ -882,8 +879,7 @@ components:
             - $ref: "#/components/schemas/ClipPlayStopTiming"
         track:
           description: "REAPER track used for playing back clips in this column.\n\nUsually, each column should have a play track. But events might occur that leave a column in a \"track-less\" state, e.g. the deletion of a track. This column will be unusable until the user sets a play track again. We still want to be able to save the matrix in such a state, otherwise it could be really annoying. So we allow `None`."
-          allOf:
-            - $ref: "#/components/schemas/TrackId"
+          type: string
       additionalProperties: false
     ColumnClipRecordSettings:
       type: object
@@ -894,8 +890,7 @@ components:
           $ref: "#/components/schemas/RecordOrigin"
         track:
           description: "By default, Playtime records from the play track but this settings allows to override that."
-          allOf:
-            - $ref: "#/components/schemas/TrackId"
+          type: string
       additionalProperties: false
     ColumnPlayMode:
       oneOf:
@@ -957,9 +952,6 @@ components:
           items:
             $ref: "#/components/schemas/Parameter"
       additionalProperties: false
-    Db:
-      type: number
-      format: double
     EncoderFilter:
       type: string
       enum:
@@ -1843,12 +1835,6 @@ components:
           items:
             type: string
       additionalProperties: false
-    PositiveBeat:
-      type: number
-      format: double
-    PositiveSecond:
-      type: number
-      format: double
     PropColor:
       type: object
       required:
@@ -2024,8 +2010,8 @@ components:
           type: string
         tempo:
           description: An optional tempo associated with this row.
-          allOf:
-            - $ref: "#/components/schemas/Bpm"
+          type: number
+          format: double
         time_signature:
           description: An optional time signature associated with this row.
           allOf:
@@ -2038,12 +2024,12 @@ components:
       properties:
         length:
           description: "Length of the material to be played, starting from `start_pos`.\n\n- `None` means until original source end. - May exceed the end of the source. - If this makes the section end be located before the original source end, a fade-out will be used to avoid clicks."
-          allOf:
-            - $ref: "#/components/schemas/PositiveSecond"
+          type: number
+          format: double
         start_pos:
           description: "Position in the source from which to start.\n\nIf this is greater than zero, a fade-in will be used to avoid clicks."
-          allOf:
-            - $ref: "#/components/schemas/PositiveSecond"
+          type: number
+          format: double
       additionalProperties: false
     SendMidiFeedbackAction:
       oneOf:
@@ -3225,9 +3211,11 @@ components:
         - min
       properties:
         max:
-          $ref: "#/components/schemas/Bpm"
+          type: number
+          format: double
         min:
-          $ref: "#/components/schemas/Bpm"
+          type: number
+          format: double
       additionalProperties: false
     TimeSignature:
       type: object
@@ -3375,8 +3363,6 @@ components:
       enum:
         - Normal
         - Input
-    TrackId:
-      type: string
     TrackRouteKind:
       type: string
       enum:
