@@ -1,6 +1,4 @@
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), concat!("/realearn.rs")));
-}
+pub mod proto;
 
 mod handlers;
 mod server;
