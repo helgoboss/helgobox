@@ -2499,11 +2499,13 @@ impl<'a> MutableMappingPanel<'a> {
                         };
                         let i = combo.selected_combo_box_item_index();
                         if let Some(fx) = chain.fx_by_index(i as _) {
-                            self.mapping.target_model.set_concrete_fx(
-                                ConcreteFxInstruction::ByIdWithFx(fx),
-                                false,
-                                true,
-                            );
+                            self.change_target_with_closure(None, |ctx| {
+                                ctx.mapping.target_model.set_concrete_fx(
+                                    ConcreteFxInstruction::ByIdWithFx(fx),
+                                    false,
+                                    true,
+                                )
+                            });
                         }
                     }
                 }
