@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::main::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use realearn_api::persistence::ClipMatrixAction;
 use std::borrow::Cow;
 
@@ -81,10 +81,10 @@ impl RealearnTarget for ClipMatrixTarget {
             ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                    QualifiedClipChangedEvent { event, .. },
+                    QualifiedClipChangeEvent { event, .. },
                 )) => match event {
-                    ClipChangedEvent::PlayState(_) => (true, None),
-                    ClipChangedEvent::Removed => (true, None),
+                    ClipChangeEvent::PlayState(_) => (true, None),
+                    ClipChangeEvent::Removed => (true, None),
                     _ => (false, None),
                 },
                 _ => (false, None),

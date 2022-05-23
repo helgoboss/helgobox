@@ -2,6 +2,7 @@ use reaper_medium::PositionInSeconds;
 use std::borrow::Cow;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use playtime_api::runtime::ClipPlayState;
 
 use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, Compartment,
@@ -11,7 +12,7 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
-use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
+use playtime_clip_engine::rt::{ClipChangeEvent, InternalClipPlayState, QualifiedClipChangeEvent};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
@@ -90,19 +91,19 @@ impl RealearnTarget for ClipSeekTarget {
                 (true, None)
             }
             CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangedEvent {
+                QualifiedClipChangeEvent {
                     slot_coordinates: si,
                     event,
                 },
             )) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
-                ClipChangedEvent::ClipPosition(new_position)
+                ClipChangeEvent::ClipPosition(new_position)
                     if self.feedback_resolution == FeedbackResolution::High =>
                 {
                     (true, Some(AbsoluteValue::Continuous(*new_position)))
                 }
-                ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
+                ClipChangeEvent::PlayState(InternalClipPlayState(ClipPlayState::Stopped)) => {
                     (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
                 }
                 _ => (false, None),

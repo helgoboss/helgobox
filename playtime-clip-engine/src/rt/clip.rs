@@ -25,6 +25,7 @@ use playtime_api::persistence::{
     ClipAudioSettings, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization,
     MatrixClipRecordSettings, PositiveSecond,
 };
+use playtime_api::runtime::ClipPlayState;
 use reaper_high::Project;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, PcmSourceTransfer,
@@ -442,12 +443,12 @@ impl Clip {
         self.supplier_chain.material_info()
     }
 
-    pub fn play_state(&self) -> ClipPlayState {
+    pub fn play_state(&self) -> InternalClipPlayState {
         match &self.state {
             ClipState::Ready(s) => s.play_state(),
             ClipState::Recording(_) => {
                 use RecordState::*;
-                match self
+                let api_state = match self
                     .supplier_chain
                     .record_state()
                     .expect("recorder not recording while clip recording")
@@ -455,7 +456,8 @@ impl Clip {
                     ScheduledForStart => ClipPlayState::ScheduledForRecordingStart,
                     Recording => ClipPlayState::Recording,
                     ScheduledForStop => ClipPlayState::ScheduledForRecordingStop,
-                }
+                };
+                api_state.into()
             }
         }
     }
@@ -1245,9 +1247,9 @@ impl ReadyState {
         current_cycle * frame_count + frame
     }
 
-    pub fn play_state(&self) -> ClipPlayState {
+    pub fn play_state(&self) -> InternalClipPlayState {
         use ReadySubState::*;
-        match self.state {
+        let api_state = match self.state {
             Stopped => ClipPlayState::Stopped,
             Playing(s) => {
                 if s.overdubbing {
@@ -1275,7 +1277,8 @@ impl ReadyState {
                 StateAfterSuspension::ToBeRemoved => ClipPlayState::Stopped,
             },
             Paused(_) => ClipPlayState::Paused,
-        }
+        };
+        api_state.into()
     }
 
     fn schedule_play_internal(&mut self, virtual_pos: VirtualPosition) {
@@ -1549,21 +1552,22 @@ struct LogNaturalDeviationArgs<T: Timeline> {
 
 /// Play state of a clip.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum ClipPlayState {
-    Stopped,
-    ScheduledForPlayStart,
-    Playing,
-    Paused,
-    ScheduledForPlayStop,
-    ScheduledForRecordingStart,
-    Recording,
-    ScheduledForRecordingStop,
+pub struct InternalClipPlayState(pub ClipPlayState);
+
+impl From<ClipPlayState> for InternalClipPlayState {
+    fn from(inner: ClipPlayState) -> Self {
+        Self(inner)
+    }
 }
 
-impl ClipPlayState {
+impl InternalClipPlayState {
+    pub fn get(&self) -> ClipPlayState {
+        self.0
+    }
+
     pub fn id_string(&self) -> &'static str {
         use ClipPlayState::*;
-        match self {
+        match self.0 {
             Stopped => "stopped",
             ScheduledForPlayStart => "scheduled_for_play_start",
             Playing => "playing",
@@ -1578,7 +1582,7 @@ impl ClipPlayState {
     /// Translates this play state into a feedback value.
     pub fn feedback_value(self) -> UnitValue {
         use ClipPlayState::*;
-        match self {
+        match self.0 {
             Stopped => UnitValue::new(0.1),
             ScheduledForPlayStart => UnitValue::new(0.75),
             Playing => UnitValue::MAX,
@@ -1594,7 +1598,7 @@ impl ClipPlayState {
     pub fn is_advancing(&self) -> bool {
         use ClipPlayState::*;
         matches!(
-            self,
+            self.0,
             ScheduledForPlayStart
                 | Playing
                 | ScheduledForPlayStop
@@ -1607,19 +1611,19 @@ impl ClipPlayState {
     pub fn is_somehow_recording(&self) -> bool {
         use ClipPlayState::*;
         matches!(
-            self,
+            self.0,
             ScheduledForRecordingStart | Recording | ScheduledForRecordingStop
         )
     }
 
     pub fn is_as_good_as_playing(&self) -> bool {
         use ClipPlayState::*;
-        matches!(self, ScheduledForPlayStart | Playing)
+        matches!(self.0, ScheduledForPlayStart | Playing)
     }
 
     pub fn is_as_good_as_recording(&self) -> bool {
         use ClipPlayState::*;
-        matches!(self, ScheduledForRecordingStart | Recording)
+        matches!(self.0, ScheduledForRecordingStart | Recording)
     }
 
     pub fn is_stoppable(&self) -> bool {
@@ -1627,15 +1631,15 @@ impl ClipPlayState {
     }
 }
 
-impl Default for ClipPlayState {
+impl Default for InternalClipPlayState {
     fn default() -> Self {
-        Self::Stopped
+        Self(ClipPlayState::Stopped)
     }
 }
 
 #[derive(Debug)]
-pub enum ClipChangedEvent {
-    PlayState(ClipPlayState),
+pub enum ClipChangeEvent {
+    PlayState(InternalClipPlayState),
     ClipVolume(Db),
     ClipLooped(bool),
     ClipPosition(UnitValue),
@@ -1644,9 +1648,9 @@ pub enum ClipChangedEvent {
 }
 
 #[derive(Debug)]
-pub struct QualifiedClipChangedEvent {
+pub struct QualifiedClipChangeEvent {
     pub slot_coordinates: ClipSlotCoordinates,
-    pub event: ClipChangedEvent,
+    pub event: ClipChangeEvent,
 }
 
 pub struct PlayOutcome {

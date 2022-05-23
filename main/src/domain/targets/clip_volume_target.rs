@@ -10,7 +10,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
-use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use reaper_high::Volume;
 use reaper_medium::Db;
 use std::borrow::Cow;
@@ -94,9 +94,9 @@ impl RealearnTarget for ClipVolumeTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangedEvent {
+                QualifiedClipChangeEvent {
                     slot_coordinates: si,
-                    event: ClipChangedEvent::ClipVolume(new_value),
+                    event: ClipChangeEvent::ClipVolume(new_value),
                 },
             )) if *si == self.slot_coordinates => (
                 true,

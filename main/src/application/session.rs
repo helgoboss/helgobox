@@ -35,6 +35,7 @@ use std::fmt::Debug;
 use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
+use playtime_clip_engine::main::ClipMatrixEvent;
 use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
 
@@ -43,6 +44,7 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn send_clip_matrix_changes(&self, session: &Session, events: &[ClipMatrixEvent]);
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_affected(
         &self,
@@ -2345,6 +2347,11 @@ impl DomainEventHandler for WeakSession {
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.send_projection_feedback(&s, value);
+                }
+            }
+            ClipMatrixChanges(events) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.send_clip_matrix_changes(&s, events);
                 }
             }
             MappingMatched(event) => {

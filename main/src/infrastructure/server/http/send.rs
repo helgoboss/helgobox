@@ -1,14 +1,17 @@
 //! Contains functions for sending data to WebSocket clients.
 use crate::application::{Session, SharedSession};
 use crate::base::{when, Global};
-use crate::domain::ProjectionFeedbackValue;
+use crate::domain::{BackboneState, ProjectionFeedbackValue};
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::data::{
-    get_active_controller_updated_event, get_controller_routing_updated_event,
-    get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
-    SessionResponseData, Topic,
+    create_aggregated_clip_matrix_runtime_data_event, get_active_controller_updated_event,
+    get_controller_routing_updated_event, get_projection_feedback_event, get_session_updated_event,
+    send_initial_feedback, SessionResponseData, Topic,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
+use playtime_api::runtime::{ClipRuntimeDataEvent, QualifiedClipRuntimeDataEvent, SlotCoordinates};
+use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::rt::ClipChangeEvent;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;
@@ -32,8 +35,12 @@ fn send_initial_events_for_topic(
             send_initial_feedback(session_id);
             Ok(())
         }
+        ClipMatrixRuntimeData { session_id } => {
+            send_initial_clip_matrix_runtime_data(client, session_id)
+        }
     }
 }
+
 pub fn send_initial_session(
     client: &WebSocketClient,
     session_id: &str,
@@ -67,6 +74,46 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
+fn send_initial_clip_matrix_runtime_data(
+    client: &WebSocketClient,
+    session_id: &str,
+) -> Result<(), &'static str> {
+    let session = App::get()
+        .find_session_by_id(session_id)
+        .ok_or("session not found")?;
+    let session = session.borrow();
+    let instance_state = session.instance_state();
+    let events: Vec<QualifiedClipRuntimeDataEvent> =
+        BackboneState::get().with_clip_matrix(&instance_state, |matrix| {
+            matrix
+                .all_slots()
+                .filter_map(|slot| {
+                    let play_state = slot.value().clip_play_state().ok()?;
+                    let position = slot.value().proportional_position().ok()?;
+                    let coordinates = SlotCoordinates {
+                        column: slot.column_index() as u32,
+                        row: slot.value().index() as u32,
+                    };
+                    let play_state_event = QualifiedClipRuntimeDataEvent {
+                        coordinates,
+                        event: ClipRuntimeDataEvent::PlayState(play_state.get()),
+                    };
+                    let position_event = QualifiedClipRuntimeDataEvent {
+                        coordinates,
+                        event: ClipRuntimeDataEvent::ClipPosition(position.get()),
+                    };
+                    Some([play_state_event, position_event].into_iter())
+                })
+                .flatten()
+                .collect()
+        })?;
+    if events.is_empty() {
+        return Ok(());
+    }
+    let event = create_aggregated_clip_matrix_runtime_data_event(session_id, events);
+    client.send(&event)
+}
+
 pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
@@ -83,6 +130,50 @@ pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static
         },
         || get_controller_routing_updated_event(session.id(), Some(session)),
     )
+}
+
+pub fn send_clip_matrix_events_to_subscribed_clients(
+    session_id: &str,
+    clip_matrix_events: &[ClipMatrixEvent],
+) -> Result<(), &'static str> {
+    send_to_clients_subscribed_to(
+        &Topic::ClipMatrixRuntimeData {
+            session_id: session_id.to_string(),
+        },
+        || {
+            let events = extract_clip_matrix_runtime_data(clip_matrix_events);
+            create_aggregated_clip_matrix_runtime_data_event(session_id, events)
+        },
+    )
+}
+
+fn extract_clip_matrix_runtime_data(
+    events: &[ClipMatrixEvent],
+) -> Vec<QualifiedClipRuntimeDataEvent> {
+    events
+        .iter()
+        .filter_map(|e| {
+            let e = match e {
+                ClipMatrixEvent::ClipChanged(e) => e,
+                _ => return None,
+            };
+            let api_event = match e.event {
+                ClipChangeEvent::PlayState(s) => ClipRuntimeDataEvent::PlayState(s.get()),
+                ClipChangeEvent::ClipPosition(p) => ClipRuntimeDataEvent::ClipPosition(p.get()),
+                _ => return None,
+            };
+            // TODO-high We probably want to use the API SlotCoordinates everywhere!
+            let coordinates = SlotCoordinates {
+                column: e.slot_coordinates.column() as u32,
+                row: e.slot_coordinates.row() as u32,
+            };
+            let qualified_api_event = QualifiedClipRuntimeDataEvent {
+                coordinates,
+                event: api_event,
+            };
+            Some(qualified_api_event)
+        })
+        .collect()
 }
 
 pub fn send_projection_feedback_to_subscribed_clients(

@@ -12,9 +12,10 @@ use crate::rt::supplier::{
     RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
-    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
-    RecordNewClipInstruction, SharedColumn, SlotRecordInstruction, SlotRuntimeData,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
+    InternalClipPlayState, MidiOverdubInstruction, NormalRecordingOutcome,
+    OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn, SlotRecordInstruction,
+    SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
@@ -25,6 +26,7 @@ use playtime_api::persistence::{
     ChannelRange, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
     MidiClipRecordMode, PositiveSecond, RecordOrigin,
 };
+use playtime_api::runtime::ClipPlayState;
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
@@ -494,17 +496,17 @@ impl Slot {
         &mut self,
         volume: Db,
         column_command_sender: &ColumnCommandSender,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let content = get_content_mut(&mut self.content)?;
         content.clip.set_volume(volume);
         column_command_sender.set_clip_volume(self.index, volume);
-        Ok(ClipChangedEvent::ClipVolume(volume))
+        Ok(ClipChangeEvent::ClipVolume(volume))
     }
 
     pub fn toggle_clip_looped(
         &mut self,
         column_command_sender: &ColumnCommandSender,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let content = get_content_mut(&mut self.content)?;
         let looped = content.clip.toggle_looped();
         let args = ColumnSetClipLoopedArgs {
@@ -512,15 +514,15 @@ impl Slot {
             looped,
         };
         column_command_sender.set_clip_looped(args);
-        Ok(ClipChangedEvent::ClipLooped(looped))
+        Ok(ClipChangeEvent::ClipLooped(looped))
     }
 
-    pub fn clip_play_state(&self) -> ClipEngineResult<ClipPlayState> {
+    pub fn clip_play_state(&self) -> ClipEngineResult<InternalClipPlayState> {
         use SlotState::*;
         match &self.state {
             Normal => Ok(self.get_content()?.runtime_data.play_state),
             RequestedOverdubbing | RequestedRecording(_) => {
-                Ok(ClipPlayState::ScheduledForRecordingStart)
+                Ok(ClipPlayState::ScheduledForRecordingStart.into())
             }
             Recording(s) => Ok(s.runtime_data.play_state),
         }
@@ -548,7 +550,7 @@ impl Slot {
         }
     }
 
-    pub fn update_play_state(&mut self, play_state: ClipPlayState) -> ClipEngineResult<()> {
+    pub fn update_play_state(&mut self, play_state: InternalClipPlayState) -> ClipEngineResult<()> {
         self.runtime_data_mut()?.play_state = play_state;
         Ok(())
     }
@@ -558,7 +560,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn proportional_pos(&self) -> ClipEngineResult<UnitValue> {
+    pub fn proportional_position(&self) -> ClipEngineResult<UnitValue> {
         let runtime_data = self.runtime_data()?;
         let pos = runtime_data.pos.get();
         if pos < 0 {
@@ -656,16 +658,16 @@ impl Slot {
         &mut self,
         mirror_source: ClipSource,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         self.remove_temporary_route();
         get_content_mut(&mut self.content)?
             .clip
             .notify_midi_overdub_finished(&mirror_source, temporary_project)?;
-        Ok(ClipChangedEvent::RecordingFinished)
+        Ok(ClipChangeEvent::RecordingFinished)
     }
 
-    pub fn slot_cleared(&mut self) -> Option<ClipChangedEvent> {
-        self.content.take().map(|_| ClipChangedEvent::Removed)
+    pub fn slot_cleared(&mut self) -> Option<ClipChangeEvent> {
+        self.content.take().map(|_| ClipChangeEvent::Removed)
     }
 
     pub fn notify_normal_recording_finished(
@@ -673,7 +675,7 @@ impl Slot {
         outcome: NormalRecordingOutcome,
         temporary_project: Option<Project>,
         recording_track: &Track,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         self.remove_temporary_route();
         match outcome {
             NormalRecordingOutcome::Committed(recording) => match mem::take(&mut self.state) {
@@ -697,13 +699,13 @@ impl Slot {
                     };
                     self.content = Some(content);
                     self.state = SlotState::Normal;
-                    Ok(ClipChangedEvent::RecordingFinished)
+                    Ok(ClipChangeEvent::RecordingFinished)
                 }
             },
             NormalRecordingOutcome::Canceled => {
                 debug!("Recording canceled");
                 self.state = SlotState::Normal;
-                Ok(ClipChangedEvent::Removed)
+                Ok(ClipChangeEvent::Removed)
             }
         }
     }

@@ -3,6 +3,7 @@ use crate::domain::{
     PluginParams, ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
 use helgoboss_learn::AbsoluteValue;
+use playtime_clip_engine::main::ClipMatrixEvent;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -22,6 +23,7 @@ pub enum DomainEvent<'a> {
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+    ClipMatrixChanges(&'a [ClipMatrixEvent]),
 }
 
 #[derive(Clone, Debug)]

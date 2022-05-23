@@ -7,9 +7,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
-use playtime_clip_engine::rt::{
-    ClipChangedEvent, ColumnPlayClipOptions, QualifiedClipChangedEvent,
-};
+use playtime_clip_engine::rt::{ClipChangeEvent, ColumnPlayClipOptions, QualifiedClipChangeEvent};
 use realearn_api::persistence::ClipTransportAction;
 use reaper_high::Project;
 use std::borrow::Cow;
@@ -206,21 +204,21 @@ impl RealearnTarget for ClipTransportTarget {
         match evt {
             CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
             CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangedEvent {
+                QualifiedClipChangeEvent {
                     slot_coordinates: sc,
                     event,
                 },
             )) if *sc == self.basics.slot_coordinates => {
                 use ClipTransportAction::*;
                 match event {
-                    ClipChangedEvent::PlayState(new_state) => match self.basics.action {
+                    ClipChangeEvent::PlayState(new_state) => match self.basics.action {
                         PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                             let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }
                         _ => (false, None),
                     },
-                    ClipChangedEvent::ClipLooped(new_state) => match self.basics.action {
+                    ClipChangeEvent::ClipLooped(new_state) => match self.basics.action {
                         Looped => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
@@ -229,7 +227,7 @@ impl RealearnTarget for ClipTransportTarget {
                         ),
                         _ => (false, None),
                     },
-                    ClipChangedEvent::Removed => {
+                    ClipChangeEvent::Removed => {
                         tracing_debug!("Reacting to clip-removed event");
                         (true, None)
                     }

@@ -1,8 +1,8 @@
 use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
-    ColumnPlayClipArgs, ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs,
+    ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, InternalClipPlayState,
     OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
@@ -14,6 +14,7 @@ use playtime_api::persistence::{
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
     Db, MatrixClipRecordSettings,
 };
+use playtime_api::runtime::ClipPlayState;
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
@@ -217,7 +218,7 @@ impl Column {
         self.rt_column.downgrade()
     }
 
-    pub fn poll(&mut self, _timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
+    pub fn poll(&mut self, _timeline_tempo: Bpm) -> Vec<(usize, ClipChangeEvent)> {
         // Process source events and generate clip change events
         let mut change_events = vec![];
         while let Ok(evt) = self.event_receiver.try_recv() {
@@ -230,7 +231,7 @@ impl Column {
                     if let Some(slot) = self.slots.get_mut(slot_index) {
                         let _ = slot.update_play_state(play_state);
                     }
-                    Some((slot_index, ClipChangedEvent::PlayState(play_state)))
+                    Some((slot_index, ClipChangeEvent::PlayState(play_state)))
                 }
                 ClipMaterialInfoChanged {
                     slot_index,
@@ -303,8 +304,8 @@ impl Column {
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
             if slot.clip_play_state().ok()?.is_advancing() {
-                let proportional_pos = slot.proportional_pos().unwrap_or(UnitValue::MIN);
-                let event = ClipChangedEvent::ClipPosition(proportional_pos);
+                let proportional_pos = slot.proportional_position().unwrap_or(UnitValue::MIN);
+                let event = ClipChangeEvent::ClipPosition(proportional_pos);
                 Some((row, event))
             } else {
                 None
@@ -362,7 +363,7 @@ impl Column {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         if !slot.is_empty() {
             return Err("slot is not empty");
@@ -438,12 +439,12 @@ impl Column {
         &mut self,
         slot_index: usize,
         volume: Db,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
         slot.set_clip_volume(volume, &self.rt_command_sender)
     }
 
-    pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
+    pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangeEvent> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
         slot.toggle_clip_looped(&self.rt_command_sender)
     }
@@ -455,6 +456,10 @@ impl Column {
         let slot = self.get_slot(slot_index)?;
         let timeline = clip_timeline(self.project, false);
         slot.position_in_seconds(&timeline)
+    }
+
+    pub fn slots(&self) -> impl Iterator<Item = &Slot> + '_ {
+        self.slots.iter()
     }
 
     fn get_slot(&self, index: usize) -> ClipEngineResult<&Slot> {
@@ -489,7 +494,7 @@ impl Column {
             .ok_or("no playback track set")
     }
 
-    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
+    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<InternalClipPlayState> {
         self.get_slot(slot_index)?.clip_play_state()
     }
 
@@ -498,7 +503,7 @@ impl Column {
     }
 
     pub fn proportional_slot_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
-        self.get_slot(slot_index)?.proportional_pos()
+        self.get_slot(slot_index)?.proportional_position()
     }
 
     pub fn follows_scene(&self) -> bool {
@@ -641,7 +646,7 @@ fn fill_slot_internal(
     column_settings: &rt::ColumnSettings,
     rt_command_sender: &ColumnCommandSender,
     project: Option<Project>,
-) -> ClipEngineResult<ClipChangedEvent> {
+) -> ClipEngineResult<ClipChangeEvent> {
     let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
         project,
         chain_equipment,
@@ -655,7 +660,7 @@ fn fill_slot_internal(
         clip: rt_clip,
     };
     rt_command_sender.fill_slot(Box::new(Some(args)));
-    Ok(ClipChangedEvent::PlayState(ClipPlayState::Stopped))
+    Ok(ClipChangeEvent::PlayState(ClipPlayState::Stopped.into()))
 }
 
 fn resolve_recording_track(
