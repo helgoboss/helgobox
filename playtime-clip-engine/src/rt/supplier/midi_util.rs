@@ -1,6 +1,6 @@
 use crate::rt::supplier::MidiSupplier;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
-use playtime_api::MidiResetMessages;
+use playtime_api::persistence::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};
 
 pub fn silence_midi(

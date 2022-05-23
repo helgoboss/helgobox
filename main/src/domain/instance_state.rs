@@ -67,7 +67,7 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
-    copied_clip: Option<playtime_api::Clip>,
+    copied_clip: Option<playtime_api::persistence::Clip>,
     copied_clips_in_row: Vec<ClipWithColumn>,
 }
 
@@ -186,11 +186,11 @@ impl InstanceState {
         instance_id == our_instance_id
     }
 
-    pub fn copy_clip(&mut self, clip: playtime_api::Clip) {
+    pub fn copy_clip(&mut self, clip: playtime_api::persistence::Clip) {
         self.copied_clip = Some(clip);
     }
 
-    pub fn copied_clip(&self) -> Option<&playtime_api::Clip> {
+    pub fn copied_clip(&self) -> Option<&playtime_api::persistence::Clip> {
         self.copied_clip.as_ref()
     }
 

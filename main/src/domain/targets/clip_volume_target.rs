@@ -71,7 +71,7 @@ impl RealearnTarget for ClipVolumeTarget {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
             .unwrap_or_default();
         let db = volume.db();
-        let api_db = playtime_api::Db::new(db.get())?;
+        let api_db = playtime_api::persistence::Db::new(db.get())?;
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| {

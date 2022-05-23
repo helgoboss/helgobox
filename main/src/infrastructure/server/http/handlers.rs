@@ -36,7 +36,7 @@ pub async fn session_handler(
 /// Needs to be executed in the main thread!
 pub async fn clip_matrix_handler(
     Path(session_id): Path<String>,
-) -> Result<Json<playtime_api::Matrix>, SimpleResponse> {
+) -> Result<Json<playtime_api::persistence::Matrix>, SimpleResponse> {
     let clip_matrix_data = get_clip_matrix_data(&session_id).map_err(translate_data_error)?;
     Ok(Json(clip_matrix_data))
 }

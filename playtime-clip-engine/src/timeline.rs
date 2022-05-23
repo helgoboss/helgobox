@@ -5,7 +5,7 @@ use crate::rt::BasicAudioRequestProps;
 use crate::ClipEngineResult;
 use atomic::Atomic;
 use helgoboss_learn::BASE_EPSILON;
-use playtime_api::EvenQuantization;
+use playtime_api::persistence::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     Bpm, Hz, PlayState, PositionInQuarterNotes, PositionInSeconds, ProjectContext, TimeSignature,

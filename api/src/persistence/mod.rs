@@ -18,7 +18,7 @@ pub use session::*;
 pub use source::*;
 pub use target::*;
 
-use playtime_api::Matrix;
+use playtime_api::persistence::Matrix;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

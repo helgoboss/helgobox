@@ -7,7 +7,7 @@ use crate::rt::{
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
-use playtime_api::ClipPlayStopTiming;
+use playtime_api::persistence::ClipPlayStopTiming;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::mem;

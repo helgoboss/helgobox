@@ -9,5 +9,5 @@ pub struct Session {
     #[serde(skip_serializing_if = "Option::is_none")]
     main_compartment: Option<Compartment>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    clip_matrix: Option<playtime_api::Matrix>,
+    clip_matrix: Option<playtime_api::persistence::Matrix>,
 }

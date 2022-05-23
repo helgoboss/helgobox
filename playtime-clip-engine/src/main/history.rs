@@ -1,5 +1,5 @@
 use crate::ClipEngineResult;
-use playtime_api as api;
+use playtime_api::persistence as api;
 
 /// Data structure holding the undo history.
 #[derive(Debug, Default)]

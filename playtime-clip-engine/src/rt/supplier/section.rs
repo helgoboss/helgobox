@@ -10,7 +10,7 @@ use crate::rt::supplier::{
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::{MidiResetMessageRange, PositiveSecond};
+use playtime_api::persistence::{MidiResetMessageRange, PositiveSecond};
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, MidiFrameOffset};
 
 #[derive(Debug)]

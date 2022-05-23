@@ -109,7 +109,9 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
     Ok(SessionResponseData {})
 }
 
-pub fn get_clip_matrix_data(session_id: &str) -> Result<playtime_api::Matrix, DataError> {
+pub fn get_clip_matrix_data(
+    session_id: &str,
+) -> Result<playtime_api::persistence::Matrix, DataError> {
     let session = App::get()
         .find_session_by_id(session_id)
         .ok_or(DataError::SessionNotFound)?;

@@ -17,8 +17,8 @@ use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
 };

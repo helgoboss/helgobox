@@ -6,7 +6,7 @@ use crate::rt::supplier::{
     SupplyResponse, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::PositiveBeat;
+use playtime_api::persistence::PositiveBeat;
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, MidiFrameOffset};
 
 #[derive(Debug)]

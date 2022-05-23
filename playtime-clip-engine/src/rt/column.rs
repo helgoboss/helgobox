@@ -10,8 +10,8 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming,
     ColumnPlayMode, Db, VirtualResampleMode,
 };

@@ -8,8 +8,8 @@ use crate::source_util::{
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
-use playtime_api as api;
-use playtime_api::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
+use playtime_api::persistence as api;
+use playtime_api::persistence::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::Bpm;
 

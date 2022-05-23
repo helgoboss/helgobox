@@ -18,7 +18,7 @@ use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::data::clip_legacy::{
     create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
 };
-use playtime_api::Matrix;
+use playtime_api::persistence::Matrix;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};

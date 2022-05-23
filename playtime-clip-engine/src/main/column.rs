@@ -9,8 +9,8 @@ use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
     Db, MatrixClipRecordSettings,
 };

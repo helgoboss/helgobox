@@ -22,7 +22,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
+use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,

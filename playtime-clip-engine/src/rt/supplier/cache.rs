@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use crossbeam_channel::{Receiver, Sender};
-use playtime_api::AudioCacheBehavior;
+use playtime_api::persistence::AudioCacheBehavior;
 use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};

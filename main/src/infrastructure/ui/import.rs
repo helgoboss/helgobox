@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use playtime_api::Matrix;
+use playtime_api::persistence::Matrix;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::SafeLua;

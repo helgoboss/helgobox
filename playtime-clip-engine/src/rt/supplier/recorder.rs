@@ -19,7 +19,7 @@ use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, Laziness, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
-use playtime_api::{
+use playtime_api::persistence::{
     ClipPlayStartTiming, ClipRecordStartTiming, ClipRecordStopTiming, EvenQuantization,
     MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
 };

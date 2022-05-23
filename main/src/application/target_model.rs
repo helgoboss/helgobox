@@ -52,7 +52,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
+use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,

@@ -6,7 +6,7 @@ use crate::rt::supplier::{
     SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::MidiResetMessageRange;
+use playtime_api::persistence::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 #[derive(Debug)]
