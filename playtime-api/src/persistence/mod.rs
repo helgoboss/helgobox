@@ -20,6 +20,12 @@ use std::path::PathBuf;
 // TODO-medium Add start time detection
 // TODO-medium Add legato
 
+/// Only used for JSON schema generation.
+#[derive(JsonSchema)]
+pub struct PlaytimePersistenceRoot {
+    _matrix: Matrix,
+}
+
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Matrix {
