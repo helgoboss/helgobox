@@ -10,7 +10,7 @@ use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, ClipTrans
 use playtime_clip_engine::rt::{
     ClipChangedEvent, ColumnPlayClipOptions, QualifiedClipChangedEvent,
 };
-use realearn_api::schema::ClipTransportAction;
+use realearn_api::persistence::ClipTransportAction;
 use reaper_high::Project;
 use std::borrow::Cow;
 

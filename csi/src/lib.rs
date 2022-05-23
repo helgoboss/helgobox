@@ -1,6 +1,6 @@
 use derive_more::Display;
 use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U14, U7};
-use realearn_api::schema::{
+use realearn_api::persistence::{
     ApiObject, ButtonFilter, Compartment, Envelope, Glue, Interval, MackieLcdSource,
     MackieSevenSegmentDisplayScope, MackieSevenSegmentDisplaySource, Mapping,
     MidiChannelPressureAmountSource, MidiControlChangeValueSource, MidiNoteVelocitySource,

@@ -9,7 +9,7 @@ use helgoboss_learn::{
     DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, SourceCharacter,
 };
 use helgoboss_midi::{Channel, U14};
-use realearn_api::schema;
+use realearn_api::persistence;
 use std::convert::TryInto;
 
 pub struct NewSourceProps {
@@ -21,9 +21,9 @@ pub fn convert_source(
     data: SourceModelData,
     new_source_props: NewSourceProps,
     style: ConversionStyle,
-) -> ConversionResult<schema::Source> {
+) -> ConversionResult<persistence::Source> {
     let feedback_behavior = {
-        use schema::FeedbackBehavior as T;
+        use persistence::FeedbackBehavior as T;
         let v = if new_source_props.prevent_echo_feedback {
             // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
             T::PreventEchoFeedback
@@ -36,58 +36,58 @@ pub fn convert_source(
     };
     use SourceCategory::*;
     let source = match data.category {
-        Never => schema::Source::NoneSource,
+        Never => persistence::Source::NoneSource,
         Midi => {
             use MidiSourceType::*;
             match data.r#type {
                 ControlChangeValue => {
-                    let s = schema::MidiControlChangeValueSource {
+                    let s = persistence::MidiControlChangeValueSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                         controller_number: convert_controller_number(data.number),
                         character: convert_character(data.character, style),
                         fourteen_bit: data.is_14_bit,
                     };
-                    schema::Source::MidiControlChangeValue(s)
+                    persistence::Source::MidiControlChangeValue(s)
                 }
                 NoteVelocity => {
-                    let s = schema::MidiNoteVelocitySource {
+                    let s = persistence::MidiNoteVelocitySource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                         key_number: convert_key_number(data.number),
                     };
-                    schema::Source::MidiNoteVelocity(s)
+                    persistence::Source::MidiNoteVelocity(s)
                 }
                 NoteKeyNumber => {
-                    let s = schema::MidiNoteKeyNumberSource {
+                    let s = persistence::MidiNoteKeyNumberSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
-                    schema::Source::MidiNoteKeyNumber(s)
+                    persistence::Source::MidiNoteKeyNumber(s)
                 }
                 PitchBendChangeValue => {
-                    let s = schema::MidiPitchBendChangeValueSource {
+                    let s = persistence::MidiPitchBendChangeValueSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
-                    schema::Source::MidiPitchBendChangeValue(s)
+                    persistence::Source::MidiPitchBendChangeValue(s)
                 }
                 ChannelPressureAmount => {
-                    let s = schema::MidiChannelPressureAmountSource {
+                    let s = persistence::MidiChannelPressureAmountSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
-                    schema::Source::MidiChannelPressureAmount(s)
+                    persistence::Source::MidiChannelPressureAmount(s)
                 }
                 ProgramChangeNumber => {
-                    let s = schema::MidiProgramChangeNumberSource {
+                    let s = persistence::MidiProgramChangeNumberSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
-                    schema::Source::MidiProgramChangeNumber(s)
+                    persistence::Source::MidiProgramChangeNumber(s)
                 }
                 ParameterNumberValue => {
-                    let s = schema::MidiParameterNumberValueSource {
+                    let s = persistence::MidiParameterNumberValueSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                         number: convert_parameter_number(data.number),
@@ -95,78 +95,78 @@ pub fn convert_source(
                         registered: data.is_registered,
                         character: convert_character(data.character, style),
                     };
-                    schema::Source::MidiParameterNumberValue(s)
+                    persistence::Source::MidiParameterNumberValue(s)
                 }
                 PolyphonicKeyPressureAmount => {
-                    let s = schema::MidiPolyphonicKeyPressureAmountSource {
+                    let s = persistence::MidiPolyphonicKeyPressureAmountSource {
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                         key_number: convert_key_number(data.number),
                     };
-                    schema::Source::MidiPolyphonicKeyPressureAmount(s)
+                    persistence::Source::MidiPolyphonicKeyPressureAmount(s)
                 }
                 ClockTempo => {
-                    let s = schema::MidiClockTempoSource;
-                    schema::Source::MidiClockTempo(s)
+                    let s = persistence::MidiClockTempoSource;
+                    persistence::Source::MidiClockTempo(s)
                 }
                 ClockTransport => {
-                    let s = schema::MidiClockTransportSource {
+                    let s = persistence::MidiClockTransportSource {
                         message: convert_transport_msg(data.message),
                     };
-                    schema::Source::MidiClockTransport(s)
+                    persistence::Source::MidiClockTransport(s)
                 }
                 Raw => {
-                    let s = schema::MidiRawSource {
+                    let s = persistence::MidiRawSource {
                         feedback_behavior,
                         pattern: style.required_value(data.raw_midi_pattern),
                         character: convert_character(data.character, style),
                     };
-                    schema::Source::MidiRaw(s)
+                    persistence::Source::MidiRaw(s)
                 }
                 Script => {
-                    let s = schema::MidiScriptSource {
+                    let s = persistence::MidiScriptSource {
                         kind: style.required_value(data.midi_script_kind),
                         script: style.required_value(data.midi_script),
                     };
-                    schema::Source::MidiScript(s)
+                    persistence::Source::MidiScript(s)
                 }
                 Display => {
                     use DisplayType::*;
                     match data.display_type {
                         MackieLcd => {
-                            let s = schema::MackieLcdSource {
+                            let s = persistence::MackieLcdSource {
                                 channel: data.display_id,
                                 line: data.line,
                             };
-                            schema::Source::MackieLcd(s)
+                            persistence::Source::MackieLcd(s)
                         }
                         MackieSevenSegmentDisplay => {
-                            let s = schema::MackieSevenSegmentDisplaySource {
+                            let s = persistence::MackieSevenSegmentDisplaySource {
                                 scope: data.display_id.and_then(|id| {
                                     convert_mackie_seven_segment_display_scope(
                                         (id as usize).try_into().ok()?,
                                     )
                                 }),
                             };
-                            schema::Source::MackieSevenSegmentDisplay(s)
+                            persistence::Source::MackieSevenSegmentDisplay(s)
                         }
                         SiniConE24 => {
-                            let s = schema::SiniConE24DisplaySource {
+                            let s = persistence::SiniConE24DisplaySource {
                                 cell_index: data.display_id,
                                 item_index: data.line,
                             };
-                            schema::Source::SiniConE24Display(s)
+                            persistence::Source::SiniConE24Display(s)
                         }
                         LaunchpadProScrollingText => {
-                            let s = schema::LaunchpadProScrollingTextDisplaySource;
-                            schema::Source::LaunchpadProScrollingTextDisplay(s)
+                            let s = persistence::LaunchpadProScrollingTextDisplaySource;
+                            persistence::Source::LaunchpadProScrollingTextDisplay(s)
                         }
                     }
                 }
             }
         }
         Osc => {
-            let s = schema::OscSource {
+            let s = persistence::OscSource {
                 feedback_behavior,
                 address: style.required_value(data.osc_address_pattern),
                 argument: convert_osc_argument(
@@ -181,34 +181,34 @@ pub fn convert_source(
                 ),
                 feedback_arguments: style.required_value(data.osc_feedback_args),
             };
-            schema::Source::Osc(s)
+            persistence::Source::Osc(s)
         }
         Reaper => {
             use ReaperSourceType::*;
             match data.reaper_source_type {
                 MidiDeviceChanges => {
-                    schema::Source::MidiDeviceChanges(schema::MidiDeviceChangesSource)
+                    persistence::Source::MidiDeviceChanges(persistence::MidiDeviceChangesSource)
                 }
-                RealearnInstanceStart => {
-                    schema::Source::RealearnInstanceStart(schema::RealearnInstanceStartSource)
-                }
-                Timer => schema::Source::Timer(schema::TimerSource {
+                RealearnInstanceStart => persistence::Source::RealearnInstanceStart(
+                    persistence::RealearnInstanceStartSource,
+                ),
+                Timer => persistence::Source::Timer(persistence::TimerSource {
                     duration: data.timer_millis,
                 }),
             }
         }
         Virtual => {
-            let s = schema::VirtualSource {
+            let s = persistence::VirtualSource {
                 id: convert_control_element_id(data.control_element_index),
                 character: convert_control_element_kind(data.control_element_type, style),
             };
-            schema::Source::Virtual(s)
+            persistence::Source::Virtual(s)
         }
         Keyboard => {
-            let s = schema::KeySource {
+            let s = persistence::KeySource {
                 keystroke: data.keystroke.map(convert_keystroke),
             };
-            schema::Source::Key(s)
+            persistence::Source::Key(s)
         }
     };
     Ok(source)
@@ -233,8 +233,8 @@ fn convert_key_number(v: Option<U14>) -> Option<u8> {
 fn convert_character(
     v: SourceCharacter,
     style: ConversionStyle,
-) -> Option<schema::SourceCharacter> {
-    use schema::SourceCharacter as T;
+) -> Option<persistence::SourceCharacter> {
+    use persistence::SourceCharacter as T;
     use SourceCharacter::*;
     let res = match v {
         RangeElement => T::Range,
@@ -249,8 +249,8 @@ fn convert_character(
 
 fn convert_transport_msg(
     v: MidiClockTransportMessage,
-) -> Option<schema::MidiClockTransportMessage> {
-    use schema::MidiClockTransportMessage as T;
+) -> Option<persistence::MidiClockTransportMessage> {
+    use persistence::MidiClockTransportMessage as T;
     use MidiClockTransportMessage::*;
     let res = match v {
         Start => T::Start,
@@ -262,8 +262,8 @@ fn convert_transport_msg(
 
 fn convert_mackie_seven_segment_display_scope(
     v: MackieSevenSegmentDisplayScope,
-) -> Option<schema::MackieSevenSegmentDisplayScope> {
-    use schema::MackieSevenSegmentDisplayScope as T;
+) -> Option<persistence::MackieSevenSegmentDisplayScope> {
+    use persistence::MackieSevenSegmentDisplayScope as T;
     use MackieSevenSegmentDisplayScope::*;
     let res = match v {
         All => T::All,

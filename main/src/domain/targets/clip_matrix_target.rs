@@ -7,7 +7,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
-use realearn_api::schema::ClipMatrixAction;
+use realearn_api::persistence::ClipMatrixAction;
 use std::borrow::Cow;
 
 #[derive(Debug)]

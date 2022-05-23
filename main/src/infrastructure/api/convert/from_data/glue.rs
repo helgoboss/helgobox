@@ -5,11 +5,14 @@ use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction,
     OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
-use realearn_api::schema;
-use realearn_api::schema::{NumericFeedback, PropColor, TextFeedback};
+use realearn_api::persistence;
+use realearn_api::persistence::{NumericFeedback, PropColor, TextFeedback};
 
-pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionResult<schema::Glue> {
-    let glue = schema::Glue {
+pub fn convert_glue(
+    data: ModeModelData,
+    style: ConversionStyle,
+) -> ConversionResult<persistence::Glue> {
+    let glue = persistence::Glue {
         absolute_mode: convert_absolute_mode(data.r#type, style),
         source_interval: style.required_value_with_default(
             convert_unit_interval(data.min_source_value, data.max_source_value),
@@ -27,7 +30,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
         ),
         step_size_interval: {
             style.required_value_with_default(
-                schema::Interval(
+                persistence::Interval(
                     data.min_step_size.get().abs(),
                     data.max_step_size.get().abs(),
                 ),
@@ -35,14 +38,14 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             )
         },
         step_factor_interval: {
-            let interval = schema::Interval(
+            let interval = persistence::Interval(
                 (data.min_step_size.get() * 100.0) as i32,
                 (data.max_step_size.get() * 100.0) as i32,
             );
             style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },
         out_of_range_behavior: {
-            use schema::OutOfRangeBehavior as T;
+            use persistence::OutOfRangeBehavior as T;
             use OutOfRangeBehavior::*;
             let v = match data.out_of_range_behavior {
                 MinOrMax => T::MinOrMax,
@@ -52,7 +55,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             style.required_value(v)
         },
         takeover_mode: {
-            use schema::TakeoverMode as T;
+            use persistence::TakeoverMode as T;
             use TakeoverMode::*;
             let v = match data.takeover_mode {
                 Pickup => T::PickUp,
@@ -68,7 +71,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
         ),
         control_transformation: style.required_value(data.eel_control_transformation),
         button_filter: {
-            use schema::ButtonFilter as T;
+            use persistence::ButtonFilter as T;
             use ButtonUsage::*;
             match data.button_usage {
                 Both => None,
@@ -77,7 +80,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             }
         },
         encoder_filter: {
-            use schema::EncoderFilter as T;
+            use persistence::EncoderFilter as T;
             use EncoderUsage::*;
             match data.encoder_usage {
                 Both => None,
@@ -87,14 +90,14 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
         },
         relative_mode: {
             let v = if data.make_absolute_enabled {
-                schema::RelativeMode::MakeAbsolute
+                persistence::RelativeMode::MakeAbsolute
             } else {
-                schema::RelativeMode::Normal
+                persistence::RelativeMode::Normal
             };
             style.required_value(v)
         },
         interaction: {
-            use schema::Interaction as T;
+            use persistence::Interaction as T;
             use GroupInteraction::*;
             match data.group_interaction {
                 None => Option::None,
@@ -107,7 +110,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
         },
         target_value_sequence: style.required_value(data.target_value_sequence.to_string()),
         feedback: {
-            use schema::Feedback as T;
+            use persistence::Feedback as T;
             use FeedbackType::*;
             let v = match data.feedback_type {
                 Numerical => T::Numeric(NumericFeedback {
@@ -128,12 +131,12 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             style.required_value(v)
         },
         fire_mode: {
-            use schema::FireMode as T;
+            use persistence::FireMode as T;
             use FireMode::*;
             let v = match data.fire_mode {
-                Normal => T::Normal(schema::NormalFireMode {
+                Normal => T::Normal(persistence::NormalFireMode {
                     press_duration_interval: {
-                        let interval = schema::Interval(
+                        let interval = persistence::Interval(
                             data.min_press_millis as _,
                             data.max_press_millis as _,
                         );
@@ -143,14 +146,14 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
                         )
                     },
                 }),
-                AfterTimeout => T::AfterTimeout(schema::AfterTimeoutFireMode {
+                AfterTimeout => T::AfterTimeout(persistence::AfterTimeoutFireMode {
                     timeout: style.required_value_with_default(
                         data.min_press_millis as _,
                         defaults::FIRE_MODE_TIMEOUT,
                     ),
                 }),
                 AfterTimeoutKeepFiring => {
-                    T::AfterTimeoutKeepFiring(schema::AfterTimeoutKeepFiringFireMode {
+                    T::AfterTimeoutKeepFiring(persistence::AfterTimeoutKeepFiringFireMode {
                         timeout: style.required_value_with_default(
                             data.min_press_millis as _,
                             defaults::FIRE_MODE_TIMEOUT,
@@ -161,13 +164,13 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
                         ),
                     })
                 }
-                OnSinglePress => T::OnSinglePress(schema::OnSinglePressFireMode {
+                OnSinglePress => T::OnSinglePress(persistence::OnSinglePressFireMode {
                     max_duration: style.required_value_with_default(
                         data.max_press_millis as _,
                         defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION,
                     ),
                 }),
-                OnDoublePress => T::OnDoublePress(schema::OnDoublePressFireMode),
+                OnDoublePress => T::OnDoublePress(persistence::OnDoublePressFireMode),
             };
             style.required_value(v)
         },
@@ -176,8 +179,11 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
     Ok(glue)
 }
 
-fn convert_absolute_mode(v: AbsoluteMode, style: ConversionStyle) -> Option<schema::AbsoluteMode> {
-    use schema::AbsoluteMode as T;
+fn convert_absolute_mode(
+    v: AbsoluteMode,
+    style: ConversionStyle,
+) -> Option<persistence::AbsoluteMode> {
+    use persistence::AbsoluteMode as T;
     use AbsoluteMode::*;
     let mode = match v {
         Normal => T::Normal,
@@ -189,15 +195,15 @@ fn convert_absolute_mode(v: AbsoluteMode, style: ConversionStyle) -> Option<sche
     style.required_value(mode)
 }
 
-fn convert_unit_interval(min: UnitValue, max: UnitValue) -> schema::Interval<f64> {
-    schema::Interval(min.get(), max.get())
+fn convert_unit_interval(min: UnitValue, max: UnitValue) -> persistence::Interval<f64> {
+    persistence::Interval(min.get(), max.get())
 }
 
-fn convert_virtual_color(v: VirtualColor) -> schema::VirtualColor {
-    use schema::VirtualColor as T;
+fn convert_virtual_color(v: VirtualColor) -> persistence::VirtualColor {
+    use persistence::VirtualColor as T;
     use VirtualColor::*;
     match v {
-        Rgb(c) => T::Rgb(schema::RgbColor(c.r(), c.g(), c.b())),
+        Rgb(c) => T::Rgb(persistence::RgbColor(c.r(), c.g(), c.b())),
         Prop { prop } => T::Prop(PropColor { prop }),
     }
 }
@@ -205,8 +211,8 @@ fn convert_virtual_color(v: VirtualColor) -> schema::VirtualColor {
 fn convert_feedback_commons(
     color: Option<VirtualColor>,
     background_color: Option<VirtualColor>,
-) -> ConversionResult<schema::FeedbackCommons> {
-    let commons = schema::FeedbackCommons {
+) -> ConversionResult<persistence::FeedbackCommons> {
+    let commons = persistence::FeedbackCommons {
         color: color.map(convert_virtual_color),
         background_color: background_color.map(convert_virtual_color),
     };

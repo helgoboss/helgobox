@@ -63,7 +63,7 @@ impl Default for FeedbackBehavior {
 }
 
 mod midi {
-    use crate::schema::FeedbackBehavior;
+    use crate::persistence::FeedbackBehavior;
     use derive_more::Display;
     use enum_iterator::IntoEnumIterator;
     use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -306,7 +306,7 @@ mod midi {
 }
 
 mod osc {
-    use crate::schema::{FeedbackBehavior, OscArgument};
+    use crate::persistence::{FeedbackBehavior, OscArgument};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -359,7 +359,7 @@ mod keyboard {
 }
 
 mod virt {
-    use crate::schema::{VirtualControlElementCharacter, VirtualControlElementId};
+    use crate::persistence::{VirtualControlElementCharacter, VirtualControlElementId};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 

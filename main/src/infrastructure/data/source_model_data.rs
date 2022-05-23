@@ -10,7 +10,7 @@ use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use realearn_api::schema::MidiScriptKind;
+use realearn_api::persistence::MidiScriptKind;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;

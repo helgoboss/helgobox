@@ -1,4 +1,4 @@
-use crate::schema::session::Session;
+use crate::persistence::session::Session;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -7,7 +7,7 @@ use crate::{application, domain};
 pub use compartment::*;
 use enumflags2::BitFlags;
 pub use mapping::*;
-use realearn_api::schema::{
+use realearn_api::persistence::{
     ActivationCondition, Interval, Keystroke, ModifierState, OscArgKind, ParamRef,
     VirtualControlElementCharacter, VirtualControlElementId,
 };

@@ -1,4 +1,4 @@
-use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
+use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};

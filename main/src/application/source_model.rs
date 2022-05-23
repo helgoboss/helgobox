@@ -16,7 +16,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use realearn_api::schema::MidiScriptKind;
+use realearn_api::persistence::MidiScriptKind;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;

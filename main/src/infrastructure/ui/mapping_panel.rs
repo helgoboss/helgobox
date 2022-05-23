@@ -25,7 +25,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
     Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::schema::{MidiScriptKind, MonitoringMode};
+use realearn_api::persistence::{MidiScriptKind, MonitoringMode};
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };

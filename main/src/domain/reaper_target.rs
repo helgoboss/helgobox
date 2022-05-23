@@ -22,7 +22,7 @@ use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
 use playtime_clip_engine::rt::ClipPlayState;
-use realearn_api::schema::ClipTransportAction;
+use realearn_api::persistence::ClipTransportAction;
 
 use crate::base::default_util::is_default;
 use crate::base::Global;

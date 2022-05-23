@@ -7,7 +7,7 @@ use crate::infrastructure::ui::{
     util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
-use realearn_api::schema::Envelope;
+use realearn_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;

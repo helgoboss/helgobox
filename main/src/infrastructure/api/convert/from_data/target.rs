@@ -17,8 +17,8 @@ use crate::infrastructure::data::{
     deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
     TargetModelData, TrackData,
 };
-use realearn_api::schema;
-use realearn_api::schema::{
+use realearn_api::persistence;
+use realearn_api::persistence::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
     BookmarkRef, ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
     ClipRowTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
@@ -38,7 +38,7 @@ use realearn_api::schema::{
 pub fn convert_target(
     data: TargetModelData,
     style: ConversionStyle,
-) -> ConversionResult<schema::Target> {
+) -> ConversionResult<persistence::Target> {
     use TargetCategory::*;
     match data.category {
         Reaper => convert_real_target(data, style),
@@ -49,8 +49,8 @@ pub fn convert_target(
 fn convert_real_target(
     data: TargetModelData,
     style: ConversionStyle,
-) -> ConversionResult<schema::Target> {
-    use schema::Target as T;
+) -> ConversionResult<persistence::Target> {
+    use persistence::Target as T;
     use ReaperTargetType::*;
     let commons = convert_commons(data.unit, style)?;
     let target = match data.r#type {
@@ -70,8 +70,8 @@ fn convert_real_target(
             command: {
                 if let Some(n) = data.command_name {
                     let v = match n.parse::<u32>() {
-                        Ok(id) => schema::ReaperCommand::Id(id),
-                        Err(_) => schema::ReaperCommand::Name(n),
+                        Ok(id) => persistence::ReaperCommand::Id(id),
+                        Err(_) => persistence::ReaperCommand::Name(n),
                     };
                     Some(v)
                 } else {
@@ -79,7 +79,7 @@ fn convert_real_target(
                 }
             },
             invocation: {
-                use schema::ActionInvocationKind as T;
+                use persistence::ActionInvocationKind as T;
                 use ActionInvocationType::*;
                 let v = match data.invocation_type {
                     Trigger => T::Trigger,
@@ -166,7 +166,7 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             touched_parameter: {
-                use schema::TouchedTrackParameter as T;
+                use persistence::TouchedTrackParameter as T;
                 use TouchedTrackParameterType::*;
                 match data.touched_parameter_type {
                     Volume => T::Volume,
@@ -190,8 +190,8 @@ fn convert_real_target(
             ),
             area: {
                 match data.track_area {
-                    RealearnTrackArea::Tcp => schema::TrackArea::Tcp,
-                    RealearnTrackArea::Mcp => schema::TrackArea::Mcp,
+                    RealearnTrackArea::Tcp => persistence::TrackArea::Tcp,
+                    RealearnTrackArea::Mcp => persistence::TrackArea::Mcp,
                 }
             },
         }),
@@ -255,7 +255,7 @@ fn convert_real_target(
         RouteTouchState => T::RouteTouchState(RouteTouchStateTarget {
             commons,
             touched_parameter: {
-                use schema::TouchedRouteParameter as T;
+                use persistence::TouchedRouteParameter as T;
                 use TouchedRouteParameterType::*;
                 match data.touched_route_parameter_type {
                     Volume => T::Volume,
@@ -314,7 +314,7 @@ fn convert_real_target(
             commons,
             message: style.required_value(data.raw_midi_pattern),
             destination: {
-                use schema::MidiDestination as T;
+                use persistence::MidiDestination as T;
                 use SendMidiDestination::*;
                 let dest = match data.send_midi_destination {
                     FxOutput => T::FxOutput,
@@ -488,7 +488,7 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             behavior: {
-                use schema::SoloBehavior as T;
+                use persistence::SoloBehavior as T;
                 use SoloBehavior::*;
                 let v = data.solo_behavior.map(|b| match b {
                     InPlace => T::InPlace,
@@ -509,12 +509,12 @@ fn convert_real_target(
         LoadFxSnapshot => T::LoadFxSnapshot(LoadFxSnapshotTarget {
             commons,
             snapshot: {
-                data.fx_snapshot.as_ref().map(|s| schema::FxSnapshot {
+                data.fx_snapshot.as_ref().map(|s| persistence::FxSnapshot {
                     fx_kind: style.required_value(s.fx_type.clone()),
                     fx_name: style.required_value(s.fx_name.clone()),
                     preset_name: style.optional_value(s.preset_name.clone()),
                     content: {
-                        schema::FxSnapshotContent::Chunk {
+                        persistence::FxSnapshotContent::Chunk {
                             chunk: (*s.chunk).clone(),
                         }
                     },
@@ -541,7 +541,7 @@ fn convert_real_target(
                 style,
             ),
             destination: {
-                use schema::OscDestination as T;
+                use persistence::OscDestination as T;
                 let v = match data.osc_dev_id {
                     None => T::FeedbackOutput,
                     Some(id) => T::Device { id: id.to_string() },
@@ -553,7 +553,7 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             exclusivity: {
-                use schema::InstanceExclusivity as T;
+                use persistence::InstanceExclusivity as T;
                 use Exclusivity::*;
                 match data.exclusivity {
                     NonExclusive => None,
@@ -566,7 +566,7 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             exclusivity: {
-                use schema::MappingExclusivity as T;
+                use persistence::MappingExclusivity as T;
                 use Exclusivity::*;
                 match data.exclusivity {
                     NonExclusive => None,
@@ -583,7 +583,7 @@ fn convert_real_target(
         NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {
             commons,
             exclusivity: {
-                use schema::GroupMappingExclusivity as T;
+                use persistence::GroupMappingExclusivity as T;
                 use Exclusivity::*;
                 match data.exclusivity {
                     NonExclusive => None,
@@ -599,10 +599,10 @@ fn convert_real_target(
 fn convert_commons(
     unit: TargetUnit,
     style: ConversionStyle,
-) -> ConversionResult<schema::TargetCommons> {
-    let commons = schema::TargetCommons {
+) -> ConversionResult<persistence::TargetCommons> {
+    let commons = persistence::TargetCommons {
         unit: {
-            use schema::TargetUnit as T;
+            use persistence::TargetUnit as T;
             use TargetUnit::*;
             let unit = match unit {
                 Native => T::Native,
@@ -617,8 +617,8 @@ fn convert_commons(
 fn convert_automation_mode_override(
     r#type: AutomationModeOverrideType,
     mode: RealearnAutomationMode,
-) -> Option<schema::AutomationModeOverride> {
-    use schema::AutomationModeOverride as T;
+) -> Option<persistence::AutomationModeOverride> {
+    use persistence::AutomationModeOverride as T;
     match r#type {
         AutomationModeOverrideType::None => None,
         AutomationModeOverrideType::Bypass => Some(T::Bypass),
@@ -628,8 +628,8 @@ fn convert_automation_mode_override(
     }
 }
 
-fn convert_transport_action(transport_action: TransportAction) -> schema::TransportAction {
-    use schema::TransportAction as T;
+fn convert_transport_action(transport_action: TransportAction) -> persistence::TransportAction {
+    use persistence::TransportAction as T;
     use TransportAction::*;
     match transport_action {
         PlayStop => T::PlayStop,
@@ -641,8 +641,8 @@ fn convert_transport_action(transport_action: TransportAction) -> schema::Transp
     }
 }
 
-fn convert_any_on_parameter(parameter: AnyOnParameter) -> schema::AnyOnParameter {
-    use schema::AnyOnParameter as T;
+fn convert_any_on_parameter(parameter: AnyOnParameter) -> persistence::AnyOnParameter {
+    use persistence::AnyOnParameter as T;
     use AnyOnParameter::*;
     match parameter {
         TrackSolo => T::TrackSolo,
@@ -652,8 +652,8 @@ fn convert_any_on_parameter(parameter: AnyOnParameter) -> schema::AnyOnParameter
     }
 }
 
-fn convert_automation_mode(mode: RealearnAutomationMode) -> schema::AutomationMode {
-    use schema::AutomationMode as T;
+fn convert_automation_mode(mode: RealearnAutomationMode) -> persistence::AutomationMode {
+    use persistence::AutomationMode as T;
     use RealearnAutomationMode::*;
     match mode {
         TrimRead => T::TrimRead,
@@ -665,8 +665,10 @@ fn convert_automation_mode(mode: RealearnAutomationMode) -> schema::AutomationMo
     }
 }
 
-fn convert_track_exclusivity(exclusivity: TrackExclusivity) -> Option<schema::TrackExclusivity> {
-    use schema::TrackExclusivity as T;
+fn convert_track_exclusivity(
+    exclusivity: TrackExclusivity,
+) -> Option<persistence::TrackExclusivity> {
+    use persistence::TrackExclusivity as T;
     use TrackExclusivity::*;
     match exclusivity {
         NonExclusive => None,
@@ -680,8 +682,8 @@ fn convert_track_exclusivity(exclusivity: TrackExclusivity) -> Option<schema::Tr
 fn convert_fx_display_kind(
     display_type: FxDisplayType,
     style: ConversionStyle,
-) -> Option<schema::FxDisplayKind> {
-    use schema::FxDisplayKind as T;
+) -> Option<persistence::FxDisplayKind> {
+    use persistence::FxDisplayKind as T;
     use FxDisplayType::*;
     let v = match display_type {
         FloatingWindow => T::FloatingWindow,
@@ -690,8 +692,8 @@ fn convert_fx_display_kind(
     style.required_value(v)
 }
 
-fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> schema::Target {
-    schema::Target::Virtual(schema::VirtualTarget {
+fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> persistence::Target {
+    persistence::Target::Virtual(persistence::VirtualTarget {
         id: convert_control_element_id(data.control_element_index),
         character: convert_control_element_kind(data.control_element_type, style),
     })
@@ -702,11 +704,11 @@ fn convert_track_descriptor(
     only_if_track_selected: bool,
     clip_column: &ClipColumnDescriptor,
     style: ConversionStyle,
-) -> Option<schema::TrackDescriptor> {
+) -> Option<persistence::TrackDescriptor> {
     let props = deserialize_track(&data, clip_column);
-    use schema::TrackDescriptor as T;
+    use persistence::TrackDescriptor as T;
     use VirtualTrackType::*;
-    let commons = schema::TrackDescriptorCommons {
+    let commons = persistence::TrackDescriptorCommons {
         track_must_be_selected: style.required_value_with_default(
             only_if_track_selected,
             defaults::TARGET_TRACK_MUST_BE_SELECTED,
@@ -753,8 +755,8 @@ fn convert_track_descriptor(
 fn convert_fx_chain_descriptor(
     data: TargetModelData,
     style: ConversionStyle,
-) -> schema::FxChainDescriptor {
-    schema::FxChainDescriptor::Track {
+) -> persistence::FxChainDescriptor {
+    persistence::FxChainDescriptor::Track {
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
@@ -765,11 +767,14 @@ fn convert_fx_chain_descriptor(
     }
 }
 
-fn convert_fx_chain(is_input_fx: bool, style: ConversionStyle) -> Option<schema::TrackFxChain> {
+fn convert_fx_chain(
+    is_input_fx: bool,
+    style: ConversionStyle,
+) -> Option<persistence::TrackFxChain> {
     let chain = if is_input_fx {
-        schema::TrackFxChain::Input
+        persistence::TrackFxChain::Input
     } else {
-        schema::TrackFxChain::Normal
+        persistence::TrackFxChain::Normal
     };
     style.required_value(chain)
 }
@@ -777,9 +782,9 @@ fn convert_fx_chain(is_input_fx: bool, style: ConversionStyle) -> Option<schema:
 fn convert_fx_parameter_descriptor(
     data: TargetModelData,
     style: ConversionStyle,
-) -> schema::FxParameterDescriptor {
+) -> persistence::FxParameterDescriptor {
     let props = deserialize_fx_parameter(&data.fx_parameter_data);
-    use schema::FxParameterDescriptor as T;
+    use persistence::FxParameterDescriptor as T;
     use VirtualFxParameterType::*;
     match props.r#type {
         Dynamic => T::Dynamic {
@@ -804,11 +809,11 @@ fn convert_fx_parameter_descriptor(
 fn convert_route_descriptor(
     data: TargetModelData,
     style: ConversionStyle,
-) -> schema::RouteDescriptor {
+) -> persistence::RouteDescriptor {
     let props = deserialize_track_route(&data.track_route_data);
-    use schema::RouteDescriptor as T;
+    use persistence::RouteDescriptor as T;
     use TrackRouteSelectorType::*;
-    let commons = schema::RouteDescriptorCommons {
+    let commons = persistence::RouteDescriptorCommons {
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
@@ -816,7 +821,7 @@ fn convert_route_descriptor(
             style,
         ),
         kind: {
-            use schema::TrackRouteKind as T;
+            use persistence::TrackRouteKind as T;
             use TrackRouteType::*;
             let kind = match data.track_route_data.r#type {
                 Send => T::Send,
@@ -849,11 +854,11 @@ fn convert_route_descriptor(
 fn convert_fx_descriptor(
     data: TargetModelData,
     style: ConversionStyle,
-) -> Option<schema::FxDescriptor> {
+) -> Option<persistence::FxDescriptor> {
     let props = deserialize_fx(&data.fx_data, None);
-    use schema::FxDescriptor as T;
+    use persistence::FxDescriptor as T;
     use VirtualFxType::*;
-    let commons = schema::FxDescriptorCommons {
+    let commons = persistence::FxDescriptorCommons {
         fx_must_have_focus: style.required_value_with_default(
             data.enable_only_if_fx_has_focus,
             defaults::TARGET_FX_MUST_HAVE_FOCUS,
@@ -893,8 +898,8 @@ fn convert_fx_descriptor(
 fn convert_feedback_resolution(
     r: FeedbackResolution,
     style: ConversionStyle,
-) -> Option<schema::FeedbackResolution> {
-    use schema::FeedbackResolution as T;
+) -> Option<persistence::FeedbackResolution> {
+    use persistence::FeedbackResolution as T;
     use FeedbackResolution::*;
     let v = match r {
         Beat => T::Beat,

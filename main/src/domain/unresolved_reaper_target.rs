@@ -28,7 +28,7 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
-use realearn_api::schema::ClipColumnTrackContext;
+use realearn_api::persistence::ClipColumnTrackContext;
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,

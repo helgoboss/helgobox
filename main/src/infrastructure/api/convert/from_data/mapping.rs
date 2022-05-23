@@ -7,15 +7,15 @@ use crate::infrastructure::api::convert::from_data::{
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::MappingModelData;
-use realearn_api::schema;
-use realearn_api::schema::LifecycleHook;
+use realearn_api::persistence;
+use realearn_api::persistence::LifecycleHook;
 
 pub fn convert_mapping(
     data: MappingModelData,
     style: ConversionStyle,
-) -> ConversionResult<schema::Mapping> {
+) -> ConversionResult<persistence::Mapping> {
     let advanced = convert_advanced(data.advanced, style)?;
-    let mapping = schema::Mapping {
+    let mapping = persistence::Mapping {
         id: style.optional_value(data.id.map(|id| id.into())),
         name: style.required_value(data.name),
         tags: convert_tags(&data.tags, style),
@@ -58,8 +58,8 @@ struct AdvancedDesc {
 
 #[derive(Default)]
 struct ExtensionDesc {
-    on_activate: Option<schema::LifecycleHook>,
-    on_deactivate: Option<schema::LifecycleHook>,
+    on_activate: Option<persistence::LifecycleHook>,
+    on_deactivate: Option<persistence::LifecycleHook>,
 }
 
 fn convert_advanced(
@@ -112,7 +112,7 @@ fn convert_extension_model(
 fn convert_lifecycle_model(
     lifecycle_model: LifecycleModel,
     style: ConversionStyle,
-) -> ConversionResult<Option<schema::LifecycleHook>> {
+) -> ConversionResult<Option<persistence::LifecycleHook>> {
     let hook = LifecycleHook {
         send_midi_feedback: {
             let actions: Result<Vec<_>, _> = lifecycle_model
@@ -128,18 +128,18 @@ fn convert_lifecycle_model(
 
 fn convert_lifecycle_midi_message_model(
     model: LifecycleMidiMessageModel,
-) -> ConversionResult<schema::SendMidiFeedbackAction> {
+) -> ConversionResult<persistence::SendMidiFeedbackAction> {
     let action = match model {
         LifecycleMidiMessageModel::Raw(msg) => {
             let message = convert_raw_midi_msg(msg)?;
-            schema::SendMidiFeedbackAction::Raw { message }
+            persistence::SendMidiFeedbackAction::Raw { message }
         }
     };
     Ok(action)
 }
 
-fn convert_raw_midi_msg(msg: RawMidiMessage) -> ConversionResult<schema::RawMidiMessage> {
-    use schema::RawMidiMessage as T;
+fn convert_raw_midi_msg(msg: RawMidiMessage) -> ConversionResult<persistence::RawMidiMessage> {
+    use persistence::RawMidiMessage as T;
     let v = match msg {
         RawMidiMessage::HexString(s) => T::HexString(s.to_string()),
         RawMidiMessage::ByteArray(a) => T::ByteArray(a.0),

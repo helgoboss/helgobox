@@ -1,14 +1,14 @@
 use crate::domain::ParamSetting;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::ConversionResult;
-use realearn_api::schema;
+use realearn_api::persistence;
 
 pub fn convert_parameter(
     index: String,
     data: ParamSetting,
     style: ConversionStyle,
-) -> ConversionResult<schema::Parameter> {
-    let p = schema::Parameter {
+) -> ConversionResult<persistence::Parameter> {
+    let p = persistence::Parameter {
         index: index.parse()?,
         id: data.key,
         name: Some(data.name),

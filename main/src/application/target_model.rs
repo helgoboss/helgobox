@@ -54,7 +54,7 @@ use std::error::Error;
 
 use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
-use realearn_api::schema::{
+use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     MonitoringMode,

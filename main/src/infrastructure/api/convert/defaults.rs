@@ -1,4 +1,4 @@
-use realearn_api::schema::Interval;
+use realearn_api::persistence::Interval;
 
 pub const MAPPING_CONTROL_ENABLED: bool = true;
 pub const MAPPING_FEEDBACK_ENABLED: bool = true;
