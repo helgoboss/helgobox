@@ -22,9 +22,20 @@ pub struct SlotCoordinates {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
 pub enum ClipRuntimeDataEvent {
-    PlayState(ClipPlayState),
-    ClipPosition(f64),
+    PlayState(ClipPlayStateEvent),
+    Position(ClipPositionEvent),
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPlayStateEvent {
+    pub play_state: ClipPlayState,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPositionEvent {
+    pub position: f64,
 }
 
 /// Play state of a clip.

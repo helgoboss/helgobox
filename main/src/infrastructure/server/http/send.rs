@@ -9,7 +9,10 @@ use crate::infrastructure::server::data::{
     send_initial_feedback, SessionResponseData, Topic,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
-use playtime_api::runtime::{ClipRuntimeDataEvent, QualifiedClipRuntimeDataEvent, SlotCoordinates};
+use playtime_api::runtime::{
+    ClipPlayStateEvent, ClipPositionEvent, ClipRuntimeDataEvent, QualifiedClipRuntimeDataEvent,
+    SlotCoordinates,
+};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt::ClipChangeEvent;
 use rxrust::prelude::*;
@@ -96,11 +99,15 @@ fn send_initial_clip_matrix_runtime_data(
                     };
                     let play_state_event = QualifiedClipRuntimeDataEvent {
                         coordinates,
-                        event: ClipRuntimeDataEvent::PlayState(play_state.get()),
+                        event: ClipRuntimeDataEvent::PlayState(ClipPlayStateEvent {
+                            play_state: play_state.get(),
+                        }),
                     };
                     let position_event = QualifiedClipRuntimeDataEvent {
                         coordinates,
-                        event: ClipRuntimeDataEvent::ClipPosition(position.get()),
+                        event: ClipRuntimeDataEvent::Position(ClipPositionEvent {
+                            position: position.get(),
+                        }),
                     };
                     Some([play_state_event, position_event].into_iter())
                 })
@@ -158,8 +165,14 @@ fn extract_clip_matrix_runtime_data(
                 _ => return None,
             };
             let api_event = match e.event {
-                ClipChangeEvent::PlayState(s) => ClipRuntimeDataEvent::PlayState(s.get()),
-                ClipChangeEvent::ClipPosition(p) => ClipRuntimeDataEvent::ClipPosition(p.get()),
+                ClipChangeEvent::PlayState(s) => {
+                    ClipRuntimeDataEvent::PlayState(ClipPlayStateEvent {
+                        play_state: s.get(),
+                    })
+                }
+                ClipChangeEvent::ClipPosition(p) => {
+                    ClipRuntimeDataEvent::Position(ClipPositionEvent { position: p.get() })
+                }
                 _ => return None,
             };
             // TODO-high We probably want to use the API SlotCoordinates everywhere!
