@@ -12,7 +12,6 @@ use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
 use helgoboss_learn::UnitValue;
 use maplit::hashmap;
-use playtime_api::runtime::QualifiedClipRuntimeDataEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -247,7 +246,8 @@ pub enum Topic {
     ActiveController { session_id: String },
     ControllerRouting { session_id: String },
     Feedback { session_id: String },
-    ClipMatrixRuntimeData { session_id: String },
+    ClipMatrixOccasionalSlotUpdates { session_id: String },
+    ClipMatrixClipPositionUpdates { session_id: String },
 }
 
 impl TryFrom<&str> for Topic {
@@ -265,8 +265,13 @@ impl TryFrom<&str> for Topic {
             ["realearn", "session", id, "feedback"] => Topic::Feedback {
                 session_id: id.to_string(),
             },
-            ["realearn", "session", id, "clip-matrix", "runtime-data"] => {
-                Topic::ClipMatrixRuntimeData {
+            ["realearn", "session", id, "clip-matrix", "occasional-slot-updates"] => {
+                Topic::ClipMatrixOccasionalSlotUpdates {
+                    session_id: id.to_string(),
+                }
+            }
+            ["realearn", "session", id, "clip-matrix", "clip-position"] => {
+                Topic::ClipMatrixClipPositionUpdates {
                     session_id: id.to_string(),
                 }
             }
@@ -324,13 +329,17 @@ pub fn get_controller_routing_updated_event(
     )
 }
 
-pub fn create_aggregated_clip_matrix_runtime_data_event(
+pub fn create_clip_matrix_event<T>(
     session_id: &str,
-    events: Vec<QualifiedClipRuntimeDataEvent>,
-) -> Event<Vec<QualifiedClipRuntimeDataEvent>> {
+    clip_matrix_topic_key: &str,
+    body: T,
+) -> Event<T> {
     Event::patch(
-        format!("/realearn/session/{}/clip-matrix/runtime-data", session_id),
-        events,
+        format!(
+            "/realearn/session/{}/clip-matrix/{}",
+            session_id, clip_matrix_topic_key
+        ),
+        body,
     )
 }
 

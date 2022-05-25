@@ -3,15 +3,16 @@ use serde::{Deserialize, Serialize};
 
 /// Only used for JSON schema generation.
 #[derive(JsonSchema)]
-pub struct PlaytimeRuntimeRoot {
-    _qualified_clip_runtime_data_event: QualifiedClipRuntimeDataEvent,
-}
+pub struct PlaytimeRuntimeRoot(
+    QualifiedSlotEvent<OccasionalSlotUpdate>,
+    QualifiedSlotEvent<FrequentSlotUpdate>,
+);
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct QualifiedClipRuntimeDataEvent {
+pub struct QualifiedSlotEvent<T> {
     pub coordinates: SlotCoordinates,
-    pub event: ClipRuntimeDataEvent,
+    pub payload: T,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -23,19 +24,30 @@ pub struct SlotCoordinates {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
-pub enum ClipRuntimeDataEvent {
-    PlayState(ClipPlayStateEvent),
-    Position(ClipPositionEvent),
+pub enum OccasionalSlotUpdate {
+    PlayState(ClipPlayStateUpdate),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct ClipPlayStateEvent {
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum FrequentSlotUpdate {
+    Position(ClipPositionUpdate),
+    Peak(ClipPeakUpdate),
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPlayStateUpdate {
     pub play_state: ClipPlayState,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct ClipPositionEvent {
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPositionUpdate {
     pub position: f64,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPeakUpdate {
+    pub peak: f64,
 }
 
 /// Play state of a clip.
