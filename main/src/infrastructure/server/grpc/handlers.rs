@@ -1,53 +1,48 @@
-use crate::domain::BackboneState;
-use crate::infrastructure::server::data::{get_clip_matrix_data, DataError, DataErrorCategory};
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::proto::{
-    greeter_server, DoubleReply, DoubleRequest, GetClipMatrixReply, GetClipMatrixRequest,
+    clip_engine_server, GetClipPositionUpdatesReply, GetClipPositionUpdatesRequest,
 };
+use crate::infrastructure::server::grpc::GrpcClipPositionsUpdateEvent;
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio_stream::wrappers::BroadcastStream;
-use tonic::{Code, Request, Response, Status};
+use tonic::{Request, Response, Status};
 
 #[derive(Debug, Default)]
-pub struct MyGreeter {}
+pub struct MyClipEngine {}
 
 #[tonic::async_trait]
-impl greeter_server::Greeter for MyGreeter {
-    async fn get_clip_matrix(
-        &self,
-        request: Request<GetClipMatrixRequest>,
-    ) -> Result<Response<GetClipMatrixReply>, Status> {
-        let matrix =
-            get_clip_matrix_data(&request.get_ref().session_id).map_err(translate_data_error)?;
-        let json = serde_json::to_string(&matrix).map_err(|e| Status::unknown(e.to_string()))?;
-        let reply = GetClipMatrixReply { value: json };
-        Ok(Response::new(reply))
-    }
+impl clip_engine_server::ClipEngine for MyClipEngine {
+    type GetClipPositionUpdatesStream =
+        SyncBoxStream<'static, Result<GetClipPositionUpdatesReply, Status>>;
 
-    type StreamExperimentStream = SyncBoxStream<'static, Result<DoubleReply, Status>>;
-
-    async fn stream_experiment(
+    async fn get_clip_position_updates(
         &self,
-        _request: Request<DoubleRequest>,
-    ) -> Result<Response<Self::StreamExperimentStream>, Status> {
-        let receiver = BackboneState::server_event_sender().subscribe();
-        let receiver_stream = BroadcastStream::new(receiver).map(|value| match value {
-            Ok(v) => Ok(DoubleReply { value: v }),
-            Err(e) => Err(Status::unknown(e.to_string())),
+        request: Request<GetClipPositionUpdatesRequest>,
+    ) -> Result<Response<Self::GetClipPositionUpdatesStream>, Status> {
+        let receiver = App::get()
+            .grpc_clip_positions_update_event_sender()
+            .subscribe();
+        let request_session_id = request.into_inner().session_id;
+        let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
+            let request_session_id = request_session_id.clone();
+            async move {
+                match value {
+                    Err(e) => Some(Err(Status::unknown(e.to_string()))),
+                    Ok(GrpcClipPositionsUpdateEvent {
+                        session_id,
+                        updates,
+                    }) if &session_id == &request_session_id => {
+                        Some(Ok(GetClipPositionUpdatesReply {
+                            clip_position_updates: updates,
+                        }))
+                    }
+                    _ => None,
+                }
+            }
         });
         Ok(Response::new(Box::pin(receiver_stream)))
     }
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
-
-fn translate_data_error(e: DataError) -> Status {
-    use DataErrorCategory::*;
-    let code = match e.category() {
-        NotFound => Code::NotFound,
-        BadRequest => Code::FailedPrecondition,
-        MethodNotAllowed => Code::NotFound,
-        InternalServerError => Code::Unknown,
-    };
-    Status::new(code, e.description())
-}

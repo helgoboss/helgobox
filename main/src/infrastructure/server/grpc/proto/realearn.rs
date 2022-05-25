@@ -1,49 +1,52 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DoubleRequest {}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DoubleReply {
-    #[prost(double, tag = "1")]
-    pub value: f64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetClipMatrixRequest {
+pub struct GetClipPositionUpdatesRequest {
     #[prost(string, tag = "1")]
     pub session_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetClipMatrixReply {
-    #[prost(string, tag = "1")]
-    pub value: ::prost::alloc::string::String,
+pub struct GetClipPositionUpdatesReply {
+    #[prost(message, repeated, tag = "1")]
+    pub clip_position_updates: ::prost::alloc::vec::Vec<ClipPositionUpdate>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClipPositionUpdate {
+    #[prost(message, optional, tag = "1")]
+    pub coordinates: ::core::option::Option<SlotCoordinates>,
+    #[prost(double, tag = "2")]
+    pub position: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SlotCoordinates {
+    #[prost(uint32, tag = "1")]
+    pub column: u32,
+    #[prost(uint32, tag = "2")]
+    pub row: u32,
 }
 #[doc = r" Generated server implementations."]
-pub mod greeter_server {
+pub mod clip_engine_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    #[doc = "Generated trait containing gRPC methods that should be implemented for use with GreeterServer."]
+    #[doc = "Generated trait containing gRPC methods that should be implemented for use with ClipEngineServer."]
     #[async_trait]
-    pub trait Greeter: Send + Sync + 'static {
-        async fn get_clip_matrix(
-            &self,
-            request: tonic::Request<super::GetClipMatrixRequest>,
-        ) -> Result<tonic::Response<super::GetClipMatrixReply>, tonic::Status>;
-        #[doc = "Server streaming response type for the StreamExperiment method."]
-        type StreamExperimentStream: futures_core::Stream<Item = Result<super::DoubleReply, tonic::Status>>
+    pub trait ClipEngine: Send + Sync + 'static {
+        #[doc = "Server streaming response type for the GetClipPositionUpdates method."]
+        type GetClipPositionUpdatesStream: futures_core::Stream<Item = Result<super::GetClipPositionUpdatesReply, tonic::Status>>
             + Send
             + Sync
             + 'static;
-        async fn stream_experiment(
+        async fn get_clip_position_updates(
             &self,
-            request: tonic::Request<super::DoubleRequest>,
-        ) -> Result<tonic::Response<Self::StreamExperimentStream>, tonic::Status>;
+            request: tonic::Request<super::GetClipPositionUpdatesRequest>,
+        ) -> Result<tonic::Response<Self::GetClipPositionUpdatesStream>, tonic::Status>;
     }
     #[derive(Debug)]
-    pub struct GreeterServer<T: Greeter> {
+    pub struct ClipEngineServer<T: ClipEngine> {
         inner: _Inner<T>,
         accept_compression_encodings: (),
         send_compression_encodings: (),
     }
     struct _Inner<T>(Arc<T>);
-    impl<T: Greeter> GreeterServer<T> {
+    impl<T: ClipEngine> ClipEngineServer<T> {
         pub fn new(inner: T) -> Self {
             let inner = Arc::new(inner);
             let inner = _Inner(inner);
@@ -60,9 +63,9 @@ pub mod greeter_server {
             InterceptedService::new(Self::new(inner), interceptor)
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for GreeterServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for ClipEngineServer<T>
     where
-        T: Greeter,
+        T: ClipEngine,
         B: Body + Send + Sync + 'static,
         B::Error: Into<StdError> + Send + 'static,
     {
@@ -75,53 +78,24 @@ pub mod greeter_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/realearn.Greeter/GetClipMatrix" => {
+                "/realearn.ClipEngine/GetClipPositionUpdates" => {
                     #[allow(non_camel_case_types)]
-                    struct GetClipMatrixSvc<T: Greeter>(pub Arc<T>);
-                    impl<T: Greeter> tonic::server::UnaryService<super::GetClipMatrixRequest> for GetClipMatrixSvc<T> {
-                        type Response = super::GetClipMatrixReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::GetClipMatrixRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).get_clip_matrix(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = GetClipMatrixSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/realearn.Greeter/StreamExperiment" => {
-                    #[allow(non_camel_case_types)]
-                    struct StreamExperimentSvc<T: Greeter>(pub Arc<T>);
-                    impl<T: Greeter> tonic::server::ServerStreamingService<super::DoubleRequest>
-                        for StreamExperimentSvc<T>
+                    struct GetClipPositionUpdatesSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine>
+                        tonic::server::ServerStreamingService<super::GetClipPositionUpdatesRequest>
+                        for GetClipPositionUpdatesSvc<T>
                     {
-                        type Response = super::DoubleReply;
-                        type ResponseStream = T::StreamExperimentStream;
+                        type Response = super::GetClipPositionUpdatesReply;
+                        type ResponseStream = T::GetClipPositionUpdatesStream;
                         type Future =
                             BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::DoubleRequest>,
+                            request: tonic::Request<super::GetClipPositionUpdatesRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).stream_experiment(request).await };
+                            let fut =
+                                async move { (*inner).get_clip_position_updates(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -130,7 +104,7 @@ pub mod greeter_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = StreamExperimentSvc(inner);
+                        let method = GetClipPositionUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
                             accept_compression_encodings,
@@ -152,7 +126,7 @@ pub mod greeter_server {
             }
         }
     }
-    impl<T: Greeter> Clone for GreeterServer<T> {
+    impl<T: ClipEngine> Clone for ClipEngineServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -162,7 +136,7 @@ pub mod greeter_server {
             }
         }
     }
-    impl<T: Greeter> Clone for _Inner<T> {
+    impl<T: ClipEngine> Clone for _Inner<T> {
         fn clone(&self) -> Self {
             Self(self.0.clone())
         }
@@ -172,7 +146,7 @@ pub mod greeter_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: Greeter> tonic::transport::NamedService for GreeterServer<T> {
-        const NAME: &'static str = "realearn.Greeter";
+    impl<T: ClipEngine> tonic::transport::NamedService for ClipEngineServer<T> {
+        const NAME: &'static str = "realearn.ClipEngine";
     }
 }

@@ -44,7 +44,7 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
-    fn send_clip_matrix_changes(&self, session: &Session, events: &[ClipMatrixEvent]);
+    fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]);
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_affected(
         &self,
@@ -2351,7 +2351,7 @@ impl DomainEventHandler for WeakSession {
             }
             ClipMatrixChanges(events) => {
                 if let Ok(s) = session.try_borrow() {
-                    s.ui.send_clip_matrix_changes(&s, events);
+                    s.ui.send_clip_matrix_events(&s, events);
                 }
             }
             MappingMatched(event) => {

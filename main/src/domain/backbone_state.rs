@@ -28,10 +28,7 @@ pub struct BackboneState {
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
-    server_event_sender: tokio::sync::broadcast::Sender<ServerEventType>,
 }
-
-pub type ServerEventType = f64;
 
 impl BackboneState {
     pub fn new(target_context: RealearnTargetContext) -> Self {
@@ -42,7 +39,6 @@ impl BackboneState {
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
             instance_states: Default::default(),
-            server_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
 
@@ -67,10 +63,6 @@ impl BackboneState {
         unsafe impl Sync for SingleThreadLua {}
         static LUA: Lazy<SingleThreadLua> = Lazy::new(|| SingleThreadLua(SafeLua::new().unwrap()));
         &LUA.0
-    }
-
-    pub fn server_event_sender() -> &'static tokio::sync::broadcast::Sender<ServerEventType> {
-        &BackboneState::get().server_event_sender
     }
 
     pub fn target_context() -> &'static RefCell<RealearnTargetContext> {

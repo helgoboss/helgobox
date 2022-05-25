@@ -26,6 +26,7 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crate::infrastructure::server::grpc::GrpcClipPositionsUpdateEvent;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -105,6 +106,8 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
+    grpc_clip_positions_update_event_sender:
+        tokio::sync::broadcast::Sender<GrpcClipPositionsUpdateEvent>,
 }
 
 #[derive(Debug)]
@@ -289,6 +292,7 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
+            grpc_clip_positions_update_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
 
@@ -621,6 +625,12 @@ impl App {
 
     pub fn osc_feedback_task_sender(&self) -> &SenderToNormalThread<OscFeedbackTask> {
         &self.osc_feedback_task_sender
+    }
+
+    pub fn grpc_clip_positions_update_event_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<GrpcClipPositionsUpdateEvent> {
+        &self.grpc_clip_positions_update_event_sender
     }
 
     fn temporarily_reclaim_control_surface_ownership(
