@@ -154,7 +154,12 @@ pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static 
         &Topic::ActiveController {
             session_id: session.id().to_string(),
         },
-        || get_active_controller_updated_event(session.id(), Some(session)),
+        || {
+            Some(get_active_controller_updated_event(
+                session.id(),
+                Some(session),
+            ))
+        },
     )
 }
 
@@ -163,7 +168,12 @@ pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
         },
-        || get_controller_routing_updated_event(session.id(), Some(session)),
+        || {
+            Some(get_controller_routing_updated_event(
+                session.id(),
+                Some(session),
+            ))
+        },
     )
 }
 
@@ -177,7 +187,14 @@ pub fn send_clip_matrix_events_to_subscribed_clients(
         },
         || {
             let events = create_clip_matrix_occasional_slot_update_events(clip_matrix_events);
-            create_clip_matrix_event(session_id, "occasional-slot-updates", events)
+            if events.is_empty() {
+                return None;
+            }
+            Some(create_clip_matrix_event(
+                session_id,
+                "occasional-slot-updates",
+                events,
+            ))
         },
     )?;
     send_to_clients_subscribed_to(
@@ -186,7 +203,14 @@ pub fn send_clip_matrix_events_to_subscribed_clients(
         },
         || {
             let events = create_clip_matrix_clip_position_update_events(clip_matrix_events);
-            create_clip_matrix_event(session_id, "clip-position-updates", events)
+            if events.is_empty() {
+                return None;
+            }
+            Some(create_clip_matrix_event(
+                session_id,
+                "clip-position-updates",
+                events,
+            ))
         },
     )?;
     Ok(())
@@ -254,18 +278,20 @@ pub fn send_projection_feedback_to_subscribed_clients(
         &Topic::Feedback {
             session_id: session_id.to_string(),
         },
-        || get_projection_feedback_event(session_id, value),
+        || Some(get_projection_feedback_event(session_id, value)),
     )
 }
 
 fn send_to_clients_subscribed_to<T: Serialize>(
     topic: &Topic,
-    create_message: impl FnOnce() -> T,
+    create_message: impl FnOnce() -> Option<T>,
 ) -> Result<(), &'static str> {
     for_each_client(
         |client, cached| {
-            if client.is_subscribed_to(topic) {
-                let _ = client.send(cached);
+            if let Some(cached) = cached {
+                if client.is_subscribed_to(topic) {
+                    let _ = client.send(cached);
+                }
             }
         },
         create_message,
