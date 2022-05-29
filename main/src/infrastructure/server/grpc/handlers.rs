@@ -7,6 +7,7 @@ use playtime_clip_engine::proto::{
     GetContinuousTrackUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest,
 };
+use std::future;
 use std::pin::Pin;
 use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
@@ -32,21 +33,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let receiver = App::get().continuous_slot_update_sender().subscribe();
         let requested_clip_matrix_id = request.into_inner().clip_matrix_id;
         let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
-            // TODO-high This shouldn't be necessary!
-            let requested_clip_matrix_id = requested_clip_matrix_id.clone();
-            async move {
-                match value {
-                    Err(e) => Some(Err(Status::unknown(e.to_string()))),
-                    Ok(WithSessionId { session_id, value })
-                        if &session_id == &requested_clip_matrix_id =>
-                    {
-                        Some(Ok(GetContinuousSlotUpdatesReply {
-                            slot_updates: value,
-                        }))
-                    }
-                    _ => None,
+            let res = match value {
+                Err(e) => Some(Err(Status::unknown(e.to_string()))),
+                Ok(WithSessionId { session_id, value })
+                    if &session_id == &requested_clip_matrix_id =>
+                {
+                    Some(Ok(GetContinuousSlotUpdatesReply {
+                        slot_updates: value,
+                    }))
                 }
-            }
+                _ => None,
+            };
+            future::ready(res)
         });
         Ok(Response::new(Box::pin(receiver_stream)))
     }
