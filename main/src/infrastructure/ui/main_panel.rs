@@ -15,7 +15,9 @@ use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::grpc::proto::{ClipPositionUpdate, SlotCoordinates};
+use crate::infrastructure::server::grpc::proto::{
+    ClipPositionUpdate, GetClipPositionUpdatesReply, SlotCoordinates,
+};
 use crate::infrastructure::server::grpc::GrpcClipPositionsUpdateEvent;
 use crate::infrastructure::server::http::{
     send_clip_matrix_events_to_subscribed_clients, send_projection_feedback_to_subscribed_clients,
@@ -348,6 +350,35 @@ impl SessionUi for Weak<MainPanel> {
                     updates,
                 };
                 let _ = grpc_sender.send(batch_event);
+            }
+        }
+        {
+            let tcp_sender = App::get().tcp_sender();
+            let updates: Vec<_> = events
+                .iter()
+                .filter_map(|event| {
+                    if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                        slot_coordinates,
+                        event: ClipChangeEvent::ClipPosition(pos),
+                    }) = event
+                    {
+                        Some(ClipPositionUpdate {
+                            coordinates: Some(SlotCoordinates {
+                                column: slot_coordinates.column() as _,
+                                row: slot_coordinates.row() as _,
+                            }),
+                            position: pos.get(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if !updates.is_empty() {
+                let batch_event = GetClipPositionUpdatesReply {
+                    clip_position_updates: updates,
+                };
+                let _ = tcp_sender.send(batch_event);
             }
         }
         let _ = send_clip_matrix_events_to_subscribed_clients(session.id(), events);

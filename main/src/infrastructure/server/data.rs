@@ -270,7 +270,7 @@ impl TryFrom<&str> for Topic {
                     session_id: id.to_string(),
                 }
             }
-            ["realearn", "session", id, "clip-matrix", "clip-position"] => {
+            ["realearn", "session", id, "clip-matrix", "clip-position-updates"] => {
                 Topic::ClipMatrixClipPositionUpdates {
                     session_id: id.to_string(),
                 }

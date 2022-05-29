@@ -30,6 +30,7 @@ mod data;
 pub mod grpc;
 pub mod http;
 mod layers;
+pub mod tcp;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

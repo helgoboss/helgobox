@@ -26,7 +26,10 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crate::infrastructure::server::grpc::proto::{ClipPositionUpdate, GetClipPositionUpdatesReply};
 use crate::infrastructure::server::grpc::GrpcClipPositionsUpdateEvent;
+use crate::infrastructure::server::tcp::start_tcp_server;
+use crossbeam_channel::Sender;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -108,6 +111,7 @@ pub struct App {
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     grpc_clip_positions_update_event_sender:
         tokio::sync::broadcast::Sender<GrpcClipPositionsUpdateEvent>,
+    tcp_sender: Sender<GetClipPositionUpdatesReply>,
 }
 
 #[derive(Debug)]
@@ -147,6 +151,7 @@ struct UninitializedState {
     instance_orchestration_event_receiver: crossbeam_channel::Receiver<InstanceOrchestrationEvent>,
     normal_audio_hook_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_audio_hook_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
+    tcp_receiver: crossbeam_channel::Receiver<GetClipPositionUpdatesReply>,
 }
 
 #[derive(Debug)]
@@ -240,6 +245,7 @@ impl App {
                 "normal audio hook tasks",
                 NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
             );
+        let (tcp_sender, tcp_receiver) = crossbeam_channel::unbounded();
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             clip_matrix_event_receiver,
@@ -248,6 +254,7 @@ impl App {
             instance_orchestration_event_receiver,
             normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
+            tcp_receiver,
         };
         let prometheus_builder = PrometheusBuilder::new();
         let prometheus_handle = prometheus_builder.install_recorder().unwrap();
@@ -293,6 +300,7 @@ impl App {
                 osc_feedback_task_receiver,
             ))),
             grpc_clip_positions_update_event_sender: tokio::sync::broadcast::channel(1000).0,
+            tcp_sender,
         }
     }
 
@@ -370,6 +378,7 @@ impl App {
             audio_hook: Box::new(audio_hook),
             accelerator: Box::new(accelerator),
         };
+        start_tcp_server(uninit_state.tcp_receiver);
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
 
@@ -631,6 +640,10 @@ impl App {
         &self,
     ) -> &tokio::sync::broadcast::Sender<GrpcClipPositionsUpdateEvent> {
         &self.grpc_clip_positions_update_event_sender
+    }
+
+    pub fn tcp_sender(&self) -> &Sender<GetClipPositionUpdatesReply> {
+        &self.tcp_sender
     }
 
     fn temporarily_reclaim_control_surface_ownership(
