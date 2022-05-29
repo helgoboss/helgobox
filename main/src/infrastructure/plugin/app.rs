@@ -26,7 +26,7 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
-use crate::infrastructure::server::grpc::ContinuousSlotUpdateBatch;
+use crate::infrastructure::server::grpc::{ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -106,6 +106,7 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
+    occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
     continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
 }
 
@@ -291,6 +292,7 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
+            occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
             continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
@@ -624,6 +626,12 @@ impl App {
 
     pub fn osc_feedback_task_sender(&self) -> &SenderToNormalThread<OscFeedbackTask> {
         &self.osc_feedback_task_sender
+    }
+
+    pub fn occasional_slot_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch> {
+        &self.occasional_slot_update_sender
     }
 
     pub fn continuous_slot_update_sender(

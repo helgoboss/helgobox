@@ -31,12 +31,11 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<GetContinuousSlotUpdatesRequest>,
     ) -> Result<Response<Self::GetContinuousSlotUpdatesStream>, Status> {
         let receiver = App::get().continuous_slot_update_sender().subscribe();
-        let requested_clip_matrix_id = request.into_inner().clip_matrix_id;
         let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
             let res = match value {
                 Err(e) => Some(Err(Status::unknown(e.to_string()))),
                 Ok(WithSessionId { session_id, value })
-                    if &session_id == &requested_clip_matrix_id =>
+                    if &session_id == &request.get_ref().clip_matrix_id =>
                 {
                     Some(Ok(GetContinuousSlotUpdatesReply {
                         slot_updates: value,
@@ -67,7 +66,22 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         &self,
         request: Request<GetOccasionalSlotUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalSlotUpdatesStream>, Status> {
-        todo!()
+        let receiver = App::get().occasional_slot_update_sender().subscribe();
+        let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
+            let res = match value {
+                Err(e) => Some(Err(Status::unknown(e.to_string()))),
+                Ok(WithSessionId { session_id, value })
+                    if &session_id == &request.get_ref().clip_matrix_id =>
+                {
+                    Some(Ok(GetOccasionalSlotUpdatesReply {
+                        slot_updates: value,
+                    }))
+                }
+                _ => None,
+            };
+            future::ready(res)
+        });
+        Ok(Response::new(Box::pin(receiver_stream)))
     }
 }
 

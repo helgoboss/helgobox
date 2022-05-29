@@ -15,7 +15,7 @@ use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::grpc::ContinuousSlotUpdateBatch;
+use crate::infrastructure::server::grpc::{ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch};
 use crate::infrastructure::server::http::{
     send_clip_matrix_events_to_subscribed_clients, send_projection_feedback_to_subscribed_clients,
     send_updated_controller_routing,
@@ -23,7 +23,8 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
-    ContinuousClipUpdate, ContinuousSlotUpdate, QualifiedContinuousSlotUpdate, SlotCoordinates,
+    qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousSlotUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, SlotCoordinates, SlotPlayState,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use rxrust::prelude::*;
@@ -322,41 +323,78 @@ impl SessionUi for Weak<MainPanel> {
     }
 
     fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]) {
-        let grpc_sender = App::get().continuous_slot_update_sender();
-        if grpc_sender.receiver_count() > 0 {
-            let updates: Vec<_> = events
-                .iter()
-                .filter_map(|event| {
-                    if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                        slot_coordinates,
-                        event: ClipChangeEvent::ClipPosition(pos),
-                    }) = event
-                    {
-                        Some(QualifiedContinuousSlotUpdate {
-                            slot_coordinates: Some(SlotCoordinates {
-                                column: slot_coordinates.column() as _,
-                                row: slot_coordinates.row() as _,
-                            }),
-                            update: Some(ContinuousSlotUpdate {
-                                clip_updates: vec![ContinuousClipUpdate {
-                                    position: pos.get(),
-                                    peak: 0.0,
-                                }],
-                            }),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            if !updates.is_empty() {
-                let batch_event = ContinuousSlotUpdateBatch {
-                    session_id: session.id().to_owned(),
-                    value: updates,
-                };
-                let _ = grpc_sender.send(batch_event);
+        // Continuous
+        {
+            let sender = App::get().continuous_slot_update_sender();
+            if sender.receiver_count() > 0 {
+                let updates: Vec<_> = events
+                    .iter()
+                    .filter_map(|event| {
+                        if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                            slot_coordinates,
+                            event: ClipChangeEvent::ClipPosition(pos),
+                        }) = event
+                        {
+                            Some(QualifiedContinuousSlotUpdate {
+                                slot_coordinates: Some(SlotCoordinates::from_engine(
+                                    *slot_coordinates,
+                                )),
+                                update: Some(ContinuousSlotUpdate {
+                                    clip_updates: vec![ContinuousClipUpdate {
+                                        position: pos.get(),
+                                        peak: 0.0,
+                                    }],
+                                }),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if !updates.is_empty() {
+                    let batch_event = ContinuousSlotUpdateBatch {
+                        session_id: session.id().to_owned(),
+                        value: updates,
+                    };
+                    let _ = sender.send(batch_event);
+                }
             }
         }
+        // Occasional
+        {
+            let sender = App::get().occasional_slot_update_sender();
+            if sender.receiver_count() > 0 {
+                let updates: Vec<_> = events
+                    .iter()
+                    .filter_map(|event| {
+                        if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                            slot_coordinates,
+                            event: ClipChangeEvent::PlayState(play_state),
+                        }) = event
+                        {
+                            Some(QualifiedOccasionalSlotUpdate {
+                                slot_coordinates: Some(SlotCoordinates::from_engine(
+                                    *slot_coordinates,
+                                )),
+                                update: Some(qualified_occasional_slot_update::Update::PlayState(
+                                    SlotPlayState::from_engine(play_state.get()).into(),
+                                )),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if !updates.is_empty() {
+                    let batch_event = OccasionalSlotUpdateBatch {
+                        session_id: session.id().to_owned(),
+                        value: updates,
+                    };
+                    let _ = sender.send(batch_event);
+                }
+            }
+        }
+
         let _ = send_clip_matrix_events_to_subscribed_clients(session.id(), events);
     }
 
