@@ -15,7 +15,7 @@ use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::grpc::GrpcEvent;
+use crate::infrastructure::server::grpc::ContinuousSlotUpdateBatch;
 use crate::infrastructure::server::http::{
     send_clip_matrix_events_to_subscribed_clients, send_projection_feedback_to_subscribed_clients,
     send_updated_controller_routing,
@@ -23,7 +23,7 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
-    ContinuousClipState, ContinuousSlotState, QualifiedContinuousSlotState, SlotCoordinates,
+    ContinuousClipUpdate, ContinuousSlotUpdate, QualifiedContinuousSlotUpdate, SlotCoordinates,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use rxrust::prelude::*;
@@ -322,7 +322,7 @@ impl SessionUi for Weak<MainPanel> {
     }
 
     fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]) {
-        let grpc_sender = App::get().grpc_sender();
+        let grpc_sender = App::get().continuous_slot_update_sender();
         if grpc_sender.receiver_count() > 0 {
             let updates: Vec<_> = events
                 .iter()
@@ -332,13 +332,13 @@ impl SessionUi for Weak<MainPanel> {
                         event: ClipChangeEvent::ClipPosition(pos),
                     }) = event
                     {
-                        Some(QualifiedContinuousSlotState {
+                        Some(QualifiedContinuousSlotUpdate {
                             slot_coordinates: Some(SlotCoordinates {
                                 column: slot_coordinates.column() as _,
                                 row: slot_coordinates.row() as _,
                             }),
-                            state: Some(ContinuousSlotState {
-                                clip_states: vec![ContinuousClipState {
+                            update: Some(ContinuousSlotUpdate {
+                                clip_updates: vec![ContinuousClipUpdate {
                                     position: pos.get(),
                                     peak: 0.0,
                                 }],
@@ -350,9 +350,9 @@ impl SessionUi for Weak<MainPanel> {
                 })
                 .collect();
             if !updates.is_empty() {
-                let batch_event = GrpcEvent {
+                let batch_event = ContinuousSlotUpdateBatch {
                     session_id: session.id().to_owned(),
-                    payload: updates,
+                    value: updates,
                 };
                 let _ = grpc_sender.send(batch_event);
             }

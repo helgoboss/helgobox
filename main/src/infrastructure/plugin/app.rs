@@ -26,7 +26,7 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
-use crate::infrastructure::server::grpc::GrpcEvent;
+use crate::infrastructure::server::grpc::ContinuousSlotUpdateBatch;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -106,7 +106,7 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    grpc_sender: tokio::sync::broadcast::Sender<GrpcEvent>,
+    continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
 }
 
 #[derive(Debug)]
@@ -291,7 +291,7 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
-            grpc_sender: tokio::sync::broadcast::channel(1000).0,
+            continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
 
@@ -626,8 +626,10 @@ impl App {
         &self.osc_feedback_task_sender
     }
 
-    pub fn grpc_sender(&self) -> &tokio::sync::broadcast::Sender<GrpcEvent> {
-        &self.grpc_sender
+    pub fn continuous_slot_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch> {
+        &self.continuous_slot_update_sender
     }
 
     fn temporarily_reclaim_control_surface_ownership(
