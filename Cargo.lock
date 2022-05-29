@@ -2911,6 +2911,7 @@ dependencies = [
  "num_enum 0.5.4",
  "once_cell",
  "playtime-api",
+ "prost",
  "reaper-high",
  "reaper-low",
  "reaper-medium",
@@ -2918,6 +2919,7 @@ dependencies = [
  "serde",
  "slug",
  "static_assertions",
+ "tonic",
  "tracing",
  "twox-hash",
 ]

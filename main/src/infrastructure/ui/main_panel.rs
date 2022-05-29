@@ -15,16 +15,16 @@ use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::grpc::proto::{
-    ClipPositionUpdate, GetClipPositionUpdatesReply, SlotCoordinates,
-};
-use crate::infrastructure::server::grpc::GrpcClipPositionsUpdateEvent;
+use crate::infrastructure::server::grpc::GrpcEvent;
 use crate::infrastructure::server::http::{
     send_clip_matrix_events_to_subscribed_clients, send_projection_feedback_to_subscribed_clients,
     send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::proto::{
+    ContinuousClipState, ContinuousSlotState, QualifiedContinuousSlotState, SlotCoordinates,
+};
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use rxrust::prelude::*;
 use std::borrow::Cow;
@@ -322,7 +322,7 @@ impl SessionUi for Weak<MainPanel> {
     }
 
     fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]) {
-        let grpc_sender = App::get().grpc_clip_positions_update_event_sender();
+        let grpc_sender = App::get().grpc_sender();
         if grpc_sender.receiver_count() > 0 {
             let updates: Vec<_> = events
                 .iter()
@@ -332,12 +332,17 @@ impl SessionUi for Weak<MainPanel> {
                         event: ClipChangeEvent::ClipPosition(pos),
                     }) = event
                     {
-                        Some(ClipPositionUpdate {
-                            coordinates: Some(SlotCoordinates {
+                        Some(QualifiedContinuousSlotState {
+                            slot_coordinates: Some(SlotCoordinates {
                                 column: slot_coordinates.column() as _,
                                 row: slot_coordinates.row() as _,
                             }),
-                            position: pos.get(),
+                            state: Some(ContinuousSlotState {
+                                clip_states: vec![ContinuousClipState {
+                                    position: pos.get(),
+                                    peak: 0.0,
+                                }],
+                            }),
                         })
                     } else {
                         None
@@ -345,40 +350,11 @@ impl SessionUi for Weak<MainPanel> {
                 })
                 .collect();
             if !updates.is_empty() {
-                let batch_event = GrpcClipPositionsUpdateEvent {
+                let batch_event = GrpcEvent {
                     session_id: session.id().to_owned(),
-                    updates,
+                    payload: updates,
                 };
                 let _ = grpc_sender.send(batch_event);
-            }
-        }
-        {
-            let tcp_sender = App::get().tcp_sender();
-            let updates: Vec<_> = events
-                .iter()
-                .filter_map(|event| {
-                    if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                        slot_coordinates,
-                        event: ClipChangeEvent::ClipPosition(pos),
-                    }) = event
-                    {
-                        Some(ClipPositionUpdate {
-                            coordinates: Some(SlotCoordinates {
-                                column: slot_coordinates.column() as _,
-                                row: slot_coordinates.row() as _,
-                            }),
-                            position: pos.get(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            if !updates.is_empty() {
-                let batch_event = GetClipPositionUpdatesReply {
-                    clip_position_updates: updates,
-                };
-                let _ = tcp_sender.send(batch_event);
             }
         }
         let _ = send_clip_matrix_events_to_subscribed_clients(session.id(), events);

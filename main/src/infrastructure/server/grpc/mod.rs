@@ -1,5 +1,3 @@
-pub mod proto;
-
 mod handlers;
 mod server;
 

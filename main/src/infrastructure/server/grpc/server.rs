@@ -1,7 +1,7 @@
-use crate::infrastructure::server::grpc::handlers::MyClipEngine;
-use crate::infrastructure::server::grpc::proto::clip_engine_server::ClipEngineServer;
-use crate::infrastructure::server::grpc::proto::ClipPositionUpdate;
+use crate::infrastructure::server::grpc::handlers::RealearnClipEngine;
 use crate::infrastructure::server::layers::MainThreadLayer;
+use playtime_clip_engine::proto::clip_engine_server::ClipEngineServer;
+use playtime_clip_engine::proto::QualifiedContinuousSlotState;
 use std::net::SocketAddr;
 use tokio::sync::broadcast;
 use tonic::transport::Server;
@@ -10,7 +10,7 @@ pub async fn start_grpc_server(
     address: SocketAddr,
     mut shutdown_receiver: broadcast::Receiver<()>,
 ) -> Result<(), tonic::transport::Error> {
-    let clip_engine = MyClipEngine::default();
+    let clip_engine = RealearnClipEngine::default();
     Server::builder()
         .layer(MainThreadLayer)
         .add_service(ClipEngineServer::new(clip_engine))
@@ -22,7 +22,7 @@ pub async fn start_grpc_server(
 }
 
 #[derive(Clone)]
-pub struct GrpcClipPositionsUpdateEvent {
+pub struct GrpcEvent {
     pub session_id: String,
-    pub updates: Vec<ClipPositionUpdate>,
+    pub payload: Vec<QualifiedContinuousSlotState>,
 }
