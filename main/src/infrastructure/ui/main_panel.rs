@@ -17,8 +17,7 @@ use crate::domain::{
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch};
 use crate::infrastructure::server::http::{
-    send_clip_matrix_events_to_subscribed_clients, send_projection_feedback_to_subscribed_clients,
-    send_updated_controller_routing,
+    send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
@@ -394,8 +393,6 @@ impl SessionUi for Weak<MainPanel> {
                 }
             }
         }
-
-        let _ = send_clip_matrix_events_to_subscribed_clients(session.id(), events);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {

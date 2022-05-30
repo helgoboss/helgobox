@@ -246,8 +246,6 @@ pub enum Topic {
     ActiveController { session_id: String },
     ControllerRouting { session_id: String },
     Feedback { session_id: String },
-    ClipMatrixOccasionalSlotUpdates { session_id: String },
-    ClipMatrixClipPositionUpdates { session_id: String },
 }
 
 impl TryFrom<&str> for Topic {
@@ -265,16 +263,6 @@ impl TryFrom<&str> for Topic {
             ["realearn", "session", id, "feedback"] => Topic::Feedback {
                 session_id: id.to_string(),
             },
-            ["realearn", "session", id, "clip-matrix", "occasional-slot-updates"] => {
-                Topic::ClipMatrixOccasionalSlotUpdates {
-                    session_id: id.to_string(),
-                }
-            }
-            ["realearn", "session", id, "clip-matrix", "clip-position-updates"] => {
-                Topic::ClipMatrixClipPositionUpdates {
-                    session_id: id.to_string(),
-                }
-            }
             ["realearn", "session", id] => Topic::Session {
                 session_id: id.to_string(),
             },
@@ -326,20 +314,6 @@ pub fn get_controller_routing_updated_event(
     Event::put(
         format!("/realearn/session/{}/controller-routing", session_id),
         session.map(get_controller_routing),
-    )
-}
-
-pub fn create_clip_matrix_event<T>(
-    session_id: &str,
-    clip_matrix_topic_key: &str,
-    body: T,
-) -> Event<T> {
-    Event::patch(
-        format!(
-            "/realearn/session/{}/clip-matrix/{}",
-            session_id, clip_matrix_topic_key
-        ),
-        body,
     )
 }
 

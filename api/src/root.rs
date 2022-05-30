@@ -4,5 +4,4 @@ use schemars::JsonSchema;
 #[derive(JsonSchema)]
 pub struct RealearnRoot {
     _persistence: crate::persistence::RealearnPersistenceRoot,
-    _runtime: crate::runtime::RealearnRuntimeRoot,
 }

@@ -1,20 +1,14 @@
 //! Contains functions for sending data to WebSocket clients.
 use crate::application::{Session, SharedSession};
 use crate::base::{when, Global};
-use crate::domain::{BackboneState, ProjectionFeedbackValue};
+use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::data::{
-    create_clip_matrix_event, get_active_controller_updated_event,
-    get_controller_routing_updated_event, get_projection_feedback_event, get_session_updated_event,
-    send_initial_feedback, SessionResponseData, Topic,
+    get_active_controller_updated_event, get_controller_routing_updated_event,
+    get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
+    SessionResponseData, Topic,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
-use playtime_api::runtime::{
-    ClipPlayStateUpdate, ClipPositionUpdate, FrequentSlotUpdate, OccasionalSlotUpdate,
-    QualifiedSlotEvent, SlotCoordinates,
-};
-use playtime_clip_engine::main::{ClipMatrixEvent, SlotWithColumn};
-use playtime_clip_engine::rt::ClipChangeEvent;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;
@@ -37,12 +31,6 @@ fn send_initial_events_for_topic(
         Feedback { session_id } => {
             send_initial_feedback(session_id);
             Ok(())
-        }
-        ClipMatrixOccasionalSlotUpdates { session_id } => {
-            send_initial_clip_matrix_occasional_slot_updates(client, session_id)
-        }
-        ClipMatrixClipPositionUpdates { session_id } => {
-            send_initial_clip_matrix_clip_positions(client, session_id)
         }
     }
 }
@@ -80,75 +68,6 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
-fn send_initial_clip_matrix_occasional_slot_updates(
-    client: &WebSocketClient,
-    session_id: &str,
-) -> Result<(), &'static str> {
-    send_initial_clip_matrix_slot_events(client, session_id, "occasional-slot-updates", |slot| {
-        slot.value()
-            .clip_play_state()
-            .map(|play_state| {
-                OccasionalSlotUpdate::PlayState(ClipPlayStateUpdate {
-                    play_state: play_state.get(),
-                })
-            })
-            .into_iter()
-            .collect()
-    })
-}
-
-fn send_initial_clip_matrix_clip_positions(
-    client: &WebSocketClient,
-    session_id: &str,
-) -> Result<(), &'static str> {
-    send_initial_clip_matrix_slot_events(client, session_id, "clip-position-updates", |slot| {
-        slot.value()
-            .proportional_position()
-            .map(|pos| {
-                FrequentSlotUpdate::Position(ClipPositionUpdate {
-                    position: pos.get(),
-                })
-            })
-            .into_iter()
-            .collect()
-    })
-}
-
-fn send_initial_clip_matrix_slot_events<T: Serialize>(
-    client: &WebSocketClient,
-    session_id: &str,
-    clip_matrix_topic_key: &str,
-    create_payloads: impl Fn(SlotWithColumn) -> Vec<T>,
-) -> Result<(), &'static str> {
-    let session = App::get()
-        .find_session_by_id(session_id)
-        .ok_or("session not found")?;
-    let session = session.borrow();
-    let instance_state = session.instance_state();
-    let slot_events: Vec<QualifiedSlotEvent<T>> =
-        BackboneState::get().with_clip_matrix(&instance_state, |matrix| {
-            matrix
-                .all_slots()
-                .flat_map(|slot| {
-                    let coordinates = SlotCoordinates {
-                        column: slot.column_index() as u32,
-                        row: slot.value().index() as u32,
-                    };
-                    let payloads = create_payloads(slot);
-                    payloads.into_iter().map(move |payload| QualifiedSlotEvent {
-                        coordinates,
-                        payload,
-                    })
-                })
-                .collect()
-        })?;
-    if slot_events.is_empty() {
-        return Ok(());
-    }
-    let aggregated_event = create_clip_matrix_event(session_id, clip_matrix_topic_key, slot_events);
-    client.send(&aggregated_event)
-}
-
 pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
@@ -175,99 +94,6 @@ pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static
             ))
         },
     )
-}
-
-pub fn send_clip_matrix_events_to_subscribed_clients(
-    session_id: &str,
-    clip_matrix_events: &[ClipMatrixEvent],
-) -> Result<(), &'static str> {
-    send_to_clients_subscribed_to(
-        &Topic::ClipMatrixOccasionalSlotUpdates {
-            session_id: session_id.to_string(),
-        },
-        || {
-            let events = create_clip_matrix_occasional_slot_update_events(clip_matrix_events);
-            if events.is_empty() {
-                return None;
-            }
-            Some(create_clip_matrix_event(
-                session_id,
-                "occasional-slot-updates",
-                events,
-            ))
-        },
-    )?;
-    send_to_clients_subscribed_to(
-        &Topic::ClipMatrixClipPositionUpdates {
-            session_id: session_id.to_string(),
-        },
-        || {
-            let events = create_clip_matrix_clip_position_update_events(clip_matrix_events);
-            if events.is_empty() {
-                return None;
-            }
-            Some(create_clip_matrix_event(
-                session_id,
-                "clip-position-updates",
-                events,
-            ))
-        },
-    )?;
-    Ok(())
-}
-
-fn create_clip_matrix_occasional_slot_update_events(
-    events: &[ClipMatrixEvent],
-) -> Vec<QualifiedSlotEvent<OccasionalSlotUpdate>> {
-    create_clip_matrix_slot_events(events, |event| {
-        if let ClipChangeEvent::PlayState(p) = event {
-            Some(OccasionalSlotUpdate::PlayState(ClipPlayStateUpdate {
-                play_state: p.get(),
-            }))
-        } else {
-            None
-        }
-    })
-}
-
-fn create_clip_matrix_clip_position_update_events(
-    events: &[ClipMatrixEvent],
-) -> Vec<QualifiedSlotEvent<FrequentSlotUpdate>> {
-    create_clip_matrix_slot_events(events, |event| {
-        if let ClipChangeEvent::ClipPosition(p) = event {
-            Some(FrequentSlotUpdate::Position(ClipPositionUpdate {
-                position: p.get(),
-            }))
-        } else {
-            None
-        }
-    })
-}
-
-fn create_clip_matrix_slot_events<T: Serialize>(
-    events: &[ClipMatrixEvent],
-    create_payload: impl Fn(&ClipChangeEvent) -> Option<T>,
-) -> Vec<QualifiedSlotEvent<T>> {
-    events
-        .iter()
-        .filter_map(|e| {
-            let e = match e {
-                ClipMatrixEvent::ClipChanged(e) => e,
-                _ => return None,
-            };
-            let payload = create_payload(&e.event)?;
-            // TODO-high We probably want to use the API SlotCoordinates everywhere!
-            let coordinates = SlotCoordinates {
-                column: e.slot_coordinates.column() as u32,
-                row: e.slot_coordinates.row() as u32,
-            };
-            let event = QualifiedSlotEvent {
-                coordinates,
-                payload,
-            };
-            Some(event)
-        })
-        .collect()
 }
 
 pub fn send_projection_feedback_to_subscribed_clients(
