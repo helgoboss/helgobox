@@ -17,9 +17,9 @@ use crate::domain::{
     InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
     NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -44,7 +44,12 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
-    fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]);
+    fn clip_matrix_polled(
+        &self,
+        session: &Session,
+        matrix: &RealearnClipMatrix,
+        events: &[ClipMatrixEvent],
+    );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_affected(
         &self,
@@ -2349,9 +2354,9 @@ impl DomainEventHandler for WeakSession {
                     s.ui.send_projection_feedback(&s, value);
                 }
             }
-            ClipMatrixChanges(events) => {
+            ClipMatrixPolled(matrix, events) => {
                 if let Ok(s) = session.try_borrow() {
-                    s.ui.send_clip_matrix_events(&s, events);
+                    s.ui.clip_matrix_polled(&s, matrix, events);
                 }
             }
             MappingMatched(event) => {

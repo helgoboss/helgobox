@@ -25,9 +25,8 @@ pub struct GetContinuousMatrixUpdatesReply {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousTrackUpdatesReply {
-    #[prost(map = "string, message", tag = "1")]
-    pub track_updates:
-        ::std::collections::HashMap<::prost::alloc::string::String, ContinuousTrackUpdate>,
+    #[prost(message, repeated, tag = "1")]
+    pub track_updates: ::prost::alloc::vec::Vec<ContinuousTrackUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesReply {
@@ -47,13 +46,13 @@ pub struct ContinuousMatrixUpdate {
     pub bar: i32,
     #[prost(double, tag = "3")]
     pub beat: f64,
-    #[prost(double, tag = "4")]
-    pub peak: f64,
+    #[prost(double, repeated, tag = "4")]
+    pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinuousTrackUpdate {
-    #[prost(double, tag = "1")]
-    pub peak: f64,
+    #[prost(double, repeated, tag = "1")]
+    pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QualifiedContinuousSlotUpdate {

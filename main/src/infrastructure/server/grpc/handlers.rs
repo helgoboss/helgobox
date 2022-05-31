@@ -59,7 +59,22 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         &self,
         request: Request<GetContinuousTrackUpdatesRequest>,
     ) -> Result<Response<Self::GetContinuousTrackUpdatesStream>, Status> {
-        todo!()
+        let receiver = App::get().continuous_track_update_sender().subscribe();
+        let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
+            let res = match value {
+                Err(e) => Some(Err(Status::unknown(e.to_string()))),
+                Ok(WithSessionId { session_id, value })
+                    if &session_id == &request.get_ref().clip_matrix_id =>
+                {
+                    Some(Ok(GetContinuousTrackUpdatesReply {
+                        track_updates: value,
+                    }))
+                }
+                _ => None,
+            };
+            future::ready(res)
+        });
+        Ok(Response::new(Box::pin(receiver_stream)))
     }
 
     async fn get_occasional_slot_updates(

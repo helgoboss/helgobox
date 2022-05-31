@@ -719,7 +719,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        matrix.poll(timeline_tempo)
+        let events = matrix.poll(timeline_tempo);
+        self.basics
+            .event_handler
+            .handle_event(DomainEvent::ClipMatrixPolled(matrix, &events));
+        events
     }
 
     /// Processes the given clip matrix events if they are relevant to this instance.
@@ -732,9 +736,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         {
             return;
         }
-        self.basics
-            .event_handler
-            .handle_event(DomainEvent::ClipMatrixChanges(events));
         for event in events {
             self.process_clip_matrix_event_internal(event);
         }

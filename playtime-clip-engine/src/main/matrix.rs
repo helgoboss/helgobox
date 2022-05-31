@@ -291,6 +291,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             })
     }
 
+    pub fn all_columns(&self) -> impl Iterator<Item = &Column> + '_ {
+        self.columns.iter()
+    }
+
     pub fn all_clips_in_scene(
         &self,
         row_index: usize,

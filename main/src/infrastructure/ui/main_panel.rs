@@ -4,7 +4,7 @@ use crate::infrastructure::ui::{
 };
 
 use lazycell::LazyCell;
-use reaper_high::Reaper;
+use reaper_high::{Guid, Reaper, Track};
 
 use slog::debug;
 use std::cell::{Cell, RefCell};
@@ -12,10 +12,13 @@ use std::cell::{Cell, RefCell};
 use crate::application::{Affected, CompartmentProp, Session, SessionProp, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
-    Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, TargetValueChangedEvent,
+    Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, RealearnClipMatrix,
+    TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::grpc::{ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch};
+use crate::infrastructure::server::grpc::{
+    ContinuousSlotUpdateBatch, ContinuousTrackUpdateBatch, OccasionalSlotUpdateBatch,
+};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
@@ -23,11 +26,14 @@ use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousSlotUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, SlotCoordinates, SlotPlayState,
+    ContinuousTrackUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate,
+    SlotCoordinates, SlotPlayState,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::sync;
 use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -321,78 +327,15 @@ impl SessionUi for Weak<MainPanel> {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 
-    fn send_clip_matrix_events(&self, session: &Session, events: &[ClipMatrixEvent]) {
-        // Continuous
-        {
-            let sender = App::get().continuous_slot_update_sender();
-            if sender.receiver_count() > 0 {
-                let updates: Vec<_> = events
-                    .iter()
-                    .filter_map(|event| {
-                        if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                            slot_coordinates,
-                            event: ClipChangeEvent::ClipPosition(pos),
-                        }) = event
-                        {
-                            Some(QualifiedContinuousSlotUpdate {
-                                slot_coordinates: Some(SlotCoordinates::from_engine(
-                                    *slot_coordinates,
-                                )),
-                                update: Some(ContinuousSlotUpdate {
-                                    clip_updates: vec![ContinuousClipUpdate {
-                                        position: pos.get(),
-                                        peak: 0.0,
-                                    }],
-                                }),
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                if !updates.is_empty() {
-                    let batch_event = ContinuousSlotUpdateBatch {
-                        session_id: session.id().to_owned(),
-                        value: updates,
-                    };
-                    let _ = sender.send(batch_event);
-                }
-            }
-        }
-        // Occasional
-        {
-            let sender = App::get().occasional_slot_update_sender();
-            if sender.receiver_count() > 0 {
-                let updates: Vec<_> = events
-                    .iter()
-                    .filter_map(|event| {
-                        if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                            slot_coordinates,
-                            event: ClipChangeEvent::PlayState(play_state),
-                        }) = event
-                        {
-                            Some(QualifiedOccasionalSlotUpdate {
-                                slot_coordinates: Some(SlotCoordinates::from_engine(
-                                    *slot_coordinates,
-                                )),
-                                update: Some(qualified_occasional_slot_update::Update::PlayState(
-                                    SlotPlayState::from_engine(play_state.get()).into(),
-                                )),
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                if !updates.is_empty() {
-                    let batch_event = OccasionalSlotUpdateBatch {
-                        session_id: session.id().to_owned(),
-                        value: updates,
-                    };
-                    let _ = sender.send(batch_event);
-                }
-            }
-        }
+    fn clip_matrix_polled(
+        &self,
+        session: &Session,
+        matrix: &RealearnClipMatrix,
+        events: &[ClipMatrixEvent],
+    ) {
+        send_continuous_slot_updates(session, events);
+        send_continuous_track_updates(session, matrix);
+        send_occasional_slot_updates(session, events);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
@@ -421,6 +364,110 @@ impl SessionUi for Weak<MainPanel> {
     }
 }
 
+fn send_occasional_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
+    let sender = App::get().occasional_slot_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| {
+            if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                slot_coordinates,
+                event: ClipChangeEvent::PlayState(play_state),
+            }) = event
+            {
+                Some(QualifiedOccasionalSlotUpdate {
+                    slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
+                    update: Some(qualified_occasional_slot_update::Update::PlayState(
+                        SlotPlayState::from_engine(play_state.get()).into(),
+                    )),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = OccasionalSlotUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
+    let sender = App::get().continuous_slot_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| {
+            if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                slot_coordinates,
+                event: ClipChangeEvent::ClipPosition(pos),
+            }) = event
+            {
+                Some(QualifiedContinuousSlotUpdate {
+                    slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
+                    update: Some(ContinuousSlotUpdate {
+                        clip_updates: vec![ContinuousClipUpdate {
+                            position: pos.get(),
+                            peak: 0.0,
+                        }],
+                    }),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = ContinuousSlotUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_continuous_track_updates(session: &Session, matrix: &RealearnClipMatrix) {
+    let sender = App::get().continuous_track_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let track_updates_by_guid: HashMap<Guid, ContinuousTrackUpdate> =
+        HashMap::with_capacity(matrix.column_count());
+    let track_updates: Vec<_> = matrix
+        .all_columns()
+        .map(|column| {
+            if let Ok(track) = column.playback_track() {
+                if let Some(existing_update) = track_updates_by_guid.get(track.guid()) {
+                    // We have already collected the update for this column's playback track.
+                    existing_update.clone()
+                } else {
+                    // We haven't yet collected the update for this column's playback track.
+                    let update = ContinuousTrackUpdate {
+                        peaks: get_track_peaks(&track),
+                    };
+                    update
+                }
+            } else {
+                ContinuousTrackUpdate { peaks: vec![] }
+            }
+        })
+        .collect();
+    if !track_updates.is_empty() {
+        let batch_event = ContinuousTrackUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: track_updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
 fn upgrade_panel(panel: &Weak<MainPanel>) -> Rc<MainPanel> {
     panel.upgrade().expect("main panel not existing anymore")
 }
@@ -429,4 +476,20 @@ impl Drop for MainPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping main panel...");
     }
+}
+
+fn get_track_peaks(track: &Track) -> Vec<f64> {
+    let reaper = Reaper::get().medium_reaper();
+    let track = track.raw();
+    let channel_count =
+        unsafe { reaper.get_media_track_info_value(track, TrackAttributeKey::Nchan) as i32 };
+    if channel_count <= 0 {
+        return vec![];
+    }
+    (0..channel_count)
+        .map(|ch| {
+            let volume = unsafe { reaper.track_get_peak_info(track, ch as u32) };
+            volume.get()
+        })
+        .collect()
 }
