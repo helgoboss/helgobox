@@ -2,9 +2,9 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use futures::{Stream, StreamExt};
 use playtime_clip_engine::proto::{
-    clip_engine_server, GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetContinuousTrackUpdatesReply,
-    GetContinuousTrackUpdatesRequest, GetOccasionalSlotUpdatesReply,
+    clip_engine_server, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest,
 };
 use std::future;
@@ -19,8 +19,8 @@ pub struct RealearnClipEngine {}
 impl clip_engine_server::ClipEngine for RealearnClipEngine {
     type GetContinuousMatrixUpdatesStream =
         SyncBoxStream<'static, Result<GetContinuousMatrixUpdatesReply, Status>>;
-    type GetContinuousTrackUpdatesStream =
-        SyncBoxStream<'static, Result<GetContinuousTrackUpdatesReply, Status>>;
+    type GetContinuousColumnUpdatesStream =
+        SyncBoxStream<'static, Result<GetContinuousColumnUpdatesReply, Status>>;
     type GetContinuousSlotUpdatesStream =
         SyncBoxStream<'static, Result<GetContinuousSlotUpdatesReply, Status>>;
     type GetOccasionalSlotUpdatesStream =
@@ -55,19 +55,19 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         todo!()
     }
 
-    async fn get_continuous_track_updates(
+    async fn get_continuous_column_updates(
         &self,
-        request: Request<GetContinuousTrackUpdatesRequest>,
-    ) -> Result<Response<Self::GetContinuousTrackUpdatesStream>, Status> {
-        let receiver = App::get().continuous_track_update_sender().subscribe();
+        request: Request<GetContinuousColumnUpdatesRequest>,
+    ) -> Result<Response<Self::GetContinuousColumnUpdatesStream>, Status> {
+        let receiver = App::get().continuous_column_update_sender().subscribe();
         let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
             let res = match value {
                 Err(e) => Some(Err(Status::unknown(e.to_string()))),
                 Ok(WithSessionId { session_id, value })
                     if &session_id == &request.get_ref().clip_matrix_id =>
                 {
-                    Some(Ok(GetContinuousTrackUpdatesReply {
-                        track_updates: value,
+                    Some(Ok(GetContinuousColumnUpdatesReply {
+                        column_updates: value,
                     }))
                 }
                 _ => None,

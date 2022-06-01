@@ -4,7 +4,7 @@ pub struct GetContinuousMatrixUpdatesRequest {
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetContinuousTrackUpdatesRequest {
+pub struct GetContinuousColumnUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
@@ -24,9 +24,9 @@ pub struct GetContinuousMatrixUpdatesReply {
     pub matrix_update: ::core::option::Option<ContinuousMatrixUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetContinuousTrackUpdatesReply {
+pub struct GetContinuousColumnUpdatesReply {
     #[prost(message, repeated, tag = "1")]
-    pub track_updates: ::prost::alloc::vec::Vec<ContinuousTrackUpdate>,
+    pub column_updates: ::prost::alloc::vec::Vec<ContinuousColumnUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesReply {
@@ -50,7 +50,7 @@ pub struct ContinuousMatrixUpdate {
     pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ContinuousTrackUpdate {
+pub struct ContinuousColumnUpdate {
     #[prost(double, repeated, tag = "1")]
     pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
@@ -124,16 +124,16 @@ pub mod clip_engine_server {
             &self,
             request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
         ) -> Result<tonic::Response<Self::GetContinuousMatrixUpdatesStream>, tonic::Status>;
-        #[doc = "Server streaming response type for the GetContinuousTrackUpdates method."]
-        type GetContinuousTrackUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetContinuousTrackUpdatesReply, tonic::Status>,
+        #[doc = "Server streaming response type for the GetContinuousColumnUpdates method."]
+        type GetContinuousColumnUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetContinuousColumnUpdatesReply, tonic::Status>,
             > + Send
             + Sync
             + 'static;
-        async fn get_continuous_track_updates(
+        async fn get_continuous_column_updates(
             &self,
-            request: tonic::Request<super::GetContinuousTrackUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetContinuousTrackUpdatesStream>, tonic::Status>;
+            request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
+        ) -> Result<tonic::Response<Self::GetContinuousColumnUpdatesStream>, tonic::Status>;
         #[doc = "Server streaming response type for the GetOccasionalSlotUpdates method."]
         type GetOccasionalSlotUpdatesStream: futures_core::Stream<Item = Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>>
             + Send
@@ -231,25 +231,26 @@ pub mod clip_engine_server {
                     };
                     Box::pin(fut)
                 }
-                "/playtime.clip_engine.ClipEngine/GetContinuousTrackUpdates" => {
+                "/playtime.clip_engine.ClipEngine/GetContinuousColumnUpdates" => {
                     #[allow(non_camel_case_types)]
-                    struct GetContinuousTrackUpdatesSvc<T: ClipEngine>(pub Arc<T>);
+                    struct GetContinuousColumnUpdatesSvc<T: ClipEngine>(pub Arc<T>);
                     impl<T: ClipEngine>
                         tonic::server::ServerStreamingService<
-                            super::GetContinuousTrackUpdatesRequest,
-                        > for GetContinuousTrackUpdatesSvc<T>
+                            super::GetContinuousColumnUpdatesRequest,
+                        > for GetContinuousColumnUpdatesSvc<T>
                     {
-                        type Response = super::GetContinuousTrackUpdatesReply;
-                        type ResponseStream = T::GetContinuousTrackUpdatesStream;
+                        type Response = super::GetContinuousColumnUpdatesReply;
+                        type ResponseStream = T::GetContinuousColumnUpdatesStream;
                         type Future =
                             BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousTrackUpdatesRequest>,
+                            request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).get_continuous_track_updates(request).await };
+                            let fut = async move {
+                                (*inner).get_continuous_column_updates(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -258,7 +259,7 @@ pub mod clip_engine_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = GetContinuousTrackUpdatesSvc(inner);
+                        let method = GetContinuousColumnUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
                             accept_compression_encodings,

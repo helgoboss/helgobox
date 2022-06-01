@@ -17,7 +17,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
-    ContinuousSlotUpdateBatch, ContinuousTrackUpdateBatch, OccasionalSlotUpdateBatch,
+    ContinuousColumnUpdateBatch, ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch,
 };
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
@@ -25,8 +25,8 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
-    qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousSlotUpdate,
-    ContinuousTrackUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate,
+    qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousColumnUpdate,
+    ContinuousSlotUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate,
     SlotCoordinates, SlotPlayState,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
@@ -434,35 +434,35 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
 }
 
 fn send_continuous_track_updates(session: &Session, matrix: &RealearnClipMatrix) {
-    let sender = App::get().continuous_track_update_sender();
+    let sender = App::get().continuous_column_update_sender();
     if sender.receiver_count() == 0 {
         return;
     }
-    let track_updates_by_guid: HashMap<Guid, ContinuousTrackUpdate> =
+    let column_update_by_track_guid: HashMap<Guid, ContinuousColumnUpdate> =
         HashMap::with_capacity(matrix.column_count());
-    let track_updates: Vec<_> = matrix
+    let column_updates: Vec<_> = matrix
         .all_columns()
         .map(|column| {
             if let Ok(track) = column.playback_track() {
-                if let Some(existing_update) = track_updates_by_guid.get(track.guid()) {
+                if let Some(existing_update) = column_update_by_track_guid.get(track.guid()) {
                     // We have already collected the update for this column's playback track.
                     existing_update.clone()
                 } else {
                     // We haven't yet collected the update for this column's playback track.
-                    let update = ContinuousTrackUpdate {
+                    let update = ContinuousColumnUpdate {
                         peaks: get_track_peaks(&track),
                     };
                     update
                 }
             } else {
-                ContinuousTrackUpdate { peaks: vec![] }
+                ContinuousColumnUpdate { peaks: vec![] }
             }
         })
         .collect();
-    if !track_updates.is_empty() {
-        let batch_event = ContinuousTrackUpdateBatch {
+    if !column_updates.is_empty() {
+        let batch_event = ContinuousColumnUpdateBatch {
             session_id: session.id().to_owned(),
-            value: track_updates,
+            value: column_updates,
         };
         let _ = sender.send(batch_event);
     }
