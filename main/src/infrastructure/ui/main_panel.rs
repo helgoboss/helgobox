@@ -4,7 +4,7 @@ use crate::infrastructure::ui::{
 };
 
 use lazycell::LazyCell;
-use reaper_high::{Guid, Reaper, Track};
+use reaper_high::{Guid, OrCurrentProject, Reaper, Track};
 
 use slog::debug;
 use std::cell::{Cell, RefCell};
@@ -17,19 +17,22 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
-    ContinuousColumnUpdateBatch, ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch,
+    ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
+    OccasionalSlotUpdateBatch,
 };
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
+use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousColumnUpdate,
-    ContinuousSlotUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate,
-    SlotCoordinates, SlotPlayState,
+    ContinuousMatrixUpdate, ContinuousSlotUpdate, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalSlotUpdate, SlotCoordinates, SlotPlayState,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::{clip_timeline, Laziness, Timeline};
 use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
 use std::borrow::Cow;
@@ -333,9 +336,10 @@ impl SessionUi for Weak<MainPanel> {
         matrix: &RealearnClipMatrix,
         events: &[ClipMatrixEvent],
     ) {
-        send_continuous_slot_updates(session, events);
-        send_continuous_track_updates(session, matrix);
         send_occasional_slot_updates(session, events);
+        send_continuous_slot_updates(session, events);
+        send_continuous_matrix_updates(session, matrix);
+        send_continuous_column_updates(session, matrix);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
@@ -433,7 +437,32 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
     }
 }
 
-fn send_continuous_track_updates(session: &Session, matrix: &RealearnClipMatrix) {
+fn send_continuous_matrix_updates(session: &Session, matrix: &RealearnClipMatrix) {
+    let sender = App::get().continuous_matrix_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let project = session.processor_context().project();
+    let timeline = clip_timeline(project, false);
+    let pos = timeline.cursor_pos();
+    let bar_quantization = EvenQuantization::ONE_BAR;
+    let next_bar = timeline.next_quantized_pos_at(pos, bar_quantization, Laziness::EagerForNextPos);
+    // TODO-high CONTINUE We are mainly interested in beats relative to the bar in order to get a
+    //  typical position display and a useful visual metronome!
+    let full_beats = timeline.full_beats_at_pos(pos);
+    let batch_event = ContinuousMatrixUpdateBatch {
+        session_id: session.id().to_owned(),
+        value: ContinuousMatrixUpdate {
+            second: pos.get(),
+            bar: (next_bar.position() - 1) as i32,
+            beat: full_beats.get(),
+            peaks: get_track_peaks(&project.or_current_project().master_track()),
+        },
+    };
+    let _ = sender.send(batch_event);
+}
+
+fn send_continuous_column_updates(session: &Session, matrix: &RealearnClipMatrix) {
     let sender = App::get().continuous_column_update_sender();
     if sender.receiver_count() == 0 {
         return;
@@ -486,9 +515,10 @@ fn get_track_peaks(track: &Track) -> Vec<f64> {
     if channel_count <= 0 {
         return vec![];
     }
+    // TODO-high Apply same fix as in #560 (check I_VUMODE to know whether to query volume or peaks)
     (0..channel_count)
         .map(|ch| {
-            let volume = unsafe { reaper.track_get_peak_info(track, ch as u32) };
+            let volume = unsafe { reaper.track_get_peak_info(track, ch as u32 + 1024) };
             volume.get()
         })
         .collect()

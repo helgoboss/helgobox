@@ -8,7 +8,8 @@ use helgoboss_learn::BASE_EPSILON;
 use playtime_api::persistence::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    Bpm, Hz, PlayState, PositionInQuarterNotes, PositionInSeconds, ProjectContext, TimeSignature,
+    Bpm, Hz, PlayState, PositionInBeats, PositionInQuarterNotes, PositionInSeconds, ProjectContext,
+    TimeSignature,
 };
 use static_assertions::const_assert;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -93,6 +94,13 @@ impl Timeline for ReaperTimeline {
             .get_play_position_2_ex(self.project_context)
     }
 
+    fn full_beats_at_pos(&self, timeline_pos: PositionInSeconds) -> PositionInBeats {
+        let res = Reaper::get()
+            .medium_reaper()
+            .time_map_2_time_to_beats(self.project_context, timeline_pos);
+        res.full_beats
+    }
+
     fn next_quantized_pos_at(
         &self,
         timeline_pos: PositionInSeconds,
@@ -129,6 +137,8 @@ impl Timeline for ReaperTimeline {
 
 pub trait Timeline {
     fn cursor_pos(&self) -> PositionInSeconds;
+
+    fn full_beats_at_pos(&self, timeline_pos: PositionInSeconds) -> PositionInBeats;
 
     fn next_quantized_pos_at(
         &self,
@@ -272,6 +282,14 @@ impl SteadyTimelineState {
         time_sig_denominator: u32,
         laziness: Laziness,
     ) -> QuantizedPosition {
+        let accurate_beat = self.accurate_beat(timeline_pos);
+        // The time signature denominator defines what one beat "means" (e.g. a quarter note).
+        let ratio = quantization.denominator() as f64 / time_sig_denominator as f64;
+        let accurate_pos = accurate_beat * ratio;
+        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization, laziness)
+    }
+
+    fn accurate_beat(&self, timeline_pos: PositionInSeconds) -> f64 {
         let sample_rate = self.sample_rate();
         let timeline_frame = convert_position_in_seconds_to_frames(timeline_pos, sample_rate);
         let sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
@@ -279,17 +297,13 @@ impl SteadyTimelineState {
         if sample_count < sample_count_at_last_tempo_change {
             panic!("attempt to query next quantized position from a position in the past");
         }
-        let accurate_beat = calc_beat_at(
+        calc_beat_at(
             sample_count,
             sample_count_at_last_tempo_change,
             self.beat_at_last_tempo_change(),
             self.tempo(),
             sample_rate,
-        );
-        // The time signature denominator defines what one beat "means" (e.g. a quarter note).
-        let ratio = quantization.denominator() as f64 / time_sig_denominator as f64;
-        let accurate_pos = accurate_beat * ratio;
-        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization, laziness)
+        )
     }
 
     fn pos_of_quantized_pos(
@@ -345,6 +359,10 @@ fn calc_pos_of_beat(
 impl<'a> Timeline for SteadyTimeline<'a> {
     fn cursor_pos(&self) -> PositionInSeconds {
         self.state.cursor_pos()
+    }
+
+    fn full_beats_at_pos(&self, timeline_pos: PositionInSeconds) -> PositionInBeats {
+        PositionInBeats::new(self.state.accurate_beat(timeline_pos))
     }
 
     fn next_quantized_pos_at(
@@ -463,6 +481,10 @@ impl<T: Timeline> Timeline for &T {
         (*self).cursor_pos()
     }
 
+    fn full_beats_at_pos(&self, timeline_pos: PositionInSeconds) -> PositionInBeats {
+        (*self).full_beats_at_pos(timeline_pos)
+    }
+
     fn next_quantized_pos_at(
         &self,
         timeline_pos: PositionInSeconds,
@@ -524,6 +546,13 @@ impl Timeline for HybridTimeline {
             HybridTimeline::GlobalSteady(t) => {
                 t.next_quantized_pos_at(timeline_pos, quantization, laziness)
             }
+        }
+    }
+
+    fn full_beats_at_pos(&self, timeline_pos: PositionInSeconds) -> PositionInBeats {
+        match self {
+            HybridTimeline::ReaperProject(t) => t.full_beats_at_pos(timeline_pos),
+            HybridTimeline::GlobalSteady(t) => t.full_beats_at_pos(timeline_pos),
         }
     }
 

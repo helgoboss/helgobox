@@ -27,7 +27,8 @@ use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::grpc::{
-    ContinuousColumnUpdateBatch, ContinuousSlotUpdateBatch, OccasionalSlotUpdateBatch,
+    ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
+    OccasionalSlotUpdateBatch,
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
@@ -109,8 +110,9 @@ pub struct App {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
-    continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
+    continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
     continuous_column_update_sender: tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch>,
+    continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
 }
 
 #[derive(Debug)]
@@ -298,6 +300,7 @@ impl App {
             occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
             continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
             continuous_column_update_sender: tokio::sync::broadcast::channel(500).0,
+            continuous_matrix_update_sender: tokio::sync::broadcast::channel(500).0,
         }
     }
 
@@ -648,6 +651,12 @@ impl App {
         &self,
     ) -> &tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch> {
         &self.continuous_column_update_sender
+    }
+
+    pub fn continuous_matrix_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch> {
+        &self.continuous_matrix_update_sender
     }
 
     fn temporarily_reclaim_control_surface_ownership(
