@@ -338,7 +338,7 @@ impl SessionUi for Weak<MainPanel> {
     ) {
         send_occasional_slot_updates(session, events);
         send_continuous_slot_updates(session, events);
-        send_continuous_matrix_updates(session, matrix);
+        send_continuous_matrix_updates(session);
         send_continuous_column_updates(session, matrix);
     }
 
@@ -437,7 +437,7 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
     }
 }
 
-fn send_continuous_matrix_updates(session: &Session, matrix: &RealearnClipMatrix) {
+fn send_continuous_matrix_updates(session: &Session) {
     let sender = App::get().continuous_matrix_update_sender();
     if sender.receiver_count() == 0 {
         return;
