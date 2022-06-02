@@ -1,14 +1,19 @@
-use crate::domain::BackboneState;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use futures::{Stream, StreamExt};
 use playtime_clip_engine::proto::{
-    clip_engine_server, qualified_occasional_slot_update, GetContinuousColumnUpdatesReply,
-    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
-    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
-    GetContinuousSlotUpdatesRequest, GetOccasionalSlotUpdatesReply,
-    GetOccasionalSlotUpdatesRequest, QualifiedOccasionalSlotUpdate, SlotCoordinates, SlotPlayState,
+    clip_engine_server, occasional_track_update, qualified_occasional_slot_update,
+    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalMatrixUpdatesRequest,
+    GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
+    GetOccasionalTrackUpdatesRequest, OccasionalTrackUpdate, Peaks, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState, TrackColor, TrackInput,
+    TrackInputMonitoring,
 };
+use reaper_high::{Guid, Track};
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::{future, iter};
 use tokio_stream::wrappers::BroadcastStream;
@@ -59,13 +64,8 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<GetOccasionalSlotUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalSlotUpdatesStream>, Status> {
         // Initial
-        let session = App::get()
-            .find_session_by_id(&request.get_ref().clip_matrix_id)
-            .ok_or_else(session_not_found)?;
-        let session = session.borrow();
-        let instance_state = session.instance_state();
-        let initial_slot_updates = BackboneState::get()
-            .with_clip_matrix(instance_state, |matrix| {
+        let initial_slot_updates = App::get()
+            .with_clip_matrix(&request.get_ref().clip_matrix_id, |matrix| {
                 matrix
                     .all_slots()
                     .map(|slot| {
@@ -113,6 +113,94 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             iter::empty(),
         )
     }
+
+    type GetOccasionalMatrixUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalMatrixUpdatesReply, Status>>;
+
+    async fn get_occasional_matrix_updates(
+        &self,
+        request: Request<GetOccasionalMatrixUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalMatrixUpdatesStream>, Status> {
+        let receiver = App::get().occasional_matrix_update_sender().subscribe();
+        stream_by_session_id(
+            request.into_inner().clip_matrix_id,
+            receiver,
+            |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
+            // TODO-high Some(initial_reply).into_iter(),
+            iter::empty(),
+        )
+    }
+
+    type GetOccasionalTrackUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalTrackUpdatesReply, Status>>;
+
+    async fn get_occasional_track_updates(
+        &self,
+        request: Request<GetOccasionalTrackUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalTrackUpdatesStream>, Status> {
+        let initial_track_updates = App::get()
+            .with_clip_matrix(&request.get_ref().clip_matrix_id, |matrix| {
+                let track_by_guid: HashMap<Guid, Track> = matrix
+                    .all_columns()
+                    .flat_map(|column| {
+                        column
+                            .playback_track()
+                            .into_iter()
+                            .cloned()
+                            .chain(column.effective_recording_track().into_iter())
+                    })
+                    .map(|track| (*track.guid(), track))
+                    .collect();
+                track_by_guid
+                    .into_iter()
+                    .map(|(guid, track)| {
+                        use occasional_track_update::Update;
+                        QualifiedOccasionalTrackUpdate {
+                            track_id: guid.to_string_without_braces(),
+                            track_updates: [
+                                Update::Name(track.name().unwrap_or_default().into_string()),
+                                Update::Color(TrackColor::from_engine(track.custom_color())),
+                                Update::Input(TrackInput::from_engine(track.recording_input())),
+                                Update::Armed(track.is_armed(false)),
+                                Update::InputMonitoring(
+                                    TrackInputMonitoring::from_engine(
+                                        track.input_monitoring_mode(),
+                                    )
+                                    .into(),
+                                ),
+                                Update::Mute(track.is_muted()),
+                                Update::Solo(track.is_solo()),
+                                Update::Selected(track.is_selected()),
+                                Update::Volume(track.volume().db().get()),
+                                Update::Pan(track.pan().reaper_value().get()),
+                                Update::SendPeaks(Peaks {
+                                    peaks: track
+                                        .sends()
+                                        .map(|send| send.volume().unwrap().db().get())
+                                        .collect(),
+                                }),
+                            ]
+                            .into_iter()
+                            .map(|update| OccasionalTrackUpdate {
+                                update: Some(update),
+                            })
+                            .collect(),
+                        }
+                    })
+                    .collect()
+            })
+            .map_err(|e| Status::not_found(e))?;
+        let initial_reply = GetOccasionalTrackUpdatesReply {
+            track_updates: initial_track_updates,
+        };
+        let receiver = App::get().occasional_track_update_sender().subscribe();
+        stream_by_session_id(
+            request.into_inner().clip_matrix_id,
+            receiver,
+            |track_updates| GetOccasionalTrackUpdatesReply { track_updates },
+            Some(initial_reply).into_iter(),
+        )
+    }
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
@@ -146,8 +234,4 @@ where
     Ok(Response::new(Box::pin(
         initial_stream.chain(receiver_stream),
     )))
-}
-
-fn session_not_found() -> Status {
-    Status::not_found("session not found")
 }

@@ -11,9 +11,9 @@ use crate::domain::{
     InstanceContainer, InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
     OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
-    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,
+    RealearnTargetContext, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -28,7 +28,7 @@ use crate::infrastructure::ui::MessagePanel;
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalSlotUpdateBatch,
+    OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
@@ -109,6 +109,8 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
+    occasional_matrix_update_sender: tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch>,
+    occasional_track_update_sender: tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch>,
     occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
     continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
     continuous_column_update_sender: tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch>,
@@ -297,6 +299,8 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
+            occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
             continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
             continuous_column_update_sender: tokio::sync::broadcast::channel(500).0,
@@ -635,6 +639,18 @@ impl App {
         &self.osc_feedback_task_sender
     }
 
+    pub fn occasional_matrix_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch> {
+        &self.occasional_matrix_update_sender
+    }
+
+    pub fn occasional_track_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch> {
+        &self.occasional_track_update_sender
+    }
+
     pub fn occasional_slot_update_sender(
         &self,
     ) -> &tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch> {
@@ -859,6 +875,19 @@ impl App {
             let session = session.borrow();
             session.id() == session_id
         })
+    }
+
+    pub fn with_clip_matrix<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        let session = self
+            .find_session_by_id(clip_matrix_id)
+            .ok_or("session not found")?;
+        let session = session.borrow();
+        let instance_state = session.instance_state();
+        BackboneState::get().with_clip_matrix(instance_state, f)
     }
 
     pub fn find_session_by_id_ignoring_borrowed_ones(

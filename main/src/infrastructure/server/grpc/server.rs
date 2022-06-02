@@ -2,8 +2,8 @@ use crate::infrastructure::server::grpc::handlers::RealearnClipEngine;
 use crate::infrastructure::server::layers::MainThreadLayer;
 use playtime_clip_engine::proto::clip_engine_server::ClipEngineServer;
 use playtime_clip_engine::proto::{
-    ContinuousColumnUpdate, ContinuousMatrixUpdate, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalSlotUpdate,
+    ContinuousColumnUpdate, ContinuousMatrixUpdate, OccasionalMatrixUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
 };
 use std::net::SocketAddr;
 use tokio::sync::broadcast;
@@ -30,6 +30,8 @@ pub struct WithSessionId<T> {
     pub value: T,
 }
 
+pub type OccasionalMatrixUpdateBatch = WithSessionId<Vec<OccasionalMatrixUpdate>>;
+pub type OccasionalTrackUpdateBatch = WithSessionId<Vec<QualifiedOccasionalTrackUpdate>>;
 pub type OccasionalSlotUpdateBatch = WithSessionId<Vec<QualifiedOccasionalSlotUpdate>>;
 pub type ContinuousMatrixUpdateBatch = WithSessionId<ContinuousMatrixUpdate>;
 pub type ContinuousColumnUpdateBatch = WithSessionId<Vec<ContinuousColumnUpdate>>;
