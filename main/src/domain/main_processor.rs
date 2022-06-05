@@ -1481,6 +1481,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .self_normal_sender
                 .send_complaining(NormalMainTask::RefreshAllTargets);
         }
+        // Process for feedback
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
                 target,
@@ -1488,6 +1489,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.control_context(),
             )
         });
+        // Process for clip engine
+        {
+            let mut instance_state = self.basics.instance_state.borrow_mut();
+            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+                self.basics.event_handler.handle_event(
+                    DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
+                );
+            }
+        }
     }
 
     /// The given function should return if the current target value is affected by this change
@@ -3561,6 +3571,7 @@ struct GroupInteractionInput {
 }
 
 struct Fb(FeedbackReason, Option<CompoundFeedbackValue>);
+
 impl Fb {
     fn none() -> Self {
         Fb(FeedbackReason::Normal, None)

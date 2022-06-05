@@ -24,7 +24,7 @@ use crate::domain::{
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::Reaper;
+use reaper_high::{ChangeEvent, Reaper};
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -49,6 +49,12 @@ pub trait SessionUi {
         session: &Session,
         matrix: &RealearnClipMatrix,
         events: &[ClipMatrixEvent],
+    );
+    fn process_control_surface_change_event_for_clip_engine(
+        &self,
+        session: &Session,
+        matrix: &RealearnClipMatrix,
+        event: &ChangeEvent,
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_affected(
@@ -2357,6 +2363,11 @@ impl DomainEventHandler for WeakSession {
             ClipMatrixPolled(matrix, events) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.clip_matrix_polled(&s, matrix, events);
+                }
+            }
+            ControlSurfaceChangeEventForClipEngine(matrix, event) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);
                 }
             }
             MappingMatched(event) => {

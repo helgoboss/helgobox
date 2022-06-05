@@ -4,6 +4,7 @@ use crate::domain::{
 };
 use helgoboss_learn::AbsoluteValue;
 use playtime_clip_engine::main::ClipMatrixEvent;
+use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -24,6 +25,7 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
+    ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
 }
 
 #[derive(Clone, Debug)]

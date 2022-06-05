@@ -224,7 +224,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    fn permanent_project(&self) -> Option<Project> {
+    pub fn permanent_project(&self) -> Option<Project> {
         self.containing_track.as_ref().map(|t| t.project())
     }
 
@@ -682,6 +682,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn clip_looped(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
         get_column(&self.columns, coordinates.column())?.clip_looped(coordinates.row())
+    }
+
+    pub fn uses_playback_track(&self, track: &Track) -> bool {
+        self.columns.iter().any(|c| c.playback_track() == Ok(track))
     }
 
     pub fn column_count(&self) -> usize {

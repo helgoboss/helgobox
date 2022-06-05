@@ -2,17 +2,18 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use futures::{Stream, StreamExt};
 use playtime_clip_engine::proto::{
-    clip_engine_server, occasional_track_update, qualified_occasional_slot_update,
-    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
-    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalMatrixUpdatesRequest,
-    GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
-    GetOccasionalTrackUpdatesRequest, OccasionalTrackUpdate, Peaks, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState, TrackColor, TrackInput,
-    TrackInputMonitoring,
+    clip_engine_server, occasional_matrix_update, occasional_track_update,
+    qualified_occasional_slot_update, ArrangementPlayState, GetContinuousColumnUpdatesReply,
+    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
+    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
+    GetContinuousSlotUpdatesRequest, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
+    GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
+    GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState,
+    TrackColor, TrackInput, TrackInputMonitoring,
 };
-use reaper_high::{Guid, Track};
+use reaper_high::{Guid, OrCurrentProject, Track};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::{future, iter};
@@ -121,13 +122,33 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         &self,
         request: Request<GetOccasionalMatrixUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalMatrixUpdatesStream>, Status> {
+        use occasional_matrix_update::Update;
+        let initial_matrix_updates = App::get()
+            .with_clip_matrix(&request.get_ref().clip_matrix_id, |matrix| {
+                let project = matrix.permanent_project().or_current_project();
+                let master_track = project.master_track();
+                [
+                    Update::Volume(master_track.volume().db().get()),
+                    Update::Pan(master_track.pan().reaper_value().get()),
+                    Update::Tempo(project.tempo().bpm().get()),
+                    Update::ArrangementPlayState(
+                        ArrangementPlayState::from_engine(project.play_state()).into(),
+                    ),
+                ]
+                .into_iter()
+                .map(|u| OccasionalMatrixUpdate { update: Some(u) })
+                .collect()
+            })
+            .map_err(|e| Status::not_found(e))?;
+        let initial_reply = GetOccasionalMatrixUpdatesReply {
+            matrix_updates: initial_matrix_updates,
+        };
         let receiver = App::get().occasional_matrix_update_sender().subscribe();
         stream_by_session_id(
             request.into_inner().clip_matrix_id,
             receiver,
             |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
-            // TODO-high Some(initial_reply).into_iter(),
-            iter::empty(),
+            Some(initial_reply).into_iter(),
         )
     }
 
@@ -173,12 +194,6 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                                 Update::Selected(track.is_selected()),
                                 Update::Volume(track.volume().db().get()),
                                 Update::Pan(track.pan().reaper_value().get()),
-                                Update::SendPeaks(Peaks {
-                                    peaks: track
-                                        .sends()
-                                        .map(|send| send.volume().unwrap().db().get())
-                                        .collect(),
-                                }),
                             ]
                             .into_iter()
                             .map(|update| OccasionalTrackUpdate {

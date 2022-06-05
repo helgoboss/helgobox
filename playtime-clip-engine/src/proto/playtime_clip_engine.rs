@@ -90,16 +90,24 @@ pub struct QualifiedOccasionalTrackUpdate {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalMatrixUpdate {
-    #[prost(oneof = "occasional_matrix_update::Update", tags = "1, 2")]
+    #[prost(oneof = "occasional_matrix_update::Update", tags = "1, 2, 3, 4, 5, 6")]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
 /// Nested message and enum types in `OccasionalMatrixUpdate`.
 pub mod occasional_matrix_update {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
-        #[prost(message, tag = "1")]
+        #[prost(double, tag = "1")]
+        Volume(f64),
+        #[prost(double, tag = "2")]
+        Pan(f64),
+        #[prost(double, tag = "3")]
+        Tempo(f64),
+        #[prost(enumeration = "super::ArrangementPlayState", tag = "4")]
+        ArrangementPlayState(i32),
+        #[prost(message, tag = "5")]
         MidiInputDevices(super::MidiInputDevices),
-        #[prost(message, tag = "2")]
+        #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
     }
 }
@@ -107,7 +115,7 @@ pub mod occasional_matrix_update {
 pub struct OccasionalTrackUpdate {
     #[prost(
         oneof = "occasional_track_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
     )]
     pub update: ::core::option::Option<occasional_track_update::Update>,
 }
@@ -135,19 +143,12 @@ pub mod occasional_track_update {
         Volume(f64),
         #[prost(double, tag = "10")]
         Pan(f64),
-        #[prost(message, tag = "11")]
-        SendPeaks(super::Peaks),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TrackColor {
     #[prost(int32, optional, tag = "1")]
     pub color: ::core::option::Option<i32>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Peaks {
-    #[prost(double, repeated, tag = "1")]
-    pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TrackInput {
@@ -251,6 +252,16 @@ pub enum SlotPlayState {
     ScheduledForRecordingStart = 6,
     Recording = 7,
     ScheduledForRecordingStop = 8,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ArrangementPlayState {
+    Unknown = 0,
+    Stopped = 1,
+    Playing = 2,
+    PlayingPaused = 3,
+    Recording = 4,
+    RecordingPaused = 5,
 }
 #[doc = r" Generated server implementations."]
 pub mod clip_engine_server {
