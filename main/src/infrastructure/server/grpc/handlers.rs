@@ -85,7 +85,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                     })
                     .collect()
             })
-            .map_err(|e| Status::not_found(e))?;
+            .map_err(Status::not_found)?;
         let initial_reply = GetOccasionalSlotUpdatesReply {
             slot_updates: initial_slot_updates,
         };
@@ -139,7 +139,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 .map(|u| OccasionalMatrixUpdate { update: Some(u) })
                 .collect()
             })
-            .map_err(|e| Status::not_found(e))?;
+            .map_err(Status::not_found)?;
         let initial_reply = GetOccasionalMatrixUpdatesReply {
             matrix_updates: initial_matrix_updates,
         };
@@ -204,7 +204,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                     })
                     .collect()
             })
-            .map_err(|e| Status::not_found(e))?;
+            .map_err(Status::not_found)?;
         let initial_reply = GetOccasionalTrackUpdatesReply {
             track_updates: initial_track_updates,
         };
@@ -238,7 +238,7 @@ where
             // Error
             Err(e) => Some(Err(Status::unknown(e.to_string()))),
             // Clip matrix ID matches
-            Ok(WithSessionId { session_id, value }) if &session_id == &requested_clip_matrix_id => {
+            Ok(WithSessionId { session_id, value }) if session_id == requested_clip_matrix_id => {
                 Some(Ok(create_result(value)))
             }
             // Clip matrix ID doesn't match

@@ -614,7 +614,7 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, slot_index: usize) -> ClipEngineResult<&mut Slot> {
+fn get_slot_mut(slots: &mut [Slot], slot_index: usize) -> ClipEngineResult<&mut Slot> {
     slots.get_mut(slot_index).ok_or(SLOT_DOESNT_EXIST)
 }
 

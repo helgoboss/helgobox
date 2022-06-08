@@ -978,7 +978,7 @@ fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> ClipEngineResult<&mut Slot> {
+fn get_slot_mut(slots: &mut [Slot], index: usize) -> ClipEngineResult<&mut Slot> {
     slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
 }
 

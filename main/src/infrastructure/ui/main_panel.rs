@@ -458,7 +458,7 @@ fn send_occasional_track_updates(
             Update::Name(e.track.name().unwrap_or_default().into_string())
         }),
         ChangeEvent::TrackInputChanged(e) => track_update(matrix, &e.track, || {
-            Update::Input(TrackInput::from_engine(e.new_value).into())
+            Update::Input(TrackInput::from_engine(e.new_value))
         }),
         ChangeEvent::TrackInputMonitoringChanged(e) => track_update(matrix, &e.track, || {
             Update::InputMonitoring(TrackInputMonitoring::from_engine(e.new_value).into())
@@ -580,10 +580,9 @@ fn send_continuous_column_updates(session: &Session, matrix: &RealearnClipMatrix
                     existing_update.clone()
                 } else {
                     // We haven't yet collected the update for this column's playback track.
-                    let update = ContinuousColumnUpdate {
-                        peaks: get_track_peaks(&track),
-                    };
-                    update
+                    ContinuousColumnUpdate {
+                        peaks: get_track_peaks(track),
+                    }
                 }
             } else {
                 ContinuousColumnUpdate { peaks: vec![] }

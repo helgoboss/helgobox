@@ -1,8 +1,8 @@
-mod playtime_clip_engine;
+mod clip_engine;
 
 use crate::main::ClipSlotCoordinates;
+pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
-pub use playtime_clip_engine::*;
 use reaper_medium::{InputMonitoringMode, RecordingInput, RgbColor};
 
 impl SlotCoordinates {
