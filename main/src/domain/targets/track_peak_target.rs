@@ -61,8 +61,15 @@ impl<'a> Target<'a> for TrackPeakTarget {
 impl TrackPeakTarget {
     fn peak(&self) -> Option<Volume> {
         let reaper = Reaper::get().medium_reaper();
-        let channel_count = unsafe {
-            reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
+        let vu_mode = unsafe {
+            reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::VuMode) as i32
+        };
+        let channel_count = if matches!(vu_mode, 2 | 8) {
+            unsafe {
+                reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
+            }
+        } else {
+            2
         };
         if channel_count <= 0 {
             return None;
