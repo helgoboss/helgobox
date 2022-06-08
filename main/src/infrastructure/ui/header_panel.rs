@@ -1077,6 +1077,8 @@ impl HeaderPanel {
             );
     }
 
+    // TODO-high As soon as we implement this, we need to fix the clippy error.
+    #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         let weak_session = self.session.clone();
         Global::future_support().spawn_in_main_thread_from_main_thread(async move {
