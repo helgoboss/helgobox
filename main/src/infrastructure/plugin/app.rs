@@ -277,6 +277,7 @@ impl App {
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
+                config.main.server_grpc_port,
                 App::server_resource_dir_path().join("certificates"),
                 server_sender,
                 Self::control_surface_metrics_enabled(),
@@ -1509,6 +1510,11 @@ struct MainConfig {
     )]
     server_https_port: u16,
     #[serde(
+        default = "default_server_grpc_port",
+        skip_serializing_if = "is_default_server_grpc_port"
+    )]
+    server_grpc_port: u16,
+    #[serde(
         default = "default_companion_web_app_url",
         skip_serializing_if = "is_default_companion_web_app_url"
     )]
@@ -1517,6 +1523,7 @@ struct MainConfig {
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
 const DEFAULT_SERVER_HTTPS_PORT: u16 = 39443;
+const DEFAULT_SERVER_GRPC_PORT: u16 = 39051;
 
 fn default_server_http_port() -> u16 {
     DEFAULT_SERVER_HTTP_PORT
@@ -1534,6 +1541,14 @@ fn is_default_server_https_port(v: &u16) -> bool {
     *v == DEFAULT_SERVER_HTTPS_PORT
 }
 
+fn default_server_grpc_port() -> u16 {
+    DEFAULT_SERVER_GRPC_PORT
+}
+
+fn is_default_server_grpc_port(v: &u16) -> bool {
+    *v == DEFAULT_SERVER_GRPC_PORT
+}
+
 fn default_companion_web_app_url() -> String {
     COMPANION_WEB_APP_URL.to_string()
 }
@@ -1548,6 +1563,7 @@ impl Default for MainConfig {
             server_enabled: Default::default(),
             server_http_port: default_server_http_port(),
             server_https_port: default_server_https_port(),
+            server_grpc_port: default_server_grpc_port(),
             companion_web_app_url: default_companion_web_app_url(),
         }
     }

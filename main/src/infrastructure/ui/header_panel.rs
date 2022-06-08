@@ -676,11 +676,11 @@ impl HeaderPanel {
                 }
             }
             ContextMenuAction::AddFirewallRule => {
-                let (http_port, https_port) = {
+                let (http_port, https_port, grpc_port) = {
                     let server = app.server().borrow();
-                    (server.http_port(), server.https_port())
+                    (server.http_port(), server.https_port(), server.grpc_port())
                 };
-                let msg = match add_firewall_rule(http_port, https_port) {
+                let msg = match add_firewall_rule(http_port, https_port, grpc_port) {
                     Ok(_) => "Successfully added firewall rule.".to_string(),
                     Err(reason) => format!(
                         "Couldn't add firewall rule because {}. Please try to do it manually!",

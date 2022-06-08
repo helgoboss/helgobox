@@ -168,8 +168,17 @@ struct AppSetupState {
 }
 
 #[cfg(target_os = "windows")]
-pub fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static str> {
-    fn add(http_port: u16, https_port: u16, direction: &str) -> Result<(), &'static str> {
+pub fn add_firewall_rule(
+    http_port: u16,
+    https_port: u16,
+    grpc_port: u16,
+) -> Result<(), &'static str> {
+    fn add(
+        http_port: u16,
+        https_port: u16,
+        grpc_port: u16,
+        direction: &str,
+    ) -> Result<(), &'static str> {
         let exit_status = runas::Command::new("netsh")
             .args(&[
                 "advfirewall",
@@ -181,7 +190,10 @@ pub fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static
                 "protocol=TCP",
             ])
             .arg(format!("dir={}", direction))
-            .arg(format!("localport={},{}", http_port, https_port))
+            .arg(format!(
+                "localport={},{},{}",
+                http_port, https_port, grpc_port
+            ))
             .gui(true)
             .show(false)
             .status()
@@ -191,16 +203,24 @@ pub fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static
         }
         Ok(())
     }
-    add(http_port, https_port, "in")?;
+    add(http_port, https_port, grpc_port, "in")?;
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
+pub fn add_firewall_rule(
+    _http_port: u16,
+    _https_port: u16,
+    _grpc_port: u16,
+) -> Result<(), &'static str> {
     Err("not supported on macOS")
 }
 
 #[cfg(target_os = "linux")]
-pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
+pub fn add_firewall_rule(
+    _http_port: u16,
+    _https_port: u16,
+    _grpc_port: u16,
+) -> Result<(), &'static str> {
     Err("not supported on Linux")
 }
