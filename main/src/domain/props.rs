@@ -369,15 +369,14 @@ impl TargetProp for TargetTrackIndexProp {
 struct TargetFxIndexProp;
 
 impl TargetProp for TargetFxIndexProp {
-    fn is_affected_by(&self, args: PropIsAffectedByArgs<MappingAndTarget>) -> bool {
-        // This could be more specific (taking the track into account) but so what.
-        // This doesn't happen that frequently.
-        matches!(
-            args.event,
-            CompoundChangeEvent::Reaper(
-                ChangeEvent::FxAdded(_) | ChangeEvent::FxRemoved(_) | ChangeEvent::FxReordered(_)
-            )
-        )
+    fn feedback_resolution(
+        &self,
+        _: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        // This is unfortunately necessary because it's possible that the targeted FX is on the
+        // monitoring FX chain. This chain doesn't support notifications, so `is_affected_by`
+        // won't work.
+        Some(FeedbackResolution::High)
     }
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
@@ -477,6 +476,16 @@ struct TargetFxNameProp;
 
 // There are no appropriate REAPER change events for this property.
 impl TargetProp for TargetFxNameProp {
+    fn feedback_resolution(
+        &self,
+        _: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        // This is unfortunately necessary because it's possible that the targeted FX is on the
+        // monitoring FX chain. This chain doesn't support notifications, so `is_affected_by`
+        // won't work.
+        Some(FeedbackResolution::High)
+    }
+
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
             args.object.target.fx()?.name().into_string().into(),
