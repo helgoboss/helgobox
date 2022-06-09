@@ -974,8 +974,7 @@ impl RealTimeProcessor {
                 value_event,
                 caller,
                 self.settings.midi_destination(),
-                self.settings.virtual_input_logging_enabled,
-                self.settings.real_output_logging_enabled,
+                LogOptions::from_basic_settings(&self.settings),
                 self.clip_matrix.as_ref(),
             )
         } else {
@@ -1014,7 +1013,7 @@ impl RealTimeProcessor {
                         },
                         caller,
                         self.settings.midi_destination(),
-                        self.settings.real_output_logging_enabled,
+                        LogOptions::from_basic_settings(&self.settings),
                         self.clip_matrix.as_ref(),
                     );
                     // It can't be consumed because we checked this before for all mappings.
@@ -1376,8 +1375,7 @@ fn control_controller_mappings_midi(
     value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
-    virtual_input_logging_enabled: bool,
-    output_logging_enabled: bool,
+    log_options: LogOptions,
     matrix: Option<&WeakMatrix>,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
@@ -1416,10 +1414,10 @@ fn control_controller_mappings_midi(
                         },
                         caller,
                         midi_feedback_output,
-                        output_logging_enabled,
+                        log_options,
                         matrix,
                     );
-                    if virtual_input_logging_enabled {
+                    if log_options.virtual_input_logging_enabled {
                         log_virtual_control_input(
                             main_task_sender,
                             value_event.with_payload(virtual_source_value),
@@ -1444,7 +1442,7 @@ fn control_controller_mappings_midi(
                         },
                         caller,
                         midi_feedback_output,
-                        output_logging_enabled,
+                        log_options,
                         matrix,
                     );
                     // We do this only for transactions of *real* target matches.
@@ -1468,10 +1466,11 @@ fn process_real_mapping(
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
-    output_logging_enabled: bool,
+    log_options: LogOptions,
     clip_matrix: Option<&WeakMatrix>,
 ) -> Result<(), &'static str> {
     let pure_control_event = flatten_control_midi_event(value_event);
+    let mapping_id = mapping.id();
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
@@ -1492,6 +1491,12 @@ fn process_real_mapping(
                 .ok_or("mode didn't return control value")?
                 .into();
             let control_value = control_value.ok_or("target already has desired value")?;
+            if log_options.target_control_logging_enabled {
+                main_task_sender.send_complaining(ControlMainTask::LogTargetControl {
+                    mapping_id: QualifiedMappingId::new(compartment, mapping_id),
+                    control_value,
+                });
+            }
             match reaper_target {
                 RealTimeReaperTarget::SendMidi(t) => {
                     real_time_target_send_midi(
@@ -1499,7 +1504,7 @@ fn process_real_mapping(
                         caller,
                         control_value,
                         midi_feedback_output,
-                        output_logging_enabled,
+                        log_options,
                         main_task_sender,
                         rt_feedback_sender,
                         value_event.payload(),
@@ -1554,7 +1559,7 @@ fn real_time_target_send_midi(
     caller: Caller,
     control_value: ControlValue,
     midi_feedback_output: Option<MidiDestination>,
-    output_logging_enabled: bool,
+    log_options: LogOptions,
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     value_event: MidiEvent<ControlValue>,
@@ -1578,7 +1583,7 @@ fn real_time_target_send_midi(
             }
         },
     };
-    if output_logging_enabled && midi_destination.is_some() {
+    if log_options.output_logging_enabled && midi_destination.is_some() {
         permit_alloc(|| {
             main_task_sender.send_complaining(ControlMainTask::LogTargetOutput {
                 event: Box::new(raw_midi_event),
@@ -1650,7 +1655,7 @@ fn control_main_mappings_virtual(
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
-    output_logging_enabled: bool,
+    log_options: LogOptions,
     matrix: Option<&WeakMatrix>,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
@@ -1675,7 +1680,7 @@ fn control_main_mappings_virtual(
                     },
                     caller,
                     midi_feedback_output,
-                    output_logging_enabled,
+                    log_options,
                     matrix,
                 );
                 // If we find an associated main mapping, this is not just consumed, it's matched.
@@ -1897,4 +1902,21 @@ fn flatten_control_midi_event<T: Copy>(evt: ControlEvent<MidiEvent<T>>) -> Contr
     //  using REAPER's MidiFrameOffset type instead of SampleOffset in the first place) and using
     //  this microsecond unit in ControlEvent time.
     evt.map_payload(|midi_evt| midi_evt.payload())
+}
+
+#[derive(Copy, Clone)]
+struct LogOptions {
+    virtual_input_logging_enabled: bool,
+    output_logging_enabled: bool,
+    target_control_logging_enabled: bool,
+}
+
+impl LogOptions {
+    fn from_basic_settings(settings: &BasicSettings) -> Self {
+        LogOptions {
+            virtual_input_logging_enabled: settings.virtual_input_logging_enabled,
+            output_logging_enabled: settings.real_output_logging_enabled,
+            target_control_logging_enabled: settings.target_control_logging_enabled,
+        }
+    }
 }

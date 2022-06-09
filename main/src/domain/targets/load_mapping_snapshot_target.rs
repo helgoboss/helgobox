@@ -85,6 +85,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                             context.logger,
                             context.processor_context,
                             inital_value,
+                            |r| (),
                         );
                         if res.successful {
                             m.update_last_non_performance_target_value(inital_value);

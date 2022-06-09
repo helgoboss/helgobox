@@ -177,6 +177,7 @@ pub struct MainMapping {
     // saves us from doing too much copying and allocation that potentially slows down things
     // (albeit only marginally).
     key: Rc<str>,
+    /// This is set only temporarily during mapping sync.
     name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
@@ -691,6 +692,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         timestamp: ControlEventTimestamp,
+        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
     ) -> MappingControlResult {
         self.control_internal(
             ControlOptions::default(),
@@ -698,6 +700,7 @@ impl MainMapping {
             logger,
             processor_context,
             true,
+            log_mode_control_result,
             |_, context, mode, target| mode.poll(target, context, timestamp),
         )
     }
@@ -719,6 +722,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         last_non_performance_target_value: Option<AbsoluteValue>,
+        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
     ) -> MappingControlResult {
         self.control_internal(
             options,
@@ -726,6 +730,7 @@ impl MainMapping {
             logger,
             processor_context,
             false,
+            log_mode_control_result,
             |options, context, mode, target| {
                 mode.control_with_options(
                     source_control_event,
@@ -751,6 +756,7 @@ impl MainMapping {
         logger: &slog::Logger,
         inverse: bool,
         processor_context: ExtendedProcessorContext,
+        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
     ) -> MappingControlResult {
         self.control_internal(
             options,
@@ -758,6 +764,7 @@ impl MainMapping {
             logger,
             processor_context,
             false,
+            log_mode_control_result,
             |_, _, mode, target| {
                 let mut v = value;
                 let control_type = target.control_type(context);
@@ -800,6 +807,7 @@ impl MainMapping {
         //  if target refresh is enforced, which is not the case here.
         processor_context: ExtendedProcessorContext,
         value: AbsoluteValue,
+        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
     ) -> MappingControlResult {
         self.control_internal(
             ControlOptions::default(),
@@ -807,6 +815,7 @@ impl MainMapping {
             logger,
             processor_context,
             false,
+            log_mode_control_result,
             |_, _, _, _| {
                 Some(ModeControlResult::hit_target(ControlValue::from_absolute(
                     value,
@@ -823,6 +832,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         is_polling: bool,
+        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
         get_mode_control_result: impl Fn(
             ControlOptions,
             MappingControlContext,
@@ -874,6 +884,7 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
+                    log_mode_control_result(HitTarget { value });
                     match target.hit(value, ctx) {
                         // TODO-low For now, the first hit instruction wins (at the moment we don't
                         // have multi-targets in which multiple targets send hit instructions
@@ -894,11 +905,12 @@ impl MainMapping {
                         send_manual_feedback_because_of_target = true;
                     }
                 }
-                Some(LeaveTargetUntouched(_)) => {
+                Some(LeaveTargetUntouched(v)) => {
                     // The target already has the desired value.
                     // If `send_feedback_after_control` is enabled, we still send feedback - this
                     // can be useful with controllers which insist on controlling the LED on their
                     // own. The feedback sent by ReaLearn will fix this self-controlled LED state.
+                    log_mode_control_result(LeaveTargetUntouched(v));
                     at_least_one_target_was_reached = true;
                 }
             }

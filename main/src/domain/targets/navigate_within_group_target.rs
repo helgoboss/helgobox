@@ -124,6 +124,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                         context.logger,
                         context.processor_context,
                         AbsoluteValue::Continuous(v),
+                        |r| (),
                     );
                     control_results.push(res);
                 }

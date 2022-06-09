@@ -22,7 +22,7 @@ use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
+    ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -31,8 +31,8 @@ use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThre
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
     format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
-    log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_output,
-    log_virtual_control_input, log_virtual_feedback_output,
+    log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_control,
+    log_target_output, log_virtual_control_input, log_virtual_feedback_output,
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
@@ -440,6 +440,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             LogTargetOutput { event } => {
                 log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
             }
+            LogTargetControl {
+                mapping_id,
+                control_value,
+            } => {
+                let logger = self
+                    .basics
+                    .target_control_logger("real-time control", mapping_id);
+                logger(ModeControlResult::HitTarget {
+                    value: control_value,
+                })
+            }
         }
     }
 
@@ -461,6 +472,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.basics.logger,
                             processor_context,
                             timestamp,
+                            self.basics
+                                .target_control_logger("polling", m.qualified_id()),
                         )
                     } else {
                         Default::default()
@@ -2346,6 +2359,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     control_context,
                 ),
                 value,
+                self.basics
+                    .target_control_logger("direct control", m.qualified_id()),
             );
             control_mapping_stage_two(
                 &self.basics,
@@ -2436,6 +2451,7 @@ pub struct BasicSettings {
     pub real_output_logging_enabled: bool,
     pub virtual_input_logging_enabled: bool,
     pub virtual_output_logging_enabled: bool,
+    pub target_control_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
@@ -2514,6 +2530,10 @@ pub enum ControlMainTask {
     },
     LogTargetOutput {
         event: Box<RawMidiEvent>,
+    },
+    LogTargetControl {
+        mapping_id: QualifiedMappingId,
+        control_value: ControlValue,
     },
 }
 
@@ -2597,6 +2617,27 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn target_control_logger(
+        &self,
+        context_label: &'static str,
+        mapping_id: QualifiedMappingId,
+    ) -> impl Fn(ModeControlResult<ControlValue>) + '_ {
+        move |r| {
+            if self.settings.target_control_logging_enabled {
+                let instance_state = self.instance_state.borrow();
+                let mapping_name = if let Some(info) = instance_state.get_mapping_info(mapping_id) {
+                    info.name.as_str()
+                } else {
+                    "<unknown>"
+                };
+                log_target_control(
+                    &self.instance_id,
+                    format!("Mapping {}: {} during {}", mapping_name, r, context_label),
+                );
+            }
+        }
+    }
+
     pub fn update_settings_internal(
         &mut self,
         settings: BasicSettings,
@@ -2836,6 +2877,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         &self.context,
                                         parameters,
                                         control_context,
+                                    ),
+                                    basics.target_control_logger(
+                                        "group interaction",
+                                        other_mapping.qualified_id(),
                                     ),
                                 )
                             },
@@ -3460,6 +3505,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         &basics.logger,
         ExtendedProcessorContext::new(&basics.context, params, basics.control_context()),
         m.last_non_performance_target_value(),
+        basics.target_control_logger("normal control", m.qualified_id()),
     )
 }
 

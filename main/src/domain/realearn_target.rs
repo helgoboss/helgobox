@@ -409,7 +409,7 @@ impl<'a> ControlContext<'a> {
             for e in events {
                 log_output(
                     self.instance_id,
-                    OutputReason::Target,
+                    OutputReason::TargetOutput,
                     format_raw_midi(e.bytes()),
                 );
             }

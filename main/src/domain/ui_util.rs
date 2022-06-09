@@ -104,6 +104,10 @@ pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
     log(instance_id, "Real learn input", msg);
 }
 
+pub fn log_target_control(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Target control", msg);
+}
+
 pub fn log_virtual_feedback_output(instance_id: &InstanceId, msg: impl Display) {
     log_output(instance_id, OutputReason::VirtualFeedback, msg);
 }
@@ -117,7 +121,7 @@ pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
 }
 
 pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::Target, msg);
+    log_output(instance_id, OutputReason::TargetOutput, msg);
 }
 
 pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
@@ -133,7 +137,7 @@ pub enum OutputReason {
     #[display(fmt = "Lifecycle output")]
     Lifecycle,
     #[display(fmt = "Target output")]
-    Target,
+    TargetOutput,
 }
 
 /// Used for logging at the moment.

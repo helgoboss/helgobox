@@ -512,40 +512,53 @@ impl HeaderPanel {
                     ContextMenuAction::ReloadAllPresets
                 }),
                 separator(),
+                menu(
+                    "Logging",
+                    vec![
+                        item("Log debug info", || ContextMenuAction::LogDebugInfo),
+                        item_with_opts(
+                            "Log incoming real messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_input_logging_enabled.get(),
+                            },
+                            || ContextMenuAction::ToggleRealInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log incoming virtual messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_input_logging_enabled.get(),
+                            },
+                            || ContextMenuAction::ToggleVirtualInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log target control",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.target_control_logging_enabled.get(),
+                            },
+                            || ContextMenuAction::ToggleTargetControlLogging,
+                        ),
+                        item_with_opts(
+                            "Log outgoing virtual messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_output_logging_enabled.get(),
+                            },
+                            || ContextMenuAction::ToggleVirtualOutputLogging,
+                        ),
+                        item_with_opts(
+                            "Log outgoing real messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_output_logging_enabled.get(),
+                            },
+                            || ContextMenuAction::ToggleRealOutputLogging,
+                        ),
+                    ],
+                ),
                 item("Send feedback now", || ContextMenuAction::SendFeedbackNow),
-                item("Log debug info", || ContextMenuAction::LogDebugInfo),
-                item_with_opts(
-                    "Log incoming real messages",
-                    ItemOpts {
-                        enabled: true,
-                        checked: session.real_input_logging_enabled.get(),
-                    },
-                    || ContextMenuAction::ToggleRealInputLogging,
-                ),
-                item_with_opts(
-                    "Log incoming virtual messages",
-                    ItemOpts {
-                        enabled: true,
-                        checked: session.virtual_input_logging_enabled.get(),
-                    },
-                    || ContextMenuAction::ToggleVirtualInputLogging,
-                ),
-                item_with_opts(
-                    "Log outgoing real messages",
-                    ItemOpts {
-                        enabled: true,
-                        checked: session.real_output_logging_enabled.get(),
-                    },
-                    || ContextMenuAction::ToggleRealOutputLogging,
-                ),
-                item_with_opts(
-                    "Log outgoing virtual messages",
-                    ItemOpts {
-                        enabled: true,
-                        checked: session.virtual_output_logging_enabled.get(),
-                    },
-                    || ContextMenuAction::ToggleVirtualOutputLogging,
-                ),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -618,6 +631,7 @@ impl HeaderPanel {
             ContextMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
             ContextMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
             ContextMenuAction::ToggleVirtualOutputLogging => self.toggle_virtual_output_logging(),
+            ContextMenuAction::ToggleTargetControlLogging => self.toggle_target_control_logging(),
             ContextMenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
@@ -1132,6 +1146,13 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .virtual_output_logging_enabled
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_target_control_logging(&self) {
+        self.session()
+            .borrow_mut()
+            .target_control_logging_enabled
             .set_with(|prev| !*prev);
     }
 
@@ -2840,6 +2861,7 @@ enum ContextMenuAction {
     ToggleVirtualInputLogging,
     ToggleRealOutputLogging,
     ToggleVirtualOutputLogging,
+    ToggleTargetControlLogging,
     ToggleSendFeedbackOnlyIfTrackArmed,
     ToggleUpperFloorMembership,
     ToggleServer,
