@@ -517,7 +517,7 @@ impl HeaderPanel {
                     vec![
                         item("Log debug info", || ContextMenuAction::LogDebugInfo),
                         item_with_opts(
-                            "Log incoming real messages",
+                            "Log real control messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.real_input_logging_enabled.get(),
@@ -525,7 +525,7 @@ impl HeaderPanel {
                             || ContextMenuAction::ToggleRealInputLogging,
                         ),
                         item_with_opts(
-                            "Log incoming virtual messages",
+                            "Log virtual control messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.virtual_input_logging_enabled.get(),
@@ -541,7 +541,7 @@ impl HeaderPanel {
                             || ContextMenuAction::ToggleTargetControlLogging,
                         ),
                         item_with_opts(
-                            "Log outgoing virtual messages",
+                            "Log virtual feedback messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.virtual_output_logging_enabled.get(),
@@ -549,7 +549,7 @@ impl HeaderPanel {
                             || ContextMenuAction::ToggleVirtualOutputLogging,
                         ),
                         item_with_opts(
-                            "Log outgoing real messages",
+                            "Log real feedback messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.real_output_logging_enabled.get(),

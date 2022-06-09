@@ -93,15 +93,15 @@ pub fn format_control_input_with_match_result(
 }
 
 pub fn log_virtual_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Virtual control input", msg);
+    log(instance_id, "Virtual control", msg);
 }
 
 pub fn log_real_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Real control input", msg);
+    log(instance_id, "Real control", msg);
 }
 
 pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Real learn input", msg);
+    log(instance_id, "Real learn", msg);
 }
 
 pub fn log_target_control(instance_id: &InstanceId, msg: impl Display) {
@@ -130,9 +130,9 @@ pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Disp
 
 #[derive(Copy, Clone, Debug, Display)]
 pub enum OutputReason {
-    #[display(fmt = "Real feedback output")]
+    #[display(fmt = "Real feedback")]
     RealFeedback,
-    #[display(fmt = "Virtual feedback output")]
+    #[display(fmt = "Virtual feedback")]
     VirtualFeedback,
     #[display(fmt = "Lifecycle output")]
     Lifecycle,
