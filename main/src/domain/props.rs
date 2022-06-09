@@ -1,6 +1,7 @@
 use crate::domain::{
-    get_track_color, get_track_name, CompoundChangeEvent, CompoundMappingTarget, ControlContext,
-    FeedbackResolution, MainMapping, RealearnTarget, ReaperTarget, UnresolvedCompoundMappingTarget,
+    get_fx_name, get_track_color, get_track_name, CompoundChangeEvent, CompoundMappingTarget,
+    ControlContext, FeedbackResolution, MainMapping, RealearnTarget, ReaperTarget,
+    UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{PropValue, Target};
@@ -487,9 +488,8 @@ impl TargetProp for TargetFxNameProp {
     }
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
-        Some(PropValue::Text(
-            args.object.target.fx()?.name().into_string().into(),
-        ))
+        let name = get_fx_name(args.object.target.fx()?).into();
+        Some(PropValue::Text(name))
     }
 }
 

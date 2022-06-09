@@ -35,6 +35,7 @@ use reaper_high::{
 };
 use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
@@ -1437,7 +1438,23 @@ fn find_fxs_by_name<'a>(
     chains
         .iter()
         .flat_map(|chain| chain.fxs())
-        .filter(move |fx| name.matches(fx.name().to_str()))
+        .filter(move |fx| with_fx_name(fx, |fx_name| name.matches(fx_name.as_ref())))
+}
+
+/// Correctly transforms the FX name into a UTF-8 string.
+///
+/// See [`with_fx_name`].
+pub fn get_fx_name(fx: &Fx) -> String {
+    with_fx_name(fx, |name| name.into_owned())
+}
+
+/// Correctly transforms the FX name into a UTF-8 string.
+///
+/// Replaces invalid UTF-8 sequences with replacement characters.
+///
+/// https://github.com/helgoboss/realearn/issues/595
+pub fn with_fx_name<R>(fx: &Fx, f: impl FnOnce(Cow<str>) -> R) -> R {
+    f(fx.name().into_inner().to_string_lossy())
 }
 
 #[derive(Clone, Debug, Display, Error)]

@@ -1447,6 +1447,7 @@ impl CompoundMappingSource {
     ///
     /// Attention: At the moment it can be called even if the mapping was already inactive.
     /// So it should be idempotent!
+    #[allow(clippy::single_match)]
     pub fn on_deactivate(&mut self) {
         use CompoundMappingSource::*;
         match self {
@@ -1456,7 +1457,6 @@ impl CompoundMappingSource {
     }
 
     /// If this returns `true`, the `poll` method should be called, on a regular basis.
-    #[allow(clippy::single_match)]
     pub fn wants_to_be_polled(&self) -> bool {
         use CompoundMappingSource::*;
         match self {

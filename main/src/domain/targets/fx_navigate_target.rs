@@ -1,9 +1,9 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, shown_fx_unit_value,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDisplayType,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, get_fx_name,
+    shown_fx_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FxDisplayType, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -182,7 +182,7 @@ impl RealearnTarget for FxNavigateTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(self.current_fx()?.name().into_string().into())
+        Some(get_fx_name(&self.current_fx()?).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {

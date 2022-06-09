@@ -1,5 +1,5 @@
 use crate::base::{Global, SenderToNormalThread};
-use crate::domain::{SourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{with_fx_name, SourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use helgoboss_learn::{MidiSourceValue, BASE_EPSILON, FEEDBACK_EPSILON};
@@ -129,7 +129,9 @@ async fn setup() -> RealearnTestInstance {
         .expect("couldn't find ReaLearn plug-in");
     // Then
     assert!(fx.parameter_count() >= PLUGIN_PARAMETER_COUNT + 2);
-    assert_eq!(fx.name().to_str(), "VSTi: ReaLearn (Helgoboss)");
+    with_fx_name(&fx, |fx_name| {
+        assert_eq!(fx_name.as_ref(), "VSTi: ReaLearn (Helgoboss)");
+    });
     moment().await;
     let session = App::get()
         .find_session_by_containing_fx(&fx)

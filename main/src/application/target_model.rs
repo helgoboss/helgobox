@@ -16,7 +16,7 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, ProcessingRelevance, VirtualControlElementType,
 };
 use crate::domain::{
-    find_bookmark, get_fx_params, get_fxs, get_non_present_virtual_route_label,
+    find_bookmark, get_fx_name, get_fx_params, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, OscDeviceId,
@@ -2606,7 +2606,7 @@ pub fn get_fx_label(index: u32, fx: &Fx) -> String {
         // When closing project, this is sometimes not available anymore although the FX is still
         // picked up when querying the list of FXs! Prevent a panic.
         if fx.is_available() {
-            fx.name().into_string()
+            get_fx_name(fx)
         } else {
             "".to_owned()
         }
@@ -3575,7 +3575,7 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
     }
 
     pub fn name(&self) -> Option<String> {
-        Some(self.fx.as_ref()?.name().into_string())
+        Some(get_fx_name(self.fx.as_ref()?))
     }
 
     pub fn index(&self) -> Option<u32> {
