@@ -1520,6 +1520,9 @@ fn process_real_mapping(
                 RealTimeReaperTarget::FxParameter(t) => {
                     t.hit(control_value)?;
                 }
+                RealTimeReaperTarget::Dummy(t) => {
+                    t.hit(control_value);
+                }
             }
         } else {
             // Forward to main processor.

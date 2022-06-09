@@ -31,16 +31,17 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget, Caller,
     ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
-    FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
-    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
-    MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
-    RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
-    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget,
-    TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
-    TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, FxEnableTarget,
+    FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget,
+    FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
+    LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
+    RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
+    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
+    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
+    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget,
+    TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -127,6 +128,7 @@ pub enum ReaperTarget {
     Seek(SeekTarget),
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
+    Dummy(DummyTarget),
     ClipMatrix(ClipMatrixTarget),
     ClipTransport(ClipTransportTarget),
     ClipColumn(ClipColumnTarget),
@@ -567,6 +569,7 @@ impl<'a> Target<'a> for ReaperTarget {
         match self {
             SendOsc(t) => t.current_value(context),
             SendMidi(t) => t.current_value(()),
+            Dummy(t) => t.current_value(()),
             TrackPeak(t) => t.current_value(context),
             Action(t) => t.current_value(context),
             FxParameter(t) => t.current_value(context),
@@ -634,6 +637,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
+            Dummy(t) => t.current_value(()),
             // We can safely use a mutex (without contention) if the preview registers get_samples()
             // and this code here is called in the same real-time thread. If live FX multiprocessing
             // is enabled, this is not the case and then we can have contention and dropouts! If we
@@ -657,6 +661,7 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             ClipRow(t) => t.control_type(ctx),
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
+            Dummy(t) => t.control_type(()),
         }
     }
 }
@@ -1349,6 +1354,7 @@ pub enum RealTimeReaperTarget {
     ClipRow(RealTimeClipRowTarget),
     ClipMatrix(RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
+    Dummy(DummyTarget),
 }
 
 impl RealTimeReaperTarget {

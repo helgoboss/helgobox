@@ -11,9 +11,9 @@ use crate::domain::{
     SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
     ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, CLIP_COLUMN_TARGET,
     CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET,
-    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
-    FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
-    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
+    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
+    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
+    FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
     LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
     NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
@@ -244,16 +244,16 @@ pub trait RealearnTarget {
 
     /// Whether the target supports automatic feedback in response to some events or polling.
     ///
-    /// If the target supports automatic feedback, you are left with a choice:
+    /// If the target doesn't support automatic feedback, you are left with a choice:
     ///
-    /// - a) Using polling (continuously poll the target value).
-    /// - b) Setting this to `false`.
+    /// - a) Use polling (continuously poll the target value).
+    /// - b) Set this to `false` (will send feedback after control only).
     ///
     /// Choose (a) if the target value is a real, global target value that also can affect
     /// other mappings. Polling is obviously not the optimal choice because of the performance
     /// drawback ... but at least multiple mappings can participate.
     ///
-    /// Choose (b) is if the target value is not global but artificial, that is, attached to the
+    /// Choose (b) if the target value is not global but artificial, that is, attached to the
     /// mapping itself - and can therefore not have any effect on other mappings. This is also
     /// not the optimal choice because other mappings can't participate in the feedback value ...
     /// but at least it's fast.
@@ -496,7 +496,7 @@ pub enum ReaperTargetType {
     Transport = 16,
     SelectedTrack = 14,
     Seek = 23,
-    Playrate = 11,
+    PlayRate = 11,
     Tempo = 10,
 
     // Marker/region targets
@@ -562,6 +562,7 @@ pub enum ReaperTargetType {
     SendOsc = 30,
 
     // ReaLearn targets
+    Dummy = 53,
     EnableInstances = 38,
     EnableMappings = 36,
     LoadMappingSnapshot = 35,
@@ -617,7 +618,7 @@ impl ReaperTargetType {
             Transport => &TRANSPORT_TARGET,
             SelectedTrack => &SELECTED_TRACK_TARGET,
             Seek => &SEEK_TARGET,
-            Playrate => &PLAYRATE_TARGET,
+            PlayRate => &PLAYRATE_TARGET,
             Tempo => &TEMPO_TARGET,
             GoToBookmark => &GO_TO_BOOKMARK_TARGET,
             TrackArm => &TRACK_ARM_TARGET,
@@ -659,6 +660,7 @@ impl ReaperTargetType {
             ClipMatrix => &CLIP_MATRIX_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,
+            Dummy => &DUMMY_TARGET,
             EnableInstances => &ENABLE_INSTANCES_TARGET,
             EnableMappings => &ENABLE_MAPPINGS_TARGET,
             LoadMappingSnapshot => &LOAD_MAPPING_SNAPSHOT_TARGET,

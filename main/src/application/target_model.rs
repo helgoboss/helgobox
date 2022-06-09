@@ -28,7 +28,7 @@ use crate::domain::{
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
     UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
     UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedCompoundMappingTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
     UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
@@ -1912,7 +1912,7 @@ impl TargetModel {
                         })
                     }
                     Tempo => UnresolvedReaperTarget::Tempo(UnresolvedTempoTarget),
-                    Playrate => UnresolvedReaperTarget::Playrate(UnresolvedPlayrateTarget),
+                    PlayRate => UnresolvedReaperTarget::Playrate(UnresolvedPlayrateTarget),
                     AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride(
                         UnresolvedAutomationModeOverrideTarget {
                             mode_override: match self.automation_mode_override_type {
@@ -2068,6 +2068,7 @@ impl TargetModel {
                     AnyOn => UnresolvedReaperTarget::AnyOn(UnresolvedAnyOnTarget {
                         parameter: self.any_on_parameter,
                     }),
+                    Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget {}),
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }

@@ -59,6 +59,7 @@ pub enum Target {
     ClipManagement(ClipManagementTarget),
     SendMidi(SendMidiTarget),
     SendOsc(SendOscTarget),
+    Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
     LoadMappingSnapshots(LoadMappingSnapshotsTarget),
@@ -609,6 +610,13 @@ pub struct SendMidiTarget {
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub destination: Option<MidiDestination>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DummyTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

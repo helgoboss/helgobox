@@ -131,7 +131,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         },
         Target::PlayRate(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::Playrate,
+            r#type: ReaperTargetType::PlayRate,
             ..init(d.commons)
         },
         Target::Tempo(d) => TargetModelData {
@@ -723,6 +723,11 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        Target::Dummy(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::Dummy,
+            ..init(d.commons)
+        },
         Target::EnableInstances(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::EnableInstances,

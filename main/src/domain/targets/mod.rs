@@ -4,6 +4,9 @@ pub use midi_send_target::*;
 mod osc_send_target;
 pub use osc_send_target::*;
 
+mod dummy_target;
+pub use dummy_target::*;
+
 mod clip_transport_target;
 pub use clip_transport_target::*;
 

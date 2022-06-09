@@ -123,7 +123,7 @@ impl RealearnTarget for PlayrateTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::Playrate)
+        Some(ReaperTargetType::PlayRate)
     }
 }
 

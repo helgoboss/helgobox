@@ -23,16 +23,17 @@ use realearn_api::persistence::{
     BookmarkRef, ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
     ClipRowTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
     CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
-    CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
-    FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget, FxParameterValueTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
-    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    CycleThroughTracksTarget, DummyTarget, EnableInstancesTarget, EnableMappingsTarget,
+    FxOnOffStateTarget, FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget,
+    FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget,
+    LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget,
+    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
+    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
+    SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
+    TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -323,6 +324,7 @@ fn convert_real_target(
                 style.required_value(dest)
             },
         }),
+        Dummy => T::Dummy(DummyTarget { commons }),
         SelectedTrack => T::CycleThroughTracks(CycleThroughTracksTarget {
             commons,
             scroll_arrange_view: style.required_value_with_default(
@@ -365,7 +367,7 @@ fn convert_real_target(
                 style,
             ),
         }),
-        Playrate => T::PlayRate(PlayRateTarget { commons }),
+        PlayRate => T::PlayRate(PlayRateTarget { commons }),
         Tempo => T::Tempo(TempoTarget { commons }),
         TrackArm => T::TrackArmState(TrackArmStateTarget {
             commons,
