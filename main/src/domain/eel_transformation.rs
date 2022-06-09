@@ -1,5 +1,5 @@
 use crate::base::eel;
-use helgoboss_learn::{Transformation, TransformationInput};
+use helgoboss_learn::{Transformation, TransformationInput, TransformationOutput};
 
 use std::sync::Arc;
 
@@ -14,6 +14,8 @@ struct EelUnit {
     program: eel::Program,
     // The existence in memory and the Drop is important.
     _vm: eel::Vm,
+    _stop: eel::Variable,
+    _none: eel::Variable,
     x: eel::Variable,
     y: eel::Variable,
     y_last: eel::Variable,
@@ -58,17 +60,20 @@ impl EelTransformation {
         };
         let eel_unit = EelUnit {
             program,
+            _stop: vm.register_and_set_variable("stop", STOP),
+            _none: vm.register_and_set_variable("none", NONE),
             _vm: vm,
             x,
             y,
             y_last,
             rel_time,
         };
-        Ok(EelTransformation {
+        let transformation = EelTransformation {
             eel_unit: Arc::new(eel_unit),
             output_var: result_var,
             wants_to_be_polled: uses_rel_time,
-        })
+        };
+        Ok(transformation)
     }
 }
 
@@ -80,8 +85,8 @@ impl Transformation for EelTransformation {
         input: TransformationInput<f64>,
         output_value: f64,
         additional_input: AdditionalTransformationInput,
-    ) -> Result<f64, &'static str> {
-        let result = unsafe {
+    ) -> Result<TransformationOutput<f64>, &'static str> {
+        let v = unsafe {
             use OutputVariable::*;
             let eel_unit = &*self.eel_unit;
             let (input_var, output_var) = match self.output_var {
@@ -97,10 +102,20 @@ impl Transformation for EelTransformation {
             eel_unit.program.execute();
             output_var.get()
         };
-        Ok(result)
+        let output = if v == STOP {
+            TransformationOutput::Stop
+        } else if v == NONE {
+            TransformationOutput::None
+        } else {
+            TransformationOutput::Control(v)
+        };
+        Ok(output)
     }
 
     fn wants_to_be_polled(&self) -> bool {
         self.wants_to_be_polled
     }
 }
+
+const STOP: f64 = f64::MAX;
+const NONE: f64 = f64::MIN;

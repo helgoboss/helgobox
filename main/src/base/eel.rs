@@ -34,6 +34,14 @@ impl Vm {
         Variable(ptr)
     }
 
+    pub fn register_and_set_variable(&self, name: &str, value: f64) -> Variable {
+        let v = self.register_variable(name);
+        unsafe {
+            v.set(value);
+        }
+        v
+    }
+
     pub fn get_mem_slice(&self, index: u32, size: u32) -> &[f64] {
         let mut valid_count = MaybeUninit::zeroed();
         let ptr =
