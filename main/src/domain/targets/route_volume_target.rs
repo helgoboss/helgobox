@@ -109,16 +109,15 @@ impl RealearnTarget for RouteVolumeTarget {
             {
                 (
                     true,
-                    None
-                    // TODO-medium Weird: CSURF_EXT_SETSENDVOLUME exhibits volume values in the
-                    //  VolumeSliderValue unit when automation mode is Write, Touch or similar.
-                    //  This is a bug because it's supposed to use the ReaperVolumeValue unit.
-                    //  As soon as this is fixed in REAPER (probably 6.44), we can use the value 
-                    //  again, until then we shouldn't rely on it since it leads to weird feedback 
-                    //  while writing automation (#513).
-                    // Some(AbsoluteValue::Continuous(volume_unit_value(
-                    //     Volume::from_reaper_value(e.new_value),
-                    // ))),
+                    None, // TODO-medium Weird: CSURF_EXT_SETSENDVOLUME exhibits volume values in the
+                         //  VolumeSliderValue unit when automation mode is Write, Touch or similar.
+                         //  This is a bug because it's supposed to use the ReaperVolumeValue unit.
+                         //  As soon as this is fixed in REAPER (probably 6.44), we can use the value
+                         //  again, until then we shouldn't rely on it since it leads to weird feedback
+                         //  while writing automation (#513).
+                         // Some(AbsoluteValue::Continuous(volume_unit_value(
+                         //     Volume::from_reaper_value(e.new_value),
+                         // ))),
                 )
             }
             _ => (false, None),

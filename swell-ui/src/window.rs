@@ -510,7 +510,7 @@ impl Window {
                 point.y.as_raw(),
                 0,
                 0,
-                ( raw::SWP_NOSIZE | raw::SWP_NOZORDER ) as _,
+                (raw::SWP_NOSIZE | raw::SWP_NOZORDER) as _,
             );
         }
     }
@@ -530,7 +530,7 @@ impl Window {
                 0,
                 0,
                 0,
-                ( raw::SWP_NOSIZE | raw::SWP_NOMOVE ) as _,
+                (raw::SWP_NOSIZE | raw::SWP_NOMOVE) as _,
             );
         }
     }
