@@ -2430,23 +2430,24 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         // TODO-medium We should do this similar to the other target objects and introduce a
         //  virtual struct.
         let bookmark_type = self.target.bookmark_type;
-        {
-            let anchor_type = self.target.bookmark_anchor_type;
-            let bookmark_ref = self.target.bookmark_ref;
-            let res = find_bookmark(
-                self.context.context().project_or_current_project(),
-                bookmark_type,
-                anchor_type,
-                bookmark_ref,
-            );
-            if let Ok(res) = res {
-                get_bookmark_label(
-                    res.index_within_type,
-                    res.basic_info.id,
-                    &res.bookmark.name(),
-                )
-            } else {
-                get_non_present_bookmark_label(anchor_type, bookmark_ref)
+        let anchor_type = self.target.bookmark_anchor_type;
+        let bookmark_ref = self.target.bookmark_ref;
+        match anchor_type {
+            BookmarkAnchorType::Id => {
+                let res = find_bookmark(
+                    self.context.context().project_or_current_project(),
+                    bookmark_type,
+                    anchor_type,
+                    bookmark_ref,
+                );
+                if let Ok(res) = res {
+                    get_bookmark_label_by_id(bookmark_type, res.basic_info.id, &res.bookmark.name())
+                } else {
+                    get_non_present_bookmark_label(anchor_type, bookmark_ref)
+                }
+            }
+            BookmarkAnchorType::Index => {
+                get_bookmark_label_by_position(bookmark_type, bookmark_ref)
             }
         }
     }
@@ -2687,8 +2688,35 @@ impl<'a> TargetModelWithContext<'a> {
     }
 }
 
-pub fn get_bookmark_label(index_within_type: u32, id: BookmarkId, name: &str) -> String {
-    format!("{}. {} (ID {})", index_within_type + 1, name, id)
+pub fn get_bookmark_label_by_id(bookmark_type: BookmarkType, id: BookmarkId, name: &str) -> String {
+    format!(
+        "{} {}. {}",
+        FormattableBookmarkType(bookmark_type),
+        id,
+        name
+    )
+}
+
+pub fn get_bookmark_label_by_position(
+    bookmark_type: BookmarkType,
+    index_within_type: u32,
+) -> String {
+    format!(
+        "{} #{}",
+        FormattableBookmarkType(bookmark_type),
+        index_within_type + 1
+    )
+}
+
+struct FormattableBookmarkType(BookmarkType);
+
+impl Display for FormattableBookmarkType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            BookmarkType::Marker => f.write_str("Marker"),
+            BookmarkType::Region => f.write_str("Region"),
+        }
+    }
 }
 
 pub fn get_non_present_bookmark_label(
