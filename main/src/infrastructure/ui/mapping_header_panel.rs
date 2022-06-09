@@ -634,7 +634,6 @@ impl View for MappingHeaderPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        window.taborder_first();
         window.move_to(self.position);
         self.init_controls();
         true
