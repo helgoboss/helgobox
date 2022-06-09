@@ -47,11 +47,9 @@ use vst::host::Host;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
-// Raised this limit to a safer number because of https://github.com/helgoboss/realearn/issues/201.
-const NORMAL_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
+const NORMAL_REAL_TIME_TO_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
 const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
-const INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE: usize = 10_000;
 
 reaper_vst_plugin!();
 
@@ -119,14 +117,11 @@ impl Plugin for RealearnPlugin {
                     FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE,
                 );
             let (normal_main_task_sender, normal_main_task_receiver) =
-                SenderToNormalThread::new_bounded_channel(
-                    "normal main tasks",
-                    NORMAL_MAIN_TASK_QUEUE_SIZE,
-                );
+                SenderToNormalThread::new_unbounded_channel("normal main tasks");
             let (normal_rt_to_main_task_sender, normal_rt_to_main_task_receiver) =
                 SenderToNormalThread::new_bounded_channel(
                     "normal real-time to main tasks",
-                    NORMAL_MAIN_TASK_QUEUE_SIZE,
+                    NORMAL_REAL_TIME_TO_MAIN_TASK_QUEUE_SIZE,
                 );
             let (control_main_task_sender, control_main_task_receiver) =
                 SenderToNormalThread::new_bounded_channel(
@@ -409,10 +404,7 @@ impl RealearnPlugin {
                 };
                 // Instance state (domain - shared)
                 let (instance_feedback_event_sender, instance_feedback_event_receiver) =
-                    SenderToNormalThread::new_bounded_channel(
-                        "instance state change events",
-                        INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE,
-                    );
+                    SenderToNormalThread::new_unbounded_channel("instance state change events");
                 let instance_state = BackboneState::get().create_instance(
                     instance_id,
                     instance_feedback_event_sender,

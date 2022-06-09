@@ -52,13 +52,6 @@ use swell_ui::{SharedView, View};
 use tempfile::TempDir;
 use url::Url;
 
-const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
-const CLIP_MATRIX_EVENT_QUEUE_SIZE: usize = 500;
-const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
-// Probably can get quite much on action invocation
-// (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
-// writing (around 2 MB).
-const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // If we have very many instances, this might not be enough. But the task size is so
 // small, so why not make it a great number? It's global, not per instance. For one
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
@@ -69,9 +62,7 @@ const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
 // Unless someone really needs ReaLearn on a very memory-constrained environment, we better leave it
 // that high. If one day this gets important, we need to measure.
 const GARBAGE_QUEUE_SIZE: usize = 50_000;
-const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
-const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
 
@@ -209,34 +200,18 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
-        let (main_sender, main_receiver) = SenderToNormalThread::new_bounded_channel(
-            "control surface main tasks",
-            CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE,
-        );
+        let (main_sender, main_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface main tasks");
         let (clip_matrix_event_sender, clip_matrix_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "clip matrix events",
-                CLIP_MATRIX_EVENT_QUEUE_SIZE,
-            );
-        let (server_sender, server_receiver) = SenderToNormalThread::new_bounded_channel(
-            "control surface server tasks",
-            CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE,
-        );
+            SenderToNormalThread::new_unbounded_channel("clip matrix events");
+        let (server_sender, server_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface server tasks");
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "osc feedback tasks",
-                OSC_OUTGOING_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "additional feedback events",
-                ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("additional feedback events");
         let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "instance orchestration events",
-                INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("instance orchestration events");
         let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
             SenderToRealTimeThread::new_channel(
                 "feedback audio hook tasks",
