@@ -2458,6 +2458,27 @@ pub struct BasicSettings {
 }
 
 impl BasicSettings {
+    pub fn target_control_logger<'a>(
+        &'a self,
+        instance_state: &'a SharedInstanceState,
+        context_label: &'static str,
+        mapping_id: QualifiedMappingId,
+    ) -> impl Fn(ModeControlResult<ControlValue>) + 'a {
+        move |r| {
+            if self.target_control_logging_enabled {
+                let instance_state = instance_state.borrow();
+                let mapping_name = if let Some(info) = instance_state.get_mapping_info(mapping_id) {
+                    info.name.as_str()
+                } else {
+                    "<unknown>"
+                };
+                log_target_control(
+                    &instance_state.instance_id(),
+                    format!("Mapping {}: {} during {}", mapping_name, r, context_label),
+                );
+            }
+        }
+    }
     /// For real-time processor usage.
     pub fn midi_control_input(&self) -> MidiControlInput {
         self.control_input
@@ -2622,20 +2643,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         context_label: &'static str,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ModeControlResult<ControlValue>) + '_ {
-        move |r| {
-            if self.settings.target_control_logging_enabled {
-                let instance_state = self.instance_state.borrow();
-                let mapping_name = if let Some(info) = instance_state.get_mapping_info(mapping_id) {
-                    info.name.as_str()
-                } else {
-                    "<unknown>"
-                };
-                log_target_control(
-                    &self.instance_id,
-                    format!("Mapping {}: {} during {}", mapping_name, r, context_label),
-                );
-            }
-        }
+        self.settings
+            .target_control_logger(&self.instance_state, context_label, mapping_id)
     }
 
     pub fn update_settings_internal(
@@ -2931,6 +2940,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 control_context: self.control_context(),
                 domain_event_handler: &self.event_handler,
                 logger: &self.logger,
+                basic_settings: &self.settings,
                 processor_context: ExtendedProcessorContext::new(
                     &self.context,
                     &collections.parameters,
@@ -3565,6 +3575,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
             domain_event_handler: &basics.event_handler,
             logger: &basics.logger,
             processor_context,
+            basic_settings: &basics.settings,
         });
         // Second pass, without group interaction this time!
         for pass_2_control_result in pass_2_control_results {
@@ -3575,6 +3586,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
                     domain_event_handler: &basics.event_handler,
                     logger: &basics.logger,
                     processor_context,
+                    basic_settings: &basics.settings,
                 });
             }
         }

@@ -4,16 +4,17 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalEelTransformationInput, AdditionalFeedbackEvent, DomainEventHandler, Exclusivity,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
-    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
-    OrderedMappingMap, OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, ReaperTarget,
-    SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
-    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, CLIP_COLUMN_TARGET,
-    CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET,
-    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
-    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
-    FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
+    AdditionalEelTransformationInput, AdditionalFeedbackEvent, BasicSettings, DomainEventHandler,
+    Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
+    MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
+    RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter,
+    TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
+    AUTOMATION_MODE_OVERRIDE_TARGET, CLIP_COLUMN_TARGET, CLIP_MANAGEMENT_TARGET,
+    CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET,
+    CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
+    FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
+    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
     LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
     NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
@@ -464,6 +465,7 @@ pub struct HitInstructionContext<'a> {
     pub domain_event_handler: &'a dyn DomainEventHandler,
     pub logger: &'a slog::Logger,
     pub processor_context: ExtendedProcessorContext<'a>,
+    pub basic_settings: &'a BasicSettings,
 }
 
 /// Type of a target
