@@ -31,6 +31,10 @@ impl TimerSource {
         }
     }
 
+    pub fn on_deactivate(&mut self) {
+        self.last_fire = None;
+    }
+
     pub fn poll(&mut self) -> Option<ControlValue> {
         let now = Instant::now();
         if let Some(last_fire) = self.last_fire {
@@ -52,6 +56,13 @@ impl TimerSource {
 }
 
 impl ReaperSource {
+    pub fn on_deactivate(&mut self) {
+        match self {
+            ReaperSource::Timer(s) => s.on_deactivate(),
+            _ => {}
+        }
+    }
+
     /// If this returns `true`, the `poll` method should be called, on a regular basis.
     pub fn wants_to_be_polled(&self) -> bool {
         matches!(self, ReaperSource::Timer(_))

@@ -338,8 +338,13 @@ impl MainMapping {
         let was_enabled_before = self.core.options.persistent_processing_state.is_enabled;
         self.core.options.persistent_processing_state = state;
         if was_enabled_before && !state.is_enabled {
-            self.core.mode.on_deactivate();
+            self.on_deactivate();
         }
+    }
+
+    fn on_deactivate(&mut self) {
+        self.core.source.on_deactivate();
+        self.core.mode.on_deactivate();
     }
 
     pub fn tags(&self) -> &[Tag] {
@@ -495,7 +500,7 @@ impl MainMapping {
             return None;
         }
         if !now_is_active {
-            self.core.mode.on_deactivate();
+            self.on_deactivate();
         }
         let update = RealTimeMappingUpdate {
             id: self.id(),
@@ -1435,6 +1440,18 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    /// This should be called when the containing mapping gets deactivated.
+    ///
+    /// Attention: At the moment it can be called even if the mapping was already inactive.
+    /// So it should be idempotent!
+    pub fn on_deactivate(&mut self) {
+        use CompoundMappingSource::*;
+        match self {
+            Reaper(s) => s.on_deactivate(),
+            _ => {}
+        }
+    }
+
     /// If this returns `true`, the `poll` method should be called, on a regular basis.
     pub fn wants_to_be_polled(&self) -> bool {
         use CompoundMappingSource::*;
