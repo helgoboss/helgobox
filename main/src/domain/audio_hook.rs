@@ -5,7 +5,7 @@ use crate::domain::{
     MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
-use helgoboss_learn::{MidiSourceValue, RawMidiEvents};
+use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::{

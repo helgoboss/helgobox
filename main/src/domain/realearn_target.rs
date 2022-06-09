@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalEelTransformationInput, AdditionalFeedbackEvent, BasicSettings, DomainEventHandler,
+    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, DomainEventHandler,
     Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
@@ -396,11 +396,9 @@ impl<'a> RealTimeControlContext<'a> {
     }
 }
 
-impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
-    for RealTimeControlContext<'a>
-{
-    fn additional_input(&self) -> AdditionalEelTransformationInput {
-        AdditionalEelTransformationInput::default()
+impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTimeControlContext<'a> {
+    fn additional_input(&self) -> AdditionalTransformationInput {
+        AdditionalTransformationInput::default()
     }
 }
 
@@ -424,11 +422,9 @@ pub struct MappingControlContext<'a> {
     pub mapping_data: MappingData,
 }
 
-impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
-    for MappingControlContext<'a>
-{
-    fn additional_input(&self) -> AdditionalEelTransformationInput {
-        AdditionalEelTransformationInput {
+impl<'a> TransformationInputProvider<AdditionalTransformationInput> for MappingControlContext<'a> {
+    fn additional_input(&self) -> AdditionalTransformationInput {
+        AdditionalTransformationInput {
             y_last: self
                 .mapping_data
                 .last_non_performance_target_value

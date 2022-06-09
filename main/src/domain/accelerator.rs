@@ -2,6 +2,7 @@ use crate::domain::{
     ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
     SharedMainProcessors,
 };
+use helgoboss_learn::AbstractTimestamp;
 use reaper_medium::{AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
 
 #[derive(Debug)]

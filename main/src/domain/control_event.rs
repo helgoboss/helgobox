@@ -12,14 +12,11 @@ pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestam
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ControlEventTimestamp(Instant);
 
-impl ControlEventTimestamp {
-    /// Creates a timestamp corresponding to "now".
-    pub fn now() -> Self {
+impl AbstractTimestamp for ControlEventTimestamp {
+    fn now() -> Self {
         Self(Instant::now())
     }
 }
-
-impl AbstractTimestamp for ControlEventTimestamp {}
 
 impl Sub for ControlEventTimestamp {
     type Output = Duration;
