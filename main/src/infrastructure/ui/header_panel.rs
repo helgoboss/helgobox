@@ -2446,7 +2446,8 @@ impl View for HeaderPanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, _window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
+        window.taborder_first();
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression(None);
