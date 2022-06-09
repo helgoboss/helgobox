@@ -722,6 +722,7 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn control_from_mode(
         &mut self,
@@ -756,6 +757,7 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn control_from_target_via_group_interaction(
         &mut self,
@@ -833,6 +835,7 @@ impl MainMapping {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[must_use]
     fn control_internal(
         &mut self,
@@ -1453,6 +1456,7 @@ impl CompoundMappingSource {
     }
 
     /// If this returns `true`, the `poll` method should be called, on a regular basis.
+    #[allow(clippy::single_match)]
     pub fn wants_to_be_polled(&self) -> bool {
         use CompoundMappingSource::*;
         match self {
