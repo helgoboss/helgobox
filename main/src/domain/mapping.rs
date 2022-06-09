@@ -335,7 +335,11 @@ impl MainMapping {
     }
 
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        let was_enabled_before = self.core.options.persistent_processing_state.is_enabled;
         self.core.options.persistent_processing_state = state;
+        if was_enabled_before && !state.is_enabled {
+            self.core.mode.on_deactivate();
+        }
     }
 
     pub fn tags(&self) -> &[Tag] {
