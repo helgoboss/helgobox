@@ -1799,6 +1799,15 @@ impl Session {
         self.custom_compartment_data[compartment] = data;
     }
 
+    pub fn update_custom_compartment_data(
+        &mut self,
+        compartment: Compartment,
+        key: String,
+        value: serde_json::Value,
+    ) {
+        self.custom_compartment_data[compartment].insert(key, value);
+    }
+
     pub fn custom_compartment_data(
         &self,
         compartment: Compartment,

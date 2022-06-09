@@ -525,7 +525,7 @@ impl SessionData {
             instance_state
                 .set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
             // Check if some other instances waited for the clip matrix of this instance.
-            App::get().with_sessions(|sessions| {
+            App::get().with_weak_sessions(|sessions| {
                 let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
                     let other_session = other_session.upgrade()?;
                     if other_session

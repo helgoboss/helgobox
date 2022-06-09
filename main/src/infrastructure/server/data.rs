@@ -215,15 +215,34 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     } else {
         return Err(DataError::OnlyCustomDataKeyIsSupportedAsPatchPath);
     };
+    // Update the global controller preset.
     let controller_manager = App::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
-    let mut controller = controller_manager
+    let mut controller_preset = controller_manager
         .find_by_id(&controller_id)
         .ok_or(DataError::ControllerNotFound)?;
-    controller.update_custom_data(custom_data_key.to_string(), req.value);
+    controller_preset.update_custom_data(custom_data_key.to_string(), req.value.clone());
     controller_manager
-        .update_preset(controller)
+        .update_preset(controller_preset)
         .map_err(|_| DataError::ControllerUpdateFailed)?;
+    // Update all sessions which use this preset. If we don't do that, the Companion app will not
+    // get the saved changes - they will just disappear (#591) - because we made a change in
+    // v1.13.0-pre.4 that /realearn/session/.../controller queries the session, not the global
+    // controller preset.
+    // TODO-low In future versions of the Companion app, we should not update the controller
+    //  source directly but update a session. This makes more sense because now ReaLearn treats
+    //  custom data exactly like mappings - it's saved with the session.
+    let _ = App::get().with_weak_sessions(|sessions| {
+        let sessions = sessions.iter().filter_map(|s| s.upgrade());
+        for session in sessions {
+            let mut session = session.borrow_mut();
+            session.update_custom_compartment_data(
+                Compartment::Controller,
+                custom_data_key.to_string(),
+                req.value.clone(),
+            );
+        }
+    });
     Ok(())
 }
 

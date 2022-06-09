@@ -903,7 +903,7 @@ impl App {
             .find(predicate)
     }
 
-    pub fn with_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
+    pub fn with_weak_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
         f(&self.sessions.borrow())
     }
 
