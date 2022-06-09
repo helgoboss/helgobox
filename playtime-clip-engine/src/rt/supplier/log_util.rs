@@ -4,7 +4,7 @@ use crate::conversion_util::{
 use crate::rt::supplier::SupplyRequest;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{Laziness, QuantizedPosition};
-use playtime_api::EvenQuantization;
+use playtime_api::persistence::EvenQuantization;
 use reaper_medium::PositionInSeconds;
 use std::cmp;
 

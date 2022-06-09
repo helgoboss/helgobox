@@ -8,7 +8,7 @@ use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::VirtualResampleMode;
+use playtime_api::persistence::VirtualResampleMode;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{BorrowedMidiEventList, Hz, MidiFrameOffset, OwnedReaperResample};

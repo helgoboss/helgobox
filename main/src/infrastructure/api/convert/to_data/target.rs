@@ -18,7 +18,7 @@ use crate::infrastructure::data::{
     FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
 };
 use crate::{application, domain};
-use realearn_api::schema::*;
+use realearn_api::persistence::*;
 use reaper_high::Guid;
 use std::rc::Rc;
 

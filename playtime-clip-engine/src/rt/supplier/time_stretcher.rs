@@ -7,7 +7,7 @@ use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::VirtualTimeStretchMode;
+use playtime_api::persistence::VirtualTimeStretchMode;
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
 use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset, OwnedReaperPitchShift};

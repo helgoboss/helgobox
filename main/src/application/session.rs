@@ -17,14 +17,14 @@ use crate::domain::{
     InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
     NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::Reaper;
+use reaper_high::{ChangeEvent, Reaper};
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -35,6 +35,7 @@ use std::fmt::Debug;
 use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
+use playtime_clip_engine::main::ClipMatrixEvent;
 use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
 
@@ -43,6 +44,18 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn clip_matrix_polled(
+        &self,
+        session: &Session,
+        matrix: &RealearnClipMatrix,
+        events: &[ClipMatrixEvent],
+    );
+    fn process_control_surface_change_event_for_clip_engine(
+        &self,
+        session: &Session,
+        matrix: &RealearnClipMatrix,
+        event: &ChangeEvent,
+    );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_affected(
         &self,
@@ -1786,6 +1799,15 @@ impl Session {
         self.custom_compartment_data[compartment] = data;
     }
 
+    pub fn update_custom_compartment_data(
+        &mut self,
+        compartment: Compartment,
+        key: String,
+        value: serde_json::Value,
+    ) {
+        self.custom_compartment_data[compartment].insert(key, value);
+    }
+
     pub fn custom_compartment_data(
         &self,
         compartment: Compartment,
@@ -2345,6 +2367,16 @@ impl DomainEventHandler for WeakSession {
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.send_projection_feedback(&s, value);
+                }
+            }
+            ClipMatrixPolled(matrix, events) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.clip_matrix_polled(&s, matrix, events);
+                }
+            }
+            ControlSurfaceChangeEventForClipEngine(matrix, event) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);
                 }
             }
             MappingMatched(event) => {

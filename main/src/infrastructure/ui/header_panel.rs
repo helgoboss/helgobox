@@ -52,7 +52,7 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
-use realearn_api::schema::Envelope;
+use realearn_api::persistence::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -676,11 +676,11 @@ impl HeaderPanel {
                 }
             }
             ContextMenuAction::AddFirewallRule => {
-                let (http_port, https_port) = {
+                let (http_port, https_port, grpc_port) = {
                     let server = app.server().borrow();
-                    (server.http_port(), server.https_port())
+                    (server.http_port(), server.https_port(), server.grpc_port())
                 };
-                let msg = match add_firewall_rule(http_port, https_port) {
+                let msg = match add_firewall_rule(http_port, https_port, grpc_port) {
                     Ok(_) => "Successfully added firewall rule.".to_string(),
                     Err(reason) => format!(
                         "Couldn't add firewall rule because {}. Please try to do it manually!",
@@ -1077,13 +1077,14 @@ impl HeaderPanel {
             );
     }
 
+    // TODO-high As soon as we implement this, we need to fix the clippy error.
+    #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         let weak_session = self.session.clone();
         Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-            let session = weak_session.upgrade().expect("session gone");
-            session
-                .borrow()
-                .instance_state()
+            let shared_session = weak_session.upgrade().expect("session gone");
+            let shared_instance_state = { shared_session.borrow().instance_state().clone() };
+            shared_instance_state
                 .borrow_mut()
                 .owned_clip_matrix_mut()
                 .expect("this instance has no clip matrix")

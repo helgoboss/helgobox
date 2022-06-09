@@ -11,9 +11,9 @@ use crate::domain::{
     InstanceContainer, InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
     OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
-    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,
+    RealearnTargetContext, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -26,6 +26,10 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crate::infrastructure::server::grpc::{
+    ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
+    OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
+};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -48,13 +52,6 @@ use swell_ui::{SharedView, View};
 use tempfile::TempDir;
 use url::Url;
 
-const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
-const CLIP_MATRIX_EVENT_QUEUE_SIZE: usize = 500;
-const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
-// Probably can get quite much on action invocation
-// (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
-// writing (around 2 MB).
-const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // If we have very many instances, this might not be enough. But the task size is so
 // small, so why not make it a great number? It's global, not per instance. For one
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
@@ -65,9 +62,7 @@ const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
 // Unless someone really needs ReaLearn on a very memory-constrained environment, we better leave it
 // that high. If one day this gets important, we need to measure.
 const GARBAGE_QUEUE_SIZE: usize = 50_000;
-const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
-const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
 
@@ -105,6 +100,12 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
+    occasional_matrix_update_sender: tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch>,
+    occasional_track_update_sender: tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch>,
+    occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
+    continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
+    continuous_column_update_sender: tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch>,
+    continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
 }
 
 #[derive(Debug)]
@@ -199,34 +200,18 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
-        let (main_sender, main_receiver) = SenderToNormalThread::new_bounded_channel(
-            "control surface main tasks",
-            CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE,
-        );
+        let (main_sender, main_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface main tasks");
         let (clip_matrix_event_sender, clip_matrix_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "clip matrix events",
-                CLIP_MATRIX_EVENT_QUEUE_SIZE,
-            );
-        let (server_sender, server_receiver) = SenderToNormalThread::new_bounded_channel(
-            "control surface server tasks",
-            CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE,
-        );
+            SenderToNormalThread::new_unbounded_channel("clip matrix events");
+        let (server_sender, server_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface server tasks");
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "osc feedback tasks",
-                OSC_OUTGOING_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "additional feedback events",
-                ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("additional feedback events");
         let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
-            SenderToNormalThread::new_bounded_channel(
-                "instance orchestration events",
-                INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE,
-            );
+            SenderToNormalThread::new_unbounded_channel("instance orchestration events");
         let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
             SenderToRealTimeThread::new_channel(
                 "feedback audio hook tasks",
@@ -267,6 +252,7 @@ impl App {
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
+                config.main.server_grpc_port,
                 App::server_resource_dir_path().join("certificates"),
                 server_sender,
                 Self::control_surface_metrics_enabled(),
@@ -289,6 +275,12 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
+            occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
+            continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
+            continuous_column_update_sender: tokio::sync::broadcast::channel(500).0,
+            continuous_matrix_update_sender: tokio::sync::broadcast::channel(500).0,
         }
     }
 
@@ -623,6 +615,42 @@ impl App {
         &self.osc_feedback_task_sender
     }
 
+    pub fn occasional_matrix_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch> {
+        &self.occasional_matrix_update_sender
+    }
+
+    pub fn occasional_track_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch> {
+        &self.occasional_track_update_sender
+    }
+
+    pub fn occasional_slot_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch> {
+        &self.occasional_slot_update_sender
+    }
+
+    pub fn continuous_slot_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch> {
+        &self.continuous_slot_update_sender
+    }
+
+    pub fn continuous_column_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch> {
+        &self.continuous_column_update_sender
+    }
+
+    pub fn continuous_matrix_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch> {
+        &self.continuous_matrix_update_sender
+    }
+
     fn temporarily_reclaim_control_surface_ownership(
         &self,
         f: impl FnOnce(&mut RealearnControlSurface),
@@ -825,6 +853,19 @@ impl App {
         })
     }
 
+    pub fn with_clip_matrix<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        let session = self
+            .find_session_by_id(clip_matrix_id)
+            .ok_or("session not found")?;
+        let session = session.borrow();
+        let instance_state = session.instance_state();
+        BackboneState::get().with_clip_matrix(instance_state, f)
+    }
+
     pub fn find_session_by_id_ignoring_borrowed_ones(
         &self,
         session_id: &str,
@@ -862,7 +903,7 @@ impl App {
             .find(predicate)
     }
 
-    pub fn with_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
+    pub fn with_weak_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
         f(&self.sessions.borrow())
     }
 
@@ -1444,6 +1485,11 @@ struct MainConfig {
     )]
     server_https_port: u16,
     #[serde(
+        default = "default_server_grpc_port",
+        skip_serializing_if = "is_default_server_grpc_port"
+    )]
+    server_grpc_port: u16,
+    #[serde(
         default = "default_companion_web_app_url",
         skip_serializing_if = "is_default_companion_web_app_url"
     )]
@@ -1452,6 +1498,7 @@ struct MainConfig {
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
 const DEFAULT_SERVER_HTTPS_PORT: u16 = 39443;
+const DEFAULT_SERVER_GRPC_PORT: u16 = 39051;
 
 fn default_server_http_port() -> u16 {
     DEFAULT_SERVER_HTTP_PORT
@@ -1469,6 +1516,14 @@ fn is_default_server_https_port(v: &u16) -> bool {
     *v == DEFAULT_SERVER_HTTPS_PORT
 }
 
+fn default_server_grpc_port() -> u16 {
+    DEFAULT_SERVER_GRPC_PORT
+}
+
+fn is_default_server_grpc_port(v: &u16) -> bool {
+    *v == DEFAULT_SERVER_GRPC_PORT
+}
+
 fn default_companion_web_app_url() -> String {
     COMPANION_WEB_APP_URL.to_string()
 }
@@ -1483,6 +1538,7 @@ impl Default for MainConfig {
             server_enabled: Default::default(),
             server_http_port: default_server_http_port(),
             server_https_port: default_server_https_port(),
+            server_grpc_port: default_server_grpc_port(),
             companion_web_app_url: default_companion_web_app_url(),
         }
     }

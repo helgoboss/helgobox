@@ -21,8 +21,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use playtime_clip_engine::rt::ClipPlayState;
-use realearn_api::schema::ClipTransportAction;
+use playtime_api::runtime::ClipPlayState;
+use playtime_clip_engine::rt::InternalClipPlayState;
+use realearn_api::persistence::ClipTransportAction;
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
@@ -663,13 +664,13 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
 // Panics if called with repeat or record.
 pub(crate) fn clip_play_state_unit_value(
     action: ClipTransportAction,
-    play_state: ClipPlayState,
+    play_state: InternalClipPlayState,
 ) -> UnitValue {
     use ClipTransportAction::*;
     match action {
         PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
-        Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
-        Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
+        Stop => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Stopped),
+        Pause => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Paused),
         RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
         _ => panic!("wrong argument"),
     }

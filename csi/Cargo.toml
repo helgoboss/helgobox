@@ -6,6 +6,6 @@ edition = "2021"
 
 [dependencies]
 nom = "7.0.0"
-helgoboss-midi = "0.3"
+helgoboss-midi = "0.4"
 realearn-api = { path = "../api" }
 derive_more = "0.99.16"

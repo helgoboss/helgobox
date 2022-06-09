@@ -1,6 +1,6 @@
 use crate::main::history::History;
 use crate::main::row::Row;
-use crate::main::{Clip, Column};
+use crate::main::{Clip, Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -8,17 +8,17 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions,
-    ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings,
-    QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
+    ClipChangeEvent, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnPlayRowArgs,
+    ColumnStopArgs, ColumnStopClipArgs, InternalClipPlayState, OverridableMatrixSettings,
+    QualifiedClipChangeEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
 };
@@ -224,7 +224,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    fn permanent_project(&self) -> Option<Project> {
+    pub fn permanent_project(&self) -> Option<Project> {
         self.containing_track.as_ref().map(|t| t.project())
     }
 
@@ -280,10 +280,25 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.columns.get(coordinates.column)?.clip(coordinates.row)
     }
 
+    pub fn all_slots(&self) -> impl Iterator<Item = SlotWithColumn> + '_ {
+        self.columns
+            .iter()
+            .enumerate()
+            .flat_map(|(column_index, column)| {
+                column
+                    .slots()
+                    .map(move |slot| SlotWithColumn::new(column_index, slot))
+            })
+    }
+
+    pub fn all_columns(&self) -> impl Iterator<Item = &Column> + '_ {
+        self.columns.iter()
+    }
+
     pub fn all_clips_in_scene(
         &self,
         row_index: usize,
-    ) -> impl Iterator<Item = ClipWithColumn> + '_ {
+    ) -> impl Iterator<Item = ApiClipWithColumn> + '_ {
         let project = self.permanent_project();
         self.columns
             .iter()
@@ -292,7 +307,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .filter_map(move |(i, c)| {
                 let clip = c.clip(row_index)?;
                 let api_clip = clip.save(project).ok()?;
-                Some(ClipWithColumn::new(i, api_clip))
+                Some(ApiClipWithColumn::new(i, api_clip))
             })
     }
 
@@ -353,7 +368,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn fill_row_with_clips(
         &mut self,
         row_index: usize,
-        clips: Vec<ClipWithColumn>,
+        clips: Vec<ApiClipWithColumn>,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill row with clips", |matrix| {
             for clip in clips {
@@ -363,7 +378,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 };
                 column.fill_slot_with_clip(
                     row_index,
-                    clip.clip,
+                    clip.value,
                     &matrix.chain_equipment,
                     &matrix.recorder_request_sender,
                     &matrix.settings,
@@ -493,7 +508,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn distribute_clips_to_scene(
         &mut self,
-        clips: Vec<ClipWithColumn>,
+        clips: Vec<ApiClipWithColumn>,
         row_index: usize,
     ) -> ClipEngineResult<()> {
         for clip in clips {
@@ -532,7 +547,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 };
             dest_column.fill_slot_with_clip(
                 row_index,
-                clip.clip,
+                clip.value,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
@@ -553,7 +568,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.scene_columns().all(|c| c.slot_is_empty(row_index))
     }
 
-    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ClipWithColumn>> {
+    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ApiClipWithColumn>> {
         let project = self.permanent_project();
         self.columns
             .iter()
@@ -561,7 +576,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .flat_map(|(col_index, col)| {
                 col.playing_clips().map(move |(_, clip)| {
                     let api_clip = clip.save(project)?;
-                    Ok(ClipWithColumn::new(col_index, api_clip))
+                    Ok(ApiClipWithColumn::new(col_index, api_clip))
                 })
             })
             .collect()
@@ -661,12 +676,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clip_play_state(
         &self,
         coordinates: ClipSlotCoordinates,
-    ) -> ClipEngineResult<ClipPlayState> {
+    ) -> ClipEngineResult<InternalClipPlayState> {
         get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
     }
 
     pub fn clip_looped(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
         get_column(&self.columns, coordinates.column())?.clip_looped(coordinates.row())
+    }
+
+    pub fn uses_playback_track(&self, track: &Track) -> bool {
+        self.columns.iter().any(|c| c.playback_track() == Ok(track))
     }
 
     pub fn column_count(&self) -> usize {
@@ -878,12 +897,12 @@ pub trait ClipMatrixHandler: Sized {
 #[derive(Debug)]
 pub enum ClipMatrixEvent {
     AllClipsChanged,
-    ClipChanged(QualifiedClipChangedEvent),
+    ClipChanged(QualifiedClipChangeEvent),
 }
 
 impl ClipMatrixEvent {
-    pub fn clip_changed(slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent) -> Self {
-        Self::ClipChanged(QualifiedClipChangedEvent {
+    pub fn clip_changed(slot_coordinates: ClipSlotCoordinates, event: ClipChangeEvent) -> Self {
+        Self::ClipChanged(QualifiedClipChangeEvent {
             slot_coordinates,
             event,
         })
@@ -892,8 +911,8 @@ impl ClipMatrixEvent {
     pub fn is_clip_removal(&self) -> bool {
         matches!(
             self,
-            Self::ClipChanged(QualifiedClipChangedEvent {
-                event: ClipChangedEvent::Removed,
+            Self::ClipChanged(QualifiedClipChangeEvent {
+                event: ClipChangeEvent::Removed,
                 ..
             })
         )
@@ -902,8 +921,8 @@ impl ClipMatrixEvent {
     pub fn is_clip_recording_finished(&self) -> bool {
         matches!(
             self,
-            Self::ClipChanged(QualifiedClipChangedEvent {
-                event: ClipChangedEvent::RecordingFinished,
+            Self::ClipChanged(QualifiedClipChangeEvent {
+                event: ClipChangeEvent::RecordingFinished,
                 ..
             })
         )
@@ -943,16 +962,31 @@ pub enum RecordKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClipWithColumn {
+pub struct WithColumn<T> {
     column_index: usize,
-    clip: api::Clip,
+    value: T,
 }
 
-impl ClipWithColumn {
-    fn new(column_index: usize, clip: api::Clip) -> Self {
-        Self { column_index, clip }
+impl<T> WithColumn<T> {
+    fn new(column_index: usize, value: T) -> Self {
+        Self {
+            column_index,
+            value,
+        }
+    }
+
+    pub fn column_index(&self) -> usize {
+        self.column_index
+    }
+
+    pub fn value(&self) -> &T {
+        &self.value
     }
 }
+
+pub type SlotWithColumn<'a> = WithColumn<&'a Slot>;
+
+pub type ApiClipWithColumn = WithColumn<api::Clip>;
 
 fn initialize_new_column(
     column_index: usize,

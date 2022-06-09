@@ -12,8 +12,8 @@ use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
 use crate::{ClipEngineResult, HybridTimeline};
 use crossbeam_channel::Sender;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipTimeBase, Db, MidiResetMessageRange,
     PositiveBeat, PositiveSecond, VirtualResampleMode,
 };

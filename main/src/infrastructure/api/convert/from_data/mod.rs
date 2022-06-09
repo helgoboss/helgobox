@@ -18,12 +18,14 @@ use crate::infrastructure::data::{
     ActivationConditionData, OscValueRange, VirtualControlElementIdData,
 };
 use helgoboss_learn::OscTypeTag;
-use realearn_api::schema;
-use realearn_api::schema::ParamRef;
+use realearn_api::persistence;
+use realearn_api::persistence::ParamRef;
 pub use target::*;
 
-fn convert_control_element_id(v: VirtualControlElementIdData) -> schema::VirtualControlElementId {
-    use schema::VirtualControlElementId as T;
+fn convert_control_element_id(
+    v: VirtualControlElementIdData,
+) -> persistence::VirtualControlElementId {
+    use persistence::VirtualControlElementId as T;
     use VirtualControlElementIdData::*;
     match v {
         Indexed(i) => T::Indexed(i),
@@ -34,8 +36,8 @@ fn convert_control_element_id(v: VirtualControlElementIdData) -> schema::Virtual
 fn convert_control_element_kind(
     v: VirtualControlElementType,
     style: ConversionStyle,
-) -> Option<schema::VirtualControlElementCharacter> {
-    use schema::VirtualControlElementCharacter as T;
+) -> Option<persistence::VirtualControlElementCharacter> {
+    use persistence::VirtualControlElementCharacter as T;
     use VirtualControlElementType::*;
     let res = match v {
         Multi => T::Multi,
@@ -44,8 +46,8 @@ fn convert_control_element_kind(
     style.required_value(res)
 }
 
-fn convert_keystroke(v: Keystroke) -> schema::Keystroke {
-    schema::Keystroke {
+fn convert_keystroke(v: Keystroke) -> persistence::Keystroke {
+    persistence::Keystroke {
         modifiers: v.modifiers().bits(),
         key: v.key_code().get(),
     }
@@ -56,9 +58,9 @@ fn convert_osc_argument(
     arg_type: OscTypeTag,
     value_range: OscValueRange,
     style: ConversionStyle,
-) -> Option<schema::OscArgument> {
+) -> Option<persistence::OscArgument> {
     let arg_index = arg_index?;
-    let arg = schema::OscArgument {
+    let arg = persistence::OscArgument {
         index: Some(arg_index),
         kind: style.required_value(convert_osc_arg_kind(arg_type)),
         value_range: style.required_value(convert_osc_value_range(value_range)),
@@ -66,13 +68,13 @@ fn convert_osc_argument(
     style.required_value(arg)
 }
 
-fn convert_osc_value_range(v: OscValueRange) -> schema::Interval<f64> {
+fn convert_osc_value_range(v: OscValueRange) -> persistence::Interval<f64> {
     let interval = v.to_interval();
-    schema::Interval(interval.min_val(), interval.max_val())
+    persistence::Interval(interval.min_val(), interval.max_val())
 }
 
-fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
-    use schema::OscArgKind as T;
+fn convert_osc_arg_kind(v: OscTypeTag) -> persistence::OscArgKind {
+    use persistence::OscArgKind as T;
     use OscTypeTag::*;
     match v {
         Float => T::Float,
@@ -161,13 +163,13 @@ impl ConversionStyle {
 
 fn convert_activation_condition(
     condition_data: ActivationConditionData,
-) -> Option<schema::ActivationCondition> {
-    use schema::ActivationCondition as T;
+) -> Option<persistence::ActivationCondition> {
+    use persistence::ActivationCondition as T;
     use ActivationType::*;
     match condition_data.activation_type {
         Always => None,
         Modifiers => {
-            let condition = schema::ModifierActivationCondition {
+            let condition = persistence::ModifierActivationCondition {
                 modifiers: {
                     let mod_conditions = [
                         condition_data.modifier_condition_1,
@@ -176,7 +178,7 @@ fn convert_activation_condition(
                     let mod_states: Vec<_> = mod_conditions
                         .into_iter()
                         .filter_map(|c| {
-                            let state = schema::ModifierState {
+                            let state = persistence::ModifierState {
                                 parameter: ParamRef::Index(c.param_index?.get()),
                                 on: c.is_on,
                             };
@@ -189,20 +191,20 @@ fn convert_activation_condition(
             Some(T::Modifier(condition))
         }
         Bank => {
-            let condition = schema::BankActivationCondition {
+            let condition = persistence::BankActivationCondition {
                 parameter: ParamRef::Index(condition_data.program_condition.param_index.get()),
                 bank_index: condition_data.program_condition.bank_index,
             };
             Some(T::Bank(condition))
         }
         Eel => {
-            let condition = schema::EelActivationCondition {
+            let condition = persistence::EelActivationCondition {
                 condition: condition_data.eel_condition,
             };
             Some(T::Eel(condition))
         }
         Expression => {
-            let condition = schema::ExpressionActivationCondition {
+            let condition = persistence::ExpressionActivationCondition {
                 condition: condition_data.eel_condition,
             };
             Some(T::Expression(condition))

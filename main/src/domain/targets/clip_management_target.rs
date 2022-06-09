@@ -7,7 +7,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_clip_engine::main::ClipSlotCoordinates;
-use realearn_api::schema::ClipManagementAction;
+use realearn_api::persistence::ClipManagementAction;
 
 #[derive(Debug)]
 pub struct UnresolvedClipManagementTarget {

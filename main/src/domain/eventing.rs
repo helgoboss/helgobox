@@ -1,8 +1,10 @@
 use crate::domain::{
     Compartment, CompoundMappingTarget, MappingId, MessageCaptureResult, PluginParamIndex,
-    PluginParams, ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
+    PluginParams, ProjectionFeedbackValue, QualifiedMappingId, RawParamValue, RealearnClipMatrix,
 };
 use helgoboss_learn::AbsoluteValue;
+use playtime_clip_engine::main::ClipMatrixEvent;
+use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -22,6 +24,8 @@ pub enum DomainEvent<'a> {
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+    ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
+    ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
 }
 
 #[derive(Clone, Debug)]

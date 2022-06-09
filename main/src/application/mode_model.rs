@@ -9,7 +9,7 @@ use helgoboss_learn::{
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
-use realearn_api::schema::FeedbackValueTable;
+use realearn_api::persistence::FeedbackValueTable;
 use std::time::Duration;
 
 pub enum ModeCommand {

@@ -9,13 +9,14 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use tokio::sync::broadcast;
 use url::Url;
 
+use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
 use derivative::Derivative;
@@ -25,6 +26,7 @@ use std::time::Duration;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
+mod data;
 pub mod grpc;
 pub mod http;
 mod layers;
@@ -34,6 +36,7 @@ mod layers;
 pub struct RealearnServer {
     http_port: u16,
     https_port: u16,
+    grpc_port: u16,
     state: ServerState,
     certs_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
@@ -74,6 +77,7 @@ impl RealearnServer {
     pub fn new(
         http_port: u16,
         https_port: u16,
+        grpc_port: u16,
         certs_dir_path: PathBuf,
         control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
         control_surface_metrics_enabled: bool,
@@ -82,6 +86,7 @@ impl RealearnServer {
         RealearnServer {
             http_port,
             https_port,
+            grpc_port,
             state: ServerState::Stopped,
             certs_dir_path,
             changed_subject: Default::default(),
@@ -97,13 +102,14 @@ impl RealearnServer {
         if self.state.is_starting_or_running() {
             return Ok(());
         }
-        check_port(false, self.http_port)?;
-        check_port(true, self.https_port)?;
-        // TODO-high-grpc Notify user if gRPC port is in use, too. Also make it configurable.
+        check_port(PortType::Http, self.http_port)?;
+        check_port(PortType::Https, self.https_port)?;
+        check_port(PortType::Grpc, self.grpc_port)?;
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
         let http_port = self.http_port;
         let https_port = self.https_port;
+        let grpc_port = self.grpc_port;
         let key_and_cert = self.key_and_cert();
         let control_surface_task_sender = self.control_surface_task_sender.clone();
         let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
@@ -121,6 +127,7 @@ impl RealearnServer {
                 runtime.block_on(start_servers(
                     http_port,
                     https_port,
+                    grpc_port,
                     clients_clone,
                     key_and_cert,
                     control_surface_task_sender,
@@ -243,6 +250,10 @@ impl RealearnServer {
         self.https_port
     }
 
+    pub fn grpc_port(&self) -> u16 {
+        self.grpc_port
+    }
+
     pub fn log_debug_info(&self, session_id: &str) {
         let msg = format!(
             "\n\
@@ -270,12 +281,13 @@ impl RealearnServer {
 async fn start_servers(
     http_port: u16,
     https_port: u16,
+    grpc_port: u16,
     clients: ServerClients,
     (key, cert): (String, String),
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
-    _grpc_shutdown_receiver: broadcast::Receiver<()>,
+    grpc_shutdown_receiver: broadcast::Receiver<()>,
     control_surface_metrics_enabled: bool,
     prometheus_handle: PrometheusHandle,
 ) {
@@ -290,15 +302,14 @@ async fn start_servers(
         control_surface_metrics_enabled,
         prometheus_handle,
     );
-    http_server_future.await.expect("HTTP server error");
-    // let grpc_server_future = start_grpc_server(
-    //     SocketAddr::from(([127, 0, 0, 1], 50051)),
-    //     grpc_shutdown_receiver,
-    // );
-    // let (http_result, grpc_result) =
-    //     futures::future::join(http_server_future, grpc_server_future).await;
-    // http_result.expect("HTTP server error");
-    // grpc_result.expect("gRPC server error");
+    let grpc_server_future = start_grpc_server(
+        SocketAddr::from(([127, 0, 0, 1], grpc_port)),
+        grpc_shutdown_receiver,
+    );
+    let (http_result, grpc_result) =
+        futures::future::join(http_server_future, grpc_server_future).await;
+    http_result.expect("HTTP server error");
+    grpc_result.expect("gRPC server error");
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
@@ -367,14 +378,45 @@ pub fn get_local_ip() -> Option<std::net::IpAddr> {
     }
 }
 
-fn check_port(is_https: bool, port: u16) -> Result<(), String> {
+#[derive(derive_more::Display)]
+enum PortType {
+    #[display(fmt = "HTTP")]
+    Http,
+    #[display(fmt = "HTTPS")]
+    Https,
+    #[display(fmt = "gRPC")]
+    Grpc,
+}
+
+impl PortType {
+    fn config_key(&self) -> &'static str {
+        match self {
+            PortType::Http => "http",
+            PortType::Https => "https",
+            PortType::Grpc => "grpc",
+        }
+    }
+
+    fn alternate_port_example(&self) -> u16 {
+        match self {
+            PortType::Http => 40080,
+            PortType::Https => 40443,
+            PortType::Grpc => 40051,
+        }
+    }
+}
+
+fn check_port(port_type: PortType, port: u16) -> Result<(), String> {
     if !local_port_available(port) {
         let msg = format!(
-            r#"{upper_case_port_label} port {port} is not available. Possible causes and solutions:
+            r#"{port_type_display_label} port {port} is not available. Possible causes and solutions:
 
 (1) You are already running another instance of REAPER with ReaLearn.
 
-If you don't use ReaLearn's projection feature, switch the ReaLearn server off by clicking the Projection button and following the instructions. If you use ReaLearn's projection feature, you should not use more than one REAPER instance at once. If you really need that, you can make it work using multiple portable REAPER installations.
+If you don't use ReaLearn's projection feature or the Playtime App, switch the ReaLearn server off
+by clicking the Projection button and following the instructions. If you use one of those, you
+should not start more than one REAPER instance at once. If you really need that, you can
+make it work using multiple portable REAPER installations.
 
 (2) There's some kind of hickup.
 
@@ -382,14 +424,14 @@ Restart REAPER and ReaLearn.
 
 (3) Another application grabbed the same port already (unlikely but possible).
 
-Set another {upper_case_port_label} port in "realearn.ini", for example:
+Set another {port_type_display_label} port in "realearn.ini", for example:
   
     server_{lower_case_port_label}_port = {alternate_port}
 "#,
-            lower_case_port_label = if is_https { "https" } else { "http" },
-            upper_case_port_label = if is_https { "HTTPS" } else { "HTTP" },
+            lower_case_port_label = port_type.config_key(),
+            port_type_display_label = port_type,
             port = port,
-            alternate_port = if is_https { 40443 } else { 40080 },
+            alternate_port = port_type.alternate_port_example(),
         );
         return Err(msg);
     }

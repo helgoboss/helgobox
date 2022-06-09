@@ -3,7 +3,7 @@ use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::{ReaperTargetType, TransportAction};
 use crate::infrastructure::data::{deserialize_track, MappingModelData};
-use playtime_api::SourceOrigin;
+use playtime_api::persistence::SourceOrigin;
 use reaper_high::{Guid, Track};
 use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};
@@ -14,8 +14,8 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
     main_mappings: &[MappingModelData],
     controller_mappings: &[MappingModelData],
     containing_track: Option<&Track>,
-) -> Result<playtime_api::Matrix, &'static str> {
-    use playtime_api as api;
+) -> Result<playtime_api::persistence::Matrix, &'static str> {
+    use playtime_api::persistence as api;
     let matrix = api::Matrix {
         columns: {
             let api_columns: Result<Vec<_>, &'static str> = slots

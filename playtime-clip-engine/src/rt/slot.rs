@@ -1,14 +1,15 @@
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
-    ColumnProcessTransportChangeArgs, ColumnSettings, HandleSlotEvent, OverridableMatrixSettings,
-    SharedPos, SlotInstruction, SlotRecordInstruction,
+    Clip, ClipPlayArgs, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
+    ColumnProcessTransportChangeArgs, ColumnSettings, HandleSlotEvent, InternalClipPlayState,
+    OverridableMatrixSettings, SharedPos, SlotInstruction, SlotRecordInstruction,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
-use playtime_api as api;
-use playtime_api::{ClipPlayStopTiming, Db};
+use playtime_api::persistence as api;
+use playtime_api::persistence::{ClipPlayStopTiming, Db};
+use playtime_api::runtime::ClipPlayState;
 use reaper_medium::PlayState;
 
 #[derive(Debug, Default)]
@@ -19,7 +20,7 @@ pub struct Slot {
 
 #[derive(Debug, Default)]
 struct InternalRuntimeData {
-    last_play_state: ClipPlayState,
+    last_play_state: InternalClipPlayState,
     stop_was_caused_by_transport_change: bool,
 }
 
@@ -217,7 +218,7 @@ impl Slot {
                     use RelevantPlayStateChange::*;
                     match rel_change {
                         PlayAfterStop => {
-                            match state {
+                            match state.get() {
                                 Stopped
                                     if self.runtime_data.stop_was_caused_by_transport_change =>
                                 {
@@ -245,7 +246,7 @@ impl Slot {
                                 }
                             }
                         }
-                        StopAfterPlay => match state {
+                        StopAfterPlay => match state.get() {
                             ScheduledForPlayStart
                             | Playing
                             | ScheduledForPlayStop
@@ -284,7 +285,7 @@ impl Slot {
                     let play_state = clip.play_state();
                     use ClipPlayState::*;
                     if !matches!(
-                        play_state,
+                        play_state.get(),
                         ScheduledForPlayStart | Playing | ScheduledForPlayStop
                     ) {
                         return Ok(());
@@ -405,7 +406,7 @@ impl RelevantPlayStateChange {
 }
 
 pub struct SlotProcessingOutcome {
-    pub changed_play_state: Option<ClipPlayState>,
+    pub changed_play_state: Option<InternalClipPlayState>,
     pub num_audio_frames_written: usize,
 }
 
@@ -426,7 +427,7 @@ fn play_clip_by_transport(
 
 #[derive(Clone, Debug)]
 pub struct SlotRuntimeData {
-    pub play_state: ClipPlayState,
+    pub play_state: InternalClipPlayState,
     pub pos: SharedPos,
     /// The frame count in this material info is supposed to take the section bounds into account.
     pub material_info: MaterialInfo,

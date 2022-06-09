@@ -7,7 +7,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
     VirtualColor,
 };
-use realearn_api::schema::FeedbackValueTable;
+use realearn_api::persistence::FeedbackValueTable;
 use serde::{Deserialize, Serialize};
 use slog::debug;
 use std::time::Duration;

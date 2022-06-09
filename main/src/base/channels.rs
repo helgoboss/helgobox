@@ -42,6 +42,12 @@ impl<T> NamedChannelSender for SenderToNormalThread<T> {
 }
 
 impl<T> SenderToNormalThread<T> {
+    /// Creates a bounded channel.
+    ///
+    /// - **Pro:** Never allocates when sending and is therefore safe to use from real-time threads.
+    /// - **Con:** We can get "channel full" errors on load spikes if the capacity is not high
+    ///   enough. Choosing an extremely high capacity to avoid this is not a good idea either
+    ///   because it consumes memory that's almost never going to be used.
     pub fn new_bounded_channel(name: &'static str, capacity: usize) -> (Self, Receiver<T>) {
         let (sender, receiver) = crossbeam_channel::bounded(capacity);
         (
@@ -53,6 +59,17 @@ impl<T> SenderToNormalThread<T> {
         )
     }
 
+    /// Creates an unbounded channel.
+    ///
+    /// - **Pro:** We don't get "channel full" errors on load spikes.
+    /// - **Con:** This can allocate when sending, so don't use this if the sender is used in
+    /// real-time threads! If you still do so, it will complain in debug mode because we forbid
+    /// allocation in real-time threads.
+    ///
+    /// We set a (very high) upper limit even for unbounded channels just to avoid memory exhaustion
+    /// if the channel grows endlessly because of another error. This limit is not ensured by
+    /// pre-allocating the channel with a certain capacity but by checking the current number
+    /// of messages in the channel before sending.
     pub fn new_unbounded_channel(name: &'static str) -> (Self, Receiver<T>) {
         let (sender, receiver) = crossbeam_channel::unbounded();
         (
@@ -73,6 +90,18 @@ impl<T> SenderToNormalThread<T> {
     }
 
     fn send_internal(&self, msg: T) -> Result<(), NamedChannelTrySendError<T>> {
+        if !self.is_bounded() {
+            // The channel is not bounded but we still want to panic if the number of messages
+            // in the channel is extremely high, to prevent memory exhaustion.
+            let msg_count = self.sender.len();
+            if msg_count > 1_000_000 {
+                panic!(
+                    "Unbounded channel {} is extremely full ({} messages). \
+                    Not accepting new messages in order to prevent memory exhaustion.",
+                    self.channel_name, msg_count
+                );
+            }
+        }
         try_send_on_named_channel(&self.sender, self.channel_name, msg)
     }
 }

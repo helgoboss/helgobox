@@ -1,16 +1,6 @@
 use std::error::Error;
-use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Generate Rust code from gRPC / Protocol Buffers schema
-    {
-        let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-        let _ = std::fs::remove_file(out_dir.join("realearn.rs"));
-        tonic_build::configure()
-            .build_client(false)
-            .compile(&["../proto/realearn.proto"], &["../proto"])?;
-    }
-
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
@@ -95,7 +85,8 @@ fn compile_dialogs() {
     build
         .cpp(true)
         .warnings(false)
-        .file("src/infrastructure/ui/dialogs.cpp");
+        .file("src/infrastructure/ui/dialogs.cpp")
+        .link_lib_modifiers(Some("+whole-archive"));
     if let Some(stdlib) = util::determine_cpp_stdlib() {
         // Settings this to None on Linux causes the linker to automatically link against C++
         // anymore, so we just invoke that on macOS.

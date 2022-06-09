@@ -5,7 +5,7 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use realearn_api::schema::ClipRowAction;
+use realearn_api::persistence::ClipRowAction;
 
 #[derive(Debug)]
 pub struct UnresolvedClipRowTarget {

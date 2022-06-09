@@ -1,8 +1,8 @@
-use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
+use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
+use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

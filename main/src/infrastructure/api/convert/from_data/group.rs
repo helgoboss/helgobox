@@ -3,13 +3,13 @@ use crate::infrastructure::api::convert::from_data::{
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::GroupModelData;
-use realearn_api::schema;
+use realearn_api::persistence;
 
 pub fn convert_group(
     data: GroupModelData,
     style: ConversionStyle,
-) -> ConversionResult<schema::Group> {
-    let group = schema::Group {
+) -> ConversionResult<persistence::Group> {
+    let group = persistence::Group {
         id: {
             if data.id.is_empty() {
                 None

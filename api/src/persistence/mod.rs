@@ -3,6 +3,8 @@ mod glue;
 mod group;
 mod mapping;
 mod parameter;
+mod root;
+mod session;
 mod source;
 mod target;
 
@@ -11,10 +13,12 @@ pub use glue::*;
 pub use group::*;
 pub use mapping::*;
 pub use parameter::*;
+pub use root::*;
+pub use session::*;
 pub use source::*;
 pub use target::*;
 
-use playtime_api::Matrix;
+use playtime_api::persistence::Matrix;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,19 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn export_json_schema() {
-        let settings = schemars::gen::SchemaSettings::draft07().with(|s| {
-            s.option_nullable = false;
-            s.option_add_null_type = false;
-        });
-        let gen = settings.into_generator();
-        let schema = gen.into_root_schema_for::<Compartment>();
-        let schema_json = serde_json::to_string_pretty(&schema).unwrap();
-        std::fs::write("src/schema/generated/realearn.schema.json", schema_json).unwrap();
-    }
-
-    #[test]
-    fn example() {
+    fn example_to_json() {
         let mapping = Mapping {
             id: Some("volume".to_string()),
             name: Some("Volume".to_string()),
@@ -87,8 +79,8 @@ mod tests {
             target: None,
             ..Default::default()
         };
-        let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write("src/schema/test/example.json", json).unwrap();
+        serde_json::to_string_pretty(&mapping).unwrap();
+        // std::fs::write("src/schema/test/example.json", json).unwrap();
     }
 
     #[test]
@@ -97,7 +89,7 @@ mod tests {
         let lua = Lua::new();
         let value = lua.load(include_str!("test/example.lua")).eval().unwrap();
         let mapping: Mapping = lua.from_value(value).unwrap();
-        let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write("src/schema/test/example_from_lua.json", json).unwrap();
+        serde_json::to_string_pretty(&mapping).unwrap();
+        // std::fs::write("src/schema/test/example_from_lua.json", json).unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::schema::*;
+use crate::persistence::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -2,6 +2,7 @@
 mod tracing_util;
 
 pub mod main;
+pub mod proto;
 pub mod rt;
 
 mod metrics_util;

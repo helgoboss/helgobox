@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use playtime_api::Matrix;
+use playtime_api::persistence::Matrix;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::SafeLua;
@@ -17,8 +17,8 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
 use mlua::{Lua, LuaSerdeExt, Value};
-use realearn_api::schema;
-use realearn_api::schema::{ApiObject, Envelope};
+use realearn_api::persistence;
+use realearn_api::persistence::{ApiObject, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 use reaper_high::Reaper;
 
@@ -90,7 +90,7 @@ impl DataObject {
     }
 
     pub fn try_from_api_mappings(
-        api_mappings: Vec<schema::Mapping>,
+        api_mappings: Vec<persistence::Mapping>,
         conversion_context: &impl ApiToDataConversionContext,
     ) -> Result<Vec<MappingModelData>, Box<dyn Error>> {
         api_mappings

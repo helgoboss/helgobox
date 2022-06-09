@@ -1,17 +1,18 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipRecordingPollArgs, ClipStopArgs, HandleSlotEvent, NormalRecordingOutcome, OwnedAudioBuffer,
-    Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData, TransportChange,
+    AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipProcessArgs,
+    ClipRecordingPollArgs, ClipStopArgs, HandleSlotEvent, InternalClipPlayState,
+    NormalRecordingOutcome, OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
+    SlotRecordInstruction, SlotRuntimeData, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
-use playtime_api as api;
-use playtime_api::{
+use playtime_api::persistence as api;
+use playtime_api::persistence::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming,
     ColumnPlayMode, Db, VirtualResampleMode,
 };
@@ -187,7 +188,7 @@ pub enum ColumnCommand {
 }
 
 pub trait ColumnEventSender {
-    fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
+    fn clip_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState);
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
 
@@ -211,7 +212,7 @@ pub trait ColumnEventSender {
 }
 
 impl ColumnEventSender for Sender<ColumnEvent> {
-    fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState) {
+    fn clip_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState) {
         let event = ColumnEvent::ClipPlayStateChanged {
             slot_index,
             play_state,
@@ -464,7 +465,7 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_section(args.section)
     }
 
-    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
+    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<InternalClipPlayState> {
         Ok(get_slot(&self.slots, slot_index)?.clip()?.play_state())
     }
 
@@ -977,7 +978,7 @@ fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> ClipEngineResult<&mut Slot> {
+fn get_slot_mut(slots: &mut [Slot], index: usize) -> ClipEngineResult<&mut Slot> {
     slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
@@ -994,7 +995,7 @@ fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
 pub enum ColumnEvent {
     ClipPlayStateChanged {
         slot_index: usize,
-        play_state: ClipPlayState,
+        play_state: InternalClipPlayState,
     },
     ClipMaterialInfoChanged {
         slot_index: usize,

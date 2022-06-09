@@ -8,11 +8,8 @@ edition = "2021"
 reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-# reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-# reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-# reaper-low = { path = "../../reaper-rs/main/low" }
 playtime-api = { path = "../playtime-api" }
-helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }
+helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "../main/lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
 # Ring buffer for clip stretching
@@ -44,3 +41,7 @@ metrics = "0.18.0"
 once_cell = "1.4.0"
 # For logging
 tracing = "0.1.31"
+# For gRPC server
+tonic = "0.5"
+# For gRPC server
+prost = "0.8"

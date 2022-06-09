@@ -494,7 +494,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4717cfcbfaa661a0fd48f8453951837ae7e8f81e481fbb136e3202d72805a744"
 dependencies = [
  "addr2line",
- "cc",
+ "cc 1.0.70",
  "cfg-if 1.0.0",
  "libc",
  "miniz_oxide 0.4.4",
@@ -675,6 +675,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "cc"
+version = "1.0.73"
+source = "git+https://github.com/petrochenkov/cc-rs.git?rev=9efa25c77c50229fa84fb09f59c034417d816aa8#9efa25c77c50229fa84fb09f59c034417d816aa8"
+
+[[package]]
 name = "cexpr"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -780,15 +785,6 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
-
-[[package]]
-name = "core-error"
-version = "0.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efcdb2972eb64230b4c50646d8498ff73f5128d196a90c7236eec4cbe8619b8f"
-dependencies = [
- "version_check 0.9.3",
-]
 
 [[package]]
 name = "core-foundation"
@@ -1121,7 +1117,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45de30eb317b4cd3882ee16623cb3004e5fb99a8f4cd40097cadf61efbc54adc"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "vswhom",
  "winreg",
 ]
@@ -1283,12 +1279,6 @@ checksum = "b394ed3d285a429378d3b384b9eb1285267e7df4b166df24b7a6939a04dc392e"
 dependencies = [
  "instant",
 ]
-
-[[package]]
-name = "fixedbitset"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
 
 [[package]]
 name = "flate2"
@@ -1697,11 +1687,10 @@ dependencies = [
 
 [[package]]
 name = "helgoboss-midi"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0be82fc8124a8a73d66d3ca37276fbe778a683c10bcf811e2887715527f00534"
+checksum = "fc8b9091737ce4a801c6248f600f2f787c16722890daf82187381e65d23214c7"
 dependencies = [
- "core-error",
  "derive_more",
  "doc-comment",
  "num_enum 0.5.4",
@@ -2067,7 +2056,7 @@ version = "0.12.22+1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89c53ac117c44f7042ad8d8f5681378dfbc6010e49ec2c0d1f11dfedc7a4a1c3"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "libc",
  "libz-sys",
  "pkg-config",
@@ -2079,7 +2068,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2b111a074963af1d37a139918ac6d49ad1d0d5e47f72fd55388619691a7d753"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "winapi 0.3.9",
 ]
 
@@ -2099,7 +2088,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de5435b8549c16d423ed0c03dbaafe57cf6c3344744f1242520d59c9d8ecec66"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "libc",
  "pkg-config",
  "vcpkg",
@@ -2160,7 +2149,7 @@ version = "543.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b72914332bf1ef0e1185b229135d639f11a4a8ccfd32852db8e52419c04c0247"
 dependencies = [
- "cc",
+ "cc 1.0.70",
 ]
 
 [[package]]
@@ -2169,7 +2158,7 @@ version = "210.2.0+resty5f13855"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f85722ea9e022305a077b916c9271011a195ee8dc9b2b764fc78b0378e3b72"
 dependencies = [
- "cc",
+ "cc 1.0.70",
 ]
 
 [[package]]
@@ -2416,7 +2405,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4235d7e740d73d7429df6f176c81b248f05c39d67264d45a7d8cecb67c227f6f"
 dependencies = [
  "bstr",
- "cc",
+ "cc 1.0.70",
  "erased-serde",
  "lua-src",
  "luajit-src",
@@ -2425,12 +2414,6 @@ dependencies = [
  "pkg-config",
  "serde",
 ]
-
-[[package]]
-name = "multimap"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "nanoid"
@@ -2459,7 +2442,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa9b4819da1bc61c0ea48b63b7bc8604064dd43013e7cc325df098d49cd7c18a"
 dependencies = [
  "bitflags",
- "cc",
+ "cc 1.0.70",
  "cfg-if 1.0.0",
  "libc",
 ]
@@ -2817,16 +2800,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "petgraph"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
-dependencies = [
- "fixedbitset",
- "indexmap 1.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "phf"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2914,7 +2887,6 @@ version = "0.1.0"
 dependencies = [
  "schemars",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2934,6 +2906,7 @@ dependencies = [
  "num_enum 0.5.4",
  "once_cell",
  "playtime-api",
+ "prost",
  "reaper-high",
  "reaper-low",
  "reaper-medium",
@@ -2941,6 +2914,7 @@ dependencies = [
  "serde",
  "slug",
  "static_assertions",
+ "tonic",
  "tracing",
  "twox-hash",
 ]
@@ -3048,24 +3022,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-build"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "355f634b43cdd80724ee7848f95770e7e70eefa6dcf14fea676216573b8fd603"
-dependencies = [
- "bytes 1.1.0",
- "heck",
- "itertools",
- "log",
- "multimap",
- "petgraph",
- "prost",
- "prost-types",
- "tempfile",
- "which 4.2.2",
-]
-
-[[package]]
 name = "prost-derive"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3076,16 +3032,6 @@ dependencies = [
  "proc-macro2 1.0.29",
  "quote 1.0.9",
  "syn 1.0.80",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "603bbd6394701d13f3f25aada59c7de9d35a6a5887cfc156181234a44002771b"
-dependencies = [
- "bytes 1.1.0",
- "prost",
 ]
 
 [[package]]
@@ -3398,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.13.0-pre.4"
+version = "2.13.0-pre.5"
 dependencies = [
  "approx",
  "arboard",
@@ -3413,7 +3359,7 @@ dependencies = [
  "built",
  "bytesize",
  "c_str_macro",
- "cc",
+ "cc 1.0.73",
  "chrono",
  "crossbeam-channel",
  "derivative",
@@ -3487,7 +3433,6 @@ dependencies = [
  "tokio 1.15.0",
  "tokio-stream",
  "tonic",
- "tonic-build",
  "tower",
  "tower-http",
  "tracing",
@@ -3531,7 +3476,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#e4ac8a7886e7de2b1876222201d09ac1e39d3733"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d4747145597b001183248684c154b617c80b8d5e"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3558,10 +3503,10 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#e4ac8a7886e7de2b1876222201d09ac1e39d3733"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d4747145597b001183248684c154b617c80b8d5e"
 dependencies = [
  "c_str_macro",
- "cc",
+ "cc 1.0.70",
  "derive_more",
  "downcast-rs",
  "libc",
@@ -3572,7 +3517,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#e4ac8a7886e7de2b1876222201d09ac1e39d3733"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d4747145597b001183248684c154b617c80b8d5e"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -3582,7 +3527,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#e4ac8a7886e7de2b1876222201d09ac1e39d3733"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d4747145597b001183248684c154b617c80b8d5e"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3601,7 +3546,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#e4ac8a7886e7de2b1876222201d09ac1e39d3733"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d4747145597b001183248684c154b617c80b8d5e"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -3697,7 +3642,7 @@ version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3053cf52e236a3ed746dfc745aa9cacf1b791d846bdaf412f60a8d7d6e17c8fc"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "libc",
  "once_cell",
  "spin",
@@ -3730,7 +3675,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a620b0994a180cdfa25c0439e6d58c0628272571501880d626ffff58e96a0799"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "which 3.1.1",
 ]
 
@@ -3807,9 +3752,9 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "schemars"
-version = "0.8.6"
+version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a48d098c2a7fdf5740b19deb1181b4fb8a9e68e03ae517c14cde04b5725409"
+checksum = "1847b767a3d62d95cbf3d8a9f0e421cf57a0d8aa4f411d4b16525afb0284d4ed"
 dependencies = [
  "dyn-clone",
  "schemars_derive",
@@ -3819,9 +3764,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "0.8.6"
+version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a9ea2a613fe4cd7118b2bb101a25d8ae6192e1975179b67b2f17afd11e70ac8"
+checksum = "af4d7e1b012cb3d9129567661a63755ea4b8a7386d339dc945ae187e403c6743"
 dependencies = [
  "proc-macro2 1.0.29",
  "quote 1.0.9",
@@ -3916,9 +3861,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive_internals"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dbab34ca63057a1f15280bdf3c39f2b1eb1b54c17e98360e511637aef7418c6"
+checksum = "85bf8229e7920a9f636479437026331ce11aa132b4dde37d121944a44d6e5f3c"
 dependencies = [
  "proc-macro2 1.0.29",
  "quote 1.0.9",
@@ -4308,7 +4253,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5cfbd84f86389198ade41b439f72a5b1b3a8ba728e61cd589e1720d0df44c39"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "libc",
 ]
 
@@ -4608,18 +4553,6 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-futures",
-]
-
-[[package]]
-name = "tonic-build"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b52d07035516c2b74337d2ac7746075e7dcae7643816c1b12c5ff8a7484c08"
-dependencies = [
- "proc-macro2 1.0.29",
- "prost-build",
- "quote 1.0.9",
- "syn 1.0.80",
 ]
 
 [[package]]
@@ -4976,7 +4909,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f5402d3d0e79a069714f7b48e3ecc60be7775a2c049cb839457457a239532"
 dependencies = [
- "cc",
+ "cc 1.0.70",
  "libc",
 ]
 
@@ -5126,7 +5059,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d743fdedc5c64377b5fc2bc036b01c7fd642205a0d96356034ae3404d49eb7fb"
 dependencies = [
- "cc",
+ "cc 1.0.70",
 ]
 
 [[package]]

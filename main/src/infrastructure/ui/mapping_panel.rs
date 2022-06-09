@@ -25,14 +25,14 @@ use helgoboss_learn::{
     OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
     Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::schema::{MidiScriptKind, MonitoringMode};
+use realearn_api::persistence::{MidiScriptKind, MonitoringMode};
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, format_osc_feedback_args,
-    get_bookmark_label, get_fx_label, get_fx_param_label, get_non_present_bookmark_label,
+    get_bookmark_label_by_id, get_fx_label, get_fx_param_label, get_non_present_bookmark_label,
     get_optional_fx_label, get_route_label, parse_osc_feedback_args, Affected,
     AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp, ConcreteFxInstruction,
     ConcreteTrackInstruction, MappingChangeContext, MappingCommand, MappingModel, MappingProp,
@@ -2401,10 +2401,7 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
-                    let value: u32 = match self.mapping.target_model.bookmark_anchor_type() {
-                        BookmarkAnchorType::Id => combo.selected_combo_box_item_data() as _,
-                        BookmarkAnchorType::Index => combo.selected_combo_box_item_index() as _,
-                    };
+                    let value: u32 = combo.selected_combo_box_item_data() as _;
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetBookmarkRef(value),
                     ));
@@ -2499,11 +2496,13 @@ impl<'a> MutableMappingPanel<'a> {
                         };
                         let i = combo.selected_combo_box_item_index();
                         if let Some(fx) = chain.fx_by_index(i as _) {
-                            self.mapping.target_model.set_concrete_fx(
-                                ConcreteFxInstruction::ByIdWithFx(fx),
-                                false,
-                                true,
-                            );
+                            self.change_target_with_closure(None, |ctx| {
+                                ctx.mapping.target_model.set_concrete_fx(
+                                    ConcreteFxInstruction::ByIdWithFx(fx),
+                                    false,
+                                    true,
+                                )
+                            });
                         }
                     }
                 }
@@ -2654,6 +2653,18 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::GoToBookmark => {
+                    let human_value: u32 = control
+                        .text()
+                        .unwrap_or_default()
+                        .parse()
+                        .unwrap_or_default();
+                    let internal_value = human_value.saturating_sub(1);
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetBookmarkRef(internal_value)),
+                        Some(edit_control_id),
+                    );
+                }
                 _ if self.mapping.target_model.supports_track() => {
                     match self.mapping.target_model.track_type() {
                         VirtualTrackType::Dynamic => {
@@ -3862,7 +3873,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                ReaperTargetType::GoToBookmark => {
+                ReaperTargetType::GoToBookmark
+                    if self.target.bookmark_anchor_type() == BookmarkAnchorType::Id =>
+                {
                     combo.show();
                     let project = self.target_with_context().project();
                     let bookmark_type = self.target.bookmark_type();
@@ -4000,6 +4013,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                             return;
                         }
                     };
+                    control.set_text(text);
+                }
+                ReaperTargetType::GoToBookmark
+                    if self.target.bookmark_anchor_type() == BookmarkAnchorType::Index =>
+                {
+                    control.show();
+                    let text = (self.target.bookmark_ref() + 1).to_string();
                     control.set_text(text);
                 }
                 _ => {
@@ -6329,10 +6349,9 @@ fn bookmark_combo_box_entries(
         .bookmarks()
         .map(|b| (b, b.basic_info()))
         .filter(move |(_, info)| info.bookmark_type() == bookmark_type)
-        .enumerate()
-        .map(|(i, (b, info))| {
+        .map(|(b, info)| {
             let name = b.name();
-            let label = get_bookmark_label(i as _, info.id, &name);
+            let label = get_bookmark_label_by_id(info.bookmark_type(), info.id, &name);
             (info.id.get() as isize, label)
         })
 }

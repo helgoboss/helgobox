@@ -32,9 +32,7 @@ See link:ARCHITECTURE.adoc[here].
 |`/main` |Main crate (`realearn`)
 |`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
 |`/playtime-clip-engine` |Playtime clip engine for playing/recording clips
-|`/proto` |gRPC / Protocol Buffers schema for communicating with ReaLearn at runtime
-|`/rx-util` |Utility crate providing primitives for reactive programming (`rx-util`) 
-|`/swell-ui` |Minimalistic UI framework based on https://www.cockos.com/wdl/[SWELL] (`swell-ui`) 
+|`/swell-ui` |Minimalistic UI framework based on https://www.cockos.com/wdl/[SWELL] (`swell-ui`)
 |`/resources` |REAPER projects for manual testing, controller preset files, etc.
 |===
 
@@ -63,7 +61,7 @@ architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
 * Set the correct toolchain default :star:
 
 `batch
- rustup default 1.59.0-x86_64-pc-windows-msvc
+ rustup default 1.61.0-x86_64-pc-windows-msvc
 `
 
 . Download and install https://git-scm.com/download/win[Git for Windows]
@@ -95,7 +93,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (defau
 source $HOME/.cargo/env
 
 # Set the correct toolchain default
-rustup default 1.59.0-x86_64-unknown-linux-gnu
+rustup default 1.61.0-x86_64-unknown-linux-gnu
 
 # Clone ReaLearn repository (the "--recurse-submodules" is important!)
 git clone --recurse-submodules https://github.com/helgoboss/realearn.git
@@ -129,7 +127,7 @@ should provide you with the necessary instructions if something is missing.
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
 source $HOME/.cargo/env
-rustup default 1.59.0-x86_64-apple-darwin
+rustup default 1.61.0-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads

@@ -37,7 +37,7 @@ use crate::domain::ui_util::{
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use playtime_clip_engine::main::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
+use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -719,7 +719,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        matrix.poll(timeline_tempo)
+        let events = matrix.poll(timeline_tempo);
+        self.basics
+            .event_handler
+            .handle_event(DomainEvent::ClipMatrixPolled(matrix, &events));
+        events
     }
 
     /// Processes the given clip matrix events if they are relevant to this instance.
@@ -753,8 +757,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_clip_matrix_event_internal(&self, event: &ClipMatrixEvent) {
         let is_position_change = matches!(
             event,
-            ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
-                event: ClipChangedEvent::ClipPosition(_),
+            ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                event: ClipChangeEvent::ClipPosition(_),
                 ..
             })
         );
@@ -1477,6 +1481,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .self_normal_sender
                 .send_complaining(NormalMainTask::RefreshAllTargets);
         }
+        // Process for feedback
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
                 target,
@@ -1484,6 +1489,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.control_context(),
             )
         });
+        // Process for clip engine
+        {
+            let mut instance_state = self.basics.instance_state.borrow_mut();
+            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+                self.basics.event_handler.handle_event(
+                    DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
+                );
+            }
+        }
     }
 
     /// The given function should return if the current target value is affected by this change
@@ -3557,6 +3571,7 @@ struct GroupInteractionInput {
 }
 
 struct Fb(FeedbackReason, Option<CompoundFeedbackValue>);
+
 impl Fb {
     fn none() -> Self {
         Fb(FeedbackReason::Normal, None)

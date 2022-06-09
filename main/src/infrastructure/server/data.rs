@@ -5,7 +5,8 @@ use crate::application::{
 };
 use crate::base::NamedChannelSender;
 use crate::domain::{
-    Compartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
+    BackboneState, Compartment, MappingKey, ProjectionFeedbackValue,
+    RealearnControlSurfaceServerTask,
 };
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
@@ -27,7 +28,45 @@ pub enum DataError {
     ControllerNotFound,
     OnlyPatchReplaceIsSupported,
     OnlyCustomDataKeyIsSupportedAsPatchPath,
-    CouldntUpdateController,
+    ControllerUpdateFailed,
+    ClipMatrixNotFound,
+}
+
+pub enum DataErrorCategory {
+    NotFound,
+    BadRequest,
+    MethodNotAllowed,
+    InternalServerError,
+}
+
+impl DataError {
+    pub fn description(&self) -> &'static str {
+        use DataError::*;
+        match self {
+            SessionNotFound => "session not found",
+            SessionHasNoActiveController => "session doesn't have an active controller",
+            ControllerNotFound => "session has controller but controller not found",
+            OnlyPatchReplaceIsSupported => "only 'replace' is supported as op",
+            OnlyCustomDataKeyIsSupportedAsPatchPath => {
+                "only '/customData/{key}' is supported as path"
+            }
+            ControllerUpdateFailed => "couldn't update controller",
+            ClipMatrixNotFound => "clip matrix not found",
+        }
+    }
+
+    pub fn category(&self) -> DataErrorCategory {
+        use DataError::*;
+        match self {
+            SessionNotFound
+            | SessionHasNoActiveController
+            | ControllerNotFound
+            | ClipMatrixNotFound => DataErrorCategory::NotFound,
+            OnlyPatchReplaceIsSupported => DataErrorCategory::MethodNotAllowed,
+            OnlyCustomDataKeyIsSupportedAsPatchPath => DataErrorCategory::BadRequest,
+            ControllerUpdateFailed => DataErrorCategory::InternalServerError,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -68,6 +107,18 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
+}
+
+pub fn get_clip_matrix_data(
+    session_id: &str,
+) -> Result<playtime_api::persistence::Matrix, DataError> {
+    let session = App::get()
+        .find_session_by_id(session_id)
+        .ok_or(DataError::SessionNotFound)?;
+    let session = session.borrow();
+    BackboneState::get()
+        .with_clip_matrix(session.instance_state(), |matrix| matrix.save())
+        .map_err(|_| DataError::ClipMatrixNotFound)
 }
 
 pub fn get_controller_routing_by_session_id(
@@ -164,15 +215,34 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     } else {
         return Err(DataError::OnlyCustomDataKeyIsSupportedAsPatchPath);
     };
+    // Update the global controller preset.
     let controller_manager = App::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
-    let mut controller = controller_manager
+    let mut controller_preset = controller_manager
         .find_by_id(&controller_id)
         .ok_or(DataError::ControllerNotFound)?;
-    controller.update_custom_data(custom_data_key.to_string(), req.value);
+    controller_preset.update_custom_data(custom_data_key.to_string(), req.value.clone());
     controller_manager
-        .update_preset(controller)
-        .map_err(|_| DataError::CouldntUpdateController)?;
+        .update_preset(controller_preset)
+        .map_err(|_| DataError::ControllerUpdateFailed)?;
+    // Update all sessions which use this preset. If we don't do that, the Companion app will not
+    // get the saved changes - they will just disappear (#591) - because we made a change in
+    // v1.13.0-pre.4 that /realearn/session/.../controller queries the session, not the global
+    // controller preset.
+    // TODO-low In future versions of the Companion app, we should not update the controller
+    //  source directly but update a session. This makes more sense because now ReaLearn treats
+    //  custom data exactly like mappings - it's saved with the session.
+    let _ = App::get().with_weak_sessions(|sessions| {
+        let sessions = sessions.iter().filter_map(|s| s.upgrade());
+        for session in sessions {
+            let mut session = session.borrow_mut();
+            session.update_custom_compartment_data(
+                Compartment::Controller,
+                custom_data_key.to_string(),
+                req.value.clone(),
+            );
+        }
+    });
     Ok(())
 }
 

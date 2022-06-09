@@ -1,4 +1,4 @@
-use playtime_api as api;
+use playtime_api::persistence as api;
 
 #[derive(Clone, Debug)]
 pub struct Row {}

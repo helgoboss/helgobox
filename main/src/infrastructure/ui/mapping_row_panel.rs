@@ -23,7 +23,7 @@ use crate::infrastructure::ui::{
     SerializationFormat, SharedMainState,
 };
 use core::iter;
-use realearn_api::schema::{ApiObject, Envelope};
+use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;

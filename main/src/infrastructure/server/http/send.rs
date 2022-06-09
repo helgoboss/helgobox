@@ -3,12 +3,12 @@ use crate::application::{Session, SharedSession};
 use crate::base::{when, Global};
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::http::client::WebSocketClient;
-use crate::infrastructure::server::http::data::{
+use crate::infrastructure::server::data::{
     get_active_controller_updated_event, get_controller_routing_updated_event,
     get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
     SessionResponseData, Topic,
 };
+use crate::infrastructure::server::http::client::WebSocketClient;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;
@@ -34,6 +34,7 @@ fn send_initial_events_for_topic(
         }
     }
 }
+
 pub fn send_initial_session(
     client: &WebSocketClient,
     session_id: &str,
@@ -72,7 +73,12 @@ pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static 
         &Topic::ActiveController {
             session_id: session.id().to_string(),
         },
-        || get_active_controller_updated_event(session.id(), Some(session)),
+        || {
+            Some(get_active_controller_updated_event(
+                session.id(),
+                Some(session),
+            ))
+        },
     )
 }
 
@@ -81,7 +87,12 @@ pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
         },
-        || get_controller_routing_updated_event(session.id(), Some(session)),
+        || {
+            Some(get_controller_routing_updated_event(
+                session.id(),
+                Some(session),
+            ))
+        },
     )
 }
 
@@ -93,18 +104,20 @@ pub fn send_projection_feedback_to_subscribed_clients(
         &Topic::Feedback {
             session_id: session_id.to_string(),
         },
-        || get_projection_feedback_event(session_id, value),
+        || Some(get_projection_feedback_event(session_id, value)),
     )
 }
 
 fn send_to_clients_subscribed_to<T: Serialize>(
     topic: &Topic,
-    create_message: impl FnOnce() -> T,
+    create_message: impl FnOnce() -> Option<T>,
 ) -> Result<(), &'static str> {
     for_each_client(
         |client, cached| {
-            if client.is_subscribed_to(topic) {
-                let _ = client.send(cached);
+            if let Some(cached) = cached {
+                if client.is_subscribed_to(topic) {
+                    let _ = client.send(cached);
+                }
             }
         },
         create_message,

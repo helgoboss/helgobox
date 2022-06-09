@@ -1,6 +1,6 @@
 //! Contains the mainly technical HTTP/WebSocket server code.
 
-use crate::infrastructure::server::http::data::{Topic, Topics};
+use crate::infrastructure::server::data::{Topic, Topics};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;

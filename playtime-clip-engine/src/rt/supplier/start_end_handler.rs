@@ -8,7 +8,7 @@ use crate::rt::supplier::{
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
-use playtime_api::MidiResetMessageRange;
+use playtime_api::persistence::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 
 #[derive(Debug)]

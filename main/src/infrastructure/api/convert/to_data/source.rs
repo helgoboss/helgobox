@@ -7,7 +7,7 @@ use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
-use realearn_api::schema::*;
+use realearn_api::persistence::*;
 use std::convert::TryInto;
 
 pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
