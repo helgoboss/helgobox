@@ -5,10 +5,12 @@ mod base;
 mod ext;
 mod group_panel;
 mod header_panel;
+mod main_panel;
 mod mapping_row_panel;
 mod mapping_rows_panel;
 mod message_panel;
 mod shared_group_mapping_panel;
+mod yaml_editor_panel;
 
 pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
     let default_font = Font {
@@ -28,6 +30,8 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
             mapping_rows_panel::create(&mut context),
             message_panel::create(&mut context),
             shared_group_mapping_panel::create(&mut context),
+            main_panel::create(&mut context),
+            yaml_editor_panel::create(&mut context),
         ],
     };
     // Write header file
