@@ -17,7 +17,7 @@ pub fn create(context: &mut Context) -> Dialog {
         dropdown(
             context.named_id("ID_CONTROL_DEVICE_COMBO_BOX"),
             context.rect_flexible(Point(io_combo_box_x, 4).with_dimensions(io_combo_box_dim)),
-        ),
+        ) + WS_TABSTOP,
         ltext(
             "Feedback output",
             context.id(),
@@ -26,7 +26,7 @@ pub fn create(context: &mut Context) -> Dialog {
         dropdown(
             context.named_id("ID_FEEDBACK_DEVICE_COMBO_BOX"),
             context.rect_flexible(Point(io_combo_box_x, 24).with_dimensions(io_combo_box_dim)),
-        ),
+        ) + WS_TABSTOP,
         // Quick actions
         pushbutton(
             "Import from clipboard",
@@ -66,12 +66,12 @@ pub fn create(context: &mut Context) -> Dialog {
             "Controller compartment (for picking a controller preset)",
             context.named_id("ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON"),
             context.rect(60, 48, 185, 8),
-        ),
+        ) + WS_TABSTOP,
         radio_button(
             "Main compartment (for the real mappings)",
             context.named_id("ID_MAIN_COMPARTMENT_RADIO_BUTTON"),
             context.rect(289, 48, 145, 8),
-        ),
+        ) + WS_TABSTOP,
     ];
     let lower_part_controls = [
         // Preset
@@ -83,7 +83,7 @@ pub fn create(context: &mut Context) -> Dialog {
         dropdown(
             context.named_id("ID_PRESET_COMBO_BOX"),
             context.rect(68, 67, 135, 16),
-        ),
+        ) + WS_TABSTOP,
         // Preset actions
         pushbutton(
             "Save as...",
@@ -109,13 +109,14 @@ pub fn create(context: &mut Context) -> Dialog {
         dropdown(
             context.named_id("ID_AUTO_LOAD_COMBO_BOX"),
             context.rect(356, 67, 107, 16),
-        ) + WS_GROUP,
+        ) + WS_GROUP
+            + WS_TABSTOP,
         // Mapping group
         ltext("Mapping group", context.id(), context.rect(7, 89, 55, 9)) + NOT_WS_GROUP,
         dropdown(
             context.named_id("ID_GROUP_COMBO_BOX"),
             context.rect(68, 87, 135, 16),
-        ),
+        ) + WS_TABSTOP,
         // Mapping group actions
         pushbutton(
             "Add",
