@@ -56,11 +56,13 @@ pub fn create(context: &mut Context) -> Dialog {
             "Matched events",
             context.named_id("ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX"),
             Rect::new(319, 26, 67, 8),
+            Styles(vec![WS_TABSTOP]),
         ),
         checkbox(
             "Unmatched events",
             context.named_id("ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX"),
             Rect::new(392, 26, 76, 8),
+            Styles(vec![WS_TABSTOP]),
         ),
     ];
     let show_controls = [

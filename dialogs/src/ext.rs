@@ -20,9 +20,14 @@ pub fn dropdown(id: Id, rect: Rect, additional_styles: Styles) -> Control {
     combobox(id, rect, styles)
 }
 
-pub fn checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
+pub fn simple_checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
+    checkbox(caption, id, rect, Styles::default())
+}
+
+pub fn checkbox(caption: Caption, id: Id, rect: Rect, additional_styles: Styles) -> Control {
     use Style::*;
-    let styles = Styles(vec![BS_AUTOCHECKBOX, WS_TABSTOP]);
+    let mut styles = Styles(vec![BS_AUTOCHECKBOX]);
+    styles.0.extend(additional_styles.0.into_iter());
     control(caption, id, SubControlKind::Button, styles, rect)
 }
 

@@ -5,6 +5,7 @@ mod base;
 mod ext;
 mod group_panel;
 mod header_panel;
+mod mapping_row_panel;
 
 pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
     let default_font = Font {
@@ -16,10 +17,12 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         ..Default::default()
     };
     let mut context = Context::new(30000, default_dialog);
-    let group_panel = group_panel::create(&mut context);
-    let header_panel = header_panel::create(&mut context);
     let resource = Resource {
-        dialogs: vec![group_panel, header_panel],
+        dialogs: vec![
+            group_panel::create(&mut context),
+            header_panel::create(&mut context),
+            mapping_row_panel::create(&mut context),
+        ],
     };
     // Write header file
     let header_file_content = resource.generate_header().to_string();

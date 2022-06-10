@@ -236,6 +236,7 @@ impl Display for Control {
 #[derive(Copy, Clone, PartialEq, derive_more::Display)]
 pub enum ControlKind {
     LTEXT,
+    RTEXT,
     COMBOBOX,
     PUSHBUTTON,
     CONTROL,
@@ -322,6 +323,17 @@ pub fn pushbutton(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Contr
     }
 }
 
+pub fn groupbox(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+    Control {
+        id,
+        caption: Some(caption),
+        kind: ControlKind::GROUPBOX,
+        rect,
+        styles,
+        ..Default::default()
+    }
+}
+
 pub fn defpushbutton(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
@@ -341,6 +353,28 @@ pub fn ltext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
         id,
         caption: Some(caption),
         kind: ControlKind::LTEXT,
+        rect,
+        styles,
+        ..Default::default()
+    }
+}
+
+pub fn rtext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+    Control {
+        id,
+        caption: Some(caption),
+        kind: ControlKind::RTEXT,
+        rect,
+        styles,
+        ..Default::default()
+    }
+}
+
+pub fn ctext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+    Control {
+        id,
+        caption: Some(caption),
+        kind: ControlKind::CTEXT,
         rect,
         styles,
         ..Default::default()
@@ -403,6 +437,7 @@ pub enum Style {
     WS_VSCROLL,
     WS_TABSTOP,
     WS_GROUP,
+    WS_DISABLED,
     BS_AUTOCHECKBOX,
     BS_AUTORADIOBUTTON,
     SS_ETCHEDHORZ,
