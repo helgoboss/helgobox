@@ -8,24 +8,26 @@ pub fn create(context: &mut Context) -> Dialog {
     let io_combo_box_x = 68;
     let io_combo_box_dim = Dimensions(194, 16);
     let upper_part_controls = [
-        ltext(
+        // Input/output
+        simple_text(
             "Control input",
             context.id(),
             Rect::new(left_label_x, 6, 42, text_height),
         ),
-        dropdown(
+        simple_dropdown(
             context.named_id("ID_CONTROL_DEVICE_COMBO_BOX"),
             Point(io_combo_box_x, 4).with_dimensions(io_combo_box_dim),
         ),
-        ltext(
+        simple_text(
             "Feedback output",
             context.id(),
             Rect::new(left_label_x, 26, 57, text_height),
         ),
-        dropdown(
+        simple_dropdown(
             context.named_id("ID_FEEDBACK_DEVICE_COMBO_BOX"),
             Point(io_combo_box_x, 24).with_dimensions(io_combo_box_dim),
         ),
+        // Quick actions
         pushbutton(
             "Import from clipboard",
             context.named_id("ID_IMPORT_BUTTON"),
@@ -44,18 +46,188 @@ pub fn create(context: &mut Context) -> Dialog {
             Rect::new(416, 3, 47, 14),
             Styles(vec![NOT_WS_TABSTOP]),
         ),
-        ltext(
+        // Event filter
+        simple_text(
             "Let through",
             context.named_id("ID_LET_THROUGH_LABEL_TEXT"),
             Rect::new(270, 26, 39, 9),
         ),
+        checkbox(
+            "Matched events",
+            context.named_id("ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX"),
+            Rect::new(319, 26, 67, 8),
+        ),
+        checkbox(
+            "Unmatched events",
+            context.named_id("ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX"),
+            Rect::new(392, 26, 76, 8),
+        ),
+    ];
+    let show_controls = [
+        simple_text("Show", context.id(), Rect::new(7, 48, 24, 9)),
+        radio_button(
+            "Controller compartment (for picking a controller preset)",
+            context.named_id("ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON"),
+            Rect::new(60, 48, 185, 8),
+        ),
+        radio_button(
+            "Main compartment (for the real mappings)",
+            context.named_id("ID_MAIN_COMPARTMENT_RADIO_BUTTON"),
+            Rect::new(289, 48, 145, 8),
+        ),
+    ];
+    let lower_part_controls = [
+        // Preset
+        simple_text(
+            "Controller preset",
+            context.named_id("ID_PRESET_LABEL_TEXT"),
+            Rect::new(7, 69, 57, 9),
+        ),
+        simple_dropdown(
+            context.named_id("ID_PRESET_COMBO_BOX"),
+            Rect::new(68, 67, 135, 16),
+        ),
+        // Preset actions
+        pushbutton(
+            "Save as...",
+            context.named_id("ID_PRESET_SAVE_AS_BUTTON"),
+            Rect::new(234, 66, 42, 14),
+            Styles(vec![WS_GROUP]),
+        ),
+        pushbutton(
+            "Save",
+            context.named_id("ID_PRESET_SAVE_BUTTON"),
+            Rect::new(207, 66, 26, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        pushbutton(
+            "Delete",
+            context.named_id("ID_PRESET_DELETE_BUTTON"),
+            Rect::new(278, 66, 28, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        // Auto-load
+        ltext(
+            "Auto-load",
+            context.named_id("ID_AUTO_LOAD_LABEL_TEXT"),
+            Rect::new(319, 69, 33, 9),
+            Styles(vec![NOT_WS_GROUP]),
+        ),
+        dropdown(
+            context.named_id("ID_AUTO_LOAD_COMBO_BOX"),
+            Rect::new(356, 67, 107, 16),
+            Styles(vec![WS_GROUP]),
+        ),
+        // Mapping group
+        ltext(
+            "Mapping group",
+            context.id(),
+            Rect::new(7, 89, 55, 9),
+            Styles(vec![NOT_WS_GROUP]),
+        ),
+        simple_dropdown(
+            context.named_id("ID_GROUP_COMBO_BOX"),
+            Rect::new(68, 87, 135, 16),
+        ),
+        // Mapping group actions
+        pushbutton(
+            "Add",
+            context.named_id("ID_GROUP_ADD_BUTTON"),
+            Rect::new(207, 86, 26, 14),
+            Styles(vec![WS_GROUP]),
+        ),
+        pushbutton(
+            "Remove",
+            context.named_id("ID_GROUP_DELETE_BUTTON"),
+            Rect::new(234, 86, 42, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        pushbutton(
+            "Edit",
+            context.named_id("ID_GROUP_EDIT_BUTTON"),
+            Rect::new(278, 86, 28, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        // Mapping list actions
+        ltext(
+            "Mappings",
+            context.id(),
+            Rect::new(7, 109, 33, 9),
+            Styles(vec![NOT_WS_GROUP]),
+        ),
+        pushbutton(
+            "Add one",
+            context.named_id("ID_ADD_MAPPING_BUTTON"),
+            Rect::new(42, 106, 41, 14),
+            Styles(vec![WS_GROUP]),
+        ),
+        pushbutton(
+            "Learn many",
+            context.named_id("ID_LEARN_MANY_MAPPINGS_BUTTON"),
+            Rect::new(86, 106, 47, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        // Search
+        ltext(
+            "Search",
+            context.id(),
+            Rect::new(139, 109, 25, 9),
+            Styles(vec![NOT_WS_GROUP]),
+        ),
+        edittext(
+            context.named_id("ID_HEADER_SEARCH_EDIT_CONTROL"),
+            Rect::new(165, 106, 157, 14),
+            Styles(vec![ES_AUTOHSCROLL]),
+        ),
+        pushbutton(
+            "X",
+            context.named_id("ID_CLEAR_SEARCH_BUTTON"),
+            Rect::new(323, 106, 11, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        // Source filter
+        pushbutton(
+            "Filter source",
+            context.named_id("ID_FILTER_BY_SOURCE_BUTTON"),
+            Rect::new(340, 106, 48, 14),
+            Styles(vec![WS_GROUP]),
+        ),
+        pushbutton(
+            "X",
+            context.named_id("ID_CLEAR_SOURCE_FILTER_BUTTON"),
+            Rect::new(388, 106, 11, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+        // Target filter
+        pushbutton(
+            "Filter target",
+            context.named_id("ID_FILTER_BY_TARGET_BUTTON"),
+            Rect::new(406, 106, 45, 14),
+            Styles(vec![WS_GROUP]),
+        ),
+        pushbutton(
+            "X",
+            context.named_id("ID_CLEAR_TARGET_FILTER_BUTTON"),
+            Rect::new(452, 106, 11, 14),
+            Styles(vec![NOT_WS_TABSTOP]),
+        ),
+    ];
+    let divider_controls = [
+        divider(context.id(), Rect::new(0, 41, 470, 1)),
+        divider(context.id(), Rect::new(0, 123, 470, 1)),
+        divider(context.id(), Rect::new(0, 62, 470, 1)),
     ];
     Dialog {
         id: context.named_id("ID_HEADER_PANEL"),
         kind: DialogKind::DIALOGEX,
         rect: Rect::new(0, 0, 470, 124),
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),
-        controls: upper_part_controls.into_iter().collect(),
+        controls: upper_part_controls
+            .into_iter()
+            .chain(show_controls.into_iter())
+            .chain(lower_part_controls.into_iter())
+            .chain(divider_controls.into_iter())
+            .collect(),
         ..context.default_dialog()
     }
 }

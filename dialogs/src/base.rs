@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-type Caption = &'static str;
+pub type Caption = &'static str;
 
 pub struct ResourceHeader {
     named_ids: Vec<Id>,
@@ -215,22 +215,25 @@ impl Display for Dialog {
 
 impl Display for Control {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let args = [
-            opt(&self.caption.map(Quoted)),
-            req(&self.id),
-            req(&self.rect),
-            if self.styles.0.is_empty() {
-                None
-            } else {
-                Some(self.styles.to_string())
-            },
-        ];
+        let caption = opt(&self.caption.map(Quoted));
+        let id = req(&self.id);
+        let rect = req(&self.rect);
+        let styles = if self.styles.0.is_empty() {
+            None
+        } else {
+            Some(self.styles.to_string())
+        };
+        let args = if self.kind == ControlKind::CONTROL {
+            vec![caption, id, req(self.sub_kind.unwrap()), styles, rect]
+        } else {
+            vec![caption, id, rect, styles]
+        };
         let args: Vec<_> = args.into_iter().flatten().collect();
         write!(f, "{} {}", self.kind, args.join(","))
     }
 }
 
-#[derive(Copy, Clone, derive_more::Display)]
+#[derive(Copy, Clone, PartialEq, derive_more::Display)]
 pub enum ControlKind {
     LTEXT,
     COMBOBOX,
@@ -251,6 +254,7 @@ impl Default for ControlKind {
 #[derive(Copy, Clone, derive_more::Display)]
 pub enum SubControlKind {
     Button,
+    Static,
 }
 
 #[derive(Clone, Copy)]
@@ -307,7 +311,7 @@ impl Rect {
     }
 }
 
-pub fn pushbutton(caption: &'static str, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn pushbutton(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
     Control {
         id,
         caption: Some(caption),
@@ -318,7 +322,7 @@ pub fn pushbutton(caption: &'static str, id: Id, rect: Rect, styles: Styles) -> 
     }
 }
 
-pub fn defpushbutton(caption: &'static str, id: Id, rect: Rect) -> Control {
+pub fn defpushbutton(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
@@ -328,12 +332,17 @@ pub fn defpushbutton(caption: &'static str, id: Id, rect: Rect) -> Control {
     }
 }
 
-pub fn ltext(caption: &'static str, id: Id, rect: Rect) -> Control {
+pub fn simple_text(caption: Caption, id: Id, rect: Rect) -> Control {
+    ltext(caption, id, rect, Styles::default())
+}
+
+pub fn ltext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::LTEXT,
         rect,
+        styles,
         ..Default::default()
     }
 }
@@ -342,6 +351,34 @@ pub fn combobox(id: Id, rect: Rect, styles: Styles) -> Control {
     Control {
         id,
         kind: ControlKind::COMBOBOX,
+        rect,
+        styles,
+        ..Default::default()
+    }
+}
+
+pub fn edittext(id: Id, rect: Rect, styles: Styles) -> Control {
+    Control {
+        id,
+        kind: ControlKind::EDITTEXT,
+        rect,
+        styles,
+        ..Default::default()
+    }
+}
+
+pub fn control(
+    caption: Caption,
+    id: Id,
+    sub_kind: SubControlKind,
+    styles: Styles,
+    rect: Rect,
+) -> Control {
+    Control {
+        id,
+        caption: Some(caption),
+        kind: ControlKind::CONTROL,
+        sub_kind: Some(sub_kind),
         rect,
         styles,
         ..Default::default()
@@ -366,6 +403,12 @@ pub enum Style {
     WS_VSCROLL,
     WS_TABSTOP,
     WS_GROUP,
+    BS_AUTOCHECKBOX,
+    BS_AUTORADIOBUTTON,
+    SS_ETCHEDHORZ,
+    ES_AUTOHSCROLL,
     #[display(fmt = "NOT WS_TABSTOP")]
     NOT_WS_TABSTOP,
+    #[display(fmt = "NOT WS_GROUP")]
+    NOT_WS_GROUP,
 }
