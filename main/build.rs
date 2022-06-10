@@ -10,6 +10,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(all(feature = "generate", target_family = "unix"))]
     codegen::generate_dialogs();
 
+    // Generate dialog RC file
+    realearn_dialogs::generate_dialog_files("src/infrastructure/ui/msvc");
+
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
     embed_dialog_resources();

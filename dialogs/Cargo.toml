@@ -1,0 +1,8 @@
+[package]
+name = "realearn-dialogs"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2021"
+
+[dependencies]
+derive_more = "0.99.5"

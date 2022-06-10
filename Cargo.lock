@@ -3402,6 +3402,7 @@ dependencies = [
  "rcgen",
  "realearn-api",
  "realearn-csi",
+ "realearn-dialogs",
  "reaper-high",
  "reaper-low",
  "reaper-medium",
@@ -3471,6 +3472,13 @@ dependencies = [
  "helgoboss-midi",
  "nom 7.0.0",
  "realearn-api",
+]
+
+[[package]]
+name = "realearn-dialogs"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
 ]
 
 [[package]]
