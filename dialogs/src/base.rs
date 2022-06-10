@@ -2,6 +2,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::ops::Add;
 
 pub type Caption = &'static str;
 
@@ -177,6 +178,15 @@ pub struct Control {
     pub styles: Styles,
 }
 
+impl Add<Style> for Control {
+    type Output = Control;
+
+    fn add(mut self, rhs: Style) -> Self::Output {
+        self.styles.0.push(rhs);
+        self
+    }
+}
+
 struct Quoted<D>(D);
 
 impl<D: Display> Display for Quoted<D> {
@@ -316,24 +326,22 @@ impl Rect {
     }
 }
 
-pub fn pushbutton(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn pushbutton(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::PUSHBUTTON,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn groupbox(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn groupbox(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::GROUPBOX,
         rect,
-        styles,
         ..Default::default()
     }
 }
@@ -348,77 +356,61 @@ pub fn defpushbutton(caption: Caption, id: Id, rect: Rect) -> Control {
     }
 }
 
-pub fn simple_text(caption: Caption, id: Id, rect: Rect) -> Control {
-    ltext(caption, id, rect, Styles::default())
-}
-
-pub fn ltext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn ltext(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::LTEXT,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn rtext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn rtext(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::RTEXT,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn ctext(caption: Caption, id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn ctext(caption: Caption, id: Id, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::CTEXT,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn combobox(id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn combobox(id: Id, rect: Rect) -> Control {
     Control {
         id,
         kind: ControlKind::COMBOBOX,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn edittext(id: Id, rect: Rect, styles: Styles) -> Control {
+pub fn edittext(id: Id, rect: Rect) -> Control {
     Control {
         id,
         kind: ControlKind::EDITTEXT,
         rect,
-        styles,
         ..Default::default()
     }
 }
 
-pub fn control(
-    caption: Caption,
-    id: Id,
-    sub_kind: SubControlKind,
-    styles: Styles,
-    rect: Rect,
-) -> Control {
+pub fn control(caption: Caption, id: Id, sub_kind: SubControlKind, rect: Rect) -> Control {
     Control {
         id,
         caption: Some(caption),
         kind: ControlKind::CONTROL,
         sub_kind: Some(sub_kind),
         rect,
-        styles,
         ..Default::default()
     }
 }
