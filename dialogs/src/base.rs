@@ -68,6 +68,7 @@ pub struct Dialog {
     pub rect: Rect,
     pub kind: DialogKind,
     pub styles: Styles,
+    pub ex_styles: Styles,
     pub caption: Caption,
     pub font: Option<Font>,
     pub controls: Vec<Control>,
@@ -171,6 +172,8 @@ impl Default for DialogKind {
 #[derive(Clone, Default)]
 pub struct Control {
     pub id: Id,
+    /// Unlike in dialog, it's important to distinguish between Some and None because some
+    /// controls need an empty string.
     pub caption: Option<Caption>,
     pub kind: ControlKind,
     pub sub_kind: Option<SubControlKind>,
@@ -209,6 +212,9 @@ impl Display for Dialog {
         writeln!(f, "{} {} {}", self.id, self.kind, self.rect)?;
         if !self.styles.0.is_empty() {
             writeln!(f, "STYLE {}", self.styles)?;
+        }
+        if !self.ex_styles.0.is_empty() {
+            writeln!(f, "EXSTYLE {}", self.ex_styles)?;
         }
         if !self.caption.is_empty() {
             writeln!(f, "CAPTION {}", Quoted(self.caption))?;
@@ -316,7 +322,7 @@ impl Display for Rect {
 }
 
 impl Rect {
-    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
+    fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
         Self {
             x,
             y,
@@ -430,6 +436,7 @@ pub enum Style {
     WS_CHILD,
     CBS_DROPDOWNLIST,
     CBS_HASSTRINGS,
+    ES_MULTILINE,
     WS_VSCROLL,
     WS_TABSTOP,
     WS_GROUP,
@@ -438,8 +445,14 @@ pub enum Style {
     BS_AUTORADIOBUTTON,
     SS_ETCHEDHORZ,
     ES_AUTOHSCROLL,
+    SS_CENTERIMAGE,
+    SS_WORDELLIPSIS,
+    // With negation
     #[display(fmt = "NOT WS_TABSTOP")]
     NOT_WS_TABSTOP,
     #[display(fmt = "NOT WS_GROUP")]
     NOT_WS_GROUP,
+    // Ex styles
+    WS_EX_TOPMOST,
+    WS_EX_WINDOWEDGE,
 }

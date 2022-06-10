@@ -6,7 +6,7 @@ pub fn ok_button(id: Id, rect: Rect) -> Control {
 
 pub fn dropdown(id: Id, rect: Rect) -> Control {
     use Style::*;
-    combobox(id, rect) + CBS_DROPDOWNLIST + CBS_HASSTRINGS + WS_VSCROLL
+    combobox(id, rect) + CBS_DROPDOWNLIST + CBS_HASSTRINGS
 }
 
 pub fn checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
