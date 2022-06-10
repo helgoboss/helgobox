@@ -120,6 +120,10 @@ impl Context {
         Rect::new(x, y, width, height)
     }
 
+    pub fn rect_flexible(&self, rect: Rect) -> Rect {
+        rect
+    }
+
     pub fn id(&mut self) -> Id {
         Id {
             value: self.next_id_value(),
