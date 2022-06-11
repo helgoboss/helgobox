@@ -1,7 +1,7 @@
 use crate::base::*;
 use crate::ext::*;
 
-pub fn create(context: &mut Context) -> Dialog {
+pub fn create(mut context: ScopedContext) -> Dialog {
     use Style::*;
     let controls = [
         // Label and on/off checkbox

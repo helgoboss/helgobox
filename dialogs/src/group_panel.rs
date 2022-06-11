@@ -1,7 +1,7 @@
 use crate::base::*;
 use crate::ext::*;
 
-pub fn create(context: &mut Context) -> Dialog {
+pub fn create(mut context: ScopedContext) -> Dialog {
     use Style::*;
     Dialog {
         id: context.named_id("ID_GROUP_PANEL"),

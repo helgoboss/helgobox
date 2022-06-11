@@ -1,7 +1,7 @@
 use crate::base::*;
 use crate::ext::divider;
 
-pub fn create(context: &mut Context) -> Dialog {
+pub fn create(mut context: ScopedContext) -> Dialog {
     use Style::*;
     let controls = vec![
         ctext(

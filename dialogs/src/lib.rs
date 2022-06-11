@@ -1,6 +1,6 @@
 use crate::base::{
     Context, Dialog, DialogScaling, Font, Resource, ResourceInfoAsCHeaderCode,
-    ResourceInfoAsRustCode,
+    ResourceInfoAsRustCode, Scope,
 };
 use std::io::Write;
 use std::path::Path;
@@ -27,30 +27,50 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         ..Default::default()
     };
     // let vertical_scale = 0.8;
-    let horizontal_scale = 1.0;
-    let vertical_scale = 1.0;
+    let global_scope = {
+        let horizontal_scale = 1.0;
+        let vertical_scale = 1.0;
+        Scope {
+            scaling: DialogScaling {
+                x_scale: horizontal_scale,
+                y_scale: vertical_scale,
+                width_scale: horizontal_scale,
+                height_scale: vertical_scale,
+            },
+        }
+    };
+    let mapping_panel_scope = {
+        let horizontal_scale = 1.0;
+        let vertical_scale = 0.8;
+        Scope {
+            scaling: DialogScaling {
+                x_scale: horizontal_scale,
+                y_scale: vertical_scale,
+                width_scale: horizontal_scale,
+                height_scale: vertical_scale,
+            },
+        }
+    };
     let mut context = Context {
         next_id_value: 30000,
         default_dialog,
-        global_scaling: DialogScaling {
-            x_scale: horizontal_scale,
-            y_scale: vertical_scale,
-            width_scale: horizontal_scale,
-            height_scale: vertical_scale,
-        },
-        dialog_specific_scaling: Default::default(),
+        scopes: [("MAPPING_PANEL", mapping_panel_scope)]
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect(),
+        global_scope,
     };
     let resource = Resource {
         dialogs: vec![
-            group_panel::create(&mut context),
-            header_panel::create(&mut context),
-            mapping_panel::create(&mut context),
-            mapping_row_panel::create(&mut context),
-            mapping_rows_panel::create(&mut context),
-            message_panel::create(&mut context),
-            shared_group_mapping_panel::create(&mut context),
-            main_panel::create(&mut context),
-            yaml_editor_panel::create(&mut context),
+            group_panel::create(context.scoped("MAPPING_PANEL")),
+            header_panel::create(context.global()),
+            mapping_panel::create(context.scoped("MAPPING_PANEL")),
+            mapping_row_panel::create(context.global()),
+            mapping_rows_panel::create(context.global()),
+            message_panel::create(context.global()),
+            shared_group_mapping_panel::create(context.scoped("MAPPING_PANEL")),
+            main_panel::create(context.global()),
+            yaml_editor_panel::create(context.global()),
         ],
     };
     let header_info = resource.generate_info(&context);

@@ -1,6 +1,6 @@
 use crate::base::*;
 
-pub fn create(context: &mut Context) -> Dialog {
+pub fn create(mut context: ScopedContext) -> Dialog {
     use Style::*;
     let controls = [
         pushbutton(

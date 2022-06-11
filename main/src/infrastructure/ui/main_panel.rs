@@ -23,9 +23,7 @@ use crate::infrastructure::server::grpc::{
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
-use crate::infrastructure::ui::util::{
-    format_tags_as_csv, parse_tags_from_csv, GLOBAL_DIALOG_SCALING,
-};
+use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv, GLOBAL_SCALING};
 use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
@@ -92,7 +90,7 @@ impl MainPanel {
                 session,
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
-                Point::new(DialogUnits(0), DialogUnits(124)).scale(GLOBAL_DIALOG_SCALING),
+                Point::new(DialogUnits(0), DialogUnits(124)).scale(GLOBAL_SCALING),
             )
             .into(),
             panel_manager,

@@ -9,8 +9,8 @@ use std::ops::Add;
 pub type Caption = &'static str;
 
 pub struct ResourceInfo {
-    global_scaling: DialogScaling,
-    dialog_specific_scaling: HashMap<String, DialogScaling>,
+    global_scope: Scope,
+    scopes: HashMap<String, Scope>,
     named_ids: Vec<Id>,
 }
 
@@ -39,10 +39,11 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         // Write module opener
         f.write_str("pub mod root {\n")?;
         // Write scaling information
-        let global_scaling_code = DialogScalingAsRustCode::new("GLOBAL", &self.0.global_scaling);
+        let global_scaling_code =
+            DialogScalingAsRustCode::new("GLOBAL", &self.0.global_scope.scaling);
         global_scaling_code.fmt(f)?;
-        for (key, scaling) in self.0.dialog_specific_scaling.iter() {
-            let scaling_code = DialogScalingAsRustCode::new(key, &scaling);
+        for (key, scope) in self.0.scopes.iter() {
+            let scaling_code = DialogScalingAsRustCode::new(key, &scope.scaling);
             scaling_code.fmt(f)?;
         }
         // Write resource IDs
@@ -63,8 +64,8 @@ pub struct Resource {
 impl Resource {
     pub fn generate_info(&self, context: &Context) -> ResourceInfo {
         ResourceInfo {
-            global_scaling: context.global_scaling,
-            dialog_specific_scaling: context.dialog_specific_scaling.clone(),
+            global_scope: context.global_scope.clone(),
+            scopes: context.scopes.clone(),
             named_ids: self.named_ids().collect(),
         }
     }
@@ -184,16 +185,19 @@ impl<'a> Display for DialogScalingAsRustCode<'a> {
     }
 }
 
-pub struct Context {
-    pub next_id_value: u32,
-    pub default_dialog: Dialog,
-    pub global_scaling: DialogScaling,
-    pub dialog_specific_scaling: HashMap<String, DialogScaling>,
+pub struct ScopedContext<'a> {
+    context: &'a mut Context,
+    scope: Option<Scope>,
 }
 
-impl Context {
+#[derive(Clone)]
+pub struct Scope {
+    pub scaling: DialogScaling,
+}
+
+impl<'a> ScopedContext<'a> {
     pub fn default_dialog(&self) -> Dialog {
-        self.default_dialog.clone()
+        self.context.default_dialog()
     }
 
     pub fn rect(&self, x: u32, y: u32, width: u32, height: u32) -> Rect {
@@ -201,12 +205,53 @@ impl Context {
     }
 
     pub fn rect_flexible(&self, rect: Rect) -> Rect {
+        let scaling = self
+            .scope
+            .as_ref()
+            .map(|s| s.scaling)
+            .unwrap_or(self.context.global_scope.scaling);
         Rect {
-            x: scale(self.global_scaling.x_scale, rect.x),
-            y: scale(self.global_scaling.y_scale, rect.y),
-            width: scale(self.global_scaling.width_scale, rect.width),
-            height: scale(self.global_scaling.height_scale, rect.height),
+            x: scale(scaling.x_scale, rect.x),
+            y: scale(scaling.y_scale, rect.y),
+            width: scale(scaling.width_scale, rect.width),
+            height: scale(scaling.height_scale, rect.height),
         }
+    }
+
+    pub fn id(&mut self) -> Id {
+        self.context.id()
+    }
+
+    pub fn named_id(&mut self, name: &'static str) -> Id {
+        self.context.named_id(name)
+    }
+}
+
+pub struct Context {
+    pub next_id_value: u32,
+    pub default_dialog: Dialog,
+    pub global_scope: Scope,
+    pub scopes: HashMap<String, Scope>,
+}
+
+impl Context {
+    pub fn global<'a>(&'a mut self) -> ScopedContext<'a> {
+        ScopedContext {
+            context: self,
+            scope: None,
+        }
+    }
+
+    pub fn scoped<'a>(&'a mut self, scope: &'a str) -> ScopedContext<'a> {
+        let scope = self.scopes.get(scope).expect("scope not found").clone();
+        ScopedContext {
+            context: self,
+            scope: Some(scope),
+        }
+    }
+
+    pub fn default_dialog(&self) -> Dialog {
+        self.default_dialog.clone()
     }
 
     pub fn id(&mut self) -> Id {

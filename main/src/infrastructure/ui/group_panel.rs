@@ -2,7 +2,7 @@ use crate::application::{
     Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession,
 };
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::util::GLOBAL_DIALOG_SCALING;
+use crate::infrastructure::ui::util::MAPPING_PANEL_SCALING;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
@@ -19,7 +19,7 @@ impl GroupPanel {
             view: Default::default(),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(2), DialogUnits(2)).scale(GLOBAL_DIALOG_SCALING),
+                Point::new(DialogUnits(2), DialogUnits(2)).scale(MAPPING_PANEL_SCALING),
                 Some(group),
             )),
         }

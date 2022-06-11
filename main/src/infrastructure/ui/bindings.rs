@@ -3,6 +3,10 @@ pub mod root {
     pub const GLOBAL_Y_SCALE: f64 = 1.0000;
     pub const GLOBAL_WIDTH_SCALE: f64 = 1.0000;
     pub const GLOBAL_HEIGHT_SCALE: f64 = 1.0000;
+    pub const MAPPING_PANEL_X_SCALE: f64 = 1.0000;
+    pub const MAPPING_PANEL_Y_SCALE: f64 = 0.8000;
+    pub const MAPPING_PANEL_WIDTH_SCALE: f64 = 1.0000;
+    pub const MAPPING_PANEL_HEIGHT_SCALE: f64 = 0.8000;
     pub const ID_GROUP_PANEL: u32 = 30000;
     pub const ID_GROUP_PANEL_OK: u32 = 30001;
     pub const ID_HEADER_PANEL: u32 = 30040;

@@ -9,9 +9,8 @@ use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
 pub fn main_panel_dimensions() -> Dimensions<DialogUnits> {
-    static MAIN_PANEL_DIMENSIONS: Lazy<Dimensions<DialogUnits>> = Lazy::new(|| {
-        Dimensions::new(DialogUnits(470), DialogUnits(447)).scale(GLOBAL_DIALOG_SCALING)
-    });
+    static MAIN_PANEL_DIMENSIONS: Lazy<Dimensions<DialogUnits>> =
+        Lazy::new(|| Dimensions::new(DialogUnits(470), DialogUnits(447)).scale(GLOBAL_SCALING));
     *MAIN_PANEL_DIMENSIONS
 }
 
@@ -219,9 +218,16 @@ fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
     iter.into_iter().join(", ")
 }
 
-pub const GLOBAL_DIALOG_SCALING: DialogScaling = DialogScaling {
+pub const GLOBAL_SCALING: DialogScaling = DialogScaling {
     x_scale: root::GLOBAL_X_SCALE,
     y_scale: root::GLOBAL_Y_SCALE,
     width_scale: root::GLOBAL_WIDTH_SCALE,
     height_scale: root::GLOBAL_HEIGHT_SCALE,
+};
+
+pub const MAPPING_PANEL_SCALING: DialogScaling = DialogScaling {
+    x_scale: root::MAPPING_PANEL_X_SCALE,
+    y_scale: root::MAPPING_PANEL_Y_SCALE,
+    width_scale: root::MAPPING_PANEL_WIDTH_SCALE,
+    height_scale: root::MAPPING_PANEL_HEIGHT_SCALE,
 };
