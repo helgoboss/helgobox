@@ -44,8 +44,17 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             windows: OsSpecificSettings {
                 scaling: default_scaling,
             },
-            macos: OsSpecificSettings {
-                scaling: default_scaling,
+            macos: {
+                let horizontal_scale = 1.6;
+                let vertical_scale = 1.6 * 0.95;
+                OsSpecificSettings {
+                    scaling: DialogScaling {
+                        x_scale: horizontal_scale,
+                        y_scale: vertical_scale,
+                        width_scale: horizontal_scale,
+                        height_scale: vertical_scale,
+                    },
+                }
             },
         }
     };

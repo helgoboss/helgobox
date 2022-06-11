@@ -47,6 +47,9 @@ impl<T> Point<T> {
     }
 }
 
+/// These factors should correspond to those in `dialogs.cpp` and should - if possible - left
+/// at 1.0 because we can do OS-specific scaling now in the `dialogs` crate - right when
+/// generating the RC file. The scale factors used there propagate everywhere.
 fn effective_scale_factors() -> ScaleFactors {
     #[cfg(target_os = "linux")]
     {
@@ -59,7 +62,7 @@ fn effective_scale_factors() -> ScaleFactors {
     }
     #[cfg(target_os = "macos")]
     {
-        ScaleFactors { main: 1.6, y: 0.95 }
+        ScaleFactors { main: 1.0, y: 1.0 }
     }
     #[cfg(target_os = "windows")]
     {
