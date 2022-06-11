@@ -173,18 +173,27 @@ impl HeaderPanel {
     }
 
     fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
-        let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
-            .expect("menu bar couldn't be loaded");
-        let menu = menu_bar
-            .get_sub_menu(0)
-            .expect("menu bar didn't have 1st menu");
-        let location = Window::cursor_pos();
-        let result = self.view.require_window().open_popup_menu(menu, location)?;
-        let control_element_type = match result {
-            root::IDM_MULTIS => VirtualControlElementType::Multi,
-            root::IDM_BUTTONS => VirtualControlElementType::Button,
-            _ => unreachable!(),
+        let menu_bar = MenuBar::new_popup_menu();
+        let pure_menu = {
+            use swell_ui::menu_tree::*;
+            let mut root_menu = root_menu(vec![
+                item("Multis (faders, knobs, encoders, ...)", || {
+                    VirtualControlElementType::Multi
+                }),
+                item("Buttons", || VirtualControlElementType::Button),
+            ]);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
         };
+        let result_index = self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
+        let control_element_type = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
         Some(control_element_type)
     }
 
