@@ -10,6 +10,22 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
+    pub const NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS: u32 = 1;
+    pub const NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET: u32 = 2;
+    pub const NSEEL_CODE_COMPILE_FLAG_NOFPSTATE: u32 = 4;
+    pub const NSEEL_CODE_COMPILE_FLAG_ONLY_BUILTIN_FUNCTIONS: u32 = 8;
+    pub const NSEEL_MAX_VARIABLE_NAMELEN: u32 = 128;
+    pub const NSEEL_MAX_EELFUNC_PARAMETERS: u32 = 40;
+    pub const NSEEL_MAX_FUNCSIG_NAME: u32 = 2048;
+    pub const NSEEL_LOOPFUNC_SUPPORT_MAXLEN: u32 = 1048576;
+    pub const NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE: u32 = 2048;
+    pub const NSEEL_SHARED_GRAM_SIZE: u32 = 1048576;
+    pub const NSEEL_RAM_BLOCKS_DEFAULTMAX: u32 = 128;
+    pub const NSEEL_RAM_BLOCKS_LOG2: u32 = 9;
+    pub const NSEEL_RAM_ITEMSPERBLOCK_LOG2: u32 = 16;
+    pub const NSEEL_RAM_BLOCKS: u32 = 512;
+    pub const NSEEL_RAM_ITEMSPERBLOCK: u32 = 65536;
+    pub const NSEEL_STACK_SIZE: u32 = 4096;
     pub type INT_PTR = isize;
     pub mod std {
         #[allow(unused_imports)]
@@ -382,5 +398,14 @@ pub mod root {
     }
     extern "C" {
         pub fn NSEEL_code_getstats(code: root::NSEEL_CODEHANDLE) -> *mut ::std::os::raw::c_int;
+    }
+    extern "C" {
+        pub static mut NSEEL_RAM_limitmem: ::std::os::raw::c_uint;
+    }
+    extern "C" {
+        pub static mut NSEEL_RAM_memused: ::std::os::raw::c_uint;
+    }
+    extern "C" {
+        pub static mut NSEEL_RAM_memused_errors: ::std::os::raw::c_int;
     }
 }

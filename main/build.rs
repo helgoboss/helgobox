@@ -4,14 +4,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
-    // Optionally generate bindings and dialogs
+    // Generate GUI dialog files (rc file and C header)
+    realearn_dialogs::generate_dialog_files("src/infrastructure/ui/msvc");
+
+    // Optionally generate bindings, on macOS and Linux also SWELL dialogs.
     #[cfg(feature = "generate")]
     codegen::generate_bindings();
     #[cfg(all(feature = "generate", target_family = "unix"))]
     codegen::generate_dialogs();
-
-    // Generate dialog RC file
-    realearn_dialogs::generate_dialog_files("src/infrastructure/ui/msvc");
 
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
@@ -146,11 +146,6 @@ mod codegen {
         std::fs::copy(
             "../target/realearn.modified.rc_mac_dlg",
             "src/infrastructure/ui/realearn.rc_mac_dlg",
-        )
-        .unwrap();
-        std::fs::copy(
-            "../target/realearn.modified.rc_mac_menu",
-            "src/infrastructure/ui/realearn.rc_mac_menu",
         )
         .unwrap();
         assert!(result.status.success(), "PHP dialog generation failed");

@@ -140,7 +140,12 @@ cargo build
 
 === All operating systems
 
-Regenerate bindings (for dialog resource IDs and EEL functions):
+Whenever you adjust code in the `dialogs` directory, you actively need to run a build with the feature `generate` enabled. As the name implies, this will regenerate a bunch of code which is part of the source code repository:
+
+- `main/src/infrastructure/ui/bindings.rc` (Rust bindings to dialog resource ID constants)
+- `main/src/infrastructure/ui/realearn.rc_mac_dlg` (macOS and Linux only)
+
+Here's how you do it in detail:
 
 [source,sh]
 ----
@@ -148,16 +153,21 @@ cargo build --features generate
 cargo fmt
 ----
 
-On Linux and macOS, this also regenerates the files `realearn.rc_mac_dlg` and `realearn.rc_mac_menu` using PHP.
-This needs to be done after adjusting the Windows dialog resource file. So the best is to use the `generate`
-feature only on Linux/WSL, which regenerates resource ID bindings and executes PHP in one go, so the macOS and
-Linux dialog files can not go out of sync! These files must be checked into the source code repository whenever changed. 
+[IMPORTANT]
+====
+If you don't do this, your `dialogs` changes will not have an effect on the macOS and Linux GUI!
+
+The final `generate` build before publishing your `dialogs` changes **needs to be done on Linux** (or Windows WSL)! Otherwise it's possible that the result works on macOS and Windows, but not on Linux.
+====
 
 == GUI
 
-The basic GUI skeleton is based on the Windows dialog resource file link:main/src/infrastructure/ui/msvc/msvc.rc[msvc.rc].
-I use Visual C++ 2019 resource editor to edit this file as part of the solution
-link:main/src/infrastructure/ui/msvc/msvc.sln[msvc.sln].
+The GUI dialogs are defined in the `dialogs` directory. Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file in link:main/src/infrastructure/ui/msvc/msvc.rc[msvc.rc].
+
+Previously I used the Visual C++ 2019 resource editor to WYSIWYG-edit this file as part of the solution
+link:main/src/infrastructure/ui/msvc/msvc.sln[msvc.sln], but this was too tedious.
+
+WARNING: Don't edit the rc file, the changes will be overwritten at build time! Adjust the Rust code in the `dialogs` directory instead.
 
 == Test
 
