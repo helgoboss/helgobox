@@ -23,7 +23,9 @@ use crate::infrastructure::server::grpc::{
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
-use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
+use crate::infrastructure::ui::util::{
+    format_tags_as_csv, parse_tags_from_csv, GLOBAL_DIALOG_SCALING,
+};
 use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
@@ -90,7 +92,7 @@ impl MainPanel {
                 session,
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
-                Point::new(DialogUnits(0), DialogUnits(124)),
+                Point::new(DialogUnits(0), DialogUnits(124)).scale(GLOBAL_DIALOG_SCALING),
             )
             .into(),
             panel_manager,
@@ -107,7 +109,7 @@ impl MainPanel {
     pub fn dimensions(&self) -> Dimensions<Pixels> {
         self.dimensions
             .get()
-            .unwrap_or_else(|| util::MAIN_PANEL_DIMENSIONS.in_pixels())
+            .unwrap_or_else(|| util::main_panel_dimensions().in_pixels())
     }
 
     pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) {
@@ -290,8 +292,9 @@ impl View for MainPanel {
         if self.dimensions.get().is_none() {
             // The dialog has been opened by user request but the optimal dimensions have not yet
             // been figured out. Figure them out now.
-            self.dimensions
-                .replace(Some(window.convert_to_pixels(util::MAIN_PANEL_DIMENSIONS)));
+            self.dimensions.replace(Some(
+                window.convert_to_pixels(util::main_panel_dimensions()),
+            ));
             // Close and reopen window, this time with `dimensions()` returning the optimal size to
             // the host.
             let parent_window = window.parent().expect("must have parent");

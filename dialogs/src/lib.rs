@@ -22,7 +22,14 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         font: Some(default_font),
         ..Default::default()
     };
-    let mut context = Context::new(30000, default_dialog);
+    // let vertical_scale = 0.8;
+    let vertical_scale = 1.0;
+    let mut context = Context {
+        next_id_value: 30000,
+        default_dialog,
+        y_scale: vertical_scale,
+        height_scale: vertical_scale,
+    };
     let resource = Resource {
         dialogs: vec![
             group_panel::create(&mut context),
@@ -37,7 +44,7 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         ],
     };
     // Write header file
-    let header_file_content = resource.generate_header().to_string();
+    let header_file_content = resource.generate_header(&context).to_string();
     std::fs::write(out_dir.as_ref().join("resource.h"), header_file_content)
         .expect("couldn't write header file");
     // Write rc file

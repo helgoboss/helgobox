@@ -7,11 +7,15 @@ use std::ops::Add;
 pub type Caption = &'static str;
 
 pub struct ResourceHeader {
+    y_scale: f64,
+    height_scale: f64,
     named_ids: Vec<Id>,
 }
 
 impl Display for ResourceHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "#define Y_SCALE {}", self.y_scale)?;
+        writeln!(f, "#define HEIGHT_SCALE {}", self.height_scale)?;
         for id in &self.named_ids {
             writeln!(f, "#define {} {}", id.name, id.value)?;
         }
@@ -25,8 +29,10 @@ pub struct Resource {
 }
 
 impl Resource {
-    pub fn generate_header(&self) -> ResourceHeader {
+    pub fn generate_header(&self, context: &Context) -> ResourceHeader {
         ResourceHeader {
+            y_scale: context.y_scale,
+            height_scale: context.height_scale,
             named_ids: self.named_ids().collect(),
         }
     }
@@ -102,28 +108,28 @@ impl Id {
 }
 
 pub struct Context {
-    next_id_value: u32,
-    default_dialog: Dialog,
+    pub next_id_value: u32,
+    pub default_dialog: Dialog,
+    pub y_scale: f64,
+    pub height_scale: f64,
 }
 
 impl Context {
-    pub fn new(initial_id_value: u32, default_dialog: Dialog) -> Self {
-        Self {
-            next_id_value: initial_id_value,
-            default_dialog,
-        }
-    }
-
     pub fn default_dialog(&self) -> Dialog {
         self.default_dialog.clone()
     }
 
     pub fn rect(&self, x: u32, y: u32, width: u32, height: u32) -> Rect {
-        Rect::new(x, y, width, height)
+        self.rect_flexible(Rect::new(x, y, width, height))
     }
 
     pub fn rect_flexible(&self, rect: Rect) -> Rect {
-        rect
+        Rect {
+            x: rect.x,
+            y: scale(self.y_scale, rect.y),
+            width: rect.width,
+            height: scale(self.height_scale, rect.height),
+        }
     }
 
     pub fn id(&mut self) -> Id {
@@ -145,6 +151,10 @@ impl Context {
         self.next_id_value += 1;
         v
     }
+}
+
+fn scale(scale: f64, value: u32) -> u32 {
+    (scale * value as f64).round() as _
 }
 
 impl Display for Id {

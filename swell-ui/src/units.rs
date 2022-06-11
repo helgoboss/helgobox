@@ -10,6 +10,10 @@ impl DialogUnits {
     pub fn as_raw(self) -> i32 {
         self.0 as _
     }
+
+    pub fn scale(&self, scale: f64) -> Self {
+        DialogUnits((scale * self.0 as f64).round() as _)
+    }
 }
 
 /// Pixels on a screen.
@@ -23,6 +27,10 @@ impl Pixels {
 
     pub fn as_raw(self) -> i32 {
         self.0 as _
+    }
+
+    pub fn scale(&self, scale: f64) -> Self {
+        Pixels((scale * self.0 as f64).round() as _)
     }
 }
 
@@ -96,6 +104,13 @@ impl Point<DialogUnits> {
             y: Pixels((scale_factors.y_factor() * self.y.get() as f64) as _),
         }
     }
+
+    pub fn scale(self, scaling: DialogScaling) -> Self {
+        Self {
+            x: self.x.scale(scaling.x_scale),
+            y: self.y.scale(scaling.y_scale),
+        }
+    }
 }
 
 impl<T: Copy> Point<T> {
@@ -133,6 +148,13 @@ impl Dimensions<Pixels> {
     pub fn to_vst(self) -> (i32, i32) {
         (self.width.get() as _, self.height.get() as _)
     }
+
+    pub fn scale(self, scaling: DialogScaling) -> Self {
+        Self {
+            width: self.width.scale(scaling.width_scale),
+            height: self.height.scale(scaling.height_scale),
+        }
+    }
 }
 
 impl Dimensions<DialogUnits> {
@@ -140,10 +162,27 @@ impl Dimensions<DialogUnits> {
     pub fn in_pixels(&self) -> Dimensions<Pixels> {
         self.to_point().in_pixels().to_dimensions()
     }
+
+    pub fn scale(self, scaling: DialogScaling) -> Self {
+        Self {
+            width: self.width.scale(scaling.width_scale),
+            height: self.height.scale(scaling.height_scale),
+        }
+    }
 }
 
 impl<T: Copy> From<Point<T>> for Dimensions<T> {
     fn from(p: Point<T>) -> Self {
         p.to_dimensions()
     }
+}
+
+/// This is not the scaling applied by SWELL but the one applied before by us when generating
+/// the RC file. In future we might produce different RC files for different operating systems.
+/// Then this is maybe the only scaling info we need and we can ditch SWELL scaling.
+pub struct DialogScaling {
+    pub x_scale: f64,
+    pub y_scale: f64,
+    pub width_scale: f64,
+    pub height_scale: f64,
 }

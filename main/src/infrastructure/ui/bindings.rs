@@ -4,6 +4,8 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
+    pub const Y_SCALE: f64 = 0.8;
+    pub const HEIGHT_SCALE: f64 = 0.8;
     pub const ID_GROUP_PANEL: u32 = 30000;
     pub const ID_GROUP_PANEL_OK: u32 = 30001;
     pub const ID_HEADER_PANEL: u32 = 30040;

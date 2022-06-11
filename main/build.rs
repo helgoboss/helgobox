@@ -180,10 +180,6 @@ mod codegen {
         println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
         let bindings = bindgen::Builder::default()
             .header("src/infrastructure/ui/wrapper.hpp")
-            .whitelist_var("ID_.*")
-            .whitelist_var("IDC_.*")
-            .whitelist_var("IDM_.*")
-            .whitelist_var("IDR_.*")
             .enable_cxx_namespaces()
             .parse_callbacks(Box::new(bindgen::CargoCallbacks))
             .generate()

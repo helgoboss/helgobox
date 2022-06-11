@@ -62,7 +62,7 @@ use crate::domain::{
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
-    format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols,
+    format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols, GLOBAL_DIALOG_SCALING,
 };
 use crate::infrastructure::ui::{
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
@@ -127,7 +127,7 @@ impl MappingPanel {
             main_panel,
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(7), DialogUnits(13)),
+                Point::new(DialogUnits(7), DialogUnits(13)).scale(GLOBAL_DIALOG_SCALING),
                 None,
             )),
             is_invoked_programmatically: false.into(),

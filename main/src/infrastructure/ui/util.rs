@@ -1,13 +1,19 @@
 use crate::domain::Tag;
+use crate::infrastructure::ui::bindings::root;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use reaper_high::Reaper;
 use std::fmt::Display;
 use std::str::FromStr;
-use swell_ui::{DialogUnits, Dimensions, Window};
+use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
-pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =
-    Dimensions::new(DialogUnits(470), DialogUnits(447));
+pub fn main_panel_dimensions() -> Dimensions<DialogUnits> {
+    static MAIN_PANEL_DIMENSIONS: Lazy<Dimensions<DialogUnits>> = Lazy::new(|| {
+        Dimensions::new(DialogUnits(470), DialogUnits(447)).scale(GLOBAL_DIALOG_SCALING)
+    });
+    *MAIN_PANEL_DIMENSIONS
+}
 
 pub mod symbols {
     pub fn indicator_symbol() -> &'static str {
@@ -212,3 +218,10 @@ pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String
 fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
     iter.into_iter().join(", ")
 }
+
+pub const GLOBAL_DIALOG_SCALING: DialogScaling = DialogScaling {
+    x_scale: 1.0,
+    y_scale: root::Y_SCALE,
+    width_scale: 1.0,
+    height_scale: root::HEIGHT_SCALE,
+};

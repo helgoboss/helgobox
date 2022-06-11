@@ -16,7 +16,7 @@ use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
+use crate::infrastructure::ui::util::{format_tags_as_csv, symbols, GLOBAL_DIALOG_SCALING};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
@@ -833,7 +833,10 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(self.row_index * 48)));
+        window.move_to(
+            Point::new(DialogUnits(0), DialogUnits(self.row_index * 48))
+                .scale(GLOBAL_DIALOG_SCALING),
+        );
         self.init_symbol_controls();
         self.invalidate_divider();
         false
