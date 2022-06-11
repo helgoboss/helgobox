@@ -46,7 +46,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             },
             macos: {
                 let horizontal_scale = 1.6;
-                let vertical_scale = 1.6 * 0.95;
+                let vertical_scale = 1.52;
                 OsSpecificSettings {
                     scaling: DialogScaling {
                         x_scale: horizontal_scale,
@@ -69,6 +69,18 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
                     width_scale: horizontal_scale,
                     height_scale: vertical_scale,
                 },
+            },
+            macos: {
+                let horizontal_scale = 1.6;
+                let vertical_scale = 1.4;
+                OsSpecificSettings {
+                    scaling: DialogScaling {
+                        x_scale: horizontal_scale,
+                        y_scale: vertical_scale,
+                        width_scale: horizontal_scale,
+                        height_scale: vertical_scale,
+                    },
+                }
             },
             ..global_scope
         }
