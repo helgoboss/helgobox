@@ -1,15 +1,21 @@
 use std::error::Error;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
     // Generate GUI dialog files (rc file and C header)
-    realearn_dialogs::generate_dialog_files("src/infrastructure/ui");
+    let bindings_file = "src/infrastructure/ui/bindings.rs";
+    let generated_dir = PathBuf::from("../target/generated");
+    let dialog_rc_file = generated_dir.join("msvc.rc");
+    fs::create_dir_all(&generated_dir)?;
+    realearn_dialogs::generate_dialog_files(&generated_dir, bindings_file);
 
     // On macOS and Linux, try to generate SWELL dialogs (needs PHP)
     #[cfg(target_family = "unix")]
-    if let Err(e) = generate_dialogs() {
+    if let Err(e) = generate_dialogs(&dialog_rc_file) {
         println!("cargo:warning={}", e);
     }
 
@@ -19,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
-    embed_dialog_resources();
+    embed_dialog_resources(&dialog_rc_file);
     #[cfg(target_family = "unix")]
     compile_dialogs();
 
@@ -104,14 +110,14 @@ fn compile_dialogs() {
 
 /// On Windows we can directly embed the dialog resource file produced by ResEdit.
 #[cfg(target_family = "windows")]
-fn embed_dialog_resources() {
+fn embed_dialog_resources(rc_file: impl AsRef<Path>) {
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
         for (key, value) in tool.env() {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile("src/infrastructure/ui/msvc/msvc.rc");
+    embed_resource::compile(rc_file);
 }
 
 #[cfg(feature = "generate")]
@@ -152,11 +158,11 @@ mod codegen {
 /// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
 /// (too obscure to be ported to Rust).
 #[cfg(target_family = "unix")]
-pub fn generate_dialogs() -> Result<(), Box<dyn Error>> {
+pub fn generate_dialogs(rc_file: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
     // Use PHP to translate SWELL-compatible RC file to C++
     let result = std::process::Command::new("php")
         .arg("lib/WDL/WDL/swell/swell_resgen.php")
-        .arg("src/infrastructure/ui/msvc/msvc.rc")
+        .arg(rc_file.as_ref())
         .output()
         .expect("PHP dialog translator result not available");
     if !result.status.success() {

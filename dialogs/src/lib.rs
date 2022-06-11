@@ -17,7 +17,7 @@ mod message_panel;
 mod shared_group_mapping_panel;
 mod yaml_editor_panel;
 
-pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
+pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef<Path>) {
     let default_font = Font {
         name: "Ms Shell Dlg",
         size: 8,
@@ -76,12 +76,11 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
     let header_info = resource.generate_info(&context);
     // Write C header file (in case we want to use a resource editor to preview the dialogs)
     let c_header_code = ResourceInfoAsCHeaderCode(&header_info).to_string();
-    std::fs::write(out_dir.as_ref().join("msvc/resource.h"), c_header_code)
+    std::fs::write(rc_dir.as_ref().join("resource.h"), c_header_code)
         .expect("couldn't write C header file");
     // Write Rust file (so we don't have to do it via bindgen, which is slow)
     let rust_code = ResourceInfoAsRustCode(&header_info).to_string();
-    std::fs::write(out_dir.as_ref().join("bindings.rs"), rust_code)
-        .expect("couldn't write Rust bindings file");
+    std::fs::write(bindings_file, rust_code).expect("couldn't write Rust bindings file");
     // Write rc file
     let rc_file_header = include_str!("rc_file_header.txt");
     let rc_file_footer = include_str!("rc_file_footer.txt");
@@ -89,8 +88,9 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
     let mut output = Vec::new();
     // Write UTF_16LE BOM
     output.write_all(&[0xFF, 0xFE]).unwrap();
+    // Write UTF_16LE contents
     for utf16 in rc_file_content.encode_utf16() {
         output.write_all(&utf16.to_le_bytes()).unwrap();
     }
-    std::fs::write(out_dir.as_ref().join("msvc/msvc.rc"), output).expect("couldn't write rc file");
+    std::fs::write(rc_dir.as_ref().join("msvc.rc"), output).expect("couldn't write rc file");
 }

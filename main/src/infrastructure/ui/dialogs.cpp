@@ -6,7 +6,7 @@
 #define SWELL_PROVIDED_BY_APP
 
 // Some preparation for dialog generation.
-#include "msvc/resource.h"
+#include "../../../../target/generated/resource.h"
 #include "../../../lib/WDL/WDL/swell/swell.h"
 // Make sure the following factors correspond to the ones in `units.rs` (function `effective_scale_factors`).
 #ifdef __APPLE__
@@ -23,4 +23,4 @@
 #define SS_WORDELLIPSIS 0
 
 // This is the result of the dialog RC file conversion (via PHP script).
-#include "msvc/msvc.rc_mac_dlg"
+#include "../../../../target/generated/msvc.rc_mac_dlg"

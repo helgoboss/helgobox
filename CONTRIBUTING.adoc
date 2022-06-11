@@ -150,15 +150,15 @@ cargo fmt
 
 == GUI
 
-The GUI dialogs are defined in the `dialogs` directory. Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file in link:main/src/infrastructure/ui/msvc/msvc.rc[msvc.rc], a Rust file which contains all the resource ID constants and a corresponding C header file (in case you want to preview the dialog in a visual resource editor).
+The GUI dialogs are defined in the `dialogs` directory. Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file (`target/generated/msvc.rc`) and a Rust file which contains all the resource ID constants (`main/src/infrastructure/ui/bindings.rs`).
 
-Previously I used the Visual C++ 2019 resource editor to WYSIWYG-edit this file as part of the solution
+Previously I used the Visual Studio C++ 2019 resource editor to WYSIWYG-edit this file as part of the solution
 link:main/src/infrastructure/ui/msvc/msvc.sln[msvc.sln], but this was too tedious.
 
-WARNING: Don't edit the RC file, the changes will be overwritten at build time! Adjust the Rust code in the `dialogs` directory instead.
+WARNING: You can still preview the generated file in Visual Studio but don't edit the RC file, the changes will be overwritten at build time! Adjust the Rust code in the `dialogs` directory instead.
 
 On macOS and Linux, an extra step will happen at build time: It will try to use a PHP script (part of Cockos SWELL) to generate
-`main/src/infrastructure/ui/msvc/msvc.rc_mac_dlg`, which is a translation of the RC file to C code using SWELL. So make sure you have PHP installed on these platforms!
+`target/generated/msvc.rc_mac_dlg`, which is a translation of the RC file to C code using SWELL. So make sure you have PHP installed on these platforms!
 
 == Test
 
