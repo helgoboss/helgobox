@@ -7,8 +7,7 @@ use std::ops::Add;
 pub type Caption = &'static str;
 
 pub struct ResourceInfo {
-    y_scale: f64,
-    height_scale: f64,
+    scaling: DialogScaling,
     named_ids: Vec<Id>,
 }
 
@@ -34,16 +33,34 @@ pub struct ResourceInfoAsRustCode<'a>(pub &'a ResourceInfo);
 
 impl<'a> Display for ResourceInfoAsRustCode<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Write module opener
         f.write_str("pub mod root {\n")?;
-        writeln!(f, "    pub const Y_SCALE: f64 = {:.4};", self.0.y_scale)?;
+        // Write scaling information
+        writeln!(
+            f,
+            "    pub const X_SCALE: f64 = {:.4};",
+            self.0.scaling.x_scale
+        )?;
+        writeln!(
+            f,
+            "    pub const Y_SCALE: f64 = {:.4};",
+            self.0.scaling.y_scale
+        )?;
+        writeln!(
+            f,
+            "    pub const WIDTH_SCALE: f64 = {:.4};",
+            self.0.scaling.width_scale
+        )?;
         writeln!(
             f,
             "    pub const HEIGHT_SCALE: f64 = {:.4};",
-            self.0.height_scale
+            self.0.scaling.height_scale
         )?;
+        // Write resource IDs
         for id in &self.0.named_ids {
             writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
         }
+        // Write module closer
         f.write_str("}\n")?;
         Ok(())
     }
@@ -57,8 +74,7 @@ pub struct Resource {
 impl Resource {
     pub fn generate_info(&self, context: &Context) -> ResourceInfo {
         ResourceInfo {
-            y_scale: context.y_scale,
-            height_scale: context.height_scale,
+            scaling: context.scaling,
             named_ids: self.named_ids().collect(),
         }
     }
@@ -133,11 +149,18 @@ impl Id {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct DialogScaling {
+    pub x_scale: f64,
+    pub y_scale: f64,
+    pub width_scale: f64,
+    pub height_scale: f64,
+}
+
 pub struct Context {
     pub next_id_value: u32,
     pub default_dialog: Dialog,
-    pub y_scale: f64,
-    pub height_scale: f64,
+    pub scaling: DialogScaling,
 }
 
 impl Context {
@@ -151,10 +174,10 @@ impl Context {
 
     pub fn rect_flexible(&self, rect: Rect) -> Rect {
         Rect {
-            x: rect.x,
-            y: scale(self.y_scale, rect.y),
-            width: rect.width,
-            height: scale(self.height_scale, rect.height),
+            x: scale(self.scaling.x_scale, rect.x),
+            y: scale(self.scaling.y_scale, rect.y),
+            width: scale(self.scaling.width_scale, rect.width),
+            height: scale(self.scaling.height_scale, rect.height),
         }
     }
 

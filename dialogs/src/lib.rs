@@ -1,5 +1,6 @@
 use crate::base::{
-    Context, Dialog, Font, Resource, ResourceInfoAsCHeaderCode, ResourceInfoAsRustCode,
+    Context, Dialog, DialogScaling, Font, Resource, ResourceInfoAsCHeaderCode,
+    ResourceInfoAsRustCode,
 };
 use std::io::Write;
 use std::path::Path;
@@ -26,12 +27,17 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         ..Default::default()
     };
     // let vertical_scale = 0.8;
+    let horizontal_scale = 1.0;
     let vertical_scale = 1.0;
     let mut context = Context {
         next_id_value: 30000,
         default_dialog,
-        y_scale: vertical_scale,
-        height_scale: vertical_scale,
+        scaling: DialogScaling {
+            x_scale: horizontal_scale,
+            y_scale: vertical_scale,
+            width_scale: horizontal_scale,
+            height_scale: vertical_scale,
+        },
     };
     let resource = Resource {
         dialogs: vec![
