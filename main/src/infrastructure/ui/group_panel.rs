@@ -19,7 +19,7 @@ impl GroupPanel {
             view: Default::default(),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(2), DialogUnits(2)).scale(MAPPING_PANEL_SCALING),
+                Point::new(DialogUnits(7), DialogUnits(5)).scale(MAPPING_PANEL_SCALING),
                 Some(group),
             )),
         }
