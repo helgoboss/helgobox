@@ -198,6 +198,18 @@ impl<D: Display> Display for Quoted<D> {
     }
 }
 
+struct LineBreaksEscaped<D>(D);
+
+impl<D: Display> Display for LineBreaksEscaped<D> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0
+            .to_string()
+            .replace("\r\n", "\\r\\n")
+            .replace("\n", "\\r\\n")
+            .fmt(f)
+    }
+}
+
 fn opt<T: Display>(v: &Option<T>) -> Option<String> {
     let v = v.as_ref()?;
     Some(v.to_string())
@@ -235,7 +247,7 @@ impl Display for Dialog {
 
 impl Display for Control {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let caption = opt(&self.caption.map(Quoted));
+        let caption = opt(&self.caption.map(LineBreaksEscaped).map(Quoted));
         let id = req(&self.id);
         let rect = req(&self.rect);
         let styles = if self.styles.0.is_empty() {
@@ -244,7 +256,13 @@ impl Display for Control {
             Some(self.styles.to_string())
         };
         let args = if self.kind == ControlKind::CONTROL {
-            vec![caption, id, req(self.sub_kind.unwrap()), styles, rect]
+            vec![
+                caption,
+                id,
+                req(Quoted(self.sub_kind.unwrap())),
+                styles,
+                rect,
+            ]
         } else {
             vec![caption, id, rect, styles]
         };

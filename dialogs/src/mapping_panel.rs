@@ -147,7 +147,11 @@ pub fn create(context: &mut Context) -> Dialog {
             context.named_id("ID_TARGET_OPEN_BUTTON"),
             context.rect(232, 77, 46, 14),
         ) + NOT_WS_TABSTOP,
-        ltext("Hint", context.id(), context.rect(283, 80, 155, 9)) + WS_TABSTOP,
+        ltext(
+            "Hint",
+            context.named_id("ID_TARGET_HINT"),
+            context.rect(283, 80, 155, 9),
+        ) + WS_TABSTOP,
         ltext("Type", context.id(), context.rect(181, 98, 35, 9)) + NOT_WS_GROUP,
         dropdown(
             context.named_id("ID_TARGET_CATEGORY_COMBO_BOX"),
@@ -255,11 +259,11 @@ pub fn create(context: &mut Context) -> Dialog {
             context.named_id("ID_TARGET_LINE_4_BUTTON"),
             context.rect(412, 154, 26, 14),
         ),
-        pushbutton(
+        ltext(
             "Hint",
             context.named_id("ID_TARGET_LINE_4_LABEL_3"),
             context.rect(412, 158, 26, 9),
-        ),
+        ) + NOT_WS_GROUP,
         ltext(
             "Line 5",
             context.named_id("ID_TARGET_LINE_5_LABEL_1"),
@@ -460,8 +464,8 @@ pub fn create(context: &mut Context) -> Dialog {
         dropdown(
             context.named_id("IDC_MODE_FEEDBACK_TYPE_COMBO_BOX"),
             context.rect(231, 306, 163, 30),
-        ) + WS_TABSTOP
-            + CBS_SORT,
+        ) + CBS_SORT
+            + WS_TABSTOP,
         edittext(
             context.named_id("ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL"),
             context.rect(231, 323, 179, 14),
@@ -494,7 +498,7 @@ pub fn create(context: &mut Context) -> Dialog {
             "Jump",
             context.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
             context.rect(56, 371, 75, 15),
-        ) + WS_GROUP,
+        ),
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
