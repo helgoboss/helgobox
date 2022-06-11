@@ -1,5 +1,5 @@
 use crate::base::{
-    Context, Dialog, DialogScaling, Font, Resource, ResourceInfoAsCHeaderCode,
+    Context, Dialog, DialogScaling, Font, OsSpecificSettings, Resource, ResourceInfoAsCHeaderCode,
     ResourceInfoAsRustCode, Scope,
 };
 use std::io::Write;
@@ -26,16 +26,26 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
         font: Some(default_font),
         ..Default::default()
     };
-    // let vertical_scale = 0.8;
-    let global_scope = {
+    let default_scaling = {
         let horizontal_scale = 1.0;
         let vertical_scale = 1.0;
+        DialogScaling {
+            x_scale: horizontal_scale,
+            y_scale: vertical_scale,
+            width_scale: horizontal_scale,
+            height_scale: vertical_scale,
+        }
+    };
+    let global_scope = {
         Scope {
-            scaling: DialogScaling {
-                x_scale: horizontal_scale,
-                y_scale: vertical_scale,
-                width_scale: horizontal_scale,
-                height_scale: vertical_scale,
+            linux: OsSpecificSettings {
+                scaling: default_scaling,
+            },
+            windows: OsSpecificSettings {
+                scaling: default_scaling,
+            },
+            macos: OsSpecificSettings {
+                scaling: default_scaling,
             },
         }
     };
@@ -43,12 +53,15 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
         let horizontal_scale = 1.0;
         let vertical_scale = 0.8;
         Scope {
-            scaling: DialogScaling {
-                x_scale: horizontal_scale,
-                y_scale: vertical_scale,
-                width_scale: horizontal_scale,
-                height_scale: vertical_scale,
+            windows: OsSpecificSettings {
+                scaling: DialogScaling {
+                    x_scale: horizontal_scale,
+                    y_scale: vertical_scale,
+                    width_scale: horizontal_scale,
+                    height_scale: vertical_scale,
+                },
             },
+            ..global_scope
         }
     };
     let mut context = Context {

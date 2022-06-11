@@ -40,12 +40,9 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         // Write module opener
         f.write_str("pub mod root {\n")?;
         // Write scaling information
-        let global_scaling_code =
-            DialogScalingAsRustCode::new("GLOBAL", &self.0.global_scope.scaling);
-        global_scaling_code.fmt(f)?;
+        ScopeAsRustCode::new("GLOBAL", &self.0.global_scope).fmt(f)?;
         for (key, scope) in self.0.scopes.iter() {
-            let scaling_code = DialogScalingAsRustCode::new(key, &scope.scaling);
-            scaling_code.fmt(f)?;
+            ScopeAsRustCode::new(key, &scope).fmt(f)?;
         }
         // Write resource IDs
         for id in &self.0.named_ids {
@@ -164,13 +161,18 @@ pub struct DialogScaling {
 }
 
 struct DialogScalingAsRustCode<'a> {
+    attr: &'a str,
     scope: &'a str,
     scaling: &'a DialogScaling,
 }
 
 impl<'a> DialogScalingAsRustCode<'a> {
-    pub fn new(scope: &'a str, scaling: &'a DialogScaling) -> Self {
-        Self { scope, scaling }
+    pub fn new(attr: &'a str, scope: &'a str, scaling: &'a DialogScaling) -> Self {
+        Self {
+            attr,
+            scope,
+            scaling,
+        }
     }
 }
 
@@ -178,23 +180,23 @@ impl<'a> Display for DialogScalingAsRustCode<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(
             f,
-            "    pub const {}_X_SCALE: f64 = {:.4};",
-            self.scope, self.scaling.x_scale
+            "    {}\n    pub const {}_X_SCALE: f64 = {:.4};",
+            self.attr, self.scope, self.scaling.x_scale
         )?;
         writeln!(
             f,
-            "    pub const {}_Y_SCALE: f64 = {:.4};",
-            self.scope, self.scaling.y_scale
+            "    {}\n    pub const {}_Y_SCALE: f64 = {:.4};",
+            self.attr, self.scope, self.scaling.y_scale
         )?;
         writeln!(
             f,
-            "    pub const {}_WIDTH_SCALE: f64 = {:.4};",
-            self.scope, self.scaling.width_scale
+            "    {}\n    pub const {}_WIDTH_SCALE: f64 = {:.4};",
+            self.attr, self.scope, self.scaling.width_scale
         )?;
         writeln!(
             f,
-            "    pub const {}_HEIGHT_SCALE: f64 = {:.4};",
-            self.scope, self.scaling.height_scale
+            "    {}\n    pub const {}_HEIGHT_SCALE: f64 = {:.4};",
+            self.attr, self.scope, self.scaling.height_scale
         )?;
         Ok(())
     }
@@ -205,8 +207,57 @@ pub struct ScopedContext<'a> {
     scope: Option<Scope>,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Scope {
+    pub linux: OsSpecificSettings,
+    pub windows: OsSpecificSettings,
+    pub macos: OsSpecificSettings,
+}
+
+struct ScopeAsRustCode<'a> {
+    scope_name: &'a str,
+    scope: &'a Scope,
+}
+
+impl<'a> ScopeAsRustCode<'a> {
+    pub fn new(scope_name: &'a str, scope: &'a Scope) -> Self {
+        Self { scope_name, scope }
+    }
+}
+
+impl<'a> Display for ScopeAsRustCode<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut write_os = |os: &str, scaling: &DialogScaling| -> fmt::Result {
+            let attr = format!("#[cfg(target_os = {})]", Quoted(os));
+            DialogScalingAsRustCode::new(&attr, self.scope_name, scaling).fmt(f)?;
+            Ok(())
+        };
+        write_os("linux", &self.scope.linux.scaling)?;
+        write_os("windows", &self.scope.windows.scaling)?;
+        write_os("macos", &self.scope.macos.scaling)?;
+        Ok(())
+    }
+}
+
+impl Scope {
+    pub const fn settings_for_this_os(&self) -> &OsSpecificSettings {
+        #[cfg(target_os = "linux")]
+        {
+            &self.linux
+        }
+        #[cfg(target_os = "windows")]
+        {
+            &self.windows
+        }
+        #[cfg(target_os = "macos")]
+        {
+            &self.macos
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct OsSpecificSettings {
     pub scaling: DialogScaling,
 }
 
@@ -223,8 +274,8 @@ impl<'a> ScopedContext<'a> {
         let scaling = self
             .scope
             .as_ref()
-            .map(|s| s.scaling)
-            .unwrap_or(self.context.global_scope.scaling);
+            .map(|s| s.settings_for_this_os().scaling)
+            .unwrap_or(self.context.global_scope.settings_for_this_os().scaling);
         Rect {
             x: scale(scaling.x_scale, rect.x),
             y: scale(scaling.y_scale, rect.y),
