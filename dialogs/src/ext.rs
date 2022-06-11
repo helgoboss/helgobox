@@ -14,6 +14,11 @@ pub fn checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
     control(caption, id, SubControlKind::Button, rect) + BS_AUTOCHECKBOX
 }
 
+pub fn slider(id: Id, rect: Rect) -> Control {
+    use Style::*;
+    control("", id, SubControlKind::msctls_trackbar32, rect) + TBS_BOTH + TBS_NOTICKS
+}
+
 pub fn radio_button(caption: Caption, id: Id, rect: Rect) -> Control {
     use Style::*;
     control(caption, id, SubControlKind::Button, rect) + BS_AUTORADIOBUTTON

@@ -6,6 +6,7 @@ mod ext;
 mod group_panel;
 mod header_panel;
 mod main_panel;
+mod mapping_panel;
 mod mapping_row_panel;
 mod mapping_rows_panel;
 mod message_panel;
@@ -26,6 +27,7 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
         dialogs: vec![
             group_panel::create(&mut context),
             header_panel::create(&mut context),
+            mapping_panel::create(&mut context),
             mapping_row_panel::create(&mut context),
             mapping_rows_panel::create(&mut context),
             message_panel::create(&mut context),

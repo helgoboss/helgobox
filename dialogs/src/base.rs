@@ -276,6 +276,7 @@ impl Default for ControlKind {
 pub enum SubControlKind {
     Button,
     Static,
+    msctls_trackbar32,
 }
 
 #[derive(Clone, Copy)]
@@ -444,6 +445,8 @@ pub enum Style {
     WS_DISABLED,
     BS_AUTOCHECKBOX,
     BS_AUTORADIOBUTTON,
+    TBS_BOTH,
+    TBS_NOTICKS,
     SS_ETCHEDHORZ,
     ES_AUTOHSCROLL,
     SS_CENTERIMAGE,

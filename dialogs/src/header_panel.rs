@@ -47,7 +47,7 @@ pub fn create(context: &mut Context) -> Dialog {
         ) + NOT_WS_TABSTOP,
         // Event filter
         ltext(
-            "Let through",
+            "Let through:",
             context.named_id("ID_LET_THROUGH_LABEL_TEXT"),
             context.rect(270, 26, 39, 9),
         ),
