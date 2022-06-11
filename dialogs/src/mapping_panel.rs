@@ -334,7 +334,386 @@ pub fn create(context: &mut Context) -> Dialog {
             context.rect(396, 213, 43, 14),
         ),
     ];
-    let divider_controls = [];
+    let glue_controls = [
+        groupbox("Glue", context.id(), context.rect(7, 233, 435, 238)),
+        pushbutton(
+            "Reset to defaults",
+            context.named_id("ID_SETTINGS_RESET_BUTTON"),
+            context.rect(11, 243, 211, 14),
+        ),
+        ltext(
+            "Source",
+            context.named_id("ID_SETTINGS_SOURCE_LABEL"),
+            context.rect(15, 281, 23, 9),
+        ) + NOT_WS_GROUP,
+        groupbox(
+            "Source",
+            context.named_id("ID_SETTINGS_SOURCE_GROUP"),
+            context.rect(55, 270, 74, 15),
+        ) + WS_GROUP,
+        ltext(
+            "Min",
+            context.named_id("ID_SETTINGS_SOURCE_MIN_LABEL"),
+            context.rect(41, 273, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL"),
+            context.rect(55, 270, 74, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL"),
+            context.rect(129, 271, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "Max",
+            context.named_id("ID_SETTINGS_SOURCE_MAX_LABEL"),
+            context.rect(41, 291, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL"),
+            context.rect(55, 288, 74, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL"),
+            context.rect(129, 288, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "Out-of-range behavior",
+            context.named_id("ID_MODE_OUT_OF_RANGE_LABEL_TEXT"),
+            context.rect(15, 308, 70, 9),
+        ) + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_MODE_OUT_OF_RANGE_COMBOX_BOX"),
+            context.rect(92, 306, 125, 15),
+        ) + WS_TABSTOP,
+        ltext(
+            "Group interaction",
+            context.named_id("ID_MODE_GROUP_INTERACTION_LABEL_TEXT"),
+            context.rect(15, 327, 71, 9),
+        ) + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_MODE_GROUP_INTERACTION_COMBO_BOX"),
+            context.rect(92, 325, 125, 15),
+        ) + WS_TABSTOP,
+        ltext(
+            "Target",
+            context.named_id("ID_SETTINGS_TARGET_LABEL_TEXT"),
+            context.rect(231, 281, 21, 9),
+        ) + NOT_WS_GROUP,
+        ltext(
+            "Value sequence",
+            context.named_id("ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT"),
+            context.rect(231, 246, 55, 9),
+        ) + NOT_WS_GROUP,
+        edittext(
+            context.named_id("ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL"),
+            context.rect(288, 243, 149, 14),
+        ) + ES_AUTOHSCROLL,
+        groupbox(
+            "Target",
+            context.named_id("ID_SETTINGS_TARGET_GROUP"),
+            context.rect(271, 270, 75, 15),
+        ),
+        ltext(
+            "Min",
+            context.named_id("ID_SETTINGS_MIN_TARGET_LABEL_TEXT"),
+            context.rect(257, 273, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL"),
+            context.rect(271, 270, 75, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL"),
+            context.rect(347, 270, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  1 ms",
+            context.named_id("ID_SETTINGS_MIN_TARGET_VALUE_TEXT"),
+            context.rect(379, 273, 56, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        ltext(
+            "Max",
+            context.named_id("ID_SETTINGS_MAX_TARGET_LABEL_TEXT"),
+            context.rect(257, 291, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL"),
+            context.rect(271, 287, 75, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL"),
+            context.rect(347, 288, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  127 ms",
+            context.named_id("ID_SETTINGS_MAX_TARGET_VALUE_TEXT"),
+            context.rect(379, 291, 56, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        checkbox(
+            "Reverse",
+            context.named_id("ID_SETTINGS_REVERSE_CHECK_BOX"),
+            context.rect(400, 307, 39, 8),
+        ) + WS_TABSTOP,
+        dropdown(
+            context.named_id("IDC_MODE_FEEDBACK_TYPE_COMBO_BOX"),
+            context.rect(231, 306, 163, 30),
+        ) + WS_TABSTOP
+            + CBS_SORT,
+        edittext(
+            context.named_id("ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL"),
+            context.rect(231, 323, 179, 14),
+        ) + ES_AUTOHSCROLL,
+        pushbutton(
+            "...",
+            context.named_id("IDC_MODE_FEEDBACK_TYPE_BUTTON"),
+            context.rect(413, 323, 25, 14),
+        ),
+        groupbox(
+            "For knobs/faders and buttons (control only)",
+            context.named_id("ID_MODE_KNOB_FADER_GROUP_BOX"),
+            context.rect(11, 344, 211, 123),
+        ),
+        ltext(
+            "Mode",
+            context.named_id("ID_SETTINGS_MODE_LABEL"),
+            context.rect(15, 357, 19, 9),
+        ) + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_SETTINGS_MODE_COMBO_BOX"),
+            context.rect(50, 355, 168, 15),
+        ) + WS_TABSTOP,
+        ltext(
+            "Jump",
+            context.named_id("ID_SETTINGS_TARGET_JUMP_LABEL_TEXT"),
+            context.rect(15, 383, 22, 9),
+        ) + NOT_WS_GROUP,
+        groupbox(
+            "Jump",
+            context.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
+            context.rect(56, 371, 75, 15),
+        ) + WS_GROUP,
+        ltext(
+            "Min",
+            context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
+            context.rect(41, 374, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL"),
+            context.rect(56, 371, 75, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL"),
+            context.rect(132, 371, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  1 ms",
+            context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT"),
+            context.rect(164, 374, 55, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        ltext(
+            "Max",
+            context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT"),
+            context.rect(41, 392, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL"),
+            context.rect(56, 388, 75, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL"),
+            context.rect(132, 388, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  127 ms",
+            context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT"),
+            context.rect(164, 391, 55, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        ltext(
+            "Takeover",
+            context.named_id("ID_MODE_TAKEOVER_LABEL"),
+            context.rect(15, 409, 35, 9),
+        ) + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_MODE_TAKEOVER_MODE"),
+            context.rect(53, 407, 86, 15),
+        ) + WS_TABSTOP,
+        checkbox(
+            "Round target value",
+            context.named_id("ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX"),
+            context.rect(146, 409, 73, 8),
+        ) + WS_TABSTOP,
+        ltext(
+            "Control transformation (EEL)",
+            context.named_id("ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL"),
+            context.rect(15, 423, 95, 9),
+        ) + NOT_WS_GROUP,
+        edittext(
+            context.named_id("ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL"),
+            context.rect(15, 435, 203, 14),
+        ) + ES_AUTOHSCROLL,
+        groupbox(
+            "For encoders and incremental buttons (control only)",
+            context.named_id("ID_MODE_RELATIVE_GROUP_BOX"),
+            context.rect(227, 344, 211, 61),
+        ),
+        ltext(
+            "Step size",
+            context.named_id("ID_SETTINGS_STEP_SIZE_LABEL_TEXT"),
+            context.rect(231, 366, 30, 9),
+        ) + NOT_WS_GROUP,
+        groupbox(
+            "Step size",
+            context.named_id("ID_SETTINGS_STEP_SIZE_GROUP"),
+            context.rect(279, 355, 74, 15),
+        ),
+        ltext(
+            "Min",
+            context.named_id("ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT"),
+            context.rect(266, 358, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL"),
+            context.rect(279, 355, 74, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL"),
+            context.rect(353, 355, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  1 ms",
+            context.named_id("ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT"),
+            context.rect(385, 358, 51, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        ltext(
+            "Max",
+            context.named_id("ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT"),
+            context.rect(266, 376, 14, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL"),
+            context.rect(279, 372, 74, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL"),
+            context.rect(353, 372, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  127 ms",
+            context.named_id("ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT"),
+            context.rect(385, 375, 51, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_MODE_RELATIVE_FILTER_COMBO_BOX"),
+            context.rect(231, 388, 104, 15),
+        ) + WS_TABSTOP,
+        checkbox(
+            "Wrap",
+            context.named_id("ID_SETTINGS_ROTATE_CHECK_BOX"),
+            context.rect(342, 391, 30, 8),
+        ) + WS_TABSTOP,
+        checkbox(
+            "Make absolute",
+            context.named_id("ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX"),
+            context.rect(375, 391, 60, 8),
+        ) + WS_TABSTOP,
+        groupbox(
+            "For buttons (control only)",
+            context.named_id("ID_MODE_BUTTON_GROUP_BOX"),
+            context.rect(227, 406, 211, 61),
+        ),
+        dropdown(
+            context.named_id("ID_MODE_FIRE_COMBO_BOX"),
+            context.rect(231, 416, 131, 15),
+        ) + WS_TABSTOP,
+        dropdown(
+            context.named_id("ID_MODE_BUTTON_FILTER_COMBO_BOX"),
+            context.rect(367, 416, 68, 15),
+        ) + WS_TABSTOP,
+        ltext(
+            "Min",
+            context.named_id("ID_MODE_FIRE_LINE_2_LABEL_1"),
+            context.rect(231, 436, 30, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_MODE_FIRE_LINE_2_SLIDER_CONTROL"),
+            context.rect(265, 432, 87, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_MODE_FIRE_LINE_2_EDIT_CONTROL"),
+            context.rect(353, 432, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  1 ms",
+            context.named_id("ID_MODE_FIRE_LINE_2_LABEL_2"),
+            context.rect(385, 435, 50, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+        ltext(
+            "Max",
+            context.named_id("ID_MODE_FIRE_LINE_3_LABEL_1"),
+            context.rect(231, 454, 31, 9),
+        ) + NOT_WS_GROUP,
+        slider(
+            context.named_id("ID_MODE_FIRE_LINE_3_SLIDER_CONTROL"),
+            context.rect(265, 449, 87, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_MODE_FIRE_LINE_3_EDIT_CONTROL"),
+            context.rect(353, 449, 30, 14),
+        ) + ES_AUTOHSCROLL,
+        ltext(
+            "%  127 ms",
+            context.named_id("ID_MODE_FIRE_LINE_3_LABEL_2"),
+            context.rect(385, 452, 50, 9),
+        ) + SS_WORDELLIPSIS
+            + NOT_WS_GROUP,
+    ];
+    let footer_controls = [
+        ltext(
+            "Help",
+            context.named_id("ID_MAPPING_HELP_SUBJECT_LABEL"),
+            context.rect(7, 475, 183, 9),
+        ) + NOT_WS_GROUP,
+        static_text(
+            "•",
+            context.named_id("IDC_MAPPING_MATCHED_INDICATOR_TEXT"),
+            context.rect(223, 475, 8, 8),
+        ) + SS_LEFTNOWORDWRAP
+            + WS_DISABLED
+            + WS_GROUP
+            + WS_TABSTOP,
+        ltext(
+            "If source is a",
+            context.named_id("ID_MAPPING_HELP_APPLICABLE_TO_LABEL"),
+            context.rect(235, 475, 43, 9),
+        ) + NOT_WS_GROUP,
+        dropdown(
+            context.named_id("ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX"),
+            context.rect(281, 473, 161, 15),
+        ) + WS_TABSTOP,
+        edittext(
+            context.named_id("ID_MAPPING_HELP_CONTENT_LABEL"),
+            context.rect(7, 488, 435, 22),
+        ) + ES_MULTILINE
+            + ES_READONLY
+            + WS_VSCROLL,
+        ok_button(
+            context.named_id("ID_MAPPING_PANEL_OK"),
+            context.rect(201, 514, 50, 14),
+        ),
+        checkbox(
+            "Enabled",
+            context.named_id("IDC_MAPPING_ENABLED_CHECK_BOX"),
+            context.rect(405, 516, 39, 10),
+        ) + WS_TABSTOP,
+    ];
     Dialog {
         id: context.named_id("ID_MAPPING_PANEL"),
         caption: "Edit mapping",
@@ -354,7 +733,8 @@ pub fn create(context: &mut Context) -> Dialog {
             .into_iter()
             .chain(source_controls.into_iter())
             .chain(target_controls.into_iter())
-            .chain(divider_controls.into_iter())
+            .chain(glue_controls.into_iter())
+            .chain(footer_controls.into_iter())
             .collect(),
         ..context.default_dialog()
     }

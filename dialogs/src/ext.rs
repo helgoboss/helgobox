@@ -28,3 +28,7 @@ pub fn divider(id: Id, rect: Rect) -> Control {
     use Style::*;
     control("", id, SubControlKind::Static, rect) + SS_ETCHEDHORZ
 }
+
+pub fn static_text(caption: Caption, id: Id, rect: Rect) -> Control {
+    control(caption, id, SubControlKind::Static, rect)
+}
