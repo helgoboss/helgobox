@@ -14,8 +14,8 @@ pub struct ResourceHeader {
 
 impl Display for ResourceHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "#define Y_SCALE {}", self.y_scale)?;
-        writeln!(f, "#define HEIGHT_SCALE {}", self.height_scale)?;
+        writeln!(f, "#define Y_SCALE {:.4}", self.y_scale)?;
+        writeln!(f, "#define HEIGHT_SCALE {:.4}", self.height_scale)?;
         for id in &self.named_ids {
             writeln!(f, "#define {} {}", id.name, id.value)?;
         }
@@ -338,10 +338,10 @@ pub struct Dimensions(pub u32, pub u32);
 
 #[derive(Copy, Clone, Default)]
 pub struct Rect {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Display for Rect {

@@ -4,7 +4,7 @@ use crate::ext::*;
 pub fn create(context: &mut Context) -> Dialog {
     use Style::*;
     let mapping_controls = [
-        groupbox("Mapping", context.id(), context.rect(7, 7, 435, 60)),
+        groupbox("Mapping", context.id(), context.rect(7, 3, 435, 64)),
         ltext("Feedback", context.id(), context.rect(11, 53, 34, 9)) + NOT_WS_GROUP,
         combobox(
             context.named_id("ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX"),

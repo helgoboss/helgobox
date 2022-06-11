@@ -11,7 +11,8 @@ pub fn dropdown(id: Id, rect: Rect) -> Control {
 
 pub fn checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
     use Style::*;
-    control(caption, id, SubControlKind::Button, rect) + BS_AUTOCHECKBOX
+    let fixed_rect = Rect { height: 10, ..rect };
+    control(caption, id, SubControlKind::Button, fixed_rect) + BS_AUTOCHECKBOX
 }
 
 pub fn slider(id: Id, rect: Rect) -> Control {
