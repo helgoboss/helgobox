@@ -220,8 +220,8 @@ fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
 }
 
 pub const GLOBAL_DIALOG_SCALING: DialogScaling = DialogScaling {
-    x_scale: root::X_SCALE,
-    y_scale: root::Y_SCALE,
-    width_scale: root::WIDTH_SCALE,
-    height_scale: root::HEIGHT_SCALE,
+    x_scale: root::GLOBAL_X_SCALE,
+    y_scale: root::GLOBAL_Y_SCALE,
+    width_scale: root::GLOBAL_WIDTH_SCALE,
+    height_scale: root::GLOBAL_HEIGHT_SCALE,
 };

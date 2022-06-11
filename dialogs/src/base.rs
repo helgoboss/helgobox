@@ -1,4 +1,6 @@
 #![allow(non_camel_case_types)]
+
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -7,7 +9,8 @@ use std::ops::Add;
 pub type Caption = &'static str;
 
 pub struct ResourceInfo {
-    scaling: DialogScaling,
+    global_scaling: DialogScaling,
+    dialog_specific_scaling: HashMap<String, DialogScaling>,
     named_ids: Vec<Id>,
 }
 
@@ -36,26 +39,12 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         // Write module opener
         f.write_str("pub mod root {\n")?;
         // Write scaling information
-        writeln!(
-            f,
-            "    pub const X_SCALE: f64 = {:.4};",
-            self.0.scaling.x_scale
-        )?;
-        writeln!(
-            f,
-            "    pub const Y_SCALE: f64 = {:.4};",
-            self.0.scaling.y_scale
-        )?;
-        writeln!(
-            f,
-            "    pub const WIDTH_SCALE: f64 = {:.4};",
-            self.0.scaling.width_scale
-        )?;
-        writeln!(
-            f,
-            "    pub const HEIGHT_SCALE: f64 = {:.4};",
-            self.0.scaling.height_scale
-        )?;
+        let global_scaling_code = DialogScalingAsRustCode::new("GLOBAL", &self.0.global_scaling);
+        global_scaling_code.fmt(f)?;
+        for (key, scaling) in self.0.dialog_specific_scaling.iter() {
+            let scaling_code = DialogScalingAsRustCode::new(key, &scaling);
+            scaling_code.fmt(f)?;
+        }
         // Write resource IDs
         for id in &self.0.named_ids {
             writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
@@ -74,7 +63,8 @@ pub struct Resource {
 impl Resource {
     pub fn generate_info(&self, context: &Context) -> ResourceInfo {
         ResourceInfo {
-            scaling: context.scaling,
+            global_scaling: context.global_scaling,
+            dialog_specific_scaling: context.dialog_specific_scaling.clone(),
             named_ids: self.named_ids().collect(),
         }
     }
@@ -157,10 +147,48 @@ pub struct DialogScaling {
     pub height_scale: f64,
 }
 
+struct DialogScalingAsRustCode<'a> {
+    scope: &'a str,
+    scaling: &'a DialogScaling,
+}
+
+impl<'a> DialogScalingAsRustCode<'a> {
+    pub fn new(scope: &'a str, scaling: &'a DialogScaling) -> Self {
+        Self { scope, scaling }
+    }
+}
+
+impl<'a> Display for DialogScalingAsRustCode<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            "    pub const {}_X_SCALE: f64 = {:.4};",
+            self.scope, self.scaling.x_scale
+        )?;
+        writeln!(
+            f,
+            "    pub const {}_Y_SCALE: f64 = {:.4};",
+            self.scope, self.scaling.y_scale
+        )?;
+        writeln!(
+            f,
+            "    pub const {}_WIDTH_SCALE: f64 = {:.4};",
+            self.scope, self.scaling.width_scale
+        )?;
+        writeln!(
+            f,
+            "    pub const {}_HEIGHT_SCALE: f64 = {:.4};",
+            self.scope, self.scaling.height_scale
+        )?;
+        Ok(())
+    }
+}
+
 pub struct Context {
     pub next_id_value: u32,
     pub default_dialog: Dialog,
-    pub scaling: DialogScaling,
+    pub global_scaling: DialogScaling,
+    pub dialog_specific_scaling: HashMap<String, DialogScaling>,
 }
 
 impl Context {
@@ -174,10 +202,10 @@ impl Context {
 
     pub fn rect_flexible(&self, rect: Rect) -> Rect {
         Rect {
-            x: scale(self.scaling.x_scale, rect.x),
-            y: scale(self.scaling.y_scale, rect.y),
-            width: scale(self.scaling.width_scale, rect.width),
-            height: scale(self.scaling.height_scale, rect.height),
+            x: scale(self.global_scaling.x_scale, rect.x),
+            y: scale(self.global_scaling.y_scale, rect.y),
+            width: scale(self.global_scaling.width_scale, rect.width),
+            height: scale(self.global_scaling.height_scale, rect.height),
         }
     }
 

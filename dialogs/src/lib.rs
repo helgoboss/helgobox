@@ -32,12 +32,13 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
     let mut context = Context {
         next_id_value: 30000,
         default_dialog,
-        scaling: DialogScaling {
+        global_scaling: DialogScaling {
             x_scale: horizontal_scale,
             y_scale: vertical_scale,
             width_scale: horizontal_scale,
             height_scale: vertical_scale,
         },
+        dialog_specific_scaling: Default::default(),
     };
     let resource = Resource {
         dialogs: vec![
