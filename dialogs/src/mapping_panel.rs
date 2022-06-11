@@ -350,14 +350,11 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SETTINGS_SOURCE_LABEL"),
             context.rect(15, 281, 23, 9),
         ) + NOT_WS_GROUP,
-        #[cfg(not(target_os = "macos"))]
-        {
-            groupbox(
-                "Source",
-                context.named_id("ID_SETTINGS_SOURCE_GROUP"),
-                context.rect(55, 270, 74, 15),
-            ) + WS_GROUP
-        },
+        groupbox(
+            "Source",
+            context.named_id("ID_SETTINGS_SOURCE_GROUP"),
+            context.rect(55, 270, 74, 15),
+        ) + WS_GROUP,
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_SOURCE_MIN_LABEL"),
@@ -416,14 +413,11 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL"),
             context.rect(288, 243, 149, 14),
         ) + ES_AUTOHSCROLL,
-        #[cfg(not(target_os = "macos"))]
-        {
-            groupbox(
-                "Target",
-                context.named_id("ID_SETTINGS_TARGET_GROUP"),
-                context.rect(271, 270, 75, 15),
-            )
-        },
+        groupbox(
+            "Target",
+            context.named_id("ID_SETTINGS_TARGET_GROUP"),
+            context.rect(271, 270, 75, 15),
+        ),
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_LABEL_TEXT"),
@@ -500,14 +494,11 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SETTINGS_TARGET_JUMP_LABEL_TEXT"),
             context.rect(15, 383, 22, 9),
         ) + NOT_WS_GROUP,
-        #[cfg(not(target_os = "macos"))]
-        {
-            groupbox(
-                "Jump",
-                context.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
-                context.rect(56, 371, 75, 15),
-            )
-        },
+        groupbox(
+            "Jump",
+            context.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
+            context.rect(56, 371, 75, 15),
+        ),
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
@@ -579,14 +570,11 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SETTINGS_STEP_SIZE_LABEL_TEXT"),
             context.rect(231, 366, 30, 9),
         ) + NOT_WS_GROUP,
-        #[cfg(not(target_os = "macos"))]
-        {
-            groupbox(
-                "Step size",
-                context.named_id("ID_SETTINGS_STEP_SIZE_GROUP"),
-                context.rect(279, 355, 74, 15),
-            )
-        },
+        groupbox(
+            "Step size",
+            context.named_id("ID_SETTINGS_STEP_SIZE_GROUP"),
+            context.rect(279, 355, 74, 15),
+        ),
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT"),
