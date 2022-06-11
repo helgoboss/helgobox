@@ -5,7 +5,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
     use Condition::*;
     use Style::*;
     let mapping_controls = [
-        groupbox("Mapping", context.id(), context.rect(7, 3, 435, 64)),
+        groupbox("Mapping", context.id(), context.rect(7, 1, 435, 66)),
         ltext("Feedback", context.id(), context.rect(11, 53, 34, 9)) + NOT_WS_GROUP,
         combobox(
             context.named_id("ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX"),

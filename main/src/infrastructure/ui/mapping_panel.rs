@@ -127,7 +127,7 @@ impl MappingPanel {
             main_panel,
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(7 + 5), DialogUnits(13 + 3)).scale(MAPPING_PANEL_SCALING),
+                Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(MAPPING_PANEL_SCALING),
                 None,
             )),
             is_invoked_programmatically: false.into(),
