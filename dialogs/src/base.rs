@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -11,6 +11,7 @@ pub type Caption = &'static str;
 pub struct ResourceInfo {
     global_scope: Scope,
     scopes: HashMap<String, Scope>,
+    conditional_control_ids: HashSet<Id>,
     named_ids: Vec<Id>,
 }
 
@@ -48,6 +49,9 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         }
         // Write resource IDs
         for id in &self.0.named_ids {
+            if self.0.conditional_control_ids.contains(&id) {
+                f.write_str("    #[allow(dead_code)]\n")?;
+            }
             writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
         }
         // Write module closer
@@ -66,6 +70,7 @@ impl Resource {
         ResourceInfo {
             global_scope: context.global_scope.clone(),
             scopes: context.scopes.clone(),
+            conditional_control_ids: self.conditional_control_ids().collect(),
             named_ids: self.named_ids().collect(),
         }
     }
@@ -85,6 +90,16 @@ impl Resource {
                 .iter()
                 .flat_map(|control| get_if_named(control.id));
             named_dialog_id.into_iter().chain(named_control_ids)
+        })
+    }
+
+    fn conditional_control_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        self.dialogs.iter().flat_map(|dialog| {
+            dialog
+                .controls
+                .iter()
+                .filter(|control| !control.conditions.is_empty())
+                .map(|control| control.id)
         })
     }
 }
@@ -128,7 +143,7 @@ impl Display for Styles {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Default)]
 pub struct Id {
     value: u32,
     name: &'static str,
@@ -311,6 +326,7 @@ pub struct Control {
     pub sub_kind: Option<SubControlKind>,
     pub rect: Rect,
     pub styles: Styles,
+    pub conditions: HashSet<Condition>,
 }
 
 impl Add<Style> for Control {
@@ -318,6 +334,15 @@ impl Add<Style> for Control {
 
     fn add(mut self, rhs: Style) -> Self::Output {
         self.styles.0.push(rhs);
+        self
+    }
+}
+
+impl Add<Condition> for Control {
+    type Output = Control;
+
+    fn add(mut self, rhs: Condition) -> Self::Output {
+        self.conditions.insert(rhs);
         self
     }
 }
@@ -369,6 +394,10 @@ impl Display for Dialog {
         if !self.controls.is_empty() {
             f.write_str("BEGIN\n")?;
             for control in &self.controls {
+                #[cfg(target_os = "macos")]
+                if control.conditions.contains(&Condition::SkipOnMacOs) {
+                    continue;
+                }
                 writeln!(f, "    {}", control)?;
             }
             f.write_str("END")?;
@@ -570,6 +599,15 @@ pub fn control(caption: Caption, id: Id, sub_kind: SubControlKind, rect: Rect) -
         rect,
         ..Default::default()
     }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Condition {
+    /// Doesn't output the control in the RC file generated on macOS.
+    ///
+    /// Still assigns an ID because it's better to keep the bindings file the same on every
+    /// platform.
+    SkipOnMacOs,
 }
 
 #[derive(Copy, Clone, derive_more::Display)]

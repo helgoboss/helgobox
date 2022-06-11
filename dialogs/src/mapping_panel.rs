@@ -2,6 +2,7 @@ use crate::base::*;
 use crate::ext::*;
 
 pub fn create(mut context: ScopedContext) -> Dialog {
+    use Condition::*;
     use Style::*;
     let mapping_controls = [
         groupbox("Mapping", context.id(), context.rect(7, 3, 435, 64)),
@@ -354,7 +355,8 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             "Source",
             context.named_id("ID_SETTINGS_SOURCE_GROUP"),
             context.rect(55, 270, 74, 15),
-        ) + WS_GROUP,
+        ) + WS_GROUP
+            + SkipOnMacOs,
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_SOURCE_MIN_LABEL"),
@@ -417,7 +419,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             "Target",
             context.named_id("ID_SETTINGS_TARGET_GROUP"),
             context.rect(271, 270, 75, 15),
-        ),
+        ) + SkipOnMacOs,
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_LABEL_TEXT"),
@@ -498,7 +500,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             "Jump",
             context.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
             context.rect(56, 371, 75, 15),
-        ),
+        ) + SkipOnMacOs,
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
@@ -574,7 +576,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             "Step size",
             context.named_id("ID_SETTINGS_STEP_SIZE_GROUP"),
             context.rect(279, 355, 74, 15),
-        ),
+        ) + SkipOnMacOs,
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT"),
