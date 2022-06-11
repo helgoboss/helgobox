@@ -5,13 +5,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     built::write_built_file().expect("Failed to acquire build-time information");
 
     // Generate GUI dialog files (rc file and C header)
-    realearn_dialogs::generate_dialog_files("src/infrastructure/ui/msvc");
+    realearn_dialogs::generate_dialog_files("src/infrastructure/ui");
 
-    // Optionally generate bindings, on macOS and Linux also SWELL dialogs.
+    // On macOS and Linux, try to generate SWELL dialogs (needs PHP)
+    #[cfg(target_family = "unix")]
+    if let Err(e) = generate_dialogs() {
+        println!("cargo:warning={}", e);
+    }
+
+    // Optionally generate bindings (e.g. from Cockos EEL)
     #[cfg(feature = "generate")]
     codegen::generate_bindings();
-    #[cfg(all(feature = "generate", target_family = "unix"))]
-    codegen::generate_dialogs();
 
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
@@ -113,42 +117,11 @@ fn embed_dialog_resources() {
 #[cfg(feature = "generate")]
 mod codegen {
     use crate::util;
+    use std::error::Error;
 
     /// Generates Rust bindings for a couple of C stuff.
     pub fn generate_bindings() {
         generate_core_bindings();
-        generate_infrastructure_bindings();
-    }
-
-    /// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
-    /// (too obscure to be ported to Rust).
-    #[cfg(target_family = "unix")]
-    pub fn generate_dialogs() {
-        use std::io::Read;
-        // Make RC file SWELL-compatible.
-        // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-        let mut rc_file = std::fs::File::open("src/infrastructure/ui/msvc/msvc.rc")
-            .expect("couldn't find msvc.rc");
-        let mut rc_buf = vec![];
-        rc_file
-            .read_to_end(&mut rc_buf)
-            .expect("couldn't read msvc.rc");
-        let (original_rc_content, ..) = encoding_rs::UTF_16LE.decode(&rc_buf);
-        let modified_rc_content = original_rc_content.replace("WS_CHILDWINDOW", "WS_CHILD");
-        std::fs::write("../target/realearn.modified.rc", modified_rc_content)
-            .expect("couldn't write modified RC file");
-        // Use PHP to translate SWELL-compatible RC file to C++
-        let result = std::process::Command::new("php")
-            .arg("lib/WDL/WDL/swell/swell_resgen.php")
-            .arg("../target/realearn.modified.rc")
-            .output()
-            .expect("PHP dialog translator result not available");
-        std::fs::copy(
-            "../target/realearn.modified.rc_mac_dlg",
-            "src/infrastructure/ui/realearn.rc_mac_dlg",
-        )
-        .unwrap();
-        assert!(result.status.success(), "PHP dialog generation failed");
     }
 
     fn generate_core_bindings() {
@@ -174,21 +147,22 @@ mod codegen {
             .write_to_file(out_path.join("src/base/bindings.rs"))
             .expect("Couldn't write bindings!");
     }
+}
 
-    fn generate_infrastructure_bindings() {
-        // Tell cargo to invalidate the built crate whenever the wrapper changes
-        println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
-        let bindings = bindgen::Builder::default()
-            .header("src/infrastructure/ui/wrapper.hpp")
-            .enable_cxx_namespaces()
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
-            .generate()
-            .expect("Unable to generate bindings");
-        let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-        bindings
-            .write_to_file(out_path.join("src/infrastructure/ui/bindings.rs"))
-            .expect("Couldn't write bindings!");
+/// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
+/// (too obscure to be ported to Rust).
+#[cfg(target_family = "unix")]
+pub fn generate_dialogs() -> Result<(), Box<dyn Error>> {
+    // Use PHP to translate SWELL-compatible RC file to C++
+    let result = std::process::Command::new("php")
+        .arg("lib/WDL/WDL/swell/swell_resgen.php")
+        .arg("src/infrastructure/ui/msvc/msvc.rc")
+        .output()
+        .expect("PHP dialog translator result not available");
+    if !result.status.success() {
+        return Err("PHP dialog generation failed (PHP not installed or script failed)".into());
     }
+    Ok(())
 }
 
 mod util {

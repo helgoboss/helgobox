@@ -1,4 +1,7 @@
-use crate::base::{Context, Dialog, Font, Resource};
+use crate::base::{
+    Context, Dialog, Font, Resource, ResourceInfoAsCHeaderCode, ResourceInfoAsRustCode,
+};
+use std::io::Write;
 use std::path::Path;
 
 mod base;
@@ -43,14 +46,24 @@ pub fn generate_dialog_files(out_dir: impl AsRef<Path>) {
             yaml_editor_panel::create(&mut context),
         ],
     };
-    // Write header file
-    let header_file_content = resource.generate_header(&context).to_string();
-    std::fs::write(out_dir.as_ref().join("resource.h"), header_file_content)
-        .expect("couldn't write header file");
+    let header_info = resource.generate_info(&context);
+    // Write C header file (in case we want to use a resource editor to preview the dialogs)
+    let c_header_code = ResourceInfoAsCHeaderCode(&header_info).to_string();
+    std::fs::write(out_dir.as_ref().join("msvc/resource.h"), c_header_code)
+        .expect("couldn't write C header file");
+    // Write Rust file (so we don't have to do it via bindgen, which is slow)
+    let rust_code = ResourceInfoAsRustCode(&header_info).to_string();
+    std::fs::write(out_dir.as_ref().join("bindings.rs"), rust_code)
+        .expect("couldn't write Rust bindings file");
     // Write rc file
     let rc_file_header = include_str!("rc_file_header.txt");
     let rc_file_footer = include_str!("rc_file_footer.txt");
     let rc_file_content = format!("{}\n\n{}\n\n{}", rc_file_header, resource, rc_file_footer);
-    std::fs::write(out_dir.as_ref().join("msvc.rc"), rc_file_content)
-        .expect("couldn't write rc file");
+    let mut output = Vec::new();
+    // Write UTF_16LE BOM
+    output.write_all(&[0xFF, 0xFE]).unwrap();
+    for utf16 in rc_file_content.encode_utf16() {
+        output.write_all(&utf16.to_le_bytes()).unwrap();
+    }
+    std::fs::write(out_dir.as_ref().join("msvc/msvc.rc"), output).expect("couldn't write rc file");
 }

@@ -6,19 +6,45 @@ use std::ops::Add;
 
 pub type Caption = &'static str;
 
-pub struct ResourceHeader {
+pub struct ResourceInfo {
     y_scale: f64,
     height_scale: f64,
     named_ids: Vec<Id>,
 }
 
-impl Display for ResourceHeader {
+/// Formats the info as C header file.
+///
+/// Useful if you want to preview the dialogs in Visual Studio.
+pub struct ResourceInfoAsCHeaderCode<'a>(pub &'a ResourceInfo);
+
+impl<'a> Display for ResourceInfoAsCHeaderCode<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "#define Y_SCALE {:.4}", self.y_scale)?;
-        writeln!(f, "#define HEIGHT_SCALE {:.4}", self.height_scale)?;
-        for id in &self.named_ids {
+        for id in &self.0.named_ids {
             writeln!(f, "#define {} {}", id.name, id.value)?;
         }
+        Ok(())
+    }
+}
+
+/// Formats the header as Rust code.
+///
+/// Uses a similar format like bindgen because previously, bindgen was used to translate
+/// the C header file to Rust.
+pub struct ResourceInfoAsRustCode<'a>(pub &'a ResourceInfo);
+
+impl<'a> Display for ResourceInfoAsRustCode<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("pub mod root {\n")?;
+        writeln!(f, "    pub const Y_SCALE: f64 = {:.4};", self.0.y_scale)?;
+        writeln!(
+            f,
+            "    pub const HEIGHT_SCALE: f64 = {:.4};",
+            self.0.height_scale
+        )?;
+        for id in &self.0.named_ids {
+            writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
+        }
+        f.write_str("}\n")?;
         Ok(())
     }
 }
@@ -29,8 +55,8 @@ pub struct Resource {
 }
 
 impl Resource {
-    pub fn generate_header(&self, context: &Context) -> ResourceHeader {
-        ResourceHeader {
+    pub fn generate_info(&self, context: &Context) -> ResourceInfo {
+        ResourceInfo {
             y_scale: context.y_scale,
             height_scale: context.height_scale,
             named_ids: self.named_ids().collect(),
@@ -346,7 +372,7 @@ pub struct Rect {
 
 impl Display for Rect {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{},{},{},{}", self.x, self.y, self.width, self.height)
+        write!(f, "{}, {}, {}, {}", self.x, self.y, self.width, self.height)
     }
 }
 
