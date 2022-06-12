@@ -51,15 +51,15 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_LET_THROUGH_LABEL_TEXT"),
             context.rect(270, 26, 39, 9),
         ),
-        checkbox(
+        context.checkbox(
             "Matched events",
-            context.named_id("ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            context.rect(319, 26, 67, 8),
+            "ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX",
+            rect(319, 26, 67, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Unmatched events",
-            context.named_id("ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            context.rect(392, 26, 76, 8),
+            "ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX",
+            rect(392, 26, 76, 8),
         ) + WS_TABSTOP,
     ];
     let show_controls = [

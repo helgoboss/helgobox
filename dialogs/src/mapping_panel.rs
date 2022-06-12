@@ -13,10 +13,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ) + CBS_DROPDOWNLIST
             + CBS_HASSTRINGS
             + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Show in projection",
-            context.named_id("ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX"),
-            context.rect(180, 53, 74, 8),
+            "ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX",
+            rect(180, 53, 74, 8),
         ) + WS_GROUP
             + WS_TABSTOP,
         pushbutton(
@@ -80,11 +80,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT"),
             context.rect(11, 158, 34, 9),
         ) + NOT_WS_GROUP,
-        checkbox(
-            "RPN",
-            context.named_id("ID_SOURCE_RPN_CHECK_BOX"),
-            context.rect(48, 158, 30, 8),
-        ) + WS_TABSTOP,
+        context.checkbox("RPN", "ID_SOURCE_RPN_CHECK_BOX", rect(48, 158, 30, 8)) + WS_TABSTOP,
         dropdown(
             context.named_id("ID_SOURCE_LINE_4_COMBO_BOX_1"),
             context.rect(47, 156, 26, 15),
@@ -116,10 +112,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SOURCE_LINE_5_EDIT_CONTROL"),
             context.rect(48, 176, 120, 14),
         ) + ES_AUTOHSCROLL,
-        checkbox(
+        context.checkbox(
             "14-bit values",
-            context.named_id("ID_SOURCE_14_BIT_CHECK_BOX"),
-            context.rect(47, 192, 56, 8),
+            "ID_SOURCE_14_BIT_CHECK_BOX",
+            rect(47, 192, 56, 8),
         ) + WS_TABSTOP,
         ltext(
             "Address",
@@ -274,35 +270,35 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_TARGET_LINE_5_EDIT_CONTROL"),
             context.rect(282, 175, 127, 14),
         ) + ES_AUTOHSCROLL,
-        checkbox(
+        context.checkbox(
             "Monitoring FX",
-            context.named_id("ID_TARGET_CHECK_BOX_1"),
-            context.rect(181, 175, 68, 8),
+            "ID_TARGET_CHECK_BOX_1",
+            rect(181, 175, 68, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Track must be selected",
-            context.named_id("ID_TARGET_CHECK_BOX_2"),
-            context.rect(255, 175, 101, 8),
+            "ID_TARGET_CHECK_BOX_2",
+            rect(255, 175, 101, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "FX must have focus",
-            context.named_id("ID_TARGET_CHECK_BOX_3"),
-            context.rect(363, 175, 76, 8),
+            "ID_TARGET_CHECK_BOX_3",
+            rect(363, 175, 76, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Monitoring FX",
-            context.named_id("ID_TARGET_CHECK_BOX_4"),
-            context.rect(181, 195, 69, 8),
+            "ID_TARGET_CHECK_BOX_4",
+            rect(181, 195, 69, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Track must be selected",
-            context.named_id("ID_TARGET_CHECK_BOX_5"),
-            context.rect(255, 195, 101, 8),
+            "ID_TARGET_CHECK_BOX_5",
+            rect(255, 195, 101, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "FX must have focus",
-            context.named_id("ID_TARGET_CHECK_BOX_6"),
-            context.rect(363, 195, 76, 8),
+            "ID_TARGET_CHECK_BOX_6",
+            rect(363, 195, 76, 8),
         ) + WS_TABSTOP,
         ltext(
             "Value",
@@ -458,10 +454,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.rect(379, 291, 56, 9),
         ) + SS_WORDELLIPSIS
             + NOT_WS_GROUP,
-        checkbox(
+        context.checkbox(
             "Reverse",
-            context.named_id("ID_SETTINGS_REVERSE_CHECK_BOX"),
-            context.rect(400, 307, 39, 8),
+            "ID_SETTINGS_REVERSE_CHECK_BOX",
+            rect(400, 307, 39, 8),
         ) + WS_TABSTOP,
         dropdown(
             context.named_id("IDC_MODE_FEEDBACK_TYPE_COMBO_BOX"),
@@ -548,10 +544,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_MODE_TAKEOVER_MODE"),
             context.rect(53, 407, 86, 15),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Round target value",
-            context.named_id("ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX"),
-            context.rect(146, 409, 73, 8),
+            "ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX",
+            rect(146, 409, 73, 8),
         ) + WS_TABSTOP,
         ltext(
             "Control transformation (EEL)",
@@ -619,15 +615,15 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_MODE_RELATIVE_FILTER_COMBO_BOX"),
             context.rect(231, 388, 104, 15),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Wrap",
-            context.named_id("ID_SETTINGS_ROTATE_CHECK_BOX"),
-            context.rect(342, 391, 30, 8),
+            "ID_SETTINGS_ROTATE_CHECK_BOX",
+            rect(342, 391, 30, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "Make absolute",
-            context.named_id("ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX"),
-            context.rect(375, 391, 60, 8),
+            "ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX",
+            rect(375, 391, 60, 8),
         ) + WS_TABSTOP,
         groupbox(
             "For buttons (control only)",
@@ -714,10 +710,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_MAPPING_PANEL_OK"),
             context.rect(201, 514, 50, 14),
         ),
-        checkbox(
+        context.checkbox(
             "Enabled",
-            context.named_id("IDC_MAPPING_ENABLED_CHECK_BOX"),
-            context.rect(405, 516, 39, 10),
+            "IDC_MAPPING_ENABLED_CHECK_BOX",
+            rect(405, 516, 39, 10),
         ) + WS_TABSTOP,
     ];
     Dialog {

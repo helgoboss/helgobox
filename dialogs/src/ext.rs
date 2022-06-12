@@ -1,5 +1,18 @@
 use crate::base::*;
 
+impl<'a> ScopedContext<'a> {
+    pub fn checkbox(&mut self, caption: Caption, id: &'static str, rect: Rect) -> Control {
+        use Style::*;
+        let fixed_rect = self.rect_flexible(Rect { height: 10, ..rect });
+        control(
+            caption,
+            self.context.named_id(id),
+            SubControlKind::Button,
+            fixed_rect,
+        ) + BS_AUTOCHECKBOX
+    }
+}
+
 pub fn ok_button(id: Id, rect: Rect) -> Control {
     defpushbutton("OK", id, rect)
 }
@@ -7,13 +20,6 @@ pub fn ok_button(id: Id, rect: Rect) -> Control {
 pub fn dropdown(id: Id, rect: Rect) -> Control {
     use Style::*;
     combobox(id, rect) + CBS_DROPDOWNLIST + CBS_HASSTRINGS
-}
-
-pub fn checkbox(caption: Caption, id: Id, rect: Rect) -> Control {
-    use Style::*;
-    // TODO-high This fixes the already scaled height, but we should fix the source height!
-    // let fixed_rect = Rect { height: 10, ..rect };
-    control(caption, id, SubControlKind::Button, rect) + BS_AUTOCHECKBOX
 }
 
 pub fn slider(id: Id, rect: Rect) -> Control {

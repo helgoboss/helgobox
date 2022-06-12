@@ -30,15 +30,15 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ) + ES_MULTILINE
             + ES_AUTOHSCROLL,
         // Control/feedback checkboxes
-        checkbox(
+        context.checkbox(
             "=> Control",
-            context.named_id("ID_MAPPING_CONTROL_ENABLED_CHECK_BOX"),
-            context.rect(col_1_x + 325, line_1_y + 3, 50, 8),
+            "ID_MAPPING_CONTROL_ENABLED_CHECK_BOX",
+            rect(col_1_x + 325, line_1_y + 3, 50, 8),
         ) + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "<= Feedback",
-            context.named_id("ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX"),
-            context.rect(col_1_x + 376, line_1_y + 3, 56, 8),
+            "ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX",
+            rect(col_1_x + 376, line_1_y + 3, 56, 8),
         ) + WS_TABSTOP,
         // Conditional activation
         ltext(
@@ -61,10 +61,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.rect(col_1_x + 177, line_2_y, 90, 15),
         ) + WS_VSCROLL
             + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "",
-            context.named_id("ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX"),
-            context.rect(col_1_x + 271, line_2_y + 2, 11, 8),
+            "ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX",
+            rect(col_1_x + 271, line_2_y + 2, 11, 8),
         ) + WS_TABSTOP,
         // Conditional activation criteria 2
         ltext(
@@ -77,10 +77,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.rect(col_1_x + 325, line_2_y, 90, 15),
         ) + WS_VSCROLL
             + WS_TABSTOP,
-        checkbox(
+        context.checkbox(
             "",
-            context.named_id("ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX"),
-            context.rect(col_1_x + 419, line_2_y + 2, 11, 8),
+            "ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX",
+            rect(col_1_x + 419, line_2_y + 2, 11, 8),
         ) + WS_TABSTOP,
         ltext(
             "EEL (e.g. y = p1 > 0)",

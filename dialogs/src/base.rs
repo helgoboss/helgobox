@@ -203,7 +203,7 @@ impl<'a> Display for DialogScalingAsRustCode<'a> {
 }
 
 pub struct ScopedContext<'a> {
-    context: &'a mut Context,
+    pub(crate) context: &'a mut Context,
     scope: Option<Scope>,
 }
 
@@ -259,6 +259,10 @@ impl Scope {
 #[derive(Copy, Clone)]
 pub struct OsSpecificSettings {
     pub scaling: DialogScaling,
+}
+
+pub fn rect(x: u32, y: u32, width: u32, height: u32) -> Rect {
+    Rect::new(x, y, width, height)
 }
 
 impl<'a> ScopedContext<'a> {

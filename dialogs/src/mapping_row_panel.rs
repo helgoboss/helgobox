@@ -10,11 +10,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_MAPPING_ROW_MAPPING_LABEL"),
             context.rect(14, 3, 225, 9),
         ) + NOT_WS_GROUP,
-        checkbox(
-            "",
-            context.named_id("IDC_MAPPING_ROW_ENABLED_CHECK_BOX"),
-            context.rect(2, 2, 10, 10),
-        ) + WS_GROUP,
+        context.checkbox("", "IDC_MAPPING_ROW_ENABLED_CHECK_BOX", rect(2, 2, 10, 10)) + WS_GROUP,
         // Mapping actions
         pushbutton(
             "Edit",
@@ -43,15 +39,15 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.rect(394, 28, 53, 14),
         ) + NOT_WS_TABSTOP,
         // Control/feedback checkboxes
-        checkbox(
+        context.checkbox(
             "=>",
-            context.named_id("ID_MAPPING_ROW_CONTROL_CHECK_BOX"),
-            context.rect(138, 15, 24, 8),
+            "ID_MAPPING_ROW_CONTROL_CHECK_BOX",
+            rect(138, 15, 24, 8),
         ),
-        checkbox(
+        context.checkbox(
             "<=",
-            context.named_id("ID_MAPPING_ROW_FEEDBACK_CHECK_BOX"),
-            context.rect(138, 30, 24, 8),
+            "ID_MAPPING_ROW_FEEDBACK_CHECK_BOX",
+            rect(138, 30, 24, 8),
         ),
         // Source and target labels
         ctext(
