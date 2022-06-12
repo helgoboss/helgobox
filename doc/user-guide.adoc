@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-05-13 (v2.13.0-pre.4)`
+|Last update of text: |`2022-06-12 (v2.13.0-pre.6)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -791,56 +791,43 @@ Perfect for preset authors: Parameter settings are saved together with the compa
 Reason: You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>. If you do that and later change the value count, these value references will not be valid anymore. They will point to other integers than you intended to. So if you are not sure, better pick a large value count and stick to it!
 ====
 
+[#logging]
+====== Logging
+
+* **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+ investigating bugs or understanding how this plug-in works.
+* ** Log real control messages:** When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
+** Timestamp in seconds
+** ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
+ restart)
+** Message purpose
+*** *Real control:* A message used for controlling targets.
+*** *Real learn:* A message used for learning a source.
+** Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as
+ decimal byte sequence and decoded)
+** Match result
+*** *unmatched:* The message didn't match any mappings.
+*** *matched:* The message matched at least one of the mappings.
+*** *consumed:* Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
+ there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
+ processed. The complete (N)RPN or 14-bit CC message will be.
+* **Log virtual control messages:** When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
+* **Log target control:** When enabled, all target invocations (parameter changes etc.) will be logged.
+* **Log virtual feedback messages:** When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
+* **Log real feedback messages:** When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log entries look similar to the ones described above, with the following notable differences.
+** Message purpose
+*** *Feedback output:* A message sent to your controller as response to target value changes.
+*** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation
+(see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
+*** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
+<<osc-send-message,OSC: Send message>> target.
+
 ====== Send feedback now
 
 Usually ReaLearn sends feedback whenever something changed to keep the LEDs
- or motorized faders of your controller in sync with REAPER at all times. There might be situations
- where it doesn't work though. In this case you can send feedback manually using this button.
+or motorized faders of your controller in sync with REAPER at all times. There might be situations
+where it doesn't work though. In this case you can send feedback manually using this button.
 
-====== Log debug info
-
-Logs some information about ReaLearn's internal state. Can be interesting for
- investigating bugs or understanding how this plug-in works.
-
-
-[#log-incoming-messages]
-====== Log incoming real messages
-
-When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
-
-* Timestamp in seconds
-* ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
- restart)
-* Message purpose
-** *Control input:* A message used for controlling targets.
-** *Learn input:* A message used for learning a source.
-* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as
- decimal byte sequence and decoded)
-* Match result
-** *unmatched:* The message didn't match any mappings.
-** *matched:* The message matched at least one of the mappings.
-** *consumed:* Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
- there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
- processed. The complete (N)RPN or 14-bit CC message will be.
-
-[#log-outgoing-messages]
-====== Log incoming virtual messages
-
-When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
-
-====== Log outgoing real messages
-
-When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log entries look similar to the ones described above, with the following notable differences.
-* Message purpose
-** *Feedback output:* A message sent to your controller as response to target value changes.
-** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation
- (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
-** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
- <<osc-send-message,OSC: Send message>> target.
-
-====== Log outgoing virtual messages
-
-When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
 
 [#bottom-panel]
 ==== Bottom panel
@@ -1506,7 +1493,7 @@ If you enter this and ReaLearn receives this system-exclusive message from the c
 
 Remarks:
 
-- You can check if the correct feedback messages are sent to the device by <<log-outgoing-messages,logging outgoing messages>>.
+- You can check if the correct feedback messages are sent to the device by <<logging,logging feedback messages>>.
 - Each byte is written using 2 hexadecimal digits.
 - Spaces between the bytes can be omitted.
 - You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones. If you do this, it will work as expected for the _feedback_ direction. Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
@@ -1706,6 +1693,7 @@ This is a feedback-only source used to display text on MIDI-controllable hardwar
 
 * *Protocol:* Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
 ** *Mackie LCD:* Use this for MCU-compatible LCDs. Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
+** *Mackie XT LCD:* Use this to control the displays of MCU XT devices (= control surface extenders, which provide additional faders and displays).
 ** *Mackie 7-segment display:* Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits). There's usually one small assignment display and a larger one for showing the time code.
 ** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
 * *Display:* Choose the particular display or display portion to which you want to send text.
@@ -2825,6 +2813,13 @@ Please note:
 
 TIP: This target is great for switching between completely different controller setups!
 
+[#realearn-dummy-target]
+====== Realearn: Dummy target
+
+This target simply does nothing when invoked and also doesn't provide any feedback.
+
+It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>. Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message.
+
 [#realearn-enable-disable-mappings]
 ====== Realearn: Enable/disable mappings
 
@@ -2973,7 +2968,7 @@ Lets you control not just _this_ mapping but also _all other mappings in the sam
  group_. Very powerful feature!
 
 TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick
- a target that doesn't have any effect, for example an unused internal ReaLearn compartment parameter
+ a target that doesn't have any effect, for example the <<realearn-dummy-target>> or an unused internal ReaLearn compartment parameter
  (target <<fx-set-parameter-value>> with FX set to `<This>`).
 
 * *None:* Switches group interaction off. This is the default. Incoming control events will just affect _this_
@@ -3199,6 +3194,7 @@ This converts incoming absolute fader/knob movements into relative adjustments o
 - It's guaranteed that a full fader/knob swipe from 0% to 100% always results in a swipe over the full target range (assuming the target was at 0% initially).
 - It doesn't need to know the current target value. Which means it also works for mappings with <<virtual-target,virtual targets>>.
 
+[#performance-control]
 ====== Performance control
 
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
@@ -3290,8 +3286,39 @@ y_last
 |
 This contains the last value of the target before it was affected by this particular mapping.
 
-Allows you to come up with a performance control mode typical for synth parameter mappings. Try this
+Allows you to come up with a performance control mode typical for synth parameter mappings, just like the built-in <<performance-control>> mode but more customizable. Try this
 for example: `y = y_last + x * (1 - y_last)`
+
+|
+rel_time
+a|
+This contains the number of milliseconds since this mapping has last been triggered with a control message coming from the source.
+
+As soon as you use this and a control message comes in, ReaLearn will start invoking your formula _repeatedly_! That means, this variable is your entrance ticket to smooth transitions and continuous parameter modulation.
+
+A few examples:
+
+* Smooth transition from current value to control value: `rel_time; y = abs(x - y) < 0.05 ? stop : y + 0.1 * (x - y)`
+* Sinus LFO: `y = (sin(rel_time / 500) + 1) / 2`
+* Linear transition to control value (1 second): `y = abs(x - y) < 0.05 ? stop : x * min(rel_time / 500, 1)`
+* 2 seconds chaos: `y = rel_time < 2000 ? rand(1) : stop`
+
+|
+stop
+|
+
+In combination with `rel_time`, this stops repeated invocation of the formula until the mapping is triggered again.
+
+Good for building transitions with a defined end.
+
+Stopping the invocation at some point is also important if the same parameter should be controlled by other mappings as well. Otherwise, if multiple mappings continuously change the target parameter, only the last one wins.
+
+|
+none
+|
+Usually, each repeated (see `rel_time`) invocation always results in a target invocation (unless the target is not retriggerable and already has the desired value). Sometimes this is not desired. In this case, one can return `none`, in which case the target will not be touched.
+
+Good for transitions that are not continuous, especially if other mappings want to control the parameter as well from time to time.
 |===
 
 
