@@ -5,7 +5,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
     use Condition::*;
     use Style::*;
     let mapping_controls = [
-        groupbox("Mapping", context.id(), context.rect(7, 1, 435, 66)),
+        groupbox("Mapping", context.id(), context.rect(7, 1, 435, 67)),
         ltext("Feedback", context.id(), context.rect(11, 53, 34, 9)) + NOT_WS_GROUP,
         combobox(
             context.named_id("ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX"),
@@ -332,11 +332,11 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         pushbutton(
             "bpm (bpm)",
             context.named_id("ID_TARGET_UNIT_BUTTON"),
-            context.rect(396, 213, 43, 14),
+            context.rect(393, 213, 40, 14),
         ),
     ];
     let glue_controls = [
-        groupbox("Glue", context.id(), context.rect(7, 233, 435, 238)),
+        groupbox("Glue", context.id(), context.rect(7, 232, 435, 239)),
         pushbutton(
             "Reset to defaults",
             context.named_id("ID_SETTINGS_RESET_BUTTON"),
