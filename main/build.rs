@@ -7,15 +7,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     built::write_built_file().expect("Failed to acquire build-time information");
 
     // Generate GUI dialog files (rc file and C header)
-    let bindings_file = "src/infrastructure/ui/bindings.rs";
-    let generated_dir = PathBuf::from("../target/generated");
-    let dialog_rc_file = generated_dir.join("msvc.rc");
-    fs::create_dir_all(&generated_dir)?;
-    realearn_dialogs::generate_dialog_files(&generated_dir, bindings_file);
-
-    // On macOS and Linux, generate SWELL dialogs (needs PHP)
-    #[cfg(target_family = "unix")]
-    generate_dialogs(&dialog_rc_file);
+    generate_gui_dialogs();
 
     // Optionally generate bindings (e.g. from Cockos EEL)
     #[cfg(feature = "generate")]
@@ -31,6 +23,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     compile_eel();
 
     Ok(())
+}
+
+fn generate_gui_dialogs() {
+    let bindings_file = "src/infrastructure/ui/bindings.rs";
+    let generated_dir = PathBuf::from("../target/generated");
+    let dialog_rc_file = generated_dir.join("msvc.rc");
+    fs::create_dir_all(&generated_dir)?;
+    realearn_dialogs::generate_dialog_files(&generated_dir, bindings_file);
+
+    // On macOS and Linux, try to generate SWELL dialogs (needs PHP)
+    #[cfg(target_family = "unix")]
+    if let Err(e) = generate_dialogs(&dialog_rc_file) {
+        println!("cargo:warning={}", e);
+    }
 }
 
 fn compile_eel() {
@@ -155,17 +161,24 @@ mod codegen {
 
 /// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
 /// (too obscure to be ported to Rust).
+///
+/// # Errors
+///
+/// Returns an error if PHP is not installed.
 #[cfg(target_family = "unix")]
-pub fn generate_dialogs(rc_file: impl AsRef<Path>) {
+pub fn generate_dialogs(rc_file: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
     // Use PHP to translate SWELL-compatible RC file to C++
     let result = std::process::Command::new("php")
         .arg("lib/WDL/WDL/swell/swell_resgen.php")
         .arg(rc_file.as_ref())
         .output()
-        .expect("PHP dialog translator result not available, probably PHP not installed");
+        .map_err(|_| {
+            "PHP not available, is necessary on macOS and Linux to generate GUI dialogs"
+        })?;
     if !result.status.success() {
-        panic!("PHP dialog generation failed (PHP available but generator failed)".into());
+        panic!("PHP dialog generation failed (PHP available but script failed)");
     }
+    Ok(())
 }
 
 mod util {
