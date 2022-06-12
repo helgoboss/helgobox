@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     built::write_built_file().expect("Failed to acquire build-time information");
 
     // Generate GUI dialog files (rc file and C header)
-    generate_gui_dialogs();
+    generate_gui_dialogs()?;
 
     // Optionally generate bindings (e.g. from Cockos EEL)
     #[cfg(feature = "generate")]
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn generate_gui_dialogs() {
+fn generate_gui_dialogs() -> Result<(), Box<dyn Error>> {
     let bindings_file = "src/infrastructure/ui/bindings.rs";
     let generated_dir = PathBuf::from("../target/generated");
     let dialog_rc_file = generated_dir.join("msvc.rc");
@@ -37,6 +37,7 @@ fn generate_gui_dialogs() {
     if let Err(e) = generate_dialogs(&dialog_rc_file) {
         println!("cargo:warning={}", e);
     }
+    Ok(())
 }
 
 fn compile_eel() {

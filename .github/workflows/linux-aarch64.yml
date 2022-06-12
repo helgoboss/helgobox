@@ -31,6 +31,10 @@ jobs:
           target: aarch64-unknown-linux-gnu
           override: true
       - run: rustup component add rustfmt
+      - name: cargo test (for generating dialogs with php)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
