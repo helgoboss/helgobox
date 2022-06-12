@@ -89,6 +89,12 @@ jobs:
       - name: Set MACOSX_DEPLOYMENT_TARGET
         if: matrix.target == 'aarch64-apple-darwin'
         run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
+      # Generate dialogs outside of Docker containers in cross builds because PHP is not available in container
+      - name: cargo test (for generating dialogs with php)
+        if: matrix.use-cross == true
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
       # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
