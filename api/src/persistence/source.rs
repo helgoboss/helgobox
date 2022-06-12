@@ -262,6 +262,8 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct MackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub extender_index: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub line: Option<u8>,

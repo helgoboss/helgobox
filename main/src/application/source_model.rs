@@ -663,6 +663,11 @@ impl SourceModel {
         match self.display_type {
             MackieLcd => DisplaySpec::MackieLcd {
                 scope: self.mackie_lcd_scope(),
+                extender_index: 0,
+            },
+            MackieXtLcd => DisplaySpec::MackieLcd {
+                scope: self.mackie_lcd_scope(),
+                extender_index: 1,
             },
             MackieSevenSegmentDisplay => DisplaySpec::MackieSevenSegmentDisplay {
                 scope: self.mackie_7_segment_display_scope(),

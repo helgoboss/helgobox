@@ -49,7 +49,20 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         display_type: match &s {
-            MackieLcd(_) => DisplayType::MackieLcd,
+            MackieLcd(s) => {
+                let extender_index = s
+                    .extender_index
+                    .unwrap_or(defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX);
+                match extender_index {
+                    0 => DisplayType::MackieLcd,
+                    1 => DisplayType::MackieXtLcd,
+                    _ => {
+                        return Err(
+                            "at the moment, only extender indexes 0 and 1 are supported".into()
+                        )
+                    }
+                }
+            }
             MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
             SiniConE24Display(_) => DisplayType::SiniConE24,
             LaunchpadProScrollingTextDisplay(_) => DisplayType::LaunchpadProScrollingText,

@@ -693,6 +693,7 @@ fn create_mackie_lcd_mapping(
     line: u8,
 ) -> Mapping {
     let source = Source::MackieLcd(MackieLcdSource {
+        extender_index: None,
         channel: Some(index),
         line: Some(line),
     });

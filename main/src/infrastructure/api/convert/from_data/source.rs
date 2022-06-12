@@ -135,6 +135,21 @@ pub fn convert_source(
                     match data.display_type {
                         MackieLcd => {
                             let s = persistence::MackieLcdSource {
+                                extender_index: style.required_value_with_default(
+                                    0,
+                                    defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX,
+                                ),
+                                channel: data.display_id,
+                                line: data.line,
+                            };
+                            persistence::Source::MackieLcd(s)
+                        }
+                        MackieXtLcd => {
+                            let s = persistence::MackieLcdSource {
+                                extender_index: style.required_value_with_default(
+                                    1,
+                                    defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX,
+                                ),
                                 channel: data.display_id,
                                 line: data.line,
                             };
