@@ -134,6 +134,9 @@ cd Downloads
 git clone --recurse-submodules https://github.com/helgoboss/realearn.git
 cd realearn
 
+# Install build dependencies
+brew install php
+
 # Build ReaLearn
 cargo build
 ----

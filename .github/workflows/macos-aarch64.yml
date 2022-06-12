@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+      - run: brew install php
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
