@@ -40,7 +40,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext("Category", context.id(), context.rect(11, 98, 29, 9)) + NOT_WS_GROUP,
         dropdown(
             context.named_id("ID_SOURCE_CATEGORY_COMBO_BOX"),
-            context.rect(48, 96, 120, 15),
+            context.rect(48, 96, 124, 15),
         ) + WS_TABSTOP,
         ltext(
             "Type",
@@ -303,7 +303,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Value",
             context.named_id("ID_TARGET_VALUE_LABEL_TEXT"),
-            context.rect(182, 216, 19, 9),
+            context.rect(182, 216, 20, 9),
         ) + NOT_WS_GROUP,
         pushbutton(
             "Off",
@@ -345,7 +345,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Source",
             context.named_id("ID_SETTINGS_SOURCE_LABEL"),
-            context.rect(15, 281, 23, 9),
+            context.rect(15, 281, 24, 9),
         ) + NOT_WS_GROUP,
         groupbox(
             "Source",
@@ -356,7 +356,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_SOURCE_MIN_LABEL"),
-            context.rect(41, 273, 14, 9),
+            context.rect(41, 273, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL"),
@@ -369,7 +369,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Max",
             context.named_id("ID_SETTINGS_SOURCE_MAX_LABEL"),
-            context.rect(41, 291, 14, 9),
+            context.rect(41, 291, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL"),
@@ -400,7 +400,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Target",
             context.named_id("ID_SETTINGS_TARGET_LABEL_TEXT"),
-            context.rect(231, 281, 21, 9),
+            context.rect(231, 281, 22, 9),
         ) + NOT_WS_GROUP,
         ltext(
             "Value sequence",
@@ -419,7 +419,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_LABEL_TEXT"),
-            context.rect(257, 273, 14, 9),
+            context.rect(257, 273, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL"),
@@ -438,7 +438,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Max",
             context.named_id("ID_SETTINGS_MAX_TARGET_LABEL_TEXT"),
-            context.rect(257, 291, 14, 9),
+            context.rect(257, 291, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL"),
@@ -481,7 +481,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Mode",
             context.named_id("ID_SETTINGS_MODE_LABEL"),
-            context.rect(15, 357, 19, 9),
+            context.rect(15, 357, 20, 9),
         ) + NOT_WS_GROUP,
         dropdown(
             context.named_id("ID_SETTINGS_MODE_COMBO_BOX"),
@@ -500,7 +500,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
-            context.rect(41, 374, 14, 9),
+            context.rect(41, 374, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL"),
@@ -519,7 +519,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Max",
             context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT"),
-            context.rect(41, 392, 14, 9),
+            context.rect(41, 392, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL"),
@@ -576,7 +576,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Min",
             context.named_id("ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT"),
-            context.rect(266, 358, 14, 9),
+            context.rect(266, 358, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL"),
@@ -595,7 +595,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ltext(
             "Max",
             context.named_id("ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT"),
-            context.rect(266, 376, 14, 9),
+            context.rect(266, 376, 15, 9),
         ) + NOT_WS_GROUP,
         slider(
             context.named_id("ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL"),
