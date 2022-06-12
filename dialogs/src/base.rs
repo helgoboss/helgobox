@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, clippy::upper_case_acronyms)]
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -42,11 +42,11 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         // Write scaling information
         ScopeAsRustCode::new("GLOBAL", &self.0.global_scope).fmt(f)?;
         for (key, scope) in self.0.scopes.iter() {
-            ScopeAsRustCode::new(key, &scope).fmt(f)?;
+            ScopeAsRustCode::new(key, scope).fmt(f)?;
         }
         // Write resource IDs
         for id in &self.0.named_ids {
-            if self.0.conditional_control_ids.contains(&id) {
+            if self.0.conditional_control_ids.contains(id) {
                 f.write_str("    #[allow(dead_code)]\n")?;
             }
             writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
@@ -65,7 +65,7 @@ pub struct Resource {
 impl Resource {
     pub fn generate_info(&self, context: &Context) -> ResourceInfo {
         ResourceInfo {
-            global_scope: context.global_scope.clone(),
+            global_scope: context.global_scope,
             scopes: context.scopes.clone(),
             conditional_control_ids: self.conditional_control_ids().collect(),
             named_ids: self.named_ids().collect(),
@@ -305,7 +305,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn global<'a>(&'a mut self) -> ScopedContext<'a> {
+    pub fn global(&mut self) -> ScopedContext {
         ScopedContext {
             context: self,
             scope: None,
@@ -313,7 +313,7 @@ impl Context {
     }
 
     pub fn scoped<'a>(&'a mut self, scope: &'a str) -> ScopedContext<'a> {
-        let scope = self.scopes.get(scope).expect("scope not found").clone();
+        let scope = *self.scopes.get(scope).expect("scope not found");
         ScopedContext {
             context: self,
             scope: Some(scope),
@@ -417,7 +417,7 @@ impl<D: Display> Display for LineBreaksEscaped<D> {
         self.0
             .to_string()
             .replace("\r\n", "\\r\\n")
-            .replace("\n", "\\r\\n")
+            .replace('\n', "\\r\\n")
             .fmt(f)
     }
 }
