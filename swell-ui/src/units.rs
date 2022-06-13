@@ -47,7 +47,7 @@ impl<T> Point<T> {
     }
 }
 
-/// These factors should correspond to those in `dialogs.cpp` and should - if possible - left
+/// These factors should correspond to those in `dialogs.cpp` and should - if possible - remain
 /// at 1.0 because we can do OS-specific scaling now in the `dialogs` crate - right when
 /// generating the RC file. The scale factors used there propagate everywhere.
 fn effective_scale_factors() -> ScaleFactors {
@@ -56,7 +56,7 @@ fn effective_scale_factors() -> ScaleFactors {
         let scaling_256 = reaper_low::Swell::get().SWELL_GetScaling256();
         let hidpi_factor = scaling_256 as f64 / 256.0;
         ScaleFactors {
-            main: 1.9 * hidpi_factor,
+            main: 1.0 * hidpi_factor,
             y: 1.0,
         }
     }

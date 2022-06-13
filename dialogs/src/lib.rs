@@ -38,8 +38,17 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     };
     let global_scope = {
         Scope {
-            linux: OsSpecificSettings {
-                scaling: default_scaling,
+            linux: {
+                let horizontal_scale = 1.9;
+                let vertical_scale = 1.9;
+                OsSpecificSettings {
+                    scaling: DialogScaling {
+                        x_scale: horizontal_scale,
+                        y_scale: vertical_scale,
+                        width_scale: horizontal_scale,
+                        height_scale: vertical_scale,
+                    },
+                }
             },
             windows: OsSpecificSettings {
                 scaling: default_scaling,
