@@ -1,3 +1,4 @@
+use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue};
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
@@ -15,6 +16,13 @@ pub enum ReaperSource {
     MidiDeviceChanges,
     RealearnInstanceStart,
     Timer(TimerSource),
+    RealearnParameter(RealearnParameterSource),
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct RealearnParameterSource {
+    pub compartment: Compartment,
+    pub parameter_index: CompartmentParamIndex,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -75,6 +83,12 @@ impl ReaperSource {
             MidiDeviceChanges => vec![DetailedSourceCharacter::MomentaryOnOffButton],
             RealearnInstanceStart => vec![DetailedSourceCharacter::MomentaryOnOffButton],
             Timer(_) => vec![DetailedSourceCharacter::PressOnlyButton],
+            RealearnParameter(_) => vec![
+                DetailedSourceCharacter::RangeControl,
+                DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
+                DetailedSourceCharacter::MomentaryOnOffButton,
+                DetailedSourceCharacter::PressOnlyButton,
+            ],
         }
     }
 
@@ -88,7 +102,13 @@ impl ReaperSource {
     }
 
     pub fn character(&self) -> SourceCharacter {
-        SourceCharacter::MomentaryButton
+        use ReaperSource::*;
+        match self {
+            MidiDeviceChanges | RealearnInstanceStart | Timer(_) => {
+                SourceCharacter::MomentaryButton
+            }
+            RealearnParameter(_) => SourceCharacter::RangeElement,
+        }
     }
 
     pub fn poll(&mut self) -> Option<ControlValue> {
@@ -116,6 +136,14 @@ impl ReaperSource {
                 }
                 _ => return None,
             },
+            RealearnParameterChange(c) => match self {
+                ReaperSource::RealearnParameter(s)
+                    if c.compartment == s.compartment && c.parameter_index == s.parameter_index =>
+                {
+                    ControlValue::AbsoluteContinuous(UnitValue::new_clamped(c.value as f64))
+                }
+                _ => return None,
+            },
         };
         Some(control_value)
     }
@@ -128,6 +156,24 @@ pub enum ReaperMessage {
     #[display(fmt = "MidiDevicesDisconnected ({})", _0)]
     MidiDevicesDisconnected(MidiDeviceChangePayload),
     RealearnInstanceStarted,
+    RealearnParameterChange(RealearnParameterChangePayload),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct RealearnParameterChangePayload {
+    pub compartment: Compartment,
+    pub parameter_index: CompartmentParamIndex,
+    pub value: RawParamValue,
+}
+
+impl Display for RealearnParameterChangePayload {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Parameter {} with value {}",
+            self.parameter_index, self.value
+        )
+    }
 }
 
 #[derive(PartialEq, Debug)]

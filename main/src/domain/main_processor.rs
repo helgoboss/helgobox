@@ -13,16 +13,16 @@ use crate::domain::{
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
     ProcessorContext, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
     RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload, ReaperMessage,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
+    AbsoluteValue, AbstractTimestamp, ControlValue, GroupInteraction, MidiSourceValue,
+    MinIsMaxBehavior, ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -930,6 +930,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // In order to avoid a mutable borrow of mappings and an immutable borrow of
         // parameters at the same time, we need to separate into READ activation
         // effects and WRITE activation updates.
+        // TODO-low This seems wrong, having a more experienced look at it. The issue was only
+        //  that we couldn't borrow the whole "self", but we can safely borrow a
+        //  part of it. So we might be able to rewrite this actually.
         // 1. Mapping activation: Read
         let activation_effects: Vec<MappingActivationEffect> = self
             .all_mappings_in_compartment(compartment)
@@ -1003,7 +1006,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             target_updates,
             unused_sources,
             changed_mappings.into_iter(),
-        )
+        );
+        // Control ("ReaLearn parameter source")
+        let control_payload = RealearnParameterChangePayload {
+            compartment,
+            parameter_index: compartment.to_compartment_param_index(index),
+            value,
+        };
+        let control_msg = ReaperMessage::RealearnParameterChange(control_payload);
+        if self.basics.settings.real_input_logging_enabled {
+            self.log_incoming_message(&control_msg);
+        }
+        let control_event = ControlEvent::new(
+            MainSourceMessage::Reaper(&control_msg),
+            ControlEventTimestamp::now(),
+        );
+        self.process_incoming_message_internal(control_event);
     }
 
     fn update_all_params(&mut self, params: PluginParams) {

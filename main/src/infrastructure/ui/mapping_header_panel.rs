@@ -1,5 +1,7 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv, symbols};
+use crate::infrastructure::ui::util::{
+    compartment_parameter_dropdown_contents, format_tags_as_csv, parse_tags_from_csv, symbols,
+};
 
 use enum_iterator::IntoEnumIterator;
 use std::cell::{Cell, RefCell};
@@ -12,7 +14,7 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, Tag};
+use crate::domain::{Compartment, CompartmentParamIndex, Tag};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -609,13 +611,7 @@ impl MappingHeaderPanel {
         let session = self.session();
         let session = session.borrow();
         b.fill_combo_box_with_data_small(start.into_iter().chain(
-            compartment_param_index_iter().map(|i| {
-                let param_name = session
-                    .params()
-                    .compartment_params(compartment)
-                    .get_parameter_name(i);
-                (i.get() as isize, format!("{}. {}", i.get() + 1, param_name))
-            }),
+            compartment_parameter_dropdown_contents(&session, compartment),
         ));
     }
 

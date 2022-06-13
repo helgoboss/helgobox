@@ -62,7 +62,8 @@ use crate::domain::{
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
-    format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    compartment_parameter_dropdown_contents, format_tags_as_csv, open_in_browser,
+    parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
@@ -290,6 +291,9 @@ impl MappingPanel {
                                             P::OscAddressPattern |
                                             P::RawMidiPattern | P::TimerMillis => {
                                                 view.invalidate_source_line_3_edit_control(initiator);
+                                            }
+                                            P::ParameterIndex => {
+                                                view.invalidate_source_line_3_combo_box_1()
                                             }
                                             P::MidiScriptKind => {
                                                 view.invalidate_source_line_3(initiator);
@@ -1303,6 +1307,17 @@ impl<'a> MutableMappingPanel<'a> {
                     )));
                 }
                 _ => {}
+            },
+            Reaper => match self.mapping.source_model.reaper_source_type() {
+                ReaperSourceType::RealearnParameter => {
+                    let index = b.selected_combo_box_item_index() as u32;
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetParameterIndex(
+                            index.try_into().expect("invalid param index"),
+                        ),
+                    ));
+                }
+                _ => b.hide(),
             },
             _ => {}
         };
@@ -3193,6 +3208,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc => Some("Address"),
             Reaper => match self.source.reaper_source_type() {
                 ReaperSourceType::Timer => Some("Millis"),
+                ReaperSourceType::RealearnParameter => Some("Param"),
                 _ => None,
             },
             Keyboard => Some("Keystroke"),
@@ -3227,6 +3243,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::Script => {
                     b.fill_combo_box_indexed(MidiScriptKind::into_enum_iter());
+                    b.show();
                     b.select_combo_box_item_by_index(self.source.midi_script_kind().into())
                         .unwrap();
                 }
@@ -3244,6 +3261,19 @@ impl<'a> ImmutableMappingPanel<'a> {
                             b.select_combo_box_item_by_data(ch.get() as _).unwrap();
                         }
                     };
+                }
+                _ => b.hide(),
+            },
+            Reaper => match self.source.reaper_source_type() {
+                ReaperSourceType::RealearnParameter => {
+                    let contents = compartment_parameter_dropdown_contents(
+                        self.session,
+                        self.mapping.compartment(),
+                    );
+                    b.fill_combo_box_with_data_small(contents);
+                    b.show();
+                    b.select_combo_box_item_by_index(self.source.parameter_index().get() as usize)
+                        .unwrap();
                 }
                 _ => b.hide(),
             },

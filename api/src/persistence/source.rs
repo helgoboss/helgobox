@@ -17,6 +17,7 @@ pub enum Source {
     MidiDeviceChanges(MidiDeviceChangesSource),
     RealearnInstanceStart(RealearnInstanceStartSource),
     Timer(TimerSource),
+    RealearnParameter(RealearnParameterSource),
     // MIDI
     MidiNoteVelocity(MidiNoteVelocitySource),
     MidiNoteKeyNumber(MidiNoteKeyNumberSource),
@@ -334,6 +335,12 @@ mod reaper {
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct RealearnInstanceStartSource;
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct RealearnParameterSource {
+        pub parameter_index: u32,
+    }
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]

@@ -2,10 +2,10 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
 use crate::domain::{
-    BackboneState, Compartment, CompoundMappingSource, EelMidiSourceScript,
+    BackboneState, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
-    MidiSource, ReaperSource, TimerSource, VirtualControlElement, VirtualControlElementId,
-    VirtualSource, VirtualTarget,
+    MidiSource, RealearnParameterSource, ReaperSource, TimerSource, VirtualControlElement,
+    VirtualControlElementId, VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -50,6 +50,7 @@ pub enum SourceCommand {
     SetOscFeedbackArgs(Vec<String>),
     SetReaperSourceType(ReaperSourceType),
     SetTimerMillis(u64),
+    SetParameterIndex(CompartmentParamIndex),
     SetKeystroke(Option<Keystroke>),
     SetControlElementType(VirtualControlElementType),
     SetControlElementId(VirtualControlElementId),
@@ -82,6 +83,7 @@ pub enum SourceProp {
     ControlElementType,
     ControlElementId,
     TimerMillis,
+    ParameterIndex,
     Keystroke,
 }
 
@@ -201,6 +203,10 @@ impl<'a> Change<'a> for SourceModel {
                 self.timer_millis = v;
                 One(P::TimerMillis)
             }
+            C::SetParameterIndex(v) => {
+                self.parameter_index = v;
+                One(P::ParameterIndex)
+            }
             C::SetKeystroke(v) => {
                 self.keystroke = v;
                 One(P::Keystroke)
@@ -213,13 +219,14 @@ impl<'a> Change<'a> for SourceModel {
 /// A model for creating sources
 #[derive(Clone, Debug)]
 pub struct SourceModel {
+    compartment: Compartment,
     category: SourceCategory,
+    custom_character: SourceCharacter,
     // MIDI
     midi_source_type: MidiSourceType,
     channel: Option<Channel>,
     midi_message_number: Option<U7>,
     parameter_number_message_number: Option<U14>,
-    custom_character: SourceCharacter,
     midi_clock_transport_message: MidiClockTransportMessage,
     is_registered: Option<bool>,
     is_14_bit: Option<bool>,
@@ -239,6 +246,7 @@ pub struct SourceModel {
     // REAPER
     reaper_source_type: ReaperSourceType,
     timer_millis: u64,
+    parameter_index: CompartmentParamIndex,
     // Key
     keystroke: Option<Keystroke>,
     // Virtual
@@ -246,9 +254,10 @@ pub struct SourceModel {
     control_element_id: VirtualControlElementId,
 }
 
-impl Default for SourceModel {
-    fn default() -> Self {
+impl SourceModel {
+    pub fn new(compartment: Compartment) -> Self {
         Self {
+            compartment,
             category: SourceCategory::Never,
             midi_source_type: Default::default(),
             control_element_type: Default::default(),
@@ -274,12 +283,11 @@ impl Default for SourceModel {
             osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
             timer_millis: Default::default(),
+            parameter_index: Default::default(),
             keystroke: None,
         }
     }
-}
 
-impl SourceModel {
     pub fn category(&self) -> SourceCategory {
         self.category
     }
@@ -370,6 +378,10 @@ impl SourceModel {
 
     pub fn reaper_source_type(&self) -> ReaperSourceType {
         self.reaper_source_type
+    }
+
+    pub fn parameter_index(&self) -> CompartmentParamIndex {
+        self.parameter_index
     }
 
     pub fn timer_millis(&self) -> u64 {
@@ -641,6 +653,9 @@ impl SourceModel {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
                     RealearnInstanceStart => ReaperSource::RealearnInstanceStart,
                     Timer => ReaperSource::Timer(self.create_timer_source()),
+                    RealearnParameter => {
+                        ReaperSource::RealearnParameter(self.create_realearn_parameter_source())
+                    }
                 };
                 CompoundMappingSource::Reaper(reaper_source)
             }
@@ -656,6 +671,13 @@ impl SourceModel {
 
     fn create_timer_source(&self) -> TimerSource {
         TimerSource::new(Duration::from_millis(self.timer_millis))
+    }
+
+    fn create_realearn_parameter_source(&self) -> RealearnParameterSource {
+        RealearnParameterSource {
+            compartment: self.compartment,
+            parameter_index: self.parameter_index,
+        }
     }
 
     fn display_spec(&self) -> DisplaySpec {
@@ -1137,6 +1159,9 @@ pub enum ReaperSourceType {
     #[serde(rename = "timer")]
     #[display(fmt = "Timer")]
     Timer,
+    #[serde(rename = "realearn-parameter")]
+    #[display(fmt = "ReaLearn parameter")]
+    RealearnParameter,
 }
 
 impl Default for ReaperSourceType {
@@ -1152,6 +1177,7 @@ impl ReaperSourceType {
             MidiDeviceChanges => Self::MidiDeviceChanges,
             RealearnInstanceStart => Self::RealearnInstanceStart,
             Timer(_) => Self::Timer,
+            RealearnParameter(_) => Self::RealearnParameter,
         }
     }
 }
@@ -1171,7 +1197,7 @@ mod tests {
     #[test]
     fn create_source() {
         // Given
-        let m = SourceModel::default();
+        let m = SourceModel::new(Compartment::Main);
         // When
         let s = m.create_source();
         // Then
