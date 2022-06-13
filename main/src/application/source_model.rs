@@ -249,7 +249,7 @@ pub struct SourceModel {
 impl Default for SourceModel {
     fn default() -> Self {
         Self {
-            category: SourceCategory::Midi,
+            category: SourceCategory::Never,
             midi_source_type: Default::default(),
             control_element_type: Default::default(),
             control_element_id: Default::default(),

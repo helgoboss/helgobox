@@ -672,7 +672,7 @@ impl Default for TargetModel {
             unit: Default::default(),
             control_element_type: VirtualControlElementType::default(),
             control_element_id: Default::default(),
-            r#type: ReaperTargetType::FxParameterValue,
+            r#type: ReaperTargetType::Dummy,
             action: None,
             action_invocation_type: ActionInvocationType::default(),
             track_type: Default::default(),
