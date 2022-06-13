@@ -160,6 +160,8 @@ metrics = "0.18.0"
 metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 # For parsing OSC argument value ranges
 nom = "7.0.0"
+# For obtaining dialog constants from dialog crate
+realearn-dialogs = { path = "../dialogs" }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

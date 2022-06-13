@@ -1,7 +1,7 @@
 use crate::domain::Tag;
 use crate::infrastructure::ui::bindings::root;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
+use realearn_dialogs::constants;
 use reaper_high::Reaper;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -9,9 +9,31 @@ use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
 pub fn main_panel_dimensions() -> Dimensions<DialogUnits> {
-    static MAIN_PANEL_DIMENSIONS: Lazy<Dimensions<DialogUnits>> =
-        Lazy::new(|| Dimensions::new(DialogUnits(470), DialogUnits(447)).scale(GLOBAL_SCALING));
-    *MAIN_PANEL_DIMENSIONS
+    Dimensions::new(main_panel_width(), main_panel_height())
+}
+
+pub fn main_panel_width() -> DialogUnits {
+    DialogUnits(constants::MAIN_PANEL_WIDTH).scale(GLOBAL_SCALING.width_scale)
+}
+
+pub fn main_panel_height() -> DialogUnits {
+    header_panel_height() + mapping_rows_panel_height() + footer_panel_height()
+}
+
+pub fn header_panel_height() -> DialogUnits {
+    DialogUnits(constants::HEADER_PANEL_HEIGHT).scale(HEADER_PANEL_SCALING.height_scale)
+}
+
+pub fn mapping_row_panel_height() -> DialogUnits {
+    DialogUnits(constants::MAPPING_ROW_PANEL_HEIGHT).scale(GLOBAL_SCALING.height_scale)
+}
+
+pub fn mapping_rows_panel_height() -> DialogUnits {
+    DialogUnits(constants::MAPPING_ROWS_PANEL_HEIGHT).scale(GLOBAL_SCALING.height_scale)
+}
+
+pub fn footer_panel_height() -> DialogUnits {
+    DialogUnits(constants::FOOTER_PANEL_HEIGHT).scale(GLOBAL_SCALING.height_scale)
 }
 
 pub mod symbols {
@@ -218,7 +240,7 @@ fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
     iter.into_iter().join(", ")
 }
 
-pub const GLOBAL_SCALING: DialogScaling = DialogScaling {
+const GLOBAL_SCALING: DialogScaling = DialogScaling {
     x_scale: root::GLOBAL_X_SCALE,
     y_scale: root::GLOBAL_Y_SCALE,
     width_scale: root::GLOBAL_WIDTH_SCALE,
@@ -230,4 +252,11 @@ pub const MAPPING_PANEL_SCALING: DialogScaling = DialogScaling {
     y_scale: root::MAPPING_PANEL_Y_SCALE,
     width_scale: root::MAPPING_PANEL_WIDTH_SCALE,
     height_scale: root::MAPPING_PANEL_HEIGHT_SCALE,
+};
+
+const HEADER_PANEL_SCALING: DialogScaling = DialogScaling {
+    x_scale: root::HEADER_PANEL_X_SCALE,
+    y_scale: root::HEADER_PANEL_Y_SCALE,
+    width_scale: root::HEADER_PANEL_WIDTH_SCALE,
+    height_scale: root::HEADER_PANEL_HEIGHT_SCALE,
 };

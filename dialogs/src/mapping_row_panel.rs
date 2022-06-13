@@ -1,4 +1,5 @@
 use crate::base::*;
+use crate::constants::{MAIN_PANEL_WIDTH, MAPPING_ROW_PANEL_HEIGHT, MAPPING_ROW_PANEL_WIDTH};
 use crate::ext::*;
 
 pub fn create(mut context: ScopedContext) -> Dialog {
@@ -63,7 +64,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         // Divider
         divider(
             context.named_id("ID_MAPPING_ROW_DIVIDER"),
-            context.rect(0, 46, 470, 1),
+            context.rect(0, 46, MAIN_PANEL_WIDTH, 1),
         ),
         // Group label
         rtext(
@@ -93,7 +94,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
     Dialog {
         id: context.named_id("ID_MAPPING_ROW_PANEL"),
         kind: DialogKind::DIALOGEX,
-        rect: context.rect(0, 0, 460, 48),
+        rect: context.rect(0, 0, MAPPING_ROW_PANEL_WIDTH, MAPPING_ROW_PANEL_HEIGHT),
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD]),
         controls: controls.into_iter().collect(),
         ..context.default_dialog()

@@ -1,3 +1,5 @@
+use std::ops::{Add, Mul};
+
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct DialogUnits(pub u32);
@@ -13,6 +15,22 @@ impl DialogUnits {
 
     pub fn scale(&self, scale: f64) -> Self {
         DialogUnits((scale * self.0 as f64).round() as _)
+    }
+}
+
+impl Add for DialogUnits {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Mul<u32> for DialogUnits {
+    type Output = Self;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        Self(self.0 * rhs)
     }
 }
 
@@ -66,7 +84,7 @@ fn effective_scale_factors() -> ScaleFactors {
     }
     #[cfg(target_os = "windows")]
     {
-        ScaleFactors { main: 1.7, y: 1.0 }
+        ScaleFactors { main: 1.0, y: 1.0 }
     }
 }
 

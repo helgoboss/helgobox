@@ -270,22 +270,33 @@ impl<'a> ScopedContext<'a> {
         self.context.default_dialog()
     }
 
+    pub fn scale_width(&self, width: u32) -> u32 {
+        scale(self.scaling().width_scale, width)
+    }
+
+    pub fn scale_height(&self, height: u32) -> u32 {
+        scale(self.scaling().height_scale, height)
+    }
+
     pub fn rect(&self, x: u32, y: u32, width: u32, height: u32) -> Rect {
         self.rect_flexible(Rect::new(x, y, width, height))
     }
 
     pub fn rect_flexible(&self, rect: Rect) -> Rect {
-        let scaling = self
-            .scope
-            .as_ref()
-            .map(|s| s.settings_for_this_os().scaling)
-            .unwrap_or(self.context.global_scope.settings_for_this_os().scaling);
+        let scaling = self.scaling();
         Rect {
             x: scale(scaling.x_scale, rect.x),
             y: scale(scaling.y_scale, rect.y),
             width: scale(scaling.width_scale, rect.width),
             height: scale(scaling.height_scale, rect.height),
         }
+    }
+
+    fn scaling(&self) -> DialogScaling {
+        self.scope
+            .as_ref()
+            .map(|s| s.settings_for_this_os().scaling)
+            .unwrap_or(self.context.global_scope.settings_for_this_os().scaling)
     }
 
     pub fn id(&mut self) -> Id {
@@ -557,7 +568,7 @@ impl Display for Rect {
 }
 
 impl Rect {
-    fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
+    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
         Self {
             x,
             y,
@@ -602,7 +613,7 @@ pub fn ltext(caption: Caption, id: Id, rect: Rect) -> Control {
         id,
         caption: Some(caption),
         kind: ControlKind::LTEXT,
-        rect,
+        rect: fix_text_rect(rect),
         ..Default::default()
     }
 }
@@ -612,7 +623,7 @@ pub fn rtext(caption: Caption, id: Id, rect: Rect) -> Control {
         id,
         caption: Some(caption),
         kind: ControlKind::RTEXT,
-        rect,
+        rect: fix_text_rect(rect),
         ..Default::default()
     }
 }
@@ -622,7 +633,7 @@ pub fn ctext(caption: Caption, id: Id, rect: Rect) -> Control {
         id,
         caption: Some(caption),
         kind: ControlKind::CTEXT,
-        rect,
+        rect: fix_text_rect(rect),
         ..Default::default()
     }
 }
@@ -706,3 +717,13 @@ pub enum Style {
     WS_EX_TOPMOST,
     WS_EX_WINDOWEDGE,
 }
+
+/// Makes sure the effective (already scaled) height of a text is not too low.
+pub fn fix_text_rect(rect: Rect) -> Rect {
+    Rect {
+        height: rect.height.max(MIN_EFFECTIVE_TEXT_HEIGHT),
+        ..rect
+    }
+}
+
+const MIN_EFFECTIVE_TEXT_HEIGHT: u32 = 8;

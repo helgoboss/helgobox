@@ -37,10 +37,10 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             context.named_id("ID_SOURCE_LEARN_BUTTON"),
             context.rect(11, 77, 157, 14),
         ),
-        ltext("Category", context.id(), context.rect(11, 98, 29, 9)) + NOT_WS_GROUP,
+        ltext("Category", context.id(), context.rect(11, 98, 30, 9)) + NOT_WS_GROUP,
         dropdown(
             context.named_id("ID_SOURCE_CATEGORY_COMBO_BOX"),
-            context.rect(48, 96, 124, 15),
+            context.rect(48, 96, 120, 15),
         ) + WS_TABSTOP,
         ltext(
             "Type",

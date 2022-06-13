@@ -38,7 +38,7 @@ impl MappingRowsPanel {
         main_state: SharedMainState,
         position: Point<DialogUnits>,
     ) -> MappingRowsPanel {
-        let row_count = 6;
+        let row_count = realearn_dialogs::constants::MAPPING_ROW_COUNT;
         MappingRowsPanel {
             view: Default::default(),
             rows: (0..row_count)

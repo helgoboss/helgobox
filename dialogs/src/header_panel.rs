@@ -1,4 +1,5 @@
 use crate::base::*;
+use crate::constants::{HEADER_PANEL_HEIGHT, HEADER_PANEL_WIDTH};
 use crate::ext::*;
 
 pub fn create(mut context: ScopedContext) -> Dialog {
@@ -185,14 +186,14 @@ pub fn create(mut context: ScopedContext) -> Dialog {
         ) + NOT_WS_TABSTOP,
     ];
     let divider_controls = [
-        divider(context.id(), context.rect(0, 41, 470, 1)),
-        divider(context.id(), context.rect(0, 123, 470, 1)),
-        divider(context.id(), context.rect(0, 62, 470, 1)),
+        divider(context.id(), context.rect(0, 41, HEADER_PANEL_WIDTH, 1)),
+        divider(context.id(), context.rect(0, 123, HEADER_PANEL_WIDTH, 1)),
+        divider(context.id(), context.rect(0, 62, HEADER_PANEL_WIDTH, 1)),
     ];
     Dialog {
         id: context.named_id("ID_HEADER_PANEL"),
         kind: DialogKind::DIALOGEX,
-        rect: context.rect(0, 0, 470, 124),
+        rect: context.rect(0, 0, HEADER_PANEL_WIDTH, HEADER_PANEL_HEIGHT),
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),
         controls: upper_part_controls
             .into_iter()

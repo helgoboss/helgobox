@@ -27,6 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[allow(unused_variables)]
 fn generate_gui_dialogs(
     generated_dir: impl AsRef<Path>,
     dialog_rc_file: impl AsRef<Path>,

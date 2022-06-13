@@ -1,4 +1,5 @@
 use crate::base::*;
+use crate::constants::{MAPPING_ROWS_PANEL_HEIGHT, MAPPING_ROWS_PANEL_WIDTH};
 
 pub fn create(mut context: ScopedContext) -> Dialog {
     use Style::*;
@@ -17,7 +18,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
     Dialog {
         id: context.named_id("ID_MAPPING_ROWS_PANEL"),
         kind: DialogKind::DIALOGEX,
-        rect: context.rect(0, 0, 470, 289),
+        rect: context.rect(0, 0, MAPPING_ROWS_PANEL_WIDTH, MAPPING_ROWS_PANEL_HEIGHT),
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),
         controls: controls.into_iter().collect(),
         ..context.default_dialog()
