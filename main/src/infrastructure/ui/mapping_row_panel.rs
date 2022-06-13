@@ -360,10 +360,16 @@ impl MappingRowPanel {
             .borrow()
             .mapping_is_on(mapping.qualified_id());
         self.view
+            .require_control(root::ID_MAPPING_ROW_MAPPING_LABEL)
+            .set_enabled(is_on);
+        self.view
             .require_control(root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT)
             .set_enabled(is_on);
         self.view
             .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)
+            .set_enabled(is_on);
+        self.view
+            .require_control(root::ID_MAPPING_ROW_GROUP_LABEL)
             .set_enabled(is_on);
     }
 
