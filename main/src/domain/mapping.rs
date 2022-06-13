@@ -335,16 +335,7 @@ impl MainMapping {
     }
 
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
-        let was_enabled_before = self.core.options.persistent_processing_state.is_enabled;
-        self.core.options.persistent_processing_state = state;
-        if was_enabled_before && !state.is_enabled {
-            self.on_deactivate();
-        }
-    }
-
-    fn on_deactivate(&mut self) {
-        self.core.source.on_deactivate();
-        self.core.mode.on_deactivate();
+        self.core.update_persistent_processing_state(state);
     }
 
     pub fn tags(&self) -> &[Tag] {
@@ -500,7 +491,7 @@ impl MainMapping {
             return None;
         }
         if !now_is_active {
-            self.on_deactivate();
+            self.core.on_deactivate();
         }
         let update = RealTimeMappingUpdate {
             id: self.id(),
@@ -1312,7 +1303,7 @@ impl RealTimeMapping {
     }
 
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
-        self.core.options.persistent_processing_state = state;
+        self.core.update_persistent_processing_state(state);
     }
 
     pub fn update_target(&mut self, update: &mut RealTimeTargetUpdate) {
@@ -1326,7 +1317,11 @@ impl RealTimeMapping {
 
     pub fn update(&mut self, update: &RealTimeMappingUpdate) {
         if let Some(c) = update.activation_change {
+            let was_active_before = self.is_active;
             self.is_active = c.is_active;
+            if was_active_before && !c.is_active {
+                self.core.on_deactivate();
+            }
         }
     }
 
@@ -1398,6 +1393,19 @@ impl MappingCore {
         } else {
             false
         }
+    }
+
+    fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        let was_enabled_before = self.options.persistent_processing_state.is_enabled;
+        self.options.persistent_processing_state = state;
+        if was_enabled_before && !state.is_enabled {
+            self.on_deactivate();
+        }
+    }
+
+    fn on_deactivate(&mut self) {
+        self.source.on_deactivate();
+        self.mode.on_deactivate();
     }
 }
 
