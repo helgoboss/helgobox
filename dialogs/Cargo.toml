@@ -6,3 +6,4 @@ edition = "2021"
 
 [dependencies]
 derive_more = "0.99.5"
+indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }

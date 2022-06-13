@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types, clippy::upper_case_acronyms)]
 
-use std::collections::{HashMap, HashSet};
+use indexmap::IndexMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -10,7 +11,7 @@ pub type Caption = &'static str;
 
 pub struct ResourceInfo {
     global_scope: Scope,
-    scopes: HashMap<String, Scope>,
+    scopes: IndexMap<String, Scope>,
     conditional_control_ids: HashSet<Id>,
     named_ids: Vec<Id>,
 }
@@ -335,7 +336,9 @@ impl IdGenerator {
 pub struct Context {
     pub default_dialog: Dialog,
     pub global_scope: Scope,
-    pub scopes: HashMap<String, Scope>,
+    // IndexMap instead of HashMap because we don't want the order to be always the same when
+    // writing the bindings file.
+    pub scopes: IndexMap<String, Scope>,
 }
 
 impl Context {

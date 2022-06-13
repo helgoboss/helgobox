@@ -3469,6 +3469,7 @@ name = "realearn-dialogs"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "indexmap 1.7.0 (git+https://github.com/helgoboss/indexmap?branch=feature/clion-workaround)",
 ]
 
 [[package]]
