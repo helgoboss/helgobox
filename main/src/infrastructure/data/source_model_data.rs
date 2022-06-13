@@ -341,6 +341,7 @@ mod tests {
         // Given
         use SourceCommand as C;
         let mut model = SourceModel::default();
+        model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ControlChangeValue));
         model.change(C::SetChannel(Some(channel(15))));
         model.change(C::SetMidiMessageNumber(Some(u7(12))));
@@ -372,6 +373,7 @@ mod tests {
         // Given
         use SourceCommand as C;
         let mut model = SourceModel::default();
+        model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ParameterNumberValue));
         model.change(C::SetChannel(None));
         model.change(C::SetMidiMessageNumber(Some(u7(77))));

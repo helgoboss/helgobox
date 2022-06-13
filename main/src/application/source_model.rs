@@ -1175,13 +1175,6 @@ mod tests {
         // When
         let s = m.create_source();
         // Then
-        assert_eq!(
-            s,
-            CompoundMappingSource::Midi(MidiSource::ControlChangeValue {
-                channel: None,
-                controller_number: None,
-                custom_character: SourceCharacter::RangeElement,
-            })
-        );
+        assert_eq!(s, CompoundMappingSource::Never);
     }
 }
