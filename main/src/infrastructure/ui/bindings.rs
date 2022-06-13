@@ -1,12 +1,12 @@
 pub mod root {
     #[cfg(target_os = "linux")]
-    pub const GLOBAL_X_SCALE: f64 = 1.9000;
+    pub const GLOBAL_X_SCALE: f64 = 1.7500;
     #[cfg(target_os = "linux")]
-    pub const GLOBAL_Y_SCALE: f64 = 1.9000;
+    pub const GLOBAL_Y_SCALE: f64 = 1.6500;
     #[cfg(target_os = "linux")]
-    pub const GLOBAL_WIDTH_SCALE: f64 = 1.9000;
+    pub const GLOBAL_WIDTH_SCALE: f64 = 1.7500;
     #[cfg(target_os = "linux")]
-    pub const GLOBAL_HEIGHT_SCALE: f64 = 1.9000;
+    pub const GLOBAL_HEIGHT_SCALE: f64 = 1.6500;
     #[cfg(target_os = "windows")]
     pub const GLOBAL_X_SCALE: f64 = 1.0000;
     #[cfg(target_os = "windows")]
@@ -24,13 +24,13 @@ pub mod root {
     #[cfg(target_os = "macos")]
     pub const GLOBAL_HEIGHT_SCALE: f64 = 1.5200;
     #[cfg(target_os = "linux")]
-    pub const MAPPING_PANEL_X_SCALE: f64 = 1.9000;
+    pub const MAPPING_PANEL_X_SCALE: f64 = 1.7500;
     #[cfg(target_os = "linux")]
-    pub const MAPPING_PANEL_Y_SCALE: f64 = 1.9000;
+    pub const MAPPING_PANEL_Y_SCALE: f64 = 1.6500;
     #[cfg(target_os = "linux")]
-    pub const MAPPING_PANEL_WIDTH_SCALE: f64 = 1.9000;
+    pub const MAPPING_PANEL_WIDTH_SCALE: f64 = 1.7500;
     #[cfg(target_os = "linux")]
-    pub const MAPPING_PANEL_HEIGHT_SCALE: f64 = 1.9000;
+    pub const MAPPING_PANEL_HEIGHT_SCALE: f64 = 1.6500;
     #[cfg(target_os = "windows")]
     pub const MAPPING_PANEL_X_SCALE: f64 = 1.0000;
     #[cfg(target_os = "windows")]
