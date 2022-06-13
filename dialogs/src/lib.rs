@@ -1,6 +1,6 @@
 use crate::base::{
-    Context, Dialog, DialogScaling, Font, OsSpecificSettings, Resource, ResourceInfoAsCHeaderCode,
-    ResourceInfoAsRustCode, Scope,
+    Context, Dialog, DialogScaling, Font, IdGenerator, OsSpecificSettings, Resource,
+    ResourceInfoAsCHeaderCode, ResourceInfoAsRustCode, Scope,
 };
 use std::io::Write;
 use std::path::Path;
@@ -112,8 +112,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             ..global_scope
         }
     };
-    let mut context = Context {
-        next_id_value: 30000,
+    let mut ids = IdGenerator::new(30_000);
+    let context = Context {
         default_dialog,
         scopes: [
             ("MAPPING_PANEL", mapping_panel_scope),
@@ -124,22 +124,23 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
         .collect(),
         global_scope,
     };
-    let group_panel_dialog = group_panel::create(context.scoped("MAPPING_PANEL"));
-    let header_panel_dialog = header_panel::create(context.scoped("HEADER_PANEL"));
-    let mapping_panel_dialog = mapping_panel::create(context.scoped("MAPPING_PANEL"));
-    let mapping_row_panel_dialog = mapping_row_panel::create(context.global());
-    let mapping_rows_panel_dialog = mapping_rows_panel::create(context.global());
-    let message_panel_dialog = message_panel::create(context.global());
+    let group_panel_dialog = group_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
+    let header_panel_dialog = header_panel::create(context.scoped("HEADER_PANEL"), &mut ids);
+    let mapping_panel_dialog = mapping_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
+    let mapping_row_panel_dialog = mapping_row_panel::create(context.global(), &mut ids);
+    let mapping_rows_panel_dialog = mapping_rows_panel::create(context.global(), &mut ids);
+    let message_panel_dialog = message_panel::create(context.global(), &mut ids);
     let shared_group_mapping_panel_dialog =
-        shared_group_mapping_panel::create(context.scoped("MAPPING_PANEL"));
+        shared_group_mapping_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
     let maine_panel_dialog = {
         main_panel::create(
             context.global(),
+            &mut ids,
             header_panel_dialog.rect.height,
             mapping_rows_panel_dialog.rect.height,
         )
     };
-    let yaml_editor_panel_dialog = yaml_editor_panel::create(context.global());
+    let yaml_editor_panel_dialog = yaml_editor_panel::create(context.global(), &mut ids);
     let resource = Resource {
         dialogs: vec![
             group_panel_dialog,

@@ -1,16 +1,16 @@
 use crate::base::*;
 
-pub fn create(mut context: ScopedContext) -> Dialog {
+pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     let controls = [ctext(
         "Some message",
-        context.named_id("ID_MESSAGE_TEXT"),
+        ids.named_id("ID_MESSAGE_TEXT"),
         context.rect(0, 0, 155, 19),
     ) + SS_CENTERIMAGE
         + SS_WORDELLIPSIS
         + NOT_WS_GROUP];
     Dialog {
-        id: context.named_id("ID_MESSAGE_PANEL"),
+        id: ids.named_id("ID_MESSAGE_PANEL"),
         caption: "ReaLearn",
         font: Some(Font {
             name: "Microsoft Sans Serif",

@@ -1,32 +1,32 @@
 use crate::base::*;
 
-pub fn create(mut context: ScopedContext) -> Dialog {
+pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     let controls = vec![
         pushbutton(
             "Open in text editor",
-            context.named_id("ID_YAML_TEXT_EDITOR_BUTTON"),
+            ids.named_id("ID_YAML_TEXT_EDITOR_BUTTON"),
             context.rect(371, 291, 68, 14),
         ),
         edittext(
-            context.named_id("ID_YAML_EDIT_CONTROL"),
+            ids.named_id("ID_YAML_EDIT_CONTROL"),
             context.rect(0, 0, 490, 284),
         ) + ES_MULTILINE
             + ES_WANTRETURN
             + WS_VSCROLL,
         pushbutton(
             "Help",
-            context.named_id("ID_YAML_HELP_BUTTON"),
+            ids.named_id("ID_YAML_HELP_BUTTON"),
             context.rect(445, 291, 40, 14),
         ),
         ltext(
             "Foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla",
-            context.named_id("ID_YAML_EDIT_INFO_TEXT"),
+            ids.named_id("ID_YAML_EDIT_INFO_TEXT"),
             context.rect(5,294,355,9),
         ) + NOT_WS_GROUP,
     ];
     Dialog {
-        id: context.named_id("ID_YAML_EDITOR_PANEL"),
+        id: ids.named_id("ID_YAML_EDITOR_PANEL"),
         caption: "Editor",
         rect: context.rect(0, 0, 490, 310),
         styles: Styles(vec![

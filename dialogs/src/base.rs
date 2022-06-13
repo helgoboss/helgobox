@@ -202,8 +202,9 @@ impl<'a> Display for DialogScalingAsRustCode<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct ScopedContext<'a> {
-    pub(crate) context: &'a mut Context,
+    pub(crate) context: &'a Context,
     scope: Option<Scope>,
 }
 
@@ -298,41 +299,16 @@ impl<'a> ScopedContext<'a> {
             .map(|s| s.settings_for_this_os().scaling)
             .unwrap_or(self.context.global_scope.settings_for_this_os().scaling)
     }
-
-    pub fn id(&mut self) -> Id {
-        self.context.id()
-    }
-
-    pub fn named_id(&mut self, name: &'static str) -> Id {
-        self.context.named_id(name)
-    }
 }
 
-pub struct Context {
-    pub next_id_value: u32,
-    pub default_dialog: Dialog,
-    pub global_scope: Scope,
-    pub scopes: HashMap<String, Scope>,
+pub struct IdGenerator {
+    next_id_value: u32,
 }
-
-impl Context {
-    pub fn global(&mut self) -> ScopedContext {
-        ScopedContext {
-            context: self,
-            scope: None,
+impl IdGenerator {
+    pub fn new(initial_id_value: u32) -> Self {
+        Self {
+            next_id_value: initial_id_value,
         }
-    }
-
-    pub fn scoped<'a>(&'a mut self, scope: &'a str) -> ScopedContext<'a> {
-        let scope = *self.scopes.get(scope).expect("scope not found");
-        ScopedContext {
-            context: self,
-            scope: Some(scope),
-        }
-    }
-
-    pub fn default_dialog(&self) -> Dialog {
-        self.default_dialog.clone()
     }
 
     pub fn id(&mut self) -> Id {
@@ -353,6 +329,33 @@ impl Context {
         let v = self.next_id_value;
         self.next_id_value += 1;
         v
+    }
+}
+
+pub struct Context {
+    pub default_dialog: Dialog,
+    pub global_scope: Scope,
+    pub scopes: HashMap<String, Scope>,
+}
+
+impl Context {
+    pub fn global(&self) -> ScopedContext {
+        ScopedContext {
+            context: self,
+            scope: None,
+        }
+    }
+
+    pub fn scoped<'a>(&'a self, scope: &'a str) -> ScopedContext<'a> {
+        let scope = *self.scopes.get(scope).expect("scope not found");
+        ScopedContext {
+            context: self,
+            scope: Some(scope),
+        }
+    }
+
+    pub fn default_dialog(&self) -> Dialog {
+        self.default_dialog.clone()
     }
 }
 

@@ -1,10 +1,10 @@
 use crate::base::*;
 use crate::ext::*;
 
-pub fn create(mut context: ScopedContext) -> Dialog {
+pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     Dialog {
-        id: context.named_id("ID_GROUP_PANEL"),
+        id: ids.named_id("ID_GROUP_PANEL"),
         caption: "Edit group",
         rect: context.rect(0, 0, 444, 74),
         styles: Styles(vec![
@@ -19,7 +19,7 @@ pub fn create(mut context: ScopedContext) -> Dialog {
             WS_SYSMENU,
         ]),
         controls: vec![ok_button(
-            context.named_id("ID_GROUP_PANEL_OK"),
+            ids.named_id("ID_GROUP_PANEL_OK"),
             context.rect(197, 53, 50, 14),
         )],
         ..context.default_dialog()

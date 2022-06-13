@@ -1,22 +1,22 @@
 use crate::base::*;
 use crate::constants::{MAPPING_ROWS_PANEL_HEIGHT, MAPPING_ROWS_PANEL_WIDTH};
 
-pub fn create(mut context: ScopedContext) -> Dialog {
+pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     let controls = [
         pushbutton(
             "Display mappings in all groups",
-            context.named_id("ID_DISPLAY_ALL_GROUPS_BUTTON"),
+            ids.named_id("ID_DISPLAY_ALL_GROUPS_BUTTON"),
             context.rect(157, 137, 156, 14),
         ),
         ctext(
             "There are no mappings in this compartment.",
-            context.named_id("ID_GROUP_IS_EMPTY_TEXT"),
+            ids.named_id("ID_GROUP_IS_EMPTY_TEXT"),
             context.rect(149, 121, 173, 9),
         ) + NOT_WS_GROUP,
     ];
     Dialog {
-        id: context.named_id("ID_MAPPING_ROWS_PANEL"),
+        id: ids.named_id("ID_MAPPING_ROWS_PANEL"),
         kind: DialogKind::DIALOGEX,
         rect: context.rect(0, 0, MAPPING_ROWS_PANEL_WIDTH, MAPPING_ROWS_PANEL_HEIGHT),
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),

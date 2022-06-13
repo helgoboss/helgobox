@@ -1,13 +1,13 @@
 use crate::base::*;
 
 impl<'a> ScopedContext<'a> {
-    pub fn checkbox(&mut self, caption: Caption, id: &'static str, rect: Rect) -> Control {
+    pub fn checkbox(&self, caption: Caption, id: Id, rect: Rect) -> Control {
         use Style::*;
         // We want to completely ignore the given checkbox height, but we want it to scale.
         let fixed_rect = self.rect_flexible(Rect { height: 10, ..rect });
         control(
             caption,
-            self.context.named_id(id),
+            id,
             SubControlKind::Button,
             fix_text_rect(fixed_rect),
         ) + BS_AUTOCHECKBOX
