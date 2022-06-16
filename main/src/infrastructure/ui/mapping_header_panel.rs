@@ -12,11 +12,9 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{
-    compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId, Tag,
-};
+use crate::domain::{Compartment, MappingId, Tag};
 use std::fmt::Debug;
-use swell_ui::{DialogUnits, MenuBar, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
 type WeakItem = Weak<RefCell<dyn Item>>;
@@ -231,11 +229,30 @@ impl MappingHeaderPanel {
                 Some("Parameter")
             }
             TargetValue => {
-                // let mapping_id = item.mapping_id();
-                // self.view
-                //     .require_control(button_id)
-                //     .select_combo_box_item_by_index(param_index.get() as _)
-                //     .unwrap();
+                button.show();
+                check_box.hide();
+                let text = if let Some(mapping_id) = item.mapping_id() {
+                    if let Some((_, mapping)) =
+                        session.find_mapping_and_index_by_id(item.compartment(), mapping_id)
+                    {
+                        let mapping = mapping.borrow();
+                        let group = session.find_group_by_id_including_default_group(
+                            item.compartment(),
+                            mapping.group_id(),
+                        );
+                        let group_name = if let Some(group) = group {
+                            group.borrow().effective_name().to_string()
+                        } else {
+                            "<Invalid>".to_string()
+                        };
+                        format!("{} - {}", group_name, mapping.effective_name())
+                    } else {
+                        "<Invalid>".to_string()
+                    }
+                } else {
+                    menus::NONE.to_string()
+                };
+                button.set_text(text);
                 Some("Mapping")
             }
             _ => {
@@ -292,12 +309,10 @@ impl MappingHeaderPanel {
                 Some("Bank")
             }
             TargetValue => {
+                button.hide();
+                check_box.hide();
                 edit_control.show();
-                // let mapping_id = item.mapping_id();
-                // self.view
-                //     .require_control(button_id)
-                //     .select_combo_box_item_by_index(param_index.get() as _)
-                //     .unwrap();
+                edit_control.set_text(item.script());
                 Some("Ex: y > 0")
             }
             Eel => {
@@ -401,7 +416,7 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_eel_condition(&self, session: WeakSession, item: &mut dyn Item) {
+    fn update_activation_script(&self, session: WeakSession, item: &mut dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
@@ -445,6 +460,21 @@ impl MappingHeaderPanel {
                 };
                 if let Some(param_index) = result {
                     item.set_bank_condition(session, bank_condition.with_param_index(param_index));
+                }
+            }
+            TargetValue => {
+                let result = {
+                    let menu = menus::menu_containing_mappings(
+                        &session,
+                        item.compartment(),
+                        item.mapping_id(),
+                    );
+                    self.view
+                        .require_window()
+                        .open_simple_popup_menu(menu, Window::cursor_pos())
+                };
+                if let Some(mapping_id) = result {
+                    item.set_mapping_id(session, mapping_id);
                 }
             }
             _ => {}
@@ -505,12 +535,6 @@ impl MappingHeaderPanel {
                 item,
                 modifier_condition.with_param_index(param_index),
             );
-        }
-    }
-
-    fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
-        for id in control_resource_ids {
-            self.view.require_control(*id).set_visible(condition);
         }
     }
 
@@ -633,7 +657,7 @@ impl View for MappingHeaderPanel {
                 self.with_session_and_item(Self::update_tags);
             }
             ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
-                self.with_session_and_item(Self::update_activation_eel_condition);
+                self.with_session_and_item(Self::update_activation_script);
             }
             _ => return false,
         };
@@ -959,13 +983,12 @@ impl Item for GroupModel {
 
 mod menus {
     use crate::application::{Session, WeakSession};
-    use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex};
+    use crate::domain::{
+        compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId,
+    };
     use crate::infrastructure::ui::Item;
     use std::iter;
-    use swell_ui::menu_tree::{
-        fill_menu, item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu,
-    };
-    use swell_ui::{MenuBar, Window};
+    use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
 
     pub fn menu_containing_realearn_params(
         session: &WeakSession,
@@ -1021,6 +1044,51 @@ mod menus {
             }))
             .collect(),
         )
+    }
+
+    pub fn menu_containing_mappings(
+        session: &WeakSession,
+        compartment: Compartment,
+        current_value: Option<MappingId>,
+    ) -> swell_ui::menu_tree::Menu<Option<MappingId>> {
+        let session = session.upgrade().expect("session gone");
+        let session = session.borrow();
+        let none_item = item_with_opts(
+            NONE,
+            ItemOpts {
+                enabled: true,
+                checked: current_value.is_none(),
+            },
+            || None,
+        );
+        let group_items = session.groups_sorted(compartment).map(|group| {
+            let group = group.borrow();
+            let group_id = group.id();
+            menu(
+                group.effective_name(),
+                session
+                    .mappings(compartment)
+                    .filter_map(|mapping| {
+                        // If borrowing fails, we know it's our own mapping
+                        let mapping = mapping.try_borrow().ok()?;
+                        if mapping.group_id() != group_id {
+                            return None;
+                        }
+                        let mapping_id = mapping.id();
+                        let menu_item = item_with_opts(
+                            mapping.effective_name(),
+                            ItemOpts {
+                                enabled: true,
+                                checked: Some(mapping_id) == current_value,
+                            },
+                            move || Some(mapping_id),
+                        );
+                        Some(menu_item)
+                    })
+                    .collect(),
+            )
+        });
+        root_menu(iter::once(none_item).chain(group_items).collect())
     }
 
     pub fn menu_containing_banks(
@@ -1098,5 +1166,5 @@ mod menus {
         )
     }
 
-    const NONE: &str = "<None>";
+    pub const NONE: &str = "<None>";
 }

@@ -13,11 +13,10 @@ pub struct GroupModelData {
     /// Doesn't have to be a UUID since 2.11.0-pre.13 and corresponds to the model *key* instead!
     /// Because default group UUID is the default, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
+    // Saved only in some ReaLearn 2.11.0-pre-releases. Later we persist this in "id" field again.
+    // So this is just for being compatible with those few pre-releases!
+    #[serde(alias = "key")]
     pub id: GroupKey,
-    /// Saved only in some ReaLearn 2.11.0-pre-releases. Later we persist this in "id" field again.
-    /// So this is just for being compatible with those few pre-releases!
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub key: Option<GroupKey>,
     // Because default group name is empty, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
@@ -36,7 +35,6 @@ impl GroupModelData {
     ) -> GroupModelData {
         GroupModelData {
             id: model.key().clone(),
-            key: None,
             name: model.name().to_owned(),
             tags: model.tags().to_owned(),
             enabled_data: EnabledData {
@@ -61,15 +59,14 @@ impl GroupModelData {
             if is_default_group {
                 GroupId::default()
             } else {
-                self.key
-                    .as_ref()
-                    .and_then(|key| conversion_context.group_id_by_key(key))
+                conversion_context
+                    .group_id_by_key(&self.id)
                     .unwrap_or_else(|| GroupId::random())
             },
             if is_default_group {
                 GroupKey::default()
             } else {
-                self.key.clone().unwrap_or_else(|| self.id.clone())
+                self.id.clone()
             },
         );
         self.apply_to_model(&mut model, conversion_context);

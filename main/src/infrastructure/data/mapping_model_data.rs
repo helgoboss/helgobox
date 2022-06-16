@@ -18,11 +18,10 @@ pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0, doesn't have to be a UUID since 2.11.0-pre.13 and corresponds
     // to the model *key* instead!
     #[serde(default, skip_serializing_if = "is_default")]
+    // Saved only in some ReaLearn 2.11.0-pre-releases under "key". Later we persist this in "id"
+    // field again. So this is just for being compatible with those few pre-releases!
+    #[serde(alias = "key")]
     pub id: Option<MappingKey>,
-    /// Saved only in some ReaLearn 2.11.0-pre-releases. Later we persist this in "id" field again.
-    /// So this is just for being compatible with those few pre-releases!
-    #[serde(default, skip_serializing)]
-    pub key: Option<MappingKey>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -55,7 +54,6 @@ impl MappingModelData {
     ) -> MappingModelData {
         MappingModelData {
             id: Some(model.key().clone()),
-            key: None,
             name: model.name().to_owned(),
             tags: model.tags().to_owned(),
             group_id: {
@@ -129,7 +127,7 @@ impl MappingModelData {
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
     ) -> MappingModel {
-        let (key, id) = if let Some(key) = self.key.clone() {
+        let (key, id) = if let Some(key) = self.id.clone() {
             let id = conversion_context
                 .mapping_id_by_key(&key)
                 .unwrap_or_default();

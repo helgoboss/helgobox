@@ -829,7 +829,7 @@ impl Session {
         iter::once(self.default_group(compartment)).chain(
             self.groups[compartment]
                 .iter()
-                .sorted_by_key(|g| g.borrow().name().to_owned()),
+                .sorted_by_key(|g| g.borrow().effective_name().to_owned()),
         )
     }
 

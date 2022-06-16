@@ -15,7 +15,6 @@ pub fn convert_group(
         } else {
             g.id.map(|id| id.into()).unwrap_or_default()
         },
-        key: None,
         name: g.name.unwrap_or_default(),
         tags: convert_tags(g.tags.unwrap_or_default())?,
         enabled_data: {

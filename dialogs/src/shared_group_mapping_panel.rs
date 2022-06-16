@@ -39,7 +39,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         // Conditional activation
         ltext(
             "Active",
-            ids.named_id("ID_MAPPING_ACTIVATION_LABEL"),
+            ids.id(),
             context.rect(col_1_x, line_2_y + 2, 21, 9),
         ) + NOT_WS_GROUP,
         dropdown(
