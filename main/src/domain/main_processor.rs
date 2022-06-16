@@ -1375,6 +1375,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // lower-floor instances.
         self.handle_feedback_after_having_updated_all_mappings(compartment, unused_sources);
         self.update_on_mappings();
+        // Evaluate target-based activation conditions. We do it by reporting
+        // target value updates for all lead mappings.
+        let lead_mapping_ids =
+            self.basics.target_based_conditional_activation_processors[compartment].lead_mappings();
+        self.process_conditional_activation_target_value_changes(compartment, lead_mapping_ids);
     }
 
     fn process_normal_tasks_from_real_time_processor(&mut self) {
@@ -2234,9 +2239,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             control_context,
         );
         let initial_target_value = mapping.initial_target_value();
-        let lead_mapping_ids: Vec<_> = mapping
-            .activation_can_be_affected_by_target_values()
-            .collect();
+        let lead_mapping_ids = mapping.activation_can_be_affected_by_target_values();
         // Sync to real-time processor
         self.basics
             .channels
@@ -2266,6 +2269,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.process_conditional_activation_target_value_change(id, v);
         }
         // But it could also be a follow mapping.
+        self.process_conditional_activation_target_value_changes(compartment, lead_mapping_ids);
+    }
+
+    fn process_conditional_activation_target_value_changes(
+        &mut self,
+        compartment: Compartment,
+        lead_mapping_ids: impl Iterator<Item = MappingId>,
+    ) {
         for lead_mapping_id in lead_mapping_ids {
             let target_val = self.collections.mappings[compartment]
                 .get(&lead_mapping_id)
@@ -3858,6 +3869,15 @@ impl TargetBasedConditionalActivationProcessor {
             };
             self.mapping_relations.insert(relation);
         }
+    }
+
+    pub fn lead_mappings(&self) -> impl Iterator<Item = MappingId> {
+        let lead_mapping_id_set: HashSet<_> = self
+            .mapping_relations
+            .iter()
+            .map(|rel| rel.lead_mapping)
+            .collect();
+        lead_mapping_id_set.into_iter()
     }
 
     pub fn is_lead_mapping(&self, mapping_id: MappingId) -> bool {
