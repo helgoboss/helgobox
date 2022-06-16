@@ -1215,7 +1215,12 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
+        let mut mapping = MappingModel::new(
+            compartment,
+            initial_group_id,
+            MappingKey::random(),
+            MappingId::random(),
+        );
         let new_name = self.generate_name_for_new_mapping(compartment);
         let _ = mapping.change(MappingCommand::SetName(new_name));
         if compartment == Compartment::Controller {
@@ -1456,6 +1461,21 @@ impl Session {
         self.mappings(compartment)
             .enumerate()
             .find(|(_, m)| m.borrow().id() == mapping_id)
+    }
+
+    pub fn find_mapping_id_by_key(
+        &self,
+        compartment: Compartment,
+        key: &MappingKey,
+    ) -> Option<MappingId> {
+        self.mappings(compartment).find_map(|m| {
+            let m = m.borrow();
+            if m.key() == key {
+                Some(m.id())
+            } else {
+                None
+            }
+        })
     }
 
     pub fn mappings(&self, compartment: Compartment) -> impl Iterator<Item = &SharedMapping> {
@@ -2491,6 +2511,15 @@ pub enum SessionProp {
 pub struct CompartmentInSession<'a> {
     pub session: &'a Session,
     pub compartment: Compartment,
+}
+
+impl<'a> CompartmentInSession<'a> {
+    pub fn new(session: &'a Session, compartment: Compartment) -> Self {
+        Self {
+            session,
+            compartment,
+        }
+    }
 }
 
 pub struct MappingChangeContext<'a> {

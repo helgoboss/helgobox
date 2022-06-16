@@ -977,7 +977,7 @@ impl HeaderPanel {
                 data.group_id = group_key.clone();
                 data.to_model(
                     compartment,
-                    session.compartment_in_session(compartment),
+                    &session.compartment_in_session(compartment),
                     Some(session.extended_context()),
                 )
             })

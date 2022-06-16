@@ -209,5 +209,12 @@ fn convert_activation_condition(
             };
             Some(T::Expression(condition))
         }
+        TargetValue => {
+            let condition = persistence::TargetValueActivationCondition {
+                mapping: condition_data.mapping_key.map(|key| key.into()),
+                condition: condition_data.eel_condition,
+            };
+            Some(T::TargetValue(condition))
+        }
     }
 }

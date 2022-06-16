@@ -28,11 +28,14 @@ pub enum ActivationType {
     #[display(fmt = "When bank selected")]
     Bank,
     #[serde(rename = "eel")]
-    #[display(fmt = "When EEL result > 0")]
+    #[display(fmt = "When EEL met")]
     Eel,
     #[serde(rename = "expression")]
-    #[display(fmt = "When expression > 0")]
+    #[display(fmt = "When expression met")]
     Expression,
+    #[serde(rename = "target-value")]
+    #[display(fmt = "When target value met")]
+    TargetValue,
 }
 
 impl Default for ActivationType {

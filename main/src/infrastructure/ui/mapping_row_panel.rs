@@ -994,7 +994,7 @@ fn paste_data_object_in_place(
             //  other data object types.
             m.apply_to_model(
                 &mut mapping,
-                conversion_context,
+                &conversion_context,
                 Some(session.extended_context()),
             );
         }
@@ -1010,7 +1010,7 @@ fn paste_data_object_in_place(
                 &mut mapping.target_model,
                 triple.compartment,
                 session.extended_context(),
-                compartment_in_session,
+                &compartment_in_session,
             );
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
@@ -1055,7 +1055,7 @@ pub fn paste_mappings(
             data.group_id = group_key.clone();
             data.to_model(
                 compartment,
-                session.compartment_in_session(compartment),
+                &session.compartment_in_session(compartment),
                 Some(session.extended_context()),
             )
         })

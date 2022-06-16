@@ -296,7 +296,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         compartment: Compartment,
         context: ExtendedProcessorContext,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
     ) {
         self.apply_to_model_flexible(
             model,
@@ -316,7 +316,7 @@ impl TargetModelData {
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
         compartment: Compartment,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
     ) {
         use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {

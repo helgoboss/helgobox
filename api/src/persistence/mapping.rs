@@ -67,6 +67,7 @@ pub enum ActivationCondition {
     Bank(BankActivationCondition),
     Eel(EelActivationCondition),
     Expression(ExpressionActivationCondition),
+    TargetValue(TargetValueActivationCondition),
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -98,6 +99,14 @@ pub struct EelActivationCondition {
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExpressionActivationCondition {
+    pub condition: String,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TargetValueActivationCondition {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapping: Option<String>,
     pub condition: String,
 }
 

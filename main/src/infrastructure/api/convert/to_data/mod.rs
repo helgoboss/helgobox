@@ -135,6 +135,12 @@ fn convert_activation(
             eel_condition: c.condition,
             ..Default::default()
         },
+        TargetValue(c) => ActivationConditionData {
+            activation_type: ActivationType::TargetValue,
+            mapping_key: c.mapping.map(|m| m.into()),
+            eel_condition: c.condition,
+            ..Default::default()
+        },
     };
     Ok(data)
 }

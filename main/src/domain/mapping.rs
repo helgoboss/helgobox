@@ -108,6 +108,12 @@ impl MappingId {
     }
 }
 
+impl Default for MappingId {
+    fn default() -> Self {
+        Self::random()
+    }
+}
+
 /// A potentially user-defined mapping identifier, persistent
 ///
 /// Goals: For external references (e.g. from API or in projection)

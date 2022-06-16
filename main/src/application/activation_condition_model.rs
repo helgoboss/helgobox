@@ -2,7 +2,9 @@ use crate::application::{
     ActivationType, Affected, BankConditionModel, Change, GetProcessingRelevance,
     ModifierConditionModel, ProcessingRelevance,
 };
-use crate::domain::{ActivationCondition, EelCondition, ExpressionCondition};
+use crate::domain::{
+    ActivationCondition, EelCondition, ExpressionCondition, ExpressionEvaluator, MappingId,
+};
 
 #[allow(clippy::enum_variant_names)]
 pub enum ActivationConditionCommand {
@@ -11,6 +13,7 @@ pub enum ActivationConditionCommand {
     SetModifierCondition2(ModifierConditionModel),
     SetBankCondition(BankConditionModel),
     SetScript(String),
+    SetMappingId(Option<MappingId>),
 }
 
 #[derive(PartialEq)]
@@ -20,6 +23,7 @@ pub enum ActivationConditionProp {
     ModifierCondition2,
     BankCondition,
     Script,
+    MappingId,
 }
 
 impl GetProcessingRelevance for ActivationConditionProp {
@@ -35,6 +39,7 @@ pub struct ActivationConditionModel {
     modifier_condition_2: ModifierConditionModel,
     bank_condition: BankConditionModel,
     script: String,
+    mapping_id: Option<MappingId>,
 }
 
 impl<'a> Change<'a> for ActivationConditionModel {
@@ -69,6 +74,10 @@ impl<'a> Change<'a> for ActivationConditionModel {
                 self.script = v;
                 One(P::Script)
             }
+            C::SetMappingId(v) => {
+                self.mapping_id = v;
+                One(P::MappingId)
+            }
         };
         Some(affected)
     }
@@ -95,6 +104,10 @@ impl ActivationConditionModel {
         &self.script
     }
 
+    pub fn mapping_id(&self) -> Option<MappingId> {
+        self.mapping_id
+    }
+
     pub fn create_activation_condition(&self) -> ActivationCondition {
         use ActivationType::*;
         match self.activation_type() {
@@ -116,6 +129,13 @@ impl ActivationConditionModel {
             },
             Expression => match ExpressionCondition::compile(self.script()) {
                 Ok(e) => ActivationCondition::Expression(Box::new(e)),
+                Err(_) => ActivationCondition::Always,
+            },
+            TargetValue => match ExpressionEvaluator::compile(self.script()) {
+                Ok(e) => ActivationCondition::TargetValue {
+                    reference_mapping: None,
+                    condition: Box::new(e),
+                },
                 Err(_) => ActivationCondition::Always,
             },
         }

@@ -5,8 +5,8 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MidiControlInput,
-    MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MappingKey,
+    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -198,10 +198,7 @@ impl SessionData {
     /// The given parameters are the canonical ones from `RealearnPluginParameters`.
     pub fn from_model(session: &Session, plugin_params: &PluginParams) -> SessionData {
         let from_mappings = |compartment| {
-            let compartment_in_session = CompartmentInSession {
-                session,
-                compartment,
-            };
+            let compartment_in_session = CompartmentInSession::new(session, compartment);
             session
                 .mappings(compartment)
                 .map(|m| MappingModelData::from_model(m.borrow().deref(), &compartment_in_session))
@@ -210,13 +207,19 @@ impl SessionData {
         let from_groups = |compartment| {
             session
                 .groups(compartment)
-                .map(|m| GroupModelData::from_model(m.borrow().deref()))
+                .map(|m| {
+                    let compartment_in_session = CompartmentInSession::new(session, compartment);
+                    GroupModelData::from_model(m.borrow().deref(), &compartment_in_session)
+                })
                 .collect()
         };
         let from_group = |compartment| {
-            Some(GroupModelData::from_model(
+            let compartment_in_session = CompartmentInSession::new(session, compartment);
+            let group_model_data = GroupModelData::from_model(
                 session.default_group(compartment).borrow().deref(),
-            ))
+                &compartment_in_session,
+            );
+            Some(group_model_data)
         };
         let instance_state = session.instance_state().borrow();
         SessionData {
@@ -399,10 +402,20 @@ impl SessionData {
                 .set_without_notification(unmatched);
         }
         // Groups
+        let main_conversion_context =
+            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
+        let controller_conversion_context = SimpleDataToModelConversionContext::new(
+            &self.controller_groups,
+            &self.controller_mappings,
+        );
+        let conversion_context = |compartment: Compartment| match compartment {
+            Compartment::Controller => &controller_conversion_context,
+            Compartment::Main => &main_conversion_context,
+        };
         let get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: Compartment| {
                 def_group
-                    .map(|g| g.to_model(compartment, true))
+                    .map(|g| g.to_model(compartment, true, conversion_context(compartment)))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
         let main_default_group =
@@ -417,12 +430,24 @@ impl SessionData {
         let main_groups: Vec<_> = self
             .groups
             .iter()
-            .map(|g| g.to_model(Compartment::Main, false))
+            .map(|g| {
+                g.to_model(
+                    Compartment::Main,
+                    false,
+                    conversion_context(Compartment::Main),
+                )
+            })
             .collect();
         let controller_groups: Vec<_> = self
             .controller_groups
             .iter()
-            .map(|g| g.to_model(Compartment::Controller, false))
+            .map(|g| {
+                g.to_model(
+                    Compartment::Controller,
+                    false,
+                    conversion_context(Compartment::Controller),
+                )
+            })
             .collect();
         session.set_groups_without_notification(Compartment::Main, main_groups);
         session
@@ -438,7 +463,7 @@ impl SessionData {
                         compartment,
                         &migration_descriptor,
                         self.version.as_ref(),
-                        session.compartment_in_session(compartment),
+                        &session.compartment_in_session(compartment),
                         Some(session.extended_context_with_params(params)),
                     )
                 })
@@ -598,12 +623,23 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
         let group = self.session.find_group_by_id(self.compartment, group_id)?;
         Some(group.borrow().key().clone())
     }
+
+    fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey> {
+        let (_, mapping) = self
+            .session
+            .find_mapping_and_index_by_id(self.compartment, mapping_id)?;
+        Some(mapping.borrow().key().clone())
+    }
 }
 
 impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
         let group = self.session.find_group_by_key(self.compartment, key)?;
         Some(group.borrow().id())
+    }
+
+    fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId> {
+        self.session.find_mapping_id_by_key(self.compartment, key)
     }
 }
 
@@ -627,6 +663,8 @@ pub trait ModelToDataConversionContext {
     }
 
     fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey>;
+
+    fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey>;
 }
 
 pub trait DataToModelConversionContext {
@@ -638,4 +676,43 @@ pub trait DataToModelConversionContext {
     }
 
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
+
+    fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId>;
+}
+
+/// Defines a translation from keys to random IDs.
+pub struct SimpleDataToModelConversionContext {
+    group_id_by_key: HashMap<GroupKey, GroupId>,
+    mapping_id_by_key: HashMap<MappingKey, MappingId>,
+}
+
+impl SimpleDataToModelConversionContext {
+    pub fn new(groups: &[GroupModelData], mappings: &[MappingModelData]) -> Self {
+        Self {
+            group_id_by_key: groups
+                .iter()
+                .filter_map(|g| {
+                    let key = g.key.as_ref()?;
+                    Some((key.clone(), GroupId::random()))
+                })
+                .collect(),
+            mapping_id_by_key: mappings
+                .iter()
+                .filter_map(|m| {
+                    let key = m.key.as_ref()?;
+                    Some((key.clone(), MappingId::random()))
+                })
+                .collect(),
+        }
+    }
+}
+
+impl DataToModelConversionContext for SimpleDataToModelConversionContext {
+    fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
+        self.group_id_by_key.get(key).copied()
+    }
+
+    fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId> {
+        self.mapping_id_by_key.get(key).copied()
+    }
 }

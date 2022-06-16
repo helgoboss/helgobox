@@ -12,9 +12,11 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
-use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, Tag};
+use crate::domain::{
+    compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId, Tag,
+};
 use std::fmt::Debug;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, MenuBar, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
 type WeakItem = Weak<RefCell<dyn Item>>;
@@ -31,7 +33,6 @@ pub struct MappingHeaderPanel {
 pub trait Item: Debug {
     fn compartment(&self) -> Compartment;
     fn supports_name_change(&self) -> bool;
-    fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
     fn set_name(&mut self, session: WeakSession, name: String, initiator: u32);
     fn tags(&self) -> &[Tag];
@@ -50,6 +51,8 @@ pub trait Item: Debug {
     fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel);
     fn script(&self) -> &str;
     fn set_script(&mut self, session: WeakSession, value: String, initiator: u32);
+    fn mapping_id(&self) -> Option<MappingId>;
+    fn set_mapping_id(&mut self, session: WeakSession, value: Option<MappingId>);
 }
 
 pub enum ItemProp {
@@ -62,6 +65,7 @@ pub enum ItemProp {
     ModifierCondition2,
     BankCondition,
     Script,
+    MappingId,
 }
 
 impl ItemProp {
@@ -73,6 +77,7 @@ impl ItemProp {
             S::ModifierCondition2 => Self::ModifierCondition2,
             S::BankCondition => Self::BankCondition,
             S::Script => Self::Script,
+            S::MappingId => Self::MappingId,
         }
     }
 }
@@ -181,141 +186,9 @@ impl MappingHeaderPanel {
     }
 
     fn invalidate_activation_controls(&self, item: &dyn Item) {
-        self.invalidate_activation_control_appearance(item);
         self.invalidate_activation_type_combo_box(item);
         self.invalidate_activation_setting_1_controls(item);
-        self.invalidate_activation_setting_2_controls(item);
-        self.invalidate_activation_script_edit_control(item, None);
-    }
-
-    fn invalidate_activation_control_appearance(&self, item: &dyn Item) {
-        self.invalidate_activation_control_labels(item);
-        self.fill_activation_combo_boxes(item);
-        self.invalidate_activation_control_visibilities(item);
-    }
-
-    fn invalidate_activation_control_labels(&self, item: &dyn Item) {
-        use ActivationType::*;
-        let label = match item.activation_type() {
-            Always => None,
-            Modifiers => Some(("Modifier A", "Modifier B")),
-            Bank => Some(("Parameter", "Bank")),
-            Eel | Expression => None,
-        };
-        if let Some((first, second)) = label {
-            self.view
-                .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT)
-                .set_text(first);
-            self.view
-                .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT)
-                .set_text(second);
-        }
-    }
-
-    fn fill_activation_combo_boxes(&self, item: &dyn Item) {
-        use ActivationType::*;
-        let compartment = item.compartment();
-        match item.activation_type() {
-            Modifiers => {
-                self.fill_combo_box_with_realearn_params(
-                    root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                    true,
-                    compartment,
-                );
-                self.fill_combo_box_with_realearn_params(
-                    root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
-                    true,
-                    compartment,
-                );
-            }
-            Bank => {
-                self.fill_combo_box_with_realearn_params(
-                    root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                    false,
-                    compartment,
-                );
-            }
-            _ => {}
-        };
-    }
-
-    fn fill_activation_setting_2_combo_box_with_banks(&self, item: &dyn Item) {
-        let bank_param_index = item.bank_condition().param_index();
-        let session = self.session();
-        let session = session.borrow();
-        let bank_param = session
-            .params()
-            .compartment_params(item.compartment())
-            .at(bank_param_index);
-        let data = if let Some(discrete_values) = bank_param.setting().discrete_values() {
-            discrete_values
-                .enumerate()
-                // Don't block GUI if we come across a parameter that has insanely many
-                // discrete values (and is probably not intended to be used with banks).
-                .take(500)
-                .map(|(i, s)| (i as isize, s.to_string()))
-                .collect()
-        } else {
-            // For continuous parameters we just choose a default of 100 values.
-            let bank_count = 100;
-            (0..bank_count)
-                .map(|i| (i as isize, i.to_string()))
-                .collect()
-        };
-        self.view
-            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
-            .fill_combo_box_with_data_vec(data);
-    }
-
-    fn invalidate_activation_control_visibilities(&self, item: &dyn Item) {
-        let show = item.supports_activation();
-        let activation_type = item.activation_type();
-        self.show_if(
-            show,
-            &[
-                root::ID_MAPPING_ACTIVATION_LABEL,
-                root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX,
-            ],
-        );
-        self.show_if(
-            show && (activation_type == ActivationType::Modifiers
-                || activation_type == ActivationType::Bank),
-            &[
-                root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
-                root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT,
-                root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
-            ],
-        );
-        self.show_if(
-            show && activation_type == ActivationType::Modifiers,
-            &[
-                root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
-                root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
-            ],
-        );
-        let edit_control_label = if show {
-            match activation_type {
-                ActivationType::Eel => Some("EEL (e.g. y = p1 > 0)"),
-                ActivationType::Expression => Some("e.g. p[0] == 2"),
-                _ => None,
-            }
-        } else {
-            None
-        };
-        self.show_if(
-            edit_control_label.is_some(),
-            &[
-                root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
-                root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
-            ],
-        );
-        let text_control = self
-            .view
-            .require_control(root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT);
-        if let Some(l) = edit_control_label {
-            text_control.set_text(l);
-        }
+        self.invalidate_activation_setting_2_controls(item, None);
     }
 
     fn invalidate_activation_type_combo_box(&self, item: &dyn Item) {
@@ -326,71 +199,146 @@ impl MappingHeaderPanel {
     }
 
     fn invalidate_activation_setting_1_controls(&self, item: &dyn Item) {
+        let session = self.session();
+        let session = session.borrow();
+        let button = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_BUTTON);
+        let check_box = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX);
         use ActivationType::*;
-        match item.activation_type() {
+        let label = match item.activation_type() {
             Modifiers => {
                 self.invalidate_mapping_activation_modifier_controls(
-                    root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                    root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
+                    &session,
+                    button,
+                    check_box,
+                    item.compartment(),
                     item.modifier_condition_1(),
                 );
+                Some("Modifier A")
             }
             Bank => {
-                let param_index = item.bank_condition().param_index();
-                self.view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX)
-                    .select_combo_box_item_by_index(param_index.get() as _)
-                    .unwrap();
+                button.show();
+                check_box.hide();
+                let text = menus::get_param_name(
+                    &session,
+                    item.compartment(),
+                    Some(item.bank_condition().param_index()),
+                );
+                button.set_text(text);
+                Some("Parameter")
             }
-            _ => {}
+            TargetValue => {
+                // let mapping_id = item.mapping_id();
+                // self.view
+                //     .require_control(button_id)
+                //     .select_combo_box_item_by_index(param_index.get() as _)
+                //     .unwrap();
+                Some("Mapping")
+            }
+            _ => {
+                button.hide();
+                check_box.hide();
+                None
+            }
         };
+        self.view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT)
+            .set_text_or_hide(label);
     }
 
-    fn invalidate_activation_setting_2_controls(&self, item: &dyn Item) {
+    fn invalidate_activation_setting_2_controls(&self, item: &dyn Item, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL) {
+            return;
+        }
+        let session = self.session();
+        let session = session.borrow();
+        let button = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_BUTTON);
+        let check_box = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX);
+        let edit_control = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
         use ActivationType::*;
-        match item.activation_type() {
+        let label = match item.activation_type() {
             Modifiers => {
                 self.invalidate_mapping_activation_modifier_controls(
-                    root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
-                    root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
+                    &session,
+                    button,
+                    check_box,
+                    item.compartment(),
                     item.modifier_condition_2(),
                 );
+                edit_control.hide();
+                Some("Modifier B")
             }
             Bank => {
-                self.fill_activation_setting_2_combo_box_with_banks(item);
+                button.show();
+                check_box.hide();
+                edit_control.hide();
                 let bank_index = item.bank_condition().bank_index();
-                let combo_box = self
-                    .view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX);
-                if combo_box
-                    .select_combo_box_item_by_index(bank_index as _)
-                    .is_err()
-                {
-                    combo_box.select_new_combo_box_item(format!("Invalid bank {}", bank_index));
-                }
+                let text = menus::get_bank_name(
+                    &session,
+                    item,
+                    item.bank_condition().param_index,
+                    bank_index,
+                );
+                button.set_text(text);
+                Some("Bank")
             }
-            _ => {}
+            TargetValue => {
+                edit_control.show();
+                // let mapping_id = item.mapping_id();
+                // self.view
+                //     .require_control(button_id)
+                //     .select_combo_box_item_by_index(param_index.get() as _)
+                //     .unwrap();
+                Some("Ex: y > 0")
+            }
+            Eel => {
+                button.hide();
+                check_box.hide();
+                edit_control.show();
+                edit_control.set_text(item.script());
+                Some("Ex: y = p1 > 0")
+            }
+            Expression => {
+                button.hide();
+                check_box.hide();
+                edit_control.show();
+                edit_control.set_text(item.script());
+                Some("Ex: p[0] == 2")
+            }
+            Always => {
+                button.hide();
+                check_box.hide();
+                edit_control.hide();
+                None
+            }
         };
+        self.view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT)
+            .set_text_or_hide(label);
     }
 
     fn invalidate_mapping_activation_modifier_controls(
         &self,
-        combo_box_id: u32,
-        check_box_id: u32,
+        session: &Session,
+        button: Window,
+        check_box: Window,
+        compartment: Compartment,
         modifier_condition: ModifierConditionModel,
     ) {
-        let b = self.view.require_control(combo_box_id);
-        match modifier_condition.param_index() {
-            None => {
-                b.select_combo_box_item_by_data(-1).unwrap();
-            }
-            Some(i) => {
-                b.select_combo_box_item_by_data(i.get() as _).unwrap();
-            }
-        };
-        self.view
-            .require_control(check_box_id)
-            .set_checked(modifier_condition.is_on());
+        check_box.show();
+        button.show();
+        let text = menus::get_param_name(&session, compartment, modifier_condition.param_index());
+        button.set_text(text);
+        check_box.set_checked(modifier_condition.is_on());
     }
 
     fn is_invoked_programmatically(&self) -> bool {
@@ -474,81 +422,90 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_setting_1_option(&self, session: WeakSession, item: &mut dyn Item) {
+    fn pick_activation_setting_1_option(&self, session: WeakSession, item: &mut dyn Item) {
         use ActivationType::*;
         match item.activation_type() {
-            Modifiers => {
-                self.update_activation_setting_option(
-                    root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                    session,
-                    item,
-                    |it| it.modifier_condition_1(),
-                    |s, it, c| it.set_modifier_condition_1(s, c),
-                );
-            }
+            Modifiers => self.pick_modifier_condition_param(
+                session,
+                item,
+                |item| item.modifier_condition_1(),
+                |session, item, value| item.set_modifier_condition_1(session, value),
+            ),
             Bank => {
-                let b = self
-                    .view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX);
-                let index = (b.selected_combo_box_item_index() as u32)
-                    .try_into()
-                    .unwrap();
-                item.set_bank_condition(session, item.bank_condition().with_param_index(index));
+                let bank_condition = item.bank_condition();
+                let result = {
+                    menus::prompt_menu(
+                        self.view.require_window(),
+                        menus::menu_containing_realearn_params(
+                            &session,
+                            item.compartment(),
+                            bank_condition.param_index,
+                        ),
+                    )
+                };
+                if let Some(param_index) = result {
+                    item.set_bank_condition(session, bank_condition.with_param_index(param_index));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn pick_activation_setting_2_option(&self, session: WeakSession, item: &mut dyn Item) {
+        use ActivationType::*;
+        match item.activation_type() {
+            Modifiers => self.pick_modifier_condition_param(
+                session,
+                item,
+                |item| item.modifier_condition_2(),
+                |session, item, value| item.set_modifier_condition_2(session, value),
+            ),
+            Bank => {
+                let bank_condition = item.bank_condition();
+                let result = {
+                    menus::prompt_menu(
+                        self.view.require_window(),
+                        menus::menu_containing_banks(
+                            &session,
+                            item.compartment(),
+                            bank_condition.param_index,
+                            bank_condition.bank_index,
+                        ),
+                    )
+                };
+                if let Some(bank_index) = result {
+                    item.set_bank_condition(session, bank_condition.with_bank_index(bank_index));
+                }
             }
             _ => {}
         };
     }
 
-    fn update_activation_setting_2_option(&self, session: WeakSession, item: &mut dyn Item) {
-        use ActivationType::*;
-        match item.activation_type() {
-            Modifiers => {
-                self.update_activation_setting_option(
-                    root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
-                    session,
-                    item,
-                    |it| it.modifier_condition_2(),
-                    |s, it, c| it.set_modifier_condition_2(s, c),
-                );
-            }
-            Bank => {
-                let b = self
-                    .view
-                    .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX);
-                let value = b.selected_combo_box_item_index() as u32;
-                item.set_bank_condition(session, item.bank_condition().with_bank_index(value));
-            }
-            _ => {}
-        };
-    }
-
-    fn update_activation_setting_option(
+    fn pick_modifier_condition_param(
         &self,
-        combo_box_id: u32,
         session: WeakSession,
         item: &mut dyn Item,
         get: impl FnOnce(&dyn Item) -> ModifierConditionModel,
         set: impl FnOnce(WeakSession, &mut dyn Item, ModifierConditionModel),
     ) {
-        let b = self.view.require_control(combo_box_id);
-        let index = match b.selected_combo_box_item_data() {
-            -1 => None,
-            id => {
-                let index = CompartmentParamIndex::try_from(id as u32).unwrap();
-                Some(index)
-            }
+        let modifier_condition = get(item);
+        let result = {
+            menus::prompt_menu(
+                self.view.require_window(),
+                menus::menu_containing_realearn_params_optional(
+                    &session,
+                    item.compartment(),
+                    modifier_condition.param_index,
+                ),
+            )
         };
-        let current = get(item);
-        set(session, item, current.with_param_index(index));
-    }
-
-    fn invalidate_activation_script_edit_control(&self, item: &dyn Item, initiator: Option<u32>) {
-        if initiator == Some(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL) {
-            return;
+        if let Some(param_index) = result {
+            set(
+                session,
+                item,
+                modifier_condition.with_param_index(param_index),
+            );
         }
-        self.view
-            .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
-            .set_text(item.script());
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -583,40 +540,18 @@ impl MappingHeaderPanel {
                     FeedbackEnabled => self.invalidate_feedback_enabled_check_box(item),
                     ActivationType => self.invalidate_activation_controls(item),
                     ModifierCondition1 => self.invalidate_activation_setting_1_controls(item),
-                    ModifierCondition2 => self.invalidate_activation_setting_2_controls(item),
+                    ModifierCondition2 => {
+                        self.invalidate_activation_setting_2_controls(item, initiator)
+                    }
                     BankCondition => {
                         self.invalidate_activation_setting_1_controls(item);
-                        self.invalidate_activation_setting_2_controls(item);
+                        self.invalidate_activation_setting_2_controls(item, initiator);
                     }
-                    Script => self.invalidate_activation_script_edit_control(item, initiator),
+                    Script => self.invalidate_activation_setting_2_controls(item, initiator),
+                    MappingId => self.invalidate_activation_setting_1_controls(item),
                 };
             });
         });
-    }
-
-    fn fill_combo_box_with_realearn_params(
-        &self,
-        control_id: u32,
-        with_none: bool,
-        compartment: Compartment,
-    ) {
-        let b = self.view.require_control(control_id);
-        let start = if with_none {
-            vec![(-1isize, "<None>".to_string())]
-        } else {
-            vec![]
-        };
-        let session = self.session();
-        let session = session.borrow();
-        b.fill_combo_box_with_data_small(start.into_iter().chain(
-            compartment_param_index_iter().map(|i| {
-                let param_name = session
-                    .params()
-                    .compartment_params(compartment)
-                    .get_parameter_name(i);
-                (i.get() as isize, format!("{}. {}", i.get() + 1, param_name))
-            }),
-        ));
     }
 
     fn session(&self) -> SharedSession {
@@ -654,8 +589,14 @@ impl View for MappingHeaderPanel {
             ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => {
                 self.with_session_and_item(Self::update_feedback_enabled);
             }
+            ID_MAPPING_ACTIVATION_SETTING_1_BUTTON => {
+                self.with_session_and_item(Self::pick_activation_setting_1_option);
+            }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
                 self.with_session_and_item(Self::update_activation_setting_1_on);
+            }
+            ID_MAPPING_ACTIVATION_SETTING_2_BUTTON => {
+                self.with_session_and_item(Self::pick_activation_setting_2_option);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
                 self.with_session_and_item(Self::update_activation_setting_2_on);
@@ -669,12 +610,6 @@ impl View for MappingHeaderPanel {
         match resource_id {
             ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX => {
                 self.with_session_and_item(Self::update_activation_type);
-            }
-            ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX => {
-                self.with_session_and_item(Self::update_activation_setting_1_option);
-            }
-            ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX => {
-                self.with_session_and_item(Self::update_activation_setting_2_option);
             }
             _ => unreachable!(),
         }
@@ -728,10 +663,6 @@ impl Item for MappingModel {
     }
 
     fn supports_name_change(&self) -> bool {
-        true
-    }
-
-    fn supports_activation(&self) -> bool {
         true
     }
 
@@ -859,6 +790,21 @@ impl Item for MappingModel {
             Some(initiator),
         );
     }
+
+    fn mapping_id(&self) -> Option<MappingId> {
+        self.activation_condition_model().mapping_id()
+    }
+
+    fn set_mapping_id(&mut self, session: WeakSession, value: Option<MappingId>) {
+        Session::change_mapping_from_ui_simple(
+            session,
+            self,
+            MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetMappingId(
+                value,
+            )),
+            None,
+        );
+    }
 }
 
 impl Item for GroupModel {
@@ -868,10 +814,6 @@ impl Item for GroupModel {
 
     fn supports_name_change(&self) -> bool {
         !self.is_default_group()
-    }
-
-    fn supports_activation(&self) -> bool {
-        true
     }
 
     fn name(&self) -> &str {
@@ -998,4 +940,175 @@ impl Item for GroupModel {
             Some(initiator),
         );
     }
+
+    fn mapping_id(&self) -> Option<MappingId> {
+        self.activation_condition_model().mapping_id()
+    }
+
+    fn set_mapping_id(&mut self, session: WeakSession, value: Option<MappingId>) {
+        Session::change_group_from_ui_simple(
+            session,
+            self,
+            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetMappingId(
+                value,
+            )),
+            None,
+        );
+    }
+}
+
+mod menus {
+    use crate::application::{Session, WeakSession};
+    use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex};
+    use crate::infrastructure::ui::Item;
+    use std::iter;
+    use swell_ui::menu_tree::{
+        fill_menu, item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu,
+    };
+    use swell_ui::{MenuBar, Window};
+
+    pub fn prompt_menu<T>(parent_window: Window, mut pure_menu: Menu<T>) -> Option<T> {
+        let menu_bar = MenuBar::new_popup_menu();
+        pure_menu.index(1);
+        fill_menu(menu_bar.menu(), &pure_menu);
+        let result_index = parent_window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
+        let res = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
+        Some(res)
+    }
+
+    pub fn menu_containing_realearn_params(
+        session: &WeakSession,
+        compartment: Compartment,
+        current_value: CompartmentParamIndex,
+    ) -> swell_ui::menu_tree::Menu<CompartmentParamIndex> {
+        let session = session.upgrade().expect("session gone");
+        let session = session.borrow();
+        root_menu(
+            compartment_param_index_iter()
+                .map(|i| {
+                    let param_name = get_param_name(&session, compartment, Some(i));
+                    item_with_opts(
+                        param_name,
+                        ItemOpts {
+                            enabled: true,
+                            checked: i == current_value,
+                        },
+                        move || i,
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    pub fn menu_containing_realearn_params_optional(
+        session: &WeakSession,
+        compartment: Compartment,
+        current_value: Option<CompartmentParamIndex>,
+    ) -> swell_ui::menu_tree::Menu<Option<CompartmentParamIndex>> {
+        let session = session.upgrade().expect("session gone");
+        let session = session.borrow();
+        root_menu(
+            iter::once(item_with_opts(
+                NONE,
+                ItemOpts {
+                    enabled: true,
+                    checked: current_value.is_none(),
+                },
+                || None,
+            ))
+            .chain(compartment_param_index_iter().map(|i| {
+                let value = Some(i);
+                let param_name = get_param_name(&session, compartment, value);
+                item_with_opts(
+                    param_name,
+                    ItemOpts {
+                        enabled: true,
+                        checked: value == current_value,
+                    },
+                    move || value,
+                )
+            }))
+            .collect(),
+        )
+    }
+
+    pub fn menu_containing_banks(
+        session: &WeakSession,
+        compartment: Compartment,
+        param_index: CompartmentParamIndex,
+        current_value: u32,
+    ) -> swell_ui::menu_tree::Menu<u32> {
+        let session = session.upgrade().expect("session gone");
+        let session = session.borrow();
+        let bank_param = session
+            .params()
+            .compartment_params(compartment)
+            .at(param_index);
+        let menu_items = if let Some(discrete_values) = bank_param.setting().discrete_values() {
+            discrete_values
+                .enumerate()
+                // Don't block GUI if we come across a parameter that has insanely many
+                // discrete values (and is probably not intended to be used with banks).
+                .take(500)
+                .map(|(i, s)| bank_item(s.to_string(), i, current_value))
+                .collect()
+        } else {
+            // For continuous parameters we just choose a default of 100 values.
+            let bank_count = 100;
+            (0..bank_count)
+                .map(|i| bank_item(i.to_string(), i, current_value))
+                .collect()
+        };
+        root_menu(menu_items)
+    }
+
+    pub fn get_param_name(
+        session: &Session,
+        compartment: Compartment,
+        index: Option<CompartmentParamIndex>,
+    ) -> String {
+        match index {
+            None => "<None>".to_owned(),
+            Some(i) => {
+                let param_name = session
+                    .params()
+                    .compartment_params(compartment)
+                    .get_parameter_name(i);
+                format!("{}. {}", i.get() + 1, param_name)
+            }
+        }
+    }
+
+    pub fn get_bank_name(
+        session: &Session,
+        item: &dyn Item,
+        bank_param_index: CompartmentParamIndex,
+        bank_index: u32,
+    ) -> String {
+        let bank_param = session
+            .params()
+            .compartment_params(item.compartment())
+            .at(bank_param_index);
+        if let Some(label) = bank_param.setting().find_label_for_value(bank_index) {
+            label.to_owned()
+        } else {
+            bank_index.to_string()
+        }
+    }
+
+    fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<u32> {
+        item_with_opts(
+            text,
+            ItemOpts {
+                enabled: true,
+                checked: bank_index == current_bank_index as usize,
+            },
+            move || bank_index as u32,
+        )
+    }
+
+    const NONE: &str = "<None>";
 }

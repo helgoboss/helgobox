@@ -1,9 +1,11 @@
 use crate::application::{CompartmentModel, GroupModel};
 use crate::base::default_util::is_default;
-use crate::domain::{Compartment, CompartmentParamIndex, GroupId, GroupKey, ParamSetting};
+use crate::domain::{
+    Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
+};
 use crate::infrastructure::data::{
-    DataToModelConversionContext, GroupModelData, MappingModelData, MigrationDescriptor,
-    ModelToDataConversionContext,
+    GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
+    SimpleDataToModelConversionContext,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -34,16 +36,21 @@ impl ModelToDataConversionContext for CompartmentModel {
         let group = self.groups.iter().find(|g| g.id() == group_id)?;
         Some(group.key().clone())
     }
+
+    fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey> {
+        let mapping = self.mappings.iter().find(|m| m.id() == mapping_id)?;
+        Some(mapping.key().clone())
+    }
 }
 
 impl CompartmentModelData {
     pub fn from_model(model: &CompartmentModel) -> Self {
         Self {
-            default_group: Some(GroupModelData::from_model(&model.default_group)),
+            default_group: Some(GroupModelData::from_model(&model.default_group, model)),
             groups: model
                 .groups
                 .iter()
-                .map(GroupModelData::from_model)
+                .map(|g| GroupModelData::from_model(g, model))
                 .collect(),
             mappings: model
                 .mappings
@@ -69,28 +76,19 @@ impl CompartmentModelData {
             &self.groups,
             self.parameters.values(),
         )?;
-        #[derive(Clone, Copy)]
-        struct ConversionContext<'a> {
-            groups: &'a Vec<GroupModel>,
-        }
-        impl<'a> DataToModelConversionContext for ConversionContext<'a> {
-            fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
-                let group = self.groups.iter().find(|g| g.key() == key)?;
-                Some(group.id())
-            }
-        }
         let migration_descriptor = MigrationDescriptor::new(version);
+        let conversion_context =
+            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
         let final_default_group = self
             .default_group
             .as_ref()
-            .map(|g| g.to_model(compartment, true))
+            .map(|g| g.to_model(compartment, true, &conversion_context))
             .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
         let groups = self
             .groups
             .iter()
-            .map(|g| g.to_model(compartment, false))
+            .map(|g| g.to_model(compartment, false, &conversion_context))
             .collect();
-        let conversion_context = ConversionContext { groups: &groups };
         let model = CompartmentModel {
             default_group: final_default_group,
             mappings: self
@@ -101,7 +99,7 @@ impl CompartmentModelData {
                         compartment,
                         &migration_descriptor,
                         version,
-                        conversion_context,
+                        &conversion_context,
                     )
                 })
                 .collect(),

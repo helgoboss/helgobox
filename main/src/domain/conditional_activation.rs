@@ -1,6 +1,6 @@
 use crate::base::eel;
 use crate::domain::{
-    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator,
+    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
     RawParamValue, COMPARTMENT_PARAMETER_COUNT,
 };
 use std::collections::HashSet;
@@ -17,6 +17,10 @@ pub enum ActivationCondition {
     // Boxed in order to keep the enum variants at a similar size (clippy gave that hint)
     Eel(Box<EelCondition>),
     Expression(Box<ExpressionCondition>),
+    TargetValue {
+        reference_mapping: Option<MappingId>,
+        condition: Box<ExpressionEvaluator>,
+    },
 }
 
 impl ActivationCondition {
@@ -41,6 +45,8 @@ impl ActivationCondition {
                 condition.is_fulfilled()
             }
             Expression(condition) => condition.is_fulfilled(params),
+            // TODO-high CONTINUE We should return something like "can't decide"
+            TargetValue { .. } => true,
         }
     }
 
@@ -97,6 +103,7 @@ impl ActivationCondition {
             }
             Expression(condition) => condition.is_fulfilled(params),
             Always => return None,
+            ActivationCondition::TargetValue { .. } => return None,
         };
         Some(is_fulfilled)
     }

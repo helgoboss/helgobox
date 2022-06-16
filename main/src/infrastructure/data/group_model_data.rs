@@ -1,7 +1,10 @@
 use crate::application::{Change, GroupCommand, GroupModel};
 use crate::base::default_util::is_default;
 use crate::domain::{Compartment, GroupId, GroupKey, Tag};
-use crate::infrastructure::data::{ActivationConditionData, EnabledData};
+use crate::infrastructure::data::{
+    ActivationConditionData, DataToModelConversionContext, EnabledData,
+    ModelToDataConversionContext,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -27,7 +30,10 @@ pub struct GroupModelData {
 }
 
 impl GroupModelData {
-    pub fn from_model(model: &GroupModel) -> GroupModelData {
+    pub fn from_model(
+        model: &GroupModel,
+        conversion_context: &impl ModelToDataConversionContext,
+    ) -> GroupModelData {
         GroupModelData {
             id: model.key().clone(),
             key: None,
@@ -39,17 +45,26 @@ impl GroupModelData {
             },
             activation_condition_data: ActivationConditionData::from_model(
                 model.activation_condition_model(),
+                conversion_context,
             ),
         }
     }
 
-    pub fn to_model(&self, compartment: Compartment, is_default_group: bool) -> GroupModel {
+    pub fn to_model(
+        &self,
+        compartment: Compartment,
+        is_default_group: bool,
+        conversion_context: &impl DataToModelConversionContext,
+    ) -> GroupModel {
         let mut model = GroupModel::new_from_data(
             compartment,
             if is_default_group {
                 GroupId::default()
             } else {
-                GroupId::random()
+                self.key
+                    .as_ref()
+                    .and_then(|key| conversion_context.group_id_by_key(key))
+                    .unwrap_or_else(|| GroupId::random())
             },
             if is_default_group {
                 GroupKey::default()
@@ -57,11 +72,15 @@ impl GroupModelData {
                 self.key.clone().unwrap_or_else(|| self.id.clone())
             },
         );
-        self.apply_to_model(&mut model);
+        self.apply_to_model(&mut model, conversion_context);
         model
     }
 
-    fn apply_to_model(&self, model: &mut GroupModel) {
+    fn apply_to_model(
+        &self,
+        model: &mut GroupModel,
+        conversion_context: &impl DataToModelConversionContext,
+    ) {
         model.change(GroupCommand::SetName(self.name.clone()));
         model.change(GroupCommand::SetTags(self.tags.clone()));
         model.change(GroupCommand::SetControlIsEnabled(
@@ -71,6 +90,6 @@ impl GroupModelData {
             self.enabled_data.feedback_is_enabled,
         ));
         self.activation_condition_data
-            .apply_to_model(&mut model.activation_condition_model);
+            .apply_to_model(&mut model.activation_condition_model, conversion_context);
     }
 }

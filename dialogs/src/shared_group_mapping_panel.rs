@@ -50,17 +50,17 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Modifier 1",
             ids.named_id("ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT"),
-            context.rect(col_1_x + 138, line_2_y + 2, 33, 9),
+            context.rect(col_1_x + 138, line_2_y + 2, 34, 9),
         ) + NOT_WS_GROUP,
-        dropdown(
-            ids.named_id("ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX"),
+        pushbutton(
+            "Pick 1",
+            ids.named_id("ID_MAPPING_ACTIVATION_SETTING_1_BUTTON"),
             context.rect(col_1_x + 177, line_2_y, 90, 15),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + WS_TABSTOP,
         context.checkbox(
             "",
             ids.named_id("ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX"),
-            rect(col_1_x + 271, line_2_y + 2, 11, 8),
+            rect(col_1_x + 269, line_2_y + 2, 11, 8),
         ) + WS_TABSTOP,
         // Conditional activation criteria 2
         ltext(
@@ -68,24 +68,19 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT"),
             context.rect(col_1_x + 287, line_2_y + 2, 34, 9),
         ) + NOT_WS_GROUP,
-        dropdown(
-            ids.named_id("ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX"),
+        pushbutton(
+            "Pick 1",
+            ids.named_id("ID_MAPPING_ACTIVATION_SETTING_2_BUTTON"),
             context.rect(col_1_x + 325, line_2_y, 90, 15),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + WS_TABSTOP,
         context.checkbox(
             "",
             ids.named_id("ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX"),
-            rect(col_1_x + 419, line_2_y + 2, 11, 8),
+            rect(col_1_x + 417, line_2_y + 2, 11, 8),
         ) + WS_TABSTOP,
-        ltext(
-            "EEL (e.g. y = p1 > 0)",
-            ids.named_id("ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT"),
-            context.rect(col_1_x + 138, line_2_y + 2, 70, 9),
-        ) + NOT_WS_GROUP,
         edittext(
             ids.named_id("ID_MAPPING_ACTIVATION_EDIT_CONTROL"),
-            context.rect(col_1_x + 208, line_2_y, 220, 14),
+            context.rect(col_1_x + 325, line_2_y, 90, 14),
         ) + ES_MULTILINE
             + ES_AUTOHSCROLL,
     ];

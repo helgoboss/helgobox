@@ -132,7 +132,7 @@ impl ParamSetting {
         UnitValue::new_clamped(raw_value).get() as RawParamValue
     }
 
-    fn find_label_for_value(&self, value: u32) -> Option<&str> {
+    pub fn find_label_for_value(&self, value: u32) -> Option<&str> {
         self.value_labels.get(value as usize).map(|s| s.as_str())
     }
 

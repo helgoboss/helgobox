@@ -191,9 +191,14 @@ impl<'a> Change<'a> for MappingModel {
 }
 
 impl MappingModel {
-    pub fn new(compartment: Compartment, initial_group_id: GroupId, key: MappingKey) -> Self {
+    pub fn new(
+        compartment: Compartment,
+        initial_group_id: GroupId,
+        key: MappingKey,
+        id: MappingId,
+    ) -> Self {
         Self {
-            id: MappingId::random(),
+            id,
             key,
             compartment,
             name: Default::default(),

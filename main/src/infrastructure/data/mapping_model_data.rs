@@ -1,7 +1,8 @@
 use crate::application::{Change, MappingCommand, MappingModel};
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    Compartment, ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingKey, Tag,
+    Compartment, ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingId,
+    MappingKey, Tag,
 };
 use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData, MigrationDescriptor,
@@ -76,6 +77,7 @@ impl MappingModelData {
                 == FeedbackSendBehavior::SendFeedbackAfterControl,
             activation_condition_data: ActivationConditionData::from_model(
                 model.activation_condition_model(),
+                conversion_context,
             ),
             advanced: model.advanced_settings().cloned(),
             visible_in_projection: model.visible_in_projection(),
@@ -85,7 +87,7 @@ impl MappingModelData {
     pub fn to_model(
         &self,
         compartment: Compartment,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
     ) -> MappingModel {
         self.to_model_flexible(
@@ -103,7 +105,7 @@ impl MappingModelData {
         compartment: Compartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
     ) -> MappingModel {
         self.to_model_flexible(
             compartment,
@@ -124,16 +126,19 @@ impl MappingModelData {
         compartment: Compartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
     ) -> MappingModel {
-        let key: MappingKey = self
-            .key
-            .clone()
-            .or_else(|| self.id.clone())
-            .unwrap_or_else(MappingKey::random);
+        let (key, id) = if let Some(key) = self.key.clone() {
+            let id = conversion_context
+                .mapping_id_by_key(&key)
+                .unwrap_or_default();
+            (key, id)
+        } else {
+            (MappingKey::random(), MappingId::random())
+        };
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, GroupId::default(), key);
+        let mut model = MappingModel::new(compartment, GroupId::default(), key, id);
         self.apply_to_model_internal(
             migration_descriptor,
             preset_version,
@@ -149,7 +154,7 @@ impl MappingModelData {
     pub fn apply_to_model(
         &self,
         model: &mut MappingModel,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
     ) {
         self.apply_to_model_internal(
@@ -168,7 +173,7 @@ impl MappingModelData {
         &self,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        conversion_context: impl DataToModelConversionContext,
+        conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         model: &mut MappingModel,
     ) {
@@ -180,7 +185,7 @@ impl MappingModelData {
             .unwrap_or_default();
         model.change(P::SetGroupId(group_id));
         self.activation_condition_data
-            .apply_to_model(&mut model.activation_condition_model);
+            .apply_to_model(&mut model.activation_condition_model, conversion_context);
         let compartment = model.compartment();
         self.source
             .apply_to_model_flexible(&mut model.source_model, compartment, preset_version);
