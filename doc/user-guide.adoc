@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-06-12 (v2.13.0-pre.6)`
+|Last update of text: |`2022-06-17 (v2.13.0-pre.7)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -204,8 +204,8 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 
 . Press the "Add one" button.
 * A new mapping called "1" should appear in the mapping rows panel.
-* For now it's greyed out because it's not complete yet. The default target is a
- <<fx-set-parameter-value>> target which doesn't yet refer to any specific FX.
+* For now, it doesn't have any effect. The default target is a
+ <<realearn-dummy-target>> target which basically does nothing.
 . Press the "Learn source" button of that new mapping.
 * Its label will change to "Stop".
 . Touch some control element on your MIDI controller (knob, encoder, fader, button, key, pitch
@@ -218,7 +218,6 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 . Touch the volume fader of your newly created REAPER track.
 * The button label should jump back to "Learn target" and "Track: Set volume" should appear in the
  _target label_.
-* At this point the mapping should not be greyed out anymore because it's complete and enabled.
 . Now you should be able to control the touched target with your control element.
 
 [discrete]
@@ -1005,7 +1004,7 @@ By default, instance-specific links are applied _in addition_ to the global link
 
 ==== Mapping row
 
-The source and target label of a mapping row is greyed out whenever the mapping is _off_. A mapping is considered as
+The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_. A mapping is considered as
 _on_ only if the following is true:
 
 . The mapping is complete, that is, both source and target are completely specified.
@@ -1136,7 +1135,7 @@ This section provides the following mapping-related settings and functions:
 ==== Conditional activation
 
 Conditional activation allows you to dynamically enable or disable this mapping based on the state of
-ReaLearn's own plug-in parameters. This is a powerful feature. It is especially practical if your
+ReaLearn's own plug-in parameters and since recently even on the state of arbitrary targets. This is a powerful feature. It is especially practical if your
 controller has a limited amount of control elements and you want to give control elements several
 responsibilities. It let's you easily implement use cases such as:
 
@@ -1144,16 +1143,18 @@ responsibilities. It let's you easily implement use cases such as:
  should control track volume!" (modifier use cases)
 * "I want to have two buttons for switching between different banks where each bank represents
  a group of mappings." (bank use cases)
+* "I want to control the volume of this track only if it's not muted." (target-state based use cases)
 
-TIP: Since ReaLearn 2.11.0, <<realearn-enable-disable-mappings>> provides a slightly less powerful but more straightforward way to achieve such use cases.
+TIP: Since ReaLearn 2.11.0, <<realearn-enable-disable-mappings>> provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
 
-There are 4 different activation modes:
+There are 6 different activation modes:
 
 * *Always:* Mapping is always active (the default)
 * *When modifiers on/off:* Mapping becomes active only if something is pressed / not pressed
 * *When bank selected:* Allows you to step through different groups of mappings (sometimes also called "pages")
-* *When EEL result &gt; 0:* Let an EEL formula decide (total freedom)
-* *When expression > 0:* Let an expression decide (total freedom)
+* *When EEL met* Let an EEL formula decide (total freedom)
+* *When expression met:* Let an expression decide (total freedom)
+* *When target value met:* Let the current value of the target of another mapping decide
 
 [NOTE]
 ====
@@ -1245,11 +1246,11 @@ With _Conditional activation_ you can do the same (and more) within just one Rea
 TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameters>>).
 
 [discrete]
-===== When EEL result > 0
+===== When EEL met
 
 This is for experts. It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language
 that determines if the mapping becomes active or not, based on potentially all parameter values.
-This is the most flexible of all activation modes. The other modes can be easily simulated. The example
+This is the most flexible of all parameter-based activation modes. The other modes can be easily simulated. The example
 modifier condition scenario mentioned above written as formula would be:
 
 ----
@@ -1267,13 +1268,29 @@ TIP: For most activation conditions which need this amount of freedom, the newer
 
 [#expression-based-activation-condition]
 [discrete]
-===== When expression > 0
+===== When expression met
 
 This is very similar to the previous EEL activation mode. But instead of EEL, it lets you use the same expression language as used in <<dynamic-selector,dynamic selectors>> to express the activation condition.
 
 The equivalent expression to above EEL example is:
 
 `p[0] > 0 && p[1] > 0`
+
+[#target-based-activation-condition]
+[discrete]
+===== When target value met
+
+This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values. Instead, it looks at the target of another mapping (the so-called "lead mapping") and switches our mapping (the so-called "follow mapping") on or off depending on the target value of the lead mapping.
+
+It works like this:
+
+. Create the lead mapping and give it a target, e.g. <<track-selectunselect>>.
+* This lead mapping doesn't need to have a source. It can even be completely disabled!
+. In the **Mapping** dropdown, pick this newly created mapping.
+. In the **Expression** text field to the right, enter `y > 0`.
+* This means you want the follow mapping to be active whenever the target value of the lead mapping is greater than 0.0. Or in other words, when it's "switched on".
+
+That's it!
 
 [discrete]
 ===== Custom parameter names
@@ -1886,6 +1903,12 @@ This source fires (emits a value of 100%) when ReaLearn starts. It can be used t
 ====== Timer
 
 This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
+
+====== ReaLearn parameter
+
+This source fires whenever one of ReaLearn's <<compartment-parameters>> is changed.
+
+One of many ways to use this is to create macro parameters which control multiple parameters of multiple other plug-ins.
 
 [#virtual-source]
 ===== Category "Virtual"
