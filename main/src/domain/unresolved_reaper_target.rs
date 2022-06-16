@@ -362,7 +362,7 @@ impl TrackRouteSelector {
     ) -> Result<u32, TrackRouteResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate(compartment_params)
+            .evaluate_with_params(compartment_params)
             .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
             .round() as i32;
         if result < 0 {
@@ -506,8 +506,9 @@ impl VirtualClipSlot {
             } => {
                 let compartment_params = context.params().compartment_params(compartment);
                 let column_index =
-                    to_slot_coordinate(column_evaluator.evaluate(compartment_params))?;
-                let row_index = to_slot_coordinate(row_evaluator.evaluate(compartment_params))?;
+                    to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
+                let row_index =
+                    to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
                 ClipSlotCoordinates::new(column_index, row_index)
             }
         };
@@ -551,7 +552,7 @@ impl VirtualClipColumn {
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
-                to_slot_coordinate(evaluator.evaluate(compartment_params))?
+                to_slot_coordinate(evaluator.evaluate_with_params(compartment_params))?
             }
         };
         // let column_exists = BackboneState::get()
@@ -594,7 +595,7 @@ impl VirtualClipRow {
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
-                to_slot_coordinate(evaluator.evaluate(compartment_params))?
+                to_slot_coordinate(evaluator.evaluate_with_params(compartment_params))?
             }
         };
         // let row_exists = BackboneState::get()
@@ -716,7 +717,7 @@ impl VirtualFxParameter {
     ) -> Result<u32, FxParameterResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
+            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
                 "tcp_fx_parameter_indexes" => {
                     let i = extract_first_arg_as_positive_integer(args)?;
                     let project = context.context.project_or_current_project();
@@ -788,21 +789,28 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: &CompartmentParams) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(params, |_, _| None)
+    pub fn evaluate_with_params(&self, params: &CompartmentParams) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(Some(params), |_, _| None)
     }
 
-    pub fn evaluate_with_additional_vars(
+    pub fn evaluate_with_vars(
+        &self,
+        vars: impl Fn(&str, &[f64]) -> Option<f64>,
+    ) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(None, vars)
+    }
+
+    pub fn evaluate_with_params_and_vars(
         &self,
         parameters: &CompartmentParams,
-        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
+        vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(parameters, additional_vars)
+        self.evaluate_internal(Some(parameters), vars)
     }
 
     fn evaluate_internal(
         &self,
-        params: &CompartmentParams,
+        params: Option<&CompartmentParams>,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
@@ -819,6 +827,7 @@ impl ExpressionEvaluator {
                         if *index < 0.0 {
                             return None;
                         }
+                        let params = params?;
                         let index = index.round() as u32;
                         let index = CompartmentParamIndex::try_from(index).ok()?;
                         Some(params.at(index).effective_value().into())
@@ -835,6 +844,7 @@ impl ExpressionEvaluator {
                     if one_based_position == 0 {
                         return None;
                     }
+                    let params = params?;
                     let index = one_based_position - 1;
                     let index = CompartmentParamIndex::try_from(index).ok()?;
                     Some(params.at(index).effective_value().into())
@@ -1085,7 +1095,7 @@ impl VirtualTrack {
     ) -> Result<i32, TrackResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
+            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
                 "this_track_index" => {
                     let track = context.context().track()?;
                     Some(get_track_index_for_expression(track))
@@ -1374,7 +1384,7 @@ impl VirtualChainFx {
     ) -> Result<u32, FxResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_additional_vars(compartment_params, |name, args| match name {
+            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
                 "tcp_fx_indexes" => {
                     let i = extract_first_arg_as_positive_integer(args)?;
                     if chain.is_input_fx() {

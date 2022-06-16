@@ -435,8 +435,22 @@ impl MainMapping {
         !self.targets.is_empty()
     }
 
+    pub fn check_activation_effect_of_target_value_update(
+        &self,
+        lead_mapping_id: MappingId,
+        target_value: AbsoluteValue,
+    ) -> Option<MappingActivationEffect> {
+        let effect_1 = self
+            .activation_condition_1
+            .process_target_value_update(lead_mapping_id, target_value);
+        let effect_2 = self
+            .activation_condition_2
+            .process_target_value_update(lead_mapping_id, target_value);
+        MappingActivationEffect::new(self.id(), effect_1, effect_2)
+    }
+
     /// Returns `Some` if this affects the mapping's activation state in any way.
-    pub fn check_activation_effect(
+    pub fn check_activation_effect_of_param_update(
         &self,
         params: &PluginParams,
         plugin_param_index: PluginParamIndex,
@@ -447,12 +461,12 @@ impl MainMapping {
             .core
             .compartment
             .to_compartment_param_index(plugin_param_index);
-        let effect_1 = self.activation_condition_1.is_fulfilled_single(
+        let effect_1 = self.activation_condition_1.process_param_update(
             compartment_params,
             compartment_param_index,
             previous_value,
         );
-        let effect_2 = self.activation_condition_2.is_fulfilled_single(
+        let effect_2 = self.activation_condition_2.process_param_update(
             compartment_params,
             compartment_param_index,
             previous_value,

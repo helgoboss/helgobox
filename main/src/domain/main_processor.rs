@@ -822,15 +822,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             match task {
                 TargetTouched => self.process_target_touched_event(),
                 MappingTargetValueChanged {
-                    mapping_id,
+                    lead_mapping_id,
                     target_value,
                 } => {
-                    for follow_mapping in self.basics.target_based_conditional_activation_processors
-                        [mapping_id.compartment]
-                        .get_follow_mappings(mapping_id.id)
-                    {
-                        println!("BLA {:?}", follow_mapping);
-                    }
+                    self.process_mapping_target_value_changed(lead_mapping_id, target_value);
                 }
             }
             count += 1;
@@ -838,6 +833,31 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 break;
             }
         }
+    }
+
+    fn process_mapping_target_value_changed(
+        &mut self,
+        lead_mapping_id: QualifiedMappingId,
+        target_value: AbsoluteValue,
+    ) {
+        let compartment = lead_mapping_id.compartment;
+        let activation_effects: Vec<MappingActivationEffect> =
+            self.basics.target_based_conditional_activation_processors[compartment]
+                .get_follow_mappings(lead_mapping_id.id)
+                .filter_map(|follow_mapping_id| {
+                    let follow_mapping = get_normal_or_virtual_target_mapping_mut(
+                        &mut self.collections.mappings,
+                        &mut self.collections.mappings_with_virtual_targets,
+                        compartment,
+                        follow_mapping_id,
+                    )?;
+                    follow_mapping.check_activation_effect_of_target_value_update(
+                        lead_mapping_id.id,
+                        target_value,
+                    )
+                })
+                .collect();
+        self.process_activation_effects(compartment, activation_effects, false);
     }
 
     fn process_target_touched_event(&mut self) {
@@ -933,24 +953,37 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let param = self.collections.parameters.at_mut(index);
         let previous_value = param.raw_value();
         param.set_raw_value(value);
+        // Notify domain event handler
         self.basics
             .event_handler
             .handle_event(DomainEvent::UpdatedSingleParameterValue { index, value });
+        let compartment = Compartment::by_plugin_param_index(index);
+        let activation_effects: Vec<MappingActivationEffect> = self
+            .all_mappings_in_compartment(compartment)
+            .filter_map(|m| {
+                m.check_activation_effect_of_param_update(
+                    &self.collections.parameters,
+                    index,
+                    previous_value,
+                )
+            })
+            .collect();
+        self.process_activation_effects(compartment, activation_effects, true);
+    }
+
+    fn process_activation_effects(
+        &mut self,
+        compartment: Compartment,
+        activation_effects: Vec<MappingActivationEffect>,
+        refresh_targets: bool,
+    ) {
         // Mapping activation is supported for both compartments and target activation
         // might change also in non-virtual controller mappings due to dynamic targets.
-        let compartment = Compartment::by_plugin_param_index(index);
         let mut changed_mappings = HashSet::new();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         // In order to avoid a mutable borrow of mappings and an immutable borrow of
         // parameters at the same time, we need to separate into READ activation
         // effects and WRITE activation updates.
-        // 1. Mapping activation: Read
-        let activation_effects: Vec<MappingActivationEffect> = self
-            .all_mappings_in_compartment(compartment)
-            .filter_map(|m| {
-                m.check_activation_effect(&self.collections.parameters, index, previous_value)
-            })
-            .collect();
         // 2. Mapping activation: Write
         let mapping_updates: Vec<RealTimeMappingUpdate> = activation_effects
             .into_iter()
@@ -968,16 +1001,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // 3. Mappings with real targets: Refresh targets and determine unused sources
         let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
         for m in self.collections.mappings[compartment].values_mut() {
-            if m.target_can_be_affected_by_parameters() {
-                let control_context = self.basics.control_context();
-                let context = ExtendedProcessorContext::new(
-                    &self.basics.context,
-                    &self.collections.parameters,
-                    control_context,
-                );
-                if let Some(target_update) = m.refresh_target(context, control_context) {
-                    target_updates.push(target_update);
-                    changed_mappings.insert(m.id());
+            if refresh_targets {
+                if m.target_can_be_affected_by_parameters() {
+                    let control_context = self.basics.control_context();
+                    let context = ExtendedProcessorContext::new(
+                        &self.basics.context,
+                        &self.collections.parameters,
+                        control_context,
+                    );
+                    if let Some(target_update) = m.refresh_target(context, control_context) {
+                        target_updates.push(target_update);
+                        changed_mappings.insert(m.id());
+                    }
                 }
             }
             if m.feedback_is_effectively_on() {
@@ -1011,7 +1046,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
-        self.process_mapping_updates_due_to_parameter_changes(
+        self.process_mapping_updates_due_to_activation_changes(
             compartment,
             mapping_updates,
             target_updates,
@@ -1063,7 +1098,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
             }
-            self.process_mapping_updates_due_to_parameter_changes(
+            self.process_mapping_updates_due_to_activation_changes(
                 compartment,
                 mapping_updates,
                 target_updates,
@@ -1819,7 +1854,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         match_outcome
     }
 
-    fn process_mapping_updates_due_to_parameter_changes(
+    fn process_mapping_updates_due_to_activation_changes(
         &mut self,
         compartment: Compartment,
         mapping_updates: Vec<RealTimeMappingUpdate>,
@@ -2555,7 +2590,7 @@ pub enum FeedbackMainTask {
     TargetTouched,
     /// Only sent if this mapping is somewhere referenced in target value activation conditions.
     MappingTargetValueChanged {
-        mapping_id: QualifiedMappingId,
+        lead_mapping_id: QualifiedMappingId,
         target_value: AbsoluteValue,
     },
 }
@@ -3053,7 +3088,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .is_lead_mapping(m.id())
         {
             let task = FeedbackMainTask::MappingTargetValueChanged {
-                mapping_id: m.qualified_id(),
+                lead_mapping_id: m.qualified_id(),
                 target_value: new_value,
             };
             self.channels.self_feedback_sender.send_complaining(task);

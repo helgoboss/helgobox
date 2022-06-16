@@ -3,6 +3,7 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
     RawParamValue, COMPARTMENT_PARAMETER_COUNT,
 };
+use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
 use std::error::Error;
 
@@ -63,7 +64,30 @@ impl ActivationCondition {
         Some(res)
     }
 
-    /// Returns `Some` if the given value change affects the mapping's activation state and if the
+    /// Returns `Some` if the given value update affects the mapping's activation state and if the
+    /// resulting state is on or off.
+    pub fn process_target_value_update(
+        &self,
+        lead_mapping_id: MappingId,
+        target_value: AbsoluteValue,
+    ) -> Option<bool> {
+        match self {
+            ActivationCondition::TargetValue {
+                reference_mapping: Some(rm),
+                condition,
+            } if lead_mapping_id == *rm => {
+                let y = target_value.to_unit_value().get();
+                let result = condition.evaluate_with_vars(|name, args| match name {
+                    "y" => Some(y),
+                    _ => None,
+                });
+                result.ok().map(|v| v > 0.0)
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns `Some` if the given value update affects the mapping's activation state and if the
     /// resulting state is on or off.
     ///
     /// Other parameters in the given array should not have changed! That's especially important
@@ -74,7 +98,7 @@ impl ActivationCondition {
     ///
     /// Attention: For EEL condition, this has a side effect!
     /// TODO-low This is not visible because it's &self.
-    pub fn is_fulfilled_single(
+    pub fn process_param_update(
         &self,
         params: &CompartmentParams,
         // Changed index
@@ -195,7 +219,7 @@ impl ExpressionCondition {
     }
 
     pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
-        let result = self.evaluator.evaluate(params);
+        let result = self.evaluator.evaluate_with_params(params);
         result.map(|v| v > 0.0).unwrap_or(false)
     }
 }
