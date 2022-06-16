@@ -133,7 +133,7 @@ impl ActivationConditionModel {
             },
             TargetValue => match ExpressionEvaluator::compile(self.script()) {
                 Ok(e) => ActivationCondition::TargetValue {
-                    reference_mapping: self.mapping_id,
+                    lead_mapping: self.mapping_id,
                     condition: Box::new(e),
                 },
                 Err(_) => ActivationCondition::Always,

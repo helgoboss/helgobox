@@ -19,7 +19,7 @@ pub enum ActivationCondition {
     Eel(Box<EelCondition>),
     Expression(Box<ExpressionCondition>),
     TargetValue {
-        reference_mapping: Option<MappingId>,
+        lead_mapping: Option<MappingId>,
         condition: Box<ExpressionEvaluator>,
     },
 }
@@ -30,10 +30,12 @@ impl ActivationCondition {
         !matches!(self, ActivationCondition::Always)
     }
 
-    pub fn target_value_reference_mapping(&self) -> Option<MappingId> {
+    /// Returns the referenced lead mapping of this activation condition if it's a target-value
+    /// based one.
+    pub fn target_value_lead_mapping(&self) -> Option<MappingId> {
         match self {
             ActivationCondition::TargetValue {
-                reference_mapping: Some(m),
+                lead_mapping: Some(m),
                 ..
             } => Some(*m),
             _ => None,
@@ -73,11 +75,11 @@ impl ActivationCondition {
     ) -> Option<bool> {
         match self {
             ActivationCondition::TargetValue {
-                reference_mapping: Some(rm),
+                lead_mapping: Some(rm),
                 condition,
             } if lead_mapping_id == *rm => {
                 let y = target_value.to_unit_value().get();
-                let result = condition.evaluate_with_vars(|name, args| match name {
+                let result = condition.evaluate_with_vars(|name, _| match name {
                     "y" => Some(y),
                     _ => None,
                 });

@@ -825,7 +825,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     lead_mapping_id,
                     target_value,
                 } => {
-                    self.process_mapping_target_value_changed(lead_mapping_id, target_value);
+                    self.process_conditional_activation_target_value_change(
+                        lead_mapping_id,
+                        target_value,
+                    );
                 }
             }
             count += 1;
@@ -835,7 +838,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_mapping_target_value_changed(
+    fn process_conditional_activation_target_value_change(
         &mut self,
         lead_mapping_id: QualifiedMappingId,
         target_value: AbsoluteValue,
@@ -977,6 +980,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         activation_effects: Vec<MappingActivationEffect>,
         refresh_targets: bool,
     ) {
+        if activation_effects.is_empty() {
+            return;
+        }
         // Mapping activation is supported for both compartments and target activation
         // might change also in non-virtual controller mappings due to dynamic targets.
         let mut changed_mappings = HashSet::new();
@@ -2227,6 +2233,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ),
             control_context,
         );
+        let initial_target_value = mapping.initial_target_value();
+        let lead_mapping_ids: Vec<_> = mapping
+            .activation_can_be_affected_by_target_values()
+            .collect();
         // Sync to real-time processor
         self.basics
             .channels
@@ -2250,6 +2260,27 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.update_map_entries(compartment, *mapping);
         self.send_diff_feedback(diff_feedback);
         self.update_single_mapping_on_state(id);
+        // This could be a lead mapping in terms of target-based conditional activation. If so,
+        // the target value probably changed and all follow mappings can be affected.
+        if let Some(v) = initial_target_value {
+            self.process_conditional_activation_target_value_change(id, v);
+        }
+        // But it could also be a follow mapping.
+        for lead_mapping_id in lead_mapping_ids {
+            let target_val = self.collections.mappings[compartment]
+                .get(&lead_mapping_id)
+                .and_then(|lead_mapping| {
+                    lead_mapping.current_aggregated_target_value(self.basics.control_context())
+                });
+            let target_val = match target_val {
+                None => continue,
+                Some(v) => v,
+            };
+            self.process_conditional_activation_target_value_change(
+                QualifiedMappingId::new(compartment, lead_mapping_id),
+                target_val,
+            );
+        }
     }
 
     fn update_persistent_mapping_processing_state(
@@ -3082,18 +3113,29 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     /// Inform session, e.g. for UI updates, but also for target-based conditional activation.
     fn notify_target_value_changed(&self, m: &MainMapping, new_value: AbsoluteValue) {
+        self.process_target_value_change_for_conditional_activation(m.qualified_id(), new_value);
+        self.notify_session_about_target_value_change(m, new_value);
+    }
+
+    fn process_target_value_change_for_conditional_activation(
+        &self,
+        mapping_id: QualifiedMappingId,
+        new_value: AbsoluteValue,
+    ) {
         // Defer evaluation of target-based activation conditions (defer because we don't have
         // mutable access at this point).
-        if self.target_based_conditional_activation_processors[m.compartment()]
-            .is_lead_mapping(m.id())
+        if self.target_based_conditional_activation_processors[mapping_id.compartment]
+            .is_lead_mapping(mapping_id.id)
         {
             let task = FeedbackMainTask::MappingTargetValueChanged {
-                lead_mapping_id: m.qualified_id(),
+                lead_mapping_id: mapping_id,
                 target_value: new_value,
             };
             self.channels.self_feedback_sender.send_complaining(task);
         }
-        // Inform session
+    }
+
+    fn notify_session_about_target_value_change(&self, m: &MainMapping, new_value: AbsoluteValue) {
         let event = DomainEvent::TargetValueChanged(TargetValueChangedEvent {
             compartment: m.compartment(),
             mapping_id: m.id(),
@@ -3795,7 +3837,7 @@ impl TargetBasedConditionalActivationProcessor {
     pub fn notify_usage(
         &mut self,
         follow_mapping: MappingId,
-        lead_mappings: (Option<MappingId>, Option<MappingId>),
+        lead_mappings: impl Iterator<Item = MappingId>,
     ) {
         // At first remove all occurrences of follow mapping
         self.mapping_relations
@@ -3807,13 +3849,9 @@ impl TargetBasedConditionalActivationProcessor {
     pub fn notify_usage_add_only(
         &mut self,
         follow_mapping: MappingId,
-        lead_mappings: (Option<MappingId>, Option<MappingId>),
+        lead_mappings: impl Iterator<Item = MappingId>,
     ) {
-        for lead_mapping in lead_mappings
-            .0
-            .into_iter()
-            .chain(lead_mappings.1.into_iter())
-        {
+        for lead_mapping in lead_mappings {
             let relation = MappingRelation {
                 lead_mapping,
                 follow_mapping,

@@ -492,15 +492,17 @@ impl MainMapping {
     /// Returns if the mapping's activation conditions can be affected by target value changes
     /// of other mappings.
     ///
-    /// In particular, it returns the IDs of the referenced mappings (the ones which provide the
+    /// In particular, it returns the IDs of the lead mappings (the ones which provide the
     /// target values that influence the activation state).
-    pub fn activation_can_be_affected_by_target_values(
-        &self,
-    ) -> (Option<MappingId>, Option<MappingId>) {
-        (
-            self.activation_condition_1.target_value_reference_mapping(),
-            self.activation_condition_2.target_value_reference_mapping(),
-        )
+    pub fn activation_can_be_affected_by_target_values(&self) -> impl Iterator<Item = MappingId> {
+        self.activation_condition_1
+            .target_value_lead_mapping()
+            .into_iter()
+            .chain(
+                self.activation_condition_2
+                    .target_value_lead_mapping()
+                    .into_iter(),
+            )
     }
 
     pub fn update_activation_from_effect(
