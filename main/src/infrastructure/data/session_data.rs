@@ -692,7 +692,7 @@ impl SimpleDataToModelConversionContext {
         Self {
             group_id_by_key: groups
                 .iter()
-                .filter_map(|g| Some((g.id.clone(), GroupId::random())))
+                .map(|g| (g.id.clone(), GroupId::random()))
                 .collect(),
             mapping_id_by_key: mappings
                 .iter()

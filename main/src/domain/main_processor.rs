@@ -1007,18 +1007,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // 3. Mappings with real targets: Refresh targets and determine unused sources
         let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
         for m in self.collections.mappings[compartment].values_mut() {
-            if refresh_targets {
-                if m.target_can_be_affected_by_parameters() {
-                    let control_context = self.basics.control_context();
-                    let context = ExtendedProcessorContext::new(
-                        &self.basics.context,
-                        &self.collections.parameters,
-                        control_context,
-                    );
-                    if let Some(target_update) = m.refresh_target(context, control_context) {
-                        target_updates.push(target_update);
-                        changed_mappings.insert(m.id());
-                    }
+            if refresh_targets && m.target_can_be_affected_by_parameters() {
+                let control_context = self.basics.control_context();
+                let context = ExtendedProcessorContext::new(
+                    &self.basics.context,
+                    &self.collections.parameters,
+                    control_context,
+                );
+                if let Some(target_update) = m.refresh_target(context, control_context) {
+                    target_updates.push(target_update);
+                    changed_mappings.insert(m.id());
                 }
             }
             if m.feedback_is_effectively_on() {

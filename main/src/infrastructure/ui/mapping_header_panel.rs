@@ -351,7 +351,7 @@ impl MappingHeaderPanel {
     ) {
         check_box.show();
         button.show();
-        let text = menus::get_param_name(&session, compartment, modifier_condition.param_index());
+        let text = menus::get_param_name(session, compartment, modifier_condition.param_index());
         button.set_text(text);
         check_box.set_checked(modifier_condition.is_on());
     }

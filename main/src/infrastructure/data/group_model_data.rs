@@ -61,7 +61,7 @@ impl GroupModelData {
             } else {
                 conversion_context
                     .group_id_by_key(&self.id)
-                    .unwrap_or_else(|| GroupId::random())
+                    .unwrap_or_else(GroupId::random)
             },
             if is_default_group {
                 GroupKey::default()
