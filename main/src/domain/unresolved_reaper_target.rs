@@ -1385,6 +1385,10 @@ impl VirtualChainFx {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
+                "this_fx_index" => {
+                    let fx = context.context().containing_fx();
+                    Some(fx.index() as f64)
+                }
                 "tcp_fx_indexes" => {
                     let i = extract_first_arg_as_positive_integer(args)?;
                     if chain.is_input_fx() {
