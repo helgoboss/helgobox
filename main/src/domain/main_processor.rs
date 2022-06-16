@@ -89,6 +89,8 @@ struct Basics<EH: DomainEventHandler> {
     // context. Rightfully so, because it's potentially reentrant!
     last_feedback_checksum_by_address:
         RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
+    target_based_conditional_activation_processors:
+        EnumMap<Compartment, TargetBasedConditionalActivationProcessor>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -288,6 +290,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     integration_test_feedback_sender: None,
                 },
                 last_feedback_checksum_by_address: Default::default(),
+                target_based_conditional_activation_processors: Default::default(),
             },
             collections: Collections {
                 mappings: Default::default(),
@@ -818,6 +821,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             use FeedbackMainTask::*;
             match task {
                 TargetTouched => self.process_target_touched_event(),
+                MappingTargetValueChanged {
+                    mapping_id,
+                    target_value,
+                } => {
+                    for follow_mapping in self.basics.target_based_conditional_activation_processors
+                        [mapping_id.compartment]
+                        .get_follow_mappings(mapping_id.id)
+                    {
+                        println!("BLA {:?}", follow_mapping);
+                    }
+                }
             }
             count += 1;
             if count == FEEDBACK_TASK_BULK_SIZE {
@@ -1023,7 +1037,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
             ) {
                 if m.activation_can_be_affected_by_parameters() {
-                    if let Some(update) = m.update_activation(&self.collections.parameters) {
+                    if let Some(update) =
+                        m.update_activation_from_params(&self.collections.parameters)
+                    {
                         mapping_updates.push(update);
                         changed_mappings.push(m.id())
                     }
@@ -1239,6 +1255,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.collections.target_touch_dependent_mappings[compartment].clear();
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
         self.collections.milli_dependent_feedback_mappings[compartment].clear();
+        self.basics.target_based_conditional_activation_processors[compartment].clear();
         self.collections.previous_target_values[compartment].clear();
         self.poll_control_mappings[compartment].clear();
         // Refresh and splinter real-time mappings
@@ -1278,6 +1295,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 if m.wants_to_be_polled_for_control() {
                     self.poll_control_mappings[compartment].insert(m.id());
                 }
+                let target_value_activation_reference_mappings =
+                    m.activation_can_be_affected_by_target_values();
+                self.basics.target_based_conditional_activation_processors[compartment]
+                    .notify_usage_add_only(m.id(), target_value_activation_reference_mappings);
                 m.splinter_real_time_mapping()
             })
             .collect();
@@ -2333,6 +2354,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         } else {
             self.poll_control_mappings[compartment].shift_remove(&m.id());
         }
+        let target_value_activation_reference_mappings =
+            m.activation_can_be_affected_by_target_values();
+        self.basics.target_based_conditional_activation_processors[compartment]
+            .notify_usage(m.id(), target_value_activation_reference_mappings);
         let relevant_map = if m.has_virtual_target() {
             self.collections.mappings[compartment].shift_remove(&m.id());
             &mut self.collections.mappings_with_virtual_targets
@@ -2528,6 +2553,11 @@ pub enum FeedbackMainTask {
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,
+    /// Only sent if this mapping is somewhere referenced in target value activation conditions.
+    MappingTargetValueChanged {
+        mapping_id: QualifiedMappingId,
+        target_value: AbsoluteValue,
+    },
 }
 
 /// A control-related task (which is potentially sent very frequently).
@@ -3015,15 +3045,27 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    /// Inform session, e.g. for UI updates
+    /// Inform session, e.g. for UI updates, but also for target-based conditional activation.
     fn notify_target_value_changed(&self, m: &MainMapping, new_value: AbsoluteValue) {
-        self.event_handler
-            .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
-                compartment: m.compartment(),
-                mapping_id: m.id(),
-                targets: m.targets(),
-                new_value,
-            }));
+        // Defer evaluation of target-based activation conditions (defer because we don't have
+        // mutable access at this point).
+        if self.target_based_conditional_activation_processors[m.compartment()]
+            .is_lead_mapping(m.id())
+        {
+            let task = FeedbackMainTask::MappingTargetValueChanged {
+                mapping_id: m.qualified_id(),
+                target_value: new_value,
+            };
+            self.channels.self_feedback_sender.send_complaining(task);
+        }
+        // Inform session
+        let event = DomainEvent::TargetValueChanged(TargetValueChangedEvent {
+            compartment: m.compartment(),
+            mapping_id: m.id(),
+            targets: m.targets(),
+            new_value,
+        });
+        self.event_handler.handle_event(event);
     }
 
     /// Processes (controller) mappings with virtual targets.
@@ -3688,4 +3730,66 @@ fn all_mappings_without_virtual_targets(
     mappings: &EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
 ) -> impl Iterator<Item = &MainMapping> {
     Compartment::enum_iter().flat_map(move |compartment| mappings[compartment].values())
+}
+#[derive(Debug, Default)]
+struct TargetBasedConditionalActivationProcessor {
+    mapping_relations: HashSet<MappingRelation>,
+}
+
+#[derive(Eq, PartialEq, Hash, Debug)]
+struct MappingRelation {
+    lead_mapping: MappingId,
+    follow_mapping: MappingId,
+}
+
+impl TargetBasedConditionalActivationProcessor {
+    pub fn get_follow_mappings(
+        &self,
+        lead_mapping: MappingId,
+    ) -> impl Iterator<Item = MappingId> + '_ {
+        self.mapping_relations
+            .iter()
+            .filter(move |r| r.lead_mapping == lead_mapping)
+            .map(|r| r.follow_mapping)
+    }
+
+    pub fn clear(&mut self) {
+        self.mapping_relations.clear();
+    }
+
+    pub fn notify_usage(
+        &mut self,
+        follow_mapping: MappingId,
+        lead_mappings: (Option<MappingId>, Option<MappingId>),
+    ) {
+        // At first remove all occurrences of follow mapping
+        self.mapping_relations
+            .retain(|relation| relation.follow_mapping != follow_mapping);
+        // Then add
+        self.notify_usage_add_only(follow_mapping, lead_mappings);
+    }
+
+    pub fn notify_usage_add_only(
+        &mut self,
+        follow_mapping: MappingId,
+        lead_mappings: (Option<MappingId>, Option<MappingId>),
+    ) {
+        for lead_mapping in lead_mappings
+            .0
+            .into_iter()
+            .chain(lead_mappings.1.into_iter())
+        {
+            let relation = MappingRelation {
+                lead_mapping,
+                follow_mapping,
+            };
+            self.mapping_relations.insert(relation);
+        }
+    }
+
+    pub fn is_lead_mapping(&self, mapping_id: MappingId) -> bool {
+        self.mapping_relations
+            .iter()
+            .any(|r| r.lead_mapping == mapping_id)
+    }
 }

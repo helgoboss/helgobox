@@ -29,11 +29,24 @@ impl ActivationCondition {
         !matches!(self, ActivationCondition::Always)
     }
 
+    pub fn target_value_reference_mapping(&self) -> Option<MappingId> {
+        match self {
+            ActivationCondition::TargetValue {
+                reference_mapping: Some(m),
+                ..
+            } => Some(*m),
+            _ => None,
+        }
+    }
+
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
+    ///
+    /// Returns `None` if the condition doesn't depend on parameter values (in which case it must
+    /// be evaluated in other ways).
+    pub fn is_fulfilled(&self, params: &CompartmentParams) -> Option<bool> {
         use ActivationCondition::*;
-        match self {
+        let res = match self {
             Always => true,
             Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params),
             Program {
@@ -45,9 +58,9 @@ impl ActivationCondition {
                 condition.is_fulfilled()
             }
             Expression(condition) => condition.is_fulfilled(params),
-            // TODO-high CONTINUE We should return something like "can't decide"
-            TargetValue { .. } => true,
-        }
+            TargetValue { .. } => return None,
+        };
+        Some(res)
     }
 
     /// Returns `Some` if the given value change affects the mapping's activation state and if the
@@ -103,7 +116,9 @@ impl ActivationCondition {
             }
             Expression(condition) => condition.is_fulfilled(params),
             Always => return None,
-            ActivationCondition::TargetValue { .. } => return None,
+            // This conditional activation doesn't depend on parameter values, it's evaluated
+            // in other ways.
+            TargetValue { .. } => return None,
         };
         Some(is_fulfilled)
     }

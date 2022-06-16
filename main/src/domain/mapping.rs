@@ -468,10 +468,25 @@ impl MainMapping {
         }
     }
 
-    /// Returns if this activation condition is affected by parameter changes in general.
+    /// Returns if the mapping's activation conditions can be affected by parameter changes in
+    /// general.
     pub fn activation_can_be_affected_by_parameters(&self) -> bool {
         self.activation_condition_1.can_be_affected_by_parameters()
             || self.activation_condition_2.can_be_affected_by_parameters()
+    }
+
+    /// Returns if the mapping's activation conditions can be affected by target value changes
+    /// of other mappings.
+    ///
+    /// In particular, it returns the IDs of the referenced mappings (the ones which provide the
+    /// target values that influence the activation state).
+    pub fn activation_can_be_affected_by_target_values(
+        &self,
+    ) -> (Option<MappingId>, Option<MappingId>) {
+        (
+            self.activation_condition_1.target_value_reference_mapping(),
+            self.activation_condition_2.target_value_reference_mapping(),
+        )
     }
 
     pub fn update_activation_from_effect(
@@ -516,7 +531,7 @@ impl MainMapping {
         let (targets, is_active) = self.resolve_target(context, control_context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        self.update_activation(context.params());
+        self.update_activation_from_params(context.params());
         let target_value = self.current_aggregated_target_value(control_context);
         self.initial_target_value = target_value;
         self.last_non_performance_target_value = Cell::new(target_value);
@@ -626,13 +641,29 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn update_activation(&mut self, params: &PluginParams) -> Option<RealTimeMappingUpdate> {
-        let was_active_before = self.is_active_in_terms_of_activation_state();
+    pub fn update_activation_from_params(
+        &mut self,
+        params: &PluginParams,
+    ) -> Option<RealTimeMappingUpdate> {
         let compartment_params = params.compartment_params(self.core.compartment);
-        self.activation_state.is_active_1 =
-            self.activation_condition_1.is_fulfilled(compartment_params);
-        self.activation_state.is_active_2 =
-            self.activation_condition_2.is_fulfilled(compartment_params);
+        self.update_activation(
+            self.activation_condition_1.is_fulfilled(compartment_params),
+            self.activation_condition_2.is_fulfilled(compartment_params),
+        )
+    }
+
+    fn update_activation(
+        &mut self,
+        is_active_1: Option<bool>,
+        is_active_2: Option<bool>,
+    ) -> Option<RealTimeMappingUpdate> {
+        let was_active_before = self.is_active_in_terms_of_activation_state();
+        if let Some(is_active) = is_active_1 {
+            self.activation_state.is_active_1 = is_active;
+        }
+        if let Some(is_active) = is_active_2 {
+            self.activation_state.is_active_2 = is_active;
+        }
         self.post_process_activation_update(was_active_before)
     }
 
