@@ -1,4 +1,4 @@
-use crate::{DialogUnits, Menu, Pixels, Point, SwellStringArg};
+use crate::{menu_tree, DialogUnits, Menu, MenuBar, Pixels, Point, SwellStringArg};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
@@ -498,6 +498,22 @@ impl Window {
             return None;
         }
         Some(result as _)
+    }
+
+    pub fn open_simple_popup_menu<T>(
+        self,
+        mut pure_menu: menu_tree::Menu<T>,
+        location: Point<Pixels>,
+    ) -> Option<T> {
+        let menu_bar = MenuBar::new_popup_menu();
+        pure_menu.index(1);
+        menu_tree::fill_menu(menu_bar.menu(), &pure_menu);
+        let result_index = self.open_popup_menu(menu_bar.menu(), location)?;
+        let res = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
+        Some(res)
     }
 
     pub fn move_to(self, point: Point<DialogUnits>) {

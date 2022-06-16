@@ -434,14 +434,14 @@ impl MappingHeaderPanel {
             Bank => {
                 let bank_condition = item.bank_condition();
                 let result = {
-                    menus::prompt_menu(
-                        self.view.require_window(),
-                        menus::menu_containing_realearn_params(
-                            &session,
-                            item.compartment(),
-                            bank_condition.param_index,
-                        ),
-                    )
+                    let menu = menus::menu_containing_realearn_params(
+                        &session,
+                        item.compartment(),
+                        bank_condition.param_index,
+                    );
+                    self.view
+                        .require_window()
+                        .open_simple_popup_menu(menu, Window::cursor_pos())
                 };
                 if let Some(param_index) = result {
                     item.set_bank_condition(session, bank_condition.with_param_index(param_index));
@@ -463,15 +463,15 @@ impl MappingHeaderPanel {
             Bank => {
                 let bank_condition = item.bank_condition();
                 let result = {
-                    menus::prompt_menu(
-                        self.view.require_window(),
-                        menus::menu_containing_banks(
-                            &session,
-                            item.compartment(),
-                            bank_condition.param_index,
-                            bank_condition.bank_index,
-                        ),
-                    )
+                    let menu = menus::menu_containing_banks(
+                        &session,
+                        item.compartment(),
+                        bank_condition.param_index,
+                        bank_condition.bank_index,
+                    );
+                    self.view
+                        .require_window()
+                        .open_simple_popup_menu(menu, Window::cursor_pos())
                 };
                 if let Some(bank_index) = result {
                     item.set_bank_condition(session, bank_condition.with_bank_index(bank_index));
@@ -490,14 +490,14 @@ impl MappingHeaderPanel {
     ) {
         let modifier_condition = get(item);
         let result = {
-            menus::prompt_menu(
-                self.view.require_window(),
-                menus::menu_containing_realearn_params_optional(
-                    &session,
-                    item.compartment(),
-                    modifier_condition.param_index,
-                ),
-            )
+            let menu = menus::menu_containing_realearn_params_optional(
+                &session,
+                item.compartment(),
+                modifier_condition.param_index,
+            );
+            self.view
+                .require_window()
+                .open_simple_popup_menu(menu, Window::cursor_pos())
         };
         if let Some(param_index) = result {
             set(
@@ -966,18 +966,6 @@ mod menus {
         fill_menu, item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu,
     };
     use swell_ui::{MenuBar, Window};
-
-    pub fn prompt_menu<T>(parent_window: Window, mut pure_menu: Menu<T>) -> Option<T> {
-        let menu_bar = MenuBar::new_popup_menu();
-        pure_menu.index(1);
-        fill_menu(menu_bar.menu(), &pure_menu);
-        let result_index = parent_window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-        let res = pure_menu
-            .find_item_by_id(result_index)
-            .expect("selected menu item not found")
-            .invoke_handler();
-        Some(res)
-    }
 
     pub fn menu_containing_realearn_params(
         session: &WeakSession,

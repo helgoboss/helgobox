@@ -27,7 +27,7 @@ use helgoboss_learn::{
 };
 use realearn_api::persistence::{MidiScriptKind, MonitoringMode};
 use swell_ui::{
-    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
 
 use crate::application::{
@@ -6547,7 +6547,6 @@ fn prompt_for_predefined_control_element_name(
     r#type: VirtualControlElementType,
     grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
 ) -> Option<String> {
-    let menu_bar = MenuBar::new_popup_menu();
     let pure_menu = {
         use swell_ui::menu_tree::*;
         let daw_control_names = match r#type {
@@ -6601,14 +6600,9 @@ fn prompt_for_predefined_control_element_name(
                 }),
             ),
         ];
-        let mut root_menu = root_menu(entries);
-        root_menu.index(1);
-        fill_menu(menu_bar.menu(), &root_menu);
-        root_menu
+        root_menu(entries)
     };
-    let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-    let item = pure_menu.find_item_by_id(result_index)?;
-    Some(item.invoke_handler())
+    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 #[derive(Copy, Clone, Display)]
@@ -6635,7 +6629,6 @@ fn prompt_for_color(
     color: Option<VirtualColor>,
     background_color: Option<VirtualColor>,
 ) -> Result<ChangeColorInstruction, &'static str> {
-    let menu_bar = MenuBar::new_popup_menu();
     enum MenuAction {
         ControllerDefault(ColorTarget),
         OpenColorPicker(ColorTarget),
@@ -6688,18 +6681,12 @@ fn prompt_for_color(
             create_color_target_menu(ColorTarget::Color),
             create_color_target_menu(ColorTarget::BackgroundColor),
         ];
-        let mut root_menu = root_menu(entries);
-        root_menu.index(1);
-        fill_menu(menu_bar.menu(), &root_menu);
-        root_menu
+        root_menu(entries)
     };
-    let result_index = window
-        .open_popup_menu(menu_bar.menu(), Window::cursor_pos())
+    let item = window
+        .open_simple_popup_menu(pure_menu, Window::cursor_pos())
         .ok_or("color selection cancelled")?;
-    let item = pure_menu
-        .find_item_by_id(result_index)
-        .ok_or("unknown item picked")?;
-    let instruction = match item.invoke_handler() {
+    let instruction = match item {
         MenuAction::ControllerDefault(target) => ChangeColorInstruction::new(target, None),
         MenuAction::UseColorProp(target, key) => ChangeColorInstruction::new(
             target,
@@ -6723,7 +6710,6 @@ fn prompt_for_color(
 }
 
 fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
-    let menu_bar = MenuBar::new_popup_menu();
     enum MenuAction {
         Preset(String),
         Help,
@@ -6820,14 +6806,10 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
                 "Note",
             ),
         ];
-        let mut root_menu = root_menu(entries);
-        root_menu.index(1);
-        fill_menu(menu_bar.menu(), &root_menu);
-        root_menu
+        root_menu(entries)
     };
-    let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-    let item = pure_menu.find_item_by_id(result_index)?;
-    match item.invoke_handler() {
+    let item = window.open_simple_popup_menu(pure_menu, Window::cursor_pos())?;
+    match item {
         MenuAction::Preset(preset) => Some(preset),
         MenuAction::Help => {
             open_in_browser(

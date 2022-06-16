@@ -13,7 +13,7 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
@@ -173,28 +173,18 @@ impl HeaderPanel {
     }
 
     fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
-        let menu_bar = MenuBar::new_popup_menu();
-        let pure_menu = {
+        let menu = {
             use swell_ui::menu_tree::*;
-            let mut root_menu = root_menu(vec![
+            root_menu(vec![
                 item("Multis (faders, knobs, encoders, ...)", || {
                     VirtualControlElementType::Multi
                 }),
                 item("Buttons", || VirtualControlElementType::Button),
-            ]);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
+            ])
         };
-        let result_index = self
-            .view
+        self.view
             .require_window()
-            .open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-        let control_element_type = pure_menu
-            .find_item_by_id(result_index)
-            .expect("selected menu item not found")
-            .invoke_handler();
-        Some(control_element_type)
+            .open_simple_popup_menu(menu, Window::cursor_pos())
     }
 
     fn add_group(&self) {
@@ -220,7 +210,6 @@ impl HeaderPanel {
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
         let app = App::get();
-        let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use std::iter::once;
             use swell_ui::menu_tree::*;
@@ -569,22 +558,13 @@ impl HeaderPanel {
                 ),
                 item("Send feedback now", || ContextMenuAction::SendFeedbackNow),
             ];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
+            root_menu(entries)
         };
-        // Open menu
-        let result_index = self
+        let result = self
             .view
             .require_window()
-            .open_popup_menu(menu_bar.menu(), location)
+            .open_simple_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
-        let result = pure_menu
-            .find_item_by_id(result_index)
-            .expect("selected menu item not found")
-            .invoke_handler();
-        // Execute action
         match result {
             ContextMenuAction::None => {}
             ContextMenuAction::CopyListedMappingsAsJson => {
@@ -2020,7 +2000,6 @@ impl HeaderPanel {
     }
 
     pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
-        let menu_bar = MenuBar::new_popup_menu();
         enum MenuAction {
             None,
             ExportSession(SerializationFormat),
@@ -2064,25 +2043,16 @@ impl HeaderPanel {
                     },
                 ),
             ];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
+            root_menu(entries)
         };
-        // Open menu
-        let location = Window::cursor_pos();
-        let result_index = match self
+        let result = match self
             .view
             .require_window()
-            .open_popup_menu(menu_bar.menu(), location)
+            .open_simple_popup_menu(pure_menu, Window::cursor_pos())
         {
             None => return Ok(()),
             Some(i) => i,
         };
-        let result = pure_menu
-            .find_item_by_id(result_index)
-            .expect("selected menu item not found")
-            .invoke_handler();
         // Execute action
         match result {
             MenuAction::None => {}

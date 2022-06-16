@@ -33,7 +33,7 @@ use std::error::Error;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -622,7 +622,6 @@ impl MappingRowPanel {
                 Self::None
             }
         }
-        let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
@@ -743,20 +742,13 @@ impl MappingRowPanel {
                     ],
                 ),
             ];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
+            root_menu(entries)
         };
-        let result_index = self
+        let result = self
             .view
             .require_window()
-            .open_popup_menu(menu_bar.menu(), location)
+            .open_simple_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
-        let result = pure_menu
-            .find_item_by_id(result_index)
-            .expect("selected menu item not found")
-            .invoke_handler();
         let triple = self.mapping_triple()?;
         match result {
             MenuAction::None => {}

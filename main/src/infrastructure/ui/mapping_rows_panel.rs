@@ -18,7 +18,7 @@ use crate::application::{
     Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
 use crate::domain::{Compartment, MappingId, MappingMatchedEvent};
-use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -523,7 +523,6 @@ impl MappingRowsPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
-        let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
@@ -554,20 +553,12 @@ impl MappingRowsPanel {
                     disabled_item("Paste")
                 }
             }];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
+            root_menu(entries)
         };
-        let result = self
-            .view
+        self.view
             .require_window()
-            .open_popup_menu(menu_bar.menu(), location)
+            .open_simple_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
-        pure_menu
-            .find_item_by_id(result)
-            .expect("selected menu item not found")
-            .invoke_handler();
         Ok(())
     }
 
