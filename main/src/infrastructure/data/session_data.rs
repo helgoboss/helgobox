@@ -455,6 +455,7 @@ impl SessionData {
             .replace(controller_default_group);
         session.set_groups_without_notification(Compartment::Controller, controller_groups);
         // Mappings
+
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             let mappings: Vec<_> = mappings
                 .iter()
@@ -463,7 +464,7 @@ impl SessionData {
                         compartment,
                         &migration_descriptor,
                         self.version.as_ref(),
-                        &session.compartment_in_session(compartment),
+                        conversion_context(compartment),
                         Some(session.extended_context_with_params(params)),
                     )
                 })
