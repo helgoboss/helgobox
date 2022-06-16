@@ -1,4 +1,5 @@
-use crate::domain::Tag;
+use crate::application::Session;
+use crate::domain::{compartment_param_index_iter, Compartment, Tag};
 use crate::infrastructure::ui::bindings::root;
 use itertools::Itertools;
 use realearn_dialogs::constants;
@@ -238,6 +239,19 @@ pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String
 
 fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
     iter.into_iter().join(", ")
+}
+
+pub fn compartment_parameter_dropdown_contents(
+    session: &Session,
+    compartment: Compartment,
+) -> impl Iterator<Item = (isize, String)> + '_ {
+    compartment_param_index_iter().map(move |i| {
+        let param_name = session
+            .params()
+            .compartment_params(compartment)
+            .get_parameter_name(i);
+        (i.get() as isize, format!("{}. {}", i.get() + 1, param_name))
+    })
 }
 
 const GLOBAL_SCALING: DialogScaling = DialogScaling {

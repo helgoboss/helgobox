@@ -132,6 +132,10 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             Timer(t) => t.duration,
             _ => Default::default(),
         },
+        parameter_index: match &s {
+            RealearnParameter(s) => s.parameter_index.try_into()?,
+            _ => Default::default(),
+        },
     };
     Ok(data)
 }
@@ -140,7 +144,9 @@ fn convert_category(s: &Source) -> SourceCategory {
     use Source::*;
     match s {
         NoneSource => SourceCategory::Never,
-        MidiDeviceChanges(_) | RealearnInstanceStart(_) | Timer(_) => SourceCategory::Reaper,
+        MidiDeviceChanges(_) | RealearnInstanceStart(_) | Timer(_) | RealearnParameter(_) => {
+            SourceCategory::Reaper
+        }
         MidiNoteVelocity(_)
         | MidiNoteKeyNumber(_)
         | MidiPolyphonicKeyPressureAmount(_)

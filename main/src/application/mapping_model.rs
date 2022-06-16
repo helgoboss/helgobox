@@ -210,7 +210,7 @@ impl MappingModel {
             feedback_send_behavior: Default::default(),
             activation_condition_model: Default::default(),
             visible_in_projection: true,
-            source_model: Default::default(),
+            source_model: SourceModel::new(compartment),
             mode_model: Default::default(),
             target_model: TargetModel::default_for_compartment(compartment),
             advanced_settings: None,

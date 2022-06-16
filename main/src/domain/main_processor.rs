@@ -13,16 +13,16 @@ use crate::domain::{
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
     ProcessorContext, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
     RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload, ReaperMessage,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
+    AbsoluteValue, AbstractTimestamp, ControlValue, GroupInteraction, MidiSourceValue,
+    MinIsMaxBehavior, ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -960,6 +960,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .event_handler
             .handle_event(DomainEvent::UpdatedSingleParameterValue { index, value });
+        // Determine and process activation effects
         let compartment = Compartment::by_plugin_param_index(index);
         let activation_effects: Vec<MappingActivationEffect> = self
             .all_mappings_in_compartment(compartment)
@@ -972,6 +973,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             })
             .collect();
         self.process_activation_effects(compartment, activation_effects, true);
+        // Control ("ReaLearn parameter source")
+        let control_payload = RealearnParameterChangePayload {
+            compartment,
+            parameter_index: compartment.to_compartment_param_index(index),
+            value,
+        };
+        let control_msg = ReaperMessage::RealearnParameterChange(control_payload);
+        if self.basics.settings.real_input_logging_enabled {
+            self.log_incoming_message(&control_msg);
+        }
+        let control_event = ControlEvent::new(
+            MainSourceMessage::Reaper(&control_msg),
+            ControlEventTimestamp::now(),
+        );
+        self.process_incoming_message_internal(control_event);
     }
 
     fn process_activation_effects(
@@ -1056,7 +1072,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             target_updates,
             unused_sources,
             changed_mappings.into_iter(),
-        )
+        );
     }
 
     fn update_all_params(&mut self, params: PluginParams) {

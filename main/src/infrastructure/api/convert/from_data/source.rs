@@ -210,6 +210,11 @@ pub fn convert_source(
                 Timer => persistence::Source::Timer(persistence::TimerSource {
                     duration: data.timer_millis,
                 }),
+                RealearnParameter => {
+                    persistence::Source::RealearnParameter(persistence::RealearnParameterSource {
+                        parameter_index: data.parameter_index.get(),
+                    })
+                }
             }
         }
         Virtual => {

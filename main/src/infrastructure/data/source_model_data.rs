@@ -5,7 +5,7 @@ use crate::application::{
 };
 use crate::base::default_util::is_default;
 use crate::base::notification;
-use crate::domain::{Compartment, Keystroke};
+use crate::domain::{Compartment, CompartmentParamIndex, Keystroke};
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
@@ -84,6 +84,8 @@ pub struct SourceModelData {
     pub reaper_source_type: ReaperSourceType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub timer_millis: u64,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub parameter_index: CompartmentParamIndex,
 }
 
 impl SourceModelData {
@@ -120,6 +122,7 @@ impl SourceModelData {
             ),
             reaper_source_type: model.reaper_source_type(),
             timer_millis: model.timer_millis(),
+            parameter_index: model.parameter_index(),
         }
     }
 
@@ -199,6 +202,7 @@ impl SourceModelData {
         ));
         model.change(P::SetReaperSourceType(self.reaper_source_type));
         model.change(P::SetTimerMillis(self.timer_millis));
+        model.change(P::SetParameterIndex(self.parameter_index));
         model.change(P::SetKeystroke(self.keystroke));
     }
 }
@@ -286,7 +290,7 @@ mod tests {
             control_element_type: VirtualControlElementType::Multi,
             ..Default::default()
         };
-        let mut model = SourceModel::default();
+        let mut model = SourceModel::new(Compartment::Main);
         // When
         data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
@@ -319,7 +323,7 @@ mod tests {
             control_element_type: VirtualControlElementType::Multi,
             ..Default::default()
         };
-        let mut model = SourceModel::default();
+        let mut model = SourceModel::new(Compartment::Main);
         // When
         data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
@@ -340,7 +344,8 @@ mod tests {
     fn from_1() {
         // Given
         use SourceCommand as C;
-        let mut model = SourceModel::default();
+        let mut model = SourceModel::new(Compartment::Main);
+        model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ControlChangeValue));
         model.change(C::SetChannel(Some(channel(15))));
         model.change(C::SetMidiMessageNumber(Some(u7(12))));
@@ -371,7 +376,8 @@ mod tests {
     fn from_2() {
         // Given
         use SourceCommand as C;
-        let mut model = SourceModel::default();
+        let mut model = SourceModel::new(Compartment::Main);
+        model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ParameterNumberValue));
         model.change(C::SetChannel(None));
         model.change(C::SetMidiMessageNumber(Some(u7(77))));
