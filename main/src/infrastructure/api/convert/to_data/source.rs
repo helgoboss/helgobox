@@ -126,6 +126,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             MidiDeviceChanges(_) => ReaperSourceType::MidiDeviceChanges,
             RealearnInstanceStart(_) => ReaperSourceType::RealearnInstanceStart,
             Timer(_) => ReaperSourceType::Timer,
+            RealearnParameter(_) => ReaperSourceType::RealearnParameter,
             _ => Default::default(),
         },
         timer_millis: match &s {
