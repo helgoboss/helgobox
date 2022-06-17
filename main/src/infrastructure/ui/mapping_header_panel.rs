@@ -437,9 +437,10 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn pick_activation_setting_1_option(&self, session: WeakSession, item: &mut dyn Item) {
+    fn pick_activation_setting_1_option(&self, session: WeakSession, item: SharedItem) {
         use ActivationType::*;
-        match item.activation_type() {
+        let activation_type = item.borrow().activation_type();
+        match activation_type {
             Modifiers => self.pick_modifier_condition_param(
                 session,
                 item,
@@ -447,43 +448,46 @@ impl MappingHeaderPanel {
                 |session, item, value| item.set_modifier_condition_1(session, value),
             ),
             Bank => {
-                let bank_condition = item.bank_condition();
-                let result = {
+                let (bank_condition, menu) = {
+                    let item = item.borrow();
+                    let bank_condition = item.bank_condition();
                     let menu = menus::menu_containing_realearn_params(
                         &session,
                         item.compartment(),
                         bank_condition.param_index,
                     );
-                    self.view
-                        .require_window()
-                        .open_simple_popup_menu(menu, Window::cursor_pos())
+                    (bank_condition, menu)
                 };
+                let result = self
+                    .view
+                    .require_window()
+                    .open_simple_popup_menu(menu, Window::cursor_pos());
                 if let Some(param_index) = result {
-                    item.set_bank_condition(session, bank_condition.with_param_index(param_index));
+                    item.borrow_mut()
+                        .set_bank_condition(session, bank_condition.with_param_index(param_index));
                 }
             }
             TargetValue => {
-                let result = {
-                    let menu = menus::menu_containing_mappings(
-                        &session,
-                        item.compartment(),
-                        item.mapping_id(),
-                    );
-                    self.view
-                        .require_window()
-                        .open_simple_popup_menu(menu, Window::cursor_pos())
+                let menu = {
+                    let item = item.borrow();
+                    menus::menu_containing_mappings(&session, item.compartment(), item.mapping_id())
                 };
+                let result = self
+                    .view
+                    .require_window()
+                    .open_simple_popup_menu(menu, Window::cursor_pos());
                 if let Some(mapping_id) = result {
-                    item.set_mapping_id(session, mapping_id);
+                    item.borrow_mut().set_mapping_id(session, mapping_id);
                 }
             }
             _ => {}
         }
     }
 
-    fn pick_activation_setting_2_option(&self, session: WeakSession, item: &mut dyn Item) {
+    fn pick_activation_setting_2_option(&self, session: WeakSession, item: SharedItem) {
         use ActivationType::*;
-        match item.activation_type() {
+        let activation_type = item.borrow().activation_type();
+        match activation_type {
             Modifiers => self.pick_modifier_condition_param(
                 session,
                 item,
@@ -491,20 +495,24 @@ impl MappingHeaderPanel {
                 |session, item, value| item.set_modifier_condition_2(session, value),
             ),
             Bank => {
-                let bank_condition = item.bank_condition();
-                let result = {
+                let (bank_condition, menu) = {
+                    let item = item.borrow();
+                    let bank_condition = item.bank_condition();
                     let menu = menus::menu_containing_banks(
                         &session,
                         item.compartment(),
                         bank_condition.param_index,
                         bank_condition.bank_index,
                     );
-                    self.view
-                        .require_window()
-                        .open_simple_popup_menu(menu, Window::cursor_pos())
+                    (bank_condition, menu)
                 };
+                let result = self
+                    .view
+                    .require_window()
+                    .open_simple_popup_menu(menu, Window::cursor_pos());
                 if let Some(bank_index) = result {
-                    item.set_bank_condition(session, bank_condition.with_bank_index(bank_index));
+                    item.borrow_mut()
+                        .set_bank_condition(session, bank_condition.with_bank_index(bank_index));
                 }
             }
             _ => {}
@@ -514,25 +522,28 @@ impl MappingHeaderPanel {
     fn pick_modifier_condition_param(
         &self,
         session: WeakSession,
-        item: &mut dyn Item,
+        item: SharedItem,
         get: impl FnOnce(&dyn Item) -> ModifierConditionModel,
         set: impl FnOnce(WeakSession, &mut dyn Item, ModifierConditionModel),
     ) {
-        let modifier_condition = get(item);
-        let result = {
+        let (modifier_condition, menu) = {
+            let item = item.borrow();
+            let modifier_condition = get(&*item);
             let menu = menus::menu_containing_realearn_params_optional(
                 &session,
                 item.compartment(),
                 modifier_condition.param_index,
             );
-            self.view
-                .require_window()
-                .open_simple_popup_menu(menu, Window::cursor_pos())
+            (modifier_condition, menu)
         };
+        let result = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(menu, Window::cursor_pos());
         if let Some(param_index) = result {
             set(
                 session,
-                item,
+                &mut *item.borrow_mut(),
                 modifier_condition.with_param_index(param_index),
             );
         }
@@ -547,10 +558,16 @@ impl MappingHeaderPanel {
     }
 
     fn with_session_and_item(&self, f: impl FnOnce(&Self, WeakSession, &mut dyn Item)) {
+        self.with_session_and_unborrowed_item(|panel, session, item| {
+            f(panel, session, &mut *item.borrow_mut())
+        });
+    }
+
+    fn with_session_and_unborrowed_item(&self, f: impl FnOnce(&Self, WeakSession, SharedItem)) {
         let opt_item = self.item.borrow();
         let weak_item = opt_item.as_ref().expect("item not set");
         let item = weak_item.upgrade().expect("item gone");
-        f(self, self.session.clone(), &mut *item.borrow_mut());
+        f(self, self.session.clone(), item);
     }
 
     pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp, initiator: Option<u32>) {
@@ -614,13 +631,13 @@ impl View for MappingHeaderPanel {
                 self.with_session_and_item(Self::update_feedback_enabled);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_BUTTON => {
-                self.with_session_and_item(Self::pick_activation_setting_1_option);
+                self.with_session_and_unborrowed_item(Self::pick_activation_setting_1_option);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
                 self.with_session_and_item(Self::update_activation_setting_1_on);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_BUTTON => {
-                self.with_session_and_item(Self::pick_activation_setting_2_option);
+                self.with_session_and_unborrowed_item(Self::pick_activation_setting_2_option);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
                 self.with_session_and_item(Self::update_activation_setting_2_on);
