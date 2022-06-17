@@ -104,12 +104,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5ab7d9e73059c86c36473f459b52adbd99c3554a4fec492caef460806006f00"
 
 [[package]]
-name = "array-macro"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06e97b4e522f9e55523001238ac59d13a8603af57f69980de5d8de4bbbe8ada6"
-
-[[package]]
 name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1144,19 +1138,18 @@ dependencies = [
 
 [[package]]
 name = "enum-map"
-version = "0.6.4"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4187999839f4ae8be35cf185d1381aa8dc32d2f5951349cc37ae49ebc4781855"
+checksum = "7848397e7221a27d81cb7f07498d563f09b23fcd52ce9f74a6a110ed28f7cd4f"
 dependencies = [
- "array-macro",
  "enum-map-derive",
 ]
 
 [[package]]
 name = "enum-map-derive"
-version = "0.4.6"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5c450cf304c9e18d45db562025a14fb1ca0f5c769b6f609309f81d4c31de455"
+checksum = "a63b7a0ddec6f38dcec5e36257750b7a8fcaf4227e12ceb306e341d63634da05"
 dependencies = [
  "proc-macro2 1.0.29",
  "quote 1.0.9",
