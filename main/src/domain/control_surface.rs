@@ -11,11 +11,12 @@ use crate::domain::{
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
 use reaper_high::{
-    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
-    FxParameter, MainTaskMiddleware, Project, Reaper,
+    ChangeDetectionMiddleware, ChangeEvent, ControlSurfaceEvent, ControlSurfaceMiddleware,
+    FutureMiddleware, Fx, FxParameter, MainTaskMiddleware, Project, Reaper,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
+use std::cell::RefCell;
 
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
@@ -42,6 +43,7 @@ const GARBAGE_BULK_SIZE: usize = 100;
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     logger: slog::Logger,
     change_detection_middleware: ChangeDetectionMiddleware,
+    change_event_queue: RefCell<Vec<ChangeEvent>>,
     rx_middleware: ControlSurfaceRxMiddleware,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
@@ -200,6 +202,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         Self {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
+            change_event_queue: RefCell::new(Vec::with_capacity(100)),
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             main_processors,
             main_task_receiver,
@@ -247,12 +250,16 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     /// Called when waking up ReaLearn (first instance appears again or the first time).
     pub fn wake_up(&self) {
+        let mut change_events = vec![];
         self.change_detection_middleware.reset(|e| {
-            for m in &*self.main_processors.borrow() {
-                m.process_control_surface_change_event(&e);
-            }
-            self.rx_middleware.handle_change(e);
+            change_events.push(e);
         });
+        for m in &*self.main_processors.borrow() {
+            m.process_control_surface_change_events(&change_events);
+        }
+        for e in change_events {
+            self.rx_middleware.handle_change(e);
+        }
         // We don't want to execute tasks which accumulated during the "downtime" of Reaper.
         // So we just consume all without executing them.
         self.main_task_middleware.reset();
@@ -261,6 +268,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
+        self.process_enqueued_change_events();
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
@@ -283,10 +291,33 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.counter += 1;
     }
 
+    fn process_enqueued_change_events(&mut self) {
+        let mut change_event_queue = self.change_event_queue.borrow_mut();
+        // This is for feedback processing. No Rx!
+        let main_processors = self.main_processors.borrow();
+        for p in main_processors.iter() {
+            p.process_control_surface_change_events(&change_event_queue);
+        }
+        // The rest is only for upper layers (e.g. UI), not for processing.
+        for e in change_event_queue.drain(..) {
+            self.rx_middleware.handle_change(e.clone());
+            if let Some(target) = ReaperTarget::touched_from_change_event(e) {
+                // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)
+                //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
+                //  touching for "Last touched" target and global learning (see
+                //  LearningTarget state)! Connect the dots!
+                BackboneState::get().set_last_touched_target(target);
+                for p in &*self.main_processors.borrow() {
+                    p.notify_target_touched();
+                }
+            }
+        }
+    }
+
     fn process_deferred_control_surface_events(&self) {
         while let Ok(event) = self.control_surface_event_receiver.try_recv() {
-            let main_processors = self.main_processors.borrow();
-            self.handle_event_very_internal(&event, &main_processors);
+            let mut change_event_queue = self.change_event_queue.borrow_mut();
+            self.handle_event_very_internal(&event, &mut change_event_queue);
         }
     }
 
@@ -603,8 +634,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Reentrancy check (check if we are currently mutably in `run()`)
         // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
         //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
-        match self.main_processors.try_borrow() {
-            Ok(p) => self.handle_event_very_internal(event, &p),
+        match self.change_event_queue.try_borrow_mut() {
+            Ok(mut queue) => self.handle_event_very_internal(event, &mut queue),
             Err(_) => {
                 self.control_surface_event_sender
                     .send_complaining(event.clone().into_owned());
@@ -616,29 +647,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn handle_event_very_internal(
         &self,
         event: &ControlSurfaceEvent,
-        main_processors: &[MainProcessor<EH>],
+        change_event_queue: &mut Vec<ChangeEvent>,
     ) -> bool {
         // We always need to forward to the change detection middleware even if we are in
         // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
-                    // This is for feedback processing. No Rx!
-                    for m in main_processors {
-                        m.process_control_surface_change_event(&e);
-                    }
-                    // The rest is only for upper layers (e.g. UI), not for processing.
-                    self.rx_middleware.handle_change(e.clone());
-                    if let Some(target) = ReaperTarget::touched_from_change_event(e) {
-                        // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)
-                        //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
-                        //  touching for "Last touched" target and global learning (see
-                        //  LearningTarget state)! Connect the dots!
-                        BackboneState::get().set_last_touched_target(target);
-                        for p in &*self.main_processors.borrow() {
-                            p.notify_target_touched();
-                        }
-                    }
+                    // We don't process change events immediately in order to be able to process
+                    // multiple events occurring in one main loop cycle as a natural batch. This
+                    // is important for performance reasons
+                    // (see https://github.com/helgoboss/realearn/issues/553).
+                    change_event_queue.push(e);
                 }
                 State::LearningTarget(sender) => {
                     // At some point we want the Rx stuff out of the domain layer. This is one step

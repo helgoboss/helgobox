@@ -924,8 +924,7 @@ async fn fx_by_name() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        // vec![Midi(Plain(note_on(0, 64, 0)))],
-        vec![],
+        vec![Midi(Plain(note_on(0, 64, 0)))],
         "gone feedback"
     );
     // When

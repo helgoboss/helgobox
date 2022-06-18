@@ -1530,9 +1530,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+    pub fn process_control_surface_change_events(&self, events: &[ChangeEvent]) {
         // Potentially enable/disable control/feedback
-        let influences_global_control_and_feedback = match event {
+        let influences_global_control_and_feedback = events.iter().any(|event| match event {
             ChangeEvent::FxEnabledChanged(evt)
                 if &evt.fx == self.basics.context.containing_fx() =>
             {
@@ -1544,7 +1544,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 true
             }
             _ => false,
-        };
+        });
         if influences_global_control_and_feedback {
             self.basics
                 .channels
@@ -1552,7 +1552,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .send_complaining(NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback);
         }
         // Refresh targets if necessary
-        if ReaperTarget::is_potential_change_event(event) {
+        let we_have_a_potential_target_change_event =
+            events.iter().any(ReaperTarget::is_potential_change_event);
+        if we_have_a_potential_target_change_event {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //
             // Whenever anything changes that just affects the main processor targets, resync all
@@ -1576,17 +1578,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .send_complaining(NormalMainTask::RefreshAllTargets);
         }
         // Process for feedback
-        self.process_feedback_related_reaper_event(|mapping, target| {
-            mapping.process_change_event(
-                target,
-                CompoundChangeEvent::Reaper(event),
-                self.basics.control_context(),
-            )
-        });
+        for event in events {
+            self.process_feedback_related_reaper_event(|mapping, target| {
+                mapping.process_change_event(
+                    target,
+                    CompoundChangeEvent::Reaper(event),
+                    self.basics.control_context(),
+                )
+            });
+        }
         // Process for clip engine
-        {
-            let mut instance_state = self.basics.instance_state.borrow_mut();
-            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+        let mut instance_state = self.basics.instance_state.borrow_mut();
+        if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+            for event in events {
                 self.basics.event_handler.handle_event(
                     DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
                 );
