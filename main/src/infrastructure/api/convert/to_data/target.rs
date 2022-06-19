@@ -407,6 +407,20 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        Target::FxTool(d) => {
+            let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
+            let track_desc = fx_desc.chain_desc.track_desc;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::FxTool,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                clip_column: track_desc.clip_column.unwrap_or_default(),
+                fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
+                ..init(d.commons)
+            }
+        }
         Target::FxOnOffState(d) => {
             let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
             let track_desc = fx_desc.chain_desc.track_desc;

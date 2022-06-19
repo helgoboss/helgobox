@@ -25,11 +25,11 @@ use realearn_api::persistence::{
     CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
     CycleThroughTracksTarget, DummyTarget, EnableInstancesTarget, EnableMappingsTarget,
     FxOnOffStateTarget, FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget,
-    FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget,
-    LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget,
-    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
-    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
-    SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    FxParameterValueTarget, FxToolTarget, FxVisibilityTarget, GoToBookmarkTarget,
+    LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget,
+    ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget,
+    RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
+    SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
     TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
     TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
     TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
@@ -499,6 +499,10 @@ fn convert_real_target(
                 });
                 style.optional_value(v)
             },
+        }),
+        FxTool => T::FxTool(FxToolTarget {
+            commons,
+            fx: convert_fx_descriptor(data, style),
         }),
         FxEnable => T::FxOnOffState(FxOnOffStateTarget {
             commons,

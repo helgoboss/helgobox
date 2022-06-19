@@ -8,7 +8,7 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
-use reaper_high::{ChangeEvent, Project, Reaper, Track};
+use reaper_high::{ChangeEvent, FxChain, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 use std::borrow::Cow;
 
@@ -202,6 +202,12 @@ pub fn percentage_for_track_within_project(
     let max_value = track_count;
     let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
     AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
+}
+
+pub fn percentage_for_fx_within_chain(fx_chain: &FxChain, fx_index: u32) -> Option<AbsoluteValue> {
+    let fx_count = fx_chain.fx_count();
+    let max_value = fx_count.checked_sub(1)?;
+    Some(AbsoluteValue::Discrete(Fraction::new(fx_index, max_value)))
 }
 
 pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {

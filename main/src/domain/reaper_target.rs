@@ -33,7 +33,7 @@ use crate::domain::{
     ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
     ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, FxEnableTarget,
     FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget,
-    FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
+    FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
     RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
     RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
@@ -88,6 +88,7 @@ impl TargetCharacter {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
     Action(ActionTarget),
+    FxTool(FxToolTarget),
     FxParameter(FxParameterTarget),
     FxParameterTouchState(FxParameterTouchStateTarget),
     TrackVolume(TrackVolumeTarget),
@@ -596,6 +597,7 @@ impl<'a> Target<'a> for ReaperTarget {
             Tempo(t) => t.current_value(context),
             Playrate(t) => t.current_value(context),
             AutomationModeOverride(t) => t.current_value(context),
+            FxTool(t) => t.current_value(context),
             FxEnable(t) => t.current_value(context),
             FxOnline(t) => t.current_value(context),
             FxOpen(t) => t.current_value(context),

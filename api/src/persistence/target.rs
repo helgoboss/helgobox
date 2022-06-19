@@ -40,6 +40,8 @@ pub enum Target {
     FxOnlineOfflineState(FxOnlineOfflineStateTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
     CycleThroughFxPresets(CycleThroughFxPresetsTarget),
+    #[serde(rename = "Fx")]
+    FxTool(FxToolTarget),
     FxVisibility(FxVisibilityTarget),
     FxParameterValue(FxParameterValueTarget),
     FxParameterAutomationTouchState(FxParameterAutomationTouchStateTarget),
@@ -408,6 +410,15 @@ pub struct LoadFxSnapshotTarget {
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughFxPresetsTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fx: Option<FxDescriptor>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FxToolTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

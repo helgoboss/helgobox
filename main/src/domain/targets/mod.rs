@@ -88,6 +88,9 @@ pub use track_volume_target::*;
 mod track_tool_target;
 pub use track_tool_target::*;
 
+mod fx_tool_target;
+pub use fx_tool_target::*;
+
 mod route_volume_target;
 pub use route_volume_target::*;
 

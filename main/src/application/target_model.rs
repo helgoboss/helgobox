@@ -31,8 +31,8 @@ use crate::domain::{
     UnresolvedCompoundMappingTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
@@ -1928,6 +1928,9 @@ impl TargetModel {
                             },
                         },
                     ),
+                    FxTool => UnresolvedReaperTarget::FxTool(UnresolvedFxToolTarget {
+                        fx_descriptor: self.fx_descriptor()?,
+                    }),
                     FxEnable => UnresolvedReaperTarget::FxEnable(UnresolvedFxEnableTarget {
                         fx_descriptor: self.fx_descriptor()?,
                     }),
@@ -2528,7 +2531,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         self.target.route_type,
                         self.route_label()
                     ),
-                    FxOpen | FxEnable | FxPreset => write!(
+                    FxOpen | FxEnable | FxPreset | FxTool => write!(
                         f,
                         "{}\nTrack {}\nFX {}",
                         tt,
