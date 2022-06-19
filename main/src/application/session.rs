@@ -2543,6 +2543,7 @@ pub fn reaper_supports_global_midi_filter() -> bool {
     v_without_arch >= "6.35+dev0831"
 }
 
+#[allow(dead_code)]
 pub enum SessionCommand {
     SetInstanceTrack(TrackDescriptor),
     ChangeCompartment(Compartment, CompartmentCommand),

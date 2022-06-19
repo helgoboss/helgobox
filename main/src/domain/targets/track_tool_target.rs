@@ -22,17 +22,40 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(
-            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+        let tracks = get_effective_tracks(context, &self.track_descriptor.track, compartment)
+            .and_then(|tracks| {
+                if tracks.is_empty() {
+                    Err("resolved to zero tracks")
+                } else {
+                    Ok(tracks)
+                }
+            });
+        let targets = match tracks {
+            Ok(tracks) => tracks
                 .into_iter()
                 .map(|track| {
                     ReaperTarget::TrackTool(TrackToolTarget {
-                        track,
+                        track: Some(track),
                         action: self.action,
                     })
                 })
                 .collect(),
-        )
+            Err(e) => {
+                if self.action == TrackToolAction::SetAsInstanceTrack {
+                    // If we just want to *set* the (unresolved) track as instance track, we
+                    // don't need a resolved target.
+                    let target = ReaperTarget::TrackTool(TrackToolTarget {
+                        track: None,
+                        action: self.action,
+                    });
+                    vec![target]
+                } else {
+                    // Otherwise we should classify the target as inactive.
+                    return Err(e);
+                }
+            }
+        };
+        Ok(targets)
     }
 
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {
@@ -42,7 +65,8 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackToolTarget {
-    pub track: Track,
+    /// Only set if the virtual track was resolvable.
+    pub track: Option<Track>,
     pub action: TrackToolAction,
 }
 
@@ -55,23 +79,26 @@ impl RealearnTarget for TrackToolTarget {
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
-        self.track.is_available()
+        match &self.track {
+            None => false,
+            Some(t) => t.is_available(),
+        }
     }
 
     fn project(&self) -> Option<Project> {
-        Some(self.track.project())
+        Some(self.track.as_ref()?.project())
     }
 
     fn track(&self) -> Option<&Track> {
-        Some(&self.track)
+        self.track.as_ref()
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(get_track_name(&self.track).into())
+        Some(get_track_name(self.track.as_ref()?).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let position = match self.track.index() {
+        let position = match self.track.as_ref()?.index() {
             None => 0,
             Some(i) => i + 1,
         };
@@ -112,7 +139,8 @@ impl RealearnTarget for TrackToolTarget {
                 )
             }
             TrackToolAction::PinAsInstanceTrack => {
-                InstanceTrackChangeRequestedEvent::Pin(*self.track.guid())
+                let track = self.track.as_ref().ok_or("track could not be resolved")?;
+                InstanceTrackChangeRequestedEvent::Pin(*track.guid())
             }
         };
         let instruction = UpdateInstanceTrack { event };
@@ -124,11 +152,10 @@ impl<'a> Target<'a> for TrackToolTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let track_index = self.track.index();
-        Some(percentage_for_track_within_project(
-            self.track.project(),
-            track_index,
-        ))
+        let track_index = self.track.as_ref()?.index();
+        let percentage =
+            percentage_for_track_within_project(self.track.as_ref()?.project(), track_index);
+        Some(percentage)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

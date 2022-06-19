@@ -471,6 +471,8 @@ impl MappingPanel {
                                             }
                                             P::TrackToolAction => {
                                                 view.invalidate_target_line_4(initiator);
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
                                             }
                                             P::GroupId => {
                                                 view.invalidate_target_line_2(initiator);
