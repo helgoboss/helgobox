@@ -2409,17 +2409,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
             None => return TARGET_UNDEFINED_LABEL.into(),
             Some(t) => t,
         };
-        use VirtualTrack::*;
-        match virtual_track {
-            ById(_) | ByIdOrName(_, _) => {
-                if let Ok(t) = self.target_with_context().first_effective_track() {
-                    get_track_label(&t)
-                } else {
-                    get_non_present_virtual_track_label(virtual_track)
-                }
-            }
-            _ => virtual_track.to_string(),
-        }
+        get_virtual_track_label(virtual_track, self.compartment, self.context)
     }
 
     fn route_label(&self) -> Cow<str> {
@@ -2733,15 +2723,25 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     pub fn first_effective_track(&self) -> Result<Track, &'static str> {
-        self.target
+        let virtual_track = self
+            .target
             .virtual_track()
-            .ok_or("virtual track not complete")?
-            .resolve(self.context, self.compartment)
-            .map_err(|_| "particular track couldn't be resolved")?
-            .into_iter()
-            .next()
-            .ok_or("resolved to empty track list")
+            .ok_or("virtual track not complete")?;
+        first_effective_track(&virtual_track, self.compartment, self.context)
     }
+}
+
+pub fn first_effective_track(
+    virtual_track: &VirtualTrack,
+    compartment: Compartment,
+    context: ExtendedProcessorContext,
+) -> Result<Track, &'static str> {
+    virtual_track
+        .resolve(context, compartment)
+        .map_err(|_| "particular track couldn't be resolved")?
+        .into_iter()
+        .next()
+        .ok_or("resolved to empty track list")
 }
 
 pub fn get_bookmark_label_by_id(bookmark_type: BookmarkType, id: BookmarkId, name: &str) -> String {
@@ -3642,6 +3642,24 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
 }
 
 const TARGET_UNDEFINED_LABEL: &str = "<Undefined>";
+
+pub fn get_virtual_track_label(
+    virtual_track: &VirtualTrack,
+    compartment: Compartment,
+    context: ExtendedProcessorContext,
+) -> String {
+    use VirtualTrack::*;
+    match virtual_track {
+        ById(_) | ByIdOrName(_, _) => {
+            if let Ok(t) = first_effective_track(virtual_track, compartment, context) {
+                get_track_label(&t)
+            } else {
+                get_non_present_virtual_track_label(virtual_track)
+            }
+        }
+        _ => virtual_track.to_string(),
+    }
+}
 
 fn get_track_label(track: &Track) -> String {
     match track.location() {

@@ -140,7 +140,13 @@ impl RealearnTarget for TrackToolTarget {
             }
             TrackToolAction::PinAsInstanceTrack => {
                 let track = self.track.as_ref().ok_or("track could not be resolved")?;
-                InstanceTrackChangeRequestedEvent::Pin(*track.guid())
+                if track.is_master_track() {
+                    InstanceTrackChangeRequestedEvent::SetFromMapping(
+                        context.mapping_data.qualified_mapping_id(),
+                    )
+                } else {
+                    InstanceTrackChangeRequestedEvent::Pin(*track.guid())
+                }
             }
         };
         let instruction = UpdateInstanceTrack { event };

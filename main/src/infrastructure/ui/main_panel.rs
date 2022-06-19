@@ -9,7 +9,10 @@ use reaper_high::{AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, Reaper
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{Affected, CompartmentProp, Session, SessionProp, SessionUi, WeakSession};
+use crate::application::{
+    get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp, SessionUi,
+    WeakSession,
+};
 use crate::base::when;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
@@ -151,9 +154,15 @@ impl MainPanel {
             let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
             let instance_state = session.instance_state().borrow();
+            let instance_track = instance_state.instance_track();
+            let instance_track_label = get_virtual_track_label(
+                instance_track,
+                Compartment::Main,
+                session.extended_context(),
+            );
             let mut text = format!(
-                "Track: {} | Showing mappings {} to {} of {}",
-                instance_state.instance_track(),
+                "Track: {:.20} | Showing mappings {} to {} of {}",
+                instance_track_label,
                 scroll_status.from_pos,
                 scroll_status.to_pos,
                 scroll_status.item_count
