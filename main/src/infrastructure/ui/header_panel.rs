@@ -946,7 +946,9 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let group_key = if let Some(group) = session.find_group_by_id(compartment, group_id) {
+        let group_key = if let Some(group) =
+            session.find_group_by_id_including_default_group(compartment, group_id)
+        {
             group.borrow().key().clone()
         } else {
             return;
