@@ -57,7 +57,7 @@ use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    MonitoringMode,
+    MonitoringMode, TrackDescriptorCommons, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -99,6 +99,7 @@ pub enum TargetCommand {
     SetRouteExpression(String),
     SetSoloBehavior(SoloBehavior),
     SetTrackExclusivity(TrackExclusivity),
+    SetTrackToolAction(TrackToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
     SetFxSnapshot(Option<FxSnapshot>),
@@ -182,6 +183,7 @@ pub enum TargetProp {
     RouteExpression,
     SoloBehavior,
     TrackExclusivity,
+    TrackToolAction,
     TransportAction,
     AnyOnParameter,
     FxSnapshot,
@@ -361,6 +363,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetTrackExclusivity(v) => {
                 self.track_exclusivity = v;
                 One(P::TrackExclusivity)
+            }
+            C::SetTrackToolAction(v) => {
+                self.track_tool_action = v;
+                One(P::TrackToolAction)
             }
             C::SetTransportAction(v) => {
                 self.transport_action = v;
@@ -576,6 +582,7 @@ pub struct TargetModel {
     track_expression: String,
     enable_only_if_track_selected: bool,
     clip_column_track_context: ClipColumnTrackContext,
+    track_tool_action: TrackToolAction,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -748,6 +755,7 @@ impl Default for TargetModel {
             clip_column_track_context: Default::default(),
             clip_row_action: Default::default(),
             clip_play_stop_timing: None,
+            track_tool_action: Default::default(),
         }
     }
 }
@@ -871,6 +879,10 @@ impl TargetModel {
 
     pub fn track_exclusivity(&self) -> TrackExclusivity {
         self.track_exclusivity
+    }
+
+    pub fn track_tool_action(&self) -> TrackToolAction {
+        self.track_tool_action
     }
 
     pub fn transport_action(&self) -> TransportAction {
@@ -1212,41 +1224,42 @@ impl TargetModel {
         self.track_expression = track.expression;
         use VirtualTrackType::*;
         match track.r#type {
-            This => self.set_concrete_track(
-                ConcreteTrackInstruction::This(context),
-                // Already notified above
-                false,
-                with_notification,
-            ),
-            ById => self.set_concrete_track(
-                ConcreteTrackInstruction::ById {
-                    id: track.id,
-                    context,
-                },
-                // Already notified above
-                false,
-                with_notification,
-            ),
+            This => {
+                let _ = self.set_concrete_track(
+                    ConcreteTrackInstruction::This(context),
+                    // Already notified above
+                    false,
+                    with_notification,
+                );
+            }
+            ById => {
+                let _ = self.set_concrete_track(
+                    ConcreteTrackInstruction::ById {
+                        id: track.id,
+                        context,
+                    },
+                    // Already notified above
+                    false,
+                    with_notification,
+                );
+            }
             ByName | AllByName => {
                 self.track_name = track.name;
-                Some(Affected::One(TargetProp::TrackName))
             }
             ByIndex => {
                 self.track_index = track.index;
-                Some(Affected::One(TargetProp::TrackIndex))
             }
             ByIdOrName => {
                 self.track_id = track.id;
                 self.track_name = track.name;
-                Some(Affected::Multiple)
             }
             FromClipColumn => {
                 self.clip_column = track.clip_column;
                 self.clip_column_track_context = track.clip_column_track_context;
-                Some(Affected::Multiple)
             }
-            Selected | AllSelected | Dynamic | Master => None,
+            Instance | Selected | AllSelected | Dynamic | Master => {}
         }
+        Some(Affected::Multiple)
     }
 
     #[must_use]
@@ -1543,6 +1556,7 @@ impl TargetModel {
                 allow_multiple: true,
             },
             Master => VirtualTrack::Master,
+            Instance => VirtualTrack::Instance,
             ById => VirtualTrack::ById(self.track_id?),
             ByName => VirtualTrack::ByName {
                 wild_match: WildMatch::new(&self.track_name),
@@ -1676,6 +1690,55 @@ impl TargetModel {
         Ok(desc)
     }
 
+    pub fn api_track_descriptor(&self) -> realearn_api::persistence::TrackDescriptor {
+        use realearn_api::persistence::TrackDescriptor;
+        use VirtualTrackType::*;
+        let commons = TrackDescriptorCommons {
+            track_must_be_selected: Some(self.enable_only_if_track_selected),
+        };
+        match self.track_type {
+            This => TrackDescriptor::This { commons },
+            Selected => TrackDescriptor::Selected {
+                allow_multiple: Some(false),
+            },
+            AllSelected => TrackDescriptor::Selected {
+                allow_multiple: Some(true),
+            },
+            Master => TrackDescriptor::Master { commons },
+            Instance => TrackDescriptor::Instance { commons },
+            ById | ByIdOrName => TrackDescriptor::ById {
+                commons,
+                id: self
+                    .track_id
+                    .as_ref()
+                    .map(|id| id.to_string_without_braces()),
+            },
+            ByName => TrackDescriptor::ByName {
+                commons,
+                name: self.track_name.clone(),
+                allow_multiple: Some(false),
+            },
+            AllByName => TrackDescriptor::ByName {
+                commons,
+                name: self.track_name.clone(),
+                allow_multiple: Some(true),
+            },
+            ByIndex => TrackDescriptor::ByIndex {
+                commons,
+                index: self.track_index,
+            },
+            Dynamic => TrackDescriptor::Dynamic {
+                commons,
+                expression: self.track_expression.clone(),
+            },
+            FromClipColumn => TrackDescriptor::FromClipColumn {
+                commons,
+                column: self.clip_column.clone(),
+                context: self.clip_column_track_context,
+            },
+        }
+    }
+
     fn virtual_clip_slot(&self) -> Result<VirtualClipSlot, &'static str> {
         use ClipSlotDescriptor::*;
         let slot = match &self.clip_slot {
@@ -1705,19 +1768,7 @@ impl TargetModel {
     }
 
     fn virtual_clip_column(&self) -> Result<VirtualClipColumn, &'static str> {
-        use ClipColumnDescriptor::*;
-        let column = match &self.clip_column {
-            Selected => VirtualClipColumn::Selected,
-            ByIndex { index } => VirtualClipColumn::ByIndex(*index),
-            Dynamic {
-                expression: index_expression,
-            } => {
-                let index_evaluator = ExpressionEvaluator::compile(index_expression)
-                    .map_err(|_| "couldn't evaluate column index")?;
-                VirtualClipColumn::Dynamic(Box::new(index_evaluator))
-            }
-        };
-        Ok(column)
+        VirtualClipColumn::from_descriptor(&self.clip_column)
     }
 
     fn virtual_clip_row(&self) -> Result<VirtualClipRow, &'static str> {
@@ -1819,6 +1870,7 @@ impl TargetModel {
                     }
                     TrackTool => UnresolvedReaperTarget::TrackTool(UnresolvedTrackToolTarget {
                         track_descriptor: self.track_descriptor()?,
+                        action: self.track_tool_action,
                     }),
                     TrackPeak => UnresolvedReaperTarget::TrackPeak(UnresolvedTrackPeakTarget {
                         track_descriptor: self.track_descriptor()?,
@@ -2880,6 +2932,8 @@ pub enum VirtualTrackType {
     Dynamic,
     #[display(fmt = "<Master>")]
     Master,
+    #[display(fmt = "<Instance>")]
+    Instance,
     #[display(fmt = "By ID")]
     ById,
     #[display(fmt = "By name")]
@@ -2941,6 +2995,7 @@ impl VirtualTrackType {
             }
             Dynamic(_) => Self::Dynamic,
             Master => Self::Master,
+            Instance => Self::Instance,
             ByIdOrName(_, _) => Self::ByIdOrName,
             ById(_) => Self::ById,
             ByName { allow_multiple, .. } => {

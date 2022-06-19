@@ -10,6 +10,7 @@ use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTi
 use crate::domain::{
     BackboneState, Compartment, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask,
     InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
+    VirtualTrack,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -69,6 +70,7 @@ pub struct InstanceState {
     active_instance_tags: HashSet<Tag>,
     copied_clip: Option<playtime_api::persistence::Clip>,
     copied_clips_in_row: Vec<ApiClipWithColumn>,
+    instance_track: VirtualTrack,
 }
 
 #[derive(Debug)]
@@ -169,7 +171,16 @@ impl InstanceState {
             active_instance_tags: Default::default(),
             copied_clip: None,
             copied_clips_in_row: vec![],
+            instance_track: Default::default(),
         }
+    }
+
+    pub fn instance_track(&self) -> &VirtualTrack {
+        &self.instance_track
+    }
+
+    pub fn set_instance_track(&mut self, track: VirtualTrack) {
+        self.instance_track = track;
     }
 
     pub fn instance_id(&self) -> InstanceId {

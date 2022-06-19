@@ -1,15 +1,19 @@
 use crate::domain::{
     get_effective_tracks, get_track_name, percentage_for_track_within_project, Compartment,
-    ControlContext, ExtendedProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ControlContext, DomainEvent, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
+    HitInstructionReturnValue, InstanceTrackChangeRequestedEvent, MappingControlContext,
+    MappingControlResult, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
+use realearn_api::persistence::TrackToolAction;
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackToolTarget {
     pub track_descriptor: TrackDescriptor,
+    pub action: TrackToolAction,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
@@ -21,7 +25,12 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackTool(TrackToolTarget { track }))
+                .map(|track| {
+                    ReaperTarget::TrackTool(TrackToolTarget {
+                        track,
+                        action: self.action,
+                    })
+                })
                 .collect(),
         )
     }
@@ -34,11 +43,15 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackToolTarget {
     pub track: Track,
+    pub action: TrackToolAction,
 }
 
 impl RealearnTarget for TrackToolTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+        (
+            ControlType::AbsoluteContinuousRetriggerable,
+            TargetCharacter::Trigger,
+        )
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -67,6 +80,43 @@ impl RealearnTarget for TrackToolTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::TrackTool)
+    }
+
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: MappingControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
+        if !value.is_on() {
+            return Ok(None);
+        }
+        struct UpdateInstanceTrack {
+            event: InstanceTrackChangeRequestedEvent,
+        }
+        impl HitInstruction for UpdateInstanceTrack {
+            fn execute(
+                self: Box<Self>,
+                context: HitInstructionContext,
+            ) -> Vec<MappingControlResult> {
+                context
+                    .domain_event_handler
+                    .handle_event(DomainEvent::InstanceTrackChangeRequested(self.event));
+                vec![]
+            }
+        }
+        let event = match self.action {
+            TrackToolAction::DoNothing => return Ok(None),
+            TrackToolAction::SetAsInstanceTrack => {
+                InstanceTrackChangeRequestedEvent::SetFromMapping(
+                    context.mapping_data.qualified_mapping_id(),
+                )
+            }
+            TrackToolAction::PinAsInstanceTrack => {
+                InstanceTrackChangeRequestedEvent::Pin(*self.track.guid())
+            }
+        };
+        let instruction = UpdateInstanceTrack { event };
+        Ok(Some(Box::new(instruction)))
     }
 }
 

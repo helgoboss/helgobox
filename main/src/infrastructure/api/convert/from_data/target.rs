@@ -479,6 +479,7 @@ fn convert_real_target(
                 &data.clip_column,
                 style,
             ),
+            action: Some(data.track_tool_action),
         }),
         TrackSolo => T::TrackSoloState(TrackSoloStateTarget {
             commons,
@@ -733,6 +734,7 @@ fn convert_track_descriptor(
             expression: props.expression,
         },
         Master => T::Master { commons },
+        Instance => T::Instance { commons },
         ById | ByIdOrName => T::ById {
             commons,
             id: props.id.map(|guid| guid.to_string_without_braces()),

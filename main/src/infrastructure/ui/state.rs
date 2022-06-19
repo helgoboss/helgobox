@@ -23,7 +23,14 @@ pub struct MainState {
     pub active_compartment: Prop<Compartment>,
     pub displayed_group: EnumMap<Compartment, Prop<Option<GroupFilter>>>,
     pub search_expression: Prop<SearchExpression>,
-    pub status_msg: Prop<String>,
+    pub scroll_status: Prop<ScrollStatus>,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct ScrollStatus {
+    pub from_pos: usize,
+    pub to_pos: usize,
+    pub item_count: usize,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -83,7 +90,7 @@ impl Default for MainState {
                 Compartment::Main => prop(Some(GroupFilter::default())),
             },
             search_expression: Default::default(),
-            status_msg: Default::default(),
+            scroll_status: Default::default(),
         }
     }
 }

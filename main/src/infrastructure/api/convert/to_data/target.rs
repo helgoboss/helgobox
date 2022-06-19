@@ -344,6 +344,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 clip_column: track_desc.clip_column.unwrap_or_default(),
+                track_tool_action: d.action.unwrap_or_default(),
                 ..init(d.commons)
             }
         }
@@ -879,6 +880,15 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
         Master { commons } => (
             TrackPropValues {
                 r#type: VirtualTrackType::Master,
+                ..Default::default()
+            },
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
+        ),
+        Instance { commons } => (
+            TrackPropValues {
+                r#type: VirtualTrackType::Instance,
                 ..Default::default()
             },
             commons

@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
-    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
+    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
     SharedIndependentPanelManager, SharedMainState,
 };
 use realearn_api::persistence::Envelope;
@@ -246,11 +246,15 @@ impl MappingRowsPanel {
     fn update_scroll_status_msg(&self, item_count: usize) {
         let from_pos = cmp::min(self.scroll_position.get() + 1, item_count);
         let to_pos = cmp::min(from_pos + self.rows.len() - 1, item_count);
-        let status_msg = format!(
-            "Showing mappings {} to {} of {}",
-            from_pos, to_pos, item_count
-        );
-        self.main_state.borrow_mut().status_msg.set(status_msg);
+        let scroll_status = ScrollStatus {
+            from_pos,
+            to_pos,
+            item_count,
+        };
+        self.main_state
+            .borrow_mut()
+            .scroll_status
+            .set(scroll_status);
     }
 
     fn get_max_item_index(&self, item_count: usize) -> usize {

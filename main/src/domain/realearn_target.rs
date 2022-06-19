@@ -4,12 +4,12 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, DomainEventHandler,
-    Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
+    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, Compartment,
+    DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
-    RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter,
-    TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
+    QualifiedMappingId, RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope,
+    TargetCharacter, TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
     AUTOMATION_MODE_OVERRIDE_TARGET, CLIP_COLUMN_TARGET, CLIP_MANAGEMENT_TARGET,
     CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET,
     CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
@@ -442,9 +442,16 @@ impl<'a> From<MappingControlContext<'a>> for ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingData {
+    pub compartment: Compartment,
     pub mapping_id: MappingId,
     pub group_id: GroupId,
     pub last_non_performance_target_value: Option<AbsoluteValue>,
+}
+
+impl MappingData {
+    pub fn qualified_mapping_id(&self) -> QualifiedMappingId {
+        QualifiedMappingId::new(self.compartment, self.mapping_id)
+    }
 }
 
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;

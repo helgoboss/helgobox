@@ -39,7 +39,6 @@ use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use playtime_clip_engine::{clip_timeline, Laziness, Timeline};
 use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -147,18 +146,21 @@ impl MainPanel {
 
     fn invalidate_status_text(&self) {
         self.do_with_session(|session| {
+            use std::fmt::Write;
             let state = self.state.borrow();
-            let status_msg = state.status_msg.get_ref();
+            let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
-            let text = if tags.is_empty() {
-                Cow::Borrowed(status_msg)
-            } else {
-                Cow::Owned(format!(
-                    "{} | Tags: {}",
-                    status_msg,
-                    format_tags_as_csv(tags)
-                ))
-            };
+            let instance_state = session.instance_state().borrow();
+            let mut text = format!(
+                "Track: {} | Showing mappings {} to {} of {}",
+                instance_state.instance_track(),
+                scroll_status.from_pos,
+                scroll_status.to_pos,
+                scroll_status.item_count
+            );
+            if !tags.is_empty() {
+                let _ = write!(&mut text, " | {}", format_tags_as_csv(tags));
+            }
             self.view
                 .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
                 .set_text(text.as_str());
@@ -196,7 +198,7 @@ impl MainPanel {
 
     fn register_listeners(self: SharedView<Self>) {
         let state = self.state.borrow();
-        self.when(state.status_msg.changed(), |view| {
+        self.when(state.scroll_status.changed(), |view| {
             view.invalidate_status_text();
         });
         self.register_session_listeners();
@@ -242,6 +244,20 @@ impl MainPanel {
             data.mapping_rows_panel
                 .handle_affected(&affected, initiator);
             data.header_panel.handle_affected(&affected, initiator);
+        }
+        self.handle_affected_own(affected);
+    }
+
+    fn handle_affected_own(self: SharedView<Self>, affected: Affected<SessionProp>) {
+        use Affected::*;
+        if !self.is_open() {
+            return;
+        }
+        match affected {
+            One(SessionProp::InstanceTrack) | Multiple => {
+                self.invalidate_status_text();
+            }
+            _ => {}
         }
     }
 

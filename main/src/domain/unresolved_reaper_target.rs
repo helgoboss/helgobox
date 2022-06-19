@@ -29,7 +29,9 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
-use realearn_api::persistence::ClipColumnTrackContext;
+use realearn_api::persistence::{
+    ClipColumnDescriptor, ClipColumnTrackContext, TrackDescriptorCommons,
+};
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
@@ -262,6 +264,72 @@ pub fn get_track_routes(
 pub struct TrackDescriptor {
     pub track: VirtualTrack,
     pub enable_only_if_track_selected: bool,
+}
+
+impl TrackDescriptor {
+    pub fn from_api(
+        api_desc: &realearn_api::persistence::TrackDescriptor,
+    ) -> Result<Self, Box<dyn Error>> {
+        use realearn_api::persistence::TrackDescriptor::*;
+        let (track, commons) = match api_desc {
+            This { commons } => (VirtualTrack::This, commons.clone()),
+            Master { commons } => (VirtualTrack::Master, commons.clone()),
+            Instance { commons } => (VirtualTrack::Instance, commons.clone()),
+            Selected { allow_multiple } => (
+                VirtualTrack::Selected {
+                    allow_multiple: allow_multiple.unwrap_or(false),
+                },
+                TrackDescriptorCommons::default(),
+            ),
+            Dynamic {
+                expression,
+                commons,
+            } => {
+                let evaluator = ExpressionEvaluator::compile(expression)?;
+                (VirtualTrack::Dynamic(Box::new(evaluator)), commons.clone())
+            }
+            ById { id, commons } => {
+                let id = id.as_ref().ok_or("no ID given")?;
+                (
+                    VirtualTrack::ById(Guid::from_string_without_braces(id)?),
+                    commons.clone(),
+                )
+            }
+            ByIndex { index, commons } => (VirtualTrack::ByIndex(*index), commons.clone()),
+            ByName {
+                name,
+                allow_multiple,
+                ..
+            } => (
+                VirtualTrack::ByName {
+                    wild_match: WildMatch::new(name),
+                    allow_multiple: allow_multiple.unwrap_or(false),
+                },
+                TrackDescriptorCommons::default(),
+            ),
+            FromClipColumn {
+                column,
+                context,
+                commons,
+            } => {
+                let column = VirtualClipColumn::from_descriptor(column)?;
+                (
+                    VirtualTrack::FromClipColumn {
+                        column,
+                        context: context.clone(),
+                    },
+                    commons.clone(),
+                )
+            }
+        };
+        let desc = Self {
+            track,
+            // TODO-low The default value should ideally come from infrastructure::api::defaults
+            //  but this is in the infrastructure layer.
+            enable_only_if_track_selected: commons.track_must_be_selected.unwrap_or(false),
+        };
+        Ok(desc)
+    }
 }
 
 #[derive(Debug)]
@@ -543,6 +611,24 @@ impl Default for VirtualClipColumn {
 }
 
 impl VirtualClipColumn {
+    pub fn from_descriptor(
+        descriptor: &ClipColumnDescriptor,
+    ) -> Result<VirtualClipColumn, &'static str> {
+        use ClipColumnDescriptor::*;
+        let column = match descriptor {
+            Selected => VirtualClipColumn::Selected,
+            ByIndex { index } => VirtualClipColumn::ByIndex(*index),
+            Dynamic {
+                expression: index_expression,
+            } => {
+                let index_evaluator = ExpressionEvaluator::compile(index_expression)
+                    .map_err(|_| "couldn't evaluate column index")?;
+                VirtualClipColumn::Dynamic(Box::new(index_evaluator))
+            }
+        };
+        Ok(column)
+    }
+
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
@@ -659,6 +745,14 @@ pub enum VirtualTrack {
         column: VirtualClipColumn,
         context: ClipColumnTrackContext,
     },
+    /// Instance track
+    Instance,
+}
+
+impl Default for VirtualTrack {
+    fn default() -> Self {
+        Self::This
+    }
 }
 
 #[derive(Debug)]
@@ -876,6 +970,7 @@ impl fmt::Display for VirtualTrack {
                 "<Selected>"
             }),
             Master => f.write_str("<Master>"),
+            Instance => f.write_str("<Instance>"),
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
@@ -1003,6 +1098,14 @@ impl VirtualTrack {
                 vec![single]
             }
             Master => vec![project.master_track()],
+            Instance => {
+                let instance_state = context.control_context.instance_state.borrow();
+                let instance_track = instance_state.instance_track();
+                if matches!(instance_track, VirtualTrack::Instance) {
+                    return Err(TrackResolveError::CircularReference);
+                }
+                return instance_track.resolve(context, compartment);
+            }
             ByIdOrName(guid, name) => {
                 let t = project.track_by_guid(guid);
                 let single = if t.is_available() {
@@ -1255,6 +1358,7 @@ pub enum TrackResolveError {
         index: Option<u32>,
     },
     NoTrackSelected,
+    CircularReference,
 }
 
 #[derive(Clone, Debug, Display, Error)]

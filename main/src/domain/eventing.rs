@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use helgoboss_learn::AbsoluteValue;
 use playtime_clip_engine::main::ClipMatrixEvent;
-use reaper_high::ChangeEvent;
+use reaper_high::{ChangeEvent, Guid};
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -24,6 +24,7 @@ pub enum DomainEvent<'a> {
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+    InstanceTrackChangeRequested(InstanceTrackChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
 }
@@ -46,6 +47,12 @@ pub struct MappingEnabledChangeRequestedEvent {
     pub compartment: Compartment,
     pub mapping_id: MappingId,
     pub is_enabled: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InstanceTrackChangeRequestedEvent {
+    Pin(Guid),
+    SetFromMapping(QualifiedMappingId),
 }
 
 #[derive(Copy, Clone, Debug)]

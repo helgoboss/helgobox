@@ -1,6 +1,6 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentInSession, FxPresetLinkConfig, GroupModel,
-    MainPresetAutoLoadMode, Session,
+    MainPresetAutoLoadMode, Session, SessionCommand,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
@@ -19,6 +19,7 @@ use crate::infrastructure::data::clip_legacy::{
     create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
 };
 use playtime_api::persistence::Matrix;
+use realearn_api::persistence::TrackDescriptor;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -109,6 +110,8 @@ pub struct SessionData {
     instance_preset_link_config: FxPresetLinkConfig,
     #[serde(default, skip_serializing_if = "is_default")]
     use_instance_preset_links_only: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    instance_track: TrackDescriptor,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -190,6 +193,7 @@ impl Default for SessionData {
             active_instance_tags: Default::default(),
             instance_preset_link_config: Default::default(),
             use_instance_preset_links_only: false,
+            instance_track: Default::default(),
         }
     }
 }
@@ -294,6 +298,7 @@ impl SessionData {
             active_instance_tags: instance_state.active_instance_tags().clone(),
             instance_preset_link_config: session.instance_preset_link_config().clone(),
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
+            instance_track: session.instance_track_descriptor().clone(),
         }
     }
 
@@ -485,7 +490,10 @@ impl SessionData {
         session.tags.set_without_notification(self.tags.clone());
         session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
         session.set_use_instance_preset_links_only(self.use_instance_preset_links_only);
-        // Instance state
+        let _ = session.change(SessionCommand::SetInstanceTrack(
+            self.instance_track.clone(),
+        ));
+        // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
             let instance_state = session.instance_state().clone();
             let mut instance_state = instance_state.borrow_mut();

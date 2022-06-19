@@ -26,7 +26,7 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    MonitoringMode,
+    MonitoringMode, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,8 @@ pub struct TargetModelData {
     // Toggleable track targets (since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
     pub track_exclusivity: TrackExclusivity,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub track_tool_action: TrackToolAction,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     pub transport_action: TransportAction,
@@ -229,6 +231,7 @@ impl TargetModelData {
             select_exclusively: None,
             solo_behavior: Some(model.solo_behavior()),
             track_exclusivity: model.track_exclusivity(),
+            track_tool_action: model.track_tool_action(),
             transport_action: model.transport_action(),
             any_on_parameter: model.any_on_parameter(),
             control_element_type: model.control_element_type(),
@@ -499,49 +502,39 @@ impl TargetModelData {
             self.record_only_if_track_armed,
         ));
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
+        model.change(C::SetTrackToolAction(self.track_tool_action));
     }
 }
 
 pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnDescriptor>) {
     use VirtualTrackType::*;
     match track.r#type {
-        This => (
-            TrackData {
-                guid: None,
-                name: None,
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
-            },
-            None,
-        ),
+        This => (TrackData::default(), None),
         Selected => (
             TrackData {
                 guid: Some("selected".to_string()),
-                name: None,
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         AllSelected => (
             TrackData {
                 guid: Some("selected*".to_string()),
-                name: None,
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         Master => (
             TrackData {
                 guid: Some("master".to_string()),
-                name: None,
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
+            },
+            None,
+        ),
+        Instance => (
+            TrackData {
+                guid: Some("instance".to_string()),
+                ..Default::default()
             },
             None,
         ),
@@ -549,29 +542,21 @@ pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnD
             TrackData {
                 guid: track.id.map(|id| id.to_string_without_braces()),
                 name: Some(track.name),
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         ById => (
             TrackData {
                 guid: track.id.map(|id| id.to_string_without_braces()),
-                name: None,
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         ByName => (
             TrackData {
-                guid: None,
                 name: Some(track.name),
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
@@ -579,39 +564,30 @@ pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnD
             TrackData {
                 guid: Some("name*".to_string()),
                 name: Some(track.name),
-                index: None,
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         ByIndex => (
             TrackData {
-                guid: None,
-                name: None,
                 index: Some(track.index),
-                expression: None,
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         Dynamic => (
             TrackData {
-                guid: None,
-                name: None,
-                index: None,
                 expression: Some(track.expression),
-                clip_column_track_context: Default::default(),
+                ..Default::default()
             },
             None,
         ),
         FromClipColumn => (
             TrackData {
                 guid: Some("from-clip-column".to_string()),
-                name: None,
-                index: None,
                 expression: Some(track.expression),
                 clip_column_track_context: track.clip_column_track_context,
+                ..Default::default()
             },
             Some(track.clip_column),
         ),

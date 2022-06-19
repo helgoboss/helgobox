@@ -25,7 +25,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
     Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::persistence::{MidiScriptKind, MonitoringMode};
+use realearn_api::persistence::{MidiScriptKind, MonitoringMode, TrackToolAction};
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -468,6 +468,9 @@ impl MappingPanel {
                                                 view.invalidate_target_line_4(initiator);
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
+                                            }
+                                            P::TrackToolAction => {
+                                                view.invalidate_target_line_4(initiator);
                                             }
                                             P::GroupId => {
                                                 view.invalidate_target_line_2(initiator);
@@ -2592,6 +2595,15 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetOscArgTypeTag(v),
                     ));
                 }
+                ReaperTargetType::TrackTool => {
+                    let action: TrackToolAction = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTrackToolAction(action.into()),
+                    ));
+                }
                 t if t.supports_fx_parameter() => {
                     if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -4333,6 +4345,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
+                ReaperTargetType::TrackTool => Some("Action"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
@@ -4584,7 +4597,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let tag = self.target.osc_arg_type_tag();
                     invalidate_with_osc_arg_type_tag(combo, tag);
                 }
-
+                ReaperTargetType::TrackTool => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
+                    let action: TrackToolAction = self.target.track_tool_action().into();
+                    combo.select_combo_box_item_by_index(action.into()).unwrap();
+                }
                 t if t.supports_fx_parameter()
                     && self.target.param_type() == VirtualFxParameterType::ById =>
                 {

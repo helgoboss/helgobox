@@ -339,6 +339,37 @@ pub struct TrackToolTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<TrackToolAction>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum TrackToolAction {
+    #[display(fmt = "Do nothing (feedback only)")]
+    DoNothing,
+    #[display(fmt = "Set as instance track")]
+    SetAsInstanceTrack,
+    #[display(fmt = "Pin as instance track")]
+    PinAsInstanceTrack,
+}
+
+impl Default for TrackToolAction {
+    fn default() -> Self {
+        Self::DoNothing
+    }
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -949,7 +980,7 @@ pub enum ReaperCommand {
     Name(String),
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum TrackDescriptor {
     This {
@@ -957,6 +988,10 @@ pub enum TrackDescriptor {
         commons: TrackDescriptorCommons,
     },
     Master {
+        #[serde(flatten)]
+        commons: TrackDescriptorCommons,
+    },
+    Instance {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
     },
@@ -1015,7 +1050,7 @@ impl Default for TrackDescriptor {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]

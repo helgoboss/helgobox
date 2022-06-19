@@ -14,12 +14,12 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualSource, VirtualSourceValue,
+    InputDescriptor, InstanceContainer, InstanceId, InstanceState,
+    InstanceTrackChangeRequestedEvent, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
+    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealearnClipMatrix, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -32,10 +32,12 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use crate::domain;
 use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
 use playtime_clip_engine::main::ClipMatrixEvent;
+use realearn_api::persistence::TrackDescriptor;
 use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
 
@@ -138,6 +140,7 @@ pub struct Session {
     /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
     /// instance but this instance is not yet loaded.
     unresolved_foreign_clip_matrix_session_id: Option<String>,
+    instance_track_descriptor: TrackDescriptor,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -215,7 +218,7 @@ impl Session {
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     ) -> Session {
-        Self {
+        let session = Self {
             // As long not changed (by loading a preset or manually changing session ID), the
             // session ID is equal to the instance ID.
             id: prop(instance_id.to_string()),
@@ -274,7 +277,9 @@ impl Session {
             feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
             unresolved_foreign_clip_matrix_session_id: None,
-        }
+            instance_track_descriptor: Default::default(),
+        };
+        session
     }
 
     pub fn instance_id(&self) -> &InstanceId {
@@ -283,6 +288,10 @@ impl Session {
 
     pub fn id(&self) -> &str {
         self.id.get_ref()
+    }
+
+    pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
+        &self.instance_track_descriptor
     }
 
     pub fn unresolved_foreign_clip_matrix_session_id(&self) -> Option<&String> {
@@ -940,7 +949,7 @@ impl Session {
         val: MappingCommand,
         weak_session: WeakSession,
     ) {
-        self.change(
+        self.change_with_notification(
             SessionCommand::ChangeCompartment(
                 id.compartment,
                 CompartmentCommand::ChangeMapping(id.id, val),
@@ -955,28 +964,42 @@ impl Session {
     ///
     /// Reasoning: With this single point of entry for changing something in the session, we can
     /// easily intercept certain changes, notify the UI and so on. Without magic and without rxRust!
-    pub fn change(
+    fn change_with_notification(
         &mut self,
         cmd: SessionCommand,
         initiator: Option<u32>,
         weak_session: WeakSession,
     ) {
-        let _ = self.change_with_closure(initiator, weak_session, |session| {
-            use Affected::*;
-            use SessionCommand as C;
-            use SessionProp as P;
-            let affected = match cmd {
-                C::ChangeCompartment(compartment, cmd) => session
-                    .change_compartment_internal(compartment, cmd)?
-                    .map(|affected| One(P::InCompartment(compartment, affected))),
-                C::AdjustMappingModeIfNecessary(id) => session
-                    .changing_mapping_by_id(id, |ctx| {
-                        Ok(ctx.mapping.adjust_mode_if_necessary(ctx.extended_context))
-                    })?
-                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
-            };
-            Ok(affected)
-        });
+        let _ = self.change_with_closure(initiator, weak_session, |session| session.change(cmd));
+    }
+
+    pub fn change(&mut self, cmd: SessionCommand) -> ChangeResult<SessionProp> {
+        use Affected::*;
+        use SessionCommand as C;
+        use SessionProp as P;
+        let affected = match cmd {
+            C::SetInstanceTrack(api_desc) => {
+                let virtual_track = domain::TrackDescriptor::from_api(&api_desc)
+                    .map(|desc| desc.track)
+                    .unwrap_or_default();
+                self.instance_track_descriptor = api_desc;
+                self.instance_state
+                    .borrow_mut()
+                    .set_instance_track(virtual_track);
+                self.normal_main_task_sender
+                    .send_complaining(NormalMainTask::RefreshAllTargets);
+                Some(One(P::InstanceTrack))
+            }
+            C::ChangeCompartment(compartment, cmd) => self
+                .change_compartment_internal(compartment, cmd)?
+                .map(|affected| One(P::InCompartment(compartment, affected))),
+            C::AdjustMappingModeIfNecessary(id) => self
+                .changing_mapping_by_id(id, |ctx| {
+                    Ok(ctx.mapping.adjust_mode_if_necessary(ctx.extended_context))
+                })?
+                .map(|affected| One(P::InCompartment(id.compartment, affected))),
+        };
+        Ok(affected)
     }
 
     pub fn change_mapping_by_id_with_closure(
@@ -1110,8 +1133,8 @@ impl Session {
                                     use ProcessingRelevance::*;
                                     match relevance {
                                         PersistentProcessingRelevant => {
-                                            // Keep syncing persistent mapping processing state only (shouldn't do too much
-                                            // because can be triggered by processing).
+                                            // Keep syncing persistent mapping processing state only
+                                            // (must be cheap because can be triggered by processing).
                                             session
                                                 .sync_persistent_mapping_processing_state(&mapping);
                                         }
@@ -2418,6 +2441,28 @@ impl DomainEventHandler for WeakSession {
                     );
                 }
             }
+            InstanceTrackChangeRequested(event) => {
+                if let Ok(mut s) = session.try_borrow_mut() {
+                    let track_descriptor = match event {
+                        InstanceTrackChangeRequestedEvent::Pin(guid) => TrackDescriptor::ById {
+                            commons: Default::default(),
+                            id: Some(guid.to_string_without_braces()),
+                        },
+                        InstanceTrackChangeRequestedEvent::SetFromMapping(id) => {
+                            let m = match s.find_mapping_and_index_by_id(id.compartment, id.id) {
+                                None => return,
+                                Some((_, m)) => m,
+                            };
+                            m.borrow().target_model.api_track_descriptor()
+                        }
+                    };
+                    s.change_with_notification(
+                        SessionCommand::SetInstanceTrack(track_descriptor),
+                        None,
+                        self.clone(),
+                    );
+                }
+            }
         }
     }
 }
@@ -2498,13 +2543,14 @@ pub fn reaper_supports_global_midi_filter() -> bool {
     v_without_arch >= "6.35+dev0831"
 }
 
-#[allow(dead_code)]
 pub enum SessionCommand {
+    SetInstanceTrack(TrackDescriptor),
     ChangeCompartment(Compartment, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
 }
 
 pub enum SessionProp {
+    InstanceTrack,
     InCompartment(Compartment, Affected<CompartmentProp>),
 }
 

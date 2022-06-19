@@ -847,6 +847,7 @@ impl MainMapping {
 
     fn data(&self) -> MappingData {
         MappingData {
+            compartment: self.core.compartment,
             mapping_id: self.core.id,
             group_id: self.core.group_id,
             last_non_performance_target_value: self.last_non_performance_target_value(),
