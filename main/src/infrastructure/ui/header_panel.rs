@@ -956,6 +956,7 @@ impl HeaderPanel {
         let mapping_models: Vec<_> = mapping_datas
             .into_iter()
             .map(|mut data| {
+                data.id = None;
                 data.group_id = group_key.clone();
                 data.to_model(
                     compartment,
