@@ -1,7 +1,7 @@
 use crate::base::hash_util;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, get_fxs, AdditionalFeedbackEvent, BackboneState, Compartment,
+    format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -23,7 +23,9 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+        Ok(self
+            .fx_descriptor
+            .resolve(context, compartment)?
             .into_iter()
             .map(|fx| {
                 ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {

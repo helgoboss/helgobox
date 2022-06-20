@@ -426,6 +426,80 @@ impl FxDescriptor {
         };
         Ok(desc)
     }
+
+    // Returns an error if the FX doesn't exist.
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: Compartment,
+    ) -> Result<Vec<Fx>, &'static str> {
+        match &self.fx {
+            VirtualFx::This => {
+                let fx = context.context().containing_fx();
+                if fx.is_available() {
+                    Ok(vec![fx.clone()])
+                } else {
+                    Err("this FX not available anymore")
+                }
+            }
+            VirtualFx::Focused => {
+                let single = Reaper::get()
+                    .focused_fx()
+                    .ok_or("couldn't get (last) focused FX")?;
+                Ok(vec![single])
+            }
+            VirtualFx::Instance => {
+                let instance_state = context.control_context.instance_state.borrow();
+                let instance_fx = instance_state.instance_fx_descriptor();
+                if matches!(instance_fx.fx, VirtualFx::Instance) {
+                    return Err("circular reference");
+                }
+                return instance_fx.resolve(context, compartment);
+            }
+            VirtualFx::ChainFx {
+                is_input_fx,
+                chain_fx,
+            } => {
+                enum MaybeOwned<'a, T> {
+                    Owned(T),
+                    Borrowed(&'a T),
+                }
+                impl<'a, T> MaybeOwned<'a, T> {
+                    fn get(&self) -> &T {
+                        match self {
+                            MaybeOwned::Owned(o) => o,
+                            MaybeOwned::Borrowed(b) => b,
+                        }
+                    }
+                }
+                let chain_fx = match chain_fx {
+                    VirtualChainFx::ByIdOrIndex(_, index) => {
+                        // Actually it's not that important whether we create an index-based or
+                        // GUID-based FX. The session listeners will recreate and
+                        // resync the FX whenever something has changed anyway. But
+                        // for monitoring FX it could still be good (which we don't get notified
+                        // about unfortunately).
+                        if matches!(self.track_descriptor.track, VirtualTrack::Selected { .. }) {
+                            MaybeOwned::Owned(VirtualChainFx::ByIndex(*index))
+                        } else {
+                            MaybeOwned::Borrowed(chain_fx)
+                        }
+                    }
+                    _ => MaybeOwned::Borrowed(chain_fx),
+                };
+                let fx_chains = get_fx_chains(
+                    context,
+                    &self.track_descriptor.track,
+                    *is_input_fx,
+                    compartment,
+                )?;
+                chain_fx
+                    .get()
+                    .resolve(&fx_chains, context, compartment)
+                    .map_err(|_| "couldn't resolve particular FX")
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1204,7 +1278,7 @@ impl VirtualTrack {
             Master => vec![project.master_track()],
             Instance => {
                 let instance_state = context.control_context.instance_state.borrow();
-                let instance_track = instance_state.instance_track();
+                let instance_track = instance_state.instance_track_descriptor();
                 if matches!(&instance_track.track, VirtualTrack::Instance) {
                     return Err(TrackResolveError::CircularReference);
                 }
@@ -1709,7 +1783,9 @@ pub fn get_fx_params(
     fx_parameter_descriptor: &FxParameterDescriptor,
     compartment: Compartment,
 ) -> Result<Vec<FxParameter>, &'static str> {
-    let fxs = get_fxs(context, &fx_parameter_descriptor.fx_descriptor, compartment)?;
+    let fxs = fx_parameter_descriptor
+        .fx_descriptor
+        .resolve(context, compartment)?;
     let parameters = fxs
         .into_iter()
         .flat_map(|fx| {
@@ -1720,83 +1796,6 @@ pub fn get_fx_params(
         })
         .collect();
     Ok(parameters)
-}
-
-// Returns an error if the FX doesn't exist.
-pub fn get_fxs(
-    context: ExtendedProcessorContext,
-    descriptor: &FxDescriptor,
-    compartment: Compartment,
-) -> Result<Vec<Fx>, &'static str> {
-    match &descriptor.fx {
-        VirtualFx::This => {
-            let fx = context.context().containing_fx();
-            if fx.is_available() {
-                Ok(vec![fx.clone()])
-            } else {
-                Err("this FX not available anymore")
-            }
-        }
-        VirtualFx::Focused => {
-            let single = Reaper::get()
-                .focused_fx()
-                .ok_or("couldn't get (last) focused FX")?;
-            Ok(vec![single])
-        }
-        VirtualFx::Instance => {
-            let instance_state = context.control_context.instance_state.borrow();
-            let instance_fx = instance_state.instance_fx();
-            if matches!(instance_fx.fx, VirtualFx::Instance) {
-                return Err("circular reference");
-            }
-            return get_fxs(context, instance_fx, compartment);
-        }
-        VirtualFx::ChainFx {
-            is_input_fx,
-            chain_fx,
-        } => {
-            enum MaybeOwned<'a, T> {
-                Owned(T),
-                Borrowed(&'a T),
-            }
-            impl<'a, T> MaybeOwned<'a, T> {
-                fn get(&self) -> &T {
-                    match self {
-                        MaybeOwned::Owned(o) => o,
-                        MaybeOwned::Borrowed(b) => b,
-                    }
-                }
-            }
-            let chain_fx = match chain_fx {
-                VirtualChainFx::ByIdOrIndex(_, index) => {
-                    // Actually it's not that important whether we create an index-based or
-                    // GUID-based FX. The session listeners will recreate and
-                    // resync the FX whenever something has changed anyway. But
-                    // for monitoring FX it could still be good (which we don't get notified
-                    // about unfortunately).
-                    if matches!(
-                        descriptor.track_descriptor.track,
-                        VirtualTrack::Selected { .. }
-                    ) {
-                        MaybeOwned::Owned(VirtualChainFx::ByIndex(*index))
-                    } else {
-                        MaybeOwned::Borrowed(chain_fx)
-                    }
-                }
-                _ => MaybeOwned::Borrowed(chain_fx),
-            };
-            let fx_chains = get_fx_chains(
-                context,
-                &descriptor.track_descriptor.track,
-                *is_input_fx,
-                compartment,
-            )?;
-            chain_fx
-                .get()
-                .resolve(&fx_chains, context, compartment)
-                .map_err(|_| "couldn't resolve particular FX")
-        }
-    }
 }
 
 fn get_index_based_fx_on_chain(fx_chain: &FxChain, fx_index: u32) -> Result<Fx, &'static str> {

@@ -16,7 +16,7 @@ use crate::application::{
     Affected, Change, GetProcessingRelevance, ProcessingRelevance, VirtualControlElementType,
 };
 use crate::domain::{
-    find_bookmark, get_fx_name, get_fx_params, get_fxs, get_non_present_virtual_route_label,
+    find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, OscDeviceId,
@@ -2822,7 +2822,8 @@ pub fn first_effective_fx(
     compartment: Compartment,
     context: ExtendedProcessorContext,
 ) -> Result<Fx, &'static str> {
-    get_fxs(context, fx_descriptor, compartment)?
+    fx_descriptor
+        .resolve(context, compartment)?
         .into_iter()
         .next()
         .ok_or("resolves to empty FX list")

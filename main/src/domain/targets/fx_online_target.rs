@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, fx_online_unit_value, get_fxs, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, fx_online_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -19,7 +19,9 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+        Ok(self
+            .fx_descriptor
+            .resolve(context, compartment)?
             .into_iter()
             .map(|fx| ReaperTarget::FxOnline(FxOnlineTarget { fx }))
             .collect())

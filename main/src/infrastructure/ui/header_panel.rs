@@ -1823,9 +1823,9 @@ impl HeaderPanel {
         let mut session = session.borrow_mut();
         match compartment {
             Compartment::Controller => {
-                session.activate_controller_preset(preset_id).unwrap();
+                session.activate_controller_preset(preset_id);
             }
-            Compartment::Main => session.activate_main_preset(preset_id).unwrap(),
+            Compartment::Main => session.activate_main_preset(preset_id),
         };
     }
 
@@ -2128,8 +2128,8 @@ impl HeaderPanel {
             .ok_or("no preset selected")?
             .to_string();
         match compartment {
-            Compartment::Controller => session.activate_controller_preset(None)?,
-            Compartment::Main => session.activate_main_preset(None)?,
+            Compartment::Controller => session.activate_controller_preset(None),
+            Compartment::Main => session.activate_main_preset(None),
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
@@ -2246,7 +2246,7 @@ impl HeaderPanel {
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
-                session.activate_controller_preset(Some(preset_id))?;
+                session.activate_controller_preset(Some(preset_id));
             }
             Compartment::Main => {
                 let main_preset =
@@ -2255,7 +2255,7 @@ impl HeaderPanel {
                     .main_preset_manager()
                     .borrow_mut()
                     .add_preset(main_preset)?;
-                session.activate_main_preset(Some(preset_id))?;
+                session.activate_main_preset(Some(preset_id));
             }
         };
         Ok(())

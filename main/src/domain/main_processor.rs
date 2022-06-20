@@ -1146,9 +1146,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 HitTarget { id, value } => {
                     self.hit_target(id, value);
                 }
-                // This is sent on events such as track list change, FX focus etc.
-                RefreshAllTargets => {
-                    self.refresh_all_targets();
+                NotifyConditionsChanged => {
+                    self.notify_conditions_changed();
                 }
                 UpdateSingleMapping(mapping) => {
                     self.update_single_mapping(mapping);
@@ -1240,7 +1239,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn refresh_all_targets(&mut self) {
+    /// Shouldn't be called directly when the REAPER change event occurs but in the next main loop
+    /// cycle. That's especially important for auto-load because REAPER first needs to digest info
+    /// such as "Is the window open?" and "What FX is the focused FX?".
+    fn notify_conditions_changed(&mut self) {
+        debug!(self.basics.logger, "Conditions changed");
+        if self
+            .basics
+            .event_handler
+            .auto_load_different_preset_if_necessary()
+            == Ok(true)
+        {
+            // If another preset was loaded, we don't need to refresh all targets because
+            // another preset is being loaded anyway.
+            return;
+        }
         debug!(self.basics.logger, "Refreshing all targets...");
         for compartment in Compartment::enum_iter() {
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
@@ -1553,7 +1566,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Refresh targets if necessary
         let we_have_a_potential_target_change_event =
-            events.iter().any(ReaperTarget::is_potential_change_event);
+            events.iter().any(ReaperTarget::changes_conditions);
         if we_have_a_potential_target_change_event {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //
@@ -1575,7 +1588,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics
                 .channels
                 .self_normal_sender
-                .send_complaining(NormalMainTask::RefreshAllTargets);
+                .send_complaining(NormalMainTask::NotifyConditionsChanged);
         }
         // Process for feedback
         for event in events {
@@ -2545,7 +2558,11 @@ pub enum NormalMainTask {
         id: QualifiedMappingId,
         value: AbsoluteValue,
     },
-    RefreshAllTargets,
+    /// This should be sent on events such as track list change, FX focus etc.
+    ///
+    /// It will trigger a refresh of all targets (re-resolve) or even a preset change (if
+    /// auto-load is enabled).
+    NotifyConditionsChanged,
     UpdateSettings(BasicSettings),
     /// This is a hacky way to notify a ReaLearn instance on the monitoring FX chain
     /// that it might have been enabled or disabled (unfortunately, REAPER doesn't

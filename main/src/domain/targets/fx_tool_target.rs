@@ -1,5 +1,5 @@
 use crate::domain::{
-    get_fx_name, get_fxs, percentage_for_fx_within_chain, Compartment, ControlContext, DomainEvent,
+    get_fx_name, percentage_for_fx_within_chain, Compartment, ControlContext, DomainEvent,
     ExtendedProcessorContext, FxDescriptor, HitInstruction, HitInstructionContext,
     HitInstructionReturnValue, InstanceFxChangeRequestedEvent, MappingControlContext,
     MappingControlResult, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
@@ -22,13 +22,16 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let fxs = get_fxs(context, &self.fx_descriptor, compartment).and_then(|fxs| {
-            if fxs.is_empty() {
-                Err("resolved to zero FXs")
-            } else {
-                Ok(fxs)
-            }
-        });
+        let fxs = self
+            .fx_descriptor
+            .resolve(context, compartment)
+            .and_then(|fxs| {
+                if fxs.is_empty() {
+                    Err("resolved to zero FXs")
+                } else {
+                    Ok(fxs)
+                }
+            });
         let targets = match fxs {
             Ok(fxs) => fxs
                 .into_iter()

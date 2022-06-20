@@ -170,14 +170,14 @@ impl MainPanel {
         use std::fmt::Write;
         self.do_with_session(|session| {
             let instance_state = session.instance_state().borrow();
-            let instance_track = instance_state.instance_track();
+            let instance_track = instance_state.instance_track_descriptor();
             let compartment = Compartment::Main;
             let instance_track_label = get_virtual_track_label(
                 &instance_track.track,
                 compartment,
                 session.extended_context(),
             );
-            let instance_fx = instance_state.instance_fx();
+            let instance_fx = instance_state.instance_fx_descriptor();
             let instance_fx_label =
                 get_virtual_fx_label(instance_fx, compartment, session.extended_context());
             let mut text = format!(

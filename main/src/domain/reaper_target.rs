@@ -286,11 +286,17 @@ impl ReaperTarget {
             .merge(rx.hardware_output_send_count_changed().map_to(()))
     }
 
-    pub fn is_potential_change_event(evt: &ChangeEvent) -> bool {
+    /// Returns `true` if the given change event can be a reason for re-resolving targets or
+    /// auto-loading another main preset.
+    pub fn changes_conditions(evt: &ChangeEvent) -> bool {
         use ChangeEvent::*;
         matches!(
             evt,
             FxFocused(_)
+                | FxClosed(_)
+                | FxOpened(_)
+                // For FX-to-preset links that also have preset name as criteria
+                | FxPresetChanged(_)
                 | ProjectSwitched(_)
                 | TrackAdded(_)
                 | TrackRemoved(_)

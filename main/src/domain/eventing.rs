@@ -105,4 +105,7 @@ pub trait DomainEventHandler: Debug {
             mapping_id,
         )));
     }
+
+    /// Returns `true` if another preset is being loaded.
+    fn auto_load_different_preset_if_necessary(&self) -> Result<bool, &'static str>;
 }

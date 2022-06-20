@@ -19,7 +19,8 @@ use crate::domain::{
     MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
     ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
     RealearnClipMatrix, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
-    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource, VirtualSourceValue,
+    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
+    VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -498,46 +499,11 @@ impl Session {
             s.borrow_mut()
                 .invalidate_fx_indexes_of_mapping_targets(Rc::downgrade(&s));
         });
-        // When FX focus changes, maybe trigger main preset change
-        when(
-            Global::control_surface_rx()
-                // We need this event primarily to get informed of focus changes (because a
-                // change in focus can happen without an FX to be opened or closed).
-                .fx_focused()
-                .map_to(())
-                // For unloading preset when FX closed (we want that for now, it's clean!)
-                .merge(Global::control_surface_rx().fx_closed().map_to(()))
-                // For loading preset when FX opened (even if last focused FX is the same).
-                .merge(Global::control_surface_rx().fx_opened().map_to(()))
-                // When preset changed (for links that also have preset name as criteria)
-                .merge(Global::control_surface_rx().fx_preset_changed().map_to(()))
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session)
-        // Doing this async is important to let REAPER digest the info about "Is the window open?"
-        // and "What FX is the instance FX?"
-        .do_async(move |s, _| {
-            if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::InstanceFx {
-                let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
-                    if fx.window_is_open() {
-                        Some(fx)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                let fx_id = currently_focused_fx
-                    .as_ref()
-                    .and_then(|f| FxId::from_fx(f, false).ok());
-                s.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
-            }
-        });
     }
 
     pub fn activate_main_preset_auto_load_mode(&mut self, mode: MainPresetAutoLoadMode) {
         if mode != MainPresetAutoLoadMode::Off {
-            self.activate_main_preset(None).unwrap();
+            self.activate_main_preset(None);
         }
         self.main_preset_auto_load_mode.set(mode);
     }
@@ -546,13 +512,15 @@ impl Session {
         self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
     }
 
-    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>) {
+    /// This returns an early `false` if the desired preset is already active.
+    fn auto_load_preset_linked_to_fx_if_not_yet_active(&mut self, fx_id: Option<FxId>) -> bool {
         let final_preset_id = self.find_preset_linked_to_fx(fx_id);
         // Activate preset if not active already.
         if self.active_main_preset_id == final_preset_id {
-            return;
+            return false;
         }
-        let _ = self.activate_main_preset(final_preset_id);
+        self.activate_main_preset(final_preset_id);
+        true
     }
 
     fn find_preset_linked_to_fx(&self, fx_id: Option<FxId>) -> Option<String> {
@@ -999,9 +967,9 @@ impl Session {
                 self.instance_track_descriptor = api_desc;
                 self.instance_state
                     .borrow_mut()
-                    .set_instance_track(virtual_track);
+                    .set_instance_track_descriptor(virtual_track);
                 self.normal_main_task_sender
-                    .send_complaining(NormalMainTask::RefreshAllTargets);
+                    .send_complaining(NormalMainTask::NotifyConditionsChanged);
                 Some(One(P::InstanceTrack))
             }
             C::SetInstanceFx(api_desc) => {
@@ -1012,9 +980,11 @@ impl Session {
                     ..virtual_fx
                 };
                 self.instance_fx_descriptor = api_desc;
-                self.instance_state.borrow_mut().set_instance_fx(virtual_fx);
+                self.instance_state
+                    .borrow_mut()
+                    .set_instance_fx_descriptor(virtual_fx);
                 self.normal_main_task_sender
-                    .send_complaining(NormalMainTask::RefreshAllTargets);
+                    .send_complaining(NormalMainTask::NotifyConditionsChanged);
                 Some(One(P::InstanceFx))
             }
             C::ChangeCompartment(compartment, cmd) => self
@@ -1905,14 +1875,12 @@ impl Session {
         }
     }
 
-    pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
+    pub fn activate_controller_preset(&mut self, id: Option<String>) {
         let compartment = Compartment::Controller;
         let model = if let Some(id) = id.as_ref() {
-            let preset = self
-                .controller_preset_manager
+            self.controller_preset_manager
                 .find_by_id(id)
-                .ok_or("controller preset not found")?;
-            Some(preset.data().clone())
+                .map(|preset| preset.data().clone())
         } else {
             // <None> preset
             None
@@ -1920,25 +1888,21 @@ impl Session {
         self.active_controller_preset_id = id;
         self.replace_compartment(compartment, model);
         self.compartment_is_dirty[compartment].set(false);
-        Ok(())
     }
 
-    pub fn activate_main_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
-        let compartment = Compartment::Main;
+    pub fn activate_main_preset(&mut self, id: Option<String>) {
         let model = if let Some(id) = id.as_ref() {
-            let preset = self
-                .main_preset_manager
+            self.main_preset_manager
                 .find_by_id(id)
-                .ok_or("main preset not found")?;
-            Some(preset.data().clone())
+                .map(|preset| preset.data().clone())
         } else {
             // <None> preset
             None
         };
+        let compartment = Compartment::Main;
         self.active_main_preset_id = id;
         self.replace_compartment(compartment, model);
         self.compartment_is_dirty[compartment].set(false);
-        Ok(())
     }
 
     pub fn extract_compartment_model(&self, compartment: Compartment) -> CompartmentModel {
@@ -2518,6 +2482,40 @@ impl DomainEventHandler for WeakSession {
             }
         }
         Ok(())
+    }
+
+    fn auto_load_different_preset_if_necessary(&self) -> Result<bool, &'static str> {
+        let session = self.upgrade().ok_or("session not existing anymore")?;
+        let mut session = session
+            .try_borrow_mut()
+            .map_err(|_| "session already borrowed")?;
+        if session.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::InstanceFx {
+            return Ok(false);
+        }
+        let fx_id = {
+            let instance_state = session.instance_state.borrow();
+            let instance_fx_descriptor = instance_state.instance_fx_descriptor();
+            let instance_fx = instance_fx_descriptor
+                .resolve(session.extended_context(), Compartment::Main)
+                .unwrap_or_default()
+                .into_iter()
+                .next();
+            let instance_fx = instance_fx.filter(|fx| {
+                if matches!(&instance_fx_descriptor.fx, VirtualFx::Focused) {
+                    // The instance FX points to the currently focused FX. The currently focused FX
+                    // is still available/resolvable even its window gets closed. So we need to make
+                    // sure the window is actually open.If not, we want to unload the preset.
+                    fx.window_is_open()
+                } else {
+                    true
+                }
+            });
+            instance_fx
+                .as_ref()
+                .and_then(|f| FxId::from_fx(f, false).ok())
+        };
+        let loaded = session.auto_load_preset_linked_to_fx_if_not_yet_active(fx_id);
+        Ok(loaded)
     }
 }
 
