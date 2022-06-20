@@ -2503,7 +2503,11 @@ impl<'a> TargetModelFormatMultiLine<'a> {
             None => return TARGET_UNDEFINED_LABEL.into(),
             Some(t) => t,
         };
-        get_virtual_track_label(virtual_track, self.compartment, self.context)
+        if self.target.supports_track() {
+            get_virtual_track_label(virtual_track, self.compartment, self.context)
+        } else {
+            TARGET_OBJECT_IRRELEVANT_LABEL.to_string()
+        }
     }
 
     fn route_label(&self) -> Cow<str> {
@@ -3739,6 +3743,7 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
 }
 
 const TARGET_UNDEFINED_LABEL: &str = "<Undefined>";
+const TARGET_OBJECT_IRRELEVANT_LABEL: &str = "<Irrelevant>";
 
 pub fn get_virtual_track_label(
     virtual_track: &VirtualTrack,
