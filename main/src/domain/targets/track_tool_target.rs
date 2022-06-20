@@ -171,5 +171,6 @@ pub const TRACK_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track",
     short_name: "Track",
     supports_track: true,
+    supports_tags: true,
     ..DEFAULT_TARGET
 };

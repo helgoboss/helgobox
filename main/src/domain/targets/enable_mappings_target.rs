@@ -74,7 +74,7 @@ impl RealearnTarget for EnableMappingsTarget {
                         continue;
                     }
                     // Determine how to change the mappings.
-                    let flag = match self.scope.determine_change(
+                    let flag = match self.scope.determine_enable_disable_change(
                         self.exclusivity,
                         m.tags(),
                         self.is_enable,

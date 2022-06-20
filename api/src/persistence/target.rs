@@ -341,6 +341,8 @@ pub struct TrackToolTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<TrackToolAction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instance_tags: Option<Vec<String>>,
 }
 
 #[derive(
@@ -358,11 +360,11 @@ pub struct TrackToolTarget {
 )]
 #[repr(usize)]
 pub enum TrackToolAction {
-    #[display(fmt = "Do nothing (feedback only)")]
+    #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set as instance track")]
+    #[display(fmt = "Set (as instance track)")]
     SetAsInstanceTrack,
-    #[display(fmt = "Pin as instance track (resolve)")]
+    #[display(fmt = "Pin (as instance track)")]
     PinAsInstanceTrack,
 }
 
@@ -456,6 +458,8 @@ pub struct FxToolTarget {
     pub fx: Option<FxDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<FxToolAction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instance_tags: Option<Vec<String>>,
 }
 
 #[derive(
@@ -473,11 +477,11 @@ pub struct FxToolTarget {
 )]
 #[repr(usize)]
 pub enum FxToolAction {
-    #[display(fmt = "Do nothing (feedback only)")]
+    #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set as instance FX")]
+    #[display(fmt = "Set (as instance FX)")]
     SetAsInstanceFx,
-    #[display(fmt = "Pin as instance FX (resolve)")]
+    #[display(fmt = "Pin (as instance FX)")]
     PinAsInstanceFx,
 }
 

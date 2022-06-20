@@ -1,9 +1,8 @@
 use crate::domain::{
-    get_fx_name, percentage_for_fx_within_chain, Compartment, ControlContext, DomainEvent,
-    ExtendedProcessorContext, FxDescriptor, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceFxChangeRequestedEvent, MappingControlContext,
-    MappingControlResult, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_fx_name, percentage_for_fx_within_chain, ChangeInstanceFxArgs, Compartment, ControlContext,
+    ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue, InstanceFxChangeRequest,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
 use realearn_api::persistence::FxToolAction;
@@ -14,6 +13,7 @@ use std::borrow::Cow;
 pub struct UnresolvedFxToolTarget {
     pub fx_descriptor: FxDescriptor,
     pub action: FxToolAction,
+    pub scope: TagScope,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
@@ -39,6 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
                     ReaperTarget::FxTool(FxToolTarget {
                         fx: Some(fx),
                         action: self.action,
+                        scope: self.scope.clone(),
                     })
                 })
                 .collect(),
@@ -49,6 +50,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
                     let target = ReaperTarget::FxTool(FxToolTarget {
                         fx: None,
                         action: self.action,
+                        scope: self.scope.clone(),
                     });
                     vec![target]
                 } else {
@@ -69,6 +71,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
 pub struct FxToolTarget {
     pub fx: Option<Fx>,
     pub action: FxToolAction,
+    pub scope: TagScope,
 }
 
 impl RealearnTarget for FxToolTarget {
@@ -119,28 +122,14 @@ impl RealearnTarget for FxToolTarget {
         if !value.is_on() {
             return Ok(None);
         }
-        struct UpdateInstanceFx {
-            event: InstanceFxChangeRequestedEvent,
-        }
-        impl HitInstruction for UpdateInstanceFx {
-            fn execute(
-                self: Box<Self>,
-                context: HitInstructionContext,
-            ) -> Vec<MappingControlResult> {
-                context.domain_event_handler.handle_event_ignoring_error(
-                    DomainEvent::InstanceFxChangeRequested(self.event),
-                );
-                vec![]
-            }
-        }
-        let event = match self.action {
+        let request = match self.action {
             FxToolAction::DoNothing => return Ok(None),
-            FxToolAction::SetAsInstanceFx => InstanceFxChangeRequestedEvent::SetFromMapping(
-                context.mapping_data.qualified_mapping_id(),
-            ),
+            FxToolAction::SetAsInstanceFx => {
+                InstanceFxChangeRequest::SetFromMapping(context.mapping_data.qualified_mapping_id())
+            }
             FxToolAction::PinAsInstanceFx => {
                 let fx = self.fx.as_ref().ok_or("FX could not be resolved")?;
-                InstanceFxChangeRequestedEvent::Pin {
+                InstanceFxChangeRequest::Pin {
                     track_guid: fx.track().and_then(|t| {
                         if t.is_master_track() {
                             None
@@ -153,8 +142,17 @@ impl RealearnTarget for FxToolTarget {
                 }
             }
         };
-        let instruction = UpdateInstanceFx { event };
-        Ok(Some(Box::new(instruction)))
+        let args = ChangeInstanceFxArgs {
+            common: context
+                .control_context
+                .instance_container_common_args(&self.scope),
+            request,
+        };
+        context
+            .control_context
+            .instance_container
+            .change_instance_fx(args)?;
+        Ok(None)
     }
 }
 
@@ -177,5 +175,6 @@ pub const FX_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "FX",
     supports_fx: true,
     supports_track: true,
+    supports_tags: true,
     ..DEFAULT_TARGET
 };

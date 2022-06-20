@@ -2051,6 +2051,7 @@ impl TargetModel {
                     FxTool => UnresolvedReaperTarget::FxTool(UnresolvedFxToolTarget {
                         fx_descriptor: self.fx_descriptor()?,
                         action: self.fx_tool_action,
+                        scope: self.tag_scope(),
                     }),
                     FxEnable => UnresolvedReaperTarget::FxEnable(UnresolvedFxEnableTarget {
                         fx_descriptor: self.fx_descriptor()?,
@@ -2159,9 +2160,7 @@ impl TargetModel {
                     }),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
-                            scope: TagScope {
-                                tags: self.tags.iter().cloned().collect(),
-                            },
+                            scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
                         },
                     ),
@@ -2225,6 +2224,12 @@ impl TargetModel {
 
     pub fn clip_column_action(&self) -> ClipColumnAction {
         self.clip_column_action
+    }
+
+    pub fn tag_scope(&self) -> TagScope {
+        TagScope {
+            tags: self.tags.iter().cloned().collect(),
+        }
     }
 
     pub fn clip_row_action(&self) -> ClipRowAction {

@@ -1,14 +1,16 @@
 use crate::application::{
-    Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    convert_optional_guid_to_api_track_descriptor, Session, SessionCommand, SharedMapping,
+    SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
 use crate::base::{
     notification, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, Compartment, EnableInstancesArgs,
-    Exclusivity, FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor,
-    InstanceContainer, InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs, Compartment,
+    EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, Garbage, GarbageBin, GroupId,
+    InputDescriptor, InstanceContainer, InstanceContainerCommonArgs, InstanceFxChangeRequest,
+    InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
     OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
     RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
@@ -32,6 +34,7 @@ use crate::infrastructure::server::grpc::{
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
+use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackFxChain};
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
@@ -1417,6 +1420,42 @@ impl App {
     fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
+
+    fn do_with_initiator_session_or_sessions_matching_tags(
+        &self,
+        common_args: &InstanceContainerCommonArgs,
+        f: impl Fn(&mut Session, WeakSession),
+    ) -> Result<(), &'static str> {
+        if common_args.scope.has_tags() {
+            // Modify all sessions whose tags match.
+            for weak_session in self.sessions.borrow().iter() {
+                if let Some(session) = weak_session.upgrade() {
+                    let mut session = session.borrow_mut();
+                    // Don't leave the context (project if in project, FX chain if monitoring FX).
+                    let context = session.processor_context();
+                    if context.project() != common_args.initiator_project {
+                        continue;
+                    }
+                    // Skip unmatched tags.
+                    let session_tags = session.tags.get_ref();
+                    if !common_args.scope.any_tag_matches(session_tags) {
+                        continue;
+                    }
+                    f(&mut session, weak_session.clone())
+                }
+            }
+        } else {
+            // Modify the initiator session only.
+            let shared_session = self
+                .find_session_by_instance_id_ignoring_borrowed_ones(
+                    common_args.initiator_instance_id,
+                )
+                .ok_or("initiator session not found")?;
+            let mut session = shared_session.borrow_mut();
+            f(&mut session, Rc::downgrade(&shared_session));
+        }
+        Ok(())
+    }
 }
 
 impl Drop for App {
@@ -1621,17 +1660,17 @@ impl InstanceContainer for App {
             if let Some(session) = session.upgrade() {
                 let session = session.borrow();
                 // Don't touch ourselves.
-                if *session.instance_id() == args.initiator_instance_id {
+                if *session.instance_id() == args.common.initiator_instance_id {
                     continue;
                 }
                 // Don't leave the context (project if in project, FX chain if monitoring FX).
                 let context = session.processor_context();
-                if context.project() != args.initiator_project {
+                if context.project() != args.common.initiator_project {
                     continue;
                 }
                 // Determine how to change the instances.
                 let session_tags = session.tags.get_ref();
-                let flag = match args.scope.determine_change(
+                let flag = match args.common.scope.determine_enable_disable_change(
                     args.exclusivity,
                     session_tags,
                     args.is_enable,
@@ -1658,5 +1697,56 @@ impl InstanceContainer for App {
         } else {
             None
         }
+    }
+
+    fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str> {
+        // At first create the FX descriptor that we want to set/pin in the destination sessions.
+        let fx_descriptor = match args.request {
+            InstanceFxChangeRequest::Pin {
+                track_guid,
+                is_input_fx,
+                fx_guid,
+            } => {
+                let track_desc = convert_optional_guid_to_api_track_descriptor(track_guid);
+                let chain_desc = if is_input_fx {
+                    TrackFxChain::Input
+                } else {
+                    TrackFxChain::Normal
+                };
+                FxDescriptor::ById {
+                    commons: Default::default(),
+                    chain: FxChainDescriptor::Track {
+                        track: Some(track_desc),
+                        chain: Some(chain_desc),
+                    },
+                    id: Some(fx_guid.to_string_without_braces()),
+                }
+            }
+            InstanceFxChangeRequest::SetFromMapping(id) => {
+                let session = self
+                    .find_session_by_instance_id_ignoring_borrowed_ones(
+                        args.common.initiator_instance_id,
+                    )
+                    .ok_or("initiator session not found")?;
+                let session = session.borrow();
+                let (_, mapping) = session
+                    .find_mapping_and_index_by_id(id.compartment, id.id)
+                    .ok_or("origin mapping not found")?;
+                let mapping = mapping.borrow();
+                mapping.target_model.api_fx_descriptor()
+            }
+        };
+        self.do_with_initiator_session_or_sessions_matching_tags(
+            &args.common,
+            |session, weak_session| {
+                session.change_with_notification(
+                    SessionCommand::SetInstanceFx(fx_descriptor.clone()),
+                    None,
+                    weak_session,
+                );
+            },
+        )
+        .unwrap();
+        Ok(())
     }
 }

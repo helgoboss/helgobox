@@ -8,7 +8,7 @@ pub struct TagScope {
 }
 
 impl TagScope {
-    pub fn determine_change(
+    pub fn determine_enable_disable_change(
         &self,
         exclusivity: Exclusivity,
         tags: &[Tag],
@@ -45,6 +45,10 @@ impl TagScope {
                 None
             }
         }
+    }
+
+    pub fn any_tag_matches(&self, other_tags: &[Tag]) -> bool {
+        has_any_of(&self.tags, other_tags)
     }
 
     pub fn has_tags(&self) -> bool {

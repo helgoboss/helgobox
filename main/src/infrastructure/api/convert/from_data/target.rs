@@ -480,6 +480,7 @@ fn convert_real_target(
                 style,
             ),
             action: Some(data.track_tool_action),
+            instance_tags: convert_tags(&data.tags, style),
         }),
         TrackSolo => T::TrackSoloState(TrackSoloStateTarget {
             commons,
@@ -504,6 +505,7 @@ fn convert_real_target(
         FxTool => T::FxTool(FxToolTarget {
             commons,
             action: Some(data.fx_tool_action),
+            instance_tags: convert_tags(&data.tags, style),
             fx: convert_fx_descriptor(data, style),
         }),
         FxEnable => T::FxOnOffState(FxOnOffStateTarget {

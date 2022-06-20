@@ -26,7 +26,6 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     InstanceTrackChangeRequested(InstanceTrackChangeRequestedEvent),
-    InstanceFxChangeRequested(InstanceFxChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
 }
@@ -55,17 +54,6 @@ pub struct MappingEnabledChangeRequestedEvent {
 pub enum InstanceTrackChangeRequestedEvent {
     /// `None` means master track.
     Pin(Option<Guid>),
-    SetFromMapping(QualifiedMappingId),
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum InstanceFxChangeRequestedEvent {
-    Pin {
-        /// `None` means master track.
-        track_guid: Option<Guid>,
-        is_input_fx: bool,
-        fx_guid: Guid,
-    },
     SetFromMapping(QualifiedMappingId),
 }
 

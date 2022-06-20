@@ -48,9 +48,9 @@ impl RealearnTarget for EnableInstancesTarget {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
         let args = EnableInstancesArgs {
-            initiator_instance_id: *context.control_context.instance_id,
-            initiator_project: context.control_context.processor_context.project(),
-            scope: &self.scope,
+            common: context
+                .control_context
+                .instance_container_common_args(&self.scope),
             is_enable,
             exclusivity: self.exclusivity,
         };

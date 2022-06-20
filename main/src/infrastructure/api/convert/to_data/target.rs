@@ -345,6 +345,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_tool_action: d.action.unwrap_or_default(),
+                tags: convert_tags(d.instance_tags.unwrap_or_default())?,
                 ..init(d.commons)
             }
         }
@@ -420,6 +421,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 fx_tool_action: d.action.unwrap_or_default(),
+                tags: convert_tags(d.instance_tags.unwrap_or_default())?,
                 ..init(d.commons)
             }
         }

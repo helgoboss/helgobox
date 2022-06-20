@@ -34,7 +34,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
-use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
+use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
 use std::borrow::Cow;
@@ -356,15 +356,36 @@ pub fn get_track_color(t: &Track) -> Option<RgbColor> {
 pub trait InstanceContainer: Debug {
     /// Returns activated tags if they don't correspond to the tags in the args.
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
+    fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;
 }
 
 pub struct EnableInstancesArgs<'a> {
+    pub common: InstanceContainerCommonArgs<'a>,
+    pub is_enable: bool,
+    pub exclusivity: Exclusivity,
+}
+
+pub struct ChangeInstanceFxArgs<'a> {
+    pub common: InstanceContainerCommonArgs<'a>,
+    pub request: InstanceFxChangeRequest,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InstanceFxChangeRequest {
+    Pin {
+        /// `None` means master track.
+        track_guid: Option<Guid>,
+        is_input_fx: bool,
+        fx_guid: Guid,
+    },
+    SetFromMapping(QualifiedMappingId),
+}
+
+pub struct InstanceContainerCommonArgs<'a> {
     pub initiator_instance_id: InstanceId,
     /// `None` if monitoring FX.
     pub initiator_project: Option<Project>,
     pub scope: &'a TagScope,
-    pub is_enable: bool,
-    pub exclusivity: Exclusivity,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -412,6 +433,17 @@ impl<'a> ControlContext<'a> {
                     format_raw_midi(e.bytes()),
                 );
             }
+        }
+    }
+
+    pub fn instance_container_common_args<'b, 'c>(
+        &'b self,
+        scope: &'c TagScope,
+    ) -> InstanceContainerCommonArgs<'c> {
+        InstanceContainerCommonArgs {
+            initiator_instance_id: *self.instance_id,
+            initiator_project: self.processor_context.project(),
+            scope,
         }
     }
 }

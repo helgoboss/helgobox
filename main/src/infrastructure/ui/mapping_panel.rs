@@ -2384,6 +2384,24 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetExclusivity(exclusivity.into()),
                     ));
                 }
+                ReaperTargetType::TrackTool => {
+                    let action: TrackToolAction = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTrackToolAction(action.into()),
+                    ));
+                }
+                ReaperTargetType::FxTool => {
+                    let action: FxToolAction = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetFxToolAction(action.into()),
+                    ));
+                }
                 t if t.supports_fx_parameter() => {
                     let param_type = combo
                         .selected_combo_box_item_index()
@@ -2595,24 +2613,6 @@ impl<'a> MutableMappingPanel<'a> {
                     let v = get_osc_type_tag_from_combo(combo);
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetOscArgTypeTag(v),
-                    ));
-                }
-                ReaperTargetType::TrackTool => {
-                    let action: TrackToolAction = combo
-                        .selected_combo_box_item_index()
-                        .try_into()
-                        .unwrap_or_default();
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTrackToolAction(action.into()),
-                    ));
-                }
-                ReaperTargetType::FxTool => {
-                    let action: FxToolAction = combo
-                        .selected_combo_box_item_index()
-                        .try_into()
-                        .unwrap_or_default();
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetFxToolAction(action.into()),
                     ));
                 }
                 t if t.supports_fx_parameter() => {
@@ -4356,8 +4356,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
-                ReaperTargetType::TrackTool => Some("Action"),
-                ReaperTargetType::FxTool => Some("Action"),
+                ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Action/Tags"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
@@ -4448,6 +4447,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(simple_exclusivity.into())
                         .unwrap();
+                }
+                ReaperTargetType::TrackTool => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
+                    let action: TrackToolAction = self.target.track_tool_action().into();
+                    combo.select_combo_box_item_by_index(action.into()).unwrap();
+                }
+                ReaperTargetType::FxTool => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(FxToolAction::into_enum_iter());
+                    let action: FxToolAction = self.target.fx_tool_action().into();
+                    combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 t if t.supports_fx_parameter() => {
                     combo.show();
@@ -4608,18 +4619,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc if self.target.osc_arg_index().is_some() => {
                     let tag = self.target.osc_arg_type_tag();
                     invalidate_with_osc_arg_type_tag(combo, tag);
-                }
-                ReaperTargetType::TrackTool => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
-                    let action: TrackToolAction = self.target.track_tool_action().into();
-                    combo.select_combo_box_item_by_index(action.into()).unwrap();
-                }
-                ReaperTargetType::FxTool => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(FxToolAction::into_enum_iter());
-                    let action: FxToolAction = self.target.fx_tool_action().into();
-                    combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 t if t.supports_fx_parameter()
                     && self.target.param_type() == VirtualFxParameterType::ById =>

@@ -14,7 +14,7 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InputDescriptor, InstanceContainer, InstanceFxChangeRequestedEvent, InstanceId, InstanceState,
+    InputDescriptor, InstanceContainer, InstanceId, InstanceState,
     InstanceTrackChangeRequestedEvent, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
     MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
     ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
@@ -38,7 +38,7 @@ use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
 use playtime_clip_engine::main::ClipMatrixEvent;
-use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain};
+use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
 use reaper_medium::RecordingInput;
 use std::error::Error;
 use std::rc::{Rc, Weak};
@@ -943,7 +943,7 @@ impl Session {
     ///
     /// Reasoning: With this single point of entry for changing something in the session, we can
     /// easily intercept certain changes, notify the UI and so on. Without magic and without rxRust!
-    fn change_with_notification(
+    pub fn change_with_notification(
         &mut self,
         cmd: SessionCommand,
         initiator: Option<u32>,
@@ -2444,42 +2444,6 @@ impl DomainEventHandler for WeakSession {
                     self.clone(),
                 );
             }
-            InstanceFxChangeRequested(event) => {
-                let mut s = session.try_borrow_mut()?;
-                let fx_descriptor = match event {
-                    InstanceFxChangeRequestedEvent::Pin {
-                        track_guid,
-                        is_input_fx,
-                        fx_guid,
-                    } => {
-                        let track_desc = convert_optional_guid_to_api_track_descriptor(track_guid);
-                        let chain_desc = if is_input_fx {
-                            TrackFxChain::Input
-                        } else {
-                            TrackFxChain::Normal
-                        };
-                        FxDescriptor::ById {
-                            commons: Default::default(),
-                            chain: FxChainDescriptor::Track {
-                                track: Some(track_desc),
-                                chain: Some(chain_desc),
-                            },
-                            id: Some(fx_guid.to_string_without_braces()),
-                        }
-                    }
-                    InstanceFxChangeRequestedEvent::SetFromMapping(id) => {
-                        let (_, m) = s
-                            .find_mapping_and_index_by_id(id.compartment, id.id)
-                            .ok_or("mapping not found")?;
-                        m.borrow().target_model.api_fx_descriptor()
-                    }
-                };
-                s.change_with_notification(
-                    SessionCommand::SetInstanceFx(fx_descriptor),
-                    None,
-                    self.clone(),
-                );
-            }
         }
         Ok(())
     }
@@ -2628,7 +2592,7 @@ pub struct MappingChangeContext<'a> {
     pub extended_context: ExtendedProcessorContext<'a>,
 }
 
-fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDescriptor {
+pub fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDescriptor {
     if let Some(guid) = guid {
         TrackDescriptor::ById {
             commons: Default::default(),
