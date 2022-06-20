@@ -147,16 +147,30 @@ impl RealearnTarget for TrackToolTarget {
             .change_instance_track(args)?;
         Ok(None)
     }
+
+    fn can_report_current_value(&self) -> bool {
+        matches!(self.action, TrackToolAction::DoNothing)
+    }
 }
 
 impl<'a> Target<'a> for TrackToolTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let track_index = self.track.as_ref()?.index();
-        let percentage =
-            percentage_for_track_within_project(self.track.as_ref()?.project(), track_index);
-        Some(percentage)
+        match self.action {
+            TrackToolAction::DoNothing => {
+                let track_index = self.track.as_ref()?.index();
+                let percentage = percentage_for_track_within_project(
+                    self.track.as_ref()?.project(),
+                    track_index,
+                );
+                Some(percentage)
+            }
+            TrackToolAction::SetAsInstanceTrack | TrackToolAction::PinAsInstanceTrack => {
+                // In future, we might support feedback here.
+                None
+            }
+        }
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

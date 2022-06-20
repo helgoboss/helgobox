@@ -154,15 +154,27 @@ impl RealearnTarget for FxToolTarget {
             .change_instance_fx(args)?;
         Ok(None)
     }
+
+    fn can_report_current_value(&self) -> bool {
+        matches!(self.action, FxToolAction::DoNothing)
+    }
 }
 
 impl<'a> Target<'a> for FxToolTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let fx = self.fx.as_ref()?;
-        let fx_index = fx.index();
-        percentage_for_fx_within_chain(fx.chain(), fx_index)
+        match self.action {
+            FxToolAction::DoNothing => {
+                let fx = self.fx.as_ref()?;
+                let fx_index = fx.index();
+                percentage_for_fx_within_chain(fx.chain(), fx_index)
+            }
+            FxToolAction::SetAsInstanceFx | FxToolAction::PinAsInstanceFx => {
+                // In future, we might support feedback here.
+                None
+            }
+        }
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
