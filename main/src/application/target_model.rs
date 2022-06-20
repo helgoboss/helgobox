@@ -1939,6 +1939,7 @@ impl TargetModel {
                     TrackTool => UnresolvedReaperTarget::TrackTool(UnresolvedTrackToolTarget {
                         track_descriptor: self.track_descriptor()?,
                         action: self.track_tool_action,
+                        scope: self.tag_scope(),
                     }),
                     TrackPeak => UnresolvedReaperTarget::TrackPeak(UnresolvedTrackPeakTarget {
                         track_descriptor: self.track_descriptor()?,

@@ -14,18 +14,17 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InputDescriptor, InstanceContainer, InstanceId, InstanceState,
-    InstanceTrackChangeRequestedEvent, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
-    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnClipMatrix, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
-    Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
-    VirtualSourceValue,
+    InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::{ChangeEvent, Guid, Reaper};
+use reaper_high::{ChangeEvent, Reaper};
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -2425,25 +2424,6 @@ impl DomainEventHandler for WeakSession {
                     self.clone(),
                 );
             }
-            InstanceTrackChangeRequested(event) => {
-                let mut s = session.try_borrow_mut()?;
-                let track_descriptor = match event {
-                    InstanceTrackChangeRequestedEvent::Pin(guid) => {
-                        convert_optional_guid_to_api_track_descriptor(guid)
-                    }
-                    InstanceTrackChangeRequestedEvent::SetFromMapping(id) => {
-                        let (_, m) = s
-                            .find_mapping_and_index_by_id(id.compartment, id.id)
-                            .ok_or("mapping not found")?;
-                        m.borrow().target_model.api_track_descriptor()
-                    }
-                };
-                s.change_with_notification(
-                    SessionCommand::SetInstanceTrack(track_descriptor),
-                    None,
-                    self.clone(),
-                );
-            }
         }
         Ok(())
     }
@@ -2590,17 +2570,4 @@ impl<'a> CompartmentInSession<'a> {
 pub struct MappingChangeContext<'a> {
     pub mapping: &'a mut MappingModel,
     pub extended_context: ExtendedProcessorContext<'a>,
-}
-
-pub fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDescriptor {
-    if let Some(guid) = guid {
-        TrackDescriptor::ById {
-            commons: Default::default(),
-            id: Some(guid.to_string_without_braces()),
-        }
-    } else {
-        TrackDescriptor::Master {
-            commons: Default::default(),
-        }
-    }
 }

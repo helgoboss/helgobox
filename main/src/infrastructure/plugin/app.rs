@@ -1,21 +1,21 @@
 use crate::application::{
-    convert_optional_guid_to_api_track_descriptor, Session, SessionCommand, SharedMapping,
-    SharedSession, VirtualControlElementType, WeakSession,
+    Session, SessionCommand, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
 use crate::base::{
     notification, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs, Compartment,
-    EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, Garbage, GarbageBin, GroupId,
-    InputDescriptor, InstanceContainer, InstanceContainerCommonArgs, InstanceFxChangeRequest,
-    InstanceId, InstanceOrchestrationEvent, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealearnAccelerator,
-    RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,
-    RealearnTargetContext, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs,
+    ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
+    Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
+    InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
+    MainProcessor, MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask,
+    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
+    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -34,8 +34,10 @@ use crate::infrastructure::server::grpc::{
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
-use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackFxChain};
-use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
+use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain};
+use reaper_high::{
+    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
     AcceleratorPosition, ActionValueChange, CommandId, HookPostCommand, HookPostCommand2,
@@ -895,6 +897,21 @@ impl App {
         })
     }
 
+    fn find_original_mapping(
+        &self,
+        initiator_instance_id: InstanceId,
+        id: QualifiedMappingId,
+    ) -> Result<SharedMapping, &'static str> {
+        let session = self
+            .find_session_by_instance_id_ignoring_borrowed_ones(initiator_instance_id)
+            .ok_or("initiator session not found")?;
+        let session = session.borrow();
+        let (_, mapping) = session
+            .find_mapping_and_index_by_id(id.compartment, id.id)
+            .ok_or("origin mapping not found")?;
+        Ok(mapping.clone())
+    }
+
     pub fn find_session(
         &self,
         predicate: impl FnMut(&SharedSession) -> bool,
@@ -1723,15 +1740,7 @@ impl InstanceContainer for App {
                 }
             }
             InstanceFxChangeRequest::SetFromMapping(id) => {
-                let session = self
-                    .find_session_by_instance_id_ignoring_borrowed_ones(
-                        args.common.initiator_instance_id,
-                    )
-                    .ok_or("initiator session not found")?;
-                let session = session.borrow();
-                let (_, mapping) = session
-                    .find_mapping_and_index_by_id(id.compartment, id.id)
-                    .ok_or("origin mapping not found")?;
+                let mapping = self.find_original_mapping(args.common.initiator_instance_id, id)?;
                 let mapping = mapping.borrow();
                 mapping.target_model.api_fx_descriptor()
             }
@@ -1746,7 +1755,42 @@ impl InstanceContainer for App {
                 );
             },
         )
-        .unwrap();
-        Ok(())
+    }
+
+    fn change_instance_track(&self, args: ChangeInstanceTrackArgs) -> Result<(), &'static str> {
+        // At first create the track descriptor that we want to set/pin in the destination sessions.
+        let track_descriptor = match args.request {
+            InstanceTrackChangeRequest::Pin(guid) => {
+                convert_optional_guid_to_api_track_descriptor(guid)
+            }
+            InstanceTrackChangeRequest::SetFromMapping(id) => {
+                let mapping = self.find_original_mapping(args.common.initiator_instance_id, id)?;
+                let mapping = mapping.borrow();
+                mapping.target_model.api_track_descriptor()
+            }
+        };
+        self.do_with_initiator_session_or_sessions_matching_tags(
+            &args.common,
+            |session, weak_session| {
+                session.change_with_notification(
+                    SessionCommand::SetInstanceTrack(track_descriptor.clone()),
+                    None,
+                    weak_session,
+                );
+            },
+        )
+    }
+}
+
+fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDescriptor {
+    if let Some(guid) = guid {
+        TrackDescriptor::ById {
+            commons: Default::default(),
+            id: Some(guid.to_string_without_braces()),
+        }
+    } else {
+        TrackDescriptor::Master {
+            commons: Default::default(),
+        }
     }
 }

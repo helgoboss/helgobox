@@ -357,6 +357,7 @@ pub trait InstanceContainer: Debug {
     /// Returns activated tags if they don't correspond to the tags in the args.
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
     fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;
+    fn change_instance_track(&self, args: ChangeInstanceTrackArgs) -> Result<(), &'static str>;
 }
 
 pub struct EnableInstancesArgs<'a> {
@@ -370,6 +371,11 @@ pub struct ChangeInstanceFxArgs<'a> {
     pub request: InstanceFxChangeRequest,
 }
 
+pub struct ChangeInstanceTrackArgs<'a> {
+    pub common: InstanceContainerCommonArgs<'a>,
+    pub request: InstanceTrackChangeRequest,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum InstanceFxChangeRequest {
     Pin {
@@ -378,6 +384,13 @@ pub enum InstanceFxChangeRequest {
         is_input_fx: bool,
         fx_guid: Guid,
     },
+    SetFromMapping(QualifiedMappingId),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InstanceTrackChangeRequest {
+    /// `None` means master track.
+    Pin(Option<Guid>),
     SetFromMapping(QualifiedMappingId),
 }
 

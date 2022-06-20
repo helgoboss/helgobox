@@ -1,9 +1,9 @@
 use crate::domain::{
-    get_effective_tracks, get_track_name, percentage_for_track_within_project, Compartment,
-    ControlContext, DomainEvent, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceTrackChangeRequestedEvent, MappingControlContext,
-    MappingControlResult, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_effective_tracks, get_track_name, percentage_for_track_within_project,
+    ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
 use realearn_api::persistence::TrackToolAction;
@@ -14,6 +14,7 @@ use std::borrow::Cow;
 pub struct UnresolvedTrackToolTarget {
     pub track_descriptor: TrackDescriptor,
     pub action: TrackToolAction,
+    pub scope: TagScope,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
@@ -37,6 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
                     ReaperTarget::TrackTool(TrackToolTarget {
                         track: Some(track),
                         action: self.action,
+                        scope: self.scope.clone(),
                     })
                 })
                 .collect(),
@@ -47,6 +49,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
                     let target = ReaperTarget::TrackTool(TrackToolTarget {
                         track: None,
                         action: self.action,
+                        scope: self.scope.clone(),
                     });
                     vec![target]
                 } else {
@@ -67,6 +70,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
 pub struct TrackToolTarget {
     pub track: Option<Track>,
     pub action: TrackToolAction,
+    pub scope: TagScope,
 }
 
 impl RealearnTarget for TrackToolTarget {
@@ -116,27 +120,11 @@ impl RealearnTarget for TrackToolTarget {
         if !value.is_on() {
             return Ok(None);
         }
-        struct UpdateInstanceTrack {
-            event: InstanceTrackChangeRequestedEvent,
-        }
-        impl HitInstruction for UpdateInstanceTrack {
-            fn execute(
-                self: Box<Self>,
-                context: HitInstructionContext,
-            ) -> Vec<MappingControlResult> {
-                context.domain_event_handler.handle_event_ignoring_error(
-                    DomainEvent::InstanceTrackChangeRequested(self.event),
-                );
-                vec![]
-            }
-        }
-        let event = match self.action {
+        let request = match self.action {
             TrackToolAction::DoNothing => return Ok(None),
-            TrackToolAction::SetAsInstanceTrack => {
-                InstanceTrackChangeRequestedEvent::SetFromMapping(
-                    context.mapping_data.qualified_mapping_id(),
-                )
-            }
+            TrackToolAction::SetAsInstanceTrack => InstanceTrackChangeRequest::SetFromMapping(
+                context.mapping_data.qualified_mapping_id(),
+            ),
             TrackToolAction::PinAsInstanceTrack => {
                 let track = self.track.as_ref().ok_or("track could not be resolved")?;
                 let guid = if track.is_master_track() {
@@ -144,11 +132,20 @@ impl RealearnTarget for TrackToolTarget {
                 } else {
                     Some(*track.guid())
                 };
-                InstanceTrackChangeRequestedEvent::Pin(guid)
+                InstanceTrackChangeRequest::Pin(guid)
             }
         };
-        let instruction = UpdateInstanceTrack { event };
-        Ok(Some(Box::new(instruction)))
+        let args = ChangeInstanceTrackArgs {
+            common: context
+                .control_context
+                .instance_container_common_args(&self.scope),
+            request,
+        };
+        context
+            .control_context
+            .instance_container
+            .change_instance_track(args)?;
+        Ok(None)
     }
 }
 

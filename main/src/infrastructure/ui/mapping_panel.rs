@@ -4356,7 +4356,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
-                ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Action/Tags"),
+                ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Act/Tags"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
