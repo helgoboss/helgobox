@@ -1612,6 +1612,7 @@ impl TargetModel {
         let fx = match self.fx_type {
             Focused => VirtualFx::Focused,
             This => VirtualFx::This,
+            Instance => VirtualFx::Instance,
             _ => VirtualFx::ChainFx {
                 is_input_fx: self.fx_is_input_fx,
                 chain_fx: self.virtual_chain_fx()?,
@@ -1849,10 +1850,18 @@ impl TargetModel {
     }
 
     pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
+        let fx = self.virtual_fx().ok_or("FX not set")?;
+        let track_descriptor = self.track_descriptor();
         let desc = FxDescriptor {
-            track_descriptor: self.track_descriptor()?,
+            track_descriptor: if let Ok(desc) = track_descriptor {
+                desc
+            } else if fx.requires_track() {
+                return Err("couldn't resolve track but track required");
+            } else {
+                TrackDescriptor::default()
+            },
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus,
-            fx: self.virtual_fx().ok_or("FX not set")?,
+            fx,
         };
         Ok(desc)
     }

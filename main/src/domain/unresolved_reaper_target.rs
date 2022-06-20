@@ -1121,6 +1121,10 @@ impl fmt::Display for VirtualFx {
 }
 
 impl VirtualFx {
+    pub fn requires_track(&self) -> bool {
+        matches!(self, VirtualFx::ChainFx { .. })
+    }
+
     pub fn id(&self) -> Option<Guid> {
         match self {
             VirtualFx::This => None,
