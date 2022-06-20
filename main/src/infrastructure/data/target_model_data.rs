@@ -26,7 +26,7 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    MonitoringMode, TrackToolAction,
+    FxToolAction, MonitoringMode, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -79,6 +79,8 @@ pub struct TargetModelData {
     pub track_exclusivity: TrackExclusivity,
     #[serde(default, skip_serializing_if = "is_default")]
     pub track_tool_action: TrackToolAction,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fx_tool_action: FxToolAction,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     pub transport_action: TransportAction,
@@ -232,6 +234,7 @@ impl TargetModelData {
             solo_behavior: Some(model.solo_behavior()),
             track_exclusivity: model.track_exclusivity(),
             track_tool_action: model.track_tool_action(),
+            fx_tool_action: model.fx_tool_action(),
             transport_action: model.transport_action(),
             any_on_parameter: model.any_on_parameter(),
             control_element_type: model.control_element_type(),
@@ -503,6 +506,7 @@ impl TargetModelData {
         ));
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
         model.change(C::SetTrackToolAction(self.track_tool_action));
+        model.change(C::SetFxToolAction(self.fx_tool_action));
     }
 }
 
@@ -607,6 +611,14 @@ pub fn serialize_fx(fx: FxPropValues) -> FxData {
         },
         Focused => FxData {
             anchor: Some(VirtualFxType::Focused),
+            guid: None,
+            index: None,
+            name: None,
+            is_input_fx: false,
+            expression: None,
+        },
+        Instance => FxData {
+            anchor: Some(VirtualFxType::Instance),
             guid: None,
             index: None,
             name: None,

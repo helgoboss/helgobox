@@ -8,9 +8,9 @@ use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    BackboneState, Compartment, FxInputClipRecordTask, GroupId, HardwareInputClipRecordTask,
-    InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
-    VirtualTrack,
+    BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GroupId,
+    HardwareInputClipRecordTask, InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask,
+    QualifiedMappingId, Tag, TrackDescriptor, VirtualFx,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -70,7 +70,15 @@ pub struct InstanceState {
     active_instance_tags: HashSet<Tag>,
     copied_clip: Option<playtime_api::persistence::Clip>,
     copied_clips_in_row: Vec<ApiClipWithColumn>,
-    instance_track: VirtualTrack,
+    instance_track: TrackDescriptor,
+    // TODO-low It's not so cool that we have the target activation condition as part of the
+    //  descriptors (e.g. enable_only_if_track_selected) because we must be sure to set them
+    //  to false.
+    //  We should probably use the following distinction instead:
+    //  - TrackTargetDescriptor contains TrackDescriptor contains VirtualTrack
+    //  - FxTargetDescriptor contains FxDescriptor contains VirtualFx
+    //  ... where TrackTargetDescriptor contains the condition and TrackDescriptor doesn't.
+    instance_fx: FxDescriptor,
 }
 
 #[derive(Debug)]
@@ -172,15 +180,32 @@ impl InstanceState {
             copied_clip: None,
             copied_clips_in_row: vec![],
             instance_track: Default::default(),
+            // Focused for compatibility reasons with "Auto-load depending on focused FX".
+            instance_fx: FxDescriptor {
+                track_descriptor: TrackDescriptor {
+                    track: Default::default(),
+                    enable_only_if_track_selected: false,
+                },
+                fx: VirtualFx::Focused,
+                enable_only_if_fx_has_focus: false,
+            },
         }
     }
 
-    pub fn instance_track(&self) -> &VirtualTrack {
+    pub fn instance_track(&self) -> &TrackDescriptor {
         &self.instance_track
     }
 
-    pub fn set_instance_track(&mut self, track: VirtualTrack) {
+    pub fn set_instance_track(&mut self, track: TrackDescriptor) {
         self.instance_track = track;
+    }
+
+    pub fn instance_fx(&self) -> &FxDescriptor {
+        &self.instance_fx
+    }
+
+    pub fn set_instance_fx(&mut self, fx: FxDescriptor) {
+        self.instance_fx = fx;
     }
 
     pub fn instance_id(&self) -> InstanceId {

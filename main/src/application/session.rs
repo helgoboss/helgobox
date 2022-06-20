@@ -14,7 +14,7 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InputDescriptor, InstanceContainer, InstanceId, InstanceState,
+    InputDescriptor, InstanceContainer, InstanceFxChangeRequestedEvent, InstanceId, InstanceState,
     InstanceTrackChangeRequestedEvent, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
     MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
     ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
@@ -24,7 +24,7 @@ use crate::domain::{
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::{ChangeEvent, Reaper};
+use reaper_high::{ChangeEvent, Guid, Reaper};
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -37,8 +37,9 @@ use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
 use playtime_clip_engine::main::ClipMatrixEvent;
-use realearn_api::persistence::TrackDescriptor;
+use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain};
 use reaper_medium::RecordingInput;
+use std::error::Error;
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
@@ -141,6 +142,7 @@ pub struct Session {
     /// instance but this instance is not yet loaded.
     unresolved_foreign_clip_matrix_session_id: Option<String>,
     instance_track_descriptor: TrackDescriptor,
+    instance_fx_descriptor: FxDescriptor,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -188,6 +190,7 @@ impl LearnManyState {
 
 pub mod session_defaults {
     use crate::application::MainPresetAutoLoadMode;
+    use realearn_api::persistence::FxDescriptor;
 
     pub const LET_MATCHED_EVENTS_THROUGH: bool = false;
     pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;
@@ -195,6 +198,9 @@ pub mod session_defaults {
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
     pub const MAIN_PRESET_AUTO_LOAD_MODE: MainPresetAutoLoadMode = MainPresetAutoLoadMode::Off;
+    /// This is mainly for backward-compatibility with "Auto-load: Depending on focused FX"
+    /// but also is a quite common use case, so why not.
+    pub const INSTANCE_FX_DESCRIPTOR: FxDescriptor = FxDescriptor::Focused;
 }
 
 impl Session {
@@ -278,6 +284,7 @@ impl Session {
             global_osc_feedback_task_sender,
             unresolved_foreign_clip_matrix_session_id: None,
             instance_track_descriptor: Default::default(),
+            instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
         };
         session
     }
@@ -292,6 +299,10 @@ impl Session {
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
         &self.instance_track_descriptor
+    }
+
+    pub fn instance_fx_descriptor(&self) -> &FxDescriptor {
+        &self.instance_fx_descriptor
     }
 
     pub fn unresolved_foreign_clip_matrix_session_id(&self) -> Option<&String> {
@@ -979,9 +990,12 @@ impl Session {
         use SessionProp as P;
         let affected = match cmd {
             C::SetInstanceTrack(api_desc) => {
-                let virtual_track = domain::TrackDescriptor::from_api(&api_desc)
-                    .map(|desc| desc.track)
-                    .unwrap_or_default();
+                let virtual_track =
+                    domain::TrackDescriptor::from_api(api_desc.clone()).unwrap_or_default();
+                let virtual_track = domain::TrackDescriptor {
+                    enable_only_if_track_selected: false,
+                    ..virtual_track
+                };
                 self.instance_track_descriptor = api_desc;
                 self.instance_state
                     .borrow_mut()
@@ -989,6 +1003,19 @@ impl Session {
                 self.normal_main_task_sender
                     .send_complaining(NormalMainTask::RefreshAllTargets);
                 Some(One(P::InstanceTrack))
+            }
+            C::SetInstanceFx(api_desc) => {
+                let virtual_fx =
+                    domain::FxDescriptor::from_api(api_desc.clone()).unwrap_or_default();
+                let virtual_fx = domain::FxDescriptor {
+                    enable_only_if_fx_has_focus: false,
+                    ..virtual_fx
+                };
+                self.instance_fx_descriptor = api_desc;
+                self.instance_state.borrow_mut().set_instance_fx(virtual_fx);
+                self.normal_main_task_sender
+                    .send_complaining(NormalMainTask::RefreshAllTargets);
+                Some(One(P::InstanceFx))
             }
             C::ChangeCompartment(compartment, cmd) => self
                 .change_compartment_internal(compartment, cmd)?
@@ -2368,8 +2395,8 @@ impl Drop for Session {
 }
 
 impl DomainEventHandler for WeakSession {
-    fn handle_event(&self, event: DomainEvent) {
-        let session = self.upgrade().expect("session not existing anymore");
+    fn handle_event(&self, event: DomainEvent) -> Result<(), Box<dyn Error>> {
+        let session = self.upgrade().ok_or("session not existing anymore")?;
         use DomainEvent::*;
         match event {
             CapturedIncomingMessage(event) => {
@@ -2394,9 +2421,7 @@ impl DomainEventHandler for WeakSession {
                 // particular case of reentrancy (because of a quirk in REAPER related to master
                 // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
                 // target value slider is not updated then ... so what.
-                if let Ok(s) = session.try_borrow() {
-                    s.ui.target_value_changed(e);
-                }
+                session.try_borrow()?.ui.target_value_changed(e);
             }
             UpdatedSingleParameterValue { index, value } => {
                 let mut session = session.borrow_mut();
@@ -2412,58 +2437,87 @@ impl DomainEventHandler for WeakSession {
                 session.borrow_mut().full_sync();
             }
             ProjectionFeedback(value) => {
-                if let Ok(s) = session.try_borrow() {
-                    s.ui.send_projection_feedback(&s, value);
-                }
+                let s = session.try_borrow()?;
+                s.ui.send_projection_feedback(&s, value);
             }
             ClipMatrixPolled(matrix, events) => {
-                if let Ok(s) = session.try_borrow() {
-                    s.ui.clip_matrix_polled(&s, matrix, events);
-                }
+                let s = session.try_borrow()?;
+                s.ui.clip_matrix_polled(&s, matrix, events);
             }
             ControlSurfaceChangeEventForClipEngine(matrix, event) => {
-                if let Ok(s) = session.try_borrow() {
-                    s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);
-                }
+                let s = session.try_borrow()?;
+                s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);
             }
             MappingMatched(event) => {
-                if let Ok(s) = session.try_borrow() {
-                    s.ui.mapping_matched(event);
-                }
+                let s = session.try_borrow()?;
+                s.ui.mapping_matched(event);
             }
             MappingEnabledChangeRequested(event) => {
-                if let Ok(mut s) = session.try_borrow_mut() {
-                    let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
-                    s.change_mapping_from_session(
-                        id,
-                        MappingCommand::SetIsEnabled(event.is_enabled),
-                        self.clone(),
-                    );
-                }
+                let mut s = session.try_borrow_mut()?;
+                let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
+                s.change_mapping_from_session(
+                    id,
+                    MappingCommand::SetIsEnabled(event.is_enabled),
+                    self.clone(),
+                );
             }
             InstanceTrackChangeRequested(event) => {
-                if let Ok(mut s) = session.try_borrow_mut() {
-                    let track_descriptor = match event {
-                        InstanceTrackChangeRequestedEvent::Pin(guid) => TrackDescriptor::ById {
+                let mut s = session.try_borrow_mut()?;
+                let track_descriptor = match event {
+                    InstanceTrackChangeRequestedEvent::Pin(guid) => {
+                        convert_optional_guid_to_api_track_descriptor(guid)
+                    }
+                    InstanceTrackChangeRequestedEvent::SetFromMapping(id) => {
+                        let (_, m) = s
+                            .find_mapping_and_index_by_id(id.compartment, id.id)
+                            .ok_or("mapping not found")?;
+                        m.borrow().target_model.api_track_descriptor()
+                    }
+                };
+                s.change_with_notification(
+                    SessionCommand::SetInstanceTrack(track_descriptor),
+                    None,
+                    self.clone(),
+                );
+            }
+            InstanceFxChangeRequested(event) => {
+                let mut s = session.try_borrow_mut()?;
+                let fx_descriptor = match event {
+                    InstanceFxChangeRequestedEvent::Pin {
+                        track_guid,
+                        is_input_fx,
+                        fx_guid,
+                    } => {
+                        let track_desc = convert_optional_guid_to_api_track_descriptor(track_guid);
+                        let chain_desc = if is_input_fx {
+                            TrackFxChain::Input
+                        } else {
+                            TrackFxChain::Normal
+                        };
+                        FxDescriptor::ById {
                             commons: Default::default(),
-                            id: Some(guid.to_string_without_braces()),
-                        },
-                        InstanceTrackChangeRequestedEvent::SetFromMapping(id) => {
-                            let m = match s.find_mapping_and_index_by_id(id.compartment, id.id) {
-                                None => return,
-                                Some((_, m)) => m,
-                            };
-                            m.borrow().target_model.api_track_descriptor()
+                            chain: FxChainDescriptor::Track {
+                                track: Some(track_desc),
+                                chain: Some(chain_desc),
+                            },
+                            id: Some(fx_guid.to_string_without_braces()),
                         }
-                    };
-                    s.change_with_notification(
-                        SessionCommand::SetInstanceTrack(track_descriptor),
-                        None,
-                        self.clone(),
-                    );
-                }
+                    }
+                    InstanceFxChangeRequestedEvent::SetFromMapping(id) => {
+                        let (_, m) = s
+                            .find_mapping_and_index_by_id(id.compartment, id.id)
+                            .ok_or("mapping not found")?;
+                        m.borrow().target_model.api_fx_descriptor()
+                    }
+                };
+                s.change_with_notification(
+                    SessionCommand::SetInstanceFx(fx_descriptor),
+                    None,
+                    self.clone(),
+                );
             }
         }
+        Ok(())
     }
 }
 
@@ -2546,12 +2600,14 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 #[allow(dead_code)]
 pub enum SessionCommand {
     SetInstanceTrack(TrackDescriptor),
+    SetInstanceFx(FxDescriptor),
     ChangeCompartment(Compartment, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
 }
 
 pub enum SessionProp {
     InstanceTrack,
+    InstanceFx,
     InCompartment(Compartment, Affected<CompartmentProp>),
 }
 
@@ -2572,4 +2628,17 @@ impl<'a> CompartmentInSession<'a> {
 pub struct MappingChangeContext<'a> {
     pub mapping: &'a mut MappingModel,
     pub extended_context: ExtendedProcessorContext<'a>,
+}
+
+fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDescriptor {
+    if let Some(guid) = guid {
+        TrackDescriptor::ById {
+            commons: Default::default(),
+            id: Some(guid.to_string_without_braces()),
+        }
+    } else {
+        TrackDescriptor::Master {
+            commons: Default::default(),
+        }
+    }
 }

@@ -469,7 +469,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::TrackToolAction => {
+                                            P::TrackToolAction | P::FxToolAction  => {
                                                 view.invalidate_target_line_4(initiator);
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();

@@ -88,7 +88,7 @@ impl RealearnTarget for EnableMappingsTarget {
                         activated_inverse_tags.extend(m.tags().iter().cloned());
                     }
                     // Finally request change of mapping enabled state!
-                    context.domain_event_handler.handle_event(
+                    context.domain_event_handler.handle_event_ignoring_error(
                         DomainEvent::MappingEnabledChangeRequested(
                             MappingEnabledChangeRequestedEvent {
                                 compartment: m.compartment(),

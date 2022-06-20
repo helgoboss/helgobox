@@ -419,6 +419,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
+                fx_tool_action: d.action.unwrap_or_default(),
                 ..init(d.commons)
             }
         }
@@ -1076,6 +1077,16 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 ..Default::default()
             },
             false,
+        ),
+        Instance { commons } => (
+            FxChainDesc::default(),
+            FxPropValues {
+                r#type: VirtualFxType::Instance,
+                ..Default::default()
+            },
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
         This { commons } => (
             FxChainDesc::default(),

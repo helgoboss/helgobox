@@ -19,7 +19,7 @@ use crate::infrastructure::data::clip_legacy::{
     create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
 };
 use playtime_api::persistence::Matrix;
-use realearn_api::persistence::TrackDescriptor;
+use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -112,6 +112,8 @@ pub struct SessionData {
     use_instance_preset_links_only: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     instance_track: TrackDescriptor,
+    #[serde(default, skip_serializing_if = "is_default")]
+    instance_fx: FxDescriptor,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -194,6 +196,7 @@ impl Default for SessionData {
             instance_preset_link_config: Default::default(),
             use_instance_preset_links_only: false,
             instance_track: Default::default(),
+            instance_fx: session_defaults::INSTANCE_FX_DESCRIPTOR,
         }
     }
 }
@@ -299,6 +302,7 @@ impl SessionData {
             instance_preset_link_config: session.instance_preset_link_config().clone(),
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
+            instance_fx: session.instance_fx_descriptor().clone(),
         }
     }
 
@@ -493,6 +497,7 @@ impl SessionData {
         let _ = session.change(SessionCommand::SetInstanceTrack(
             self.instance_track.clone(),
         ));
+        let _ = session.change(SessionCommand::SetInstanceFx(self.instance_fx.clone()));
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
             let instance_state = session.instance_state().clone();

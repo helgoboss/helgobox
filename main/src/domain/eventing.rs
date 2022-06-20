@@ -6,6 +6,7 @@ use helgoboss_learn::AbsoluteValue;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use reaper_high::{ChangeEvent, Guid};
 use std::collections::HashSet;
+use std::error::Error;
 use std::fmt::Debug;
 
 /// An event which is sent to upper layers and processed there
@@ -25,6 +26,7 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     InstanceTrackChangeRequested(InstanceTrackChangeRequestedEvent),
+    InstanceFxChangeRequested(InstanceFxChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
 }
@@ -51,7 +53,19 @@ pub struct MappingEnabledChangeRequestedEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub enum InstanceTrackChangeRequestedEvent {
-    Pin(Guid),
+    /// `None` means master track.
+    Pin(Option<Guid>),
+    SetFromMapping(QualifiedMappingId),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InstanceFxChangeRequestedEvent {
+    Pin {
+        /// `None` means master track.
+        track_guid: Option<Guid>,
+        is_input_fx: bool,
+        fx_guid: Guid,
+    },
     SetFromMapping(QualifiedMappingId),
 }
 
@@ -79,10 +93,14 @@ pub struct TargetValueChangedEvent<'a> {
 }
 
 pub trait DomainEventHandler: Debug {
-    fn handle_event(&self, event: DomainEvent);
+    fn handle_event_ignoring_error(&self, event: DomainEvent) {
+        let _ = self.handle_event(event);
+    }
+
+    fn handle_event(&self, event: DomainEvent) -> Result<(), Box<dyn Error>>;
 
     fn notify_mapping_matched(&self, compartment: Compartment, mapping_id: MappingId) {
-        self.handle_event(DomainEvent::MappingMatched(MappingMatchedEvent::new(
+        self.handle_event_ignoring_error(DomainEvent::MappingMatched(MappingMatchedEvent::new(
             compartment,
             mapping_id,
         )));

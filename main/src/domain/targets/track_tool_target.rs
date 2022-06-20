@@ -65,7 +65,6 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackToolTarget {
-    /// Only set if the virtual track was resolvable.
     pub track: Option<Track>,
     pub action: TrackToolAction,
 }
@@ -125,9 +124,9 @@ impl RealearnTarget for TrackToolTarget {
                 self: Box<Self>,
                 context: HitInstructionContext,
             ) -> Vec<MappingControlResult> {
-                context
-                    .domain_event_handler
-                    .handle_event(DomainEvent::InstanceTrackChangeRequested(self.event));
+                context.domain_event_handler.handle_event_ignoring_error(
+                    DomainEvent::InstanceTrackChangeRequested(self.event),
+                );
                 vec![]
             }
         }
@@ -140,13 +139,12 @@ impl RealearnTarget for TrackToolTarget {
             }
             TrackToolAction::PinAsInstanceTrack => {
                 let track = self.track.as_ref().ok_or("track could not be resolved")?;
-                if track.is_master_track() {
-                    InstanceTrackChangeRequestedEvent::SetFromMapping(
-                        context.mapping_data.qualified_mapping_id(),
-                    )
+                let guid = if track.is_master_track() {
+                    None
                 } else {
-                    InstanceTrackChangeRequestedEvent::Pin(*track.guid())
-                }
+                    Some(*track.guid())
+                };
+                InstanceTrackChangeRequestedEvent::Pin(guid)
             }
         };
         let instruction = UpdateInstanceTrack { event };

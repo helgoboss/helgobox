@@ -503,6 +503,7 @@ fn convert_real_target(
         }),
         FxTool => T::FxTool(FxToolTarget {
             commons,
+            action: Some(data.fx_tool_action),
             fx: convert_fx_descriptor(data, style),
         }),
         FxEnable => T::FxOnOffState(FxOnOffStateTarget {
@@ -875,6 +876,7 @@ fn convert_fx_descriptor(
     let v = match props.r#type {
         This => T::This { commons },
         Focused => T::Focused,
+        Instance => T::Instance { commons },
         Dynamic => T::Dynamic {
             commons,
             expression: props.expression,

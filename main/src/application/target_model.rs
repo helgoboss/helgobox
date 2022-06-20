@@ -57,7 +57,8 @@ use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    MonitoringMode, TrackDescriptorCommons, TrackToolAction,
+    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MonitoringMode, TrackDescriptorCommons,
+    TrackFxChain, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -100,6 +101,7 @@ pub enum TargetCommand {
     SetSoloBehavior(SoloBehavior),
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
+    SetFxToolAction(FxToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
     SetFxSnapshot(Option<FxSnapshot>),
@@ -184,6 +186,7 @@ pub enum TargetProp {
     SoloBehavior,
     TrackExclusivity,
     TrackToolAction,
+    FxToolAction,
     TransportAction,
     AnyOnParameter,
     FxSnapshot,
@@ -367,6 +370,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetTrackToolAction(v) => {
                 self.track_tool_action = v;
                 One(P::TrackToolAction)
+            }
+            C::SetFxToolAction(v) => {
+                self.fx_tool_action = v;
+                One(P::FxToolAction)
             }
             C::SetTransportAction(v) => {
                 self.transport_action = v;
@@ -591,6 +598,7 @@ pub struct TargetModel {
     fx_index: u32,
     fx_expression: String,
     enable_only_if_fx_has_focus: bool,
+    fx_tool_action: FxToolAction,
     // # For track FX parameter targets
     param_type: VirtualFxParameterType,
     param_index: u32,
@@ -756,6 +764,7 @@ impl Default for TargetModel {
             clip_row_action: Default::default(),
             clip_play_stop_timing: None,
             track_tool_action: Default::default(),
+            fx_tool_action: Default::default(),
         }
     }
 }
@@ -883,6 +892,10 @@ impl TargetModel {
 
     pub fn track_tool_action(&self) -> TrackToolAction {
         self.track_tool_action
+    }
+
+    pub fn fx_tool_action(&self) -> FxToolAction {
+        self.fx_tool_action
     }
 
     pub fn transport_action(&self) -> TransportAction {
@@ -1128,7 +1141,7 @@ impl TargetModel {
                             _ => None,
                         },
                         // No update necessary
-                        VirtualFx::Focused | VirtualFx::This => None,
+                        VirtualFx::Instance | VirtualFx::Focused | VirtualFx::This => None,
                     }
                 }
                 // Shouldn't happen
@@ -1340,7 +1353,7 @@ impl TargetModel {
                 self.fx_id = fx.id;
                 self.fx_index = fx.index;
             }
-            Dynamic | Focused => {}
+            Dynamic | Focused | Instance => {}
         };
         Some(Affected::Multiple)
     }
@@ -1631,7 +1644,7 @@ impl TargetModel {
     pub fn virtual_chain_fx(&self) -> Option<VirtualChainFx> {
         use VirtualFxType::*;
         let fx = match self.fx_type {
-            Focused | This => return None,
+            Focused | This | Instance => return None,
             ById => VirtualChainFx::ById(self.fx_id?, Some(self.fx_index)),
             ByName => VirtualChainFx::ByName {
                 wild_match: WildMatch::new(&self.fx_name),
@@ -1735,6 +1748,54 @@ impl TargetModel {
                 commons,
                 column: self.clip_column.clone(),
                 context: self.clip_column_track_context,
+            },
+        }
+    }
+
+    pub fn api_fx_descriptor(&self) -> realearn_api::persistence::FxDescriptor {
+        use realearn_api::persistence::FxDescriptor;
+        use VirtualFxType::*;
+        let commons = FxDescriptorCommons {
+            fx_must_have_focus: Some(self.enable_only_if_fx_has_focus),
+        };
+        let chain = FxChainDescriptor::Track {
+            track: Some(self.api_track_descriptor()),
+            chain: Some(if self.fx_is_input_fx {
+                TrackFxChain::Input
+            } else {
+                TrackFxChain::Normal
+            }),
+        };
+        match self.fx_type {
+            This => FxDescriptor::This { commons },
+            Focused => FxDescriptor::Focused,
+            Dynamic => FxDescriptor::Dynamic {
+                commons,
+                chain,
+                expression: self.track_expression.clone(),
+            },
+            Instance => FxDescriptor::Instance { commons },
+            ById => FxDescriptor::ById {
+                commons,
+                chain,
+                id: self.fx_id.as_ref().map(|id| id.to_string_without_braces()),
+            },
+            ByName => FxDescriptor::ByName {
+                commons,
+                chain,
+                name: self.fx_name.clone(),
+                allow_multiple: Some(false),
+            },
+            AllByName => FxDescriptor::ByName {
+                commons,
+                chain,
+                name: self.fx_name.clone(),
+                allow_multiple: Some(true),
+            },
+            ByIndex | ByIdOrIndex => FxDescriptor::ByIndex {
+                commons,
+                chain,
+                index: self.fx_index,
             },
         }
     }
@@ -1982,6 +2043,7 @@ impl TargetModel {
                     ),
                     FxTool => UnresolvedReaperTarget::FxTool(UnresolvedFxToolTarget {
                         fx_descriptor: self.fx_descriptor()?,
+                        action: self.fx_tool_action,
                     }),
                     FxEnable => UnresolvedReaperTarget::FxEnable(UnresolvedFxEnableTarget {
                         fx_descriptor: self.fx_descriptor()?,
@@ -3050,6 +3112,9 @@ pub enum VirtualFxType {
     #[display(fmt = "<Dynamic>")]
     #[serde(rename = "dynamic")]
     Dynamic,
+    #[display(fmt = "<Instance>")]
+    #[serde(rename = "instance")]
+    Instance,
     #[display(fmt = "By ID")]
     #[serde(rename = "id")]
     ById,
@@ -3078,6 +3143,7 @@ impl VirtualFxType {
         match virtual_fx {
             This => VirtualFxType::This,
             Focused => VirtualFxType::Focused,
+            Instance => VirtualFxType::Instance,
             ChainFx { chain_fx, .. } => {
                 use VirtualChainFx::*;
                 match chain_fx {

@@ -738,7 +738,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let events = matrix.poll(timeline_tempo);
         self.basics
             .event_handler
-            .handle_event(DomainEvent::ClipMatrixPolled(matrix, &events));
+            .handle_event_ignoring_error(DomainEvent::ClipMatrixPolled(matrix, &events));
         events
     }
 
@@ -959,7 +959,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Notify domain event handler
         self.basics
             .event_handler
-            .handle_event(DomainEvent::UpdatedSingleParameterValue { index, value });
+            .handle_event_ignoring_error(DomainEvent::UpdatedSingleParameterValue { index, value });
         // Determine and process activation effects
         let compartment = Compartment::by_plugin_param_index(index);
         let activation_effects: Vec<MappingActivationEffect> = self
@@ -1080,7 +1080,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.collections.parameters = params.clone();
         self.basics
             .event_handler
-            .handle_event(DomainEvent::UpdatedAllParameters(params));
+            .handle_event_ignoring_error(DomainEvent::UpdatedAllParameters(params));
         for compartment in Compartment::enum_iter() {
             let mut mapping_updates: Vec<RealTimeMappingUpdate> = vec![];
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
@@ -1417,7 +1417,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     };
                     self.basics
                         .event_handler
-                        .handle_event(DomainEvent::CapturedIncomingMessage(event));
+                        .handle_event_ignoring_error(DomainEvent::CapturedIncomingMessage(event));
                 }
                 FullResyncToRealTimeProcessorPlease => {
                     // We cannot provide everything that the real-time processor needs so we need
@@ -1426,7 +1426,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // session detour).
                     self.basics
                         .event_handler
-                        .handle_event(DomainEvent::FullResyncRequested);
+                        .handle_event_ignoring_error(DomainEvent::FullResyncRequested);
                 }
                 LogLifecycleOutput { value } => {
                     log_lifecycle_output(
@@ -1591,7 +1591,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
             for event in events {
-                self.basics.event_handler.handle_event(
+                self.basics.event_handler.handle_event_ignoring_error(
                     DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
                 );
             }
@@ -1818,7 +1818,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         };
         self.basics
             .event_handler
-            .handle_event(DomainEvent::CapturedIncomingMessage(event));
+            .handle_event_ignoring_error(DomainEvent::CapturedIncomingMessage(event));
     }
 
     /// Controls mappings with real targets in *both* compartments.
@@ -1927,11 +1927,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             } else {
                 false
             };
-        self.basics
-            .event_handler
-            .handle_event(DomainEvent::UpdatedSingleMappingOnState(
-                UpdatedSingleMappingOnStateEvent { id, is_on },
-            ));
+        self.basics.event_handler.handle_event_ignoring_error(
+            DomainEvent::UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent {
+                id,
+                is_on,
+            }),
+        );
     }
 
     fn update_on_mappings(&self) {
@@ -1947,7 +1948,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         };
         self.basics
             .event_handler
-            .handle_event(DomainEvent::UpdatedOnMappings(on_mappings));
+            .handle_event_ignoring_error(DomainEvent::UpdatedOnMappings(on_mappings));
     }
 
     fn send_feedback(
@@ -3171,7 +3172,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             targets: m.targets(),
             new_value,
         });
-        self.event_handler.handle_event(event);
+        self.event_handler.handle_event_ignoring_error(event);
     }
 
     /// Processes (controller) mappings with virtual targets.
@@ -3446,7 +3447,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
         if let Some(projection_feedback_value) = feedback_value.projection {
             self.event_handler
-                .handle_event(DomainEvent::ProjectionFeedback(projection_feedback_value));
+                .handle_event_ignoring_error(DomainEvent::ProjectionFeedback(
+                    projection_feedback_value,
+                ));
         }
     }
 

@@ -156,7 +156,7 @@ impl MainPanel {
             let instance_state = session.instance_state().borrow();
             let instance_track = instance_state.instance_track();
             let instance_track_label = get_virtual_track_label(
-                instance_track,
+                &instance_track.track,
                 Compartment::Main,
                 session.extended_context(),
             );
@@ -171,7 +171,7 @@ impl MainPanel {
                 let _ = write!(&mut text, " | {}", format_tags_as_csv(tags));
             }
             self.view
-                .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
+                .require_control(root::ID_MAIN_PANEL_STATUS_1_TEXT)
                 .set_text(text.as_str());
         });
     }

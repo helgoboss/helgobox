@@ -454,6 +454,37 @@ pub struct FxToolTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx: Option<FxDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<FxToolAction>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum FxToolAction {
+    #[display(fmt = "Do nothing (feedback only)")]
+    DoNothing,
+    #[display(fmt = "Set as instance FX")]
+    SetAsInstanceFx,
+    #[display(fmt = "Pin as instance FX")]
+    PinAsInstanceFx,
+}
+
+impl Default for FxToolAction {
+    fn default() -> Self {
+        Self::DoNothing
+    }
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -1141,14 +1172,14 @@ pub enum BookmarkRef {
     ByIndex { index: u32 },
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx_must_have_focus: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum FxDescriptor {
     This {
@@ -1156,6 +1187,10 @@ pub enum FxDescriptor {
         commons: FxDescriptorCommons,
     },
     Focused,
+    Instance {
+        #[serde(flatten)]
+        commons: FxDescriptorCommons,
+    },
     Dynamic {
         #[serde(flatten)]
         commons: FxDescriptorCommons,
@@ -1195,7 +1230,7 @@ impl Default for FxDescriptor {
 
 // The best default for this would be a <This> FX chain but we don't have this yet!
 // Therefore we don't implement Default at all for now. We can still do it later.
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum FxChainDescriptor {
     Track {
@@ -1206,10 +1241,16 @@ pub enum FxChainDescriptor {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum TrackFxChain {
     Normal,
     Input,
+}
+
+impl TrackFxChain {
+    pub fn is_input_fx(&self) -> bool {
+        matches!(self, Self::Input)
+    }
 }
 
 impl Default for TrackFxChain {

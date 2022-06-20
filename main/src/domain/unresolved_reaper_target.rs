@@ -30,7 +30,8 @@ use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
 use realearn_api::persistence::{
-    ClipColumnDescriptor, ClipColumnTrackContext, TrackDescriptorCommons,
+    ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
+    TrackDescriptorCommons,
 };
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
@@ -260,7 +261,7 @@ pub fn get_track_routes(
     Ok(routes)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TrackDescriptor {
     pub track: VirtualTrack,
     pub enable_only_if_track_selected: bool,
@@ -268,13 +269,13 @@ pub struct TrackDescriptor {
 
 impl TrackDescriptor {
     pub fn from_api(
-        api_desc: &realearn_api::persistence::TrackDescriptor,
+        api_desc: realearn_api::persistence::TrackDescriptor,
     ) -> Result<Self, Box<dyn Error>> {
         use realearn_api::persistence::TrackDescriptor::*;
         let (track, commons) = match api_desc {
-            This { commons } => (VirtualTrack::This, commons.clone()),
-            Master { commons } => (VirtualTrack::Master, commons.clone()),
-            Instance { commons } => (VirtualTrack::Instance, commons.clone()),
+            This { commons } => (VirtualTrack::This, commons),
+            Master { commons } => (VirtualTrack::Master, commons),
+            Instance { commons } => (VirtualTrack::Instance, commons),
             Selected { allow_multiple } => (
                 VirtualTrack::Selected {
                     allow_multiple: allow_multiple.unwrap_or(false),
@@ -285,24 +286,24 @@ impl TrackDescriptor {
                 expression,
                 commons,
             } => {
-                let evaluator = ExpressionEvaluator::compile(expression)?;
-                (VirtualTrack::Dynamic(Box::new(evaluator)), commons.clone())
+                let evaluator = ExpressionEvaluator::compile(&expression)?;
+                (VirtualTrack::Dynamic(Box::new(evaluator)), commons)
             }
             ById { id, commons } => {
                 let id = id.as_ref().ok_or("no ID given")?;
                 (
                     VirtualTrack::ById(Guid::from_string_without_braces(id)?),
-                    commons.clone(),
+                    commons,
                 )
             }
-            ByIndex { index, commons } => (VirtualTrack::ByIndex(*index), commons.clone()),
+            ByIndex { index, commons } => (VirtualTrack::ByIndex(index), commons.clone()),
             ByName {
                 name,
                 allow_multiple,
                 ..
             } => (
                 VirtualTrack::ByName {
-                    wild_match: WildMatch::new(name),
+                    wild_match: WildMatch::new(&name),
                     allow_multiple: allow_multiple.unwrap_or(false),
                 },
                 TrackDescriptorCommons::default(),
@@ -312,14 +313,8 @@ impl TrackDescriptor {
                 context,
                 commons,
             } => {
-                let column = VirtualClipColumn::from_descriptor(column)?;
-                (
-                    VirtualTrack::FromClipColumn {
-                        column,
-                        context: context.clone(),
-                    },
-                    commons.clone(),
-                )
+                let column = VirtualClipColumn::from_descriptor(&column)?;
+                (VirtualTrack::FromClipColumn { column, context }, commons)
             }
         };
         let desc = Self {
@@ -332,11 +327,105 @@ impl TrackDescriptor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FxDescriptor {
     pub track_descriptor: TrackDescriptor,
     pub fx: VirtualFx,
     pub enable_only_if_fx_has_focus: bool,
+}
+
+impl FxDescriptor {
+    pub fn from_api(
+        api_desc: realearn_api::persistence::FxDescriptor,
+    ) -> Result<Self, Box<dyn Error>> {
+        use realearn_api::persistence::FxDescriptor;
+        let (track_descriptor, fx, commons): (TrackDescriptor, VirtualFx, FxDescriptorCommons) =
+            match api_desc {
+                FxDescriptor::This { commons } => (Default::default(), VirtualFx::This, commons),
+                FxDescriptor::Focused => {
+                    (Default::default(), VirtualFx::Focused, Default::default())
+                }
+                FxDescriptor::Instance { commons } => {
+                    (Default::default(), VirtualFx::Instance, commons)
+                }
+                FxDescriptor::Dynamic {
+                    commons,
+                    chain: FxChainDescriptor::Track { track, chain },
+                    expression,
+                } => {
+                    let chain = chain.unwrap_or_default();
+                    let evaluator = ExpressionEvaluator::compile(&expression)?;
+                    (
+                        TrackDescriptor::from_api(track.unwrap_or_default())?,
+                        VirtualFx::ChainFx {
+                            is_input_fx: chain.is_input_fx(),
+                            chain_fx: VirtualChainFx::Dynamic(Box::new(evaluator)),
+                        },
+                        commons,
+                    )
+                }
+                FxDescriptor::ById {
+                    commons,
+                    chain: FxChainDescriptor::Track { track, chain },
+                    id,
+                } => {
+                    let chain = chain.unwrap_or_default();
+                    let id = id.as_ref().ok_or("no ID given")?;
+                    let guid = Guid::from_string_without_braces(id)?;
+                    (
+                        TrackDescriptor::from_api(track.unwrap_or_default())?,
+                        VirtualFx::ChainFx {
+                            is_input_fx: chain.is_input_fx(),
+                            chain_fx: VirtualChainFx::ById(guid, None),
+                        },
+                        commons,
+                    )
+                }
+                FxDescriptor::ByIndex {
+                    commons,
+                    chain: FxChainDescriptor::Track { track, chain },
+                    index,
+                } => {
+                    let chain = chain.unwrap_or_default();
+                    (
+                        TrackDescriptor::from_api(track.unwrap_or_default())?,
+                        VirtualFx::ChainFx {
+                            is_input_fx: chain.is_input_fx(),
+                            chain_fx: VirtualChainFx::ByIndex(index),
+                        },
+                        commons,
+                    )
+                }
+
+                FxDescriptor::ByName {
+                    commons,
+                    chain: FxChainDescriptor::Track { track, chain },
+                    name,
+                    allow_multiple,
+                } => {
+                    let chain = chain.unwrap_or_default();
+                    (
+                        TrackDescriptor::from_api(track.unwrap_or_default())?,
+                        VirtualFx::ChainFx {
+                            is_input_fx: chain.is_input_fx(),
+                            chain_fx: VirtualChainFx::ByName {
+                                wild_match: WildMatch::new(&name),
+                                allow_multiple: allow_multiple.unwrap_or(false),
+                            },
+                        },
+                        commons,
+                    )
+                }
+            };
+        let desc = Self {
+            track_descriptor,
+            fx,
+            // TODO-low The default value should ideally come from infrastructure::api::defaults
+            //  but this is in the infrastructure layer.
+            enable_only_if_fx_has_focus: commons.fx_must_have_focus.unwrap_or(false),
+        };
+        Ok(desc)
+    }
 }
 
 #[derive(Debug)]
@@ -995,11 +1084,19 @@ pub enum VirtualFx {
     This,
     /// Focused or last focused FX.
     Focused,
+    /// Instance FX.
+    Instance,
     /// Particular FX.
     ChainFx {
         is_input_fx: bool,
         chain_fx: VirtualChainFx,
     },
+}
+
+impl Default for VirtualFx {
+    fn default() -> Self {
+        Self::This
+    }
 }
 
 impl fmt::Display for VirtualFx {
@@ -1008,6 +1105,7 @@ impl fmt::Display for VirtualFx {
         match self {
             This => f.write_str("<This>"),
             Focused => f.write_str("<Focused>"),
+            Instance => f.write_str("<Instance>"),
             ChainFx {
                 chain_fx,
                 is_input_fx,
@@ -1027,6 +1125,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
+            VirtualFx::Instance => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.id(),
         }
     }
@@ -1036,6 +1135,7 @@ impl VirtualFx {
             // In case of <This>, it doesn't matter.
             VirtualFx::This => false,
             VirtualFx::Focused => false,
+            VirtualFx::Instance => false,
             VirtualFx::ChainFx { is_input_fx, .. } => *is_input_fx,
         }
     }
@@ -1044,6 +1144,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
+            VirtualFx::Instance => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.index(),
         }
     }
@@ -1052,6 +1153,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
+            VirtualFx::Instance => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }
     }
@@ -1101,10 +1203,10 @@ impl VirtualTrack {
             Instance => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let instance_track = instance_state.instance_track();
-                if matches!(instance_track, VirtualTrack::Instance) {
+                if matches!(&instance_track.track, VirtualTrack::Instance) {
                     return Err(TrackResolveError::CircularReference);
                 }
-                return instance_track.resolve(context, compartment);
+                return instance_track.track.resolve(context, compartment);
             }
             ByIdOrName(guid, name) => {
                 let t = project.track_by_guid(guid);
@@ -1638,6 +1740,14 @@ pub fn get_fxs(
                 .focused_fx()
                 .ok_or("couldn't get (last) focused FX")?;
             Ok(vec![single])
+        }
+        VirtualFx::Instance => {
+            let instance_state = context.control_context.instance_state.borrow();
+            let instance_fx = instance_state.instance_fx();
+            if matches!(instance_fx.fx, VirtualFx::Instance) {
+                return Err("circular reference");
+            }
+            return get_fxs(context, instance_fx, compartment);
         }
         VirtualFx::ChainFx {
             is_input_fx,
