@@ -515,9 +515,9 @@ impl Session {
         )
         .with(weak_session)
         // Doing this async is important to let REAPER digest the info about "Is the window open?"
-        // and "What FX is focused?"
+        // and "What FX is the instance FX?"
         .do_async(move |s, _| {
-            if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
+            if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::InstanceFx {
                 let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
                     if fx.window_is_open() {
                         Some(fx)
