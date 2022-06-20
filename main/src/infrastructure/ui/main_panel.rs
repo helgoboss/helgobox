@@ -11,7 +11,7 @@ use std::cell::{Cell, RefCell};
 
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp,
-    SessionUi, WeakSession,
+    SessionUi, VirtualFxType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -148,8 +148,8 @@ impl MainPanel {
     }
 
     fn invalidate_status_1_text(&self) {
+        use std::fmt::Write;
         self.do_with_session(|session| {
-            use std::fmt::Write;
             let state = self.state.borrow();
             let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
@@ -158,7 +158,7 @@ impl MainPanel {
                 scroll_status.from_pos, scroll_status.to_pos, scroll_status.item_count
             );
             if !tags.is_empty() {
-                let _ = write!(&mut text, " | Tags: {}", format_tags_as_csv(tags));
+                let _ = write!(&mut text, " | Instance tags: {}", format_tags_as_csv(tags));
             }
             self.view
                 .require_control(root::ID_MAIN_PANEL_STATUS_1_TEXT)
@@ -167,6 +167,7 @@ impl MainPanel {
     }
 
     fn invalidate_status_2_text(&self) {
+        use std::fmt::Write;
         self.do_with_session(|session| {
             let instance_state = session.instance_state().borrow();
             let instance_track = instance_state.instance_track();
@@ -179,15 +180,19 @@ impl MainPanel {
             let instance_fx = instance_state.instance_fx();
             let instance_fx_label =
                 get_virtual_fx_label(instance_fx, compartment, session.extended_context());
-            let instance_fx_track_label = get_virtual_track_label(
-                &instance_fx.track_descriptor.track,
-                compartment,
-                session.extended_context(),
+            let mut text = format!(
+                "Track: {:.20} | FX: {:.30}",
+                instance_track_label, instance_fx_label
             );
-            let text = format!(
-                "Track: {:.20} | FX: {:.30} (on track {:.15})",
-                instance_track_label, instance_fx_label, instance_fx_track_label
-            );
+            let fx_type = VirtualFxType::from_virtual_fx(&instance_fx.fx);
+            if fx_type.requires_fx_chain() {
+                let instance_fx_track_label = get_virtual_track_label(
+                    &instance_fx.track_descriptor.track,
+                    compartment,
+                    session.extended_context(),
+                );
+                let _ = write!(&mut text, " (on track {:.15})", instance_fx_track_label);
+            }
             let label = self.view.require_control(root::ID_MAIN_PANEL_STATUS_2_TEXT);
             label.disable();
             label.set_text(text.as_str());

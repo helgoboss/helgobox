@@ -2107,7 +2107,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetBookmarkType(bookmark_type),
                     ));
                 }
-                t if t.supports_fx_chain() => {
+                _ if self.mapping.target_model.supports_fx_chain() => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetFxIsInputFx(is_checked),
                     ));
@@ -4725,21 +4725,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Some(("Regions", is_regions))
                 }
                 ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play())),
-                t if t.supports_fx_chain() => {
-                    if matches!(
-                        self.target.fx_type(),
-                        VirtualFxType::Focused | VirtualFxType::This
-                    ) {
-                        None
+                _ if self.target.supports_fx_chain() => {
+                    let is_input_fx = self.target.fx_is_input_fx();
+                    let label = if self.target.track_type() == VirtualTrackType::Master {
+                        "Monitoring FX"
                     } else {
-                        let is_input_fx = self.target.fx_is_input_fx();
-                        let label = if self.target.track_type() == VirtualTrackType::Master {
-                            "Monitoring FX"
-                        } else {
-                            "Input FX"
-                        };
-                        Some((label, is_input_fx))
-                    }
+                        "Input FX"
+                    };
+                    Some((label, is_input_fx))
                 }
                 t if t.supports_track_scrolling() => {
                     Some(("Scroll TCP", self.target.scroll_arrange_view()))

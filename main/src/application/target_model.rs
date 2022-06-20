@@ -1850,18 +1850,16 @@ impl TargetModel {
     }
 
     pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
-        let fx = self.virtual_fx().ok_or("FX not set")?;
-        let track_descriptor = self.track_descriptor();
         let desc = FxDescriptor {
-            track_descriptor: if let Ok(desc) = track_descriptor {
+            track_descriptor: if let Ok(desc) = self.track_descriptor() {
                 desc
-            } else if fx.requires_track() {
+            } else if self.fx_type.requires_fx_chain() {
                 return Err("couldn't resolve track but track required");
             } else {
                 TrackDescriptor::default()
             },
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus,
-            fx,
+            fx: self.virtual_fx().ok_or("FX not set")?,
         };
         Ok(desc)
     }
@@ -2286,14 +2284,25 @@ impl TargetModel {
         if !target_type.supports_track() {
             return false;
         }
-        self.supports_track_apart_from_type()
+        self.requires_track_apart_from_type()
+    }
+
+    pub fn supports_fx_chain(&self) -> bool {
+        let target_type = self.r#type;
+        if !target_type.supports_fx_chain() {
+            return false;
+        }
+        match self.r#type {
+            t if t.supports_fx() => self.fx_type.requires_fx_chain(),
+            _ => true,
+        }
     }
 
     pub fn supports_track_must_be_selected(&self) -> bool {
         if !self.r#type.supports_track_must_be_selected() {
             return false;
         }
-        self.supports_track_apart_from_type()
+        self.uses_track_apart_from_type()
     }
 
     pub fn supports_osc_arg_value_range(&self) -> bool {
@@ -2302,7 +2311,21 @@ impl TargetModel {
             && self.osc_arg_type_tag.supports_value_range()
     }
 
-    fn supports_track_apart_from_type(&self) -> bool {
+    /// "Requires" means that it requires the user to provide a track in the GUI.
+    fn requires_track_apart_from_type(&self) -> bool {
+        if !self.uses_track_apart_from_type() {
+            return false;
+        }
+        if self.r#type.supports_fx() && !self.fx_type.requires_fx_chain() {
+            return false;
+        }
+        true
+    }
+
+    /// "Uses" means that it works on a track (even if the user doesn't need to provide it).
+    ///
+    /// It makes sense then to present the "Track must be selected" checkbox then.
+    fn uses_track_apart_from_type(&self) -> bool {
         match self.r#type {
             ReaperTargetType::ClipTransport => {
                 use TransportAction::*;
@@ -3101,12 +3124,12 @@ pub enum VirtualFxType {
     #[display(fmt = "<Focused>")]
     #[serde(rename = "focused")]
     Focused,
-    #[display(fmt = "<Dynamic>")]
-    #[serde(rename = "dynamic")]
-    Dynamic,
     #[display(fmt = "<Instance>")]
     #[serde(rename = "instance")]
     Instance,
+    #[display(fmt = "<Dynamic>")]
+    #[serde(rename = "dynamic")]
+    Dynamic,
     #[display(fmt = "By ID")]
     #[serde(rename = "id")]
     ById,
@@ -3152,6 +3175,21 @@ impl VirtualFxType {
                     ByIdOrIndex(_, _) => Self::ByIdOrIndex,
                 }
             }
+        }
+    }
+
+    pub fn requires_fx_chain(&self) -> bool {
+        use VirtualFxType::*;
+        match self {
+            This => false,
+            Focused => false,
+            Dynamic => true,
+            Instance => false,
+            ById => true,
+            ByName => true,
+            AllByName => true,
+            ByIndex => true,
+            ByIdOrIndex => true,
         }
     }
 
