@@ -493,7 +493,7 @@ impl Session {
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
-        .with(weak_session.clone())
+        .with(weak_session)
         .do_async(|s, _| {
             s.borrow_mut()
                 .invalidate_fx_indexes_of_mapping_targets(Rc::downgrade(&s));

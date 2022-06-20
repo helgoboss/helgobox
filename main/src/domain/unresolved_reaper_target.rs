@@ -296,7 +296,7 @@ impl TrackDescriptor {
                     commons,
                 )
             }
-            ByIndex { index, commons } => (VirtualTrack::ByIndex(index), commons.clone()),
+            ByIndex { index, commons } => (VirtualTrack::ByIndex(index), commons),
             ByName {
                 name,
                 allow_multiple,
@@ -454,7 +454,7 @@ impl FxDescriptor {
                 if matches!(instance_fx.fx, VirtualFx::Instance) {
                     return Err("circular reference");
                 }
-                return instance_fx.resolve(context, compartment);
+                instance_fx.resolve(context, compartment)
             }
             VirtualFx::ChainFx {
                 is_input_fx,

@@ -2390,7 +2390,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .try_into()
                         .unwrap_or_default();
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTrackToolAction(action.into()),
+                        TargetCommand::SetTrackToolAction(action),
                     ));
                 }
                 ReaperTargetType::FxTool => {
@@ -2399,7 +2399,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .try_into()
                         .unwrap_or_default();
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetFxToolAction(action.into()),
+                        TargetCommand::SetFxToolAction(action),
                     ));
                 }
                 t if t.supports_fx_parameter() => {
@@ -4451,13 +4451,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackTool => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
-                    let action: TrackToolAction = self.target.track_tool_action().into();
+                    let action: TrackToolAction = self.target.track_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 ReaperTargetType::FxTool => {
                     combo.show();
                     combo.fill_combo_box_indexed(FxToolAction::into_enum_iter());
-                    let action: FxToolAction = self.target.fx_tool_action().into();
+                    let action: FxToolAction = self.target.fx_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 t if t.supports_fx_parameter() => {
