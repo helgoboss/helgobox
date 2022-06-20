@@ -1095,7 +1095,9 @@ pub enum VirtualFx {
 
 impl Default for VirtualFx {
     fn default() -> Self {
-        Self::This
+        // Important to keep it "Focused" for compatibility with
+        // "Auto-load depending on focused FX".
+        Self::Focused
     }
 }
 

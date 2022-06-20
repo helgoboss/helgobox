@@ -15,7 +15,7 @@ use crate::infrastructure::api::convert::from_data::{
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
     deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
-    TargetModelData, TrackData,
+    MigrationDescriptor, TargetModelData, TrackData,
 };
 use realearn_api::persistence;
 use realearn_api::persistence::{
@@ -864,7 +864,7 @@ fn convert_fx_descriptor(
     data: TargetModelData,
     style: ConversionStyle,
 ) -> Option<persistence::FxDescriptor> {
-    let props = deserialize_fx(&data.fx_data, None);
+    let props = deserialize_fx(&data.fx_data, None, &MigrationDescriptor::default());
     use persistence::FxDescriptor as T;
     use VirtualFxType::*;
     let commons = persistence::FxDescriptorCommons {

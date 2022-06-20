@@ -180,15 +180,7 @@ impl InstanceState {
             copied_clip: None,
             copied_clips_in_row: vec![],
             instance_track: Default::default(),
-            // Focused for compatibility reasons with "Auto-load depending on focused FX".
-            instance_fx: FxDescriptor {
-                track_descriptor: TrackDescriptor {
-                    track: Default::default(),
-                    enable_only_if_track_selected: false,
-                },
-                fx: VirtualFx::Focused,
-                enable_only_if_fx_has_focus: false,
-            },
+            instance_fx: Default::default(),
         }
     }
 

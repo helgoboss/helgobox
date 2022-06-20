@@ -18,7 +18,8 @@ use crate::domain::{
 };
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::{
-    DataToModelConversionContext, ModelToDataConversionContext, VirtualControlElementIdData,
+    DataToModelConversionContext, MigrationDescriptor, ModelToDataConversionContext,
+    VirtualControlElementIdData,
 };
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
@@ -310,6 +311,7 @@ impl TargetModelData {
             Some(App::version()),
             compartment,
             conversion_context,
+            &MigrationDescriptor::default(),
         );
     }
 
@@ -323,6 +325,7 @@ impl TargetModelData {
         preset_version: Option<&Version>,
         compartment: Compartment,
         conversion_context: &impl DataToModelConversionContext,
+        migration_descriptor: &MigrationDescriptor,
     ) {
         use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {
@@ -379,6 +382,7 @@ impl TargetModelData {
         let fx_prop_values = deserialize_fx(
             &self.fx_data,
             context.map(|c| (c, compartment, &virtual_track)),
+            migration_descriptor,
         );
         let _ = model.set_fx_from_prop_values(fx_prop_values, false, context, compartment);
         model.change(C::SetEnableOnlyIfFxHasFocus(
@@ -964,11 +968,12 @@ pub fn deserialize_track(
 pub fn deserialize_fx(
     fx_data: &FxData,
     ctx: Option<(ExtendedProcessorContext, Compartment, &VirtualTrack)>,
+    migration_descriptor: &MigrationDescriptor,
 ) -> FxPropValues {
     match fx_data {
         // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
         FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
-            r#type: VirtualFxType::Focused,
+            r#type: VirtualFxType::Instance,
             ..Default::default()
         },
         // Before ReaLearn 1.12.0 only the index was saved, even if it was (implicitly) always
@@ -1033,7 +1038,7 @@ pub fn deserialize_fx(
             index: *i,
             ..Default::default()
         },
-        // Since ReaLearn 1.12.0 to 2.8.0-pre2. We try to guess the anchor (what a mess).
+        // From ReaLearn 1.12.0 to 2.8.0-pre2. We try to guess the anchor (what a mess).
         FxData {
             anchor: None,
             guid: Some(guid_string),
@@ -1086,7 +1091,13 @@ pub fn deserialize_fx(
             is_input_fx,
             expression,
         } => FxPropValues {
-            r#type: *fx_type,
+            r#type: if *fx_type == VirtualFxType::Focused
+                && migration_descriptor.fx_selector_transformation_188
+            {
+                VirtualFxType::Instance
+            } else {
+                *fx_type
+            },
             is_input_fx: *is_input_fx,
             id: guid
                 .as_ref()

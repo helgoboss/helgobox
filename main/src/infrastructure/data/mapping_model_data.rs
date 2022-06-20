@@ -195,6 +195,7 @@ impl MappingModelData {
             preset_version,
             compartment,
             conversion_context,
+            migration_descriptor,
         );
         model.change(P::SetIsEnabled(self.is_enabled));
         model.change(P::SetControlIsEnabled(self.enabled_data.control_is_enabled));

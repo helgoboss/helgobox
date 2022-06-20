@@ -1222,6 +1222,8 @@ pub enum FxDescriptor {
 
 impl Default for FxDescriptor {
     fn default() -> Self {
+        // Important to keep it "Focused" for compatibility with
+        // "Auto-load depending on focused FX".
         Self::Focused
     }
 }
