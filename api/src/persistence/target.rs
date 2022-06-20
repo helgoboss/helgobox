@@ -362,7 +362,7 @@ pub enum TrackToolAction {
     DoNothing,
     #[display(fmt = "Set as instance track")]
     SetAsInstanceTrack,
-    #[display(fmt = "Pin as instance track")]
+    #[display(fmt = "Pin as instance track (resolve)")]
     PinAsInstanceTrack,
 }
 
@@ -477,7 +477,7 @@ pub enum FxToolAction {
     DoNothing,
     #[display(fmt = "Set as instance FX")]
     SetAsInstanceFx,
-    #[display(fmt = "Pin as instance FX")]
+    #[display(fmt = "Pin as instance FX (resolve)")]
     PinAsInstanceFx,
 }
 
@@ -1222,9 +1222,7 @@ pub enum FxDescriptor {
 
 impl Default for FxDescriptor {
     fn default() -> Self {
-        Self::This {
-            commons: Default::default(),
-        }
+        Self::Focused
     }
 }
 

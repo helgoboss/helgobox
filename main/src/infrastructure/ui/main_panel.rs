@@ -10,8 +10,8 @@ use slog::debug;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{
-    get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp, SessionUi,
-    WeakSession,
+    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp,
+    SessionUi, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -147,32 +147,50 @@ impl MainPanel {
         }
     }
 
-    fn invalidate_status_text(&self) {
+    fn invalidate_status_1_text(&self) {
         self.do_with_session(|session| {
             use std::fmt::Write;
             let state = self.state.borrow();
             let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
-            let instance_state = session.instance_state().borrow();
-            let instance_track = instance_state.instance_track();
-            let instance_track_label = get_virtual_track_label(
-                &instance_track.track,
-                Compartment::Main,
-                session.extended_context(),
-            );
             let mut text = format!(
-                "Track: {:.20} | Showing mappings {} to {} of {}",
-                instance_track_label,
-                scroll_status.from_pos,
-                scroll_status.to_pos,
-                scroll_status.item_count
+                "Showing mappings {} to {} of {}",
+                scroll_status.from_pos, scroll_status.to_pos, scroll_status.item_count
             );
             if !tags.is_empty() {
-                let _ = write!(&mut text, " | {}", format_tags_as_csv(tags));
+                let _ = write!(&mut text, " | Tags: {}", format_tags_as_csv(tags));
             }
             self.view
                 .require_control(root::ID_MAIN_PANEL_STATUS_1_TEXT)
                 .set_text(text.as_str());
+        });
+    }
+
+    fn invalidate_status_2_text(&self) {
+        self.do_with_session(|session| {
+            let instance_state = session.instance_state().borrow();
+            let instance_track = instance_state.instance_track();
+            let compartment = Compartment::Main;
+            let instance_track_label = get_virtual_track_label(
+                &instance_track.track,
+                compartment,
+                session.extended_context(),
+            );
+            let instance_fx = instance_state.instance_fx();
+            let instance_fx_label =
+                get_virtual_fx_label(instance_fx, compartment, session.extended_context());
+            let instance_fx_track_label = get_virtual_track_label(
+                &instance_fx.track_descriptor.track,
+                compartment,
+                session.extended_context(),
+            );
+            let text = format!(
+                "Track: {:.20} | FX: {:.30} (on track {:.15})",
+                instance_track_label, instance_fx_label, instance_fx_track_label
+            );
+            let label = self.view.require_control(root::ID_MAIN_PANEL_STATUS_2_TEXT);
+            label.disable();
+            label.set_text(text.as_str());
         });
     }
 
@@ -202,13 +220,14 @@ impl MainPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_version_text();
-        self.invalidate_status_text();
+        self.invalidate_status_1_text();
+        self.invalidate_status_2_text();
     }
 
     fn register_listeners(self: SharedView<Self>) {
         let state = self.state.borrow();
         self.when(state.scroll_status.changed(), |view| {
-            view.invalidate_status_text();
+            view.invalidate_status_1_text();
         });
         self.register_session_listeners();
     }
@@ -219,7 +238,7 @@ impl MainPanel {
                 view.invalidate_all_controls();
             });
             self.when(session.tags.changed(), |view| {
-                view.invalidate_status_text();
+                view.invalidate_status_1_text();
             });
         });
     }
@@ -259,12 +278,13 @@ impl MainPanel {
 
     fn handle_affected_own(self: SharedView<Self>, affected: Affected<SessionProp>) {
         use Affected::*;
+        use SessionProp::*;
         if !self.is_open() {
             return;
         }
         match affected {
-            One(SessionProp::InstanceTrack) | Multiple => {
-                self.invalidate_status_text();
+            One(InstanceTrack | InstanceFx) | Multiple => {
+                self.invalidate_status_2_text();
             }
             _ => {}
         }

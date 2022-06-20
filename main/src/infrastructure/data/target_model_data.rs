@@ -875,6 +875,9 @@ pub fn deserialize_track(
         TrackData { guid: Some(g), .. } if g == "master" => {
             TrackPropValues::from_virtual_track(VirtualTrack::Master)
         }
+        TrackData { guid: Some(g), .. } if g == "instance" => {
+            TrackPropValues::from_virtual_track(VirtualTrack::Instance)
+        }
         TrackData { guid: Some(g), .. } if g == "selected" => {
             TrackPropValues::from_virtual_track(VirtualTrack::Selected {
                 allow_multiple: false,

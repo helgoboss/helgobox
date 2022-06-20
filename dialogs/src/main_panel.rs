@@ -17,23 +17,29 @@ pub fn create(
             ..local_rect
         }
     };
+    let line_spacing = 12;
     let controls = vec![
+        divider(ids.id(), create_rect(0, 0, MAIN_PANEL_WIDTH, 1)),
         ctext(
-            "ReaLearn",
-            ids.named_id("ID_MAIN_PANEL_VERSION_TEXT"),
-            create_rect(66, 19, 337, 9),
-        ),
-        ctext(
-            "Status",
-            ids.named_id("ID_MAIN_PANEL_STATUS_TEXT"),
+            "Status 1",
+            ids.named_id("ID_MAIN_PANEL_STATUS_1_TEXT"),
             create_rect(56, 4, 356, 9),
+        ) + NOT_WS_GROUP,
+        ctext(
+            "Status 2",
+            ids.named_id("ID_MAIN_PANEL_STATUS_2_TEXT"),
+            create_rect(56, 4 + line_spacing, 356, 9),
         ) + NOT_WS_GROUP,
         pushbutton(
             " Edit tags...",
             ids.named_id("IDC_EDIT_TAGS_BUTTON"),
-            create_rect(416, 10, 46, 14),
+            create_rect(416, 4 + line_spacing, 46, 14),
         ),
-        divider(ids.id(), create_rect(0, 0, MAIN_PANEL_WIDTH, 1)),
+        ctext(
+            "ReaLearn",
+            ids.named_id("ID_MAIN_PANEL_VERSION_TEXT"),
+            create_rect(66, 4 + line_spacing * 2, 337, 9),
+        ),
     ];
     Dialog {
         id: ids.named_id("ID_MAIN_PANEL"),

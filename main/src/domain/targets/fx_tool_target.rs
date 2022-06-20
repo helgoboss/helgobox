@@ -146,7 +146,7 @@ impl RealearnTarget for FxToolTarget {
                         }
                     }),
                     is_input_fx: fx.is_input_fx(),
-                    fx_guid: fx.guid().ok_or("no FX GUID")?,
+                    fx_guid: fx.get_or_query_guid()?,
                 }
             }
         };
@@ -170,8 +170,8 @@ impl<'a> Target<'a> for FxToolTarget {
 }
 
 pub const FX_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Fx",
-    short_name: "Fx",
+    name: "FX",
+    short_name: "FX",
     supports_fx: true,
     supports_track: true,
     ..DEFAULT_TARGET

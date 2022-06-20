@@ -2494,25 +2494,11 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 
     fn fx_label(&self) -> Cow<str> {
-        let virtual_fx = self.target.virtual_fx();
-        let virtual_fx = match virtual_fx.as_ref() {
-            None => return TARGET_UNDEFINED_LABEL.into(),
-            Some(f) => f,
+        let fx_descriptor = match self.target.fx_descriptor() {
+            Ok(d) => d,
+            Err(_) => return TARGET_UNDEFINED_LABEL.into(),
         };
-        match virtual_fx {
-            VirtualFx::ChainFx { chain_fx, .. } => {
-                use VirtualChainFx::*;
-                match chain_fx {
-                    ById(_, _) | ByIdOrIndex(_, _) => get_optional_fx_label(
-                        chain_fx,
-                        self.target_with_context().first_fx().ok().as_ref(),
-                    )
-                    .into(),
-                    _ => virtual_fx.to_string().into(),
-                }
-            }
-            _ => virtual_fx.to_string().into(),
-        }
+        get_virtual_fx_label(&fx_descriptor, self.compartment, self.context).into()
     }
 
     fn fx_param_label(&self) -> Cow<str> {
@@ -2578,10 +2564,6 @@ impl<'a> TargetModelFormatMultiLine<'a> {
             self.compartment,
         )?;
         params.into_iter().next().ok_or("empty FX param list")
-    }
-
-    fn target_with_context(&self) -> TargetModelWithContext<'a> {
-        self.target.with_context(self.context, self.compartment)
     }
 }
 
@@ -2760,14 +2742,11 @@ impl<'a> TargetModelWithContext<'a> {
     }
     // Returns an error if the FX doesn't exist.
     pub fn first_fx(&self) -> Result<Fx, &'static str> {
-        get_fxs(
-            self.context,
+        first_effective_fx(
             &self.target.fx_descriptor()?,
             self.compartment,
-        )?
-        .into_iter()
-        .next()
-        .ok_or("resolves to empty FX list")
+            self.context,
+        )
     }
 
     pub fn project(&self) -> Project {
@@ -2804,6 +2783,17 @@ pub fn first_effective_track(
         .into_iter()
         .next()
         .ok_or("resolved to empty track list")
+}
+
+pub fn first_effective_fx(
+    fx_descriptor: &FxDescriptor,
+    compartment: Compartment,
+    context: ExtendedProcessorContext,
+) -> Result<Fx, &'static str> {
+    get_fxs(context, fx_descriptor, compartment)?
+        .into_iter()
+        .next()
+        .ok_or("resolves to empty FX list")
 }
 
 pub fn get_bookmark_label_by_id(bookmark_type: BookmarkType, id: BookmarkId, name: &str) -> String {
@@ -2931,17 +2921,10 @@ fn virtualize_fx(
             chain_fx: if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
                 // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
                 VirtualChainFx::ByIndex(fx.index())
-            } else if let Some(guid) = fx.guid() {
+            } else if let Ok(guid) = fx.get_or_query_guid() {
                 VirtualChainFx::ById(guid, Some(fx.index()))
             } else {
-                // This can happen if the incoming FX was created in an index-based way.
-                // TODO-medium We really should use separate types in reaper-high!
-                let guid = fx.chain().fx_by_index(fx.index()).and_then(|f| f.guid());
-                if let Some(guid) = guid {
-                    VirtualChainFx::ById(guid, Some(fx.index()))
-                } else {
-                    VirtualChainFx::ByIdOrIndex(None, fx.index())
-                }
+                VirtualChainFx::ByIdOrIndex(None, fx.index())
             },
         }
     }
@@ -3694,7 +3677,7 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
         use ConcreteFxInstruction::*;
         match &self.instruction {
             ById { id, .. } => *id,
-            _ => self.fx.as_ref()?.guid(),
+            _ => self.fx.as_ref()?.get_or_query_guid().ok(),
         }
     }
 
@@ -3724,6 +3707,26 @@ pub fn get_virtual_track_label(
             }
         }
         _ => virtual_track.to_string(),
+    }
+}
+
+pub fn get_virtual_fx_label(
+    fx_descriptor: &FxDescriptor,
+    compartment: Compartment,
+    context: ExtendedProcessorContext,
+) -> String {
+    match &fx_descriptor.fx {
+        VirtualFx::ChainFx { chain_fx, .. } => {
+            use VirtualChainFx::*;
+            match chain_fx {
+                ById(_, _) | ByIdOrIndex(_, _) => {
+                    let optional_fx = first_effective_fx(fx_descriptor, compartment, context);
+                    get_optional_fx_label(chain_fx, optional_fx.ok().as_ref())
+                }
+                _ => fx_descriptor.fx.to_string(),
+            }
+        }
+        _ => fx_descriptor.fx.to_string(),
     }
 }
 
