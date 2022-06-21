@@ -3,9 +3,9 @@ use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval,
-    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
-    VirtualColor,
+    AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
+    GroupInteraction, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,
+    UnitValue, ValueSequence, VirtualColor,
 };
 use realearn_api::persistence::FeedbackValueTable;
 use serde::{Deserialize, Serialize};
@@ -33,12 +33,21 @@ pub struct ModeModelData {
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
+    /// Step sizes in versions < 2.13.0-pre.10 can be negative because those fields have been
+    /// used to persist the step factor as well (which can be negative). That's why we still can't
+    /// use UnitValue here.
     pub min_step_size: SoftSymmetricUnitValue,
     #[serde(
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
     pub max_step_size: SoftSymmetricUnitValue,
+    /// Step factors are persisted separately from step size since 2.13.0-pre.10 in order to
+    /// get rid of the annoying mismatch with ReaLearn script.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub min_step_factor: Option<DiscreteIncrement>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub max_step_factor: Option<DiscreteIncrement>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub min_press_millis: u64,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -108,8 +117,10 @@ impl ModeModelData {
             max_target_value: model.target_value_interval().max_val(),
             min_target_jump: model.jump_interval().min_val(),
             max_target_jump: model.jump_interval().max_val(),
-            min_step_size: model.step_interval().min_val(),
-            max_step_size: model.step_interval().max_val(),
+            min_step_size: model.step_size_interval().min_val().to_symmetric(),
+            max_step_size: model.step_size_interval().max_val().to_symmetric(),
+            min_step_factor: Some(model.step_factor_interval().min_val()),
+            max_step_factor: Some(model.step_factor_interval().max_val()),
             min_press_millis: model.press_duration_interval().min_val().as_millis() as _,
             max_press_millis: model.press_duration_interval().max_val().as_millis() as _,
             turbo_rate: model.turbo_rate().as_millis() as _,
@@ -174,10 +185,14 @@ impl ModeModelData {
             };
             model.change(P::SetTargetValueInterval(actual_target_interval));
         }
-        model.change(P::SetStepInterval(Interval::new(
-            self.min_step_size,
-            self.max_step_size,
+        model.change(P::SetStepSizeInterval(Interval::new_auto(
+            self.min_step_size.abs(),
+            self.max_step_size.abs(),
         )));
+        if let (Some(min), Some(max)) = (self.min_step_factor, self.max_step_factor) {
+            // This must be ReaLearn >= 2.13.0-pre.10.
+            model.change(P::SetStepFactorInterval(Interval::new_auto(min, max)));
+        }
         model.change(P::SetPressDurationInterval(Interval::new(
             Duration::from_millis(self.min_press_millis),
             Duration::from_millis(self.max_press_millis),

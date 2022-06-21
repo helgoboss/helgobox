@@ -1,9 +1,9 @@
 use crate::application::{
-    convert_factor_to_unit_value, merge_affected, ActivationConditionCommand,
-    ActivationConditionModel, ActivationConditionProp, Affected, Change, ChangeResult,
-    GetProcessingRelevance, MappingExtensionModel, ModeCommand, ModeModel, ModeProp,
-    ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
-    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    merge_affected, ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp,
+    Affected, Change, ChangeResult, GetProcessingRelevance, MappingExtensionModel, ModeCommand,
+    ModeModel, ModeProp, ProcessingRelevance, SourceCommand, SourceModel, SourceProp,
+    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    TargetProp,
 };
 use crate::domain::{
     ActivationCondition, Compartment, CompoundMappingSource, CompoundMappingTarget,
@@ -13,8 +13,8 @@ use crate::domain::{
     UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
 };
 use helgoboss_learn::{
-    AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
-    ModeParameter, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
+    AbsoluteMode, ControlType, DetailedSourceCharacter, DiscreteIncrement, Interval,
+    ModeApplicabilityCheckInput, ModeParameter, SourceCharacter, Target, UnitValue,
 };
 
 use std::cell::RefCell;
@@ -447,11 +447,19 @@ impl MappingModel {
         &mut self,
         context: ExtendedProcessorContext,
     ) -> Option<Affected<MappingProp>> {
-        self.mode_model
-            .change(ModeCommand::SetStepInterval(
-                self.with_context(context).preferred_step_interval(),
+        let affected_1 = self
+            .mode_model
+            .change(ModeCommand::SetStepSizeInterval(
+                self.with_context(context).preferred_step_size_interval(),
             ))
-            .map(|affected| Affected::One(MappingProp::InMode(affected)))
+            .map(|affected| Affected::One(MappingProp::InMode(affected)));
+        let affected_2 = self
+            .mode_model
+            .change(ModeCommand::SetStepFactorInterval(
+                self.with_context(context).preferred_step_factor_interval(),
+            ))
+            .map(|affected| Affected::One(MappingProp::InMode(affected)));
+        merge_affected(affected_1, affected_2)
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
@@ -684,7 +692,7 @@ impl<'a> MappingModelWithContext<'a> {
 
     /// If this returns `true`, the Speed sliders will be shown, allowing relative
     /// increments/decrements to be throttled or multiplied.
-    pub fn uses_step_counts(&self) -> bool {
+    pub fn uses_step_factors(&self) -> bool {
         let mode = self.mapping.create_mode();
         if mode.settings().make_absolute {
             // If we convert increments to absolute values, we want step sizes of course.
@@ -715,18 +723,16 @@ impl<'a> MappingModelWithContext<'a> {
         }
     }
 
-    fn preferred_step_interval(&self) -> Interval<SoftSymmetricUnitValue> {
-        if self.uses_step_counts() {
-            let one_step = convert_factor_to_unit_value(1);
-            Interval::new(one_step, one_step)
-        } else {
-            match self.target_step_size() {
-                Some(step_size) => {
-                    Interval::new(step_size.to_symmetric(), step_size.to_symmetric())
-                }
-                None => ModeModel::default_step_size_interval(),
-            }
+    fn preferred_step_size_interval(&self) -> Interval<UnitValue> {
+        match self.target_step_size() {
+            Some(step_size) => Interval::new(step_size, step_size),
+            None => ModeModel::default_step_size_interval(),
         }
+    }
+
+    fn preferred_step_factor_interval(&self) -> Interval<DiscreteIncrement> {
+        let inc = DiscreteIncrement::new(1);
+        Interval::new(inc, inc)
     }
 
     fn target_step_size(&self) -> Option<UnitValue> {

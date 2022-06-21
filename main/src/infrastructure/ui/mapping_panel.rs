@@ -1,10 +1,10 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::iter;
 use std::ptr::null;
 use std::rc::Rc;
 use std::time::Duration;
+use std::{cmp, iter};
 
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -19,11 +19,12 @@ use rxrust::prelude::*;
 
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
-    ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
-    FireMode, GroupInteraction, Interval, MackieSevenSegmentDisplayScope,
-    MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter, OscTypeTag,
-    OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode,
-    Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
+    ButtonUsage, ControlValue, DetailedSourceCharacter, DiscreteIncrement, DisplayType,
+    EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval,
+    MackieSevenSegmentDisplayScope, MidiClockTransportMessage, ModeApplicabilityCheckInput,
+    ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue,
+    SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor,
+    DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{FxToolAction, MidiScriptKind, MonitoringMode, TrackToolAction};
 use swell_ui::{
@@ -31,17 +32,16 @@ use swell_ui::{
 };
 
 use crate::application::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, format_osc_feedback_args,
-    get_bookmark_label_by_id, get_fx_label, get_fx_param_label, get_non_present_bookmark_label,
-    get_optional_fx_label, get_route_label, parse_osc_feedback_args, Affected,
-    AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp, ConcreteFxInstruction,
-    ConcreteTrackInstruction, MappingChangeContext, MappingCommand, MappingModel, MappingProp,
-    MidiSourceType, ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea,
-    ReaperSourceType, Session, SessionProp, SharedMapping, SharedSession, SourceCategory,
-    SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
-    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakSession, KEY_UNDEFINED_LABEL,
+    format_osc_feedback_args, get_bookmark_label_by_id, get_fx_label, get_fx_param_label,
+    get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
+    parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
+    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
+    MappingCommand, MappingModel, MappingProp, MidiSourceType, ModeCommand, ModeModel, ModeProp,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
+    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
@@ -369,7 +369,7 @@ impl MappingPanel {
                                             P::EelFeedbackTransformation | P::TextualFeedbackExpression => {
                                                 view.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
                                             }
-                                            P::StepInterval => {
+                                            P::StepSizeInterval | P::StepFactorInterval => {
                                                 view.invalidate_mode_step_controls(initiator);
                                             }
                                             P::Rotate => {
@@ -1855,14 +1855,40 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_step_from_edit_control(&mut self) {
-        let control_id = root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL;
-        let value = self
-            .get_value_from_step_edit_control(control_id)
-            .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
-        self.change_mapping_with_initiator(
-            MappingCommand::ChangeMode(ModeCommand::SetMinStep(value)),
-            Some(control_id),
+        self.update_mode_step_from_edit_control(
+            root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+            ModeCommand::SetMinStepFactor,
+            DiscreteIncrement::new(1),
+            ModeCommand::SetMinStepSize,
+            UnitValue::MIN,
         );
+    }
+
+    fn update_mode_step_from_edit_control(
+        &mut self,
+        control_id: u32,
+        factor_command: impl FnOnce(DiscreteIncrement) -> ModeCommand,
+        default_factor: DiscreteIncrement,
+        size_command: impl FnOnce(UnitValue) -> ModeCommand,
+        default_size: UnitValue,
+    ) {
+        if self.mapping_uses_step_factors() {
+            let value = self
+                .get_value_from_step_factor_edit_control(control_id)
+                .unwrap_or(default_factor);
+            self.change_mapping_with_initiator(
+                MappingCommand::ChangeMode(factor_command(value)),
+                Some(control_id),
+            );
+        } else {
+            let value = self
+                .get_value_from_step_size_edit_control(control_id)
+                .unwrap_or(default_size);
+            self.change_mapping_with_initiator(
+                MappingCommand::ChangeMode(size_command(value)),
+                Some(control_id),
+            );
+        }
     }
 
     fn handle_mode_fire_line_2_edit_control_change(&mut self) {
@@ -1881,27 +1907,26 @@ impl<'a> MutableMappingPanel<'a> {
         text.parse::<u64>().ok().map(Duration::from_millis)
     }
 
-    fn get_value_from_step_edit_control(
+    fn get_value_from_step_factor_edit_control(
         &self,
         edit_control_id: u32,
-    ) -> Option<SoftSymmetricUnitValue> {
-        if self.mapping_uses_step_counts() {
-            let text = self.view.require_control(edit_control_id).text().ok()?;
-            Some(convert_factor_to_unit_value(text.parse().ok()?))
-        } else {
-            self.get_step_size_from_target_edit_control(edit_control_id)
-                .map(|v| v.to_symmetric())
-        }
+    ) -> Option<DiscreteIncrement> {
+        let text = self.view.require_control(edit_control_id).text().ok()?;
+        let number: i32 = text.parse().ok()?;
+        number.try_into().ok()
+    }
+
+    fn get_value_from_step_size_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
+        self.get_step_size_from_target_edit_control(edit_control_id)
     }
 
     fn update_mode_max_step_from_edit_control(&mut self) {
-        let control_id = root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL;
-        let value = self
-            .get_value_from_step_edit_control(control_id)
-            .unwrap_or(SoftSymmetricUnitValue::SOFT_MAX);
-        self.change_mapping_with_initiator(
-            MappingCommand::ChangeMode(ModeCommand::SetMaxStep(value)),
-            Some(control_id),
+        self.update_mode_step_from_edit_control(
+            root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+            ModeCommand::SetMaxStepFactor,
+            DiscreteIncrement::new(100),
+            ModeCommand::SetMaxStepSize,
+            UnitValue::MAX,
         );
     }
 
@@ -2003,37 +2028,43 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_step_from_slider(&mut self, slider: Window) {
-        let step_counts = self.mapping_uses_step_counts();
-        let (mode_param, value) = if step_counts {
-            (
-                ModeParameter::SpeedMin,
-                slider.slider_symmetric_unit_value(),
-            )
-        } else {
-            (
-                ModeParameter::StepSizeMin,
-                slider.slider_unit_value().to_symmetric(),
-            )
-        };
-        self.update_mode_hint(mode_param);
-        self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMinStep(value)));
+        self.update_mode_step_from_slider(
+            slider,
+            ModeCommand::SetMinStepFactor,
+            ModeParameter::StepFactorMin,
+            ModeCommand::SetMinStepSize,
+            ModeParameter::StepSizeMin,
+        )
     }
 
     fn update_mode_max_step_from_slider(&mut self, slider: Window) {
-        let step_counts = self.mapping_uses_step_counts();
-        let (mode_param, value) = if step_counts {
-            (
-                ModeParameter::SpeedMax,
-                slider.slider_symmetric_unit_value(),
-            )
+        self.update_mode_step_from_slider(
+            slider,
+            ModeCommand::SetMaxStepFactor,
+            ModeParameter::StepFactorMax,
+            ModeCommand::SetMaxStepSize,
+            ModeParameter::StepSizeMax,
+        )
+    }
+
+    fn update_mode_step_from_slider(
+        &mut self,
+        slider: Window,
+        factor_command: impl FnOnce(DiscreteIncrement) -> ModeCommand,
+        factor_param: ModeParameter,
+        size_command: impl FnOnce(UnitValue) -> ModeCommand,
+        size_param: ModeParameter,
+    ) {
+        let mode_param = if self.mapping_uses_step_factors() {
+            let value = slider.slider_discrete_increment();
+            self.change_mapping(MappingCommand::ChangeMode(factor_command(value)));
+            factor_param
         } else {
-            (
-                ModeParameter::StepSizeMax,
-                slider.slider_unit_value().to_symmetric(),
-            )
+            let value = slider.slider_unit_value();
+            self.change_mapping(MappingCommand::ChangeMode(size_command(value)));
+            size_param
         };
         self.update_mode_hint(mode_param);
-        self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMaxStep(value)));
     }
 
     fn handle_mode_fire_line_2_slider_change(&mut self, slider: Window) {
@@ -2065,10 +2096,10 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn mapping_uses_step_counts(&self) -> bool {
+    fn mapping_uses_step_factors(&self) -> bool {
         self.mapping
             .with_context(self.session.extended_context())
-            .uses_step_counts()
+            .uses_step_factors()
     }
 
     fn update_mode_min_jump_from_slider(&mut self, slider: Window) {
@@ -5080,14 +5111,14 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_control_visibilities();
     }
 
-    fn mapping_uses_step_counts(&self) -> bool {
+    fn mapping_uses_step_factors(&self) -> bool {
         self.mapping
             .with_context(self.session.extended_context())
-            .uses_step_counts()
+            .uses_step_factors()
     }
 
     fn invalidate_mode_control_labels(&self) {
-        let step_label = if self.mapping_uses_step_counts() {
+        let step_label = if self.mapping_uses_step_factors() {
             "Speed"
         } else {
             "Step size"
@@ -5250,10 +5281,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         {
             let step_min_is_relevant = real_target.is_some()
                 && (is_relevant(ModeParameter::StepSizeMin)
-                    || is_relevant(ModeParameter::SpeedMin));
+                    || is_relevant(ModeParameter::StepFactorMin));
             let step_max_is_relevant = real_target.is_some()
                 && (is_relevant(ModeParameter::StepSizeMax)
-                    || is_relevant(ModeParameter::SpeedMax));
+                    || is_relevant(ModeParameter::StepFactorMax));
             self.enable_if(
                 step_min_is_relevant || step_max_is_relevant,
                 &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
@@ -5471,7 +5502,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-            self.mode.step_interval().min_val(),
+            self.mode.step_size_interval().min_val(),
+            self.mode.step_factor_interval().min_val(),
             initiator,
         );
     }
@@ -5510,7 +5542,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-            self.mode.step_interval().max_val(),
+            self.mode.step_size_interval().max_val(),
+            self.mode.step_factor_interval().max_val(),
             initiator,
         );
     }
@@ -5551,50 +5584,46 @@ impl<'a> ImmutableMappingPanel<'a> {
         slider_control_id: u32,
         edit_control_id: u32,
         value_text_control_id: u32,
-        value: SoftSymmetricUnitValue,
+        size_value: UnitValue,
+        factor_value: DiscreteIncrement,
         initiator: Option<u32>,
     ) {
+        enum Val {
+            Abs(UnitValue),
+            Rel(DiscreteIncrement),
+        }
         let (val, edit_text, value_text) = match &self.first_resolved_target() {
             Some(target) => {
-                if self.mapping_uses_step_counts() {
-                    let edit_text = convert_unit_value_to_factor(value).to_string();
-                    let val = PositiveOrSymmetricUnitValue::Symmetric(value);
+                if self.mapping_uses_step_factors() {
+                    let edit_text = factor_value.to_string();
+                    let val = Val::Rel(factor_value);
                     // "count {x}"
                     (val, edit_text, "x".to_string())
                 } else {
                     // "{size} {unit}"
                     let control_context = self.session.control_context();
-                    let pos_value = value.clamp_to_positive_unit_interval();
                     let edit_text =
-                        target.format_step_size_without_unit(pos_value, control_context);
+                        target.format_step_size_without_unit(size_value, control_context);
                     let value_text = get_text_right_to_step_size_edit_control(
                         target,
-                        pos_value,
+                        size_value,
                         control_context,
                     );
-                    (
-                        PositiveOrSymmetricUnitValue::Positive(pos_value),
-                        edit_text,
-                        value_text,
-                    )
+                    (Val::Abs(size_value), edit_text, value_text)
                 }
             }
-            None => (
-                PositiveOrSymmetricUnitValue::Positive(UnitValue::MIN),
-                "".to_string(),
-                "".to_string(),
-            ),
+            None => (Val::Abs(UnitValue::MIN), "".to_string(), "".to_string()),
         };
         match val {
-            PositiveOrSymmetricUnitValue::Positive(v) => {
+            Val::Abs(v) => {
                 self.view
                     .require_control(slider_control_id)
                     .set_slider_unit_value(v);
             }
-            PositiveOrSymmetricUnitValue::Symmetric(v) => {
+            Val::Rel(v) => {
                 self.view
                     .require_control(slider_control_id)
-                    .set_slider_symmetric_unit_value(v);
+                    .set_slider_discrete_increment(v);
             }
         }
         if initiator != Some(edit_control_id) {
@@ -6203,9 +6232,11 @@ const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
 
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;
+    fn slider_discrete_increment(&self) -> DiscreteIncrement;
     fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue;
     fn slider_duration(&self) -> Duration;
     fn set_slider_unit_value(&self, value: UnitValue);
+    fn set_slider_discrete_increment(&self, increment: DiscreteIncrement);
     fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue);
     fn set_slider_duration(&self, value: Duration);
 }
@@ -6214,6 +6245,13 @@ impl WindowExt for Window {
     fn slider_unit_value(&self) -> UnitValue {
         let discrete_value = self.slider_value();
         UnitValue::new(discrete_value as f64 / 100.0)
+    }
+
+    fn slider_discrete_increment(&self) -> DiscreteIncrement {
+        let discrete_value = self.slider_value() as i32 * 2 - 100;
+        discrete_value
+            .try_into()
+            .unwrap_or(DiscreteIncrement::POSITIVE_MIN)
     }
 
     fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue {
@@ -6232,6 +6270,11 @@ impl WindowExt for Window {
         self.set_slider_value(val);
     }
 
+    fn set_slider_discrete_increment(&self, increment: DiscreteIncrement) {
+        let val = cmp::max(0, (increment.get() + 100) / 2) as u32;
+        self.set_slider_value(val);
+    }
+
     fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue) {
         self.set_slider_unit_value(value.map_to_positive_unit_interval());
     }
@@ -6242,11 +6285,6 @@ impl WindowExt for Window {
         let val = (value.as_millis() / 50) as u32;
         self.set_slider_value(val);
     }
-}
-
-enum PositiveOrSymmetricUnitValue {
-    Positive(UnitValue),
-    Symmetric(SoftSymmetricUnitValue),
 }
 
 fn group_mappings_by_virtual_control_element<'a>(

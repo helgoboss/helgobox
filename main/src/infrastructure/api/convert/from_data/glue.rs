@@ -2,8 +2,8 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{
-    AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction,
-    OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
+    AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
+    GroupInteraction, OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
 use realearn_api::persistence;
 use realearn_api::persistence::{NumericFeedback, PropColor, TextFeedback};
@@ -39,8 +39,12 @@ pub fn convert_glue(
         },
         step_factor_interval: {
             let interval = persistence::Interval(
-                (data.min_step_size.get() * 100.0) as i32,
-                (data.max_step_size.get() * 100.0) as i32,
+                data.min_step_factor
+                    .unwrap_or(DiscreteIncrement::POSITIVE_MIN)
+                    .get(),
+                data.max_step_factor
+                    .unwrap_or(DiscreteIncrement::POSITIVE_MIN)
+                    .get(),
             );
             style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },

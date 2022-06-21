@@ -4,8 +4,7 @@ use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
     ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
-    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
-    VirtualColor,
+    OutOfRangeBehavior, TakeoverMode, UnitValue, ValueSequence, VirtualColor,
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
@@ -36,9 +35,12 @@ pub enum ModeCommand {
     SetEncoderUsage(EncoderUsage),
     SetEelControlTransformation(String),
     SetEelFeedbackTransformation(String),
-    SetStepInterval(Interval<SoftSymmetricUnitValue>),
-    SetMinStep(SoftSymmetricUnitValue),
-    SetMaxStep(SoftSymmetricUnitValue),
+    SetStepSizeInterval(Interval<UnitValue>),
+    SetStepFactorInterval(Interval<DiscreteIncrement>),
+    SetMinStepSize(UnitValue),
+    SetMaxStepSize(UnitValue),
+    SetMinStepFactor(DiscreteIncrement),
+    SetMaxStepFactor(DiscreteIncrement),
     SetRotate(bool),
     SetMakeAbsolute(bool),
     SetGroupInteraction(GroupInteraction),
@@ -69,7 +71,8 @@ pub enum ModeProp {
     EncoderUsage,
     EelControlTransformation,
     EelFeedbackTransformation,
-    StepInterval,
+    StepSizeInterval,
+    StepFactorInterval,
     Rotate,
     MakeAbsolute,
     GroupInteraction,
@@ -107,14 +110,6 @@ pub struct ModeModel {
     eel_control_transformation: String,
     eel_feedback_transformation: String,
     // For relative control values.
-    /// Depending on the target character, this is either a step count or a step size.
-    ///
-    /// A step count is a coefficient which multiplies the atomic step size. E.g. a step count of 2
-    /// can be read as 2 * step_size which means double speed. When the step count is negative,
-    /// it's interpreted as a fraction of 1. E.g. a step count of -2 is 1/2 * step_size which
-    /// means half speed. The increment is fired only every nth time, which results in a
-    /// slow-down, or in other words, less sensitivity.
-    ///
     /// A step size is the positive, absolute size of an increment. 0.0 represents no increment,
     /// 1.0 represents an increment over the whole value range (not very useful).
     ///
@@ -123,7 +118,13 @@ pub struct ModeModel {
     /// is where the maximum comes in. The maximum is also important if using the relative mode
     /// with buttons. The harder you press the button, the higher the increment. It's limited
     /// by the maximum value.
-    step_interval: Interval<SoftSymmetricUnitValue>,
+    step_size_interval: Interval<UnitValue>,
+    /// A step factor is a coefficient which multiplies the atomic step size. E.g. a step count of 2
+    /// can be read as 2 * step_size which means double speed. When the step count is negative,
+    /// it's interpreted as a fraction of 1. E.g. a step count of -2 is 1/2 * step_size which
+    /// means half speed. The increment is fired only every nth time, which results in a
+    /// slow-down, or in other words, less sensitivity.
+    step_factor_interval: Interval<DiscreteIncrement>,
     rotate: bool,
     make_absolute: bool,
     group_interaction: GroupInteraction,
@@ -156,7 +157,8 @@ impl Default for ModeModel {
             encoder_usage: Default::default(),
             eel_control_transformation: String::new(),
             eel_feedback_transformation: String::new(),
-            step_interval: Self::default_step_size_interval(),
+            step_size_interval: Self::default_step_size_interval(),
+            step_factor_interval: Self::default_step_factor_interval(),
             rotate: false,
             make_absolute: false,
             group_interaction: Default::default(),
@@ -275,15 +277,29 @@ impl<'a> Change<'a> for ModeModel {
                 self.eel_feedback_transformation = v;
                 One(P::EelFeedbackTransformation)
             }
-            C::SetStepInterval(v) => {
-                self.step_interval = v;
-                One(P::StepInterval)
+            C::SetStepSizeInterval(v) => {
+                self.step_size_interval = v;
+                One(P::StepSizeInterval)
             }
-            C::SetMinStep(v) => {
-                return self.change(C::SetStepInterval(self.step_interval.with_min(v)))
+            C::SetStepFactorInterval(v) => {
+                self.step_factor_interval = v;
+                One(P::StepFactorInterval)
             }
-            C::SetMaxStep(v) => {
-                return self.change(C::SetStepInterval(self.step_interval.with_max(v)))
+            C::SetMinStepSize(v) => {
+                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_min(v)))
+            }
+            C::SetMaxStepSize(v) => {
+                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_max(v)))
+            }
+            C::SetMinStepFactor(v) => {
+                return self.change(C::SetStepFactorInterval(
+                    self.step_factor_interval.with_min(v),
+                ))
+            }
+            C::SetMaxStepFactor(v) => {
+                return self.change(C::SetStepFactorInterval(
+                    self.step_factor_interval.with_max(v),
+                ))
             }
             C::SetRotate(v) => {
                 self.rotate = v;
@@ -331,17 +347,18 @@ impl<'a> Change<'a> for ModeModel {
 }
 
 impl ModeModel {
-    pub fn default_step_size_interval() -> Interval<SoftSymmetricUnitValue> {
+    pub fn default_step_size_interval() -> Interval<UnitValue> {
         // 0.01 has been chosen as default minimum step size because it corresponds to 1%.
         //
         // 0.05 has been chosen as default maximum step size in order to make users aware that
         // ReaLearn supports encoder acceleration ("dial harder = more increments") and
         // velocity-sensitive buttons ("press harder = more increments") but still is low
         // enough to not lead to surprising results such as ugly parameter jumps.
-        Interval::new(
-            SoftSymmetricUnitValue::new(0.01),
-            SoftSymmetricUnitValue::new(0.05),
-        )
+        Interval::new(UnitValue::new(0.01), UnitValue::new(0.05))
+    }
+
+    pub fn default_step_factor_interval() -> Interval<DiscreteIncrement> {
+        Interval::new(DiscreteIncrement::new(1), DiscreteIncrement::new(5))
     }
 
     pub fn feedback_value_table(&self) -> Option<&FeedbackValueTable> {
@@ -408,8 +425,12 @@ impl ModeModel {
         &self.eel_feedback_transformation
     }
 
-    pub fn step_interval(&self) -> Interval<SoftSymmetricUnitValue> {
-        self.step_interval
+    pub fn step_size_interval(&self) -> Interval<UnitValue> {
+        self.step_size_interval
+    }
+
+    pub fn step_factor_interval(&self) -> Interval<DiscreteIncrement> {
+        self.step_factor_interval
     }
 
     pub fn rotate(&self) -> bool {
@@ -488,10 +509,8 @@ impl ModeModel {
         // We know that just step max sometimes needs to be set to a sensible default (= step min)
         // and we know that step size and speed is mutually exclusive and therefore doesn't need
         // to be handled separately.
-        let step_max_is_relevant =
-            is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
-        let min_step_count = convert_to_step_count(self.step_interval.min_val());
-        let min_step_size = self.step_interval.min_val().abs();
+        let step_size_max_is_relevant = is_relevant(ModeParameter::StepSizeMax);
+        let step_factor_max_is_relevant = is_relevant(ModeParameter::StepFactorMax);
         Mode::new(ModeSettings {
             absolute_mode: if is_relevant(ModeParameter::AbsoluteMode) {
                 self.absolute_mode
@@ -520,20 +539,20 @@ impl ModeModel {
             } else {
                 full_discrete_interval()
             },
-            step_count_interval: Interval::new(
-                min_step_count,
-                if step_max_is_relevant {
-                    convert_to_step_count(self.step_interval.max_val())
+            step_factor_interval: Interval::new(
+                self.step_factor_interval.min_val(),
+                if step_factor_max_is_relevant {
+                    self.step_factor_interval.max_val()
                 } else {
-                    min_step_count
+                    self.step_factor_interval.min_val()
                 },
             ),
             step_size_interval: Interval::new_auto(
-                min_step_size,
-                if step_max_is_relevant {
-                    self.step_interval.max_val().abs()
+                self.step_size_interval.min_val(),
+                if step_size_max_is_relevant {
+                    self.step_size_interval.max_val()
                 } else {
-                    min_step_size
+                    self.step_size_interval.min_val()
                 },
             ),
             jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
@@ -630,31 +649,4 @@ impl ModeModel {
             feedback_background_color: self.feedback_background_color.clone(),
         })
     }
-}
-
-pub fn convert_factor_to_unit_value(factor: i32) -> SoftSymmetricUnitValue {
-    let result = if factor == 0 {
-        0.01
-    } else {
-        factor as f64 / 100.0
-    };
-    SoftSymmetricUnitValue::new(result)
-}
-
-pub fn convert_unit_value_to_factor(value: SoftSymmetricUnitValue) -> i32 {
-    // -1.00 => -100
-    // -0.01 =>   -1
-    //  0.00 =>    1
-    //  0.01 =>    1
-    //  1.00 =>  100
-    let tmp = (value.get() * 100.0).round() as i32;
-    if tmp == 0 {
-        1
-    } else {
-        tmp
-    }
-}
-
-fn convert_to_step_count(value: SoftSymmetricUnitValue) -> DiscreteIncrement {
-    DiscreteIncrement::new(convert_unit_value_to_factor(value))
 }

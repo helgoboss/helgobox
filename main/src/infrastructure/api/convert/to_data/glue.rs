@@ -1,7 +1,7 @@
 use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data::ModeModelData;
-use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue, BASE_EPSILON};
+use helgoboss_learn::{DiscreteIncrement, SoftSymmetricUnitValue, UnitValue};
 use realearn_api::persistence::*;
 use std::convert::TryInto;
 
@@ -12,28 +12,14 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         convert_unit_value_interval(g.target_interval.unwrap_or(defaults::GLUE_TARGET_INTERVAL))?;
     let jump_interval =
         convert_unit_value_interval(g.jump_interval.unwrap_or(defaults::GLUE_JUMP_INTERVAL))?;
-    let conv_step_size_interval = if let Some(ssi) = g.step_size_interval {
-        Some(convert_step_size_interval(ssi)?)
-    } else {
-        None
-    };
-    let conv_step_factor_interval = if let Some(sfi) = g.step_factor_interval {
-        Some(convert_step_factor_interval(sfi)?)
-    } else {
-        None
-    };
-    if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
-        if (ssi.min_val().get() - sfi.min_val().get().abs()).abs() > BASE_EPSILON
-            || (ssi.max_val().get() - sfi.max_val().get().abs()).abs() > BASE_EPSILON
-        {
-            return Err(
-                "Only one of `step_size_interval` and `step_factor_interval` can be set".into(),
-            );
-        }
-    }
-    let step_interval = conv_step_factor_interval
-        .or(conv_step_size_interval)
-        .unwrap_or_else(|| convert_step_size_interval(defaults::GLUE_STEP_SIZE_INTERVAL).unwrap());
+    let step_size_interval = convert_step_size_interval(
+        g.step_size_interval
+            .unwrap_or(defaults::GLUE_STEP_SIZE_INTERVAL),
+    )?;
+    let step_factor_interval = convert_step_factor_interval(
+        g.step_factor_interval
+            .unwrap_or(defaults::GLUE_STEP_FACTOR_INTERVAL),
+    )?;
     let fire_mode = g.fire_mode.unwrap_or_default();
     struct FbCommonsData {
         color: Option<helgoboss_learn::VirtualColor>,
@@ -115,8 +101,10 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         max_target_value: target_interval.max_val(),
         min_target_jump: jump_interval.min_val(),
         max_target_jump: jump_interval.max_val(),
-        min_step_size: step_interval.min_val(),
-        max_step_size: step_interval.max_val(),
+        min_step_size: step_size_interval.min_val(),
+        max_step_size: step_size_interval.max_val(),
+        min_step_factor: Some(step_factor_interval.min_val()),
+        max_step_factor: Some(step_factor_interval.max_val()),
         min_press_millis,
         max_press_millis,
         turbo_rate: {
@@ -220,10 +208,10 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
 
 fn convert_step_factor_interval(
     i: Interval<i32>,
-) -> ConversionResult<helgoboss_learn::Interval<SoftSymmetricUnitValue>> {
+) -> ConversionResult<helgoboss_learn::Interval<DiscreteIncrement>> {
     let result = helgoboss_learn::Interval::try_new(
-        SoftSymmetricUnitValue::new(i.0 as f64 / 100.0),
-        SoftSymmetricUnitValue::new(i.1 as f64 / 100.0),
+        i.0.try_into().unwrap_or(DiscreteIncrement::POSITIVE_MIN),
+        i.1.try_into().unwrap_or(DiscreteIncrement::POSITIVE_MIN),
     )?;
     Ok(result)
 }
