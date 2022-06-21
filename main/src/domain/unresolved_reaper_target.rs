@@ -1383,6 +1383,22 @@ impl VirtualTrack {
                     let track = context.context().track()?;
                     Some(get_track_index_for_expression(track))
                 }
+                "instance_track_index" => {
+                    let index = context
+                        .control_context
+                        .instance_state
+                        // We do this in order to prevent infinite recursion in case the
+                        // instance FX also uses "instance_track_index".
+                        .try_borrow_mut()
+                        .ok()?
+                        .instance_track_descriptor()
+                        .track
+                        .resolve(context, compartment)
+                        .ok()
+                        .and_then(|tracks| tracks.into_iter().next())
+                        .map(|track| get_track_index_for_expression(&track));
+                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                }
                 "selected_track_index" => {
                     let index = context
                         .context()
@@ -1672,6 +1688,21 @@ impl VirtualChainFx {
                 "this_fx_index" => {
                     let fx = context.context().containing_fx();
                     Some(fx.index() as f64)
+                }
+                "instance_fx_index" => {
+                    let index = context
+                        .control_context
+                        .instance_state
+                        // We do this in order to prevent infinite recursion in case the
+                        // instance FX also uses "instance_fx_index".
+                        .try_borrow_mut()
+                        .ok()?
+                        .instance_fx_descriptor()
+                        .resolve(context, compartment)
+                        .ok()
+                        .and_then(|fxs| fxs.into_iter().next())
+                        .map(|fx| fx.index() as f64);
+                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
                 }
                 "tcp_fx_indexes" => {
                     let i = extract_first_arg_as_positive_integer(args)?;
