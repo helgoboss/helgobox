@@ -682,6 +682,8 @@ impl<'a> MappingModelWithContext<'a> {
         Ok(result)
     }
 
+    /// If this returns `true`, the Speed sliders will be shown, allowing relative
+    /// increments/decrements to be throttled or multiplied.
     pub fn uses_step_counts(&self) -> bool {
         let mode = self.mapping.create_mode();
         if mode.settings().make_absolute {
@@ -697,7 +699,13 @@ impl<'a> MappingModelWithContext<'a> {
             Some(t) => t,
         };
         match target.control_type(self.context.control_context()) {
-            ControlType::AbsoluteContinuousRetriggerable => false,
+            ControlType::AbsoluteContinuousRetriggerable => {
+                // Retriggerable targets which can't report the current value and are pure triggers.
+                // In #613, we introduced a convenient behavior that allows encoder movements
+                // trigger such targets. But we want to support throttling the encoder speed, so
+                // we consider this as using step counts.
+                !target.can_report_current_value()
+            }
             ControlType::AbsoluteContinuous => false,
             ControlType::AbsoluteContinuousRoundable { .. } => false,
             ControlType::AbsoluteDiscrete { .. } => true,
