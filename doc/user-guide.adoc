@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-06-17 (v2.13.0-pre.7)`
+|Last update of text: |`2022-06-21 (v2.13.0-pre.9)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -549,7 +549,7 @@ This allows you to save all currently visible mappings as a new preset. Please c
  FX instances _within the current project_. This would somehow defeat the purpose of presets because what good
  are presets that are usable only within one project? That's why ReaLearn also offers you to automatically
  convert such mappings to project-independent mappings by applying the following transformations:
-*** FX targets are changed to refer to _currently focused FX_* instead of a particular one. Their track is set to
+*** FX targets are changed to refer to _current instance FX_* instead of a particular one. Their track is set to
  *&lt;This&gt;* because it doesn't matter anyway.
 *** Track targets are changed to refer to a track via its position instead of its ID.
 ** If this is not what you want, you can choose to say no and make modifications yourself.
@@ -629,7 +629,7 @@ Attempts to make the sources in the main compartment virtual by matching them wi
 Changes the targets of all currently listed mappings to use "sticky" object selectors by attempting to resolve the objects from non-sticky selectors. We call object selectors _sticky_ if they refer to a very particular object (e.g. a track).
 
 * Sticky selectors: `<Master>`, `<This>`, `By ID`
-* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<All selected>`, `By position`, `By name`, `All by name`
+* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Instance>`, <All selected>`, `By position`, `By name`, `All by name`
 
 
 ====== Move listed mappings to group
@@ -677,8 +677,8 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
  track is unarmed (*this is subject to change in future!*).
 * *Make instance superior:* If ticked, this instance is allowed to suspend other instances which share the same
  input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your
- controller control the currently focused FX but fall back to your usual controls when it's closed. It's intended
- to be used primarily on instances that use &quot;Auto-load: Depending on focused FX&quot;.
+ controller control e.g. the currently focused FX but fall back to your usual controls when it's closed. It's intended
+ to be used primarily on instances that use &quot;Auto-load: Depending on instance FX&quot;.
 ** By default, ReaLearn instances are not superior, just normal. This is often okay because ReaLearn instances
  are friendly fellows and like sharing controllers with each other.
 ** For example, if 2 instances use the same input or output device and they use different control elements, they
@@ -831,9 +831,23 @@ where it doesn't work though. In this case you can send feedback manually using 
 [#bottom-panel]
 ==== Bottom panel
 
-At the bottom you can see the current scroll position, version information and tags assigned to this ReaLearn instance.
+At the bottom you can see the current scroll position, optional tags assigned to this ReaLearn instance, information about the current instance track and instance FX, as well as information about what version of ReaLearn you have.
 
 * *Edit tags...:* Press this button to assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
+
+[#instance-track]
+===== Instance track
+
+The second line of the bottom panel shows the current track chosen as **Instance track** for this instance of ReaLearn. This can be something like "Track 3" or "The currently selected track". Mappings in this ReaLearn instance can refer to this track by choosing the track selector <<instance-selector>>.
+
+The instance track can be changed via target <<track-target>>.
+
+[#instance-fx]
+===== Instance FX
+
+The second line of the bottom panel also shows the current FX chosen as **Instance FX** for this instance of ReaLearn. This can be something like "FX 5 on track 3" or "The currently focused track". Mappings in this ReaLearn instance can refer to this FX by choosing the FX selector <<instance-selector>>.
+
+The instance FX can be changed via target <<fx-target>>.
 
 ==== Common compartment settings
 
@@ -956,9 +970,8 @@ The header panel for main mappings consists of a few more user interface element
 
 ===== Auto-load
 
-If you switch this to _Depending on focused FX_, ReaLearn will start to observe which
- FX window is currently focused. Whenever the focus changes, it will check if you have linked a compartment preset
- to it and will automatically load it. Whenever a non-linked FX gets focus or the linked FX is closed, the mapping
+If you switch this to _Depending on instance FX_, ReaLearn will start to observe the <<instance-fx>> of this ReaLearn instance. By default, the instance FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused. Whenever the instance FX changes, it will check if you have linked a compartment preset
+ to it and will automatically load it. Whenever the instance FX switches to an unlinked FX, the mapping
  list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
  presets. Read on!
 The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main
@@ -995,7 +1008,7 @@ and `Pianoteq 7 STAGE.vst3` (VST3).
 
 ====== Instance-wide FX-to-preset links
 
-This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn instance. This is useful if you have 2 controllers (= and therefore 2 ReaLearn instances) and want them to auto-load different presets although the same plug-in is focused.
+This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn instance. This is useful if you have 2 controllers (= and therefore 2 ReaLearn instances) and want them to auto-load different presets although the instance FX points to the same plug-in.
 
 ====== Options → Use instance-wide FX-to-preset links only
 
@@ -2010,6 +2023,11 @@ Targets that need a track, FX, FX parameter or send/receive have dropdowns that 
 
 NOTE: The descriptions below are sometimes a bit tailored to _track_ objects but the same applies to all other objects that support it.
 
+[#instance-selector]
+====== Instance
+
+This selector makes the target work on the current <<instance-track>> or current <<instance-fx>> of this particular ReaLearn instance.
+
 ====== By ID
 
 Lets you pick a specific object (e.g. track) and refer to it by its unique ID. This is the default and
@@ -2142,6 +2160,7 @@ If checked, this mapping will be active only if the track set in _Track_ is curr
 Track which hosts this ReaLearn instance. If ReaLearn is on the monitoring FX
 chain, this resolves to the master track of the current project.
 
+[#selected-selector]
 ====== Selector <Selected>
 
 Currently selected track. If multiple tracks are selected, refers only to the first one.
@@ -2517,9 +2536,18 @@ This target supports the following additional placeholders in textual feedback e
 |target.bookmark.name | Name of the bookmark
 |===
 
+[#track-target]
 ====== Track
 
-A target that allows you to define a track. It does nothing really useful at the moment but is suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
+A target that allows you to define a track.
+
+The setting **Act/Tags** stands for "Action / Instance tags" and decides what happens when a control messages arrives, e.g. a button press:
+
+- **None (feedback only):** With this setting, nothing will happen. It's suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
+- **Set (as instance track):** The button press will set the track defined in this target as <<instance-track>> _without resolving it before_. For example, if this target defines to use the currently selected track (<<selected-selector>>), pressing the button will make the instance track dynamically reflect whatever track is selected.
+- **Pin (as instance track):** The button press will resolve the track defined in this target and set the result as <<instance-track>>. For example, if this target defines to use the currently selected track, pressing the button will check which track is currently selected and set the instance track to exactly this track. It will stay that way even if the user selects another track.
+
+The text field to the right defines contains **Instance tags** of the ReaLearn instances whose instance track should be changed. If it's empty, the current instance will be affected.
 
 ====== Track: Arm/disarm
 
@@ -2651,6 +2679,14 @@ To be used with endless rotary encoders or previous/next-style "Incremental butt
 
 * *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating
  window.
+
+
+[#fx-target]
+====== FX
+
+A target that allows you to define an FX, in its basic variant perfect for acquiring feedback for a specific FX.
+
+The setting **Act/Tags** allows you to optionally set/pin the declared FX as <<instance-fx>>. This works pretty much the same as described in target <<track-target>>.
 
 [#fx-enabledisable]
 ====== FX: Enable/disable
@@ -3990,12 +4026,9 @@ Now let's save your newly created set of mappings as preset and link the preset 
 [discrete]
 ==== Step 4: Activate "Auto-load"
 
-Now you just have to set _Auto-load_ to _Depending on focused FX_ and ReaLearn will activate your "Vital" preset
+Now you just have to set _Auto-load_ to _Depending on instance FX_. Since the <<instance-fx>> is by default the currently focused FX, ReaLearn will from now on activate your "Vital" preset
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
-
-*Attention:* "Auto-load" currently doesn't work when focusing FX which is located on the monitoring FX chain
-itself!
 
 == FAQ
 
