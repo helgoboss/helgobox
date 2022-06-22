@@ -1,0 +1,50 @@
+= ReaLearn - Main Presets
+:toc:
+:toclevels: 5
+:sectnums:
+:sectnumlevels: 2
+
+== Introduction
+
+The number of _main_ presets in the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/main-presets/unofficial[list of unofficial main presets] is relatively small because ReaLearn is all about enabling you
+to quickly come up with your own customized mappings. The few main presets available primarily exist to give you
+some inspiration and to provide you with a good starting point for your own presets. If you like one preset and need it
+to be stable, it's best if you make your own copy of it and use this one (because I might update it at a later point,
+potentially introducing changes that you don't want).
+
+Another purpose of the main presets in this repository is to demonstrate one big advantage of separating controller
+presets from main presets: You can freely combine them on a mix-and-match basis. This enables you to get out-of-the-box
+access to all kinds of interesting control scenarios with potentially very different controllers.
+
+Speaking of _freely_. Of course, this only works as long as controller and main presets share the same philosophy
+and virtual control element naming/numbering. _A controller preset is not automagically compatible with a main preset!_
+As you can imagine, there are far too many types of controllers and control scenarios out there to make this
+work in all cases. However, ReaLearn provides many means to get close to this ideal.
+
+In order to make it easier for users to know which main presets are compatible with which controller presets, ReaLearn
+is in the process of introducing so-called domains. For now, the following domains are considered:
+
+* *DAW:* For typical Mackie-style DAW control elements.
+* *Grid:* For grid-control elements such as the ones on the Launchpad.
+* *Numbered:* For control elements that are best represented as increasing numbers, e.g. a simple generic row of knobs.
+
+The general idea is:
+
+* Controller presets _cover_ domains.
+** E.g. the Akai APC Key 25 has control elements of all the mentioned domains.
+* A controller should not double-expose one single control element under different virtual control element names.
+* Main presets _support_ domains.
+** E.g. they could assign a track volume change to both the numbered multi control element 5 ("Numbered" domain) and
+to the named multi control element `ch5/fader` ("DAW" domain) by using 2 mappings with the same target.
+Then we say this preset supports both domains.
+
+== Main presets
+
+=== DAW control
+
+*Supported domains:* DAW
+
+* A preset that emulates the typical "Mackie Control"-style DAW control. Not completely, but a large part.
+* Is compatible with any controller preset that covers the DAW domain.
+* Tested with controllers X-Touch One and iCON Platform M+ so far.
+* Is a work in progress and will be improved over time.
