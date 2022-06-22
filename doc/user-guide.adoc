@@ -837,9 +837,10 @@ Using an existing preset might save you a lot of mapping work (and possibly also
 
 === List of controller and main presets
 
-The list of currently available controller presets has moved link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[here].
+The lists of currently available controller and main presets are now available in separate documents:
 
-The list of currently available main presets has moved link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/README.adoc[here].
+- link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[Controller presets]
+- link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/README.adoc[Main presets]
 
 
 
