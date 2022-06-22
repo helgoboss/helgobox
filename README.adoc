@@ -98,7 +98,9 @@ TIP: Keep in mind: Even if your controller is not on the list, you probably can 
 
 === Video
 
-We also have an https://www.youtube.com/watch?v=dUPyqYaIkYA[introduction video]. Watch 2 minutes to get a first
+link:https://www.youtube.com/watch?v=4ySGt9Ejc-M&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=1[The ReaLearn Tutorials] is a fairly new ongoing series of short video tutorials available.
+
+There's also a quite long https://www.youtube.com/watch?v=dUPyqYaIkYA[introduction video] from 2021. Watch 2 minutes to get a first
 impression and stay tuned if you are interested in the details.
 
 === Quick start
