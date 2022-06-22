@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-06-21 (v2.13.0-pre.9)`
+|Last update of text: |`2022-06-22 (v2.13.0-pre.10)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -2109,6 +2109,18 @@ E.g. if 2 tracks are selected, `selected_track_indexes[0]` gives you the index o
 | this_track_index | Integer >= -1 | Track selectors |
 
 Resolves to the zero-based index of the track on which this ReaLearn instance is located.
+
+| instance_track_index | Integer >= -1 | Track selectors |
+
+Resolves to the zero-based index of the instance track of this ReaLearn instance.
+
+| this_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of this ReaLearn FX instance.
+
+| instance_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of the instance FX of this ReaLearn instance.
 
 | tcp_fx_indexes | Array of integers >= 0 | FX selectors |
 
