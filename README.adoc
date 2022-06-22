@@ -85,9 +85,7 @@ https://www.helgoboss.org/projects/realearn/user-guide[HTML (website)].
 
 === Supported controllers
 
-*ReaLearn is designed to be generic and support any controller.* That's why you won't find a definitive list of supported controllers!
-
-But there's a link:doc/controllers.adoc[list of tested controllers].
+ReaLearn is designed to be generic and support any controller. That's why you won't find a definitive list of supported controllers! But there's a link:doc/controllers.adoc[list of tested controllers].
 
 TIP: Keep in mind: Even if your controller is not on the list, you probably can make it work with ReaLearn!
 

@@ -1,4 +1,4 @@
-= ReaLearn Controller Presets
+= ReaLearn - Controllers
 :toc:
 :toclevels: 5
 :sectnums:
@@ -20,7 +20,7 @@ if you have tested a controller and would like to add something to this section.
 Disclaimer: The information in this document is given to the best of my knowledge. It could be wrong or outdated.
 
 
-== List of tested control standards
+== List of control standards
 
 === Mackie Control
 
@@ -93,7 +93,7 @@ If you want to target both lines at once because your text is quite long, you ca
 
 
 [#presets-for-specific-controllers]
-== List of tested controllers
+== List of controllers
 
 TIP: The philosophy of most official _controller_ presets is to model the controller as faithfully as
 possible by providing a 1:1 mapping of real control elements to virtual control elements. Depending on the type of
