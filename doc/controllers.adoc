@@ -4,10 +4,9 @@
 :sectnums:
 :sectnumlevels: 2
 
-IMPORTANT: ReaLearn is designed to support any controller, so even if your controller is not on the list, you probably can make it work with ReaLearn!
-
 == Introduction
 
+IMPORTANT: ReaLearn is designed to support any controller, so even if your controller is not on the list, you probably can make it work with ReaLearn!
 
 The purpose of this document is to write about experiences with specific controllers that have been tested in
 combination with ReaLearn.
@@ -21,7 +20,7 @@ if you have tested a controller and would like to add something to this section.
 Disclaimer: The information in this document is given to the best of my knowledge. It could be wrong or outdated.
 
 
-== Presets for control standards
+== List of tested control standards
 
 === Mackie Control
 
@@ -94,7 +93,7 @@ If you want to target both lines at once because your text is quite long, you ca
 
 
 [#presets-for-specific-controllers]
-== Presets for specific controllers
+== List of tested controllers
 
 TIP: The philosophy of most official _controller_ presets is to model the controller as faithfully as
 possible by providing a 1:1 mapping of real control elements to virtual control elements. Depending on the type of

@@ -87,14 +87,14 @@ https://www.helgoboss.org/projects/realearn/user-guide[HTML (website)].
 
 *ReaLearn is designed to be generic and support any controller.* That's why you won't find a definitive list of supported controllers!
 
-But it can still be useful to have a list of _tested_ controllers. The link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[Controller presets] document is essentially that.
+But there's a link:doc/controllers.adoc[list of tested controllers].
 
 TIP: Keep in mind: Even if your controller is not on the list, you probably can make it work with ReaLearn!
 
 === Available presets
 
-- link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[Controller presets]
-- link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/README.adoc[Main presets]
+- link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[Controller presets]
+- link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[Main presets]
 
 === Video
 

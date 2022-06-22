@@ -779,7 +779,7 @@ As always: Choose the right tool for the job and consider starting off with the 
 
 
 [#tested-controllers]
-== Controller compatibility
+== Controller support
 
 === Explanation
 
@@ -809,7 +809,7 @@ activation)
 *** <<raw-midi-source,Raw MIDI source>> (for sending MIDI sys-ex data in response to target value changes)
 *** <<script-source,MIDI script source>> (same but for more complex scenarios)
 
-So even ReaLearn is made for any controller, it's still useful to have a list of specific controllers and how they work in combination with ReaLearn. This list is available link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[here]
+So even ReaLearn is made for any controller, it's still useful to have a list of specific controllers and how they work in combination with ReaLearn. This list is available link:https://github.com/helgoboss/realearn/tree/master/doc/controllers.adoc[here]
 
 === General tips regarding controller setup and usage
 
@@ -835,12 +835,16 @@ Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack
 Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
 ====
 
-=== List of controller and main presets
+=== List of tested controllers
 
-The lists of currently available controller and main presets are now available in separate documents:
+The list of tested controllers is now available as link:https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc[separate document].
 
-- link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[Controller presets]
-- link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/README.adoc[Main presets]
+== Available presets
+
+The lists of currently available controller and main presets are available here:
+
+- link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[Controller presets]
+- link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[Main presets]
 
 
 
