@@ -4114,9 +4114,9 @@ As always: Choose the right tool for the job and consider starting off with the 
 
 
 [#tested-controllers]
-== Tested controllers
+== Controller compatibility
 
-=== Introduction
+=== Explanation
 
 ReaLearn strives to support any general-purpose MIDI/OSC controller out there. However, there are some things you should know:
 
@@ -4170,10 +4170,8 @@ Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack
 Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
 ====
 
-=== List of controller presets
+== List of controller and main presets
 
 The list of currently available controller presets has moved link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/README.adoc[here].
-
-== List of main presets
 
 The list of currently available main presets has moved link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets/README.adoc[here].
