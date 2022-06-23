@@ -46,6 +46,7 @@ pub trait SessionUi {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
+    fn midi_devices_changed(&self);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     fn clip_matrix_polled(
         &self,
@@ -2398,6 +2399,9 @@ impl DomainEventHandler for WeakSession {
             }
             FullResyncRequested => {
                 session.borrow_mut().full_sync();
+            }
+            MidiDevicesChanged => {
+                session.try_borrow()?.ui.midi_devices_changed();
             }
             ProjectionFeedback(value) => {
                 let s = session.try_borrow()?;

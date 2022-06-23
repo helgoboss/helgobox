@@ -1685,6 +1685,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        // Inform UI of MIDI device changes
+        if matches!(
+            evt.payload(),
+            ReaperMessage::MidiDevicesConnected(_) | ReaperMessage::MidiDevicesDisconnected(_)
+        ) {
+            self.basics
+                .event_handler
+                .handle_event_ignoring_error(DomainEvent::MidiDevicesChanged);
+        }
         // Then let mappings with REAPER sources process them, if controlling enabled.
         if self.basics.control_mode != ControlMode::Controlling {
             return;

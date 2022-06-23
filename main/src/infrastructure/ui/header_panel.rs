@@ -94,6 +94,14 @@ impl HeaderPanel {
         }
     }
 
+    pub fn handle_changed_midi_devices(&self) {
+        if !self.is_open() {
+            return;
+        }
+        self.invalidate_control_input_combo_box();
+        self.invalidate_feedback_output_combo_box();
+    }
+
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
         if !self.is_open() {
             return;
@@ -500,7 +508,7 @@ impl HeaderPanel {
                         item("User guide for latest version (HTML, online)", || {
                             ContextMenuAction::OpenOnlineUserGuide
                         }),
-                        item("List of controllers (online)", || {
+                        item("List of controllers", || {
                             ContextMenuAction::OpenControllerList
                         }),
                         item("Forum", || ContextMenuAction::OpenForum),

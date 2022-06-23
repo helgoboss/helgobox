@@ -303,6 +303,12 @@ impl MainPanel {
         }
     }
 
+    fn handle_changed_midi_devices(&self) {
+        if let Some(data) = self.active_data.borrow() {
+            data.header_panel.handle_changed_midi_devices();
+        }
+    }
+
     fn edit_tags(&self) {
         let initial_csv = self
             .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
@@ -379,6 +385,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn parameters_changed(&self, session: &Session) {
         upgrade_panel(self).handle_changed_parameters(session);
+    }
+
+    fn midi_devices_changed(&self) {
+        upgrade_panel(self).handle_changed_midi_devices();
     }
 
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {

@@ -24,6 +24,7 @@ pub enum DomainEvent<'a> {
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
+    MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
