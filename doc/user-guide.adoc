@@ -48,7 +48,7 @@ The option _Do not send reset messages_ isn't available in older REAPER versions
     - When you are done, switch back to the _Main compartment_.
 . Add and learn your first mapping
   * Add a first mapping by pressing the _Add one_ button.
-    - A mapping appears that's still inactive (indicated by the grey text color).
+    - A mapping appears that doesn't do anything yet because it just has a dummy target.
   * Press _Learn source_ and move a control element on your MIDI controller.
   * Press _Learn target_ and move e.g. the volume fader of a track.
   * Now your control element should control the track volume.

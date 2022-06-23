@@ -500,6 +500,9 @@ impl HeaderPanel {
                         item("User guide for latest version (HTML, online)", || {
                             ContextMenuAction::OpenOnlineUserGuide
                         }),
+                        item("List of controllers (online)", || {
+                            ContextMenuAction::OpenControllerList
+                        }),
                         item("Forum", || ContextMenuAction::OpenForum),
                         item("Contact developer", || ContextMenuAction::ContactDeveloper),
                         item("Website", || ContextMenuAction::OpenWebsite),
@@ -695,6 +698,7 @@ impl HeaderPanel {
             ContextMenuAction::ChangeSessionId => self.change_session_id(),
             ContextMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
             ContextMenuAction::OpenOnlineUserGuide => self.open_user_guide_online(),
+            ContextMenuAction::OpenControllerList => self.open_controller_list(),
             ContextMenuAction::OpenForum => self.open_forum(),
             ContextMenuAction::ContactDeveloper => self.contact_developer(),
             ContextMenuAction::OpenWebsite => self.open_website(),
@@ -1437,10 +1441,7 @@ impl HeaderPanel {
         b.fill_combo_box_with_data_small(
             [
                 (-100isize, generate_midi_device_heading()),
-                (
-                    -1isize,
-                    "<FX input> (no support for MIDI clock sources)".to_string(),
-                ),
+                (-1isize, "<FX input>".to_string()),
             ]
             .into_iter()
             .chain(
@@ -2293,6 +2294,10 @@ impl HeaderPanel {
         open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc");
     }
 
+    fn open_controller_list(&self) {
+        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc");
+    }
+
     fn donate(&self) {
         open_in_browser("https://paypal.me/helgoboss");
     }
@@ -2855,6 +2860,7 @@ enum ContextMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     OpenOfflineUserGuide,
     OpenOnlineUserGuide,
+    OpenControllerList,
     OpenForum,
     ContactDeveloper,
     OpenWebsite,
