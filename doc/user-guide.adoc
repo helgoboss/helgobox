@@ -224,12 +224,14 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 [#troubleshooting]
 ==== Troubleshooting
 
+[discrete]
 ==== ReaLearn doesn't appear in the list of plug-ins
 
 - Make sure you look in the *VSTi* section (ReaLearn is an instrument).
 - If REAPER crashes when scanning for plug-ins and the crash message shows something like `reaper_host64` or `reaper_host32`, you either have a 32/64-bit version mismatch or you have _Preferences → Plug-ins → Compatibility → VST bridging/firewalling_ set to "In separate plug-in process" or "In dedicated process per plug-in". Please see the https://github.com/helgoboss/realearn#installation[installation instructions on the
 project website] for hints how to fix this.
 
+[discrete]
 ==== ReaLearn doesn't learn MIDI messages
 
 If the label remains at "Stop" at step 3, that means ReaLearn doesn't see the incoming MIDI messages. You need to have a look at your MIDI setup.
