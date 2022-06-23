@@ -185,6 +185,18 @@ system-exclusive MIDI messages to control the LEDs.
 * This is one of the devices which needs the "Send feedback after control" workaround for the "Toggle button" mode,
 so the pad LEDs might flicker a bit when using it.
 
+=== https://www.behringer.com/product.html?modelCode=P0246[Behringer BCF2000]
+
+There's an link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/behringer-bcf2000[unofficial preset] contributed by http://github.com/tanders/[Torsten Anders].
+
+=== https://www.behringer.com/product.html?modelCode=P0089[Behringer FCB1010]
+
+There are https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/behringer-fcb1010[unofficial presets] contributed by faldurn.
+
+=== https://www.behringer.com/product.html?modelCode=P0AYR[Behringer MOTÖR 61/49]
+
+There are https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/behringer-motoer[unofficial presets] contributed by faldurn.
+
 === Behringer X32
 
 I haven't tried this device myself but users reported that its OSC implementation can't deal with OSC bundles, only with
@@ -257,9 +269,11 @@ Works out of the box with above mentioned restrictions.
 * *Mackie Control*: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
 X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
 
-=== Behringer X-Touch Mini
+=== https://www.behringer.com/product.html?modelCode=P0B3M[Behringer X-Touch Mini]
 
 From what I've heard, configuration is similar to the X-Touch Compact.
+
+There's also an https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/behringer-x-touch-mini[unofficial preset] contributed by Thomas.
 
 === Behringer X-Touch One
 
@@ -437,6 +451,10 @@ just make sure you use "Mackie" mode. It provides the best settings out of the b
 * *iCON Platform M+*: Preferred because also provides a controller layout.
 * *Mackie Control*: Also works but doesn't offer a controller layout.
 
+=== https://www.korg.com/products/computergear/nanokontrol2/[Korg nanoKONTROL2]
+
+There are https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/korg-nanokontrol2[unofficial presets] contributed by ketstert.
+
 === Korg padKONTROL
 
 [discrete]
@@ -444,6 +462,10 @@ just make sure you use "Mackie" mode. It provides the best settings out of the b
 
 * *Korg padKONTROL* (contributed by Roger Green)
 ** Made for scene 1 and channel 15.
+
+=== https://nektartech.com/panorama-p4-p6/[Nektar Panorama P6]
+
+There's an https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/nektar-panorama-p6[unofficial preset] contributed by Torsten Anders.
 
 === Novation Launchpad Pro
 
