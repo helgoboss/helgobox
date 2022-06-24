@@ -996,7 +996,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         activation_effects: Vec<MappingActivationEffect>,
         refresh_targets: bool,
     ) {
-        if activation_effects.is_empty() {
+        if activation_effects.is_empty() && !refresh_targets {
             return;
         }
         // Mapping activation is supported for both compartments and target activation
