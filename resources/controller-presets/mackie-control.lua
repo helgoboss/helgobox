@@ -610,6 +610,22 @@ for ch = 0, channel_count - 1 do
             id = prefix.."v-pot",
         },
     }
+    local v_pot_feedback_default = {
+        id = prefix.."v-pot/feedback",
+        group = "v-pot-leds",
+        control_enabled = false,
+        source = {
+            kind = "MidiRaw",
+            pattern = "B0 3"..ch.." [0000 dcba]",
+        },
+        glue = {
+            source_interval = {0, 0.75},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."v-pot",
+        },
+    }
     local v_pot_feedback_wrap = {
         id = prefix.."v-pot/wrap",
         group = "v-pot-leds",
@@ -762,6 +778,7 @@ for ch = 0, channel_count - 1 do
     table.insert(mappings, select)
     table.insert(mappings, fader)
     table.insert(mappings, v_pot_control)
+    table.insert(mappings, v_pot_feedback_default)
     table.insert(mappings, v_pot_feedback_wrap)
     table.insert(mappings, v_pot_feedback_boost_cut)
     table.insert(mappings, v_pot_feedback_single)

@@ -856,6 +856,25 @@
       "controlIsEnabled": false
     },
     {
+      "id": "ch1/v-pot/feedback",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 30 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "ch1/v-pot/spread",
       "groupId": "v-pot-leds",
       "source": {
