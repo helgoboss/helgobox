@@ -783,6 +783,17 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             active_mappings_only: d
                 .active_mappings_only
                 .unwrap_or(defaults::TARGET_LOAD_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY),
+            mapping_snapshot: d.snapshot.unwrap_or_default(),
+            ..init(d.commons)
+        },
+        Target::SaveMappingSnapshots(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::SaveMappingSnapshot,
+            tags: convert_tags(d.tags.unwrap_or_default())?,
+            active_mappings_only: d
+                .active_mappings_only
+                .unwrap_or(defaults::TARGET_SAVE_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY),
+            mapping_snapshot: MappingSnapshotDesc::ById { id: d.snapshot_id },
             ..init(d.commons)
         },
         Target::CycleThroughGroupMappings(d) => TargetModelData {

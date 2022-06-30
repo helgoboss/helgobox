@@ -28,12 +28,12 @@ use realearn_api::persistence::{
     FxParameterValueTarget, FxToolTarget, FxVisibilityTarget, GoToBookmarkTarget,
     LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget,
     ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget,
-    RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
-    TrackPanTarget, TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget,
-    TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportActionTarget,
+    RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget,
+    SaveMappingSnapshotsTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget,
+    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
+    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -589,6 +589,17 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             active_mappings_only: Some(data.active_mappings_only),
+            snapshot: style.required_value(data.mapping_snapshot),
+        }),
+        SaveMappingSnapshot => T::SaveMappingSnapshots(SaveMappingSnapshotsTarget {
+            commons,
+            tags: convert_tags(&data.tags, style),
+            active_mappings_only: Some(data.active_mappings_only),
+            snapshot_id: data
+                .mapping_snapshot
+                .id()
+                .map(|id| id.to_string())
+                .unwrap_or_default(),
         }),
         NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {
             commons,

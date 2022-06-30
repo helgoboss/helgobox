@@ -87,7 +87,7 @@ impl MappingModelData {
         compartment: Compartment,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
-    ) -> MappingModel {
+    ) -> Result<MappingModel, &'static str> {
         self.to_model_flexible(
             compartment,
             &MigrationDescriptor::default(),
@@ -104,7 +104,7 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         conversion_context: &impl DataToModelConversionContext,
-    ) -> MappingModel {
+    ) -> Result<MappingModel, &'static str> {
         self.to_model_flexible(
             compartment,
             migration_descriptor,
@@ -126,7 +126,7 @@ impl MappingModelData {
         preset_version: Option<&Version>,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
-    ) -> MappingModel {
+    ) -> Result<MappingModel, &'static str> {
         let (key, id) = if let Some(key) = self.id.clone() {
             let id = conversion_context
                 .mapping_id_by_key(&key)
@@ -143,8 +143,8 @@ impl MappingModelData {
             conversion_context,
             processor_context,
             &mut model,
-        );
-        model
+        )?;
+        Ok(model)
     }
 
     /// This is for realtime mapping modification (with notification, no ID changes), e.g. for copy
@@ -154,14 +154,14 @@ impl MappingModelData {
         model: &mut MappingModel,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
-    ) {
+    ) -> Result<(), &'static str> {
         self.apply_to_model_internal(
             &MigrationDescriptor::default(),
             Some(App::version()),
             conversion_context,
             processor_context,
             model,
-        );
+        )
     }
 
     /// The processor context - if available - will be used to resolve some track/FX properties for
@@ -174,7 +174,7 @@ impl MappingModelData {
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         model: &mut MappingModel,
-    ) {
+    ) -> Result<(), &'static str> {
         use MappingCommand as P;
         model.change(P::SetName(self.name.clone()));
         model.change(P::SetTags(self.tags.clone()));
@@ -196,7 +196,7 @@ impl MappingModelData {
             compartment,
             conversion_context,
             migration_descriptor,
-        );
+        )?;
         model.change(P::SetIsEnabled(self.is_enabled));
         model.change(P::SetControlIsEnabled(self.enabled_data.control_is_enabled));
         model.change(P::SetFeedbackIsEnabled(
@@ -213,5 +213,6 @@ impl MappingModelData {
         model.change(P::SetFeedbackSendBehavior(feedback_send_behavior));
         let _ = model.set_advanced_settings(self.advanced.clone());
         model.change(P::SetVisibleInProjection(self.visible_in_projection));
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
-use ascii::{AsciiStr, AsciiString};
+use ascii::{AsciiChar, AsciiStr, AsciiString, ToAsciiChar};
 use core::fmt;
 
-/// String with a maximum of 16 ASCII characters.
+/// String with a maximum of 32 ASCII characters.
 ///
 /// It's useful in the audio thread because it can be cheaply copied and doesn't need allocation.
 /// If you are okay with allocation and need cheap cloning, you could just as well use an
@@ -49,6 +49,24 @@ impl<const N: usize> LimitedAsciiString<N> {
     pub fn as_slice(&self) -> &[u8] {
         &self.content[..(self.length as usize)]
     }
+}
+
+pub fn convert_to_identifier(text: &str) -> Result<SmallAsciiString, &'static str> {
+    let ascii_string: AsciiString = text
+        .chars()
+        // Remove all non-ASCII schars
+        .filter_map(|c| c.to_ascii_char().ok())
+        // Allow only letters, digits and underscore
+        .filter(|ch| ch.is_ascii_alphanumeric() || *ch == AsciiChar::UnderScore)
+        // Skip leading digits
+        .skip_while(|ch| ch.is_ascii_digit())
+        // No uppercase
+        .map(|ch| ch.to_ascii_lowercase())
+        .collect();
+    if ascii_string.is_empty() {
+        return Err("empty tag");
+    }
+    Ok(SmallAsciiString::from_ascii_str_cropping(&ascii_string))
 }
 
 impl<const N: usize> fmt::Display for LimitedAsciiString<N> {

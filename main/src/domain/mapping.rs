@@ -690,8 +690,8 @@ impl MainMapping {
 
     /// Returns `true` if the mapping itself and the target is active.
     ///
-    /// Doesn't check if explicitly enabled or disabled.
-    fn is_effectively_active(&self) -> bool {
+    /// Doesn't check if explicitly enabled or disabled!
+    pub fn is_effectively_active(&self) -> bool {
         is_effectively_active(
             &self.core.options,
             &self.activation_state,
@@ -705,8 +705,7 @@ impl MainMapping {
 
     /// Returns `true` if mapping & target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
-        self.is_effectively_active()
-            && (self.control_is_enabled() || self.core.options.feedback_is_effectively_enabled())
+        self.is_effectively_active() && (self.control_is_enabled() || self.feedback_is_enabled())
     }
 
     pub fn control_is_effectively_on(&self) -> bool {

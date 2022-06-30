@@ -965,7 +965,7 @@ impl HeaderPanel {
         } else {
             return;
         };
-        let mapping_models: Vec<_> = mapping_datas
+        let mapping_models: Result<Vec<_>, _> = mapping_datas
             .into_iter()
             .map(|mut data| {
                 data.id = None;
@@ -977,7 +977,12 @@ impl HeaderPanel {
                 )
             })
             .collect();
-        session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter());
+        match mapping_models {
+            Ok(mapping_models) => {
+                session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter())
+            }
+            Err(e) => self.notify_user_about_error(e.into()),
+        }
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -2116,8 +2121,12 @@ impl HeaderPanel {
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
         if let Err(e) = result {
-            self.view.require_window().alert("ReaLearn", e.to_string());
+            self.notify_user_about_error(e);
         }
+    }
+
+    fn notify_user_about_error(&self, e: Box<dyn Error>) {
+        self.view.require_window().alert("ReaLearn", e.to_string());
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {

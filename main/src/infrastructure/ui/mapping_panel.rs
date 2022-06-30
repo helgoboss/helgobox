@@ -36,12 +36,12 @@ use crate::application::{
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
+    MappingCommand, MappingModel, MappingProp, MappingSnapshotType, MidiSourceType, ModeCommand,
+    ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session,
+    SessionProp, SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel,
+    SourceProp, TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp,
+    TargetUnit, TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType,
+    VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
@@ -421,6 +421,9 @@ impl MappingPanel {
                                                 view.invalidate_window_title();
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
+                                            }
+                                            P::MappingSnapshotType | P::MappingSnapshotId => {
+                                                view.invalidate_target_line_2(initiator);
                                             }
                                             P::ControlElementId => {
                                                 view.invalidate_window_title();
@@ -2338,6 +2341,15 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetBookmarkAnchorType(bookmark_anchor_type),
                     ));
                 }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    let snapshot_type = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMappingSnapshotType(snapshot_type),
+                    ));
+                }
                 t if t.supports_feedback_resolution() => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid feedback resolution");
@@ -2733,6 +2745,13 @@ impl<'a> MutableMappingPanel<'a> {
                     let internal_value = human_value.saturating_sub(1);
                     self.change_mapping_with_initiator(
                         MappingCommand::ChangeTarget(TargetCommand::SetBookmarkRef(internal_value)),
+                        Some(edit_control_id),
+                    );
+                }
+                _ if self.mapping.target_model.supports_mapping_snapshot_id() => {
+                    let id = control.text().unwrap_or_default().parse().ok();
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetMappingSnapshotId(id)),
                         Some(edit_control_id),
                     );
                 }
@@ -3850,6 +3869,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
+                ReaperTargetType::SaveMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::NavigateWithinGroup => Some("Group"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
@@ -3900,7 +3920,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
-                    combo.select_only_combo_box_item("Initial");
+                    combo.fill_combo_box_indexed(MappingSnapshotType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.mapping_snapshot_type().into(),
+                        )
+                        .unwrap();
                 }
                 t if t.supports_feedback_resolution() => {
                     combo.show();
@@ -4106,6 +4131,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                 {
                     control.show();
                     let text = (self.target.bookmark_ref() + 1).to_string();
+                    control.set_text(text);
+                }
+                _ if self.mapping.target_model.supports_mapping_snapshot_id() => {
+                    control.show();
+                    let text = self
+                        .target
+                        .mapping_snapshot_id()
+                        .map(|id| id.to_string())
+                        .unwrap_or_default();
                     control.set_text(text);
                 }
                 _ => {

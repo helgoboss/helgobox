@@ -6,7 +6,8 @@ use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
     ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MappingKey,
-    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams, Tag,
+    MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
+    Param, PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -18,8 +19,11 @@ use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::data::clip_legacy::{
     create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
 };
+use helgoboss_learn::{AbsoluteValue, Fraction, UnitValue};
 use playtime_api::persistence::Matrix;
-use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
+use realearn_api::persistence::{
+    FxDescriptor, MappingInSnapshot, MappingSnapshot, TargetValue, TrackDescriptor,
+};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -114,6 +118,8 @@ pub struct SessionData {
     instance_track: TrackDescriptor,
     #[serde(default, skip_serializing_if = "is_default")]
     instance_fx: FxDescriptor,
+    #[serde(default, skip_serializing_if = "is_default")]
+    mapping_snapshots: Vec<MappingSnapshot>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -197,6 +203,7 @@ impl Default for SessionData {
             use_instance_preset_links_only: false,
             instance_track: Default::default(),
             instance_fx: session_defaults::INSTANCE_FX_DESCRIPTOR,
+            mapping_snapshots: vec![],
         }
     }
 }
@@ -303,6 +310,13 @@ impl SessionData {
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
             instance_fx: session.instance_fx_descriptor().clone(),
+            mapping_snapshots: {
+                let compartment_in_session = CompartmentInSession::new(session, Compartment::Main);
+                convert_mapping_snapshots_to_api(
+                    instance_state.mapping_snapshot_container(),
+                    &compartment_in_session,
+                )
+            },
         }
     }
 
@@ -319,6 +333,8 @@ impl SessionData {
         params: &PluginParams,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
+        let main_conversion_context =
+            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
@@ -363,6 +379,8 @@ impl SessionData {
                 Some(output)
             }
         };
+        let mapping_snapshot_container =
+            convert_mapping_snapshots_to_model(&self.mapping_snapshots, &main_conversion_context)?;
         // Mutation
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         if let Some(id) = &self.id {
@@ -411,8 +429,6 @@ impl SessionData {
                 .set_without_notification(unmatched);
         }
         // Groups
-        let main_conversion_context =
-            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
         let controller_conversion_context = SimpleDataToModelConversionContext::new(
             &self.controller_groups,
             &self.controller_mappings,
@@ -465,23 +481,25 @@ impl SessionData {
         session.set_groups_without_notification(Compartment::Controller, controller_groups);
         // Mappings
 
-        let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
-            let mappings: Vec<_> = mappings
-                .iter()
-                .map(|m| {
-                    m.to_model_flexible(
-                        compartment,
-                        &migration_descriptor,
-                        self.version.as_ref(),
-                        conversion_context(compartment),
-                        Some(session.extended_context_with_params(params)),
-                    )
-                })
-                .collect();
-            session.set_mappings_without_notification(compartment, mappings);
-        };
-        apply_mappings(Compartment::Main, &self.mappings);
-        apply_mappings(Compartment::Controller, &self.controller_mappings);
+        let mut apply_mappings =
+            |compartment, mappings: &Vec<MappingModelData>| -> Result<(), &'static str> {
+                let mappings: Result<Vec<_>, _> = mappings
+                    .iter()
+                    .map(|m| {
+                        m.to_model_flexible(
+                            compartment,
+                            &migration_descriptor,
+                            self.version.as_ref(),
+                            conversion_context(compartment),
+                            Some(session.extended_context_with_params(params)),
+                        )
+                    })
+                    .collect();
+                session.set_mappings_without_notification(compartment, mappings?);
+                Ok(())
+            };
+        apply_mappings(Compartment::Main, &self.mappings)?;
+        apply_mappings(Compartment::Controller, &self.controller_mappings)?;
         session.set_custom_compartment_data(
             Compartment::Controller,
             self.controller_custom_data.clone(),
@@ -563,6 +581,7 @@ impl SessionData {
             );
             instance_state
                 .set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
+            instance_state.set_mapping_snapshot_container(mapping_snapshot_container);
             // Check if some other instances waited for the clip matrix of this instance.
             App::get().with_weak_sessions(|sessions| {
                 let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
@@ -725,5 +744,73 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
 
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId> {
         self.mapping_id_by_key.get(key).copied()
+    }
+}
+
+fn convert_mapping_snapshots_to_api(
+    container: &MappingSnapshotContainer,
+    conversion_context: &impl ModelToDataConversionContext,
+) -> Vec<MappingSnapshot> {
+    container
+        .snapshots()
+        .map(|(snapshot_id, snapshot)| MappingSnapshot {
+            id: snapshot_id.to_string(),
+            mappings: snapshot
+                .target_values()
+                .filter_map(|(mapping_id, target_value)| {
+                    let m = MappingInSnapshot {
+                        id: conversion_context.mapping_key_by_id(mapping_id)?.into(),
+                        target_value: convert_target_value_to_api(target_value),
+                    };
+                    Some(m)
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+fn convert_mapping_snapshots_to_model(
+    api_snapshots: &[MappingSnapshot],
+    conversion_context: &impl DataToModelConversionContext,
+) -> Result<MappingSnapshotContainer, &'static str> {
+    let snapshots: Result<
+        HashMap<MappingSnapshotId, crate::domain::MappingSnapshot>,
+        &'static str,
+    > = api_snapshots
+        .iter()
+        .map(|api_snapshot| {
+            let id: MappingSnapshotId = api_snapshot.id.parse()?;
+            let target_values: Result<HashMap<_, _>, &'static str> = api_snapshot
+                .mappings
+                .iter()
+                .map(|api_mapping| {
+                    let mapping_key: MappingKey = api_mapping.id.clone().into();
+                    let id: MappingId = conversion_context
+                        .mapping_id_by_key(&mapping_key)
+                        .ok_or("couldn't find mapping with key")?;
+                    let absolute_value = convert_target_value_to_model(&api_mapping.target_value)?;
+                    Ok((id, absolute_value))
+                })
+                .collect();
+            let snapshot = crate::domain::MappingSnapshot::new(target_values?);
+            Ok((id, snapshot))
+        })
+        .collect();
+    Ok(MappingSnapshotContainer::new(snapshots?))
+}
+
+fn convert_target_value_to_api(value: AbsoluteValue) -> TargetValue {
+    match value {
+        AbsoluteValue::Continuous(v) => TargetValue::Normalized { value: v.get() },
+        AbsoluteValue::Discrete(v) => TargetValue::Discrete { value: v.actual() },
+    }
+}
+
+fn convert_target_value_to_model(value: &TargetValue) -> Result<AbsoluteValue, &'static str> {
+    match value {
+        TargetValue::Normalized { value } => {
+            Ok(AbsoluteValue::Continuous(UnitValue::try_from(*value)?))
+        }
+        TargetValue::Discrete { value } => Ok(AbsoluteValue::Discrete(Fraction::new_max(*value))),
     }
 }

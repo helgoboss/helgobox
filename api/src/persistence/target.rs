@@ -65,6 +65,7 @@ pub enum Target {
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
     LoadMappingSnapshots(LoadMappingSnapshotsTarget),
+    SaveMappingSnapshots(SaveMappingSnapshotsTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
     Virtual(VirtualTarget),
 }
@@ -740,6 +741,42 @@ pub struct LoadMappingSnapshotsTarget {
     pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_mappings_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<MappingSnapshotDesc>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SaveMappingSnapshotsTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_mappings_only: Option<bool>,
+    pub snapshot_id: String,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum MappingSnapshotDesc {
+    Initial,
+    ById { id: String },
+}
+
+impl MappingSnapshotDesc {
+    pub fn id(&self) -> Option<&str> {
+        match self {
+            MappingSnapshotDesc::Initial => None,
+            MappingSnapshotDesc::ById { id } => Some(&id),
+        }
+    }
+}
+
+impl Default for MappingSnapshotDesc {
+    fn default() -> Self {
+        Self::Initial
+    }
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
