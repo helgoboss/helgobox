@@ -10,6 +10,7 @@ use crate::domain::{
     Param, PluginParamIndex, PluginParams, Tag,
 };
 use crate::infrastructure::data::{
+    convert_target_value_to_api, convert_target_value_to_model,
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
     ParameterData,
 };
@@ -19,10 +20,9 @@ use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::data::clip_legacy::{
     create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
 };
-use helgoboss_learn::{AbsoluteValue, Fraction, UnitValue};
 use playtime_api::persistence::Matrix;
 use realearn_api::persistence::{
-    FxDescriptor, MappingInSnapshot, MappingSnapshot, TargetValue, TrackDescriptor,
+    FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
@@ -797,20 +797,4 @@ fn convert_mapping_snapshots_to_model(
         })
         .collect();
     Ok(MappingSnapshotContainer::new(snapshots?))
-}
-
-fn convert_target_value_to_api(value: AbsoluteValue) -> TargetValue {
-    match value {
-        AbsoluteValue::Continuous(v) => TargetValue::Normalized { value: v.get() },
-        AbsoluteValue::Discrete(v) => TargetValue::Discrete { value: v.actual() },
-    }
-}
-
-fn convert_target_value_to_model(value: &TargetValue) -> Result<AbsoluteValue, &'static str> {
-    match value {
-        TargetValue::Normalized { value } => {
-            Ok(AbsoluteValue::Continuous(UnitValue::try_from(*value)?))
-        }
-        TargetValue::Discrete { value } => Ok(AbsoluteValue::Discrete(Fraction::new_max(*value))),
-    }
 }

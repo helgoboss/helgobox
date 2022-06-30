@@ -33,6 +33,7 @@ pub struct UnresolvedLoadMappingSnapshotTarget {
     //  b) top-left-checkbox = control-checkbox
     pub active_mappings_only: bool,
     pub snapshot: VirtualMappingSnapshot,
+    pub default_value: Option<AbsoluteValue>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -82,6 +83,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
                 scope: self.scope.clone(),
                 active_mappings_only: self.active_mappings_only,
                 snapshot: self.snapshot.clone(),
+                default_value: self.default_value,
             },
         )])
     }
@@ -92,6 +94,7 @@ pub struct LoadMappingSnapshotTarget {
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot: VirtualMappingSnapshot,
+    pub default_value: Option<AbsoluteValue>,
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
@@ -120,6 +123,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             scope: self.scope.clone(),
             active_mappings_only: self.active_mappings_only,
             snapshot: self.snapshot.clone(),
+            default_value: self.default_value,
         };
         Ok(Some(Box::new(instruction)))
     }
@@ -156,6 +160,7 @@ struct LoadMappingSnapshotInstruction {
     scope: TagScope,
     active_mappings_only: bool,
     snapshot: VirtualMappingSnapshot,
+    default_value: Option<AbsoluteValue>,
 }
 
 impl LoadMappingSnapshotInstruction {
@@ -177,7 +182,7 @@ impl LoadMappingSnapshotInstruction {
                 if self.active_mappings_only && !m.is_effectively_active() {
                     return None;
                 }
-                let snapshot_value = get_snapshot_value(m)?;
+                let snapshot_value = get_snapshot_value(m).or_else(|| self.default_value)?;
                 context
                     .domain_event_handler
                     .notify_mapping_matched(m.compartment(), m.id());

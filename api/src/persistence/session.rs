@@ -24,6 +24,11 @@ pub struct MappingInSnapshot {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum TargetValue {
-    Normalized { value: f64 },
-    Discrete { value: u32 },
+    #[serde(alias = "Normalized")]
+    Unit {
+        value: f64,
+    },
+    Discrete {
+        value: u32,
+    },
 }

@@ -2,7 +2,8 @@ use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlType, Interval, OscArgDescriptor, OscTypeTag, Target, DEFAULT_OSC_ARG_VALUE_RANGE,
+    AbsoluteValue, ControlType, Interval, OscArgDescriptor, OscTypeTag, Target,
+    DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
@@ -150,6 +151,7 @@ pub enum TargetCommand {
     SetActiveMappingsOnly(bool),
     SetMappingSnapshotType(MappingSnapshotType),
     SetMappingSnapshotId(Option<MappingSnapshotId>),
+    SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
 }
 
 #[derive(PartialEq)]
@@ -237,6 +239,7 @@ pub enum TargetProp {
     ActiveMappingsOnly,
     MappingSnapshotType,
     MappingSnapshotId,
+    MappingSnapshotDefaultValue,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -523,6 +526,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.mapping_snapshot_id = v;
                 One(P::MappingSnapshotId)
             }
+            C::SetMappingSnapshotDefaultValue(v) => {
+                self.mapping_snapshot_default_value = v;
+                One(P::MappingSnapshotDefaultValue)
+            }
             C::SetClipSlot(s) => {
                 self.clip_slot = s;
                 One(P::ClipSlot)
@@ -689,6 +696,7 @@ pub struct TargetModel {
     tags: Vec<Tag>,
     mapping_snapshot_type: MappingSnapshotType,
     mapping_snapshot_id: Option<MappingSnapshotId>,
+    mapping_snapshot_default_value: Option<AbsoluteValue>,
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
@@ -763,6 +771,7 @@ impl Default for TargetModel {
             tags: Default::default(),
             mapping_snapshot_type: MappingSnapshotType::Initial,
             mapping_snapshot_id: None,
+            mapping_snapshot_default_value: None,
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
@@ -1020,6 +1029,10 @@ impl TargetModel {
 
     pub fn osc_address_pattern(&self) -> &str {
         &self.osc_address_pattern
+    }
+
+    pub fn mapping_snapshot_default_value(&self) -> Option<AbsoluteValue> {
+        self.mapping_snapshot_default_value
     }
 
     pub fn osc_arg_index(&self) -> Option<u32> {
@@ -2215,6 +2228,7 @@ impl TargetModel {
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
                             snapshot: self.virtual_mapping_snapshot()?,
+                            default_value: self.mapping_snapshot_default_value,
                         },
                     ),
                     TakeMappingSnapshot => UnresolvedReaperTarget::TakeMappingSnapshot(

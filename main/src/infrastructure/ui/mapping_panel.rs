@@ -45,7 +45,7 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
-use crate::domain::ui_util::parse_unit_value_from_percentage;
+use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
     KeyStrokePortability, PortabilityIssue, ReaperTargetType, SendMidiDestination,
@@ -424,6 +424,9 @@ impl MappingPanel {
                                             }
                                             P::MappingSnapshotType | P::MappingSnapshotId => {
                                                 view.invalidate_target_line_2(initiator);
+                                            }
+                                            P::MappingSnapshotDefaultValue => {
+                                                view.invalidate_target_line_3(initiator);
                                             }
                                             P::ControlElementId => {
                                                 view.invalidate_window_title();
@@ -2815,6 +2818,18 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(edit_control_id),
                     );
                 }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    let text = control.text().unwrap_or_default();
+                    let value = parse_unit_value_from_percentage(&text)
+                        .map(|uv| AbsoluteValue::Continuous(uv))
+                        .ok();
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(
+                            TargetCommand::SetMappingSnapshotDefaultValue(value),
+                        ),
+                        Some(edit_control_id),
+                    );
+                }
                 t if t.supports_fx() => match self.mapping.target_model.fx_type() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -4350,6 +4365,17 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let text = self.target.osc_address_pattern();
                     control.set_text(text);
                 }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    control.show();
+                    let text = self
+                        .target
+                        .mapping_snapshot_default_value()
+                        .map(|v| {
+                            format!("{} %", format_as_percentage_without_unit(v.to_unit_value()))
+                        })
+                        .unwrap_or_default();
+                    control.set_text(text);
+                }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type() {
                         VirtualFxType::Dynamic => self.target.fx_expression().to_owned(),
@@ -4388,6 +4414,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
+                ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
