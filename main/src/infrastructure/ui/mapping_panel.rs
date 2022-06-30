@@ -3869,7 +3869,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
-                ReaperTargetType::SaveMappingSnapshot => Some("Snapshot ID"),
+                ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::NavigateWithinGroup => Some("Group"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),

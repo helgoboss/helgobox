@@ -145,8 +145,8 @@ pub use track_monitoring_mode_target::*;
 mod load_mapping_snapshot_target;
 pub use load_mapping_snapshot_target::*;
 
-mod save_mapping_snapshot_target;
-pub use save_mapping_snapshot_target::*;
+mod take_mapping_snapshot_target;
+pub use take_mapping_snapshot_target::*;
 
 mod enable_mappings_target;
 pub use enable_mappings_target::*;

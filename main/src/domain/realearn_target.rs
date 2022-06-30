@@ -618,7 +618,7 @@ pub enum ReaperTargetType {
     EnableInstances = 38,
     EnableMappings = 36,
     LoadMappingSnapshot = 35,
-    SaveMappingSnapshot = 55,
+    TakeMappingSnapshot = 55,
     NavigateWithinGroup = 37,
 }
 
@@ -718,7 +718,7 @@ impl ReaperTargetType {
             EnableInstances => &ENABLE_INSTANCES_TARGET,
             EnableMappings => &ENABLE_MAPPINGS_TARGET,
             LoadMappingSnapshot => &LOAD_MAPPING_SNAPSHOT_TARGET,
-            SaveMappingSnapshot => &SAVE_MAPPING_SNAPSHOT_TARGET,
+            TakeMappingSnapshot => &SAVE_MAPPING_SNAPSHOT_TARGET,
             NavigateWithinGroup => &NAVIGATE_WITHIN_GROUP_TARGET,
         }
     }

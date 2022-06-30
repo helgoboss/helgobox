@@ -776,7 +776,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             },
             ..init(d.commons)
         },
-        Target::LoadMappingSnapshots(d) => TargetModelData {
+        Target::LoadMappingSnapshot(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LoadMappingSnapshot,
             tags: convert_tags(d.tags.unwrap_or_default())?,
@@ -786,9 +786,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             mapping_snapshot: d.snapshot.unwrap_or_default(),
             ..init(d.commons)
         },
-        Target::SaveMappingSnapshots(d) => TargetModelData {
+        Target::TakeMappingSnapshot(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::SaveMappingSnapshot,
+            r#type: ReaperTargetType::TakeMappingSnapshot,
             tags: convert_tags(d.tags.unwrap_or_default())?,
             active_mappings_only: d
                 .active_mappings_only

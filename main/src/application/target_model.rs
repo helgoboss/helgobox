@@ -37,9 +37,9 @@ use crate::domain::{
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
-    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
-    UnresolvedSaveMappingSnapshotTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
+    UnresolvedSelectedTrackTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
     UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
     UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
     UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
@@ -2217,8 +2217,8 @@ impl TargetModel {
                             snapshot: self.virtual_mapping_snapshot()?,
                         },
                     ),
-                    SaveMappingSnapshot => UnresolvedReaperTarget::SaveMappingSnapshot(
-                        UnresolvedSaveMappingSnapshotTarget {
+                    TakeMappingSnapshot => UnresolvedReaperTarget::TakeMappingSnapshot(
+                        UnresolvedTakeMappingSnapshotTarget {
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
                             snapshot_id: self
@@ -2440,7 +2440,7 @@ impl TargetModel {
         use ReaperTargetType::*;
         match self.r#type {
             LoadMappingSnapshot => self.mapping_snapshot_type == MappingSnapshotType::ById,
-            SaveMappingSnapshot => true,
+            TakeMappingSnapshot => true,
             _ => false,
         }
     }

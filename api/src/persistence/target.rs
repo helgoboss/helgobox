@@ -64,8 +64,9 @@ pub enum Target {
     Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
-    LoadMappingSnapshots(LoadMappingSnapshotsTarget),
-    SaveMappingSnapshots(SaveMappingSnapshotsTarget),
+    #[serde(alias = "LoadMappingSnapshots")]
+    LoadMappingSnapshot(LoadMappingSnapshotTarget),
+    TakeMappingSnapshot(TakeMappingSnapshotTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
     Virtual(VirtualTarget),
 }
@@ -734,7 +735,7 @@ pub struct EnableMappingsTarget {
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct LoadMappingSnapshotsTarget {
+pub struct LoadMappingSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -747,7 +748,7 @@ pub struct LoadMappingSnapshotsTarget {
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct SaveMappingSnapshotsTarget {
+pub struct TakeMappingSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

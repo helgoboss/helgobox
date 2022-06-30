@@ -7,7 +7,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
-pub struct UnresolvedSaveMappingSnapshotTarget {
+pub struct UnresolvedTakeMappingSnapshotTarget {
     /// Mappings which are not in the tag scope don't make it into the snapshot.
     pub scope: TagScope,
     /// Defines whether mappings that are inactive due to conditional activation should make it
@@ -19,14 +19,14 @@ pub struct UnresolvedSaveMappingSnapshotTarget {
     pub snapshot_id: MappingSnapshotId,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedSaveMappingSnapshotTarget {
+impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::SaveMappingSnapshot(
-            SaveMappingSnapshotTarget {
+        Ok(vec![ReaperTarget::TakeMappingSnapshot(
+            TakeMappingSnapshotTarget {
                 scope: self.scope.clone(),
                 active_mappings_only: self.active_mappings_only,
                 snapshot_id: self.snapshot_id.clone(),
@@ -36,15 +36,15 @@ impl UnresolvedReaperTargetDef for UnresolvedSaveMappingSnapshotTarget {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SaveMappingSnapshotTarget {
+pub struct TakeMappingSnapshotTarget {
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot_id: MappingSnapshotId,
 }
 
-impl RealearnTarget for SaveMappingSnapshotTarget {
+impl RealearnTarget for TakeMappingSnapshotTarget {
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::SaveMappingSnapshot)
+        Some(ReaperTargetType::TakeMappingSnapshot)
     }
 
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
@@ -62,42 +62,7 @@ impl RealearnTarget for SaveMappingSnapshotTarget {
         if !value.is_on() {
             return Ok(None);
         }
-        struct SaveMappingSnapshotInstruction {
-            scope: TagScope,
-            active_mappings_only: bool,
-            snapshot_id: MappingSnapshotId,
-        }
-        impl HitInstruction for SaveMappingSnapshotInstruction {
-            fn execute(
-                self: Box<Self>,
-                context: HitInstructionContext,
-            ) -> Vec<MappingControlResult> {
-                let target_values = context
-                    .mappings
-                    .values_mut()
-                    .filter_map(|m| {
-                        if !m.control_is_enabled() {
-                            return None;
-                        }
-                        if self.scope.has_tags() && !m.has_any_tag(&self.scope.tags) {
-                            return None;
-                        }
-                        if self.active_mappings_only && !m.is_effectively_active() {
-                            return None;
-                        }
-                        let target_value =
-                            m.current_aggregated_target_value(context.control_context)?;
-                        Some((m.id(), target_value))
-                    })
-                    .collect();
-                let snapshot = MappingSnapshot::new(target_values);
-                let mut instance_state = context.control_context.instance_state.borrow_mut();
-                let snapshot_container = instance_state.mapping_snapshot_container_mut();
-                snapshot_container.update_snapshot(self.snapshot_id.clone(), snapshot);
-                vec![]
-            }
-        }
-        let instruction = SaveMappingSnapshotInstruction {
+        let instruction = TakeMappingSnapshotInstruction {
             // So far this clone is okay because saveing a snapshot is not something that happens
             // every few milliseconds. No need to use a ref to this target.
             scope: self.scope.clone(),
@@ -116,7 +81,7 @@ impl RealearnTarget for SaveMappingSnapshotTarget {
     }
 }
 
-impl<'a> Target<'a> for SaveMappingSnapshotTarget {
+impl<'a> Target<'a> for TakeMappingSnapshotTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -129,8 +94,40 @@ impl<'a> Target<'a> for SaveMappingSnapshotTarget {
 }
 
 pub const SAVE_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Save mapping snapshot",
-    short_name: "Save mapping snapshot",
+    name: "ReaLearn: Take mapping snapshot",
+    short_name: "Take mapping snapshot",
     supports_tags: true,
     ..DEFAULT_TARGET
 };
+
+struct TakeMappingSnapshotInstruction {
+    scope: TagScope,
+    active_mappings_only: bool,
+    snapshot_id: MappingSnapshotId,
+}
+impl HitInstruction for TakeMappingSnapshotInstruction {
+    fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult> {
+        let target_values = context
+            .mappings
+            .values_mut()
+            .filter_map(|m| {
+                if !m.control_is_enabled() {
+                    return None;
+                }
+                if self.scope.has_tags() && !m.has_any_tag(&self.scope.tags) {
+                    return None;
+                }
+                if self.active_mappings_only && !m.is_effectively_active() {
+                    return None;
+                }
+                let target_value = m.current_aggregated_target_value(context.control_context)?;
+                Some((m.id(), target_value))
+            })
+            .collect();
+        let snapshot = MappingSnapshot::new(target_values);
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let snapshot_container = instance_state.mapping_snapshot_container_mut();
+        snapshot_container.update_snapshot(self.snapshot_id.clone(), snapshot);
+        vec![]
+    }
+}
