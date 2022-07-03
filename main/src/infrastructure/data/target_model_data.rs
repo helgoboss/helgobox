@@ -4,9 +4,10 @@ use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
-    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetCommand,
-    TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    FxSnapshot, MappingSnapshotType, RealearnAutomationMode, RealearnTrackArea, TargetCategory,
+    TargetCommand, TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
@@ -22,12 +23,12 @@ use crate::infrastructure::data::{
     VirtualControlElementIdData,
 };
 use crate::infrastructure::plugin::App;
-use helgoboss_learn::OscTypeTag;
+use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxToolAction, MonitoringMode, TrackToolAction,
+    FxToolAction, MappingSnapshotDesc, MonitoringMode, TargetValue, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -144,6 +145,10 @@ pub struct TargetModelData {
     pub poll_for_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mapping_snapshot: MappingSnapshotDesc,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mapping_snapshot_default_value: Option<TargetValue>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub exclusivity: Exclusivity,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -271,6 +276,10 @@ impl TargetModelData {
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
             tags: model.tags().to_vec(),
+            mapping_snapshot: model.mapping_snapshot_desc(),
+            mapping_snapshot_default_value: model
+                .mapping_snapshot_default_value()
+                .map(convert_target_value_to_api),
             exclusivity: model.exclusivity(),
             group_id: conversion_context
                 .group_key_by_id(model.group_id())
@@ -304,7 +313,7 @@ impl TargetModelData {
         compartment: Compartment,
         context: ExtendedProcessorContext,
         conversion_context: &impl DataToModelConversionContext,
-    ) {
+    ) -> Result<(), &'static str> {
         self.apply_to_model_flexible(
             model,
             Some(context),
@@ -312,7 +321,7 @@ impl TargetModelData {
             compartment,
             conversion_context,
             &MigrationDescriptor::default(),
-        );
+        )
     }
 
     /// The context - if available - will be used to resolve some track/FX properties for UI
@@ -326,7 +335,7 @@ impl TargetModelData {
         compartment: Compartment,
         conversion_context: &impl DataToModelConversionContext,
         migration_descriptor: &MigrationDescriptor,
-    ) {
+    ) -> Result<(), &'static str> {
         use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
@@ -511,6 +520,20 @@ impl TargetModelData {
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
+        let (mapping_snapshot_type, mapping_snapshot_id) = match &self.mapping_snapshot {
+            MappingSnapshotDesc::Initial => (MappingSnapshotType::Initial, None),
+            MappingSnapshotDesc::ById { id } => (MappingSnapshotType::ById, id.parse().ok()),
+        };
+        model.change(C::SetMappingSnapshotType(mapping_snapshot_type));
+        model.change(C::SetMappingSnapshotId(mapping_snapshot_id));
+        let mapping_snapshot_default_value = match self.mapping_snapshot_default_value.as_ref() {
+            None => None,
+            Some(v) => Some(convert_target_value_to_model(v)?),
+        };
+        model.change(C::SetMappingSnapshotDefaultValue(
+            mapping_snapshot_default_value,
+        ));
+        Ok(())
     }
 }
 
@@ -1250,4 +1273,18 @@ pub fn get_first_guid_based_fx_at_index(
     let fx_chains = get_fx_chains(context, track, is_input_fx, compartment)?;
     let fx_chain = fx_chains.first().ok_or("empty list of FX chains")?;
     fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
+}
+
+pub fn convert_target_value_to_api(value: AbsoluteValue) -> TargetValue {
+    match value {
+        AbsoluteValue::Continuous(v) => TargetValue::Unit { value: v.get() },
+        AbsoluteValue::Discrete(v) => TargetValue::Discrete { value: v.actual() },
+    }
+}
+
+pub fn convert_target_value_to_model(value: &TargetValue) -> Result<AbsoluteValue, &'static str> {
+    match value {
+        TargetValue::Unit { value } => Ok(AbsoluteValue::Continuous(UnitValue::try_from(*value)?)),
+        TargetValue::Discrete { value } => Ok(AbsoluteValue::Discrete(Fraction::new_max(*value))),
+    }
 }

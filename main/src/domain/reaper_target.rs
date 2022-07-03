@@ -38,9 +38,9 @@ use crate::domain::{
     RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
     RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
     RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget,
-    TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
+    SelectedTrackTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
     TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
@@ -138,6 +138,7 @@ pub enum ReaperTarget {
     ClipVolume(ClipVolumeTarget),
     ClipManagement(ClipManagementTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
+    TakeMappingSnapshot(TakeMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
     EnableInstances(EnableInstancesTarget),
     NavigateWithinGroup(NavigateWithinGroupTarget),
@@ -628,6 +629,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipManagement(t) => t.current_value(context),
             ClipMatrix(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
+            TakeMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
             NavigateWithinGroup(t) => t.current_value(context),

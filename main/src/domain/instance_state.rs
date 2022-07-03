@@ -9,8 +9,8 @@ use rxrust::prelude::*;
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GroupId,
-    HardwareInputClipRecordTask, InstanceId, MappingId, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedMappingId, Tag, TrackDescriptor,
+    HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
+    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TrackDescriptor,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -79,6 +79,7 @@ pub struct InstanceState {
     //  - FxTargetDescriptor contains FxDescriptor contains VirtualFx
     //  ... where TrackTargetDescriptor contains the condition and TrackDescriptor doesn't.
     instance_fx_descriptor: FxDescriptor,
+    mapping_snapshot_container: MappingSnapshotContainer,
 }
 
 #[derive(Debug)]
@@ -181,7 +182,20 @@ impl InstanceState {
             copied_clips_in_row: vec![],
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
+            mapping_snapshot_container: Default::default(),
         }
+    }
+
+    pub fn set_mapping_snapshot_container(&mut self, container: MappingSnapshotContainer) {
+        self.mapping_snapshot_container = container;
+    }
+
+    pub fn mapping_snapshot_container(&self) -> &MappingSnapshotContainer {
+        &self.mapping_snapshot_container
+    }
+
+    pub fn mapping_snapshot_container_mut(&mut self) -> &mut MappingSnapshotContainer {
+        &mut self.mapping_snapshot_container
     }
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {

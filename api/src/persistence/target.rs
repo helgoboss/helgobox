@@ -1,4 +1,6 @@
-use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
+use crate::persistence::{
+    OscArgument, TargetValue, VirtualControlElementCharacter, VirtualControlElementId,
+};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -64,7 +66,9 @@ pub enum Target {
     Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
-    LoadMappingSnapshots(LoadMappingSnapshotsTarget),
+    #[serde(alias = "LoadMappingSnapshots")]
+    LoadMappingSnapshot(LoadMappingSnapshotTarget),
+    TakeMappingSnapshot(TakeMappingSnapshotTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
     Virtual(VirtualTarget),
 }
@@ -733,13 +737,51 @@ pub struct EnableMappingsTarget {
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct LoadMappingSnapshotsTarget {
+pub struct LoadMappingSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_mappings_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<MappingSnapshotDesc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<TargetValue>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TakeMappingSnapshotTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_mappings_only: Option<bool>,
+    pub snapshot_id: String,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum MappingSnapshotDesc {
+    Initial,
+    ById { id: String },
+}
+
+impl MappingSnapshotDesc {
+    pub fn id(&self) -> Option<&str> {
+        match self {
+            MappingSnapshotDesc::Initial => None,
+            MappingSnapshotDesc::ById { id } => Some(&id),
+        }
+    }
+}
+
+impl Default for MappingSnapshotDesc {
+    fn default() -> Self {
+        Self::Initial
+    }
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

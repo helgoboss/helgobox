@@ -2,7 +2,8 @@ use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlType, Interval, OscArgDescriptor, OscTypeTag, Target, DEFAULT_OSC_ARG_VALUE_RANGE,
+    AbsoluteValue, ControlType, Interval, OscArgDescriptor, OscTypeTag, Target,
+    DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
@@ -19,12 +20,12 @@ use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, OscDeviceId,
-    ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
-    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
-    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
-    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
+    MappingSnapshotId, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
+    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
     UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
     UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
@@ -38,15 +39,15 @@ use crate::domain::{
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
     UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
-    UnresolvedSelectedTrackTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
-    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
-    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
-    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
-    VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    UnresolvedSelectedTrackTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
+    VirtualMappingSnapshot, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -57,8 +58,8 @@ use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MonitoringMode, TrackDescriptorCommons,
-    TrackFxChain, TrackToolAction,
+    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDesc, MonitoringMode,
+    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -148,6 +149,9 @@ pub enum TargetCommand {
     SetExclusivity(Exclusivity),
     SetGroupId(GroupId),
     SetActiveMappingsOnly(bool),
+    SetMappingSnapshotType(MappingSnapshotType),
+    SetMappingSnapshotId(Option<MappingSnapshotId>),
+    SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
 }
 
 #[derive(PartialEq)]
@@ -233,6 +237,9 @@ pub enum TargetProp {
     Exclusivity,
     GroupId,
     ActiveMappingsOnly,
+    MappingSnapshotType,
+    MappingSnapshotId,
+    MappingSnapshotDefaultValue,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -511,6 +518,18 @@ impl<'a> Change<'a> for TargetModel {
                 self.active_mappings_only = v;
                 One(P::ActiveMappingsOnly)
             }
+            C::SetMappingSnapshotType(v) => {
+                self.mapping_snapshot_type = v;
+                One(P::MappingSnapshotType)
+            }
+            C::SetMappingSnapshotId(v) => {
+                self.mapping_snapshot_id = v;
+                One(P::MappingSnapshotId)
+            }
+            C::SetMappingSnapshotDefaultValue(v) => {
+                self.mapping_snapshot_default_value = v;
+                One(P::MappingSnapshotDefaultValue)
+            }
             C::SetClipSlot(s) => {
                 self.clip_slot = s;
                 One(P::ClipSlot)
@@ -675,6 +694,9 @@ pub struct TargetModel {
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
+    mapping_snapshot_type: MappingSnapshotType,
+    mapping_snapshot_id: Option<MappingSnapshotId>,
+    mapping_snapshot_default_value: Option<AbsoluteValue>,
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
@@ -747,6 +769,9 @@ impl Default for TargetModel {
             osc_dev_id: None,
             poll_for_feedback: true,
             tags: Default::default(),
+            mapping_snapshot_type: MappingSnapshotType::Initial,
+            mapping_snapshot_id: None,
+            mapping_snapshot_default_value: None,
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
@@ -910,6 +935,14 @@ impl TargetModel {
         self.fx_snapshot.as_ref()
     }
 
+    pub fn mapping_snapshot_type(&self) -> MappingSnapshotType {
+        self.mapping_snapshot_type
+    }
+
+    pub fn mapping_snapshot_id(&self) -> Option<&MappingSnapshotId> {
+        self.mapping_snapshot_id.as_ref()
+    }
+
     pub fn touched_track_parameter_type(&self) -> TouchedTrackParameterType {
         self.touched_track_parameter_type
     }
@@ -996,6 +1029,10 @@ impl TargetModel {
 
     pub fn osc_address_pattern(&self) -> &str {
         &self.osc_address_pattern
+    }
+
+    pub fn mapping_snapshot_default_value(&self) -> Option<AbsoluteValue> {
+        self.mapping_snapshot_default_value
     }
 
     pub fn osc_arg_index(&self) -> Option<u32> {
@@ -1621,6 +1658,33 @@ impl TargetModel {
         Some(fx)
     }
 
+    pub fn virtual_mapping_snapshot(&self) -> Result<VirtualMappingSnapshot, &'static str> {
+        match self.mapping_snapshot_type {
+            MappingSnapshotType::Initial => Ok(VirtualMappingSnapshot::Initial),
+            MappingSnapshotType::ById => {
+                let id = self
+                    .mapping_snapshot_id
+                    .as_ref()
+                    .ok_or("no mapping snapshot ID")?
+                    .clone();
+                Ok(VirtualMappingSnapshot::ById(id))
+            }
+        }
+    }
+
+    pub fn mapping_snapshot_desc(&self) -> MappingSnapshotDesc {
+        match self.mapping_snapshot_type {
+            MappingSnapshotType::Initial => MappingSnapshotDesc::Initial,
+            MappingSnapshotType::ById => MappingSnapshotDesc::ById {
+                id: self
+                    .mapping_snapshot_id
+                    .as_ref()
+                    .map(|id| id.to_string())
+                    .unwrap_or_default(),
+            },
+        }
+    }
+
     pub fn track_route_selector(&self) -> Option<TrackRouteSelector> {
         use TrackRouteSelectorType::*;
         let selector = match self.route_selector_type {
@@ -2163,6 +2227,19 @@ impl TargetModel {
                         UnresolvedLoadMappingSnapshotTarget {
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
+                            snapshot: self.virtual_mapping_snapshot()?,
+                            default_value: self.mapping_snapshot_default_value,
+                        },
+                    ),
+                    TakeMappingSnapshot => UnresolvedReaperTarget::TakeMappingSnapshot(
+                        UnresolvedTakeMappingSnapshotTarget {
+                            scope: self.tag_scope(),
+                            active_mappings_only: self.active_mappings_only,
+                            snapshot_id: self
+                                .mapping_snapshot_id
+                                .as_ref()
+                                .ok_or("no mapping snapshot ID given")?
+                                .clone(),
                         },
                     ),
                     EnableMappings => {
@@ -2366,6 +2443,18 @@ impl TargetModel {
             AutomationModeOverride => {
                 self.automation_mode_override_type == AutomationModeOverrideType::Override
             }
+            _ => false,
+        }
+    }
+
+    pub fn supports_mapping_snapshot_id(&self) -> bool {
+        if !self.is_reaper() {
+            return false;
+        }
+        use ReaperTargetType::*;
+        match self.r#type {
+            LoadMappingSnapshot => self.mapping_snapshot_type == MappingSnapshotType::ById,
+            TakeMappingSnapshot => true,
             _ => false,
         }
     }
@@ -3039,6 +3128,34 @@ pub enum VirtualTrackType {
 impl Default for VirtualTrackType {
     fn default() -> Self {
         Self::This
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Serialize,
+    Deserialize,
+    Display,
+)]
+#[repr(usize)]
+pub enum MappingSnapshotType {
+    #[display(fmt = "<Initial>")]
+    #[serde(rename = "initial")]
+    Initial,
+    #[display(fmt = "By ID")]
+    ById,
+}
+
+impl Default for MappingSnapshotType {
+    fn default() -> Self {
+        Self::Initial
     }
 }
 

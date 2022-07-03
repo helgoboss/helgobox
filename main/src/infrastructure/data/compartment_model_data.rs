@@ -89,20 +89,22 @@ impl CompartmentModelData {
             .iter()
             .map(|g| g.to_model(compartment, false, &conversion_context))
             .collect();
+        let mappings: Result<Vec<_>, _> = self
+            .mappings
+            .iter()
+            .map(|m| {
+                m.to_model_for_preset(
+                    compartment,
+                    &migration_descriptor,
+                    version,
+                    &conversion_context,
+                )
+                .map_err(|e| e.to_owned())
+            })
+            .collect();
         let model = CompartmentModel {
             default_group: final_default_group,
-            mappings: self
-                .mappings
-                .iter()
-                .map(|m| {
-                    m.to_model_for_preset(
-                        compartment,
-                        &migration_descriptor,
-                        version,
-                        &conversion_context,
-                    )
-                })
-                .collect(),
+            mappings: mappings?,
             parameters: self
                 .parameters
                 .iter()

@@ -16,12 +16,12 @@ use crate::domain::{
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
     UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget,
+    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
+    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
+    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
+    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -101,6 +101,7 @@ pub enum UnresolvedReaperTarget {
     ClipManagement(UnresolvedClipManagementTarget),
     ClipMatrix(UnresolvedClipMatrixTarget),
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
+    TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
     EnableMappings(UnresolvedEnableMappingsTarget),
     NavigateWithinGroup(UnresolvedNavigateWithinGroupTarget),
     EnableInstances(UnresolvedEnableInstancesTarget),

@@ -105,6 +105,9 @@ pub use small_ascii_string::*;
 mod tag;
 pub use tag::*;
 
+mod mapping_snapshot;
+pub use mapping_snapshot::*;
+
 mod organization;
 pub use organization::*;
 

@@ -992,7 +992,7 @@ fn paste_data_object_in_place(
                 &mut mapping,
                 &conversion_context,
                 Some(session.extended_context()),
-            );
+            )?;
         }
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
@@ -1007,7 +1007,7 @@ fn paste_data_object_in_place(
                 triple.compartment,
                 session.extended_context(),
                 &compartment_in_session,
-            );
+            )?;
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
     };
@@ -1045,7 +1045,7 @@ pub fn paste_mappings(
             group.key().clone()
         }
     };
-    let new_mappings: Vec<_> = mapping_datas
+    let new_mappings: Result<Vec<_>, _> = mapping_datas
         .into_iter()
         .map(|mut data| {
             data.id = None;
@@ -1057,7 +1057,7 @@ pub fn paste_mappings(
             )
         })
         .collect();
-    session.insert_mappings_at(compartment, index + 1, new_mappings.into_iter());
+    session.insert_mappings_at(compartment, index + 1, new_mappings?.into_iter());
     Ok(())
 }
 
