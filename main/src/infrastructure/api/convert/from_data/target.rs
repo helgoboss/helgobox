@@ -590,6 +590,7 @@ fn convert_real_target(
             tags: convert_tags(&data.tags, style),
             active_mappings_only: Some(data.active_mappings_only),
             snapshot: style.required_value(data.mapping_snapshot),
+            default_value: data.mapping_snapshot_default_value,
         }),
         TakeMappingSnapshot => T::TakeMappingSnapshot(TakeMappingSnapshotTarget {
             commons,

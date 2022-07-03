@@ -784,6 +784,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 .active_mappings_only
                 .unwrap_or(defaults::TARGET_LOAD_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY),
             mapping_snapshot: d.snapshot.unwrap_or_default(),
+            mapping_snapshot_default_value: d.default_value,
             ..init(d.commons)
         },
         Target::TakeMappingSnapshot(d) => TargetModelData {

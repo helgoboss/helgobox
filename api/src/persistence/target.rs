@@ -1,4 +1,6 @@
-use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
+use crate::persistence::{
+    OscArgument, TargetValue, VirtualControlElementCharacter, VirtualControlElementId,
+};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -744,6 +746,8 @@ pub struct LoadMappingSnapshotTarget {
     pub active_mappings_only: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub snapshot: Option<MappingSnapshotDesc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<TargetValue>,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
