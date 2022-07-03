@@ -190,8 +190,16 @@ impl PluginParameters for RealearnPluginParameters {
             // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
             // start of JSON data.
             let data = &data[left_json_object_brace..];
-            let session_data: SessionData =
-                serde_json::from_slice(data).expect("couldn't deserialize session data");
+            let session_data: SessionData = match serde_json::from_slice(data) {
+                Ok(d) => d,
+                Err(e) => {
+                    panic!(
+                        "ReaLearn couldn't restore this session: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
+                        e,
+                        std::str::from_utf8(data).unwrap_or("UTF-8 decoding error")
+                    )
+                }
+            };
             self.apply_session_data_internal(&session_data);
         });
     }
