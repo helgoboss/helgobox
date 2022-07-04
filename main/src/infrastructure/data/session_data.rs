@@ -2,7 +2,7 @@ use crate::application::{
     reaper_supports_global_midi_filter, CompartmentInSession, FxPresetLinkConfig, GroupModel,
     MainPresetAutoLoadMode, Session, SessionCommand,
 };
-use crate::base::default_util::{bool_true, is_bool_true, is_default};
+use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
     ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MappingKey,
@@ -42,83 +42,203 @@ use std::ops::Deref;
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
     // Since ReaLearn 1.12.0-pre18
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub version: Option<Version>,
     // Since ReaLearn 1.12.0-pre?
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     id: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     let_matched_events_through: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     let_unmatched_events_through: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     always_auto_detect_mode: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     lives_on_upper_floor: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     // false by default because in older versions, feedback was always sent no matter if armed or
     // not
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     control_device_id: Option<ControlDeviceId>,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     feedback_device_id: Option<FeedbackDeviceId>,
     // Not set before 1.12.0-pre9
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     default_group: Option<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     groups: Vec<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     default_controller_group: Option<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller_groups: Vec<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller_mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller_custom_data: HashMap<String, serde_json::Value>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     active_controller_id: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     active_main_preset_id: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
     // String key workaround because otherwise deserialization doesn't work with flattening,
     // which is used in CompartmentModelData.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     parameters: HashMap<String, ParameterData>,
     // String key workaround because otherwise deserialization doesn't work with flattening,
     // which is used in CompartmentModelData.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller_parameters: HashMap<String, ParameterData>,
     // Legacy (ReaLearn <= 2.12.0-pre.4)
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     clip_slots: Vec<QualifiedSlotDescriptor>,
     // New since 2.12.0-pre.5
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     clip_matrix: Option<ClipMatrixRefData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub tags: Vec<Tag>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller: CompartmentState,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     main: CompartmentState,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     active_instance_tags: HashSet<Tag>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     instance_preset_link_config: FxPresetLinkConfig,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     use_instance_preset_links_only: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     instance_track: TrackDescriptor,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     instance_fx: FxDescriptor,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     mapping_snapshots: Vec<MappingSnapshot>,
 }
 
@@ -132,9 +252,17 @@ enum ClipMatrixRefData {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct CompartmentState {
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     active_mapping_by_group: HashMap<GroupId, MappingId>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     active_mapping_tags: HashSet<Tag>,
 }
 

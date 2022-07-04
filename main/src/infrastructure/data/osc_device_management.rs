@@ -1,4 +1,4 @@
-use crate::base::default_util::{bool_true, is_bool_true, is_default};
+use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::base::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
 use crate::infrastructure::plugin::App;
@@ -134,17 +134,29 @@ pub struct OscDevice {
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     is_enabled_for_control: bool,
     /// For receiving control messages.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     local_port: Option<u16>,
     #[serde(skip)]
     has_input_connection_problem: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     is_enabled_for_feedback: bool,
     /// For sending feedback messages.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     device_host: Option<Ipv4Addr>,
     /// For sending feedback messages.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     device_port: Option<u16>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     can_deal_with_bundles: bool,

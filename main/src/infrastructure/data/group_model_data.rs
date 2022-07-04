@@ -1,5 +1,5 @@
 use crate::application::{Change, GroupCommand, GroupModel};
-use crate::base::default_util::is_default;
+use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{Compartment, GroupId, GroupKey, Tag};
 use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData,
@@ -12,15 +12,27 @@ use serde::{Deserialize, Serialize};
 pub struct GroupModelData {
     /// Doesn't have to be a UUID since 2.11.0-pre.13 and corresponds to the model *key* instead!
     /// Because default group UUID is the default, it won't be serialized.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     // Saved only in some ReaLearn 2.11.0-pre-releases. Later we persist this in "id" field again.
     // So this is just for being compatible with those few pre-releases!
     #[serde(alias = "key")]
     pub id: GroupKey,
     // Because default group name is empty, it won't be serialized.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub name: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub tags: Vec<Tag>,
     #[serde(flatten)]
     pub enabled_data: EnabledData,

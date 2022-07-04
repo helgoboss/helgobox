@@ -1,5 +1,5 @@
 use crate::application::{MainPreset, Preset, PresetManager};
-use crate::base::default_util::is_default;
+use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::Compartment;
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
@@ -45,7 +45,11 @@ impl ExtendedPresetManager for SharedMainPresetManager {
 #[serde(rename_all = "camelCase")]
 pub struct MainPresetData {
     // Since ReaLearn 1.12.0-pre18
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     version: Option<Version>,
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,

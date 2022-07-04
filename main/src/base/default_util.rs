@@ -1,4 +1,5 @@
 use helgoboss_learn::UnitValue;
+use serde::{Deserialize, Deserializer};
 
 pub fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     v == &T::default()
@@ -29,4 +30,18 @@ pub fn is_none_or_some_default<T: Default + PartialEq>(v: &Option<T>) -> bool {
     } else {
         true
     }
+}
+
+/// Makes sure that JSON `null` is treated the same as omitting a property.
+///
+/// Use as `#[serde(deserialize_with = "deserialize_null_default")]`.
+///
+/// See https://github.com/serde-rs/serde/issues/1098#issuecomment-760711617.
+pub fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }

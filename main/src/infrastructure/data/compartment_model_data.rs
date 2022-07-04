@@ -1,5 +1,5 @@
 use crate::application::{CompartmentModel, GroupModel};
-use crate::base::default_util::is_default;
+use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{
     Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
 };
@@ -16,18 +16,38 @@ use std::hash::Hash;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompartmentModelData {
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub default_group: Option<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub groups: Vec<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub mappings: Vec<MappingModelData>,
     // String key workaround because otherwise deserialization doesn't work with flattening.
     // (https://github.com/serde-rs/serde/issues/1183)
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub parameters: HashMap<String, ParamSetting>,
     /// At the moment, custom data is only used in the controller compartment.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub custom_data: HashMap<String, serde_json::Value>,
 }
 

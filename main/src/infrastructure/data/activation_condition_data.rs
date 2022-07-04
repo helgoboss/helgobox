@@ -2,7 +2,7 @@ use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationType, BankConditionModel,
     Change, ModifierConditionModel,
 };
-use crate::base::default_util::is_default;
+use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::MappingKey;
 use crate::infrastructure::data::{DataToModelConversionContext, ModelToDataConversionContext};
 use serde::{Deserialize, Serialize};
@@ -10,17 +10,41 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationConditionData {
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub activation_type: ActivationType,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub modifier_condition_1: ModifierConditionModel,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub modifier_condition_2: ModifierConditionModel,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub program_condition: BankConditionModel,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub eel_condition: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub mapping_key: Option<MappingKey>,
 }
 

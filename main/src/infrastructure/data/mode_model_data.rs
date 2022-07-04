@@ -1,5 +1,7 @@
 use crate::application::{Change, ModeCommand, ModeModel};
-use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
+use crate::base::default_util::{
+    deserialize_null_default, is_default, is_unit_value_one, unit_value_one,
+};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
@@ -15,17 +17,33 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModeModelData {
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub r#type: AbsoluteMode,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub min_source_value: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     pub max_source_value: UnitValue,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub min_target_value: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     pub max_target_value: UnitValue,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub min_target_jump: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     pub max_target_jump: UnitValue,
@@ -44,58 +62,154 @@ pub struct ModeModelData {
     pub max_step_size: SoftSymmetricUnitValue,
     /// Step factors are persisted separately from step size since 2.13.0-pre.10 in order to
     /// get rid of the annoying mismatch with ReaLearn script.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub min_step_factor: Option<DiscreteIncrement>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub max_step_factor: Option<DiscreteIncrement>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub min_press_millis: u64,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub max_press_millis: u64,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub turbo_rate: u64,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub eel_control_transformation: String,
     /// Also used as text expression for text feedback
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub eel_feedback_transformation: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub reverse_is_enabled: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub feedback_color: Option<VirtualColor>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub feedback_background_color: Option<VirtualColor>,
     // Serialization skipped because this is deprecated in favor of out_of_range_behavior
     // since ReaLearn v1.11.0.
-    #[serde(default, skip_serializing)]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing
+    )]
     pub ignore_out_of_range_source_values_is_enabled: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub out_of_range_behavior: OutOfRangeBehavior,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub fire_mode: FireMode,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub round_target_value: bool,
     // Serialization skipped because this is deprecated in favor of takeover_mode
     // since ReaLearn v2.8.0-pre3.
-    #[serde(default, skip_serializing)]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing
+    )]
     pub scale_mode_enabled: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub takeover_mode: TakeoverMode,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub button_usage: ButtonUsage,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub encoder_usage: EncoderUsage,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub rotate_is_enabled: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub make_absolute_enabled: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub group_interaction: GroupInteraction,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub target_value_sequence: ValueSequence,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub feedback_type: FeedbackType,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub feedback_value_table: Option<FeedbackValueTable>,
 }
 

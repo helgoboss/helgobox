@@ -1,5 +1,5 @@
 use crate::application::{Change, MappingCommand, MappingModel};
-use crate::base::default_util::{bool_true, is_bool_true, is_default};
+use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
     Compartment, ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingId,
     MappingKey, Tag,
@@ -17,16 +17,32 @@ use serde::{Deserialize, Serialize};
 pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0, doesn't have to be a UUID since 2.11.0-pre.13 and corresponds
     // to the model *key* instead!
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     // Saved only in some ReaLearn 2.11.0-pre-releases under "key". Later we persist this in "id"
     // field again. So this is just for being compatible with those few pre-releases!
     #[serde(alias = "key")]
     pub id: Option<MappingKey>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub name: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub tags: Vec<Tag>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub group_id: GroupKey,
     pub source: SourceModelData,
     pub mode: ModeModelData,
@@ -37,11 +53,23 @@ pub struct MappingModelData {
     pub enabled_data: EnabledData,
     #[serde(flatten)]
     pub activation_condition_data: ActivationConditionData,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub prevent_echo_feedback: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub send_feedback_after_control: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub advanced: Option<serde_yaml::mapping::Mapping>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub visible_in_projection: bool,

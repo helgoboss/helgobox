@@ -9,7 +9,9 @@ use crate::application::{
     TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
     VirtualTrackType,
 };
-use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
+use crate::base::default_util::{
+    bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
+};
 use crate::base::notification;
 use crate::domain::{
     get_fx_chains, ActionInvocationType, AnyOnParameter, Compartment, Exclusivity,
@@ -37,32 +39,68 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub category: TargetCategory,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub unit: TargetUnit,
     // reaper_type would be a better name but we need backwards compatibility
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub r#type: ReaperTargetType,
     // Action target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub command_name: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub invocation_type: ActionInvocationType,
     // Until ReaLearn 1.0.0-beta6
-    #[serde(default, skip_serializing)]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing
+    )]
     pub invoke_relative: Option<bool>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub with_track: bool,
     // Track target
     #[serde(flatten)]
     pub track_data: TrackData,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub enable_only_if_track_is_selected: bool,
     // FX target
     #[serde(flatten)]
     pub fx_data: FxData,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub enable_only_if_fx_has_focus: bool,
     // Track route target
     #[serde(flatten)]
@@ -71,33 +109,81 @@ pub struct TargetModelData {
     #[serde(flatten)]
     pub fx_parameter_data: FxParameterData,
     // Track selection target (replaced with `track_exclusivity` since v2.4.0)
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub select_exclusively: Option<bool>,
     // Track solo target (since v2.4.0, also changed default from "ignore routing" to "in place")
-    #[serde(default, skip_serializing_if = "is_none_or_some_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_none_or_some_default"
+    )]
     pub solo_behavior: Option<SoloBehavior>,
     // Toggleable track targets (since v2.4.0)
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub track_exclusivity: TrackExclusivity,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub track_tool_action: TrackToolAction,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub fx_tool_action: FxToolAction,
     // Transport target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub transport_action: TransportAction,
     // Any-on target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub any_on_parameter: AnyOnParameter,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub control_element_type: VirtualControlElementType,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub control_element_index: VirtualControlElementIdData,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub fx_snapshot: Option<FxSnapshot>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub touched_parameter_type: TouchedTrackParameterType,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub touched_route_parameter_type: TouchedRouteParameterType,
     // Bookmark target
     #[serde(flatten)]
@@ -106,68 +192,168 @@ pub struct TargetModelData {
     #[serde(flatten)]
     pub seek_options: SeekOptions,
     // Track show target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub track_area: RealearnTrackArea,
     // Track automation mode target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub track_automation_mode: RealearnAutomationMode,
     // Track monitoring mode target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub track_monitoring_mode: MonitoringMode,
     // Automation mode override target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub automation_mode_override_type: AutomationModeOverrideType,
     // FX Open and FX Navigate target
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub fx_display_type: FxDisplayType,
     // Track selection related targets
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub scroll_arrange_view: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub scroll_mixer: bool,
     // Send MIDI
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub send_midi_destination: SendMidiDestination,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub raw_midi_pattern: String,
     // Send OSC
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub osc_address_pattern: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub osc_arg_index: Option<u32>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub osc_arg_type: OscTypeTag,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub osc_arg_value_range: OscValueRange,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub osc_dev_id: Option<OscDeviceId>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub tags: Vec<Tag>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub mapping_snapshot: MappingSnapshotDesc,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub mapping_snapshot_default_value: Option<TargetValue>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub exclusivity: Exclusivity,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub group_id: GroupKey,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub active_mappings_only: bool,
     /// Replaced with `clip_slot` since v2.12.0-pre.5
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub slot_index: usize,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_management_action: ClipManagementAction,
     /// Not supported anymore since v2.12.0-pre.5
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub next_bar: bool,
     /// Not supported anymore since v2.12.0-pre.5
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub buffered: bool,
     /// New since ReaLearn v2.12.0-pre.5
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_slot: Option<ClipSlotDescriptor>,
     /// Clip matrix column.
     ///
@@ -176,36 +362,76 @@ pub struct TargetModelData {
     /// For clip column targets, this contains the clip column to which we want to refer.
     ///
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_column: ClipColumnDescriptor,
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_row: ClipRowDescriptor,
     /// New since ReaLearn v2.13.0-pre.4.
     ///
     /// Migrated from `transport_action` if not given.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_transport_action: Option<ClipTransportAction>,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_column_action: ClipColumnAction,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_row_action: ClipRowAction,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_matrix_action: ClipMatrixAction,
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub record_only_if_track_armed: bool,
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub stop_column_if_slot_empty: bool,
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     /// New since ReaLearn v2.13.0-pre.4
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
@@ -861,7 +1087,11 @@ pub struct FxData {
     #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
     pub name: Option<String>,
     // TODO-medium This is actually a property of the track FX chain, not the FX
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub is_input_fx: bool,
     #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
     pub expression: Option<String>,
@@ -883,7 +1113,11 @@ pub struct TrackData {
         skip_serializing_if = "is_default"
     )]
     expression: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     clip_column_track_context: ClipColumnTrackContext,
 }
 
