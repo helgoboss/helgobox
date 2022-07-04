@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-06-22 (v2.13.0-pre.10)`
+|Last update of text: |`2022-07-04 (v2.13.0-pre.12)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -3357,16 +3357,30 @@ TIP: This target is a straightforward alternative to <<conditional-activation>>,
 
 Restores target values for all or certain mappings in this ReaLearn instances.
 
-* *Snapshot:* At the moment, this target is capable of restoring the initial target values for mappings in this ReaLearn instances. In the future, it will also be able to load user-defined mapping snapshots.
+* *Snapshot:* Choose the snapshot that you want to load.
+** *<Initial>:* Restores the initial target values for the mappings.
+** *By ID:* Restores target values contained in a snapshot that was taken via <<realearn-take-mapping-snapshot>>. Simply enter the corresponding ID here.
+* *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping.
 * *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
-** If this field is empty, snapshots of all mappings will be restored.
-** If this field contains tags (comma-separated), snapshots will be restored only for mappings that are tagged with any of these.
-* *Active mappings only:* By default, even inactive (but control-enabled) mappings participate! If you don't like that, tick this checkbox.
+** If this field is empty, target values of all mappings will be restored.
+** If this field contains tags (comma-separated), target values will be restored only for mappings that are tagged with any of these.
+* *Active mappings only:* By default, even target values for inactive (but control-enabled) mappings are restored! If you don't like that, tick this checkbox.
 
 Please note:
 
-* Mappings for which control is not enabled never participate in snapshotting.
+* Mappings for which control is not enabled, never participate in snapshotting.
 * Some targets don't report values (e.g. the <<realearn-load-mapping-snapshot>> target itself) and therefore don't participate in snapshotting.
+
+[#realearn-take-mapping-snapshot]
+====== Realearn: Take mapping snapshot
+
+Memorizes target values for all or certain mappings in this ReaLearn instances and saves them in a snapshot of your choice.
+
+* *Snapshot*: Enter the unique ID of the snapshot, e.g. `scene_1`.
+* *Tags:* Allows you to restrict the set of mappings whose target values will be memorized.
+** If this field is empty, target values of all mappings will be memorized.
+** If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
+* *Active mappings only:* By default, even target values of inactive (but control-enabled) mappings end up in the snapshot! If you don't like that, tick this checkbox.
 
 [#realearn-navigate-within-group]
 ====== Realearn: Navigate within group
