@@ -2821,7 +2821,7 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::LoadMappingSnapshot => {
                     let text = control.text().unwrap_or_default();
                     let value = parse_unit_value_from_percentage(&text)
-                        .map(|uv| AbsoluteValue::Continuous(uv))
+                        .map(AbsoluteValue::Continuous)
                         .ok();
                     self.change_mapping_with_initiator(
                         MappingCommand::ChangeTarget(

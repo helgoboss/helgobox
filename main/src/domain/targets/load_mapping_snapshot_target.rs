@@ -46,7 +46,7 @@ impl VirtualMappingSnapshot {
     pub fn id(&self) -> Option<&MappingSnapshotId> {
         match self {
             VirtualMappingSnapshot::Initial => None,
-            VirtualMappingSnapshot::ById(id) => Some(&id),
+            VirtualMappingSnapshot::ById(id) => Some(id),
         }
     }
 }
@@ -165,7 +165,7 @@ struct LoadMappingSnapshotInstruction {
 
 impl LoadMappingSnapshotInstruction {
     fn load_snapshot(
-        self: Box<Self>,
+        &self,
         context: HitInstructionContext,
         get_snapshot_value: impl Fn(&MainMapping) -> Option<AbsoluteValue>,
     ) -> Vec<MappingControlResult> {
@@ -182,7 +182,7 @@ impl LoadMappingSnapshotInstruction {
                 if self.active_mappings_only && !m.is_effectively_active() {
                     return None;
                 }
-                let snapshot_value = get_snapshot_value(m).or_else(|| self.default_value)?;
+                let snapshot_value = get_snapshot_value(m).or(self.default_value)?;
                 context
                     .domain_event_handler
                     .notify_mapping_matched(m.compartment(), m.id());

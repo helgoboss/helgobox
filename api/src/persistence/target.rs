@@ -773,7 +773,7 @@ impl MappingSnapshotDesc {
     pub fn id(&self) -> Option<&str> {
         match self {
             MappingSnapshotDesc::Initial => None,
-            MappingSnapshotDesc::ById { id } => Some(&id),
+            MappingSnapshotDesc::ById { id } => Some(id),
         }
     }
 }
