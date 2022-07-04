@@ -1,3 +1,4 @@
+use crate::base::Condition::SkipOnMacOs;
 use crate::base::*;
 use crate::constants::{MAIN_PANEL_WIDTH, MAPPING_ROW_PANEL_HEIGHT, MAPPING_ROW_PANEL_WIDTH};
 use crate::ext::*;
@@ -83,7 +84,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(3, 23, 8, 8),
         ) + WS_DISABLED,
         // Up/down buttons
-        groupbox("Up", ids.id(), context.rect(13, 13, 26, 14)) + WS_GROUP,
+        groupbox("Up", ids.id(), context.rect(13, 13, 26, 14)) + WS_GROUP + SkipOnMacOs,
         pushbutton(
             "Up",
             ids.named_id("ID_UP_BUTTON"),
