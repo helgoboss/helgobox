@@ -215,12 +215,9 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
             VirtualMappingSnapshot::ById(id) => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let snapshot_container = instance_state.mapping_snapshot_container();
-                let snapshot = match snapshot_container.find_snapshot_by_id(id) {
-                    None => return vec![],
-                    Some(s) => s,
-                };
+                let snapshot = snapshot_container.find_snapshot_by_id(id);
                 self.load_snapshot(context, |m| {
-                    snapshot.find_target_value_by_mapping_id(m.id())
+                    snapshot.and_then(|s| s.find_target_value_by_mapping_id(m.id()))
                 })
             }
         }
