@@ -176,14 +176,24 @@ impl BackboneState {
         }
     }
 
-    /// Removes the current matrix/reference (if any) and sets a new reference.
+    /// Lets the given instance (instance state) refer to the clip matrix of the given foreign
+    /// instance (identifier by `foreign_instance_id`).
+    ///
+    /// Removes any current matrix/reference before setting the reference.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the foreign instance's instance state is currently mutably borrowed.
     pub fn set_instance_clip_matrix_to_foreign_matrix(
         &self,
         instance_state: &mut InstanceState,
         foreign_instance_id: InstanceId,
     ) {
+        // Set the reference
         let matrix_ref = ClipMatrixRef::Foreign(foreign_instance_id);
         instance_state.set_clip_matrix_ref(Some(matrix_ref));
+        // Get a real-time matrix from the foreign instance and send it to the real-time processor
+        // of *this* instance.
         let result = self.with_owned_clip_matrix_from_instance(&foreign_instance_id, |matrix| {
             instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
         });
@@ -222,14 +232,14 @@ impl BackboneState {
 
     fn with_owned_clip_matrix_from_instance<R>(
         &self,
-        instance_id: &InstanceId,
+        foreign_instance_id: &InstanceId,
         f: impl FnOnce(&RealearnClipMatrix) -> R,
     ) -> Result<R, &'static str> {
         use ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
-            .get(instance_id)
+            .get(foreign_instance_id)
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;

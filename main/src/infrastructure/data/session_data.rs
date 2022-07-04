@@ -582,34 +582,35 @@ impl SessionData {
             instance_state
                 .set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
             instance_state.set_mapping_snapshot_container(mapping_snapshot_container);
-            // Check if some other instances waited for the clip matrix of this instance.
-            App::get().with_weak_sessions(|sessions| {
-                let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
-                    let other_session = other_session.upgrade()?;
-                    if other_session
-                        .try_borrow()
-                        .ok()?
-                        .unresolved_foreign_clip_matrix_session_id()
-                        == self.id.as_ref()
-                    {
-                        Some(other_session)
-                    } else {
-                        None
-                    }
-                });
-                for other_session in relevant_other_sessions {
-                    // Let the other session's instance state reference the clip matrix of this
-                    // session's instance state.
-                    let mut other_session = other_session.borrow_mut();
-                    let other_instance_state = other_session.instance_state();
-                    BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
-                        &mut other_instance_state.borrow_mut(),
-                        *session.instance_id(),
-                    );
-                    other_session.notify_foreign_clip_matrix_resolved();
+        }
+        // Check if some other instances waited for the clip matrix of this instance.
+        // (important to do after instance state released).
+        App::get().with_weak_sessions(|sessions| {
+            let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
+                let other_session = other_session.upgrade()?;
+                if other_session
+                    .try_borrow()
+                    .ok()?
+                    .unresolved_foreign_clip_matrix_session_id()
+                    == self.id.as_ref()
+                {
+                    Some(other_session)
+                } else {
+                    None
                 }
             });
-        }
+            for other_session in relevant_other_sessions {
+                // Let the other session's instance state reference the clip matrix of *this*
+                // session's instance state.
+                let mut other_session = other_session.borrow_mut();
+                let other_instance_state = other_session.instance_state();
+                BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                    &mut other_instance_state.borrow_mut(),
+                    *session.instance_id(),
+                );
+                other_session.notify_foreign_clip_matrix_resolved();
+            }
+        });
         Ok(())
     }
 
