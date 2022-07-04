@@ -586,22 +586,24 @@ impl SessionData {
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).
         App::get().with_weak_sessions(|sessions| {
+            // Gather other sessions that have a foreign clip matrix ID set.
             let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
                 let other_session = other_session.upgrade()?;
-                if other_session
+                let other_session_foreign_clip_matrix_id = other_session
                     .try_borrow()
                     .ok()?
-                    .unresolved_foreign_clip_matrix_session_id()
-                    == self.id.as_ref()
-                {
+                    .unresolved_foreign_clip_matrix_session_id()?
+                    .clone();
+                let this_session_id = self.id.as_ref()?;
+                if &other_session_foreign_clip_matrix_id == this_session_id {
                     Some(other_session)
                 } else {
                     None
                 }
             });
+            // Let the other session's instance state reference the clip matrix of *this*
+            // session's instance state.
             for other_session in relevant_other_sessions {
-                // Let the other session's instance state reference the clip matrix of *this*
-                // session's instance state.
                 let mut other_session = other_session.borrow_mut();
                 let other_instance_state = other_session.instance_state();
                 BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
