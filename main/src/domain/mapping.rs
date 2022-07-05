@@ -15,8 +15,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
-    ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
+    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
     OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
     ValueFormatter, ValueParser,
@@ -1589,13 +1589,19 @@ impl CompoundMappingSource {
     pub fn reacts_to_source_value_with(
         &self,
         value: IncomingCompoundSourceValue,
-    ) -> Option<ControlValue> {
+    ) -> Option<ControlResult> {
         use CompoundMappingSource::*;
         match (self, value) {
-            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
-            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
-            (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
-            (Key(s), IncomingCompoundSourceValue::Key(m)) => s.reacts_to_message_with(m),
+            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control_flexible(v),
+            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => {
+                s.control(m).map(ControlResult::Processed)
+            }
+            (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => {
+                s.control(m).map(ControlResult::Processed)
+            }
+            (Key(s), IncomingCompoundSourceValue::Key(m)) => {
+                s.reacts_to_message_with(m).map(ControlResult::Processed)
+            }
             _ => None,
         }
     }

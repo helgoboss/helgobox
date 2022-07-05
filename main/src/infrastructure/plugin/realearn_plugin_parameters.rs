@@ -135,7 +135,7 @@ impl RealearnPluginParameters {
     }
 
     pub fn params(&self) -> RwLockReadGuard<PluginParams> {
-        self.params.read().expect("writer should never panic")
+        self.params.read().expect("reader should never panic")
     }
 
     fn params_mut(&self) -> RwLockWriteGuard<PluginParams> {

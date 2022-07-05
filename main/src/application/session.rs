@@ -34,7 +34,7 @@ use std::fmt::Debug;
 
 use crate::domain;
 use core::iter;
-use helgoboss_learn::AbsoluteValue;
+use helgoboss_learn::{AbsoluteValue, ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
@@ -592,6 +592,9 @@ impl Session {
         CompoundMappingSource::from_message_capture_event(event)
     }
 
+    /// Attention: If a mapping matches but given source value is a relative-zero (and matches), it
+    /// will return a control value of "zero". This should be fine for most use cases, mostly it's
+    /// only the control element which matters, not the concrete control value.
     pub fn virtualize_source_value(
         &self,
         source_value: IncomingCompoundSourceValue,
@@ -601,17 +604,17 @@ impl Session {
             .active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
                 let m = m.borrow();
-                if let Some(cv) = m
+                let control_result = m
                     .source_model
                     .create_source()
-                    .reacts_to_source_value_with(source_value)
-                {
-                    let virtual_source_value =
-                        VirtualSourceValue::new(m.target_model.create_control_element(), cv);
-                    Some(virtual_source_value)
-                } else {
-                    None
-                }
+                    .reacts_to_source_value_with(source_value)?;
+                let control_value = match control_result {
+                    ControlResult::Consumed => ControlValue::AbsoluteContinuous(UnitValue::MIN),
+                    ControlResult::Processed(v) => v,
+                };
+                let virtual_source_value =
+                    VirtualSourceValue::new(m.target_model.create_control_element(), control_value);
+                Some(virtual_source_value)
             });
         res
     }
