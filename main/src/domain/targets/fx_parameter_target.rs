@@ -9,8 +9,8 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
 use reaper_medium::{
-    GetParamExResult, GetParameterStepSizesResult, MediaTrack, ProjectRef,
-    ReaperNormalizedFxParamValue, ReaperVersion, TrackFxLocation,
+    GetParamExResult, GetParameterStepSizesResult, MediaTrack, ReaperNormalizedFxParamValue,
+    ReaperVersion, TrackFxLocation,
 };
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -247,7 +247,7 @@ pub struct RealTimeFxParameterTarget {
 unsafe impl Send for RealTimeFxParameterTarget {}
 
 impl RealTimeFxParameterTarget {
-    pub fn wants_real_time_control(&self, caller: Caller) -> bool {
+    pub fn wants_real_time_control(&self, caller: Caller, is_rendering: bool) -> bool {
         if !caller.is_vst() {
             // Setting the target FX parameter value in real-time is only safe if we are in the
             // processing callstack of the target FX track. The resolve step of this target makes
@@ -258,10 +258,6 @@ impl RealTimeFxParameterTarget {
             // from the audio hook (control input = MIDI hardware device).
             return false;
         }
-        let is_rendering = Reaper::get()
-            .medium_reaper()
-            .enum_projects(ProjectRef::CurrentlyRendering, 0)
-            .is_some();
         if !is_rendering {
             // We want real-time control only during rendering. Because REAPER won't invoke the
             // change notifications when called in real-time (ReaLearn and maybe also other

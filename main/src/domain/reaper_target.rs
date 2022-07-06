@@ -1370,10 +1370,10 @@ pub enum RealTimeReaperTarget {
 impl RealTimeReaperTarget {
     /// Some targets such as the FX parameter target are not always controlled from the
     /// real-time thread. Only under certain conditions.
-    pub fn wants_real_time_control(&self, caller: Caller) -> bool {
+    pub fn wants_real_time_control(&self, caller: Caller, is_rendering: bool) -> bool {
         use RealTimeReaperTarget::*;
         match self {
-            FxParameter(t) => t.wants_real_time_control(caller),
+            FxParameter(t) => t.wants_real_time_control(caller, is_rendering),
             _ => true,
         }
     }

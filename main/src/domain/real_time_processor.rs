@@ -15,7 +15,9 @@ use helgoboss_midi::{
     ShortMessageFactory, ShortMessageType,
 };
 use reaper_high::{MidiOutputDevice, Reaper};
-use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, SendMidiTime};
+use reaper_medium::{
+    Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, ProjectRef, SendMidiTime,
+};
 use slog::{debug, trace};
 
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
@@ -962,6 +964,7 @@ impl RealTimeProcessor {
         value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
     ) -> MatchOutcome {
+        let is_rendering = is_rendering();
         // We do pattern matching in order to use Rust's borrow splitting.
         let controller_outcome = if let [ref mut controller_mappings, ref mut main_mappings] =
             self.mappings.as_mut_slice()
@@ -976,11 +979,12 @@ impl RealTimeProcessor {
                 self.settings.midi_destination(),
                 LogOptions::from_basic_settings(&self.settings),
                 self.clip_matrix.as_ref(),
+                is_rendering,
             )
         } else {
             unreachable!()
         };
-        let main_outcome = self.control_main_mappings_midi(value_event, caller);
+        let main_outcome = self.control_main_mappings_midi(value_event, caller, is_rendering);
         controller_outcome.merge_with(main_outcome)
     }
 
@@ -988,6 +992,7 @@ impl RealTimeProcessor {
         &mut self,
         source_value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
+        is_rendering: bool,
     ) -> MatchOutcome {
         let compartment = Compartment::Main;
         let mut match_outcome = MatchOutcome::Unmatched;
@@ -1015,6 +1020,7 @@ impl RealTimeProcessor {
                         self.settings.midi_destination(),
                         LogOptions::from_basic_settings(&self.settings),
                         self.clip_matrix.as_ref(),
+                        is_rendering,
                     );
                     // It can't be consumed because we checked this before for all mappings.
                     match_outcome = MatchOutcome::Matched;
@@ -1377,6 +1383,7 @@ fn control_controller_mappings_midi(
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
     matrix: Option<&WeakMatrix>,
+    is_rendering: bool,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
     let mut enforce_target_refresh = false;
@@ -1416,6 +1423,7 @@ fn control_controller_mappings_midi(
                         midi_feedback_output,
                         log_options,
                         matrix,
+                        is_rendering,
                     );
                     if log_options.virtual_input_logging_enabled {
                         log_virtual_control_input(
@@ -1444,6 +1452,7 @@ fn control_controller_mappings_midi(
                         midi_feedback_output,
                         log_options,
                         matrix,
+                        is_rendering,
                     );
                     // We do this only for transactions of *real* target matches.
                     enforce_target_refresh = true;
@@ -1468,13 +1477,14 @@ fn process_real_mapping(
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
     clip_matrix: Option<&WeakMatrix>,
+    is_rendering: bool,
 ) -> Result<(), &'static str> {
     let pure_control_event = flatten_control_midi_event(value_event);
     let mapping_id = mapping.id();
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
-        if reaper_target.wants_real_time_control(caller) {
+        if reaper_target.wants_real_time_control(caller, is_rendering) {
             // Try to process directly here in real-time.
             let control_context = RealTimeControlContext { clip_matrix };
             let control_value: Option<ControlValue> = mapping
@@ -1539,7 +1549,7 @@ fn process_real_mapping(
                 options,
             );
         }
-    } else {
+    } else if !is_rendering {
         // Forward to main processor.
         forward_control_to_main_processor(
             main_task_sender,
@@ -1657,6 +1667,7 @@ fn control_main_mappings_virtual(
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
     matrix: Option<&WeakMatrix>,
+    is_rendering: bool,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1682,6 +1693,7 @@ fn control_main_mappings_virtual(
                     midi_feedback_output,
                     log_options,
                     matrix,
+                    is_rendering,
                 );
                 // If we find an associated main mapping, this is not just consumed, it's matched.
                 match_outcome = MatchOutcome::Matched;
@@ -1919,4 +1931,11 @@ impl LogOptions {
             target_control_logging_enabled: settings.target_control_logging_enabled,
         }
     }
+}
+
+fn is_rendering() -> bool {
+    Reaper::get()
+        .medium_reaper()
+        .enum_projects(ProjectRef::CurrentlyRendering, 0)
+        .is_some()
 }
