@@ -12,6 +12,7 @@ use crate::domain::{
 };
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
+use reaper_medium::ProjectRef;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
 
@@ -130,8 +131,12 @@ impl RealearnPluginParameters {
         // help here because the session is conceived for main-thread usage only! I was not
         // aware of this being called in another thread and it led to subtle errors of course
         // (https://github.com/helgoboss/realearn/issues/59).
-        self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
+        // When rendering, we don't do it because that will accumulate until the rendering is
+        // finished, which is pointless.
+        if !is_rendering() {
+            self.parameter_main_task_sender
+                .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
+        }
     }
 
     pub fn params(&self) -> RwLockReadGuard<PluginParams> {
@@ -284,3 +289,10 @@ impl ParamContainer for Arc<RealearnPluginParameters> {
 }
 
 pub const SET_STATE_PARAM_NAME: &str = "set-state";
+
+fn is_rendering() -> bool {
+    Reaper::get()
+        .medium_reaper()
+        .enum_projects(ProjectRef::CurrentlyRendering, 0)
+        .is_some()
+}
