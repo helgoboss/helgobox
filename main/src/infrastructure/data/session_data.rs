@@ -228,11 +228,7 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     instance_track: TrackDescriptor,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
+    #[serde(default = "focused_fx_descriptor")]
     instance_fx: FxDescriptor,
     #[serde(
         default,
@@ -240,6 +236,10 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     mapping_snapshots: Vec<MappingSnapshot>,
+}
+
+fn focused_fx_descriptor() -> FxDescriptor {
+    FxDescriptor::Focused
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
