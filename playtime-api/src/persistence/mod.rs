@@ -876,6 +876,32 @@ pub struct ClipMidiSettings {
     pub interaction_reset_settings: MidiResetMessageRange,
 }
 
+pub fn preferred_clip_midi_settings() -> ClipMidiSettings {
+    let no_reset = MidiResetMessages::default();
+    let light_reset = MidiResetMessages {
+        on_notes_off: true,
+        ..no_reset
+    };
+    ClipMidiSettings {
+        source_reset_settings: MidiResetMessageRange {
+            left: no_reset,
+            right: no_reset,
+        },
+        section_reset_settings: MidiResetMessageRange {
+            left: no_reset,
+            right: no_reset,
+        },
+        loop_reset_settings: MidiResetMessageRange {
+            left: no_reset,
+            right: light_reset,
+        },
+        interaction_reset_settings: MidiResetMessageRange {
+            left: no_reset,
+            right: light_reset,
+        },
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessageRange {
@@ -1055,7 +1081,7 @@ impl Bpm {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct PositiveSecond(f64);
 
 impl PositiveSecond {
@@ -1071,7 +1097,7 @@ impl PositiveSecond {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct PositiveBeat(f64);
 
 impl PositiveBeat {

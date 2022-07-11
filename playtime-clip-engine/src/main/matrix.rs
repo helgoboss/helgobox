@@ -416,12 +416,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with selected item", |matrix| {
             let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
-            column.fill_slot_with_selected_item(
+            let event = column.fill_slot_with_selected_item(
                 coordinates.row,
                 &matrix.chain_equipment,
                 &matrix.recorder_request_sender,
                 &matrix.settings,
-            )
+            )?;
+            matrix
+                .handler
+                .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
+            Ok(())
         })
     }
 

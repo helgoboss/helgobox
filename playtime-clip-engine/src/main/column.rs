@@ -5,14 +5,15 @@ use crate::rt::{
     ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, InternalClipPlayState,
     OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
-use crate::{clip_timeline, rt, ClipEngineResult};
+use crate::{clip_timeline, rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
+    preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
-    Db, MatrixClipRecordSettings,
+    Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, TimeSignature,
 };
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
@@ -381,34 +382,67 @@ impl Column {
         )
     }
 
-    // TODO-high Implement
     pub fn fill_slot_with_selected_item(
         &mut self,
-        _slot_index: usize,
-        _chain_equipment: &ChainEquipment,
-        _recorder_request_sender: &Sender<RecorderRequest>,
-        _matrix_settings: &MatrixSettings,
-    ) -> ClipEngineResult<()> {
-        // let item = self
-        //     .project
-        //     .or_current_project()
-        //     .first_selected_item()
-        //     .ok_or("no item selected")?;
-        // let clip = api::Clip {
-        //     source: source_util::create_api_source_from_item(item, false)
-        //         .map_err(|_| "couldn't create source from item")?,
-        //     time_base: todo!(),
-        //     start_timing: todo!(),
-        //     stop_timing: todo!(),
-        //     looped: todo!(),
-        //     volume: api::Db::ZERO,
-        //     color: ClipColor::PlayTrackColor,
-        //     section: todo!(),
-        //     audio_settings: todo!(),
-        //     midi_settings: todo!(),
-        // };
-        // self.fill_slot_with_clip(_slot_index, clip)
-        Err("not yet implemented")
+        slot_index: usize,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &MatrixSettings,
+    ) -> ClipEngineResult<ClipChangeEvent> {
+        let item = self
+            .project
+            .or_current_project()
+            .first_selected_item()
+            .ok_or("no item selected")?;
+        let source = source_util::create_api_source_from_item(item, false)
+            .map_err(|_| "couldn't create source from item")?;
+        let clip = api::Clip {
+            name: None,
+            source: source,
+            frozen_source: None,
+            active_source: Default::default(),
+            // TODO-high Derive whether time or beat from item/track/project
+            time_base: ClipTimeBase::Beat(BeatTimeBase {
+                // TODO-high Correctly determine audio tempo if audio
+                audio_tempo: None,
+                // TODO-high Correctly determine time signature at item position
+                time_signature: TimeSignature {
+                    numerator: 4,
+                    denominator: 4,
+                },
+                // TODO-high Correctly determine by looking at snap offset
+                downbeat: PositiveBeat::default(),
+            }),
+            start_timing: None,
+            stop_timing: None,
+            // TODO-high Check if item itself is looped or not
+            looped: true,
+            // TODO-high Derive from item take volume
+            volume: api::Db::ZERO,
+            // TODO-high Derive from item color
+            color: ClipColor::PlayTrackColor,
+            // TODO-high Derive from item cut
+            section: Section {
+                start_pos: PositiveSecond::default(),
+                length: None,
+            },
+            audio_settings: ClipAudioSettings {
+                apply_source_fades: true,
+                // TODO-high Derive from item time stretch mode
+                time_stretch_mode: None,
+                // TODO-high Derive from item resample mode
+                resample_mode: None,
+                cache_behavior: None,
+            },
+            midi_settings: preferred_clip_midi_settings(),
+        };
+        self.fill_slot_with_clip(
+            slot_index,
+            clip,
+            chain_equipment,
+            recorder_request_sender,
+            matrix_settings,
+        )
     }
 
     pub fn play_row(&self, args: ColumnPlayRowArgs) {

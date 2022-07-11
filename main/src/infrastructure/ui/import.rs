@@ -289,6 +289,19 @@ fn execute_lua_import_script<'a>(
             Ok(guid)
         })?;
         table.set("get_track_guid_by_index", get_track_guid_by_index)?;
+        let get_track_guid_by_name_prefix = lua.create_function(|_, prefix: String| {
+            let guid = Reaper::get().current_project().tracks().find_map(|t| {
+                if !t.name()?.to_str().starts_with(&prefix) {
+                    return None;
+                }
+                Some(t.guid().to_string_without_braces())
+            });
+            Ok(guid)
+        })?;
+        table.set(
+            "get_track_guid_by_name_prefix",
+            get_track_guid_by_name_prefix,
+        )?;
         let print = lua.create_function(|_, arg: mlua::Value| {
             let text: String = match arg {
                 Value::String(s) => format!("{}\n", s.to_string_lossy()),

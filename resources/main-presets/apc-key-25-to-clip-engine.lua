@@ -743,8 +743,9 @@ for col = 0, column_count - 1 do
         table.insert(mappings, name("Long = Delete") + group(groups.slot_clear) + feedback_disabled() + sustain + long_press + slot_button(col, row) + clip_management_action(col, row, "ClearSlot"))
         table.insert(mappings, name("2x = Edit") + group(groups.slot_quantize) + feedback_disabled() + sustain + double_press + slot_button(col, row) + toggle() + clip_management_action(col, row, "EditClip"))
         --table.insert(mappings, name("Overdub clip") + group(groups.slot_play) + feedback_disabled() + shift + single_press + slot_button(col, row) + toggle() + clip_transport_action(col, row, "RecordStop", false))
-        table.insert(mappings, name("2x = Double section") + group(groups.slot_double) + feedback_disabled() + shift + double_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 2))
-        table.insert(mappings, name("1x = Halve section") + group(groups.slot_double) + feedback_disabled() + shift + single_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 0.5))
+        --table.insert(mappings, name("2x = Double section") + group(groups.slot_double) + feedback_disabled() + shift + double_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 2))
+        --table.insert(mappings, name("1x = Halve section") + group(groups.slot_double) + feedback_disabled() + shift + single_press + slot_button(col, row) + adjust_clip_section_length_action(col, row, 0.5))
+        table.insert(mappings, name("Fill slot") + group(groups.slot_quantize) + feedback_disabled() + shift + single_press + slot_button(col, row) + clip_management_action(col, row, "FillSlotWithSelectedItem"))
     end
 end
 

@@ -1,7 +1,9 @@
 local columns = {}
 
-for i = 2, 9 do
-    local track_guid = realearn.get_track_guid_by_index(i - 1);
+local col = 1
+while true do
+    local track_guid = realearn.get_track_guid_by_name_prefix("Column " .. col .. ": ");
+    col = col + 1
     -- realearn.print(track_guid)
     if not track_guid then
         break
