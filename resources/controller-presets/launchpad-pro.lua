@@ -393,21 +393,21 @@ local feedback_value_table = {
         -- Off
         empty = 0,
         -- Yellow
-        stopped = 5,
+        stopped = 1,
         -- Green blinking
-        scheduled_for_play_start = 2,
+        scheduled_for_play_start = 15,
         -- Green
-        playing = 1,
+        playing = 17,
         -- Yellow
         paused = 5,
         -- Yellow blinking
-        scheduled_for_play_stop = 6,
+        scheduled_for_play_stop = 15,
         -- Red blinking
-        scheduled_for_record_start = 4,
+        scheduled_for_record_start = 5,
         -- Red
-        recording = 3,
+        recording = 6,
         -- Yellow blinking
-        scheduled_for_record_stop = 6,
+        scheduled_for_record_stop = 5,
     }
 }
 

@@ -1685,15 +1685,22 @@ impl TargetModel {
     }
 
     pub fn mapping_snapshot_desc(&self) -> MappingSnapshotDesc {
-        match self.mapping_snapshot_type {
-            MappingSnapshotType::Initial => MappingSnapshotDesc::Initial,
-            MappingSnapshotType::ById => MappingSnapshotDesc::ById {
-                id: self
-                    .mapping_snapshot_id
-                    .as_ref()
-                    .map(|id| id.to_string())
-                    .unwrap_or_default(),
-            },
+        if self.target_type() == ReaperTargetType::TakeMappingSnapshot {
+            self.mapping_snapshot_id
+                .as_ref()
+                .map(|id| MappingSnapshotDesc::ById { id: id.to_string() })
+                .unwrap_or_default()
+        } else {
+            match self.mapping_snapshot_type {
+                MappingSnapshotType::Initial => MappingSnapshotDesc::Initial,
+                MappingSnapshotType::ById => MappingSnapshotDesc::ById {
+                    id: self
+                        .mapping_snapshot_id
+                        .as_ref()
+                        .map(|id| id.to_string())
+                        .unwrap_or_default(),
+                },
+            }
         }
     }
 
