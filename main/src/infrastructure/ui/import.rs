@@ -39,7 +39,8 @@ pub enum DataObject {
     Mappings(Envelope<Vec<MappingModelData>>),
     Mapping(Envelope<Box<MappingModelData>>),
     Source(Envelope<Box<SourceModelData>>),
-    Mode(Envelope<Box<ModeModelData>>),
+    #[serde(alias = "Mode")]
+    Glue(Envelope<Box<ModeModelData>>),
     Target(Envelope<Box<TargetModelData>>),
 }
 

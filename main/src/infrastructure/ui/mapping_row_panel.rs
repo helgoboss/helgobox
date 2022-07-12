@@ -655,9 +655,9 @@ impl MappingRowPanel {
                             format!("Paste source ({})", s.category),
                             DataObject::Source(Envelope { value: s }),
                         )),
-                        Some(DataObject::Mode(Envelope { value: m })) => Some((
-                            "Paste mode".to_owned(),
-                            DataObject::Mode(Envelope { value: m }),
+                        Some(DataObject::Glue(Envelope { value: m })) => Some((
+                            "Paste glue".to_owned(),
+                            DataObject::Glue(Envelope { value: m }),
                         )),
                         Some(DataObject::Target(Envelope { value: t })) => Some((
                             format!("Paste target ({})", t.category),
@@ -692,7 +692,7 @@ impl MappingRowPanel {
                     "Copy part",
                     vec![
                         item("Copy source", || MenuAction::CopyPart(ObjectType::Source)),
-                        item("Copy mode", || MenuAction::CopyPart(ObjectType::Mode)),
+                        item("Copy glue", || MenuAction::CopyPart(ObjectType::Glue)),
                         item("Copy target", || MenuAction::CopyPart(ObjectType::Target)),
                     ],
                 ),
@@ -938,7 +938,7 @@ fn copy_mapping_object(
         Source => DataObject::Source(Envelope {
             value: Box::new(SourceModelData::from_model(&mapping.source_model)),
         }),
-        Mode => DataObject::Mode(Envelope {
+        Glue => DataObject::Glue(Envelope {
             value: Box::new(ModeModelData::from_model(&mapping.mode_model)),
         }),
         Target => DataObject::Target(Envelope {
@@ -956,7 +956,7 @@ fn copy_mapping_object(
 enum ObjectType {
     Mapping,
     Source,
-    Mode,
+    Glue,
     Target,
 }
 
@@ -997,7 +997,7 @@ fn paste_data_object_in_place(
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
         }
-        DataObject::Mode(Envelope { value: m }) => {
+        DataObject::Glue(Envelope { value: m }) => {
             m.apply_to_model(&mut mapping.mode_model);
         }
         DataObject::Target(Envelope { value: t }) => {
