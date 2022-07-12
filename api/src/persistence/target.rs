@@ -514,6 +514,8 @@ pub struct FxParameterValueTarget {
     pub parameter: FxParameterDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub poll_for_feedback: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retrigger: Option<bool>,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]

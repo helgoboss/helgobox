@@ -207,6 +207,8 @@ fn convert_real_target(
                 data.poll_for_feedback,
                 defaults::TARGET_POLL_FOR_FEEDBACK,
             ),
+            retrigger: style
+                .required_value_with_default(data.retrigger, defaults::TARGET_RETRIGGER),
             parameter: convert_fx_parameter_descriptor(data, style),
         }),
         FxParameterTouchState => {

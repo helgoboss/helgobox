@@ -33,6 +33,7 @@ pub const TARGET_BY_NAME_ALLOW_MULTIPLE: bool = false;
 pub const TARGET_BOOKMARK_SET_TIME_SELECTION: bool = false;
 pub const TARGET_BOOKMARK_SET_LOOP_POINTS: bool = false;
 pub const TARGET_POLL_FOR_FEEDBACK: bool = true;
+pub const TARGET_RETRIGGER: bool = false;
 pub const TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW: bool = false;
 pub const TARGET_TRACK_SELECTION_SCROLL_MIXER: bool = false;
 pub const TARGET_SEEK_USE_TIME_SELECTION: bool = false;

@@ -511,7 +511,7 @@ impl MappingPanel {
                                             P::UseRegions => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseLoopPoints | P::PollForFeedback => {
+                                            P::UseLoopPoints | P::PollForFeedback | P::Retrigger => {
                                                 view.invalidate_target_check_boxes();
                                             }
                                             P::UseTimeSelection => {
@@ -2253,6 +2253,9 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameterValue => self.change_mapping(
+                    MappingCommand::ChangeTarget(TargetCommand::SetRetrigger(is_checked)),
+                ),
                 ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetUseLoopPoints(is_checked),
@@ -4905,6 +4908,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let checkbox_id = root::ID_TARGET_CHECK_BOX_5;
         let state = match self.target.category() {
             TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::FxParameterValue => Some(("Retrigger", self.target.retrigger())),
                 ReaperTargetType::Seek => Some(("Use loop points", self.target.use_loop_points())),
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points()))

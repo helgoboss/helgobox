@@ -93,6 +93,7 @@ pub enum TargetCommand {
     SetParamIndex(u32),
     SetParamName(String),
     SetParamExpression(String),
+    SetRetrigger(bool),
     SetRouteSelectorType(TrackRouteSelectorType),
     SetRouteType(TrackRouteType),
     SetRouteId(Option<Guid>),
@@ -181,6 +182,7 @@ pub enum TargetProp {
     ParamIndex,
     ParamName,
     ParamExpression,
+    Retrigger,
     RouteSelectorType,
     RouteType,
     RouteId,
@@ -341,6 +343,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetParamExpression(v) => {
                 self.param_expression = v;
                 One(P::ParamExpression)
+            }
+            C::SetRetrigger(v) => {
+                self.retrigger = v;
+                One(P::Retrigger)
             }
             C::SetRouteSelectorType(v) => {
                 self.route_selector_type = v;
@@ -623,6 +629,7 @@ pub struct TargetModel {
     param_index: u32,
     param_name: String,
     param_expression: String,
+    retrigger: bool,
     // # For track route targets
     route_selector_type: TrackRouteSelectorType,
     route_type: TrackRouteType,
@@ -730,6 +737,7 @@ impl Default for TargetModel {
             param_index: 0,
             param_name: "".to_owned(),
             param_expression: "".to_owned(),
+            retrigger: false,
             route_selector_type: Default::default(),
             route_type: Default::default(),
             route_id: None,
@@ -1057,6 +1065,10 @@ impl TargetModel {
 
     pub fn poll_for_feedback(&self) -> bool {
         self.poll_for_feedback
+    }
+
+    pub fn retrigger(&self) -> bool {
+        self.retrigger
     }
 
     pub fn tags(&self) -> &[Tag] {
@@ -1988,6 +2000,7 @@ impl TargetModel {
                         UnresolvedReaperTarget::FxParameter(UnresolvedFxParameterTarget {
                             fx_parameter_descriptor: self.fx_parameter_descriptor()?,
                             poll_for_feedback: self.poll_for_feedback,
+                            retrigger: self.retrigger,
                         })
                     }
                     FxParameterTouchState => UnresolvedReaperTarget::FxParameterTouchState(

@@ -19,6 +19,7 @@ use std::convert::TryInto;
 pub struct UnresolvedFxParameterTarget {
     pub fx_parameter_descriptor: FxParameterDescriptor,
     pub poll_for_feedback: bool,
+    pub retrigger: bool,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
@@ -37,6 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
                     is_real_time_ready,
                     param,
                     poll_for_feedback: self.poll_for_feedback,
+                    retrigger: self.retrigger,
                 };
                 ReaperTarget::FxParameter(target)
             })
@@ -62,6 +64,7 @@ pub struct FxParameterTarget {
     pub is_real_time_ready: bool,
     pub param: FxParameter,
     pub poll_for_feedback: bool,
+    pub retrigger: bool,
 }
 
 impl RealearnTarget for FxParameterTarget {
@@ -69,6 +72,7 @@ impl RealearnTarget for FxParameterTarget {
         determine_param_control_type_and_character(
             || self.param.step_sizes(),
             || self.param.value_range(),
+            self.retrigger,
         )
     }
 
@@ -217,6 +221,7 @@ impl RealearnTarget for FxParameterTarget {
             track: self.param.fx().track()?.raw(),
             fx_location: self.param.fx().query_index(),
             param_index: self.param.index(),
+            retrigger: self.retrigger,
         };
         Some(RealTimeReaperTarget::FxParameter(target))
     }
@@ -242,6 +247,7 @@ pub struct RealTimeFxParameterTarget {
     track: MediaTrack,
     fx_location: TrackFxLocation,
     param_index: u32,
+    retrigger: bool,
 }
 
 unsafe impl Send for RealTimeFxParameterTarget {}
@@ -318,6 +324,7 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
                     self.param_index,
                 )
             },
+            self.retrigger,
         )
         .0
     }
@@ -336,9 +343,17 @@ pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
 fn determine_param_control_type_and_character(
     get_step_sizes: impl FnOnce() -> Option<GetParameterStepSizesResult>,
     get_value_range: impl FnOnce() -> GetParamExResult,
+    retrigger: bool,
 ) -> (ControlType, TargetCharacter) {
     match get_step_sizes() {
-        None => (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
+        None => {
+            let control_type = if retrigger {
+                ControlType::AbsoluteContinuousRetriggerable
+            } else {
+                ControlType::AbsoluteContinuous
+            };
+            (control_type, TargetCharacter::Continuous)
+        }
         Some(GetParameterStepSizesResult::Normal {
             normal_step,
             small_step,
@@ -359,13 +374,18 @@ fn determine_param_control_type_and_character(
             (
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: UnitValue::new(step_size),
-                    is_retriggerable: false,
+                    is_retriggerable: retrigger,
                 },
                 TargetCharacter::Discrete,
             )
         }
         Some(GetParameterStepSizesResult::Toggle) => {
-            (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            let control_type = if retrigger {
+                ControlType::AbsoluteContinuousRetriggerable
+            } else {
+                ControlType::AbsoluteContinuous
+            };
+            (control_type, TargetCharacter::Switch)
         }
     }
 }

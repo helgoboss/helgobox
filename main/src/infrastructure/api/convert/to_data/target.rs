@@ -520,6 +520,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 poll_for_feedback: d
                     .poll_for_feedback
                     .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
+                retrigger: d.retrigger.unwrap_or(defaults::TARGET_RETRIGGER),
                 ..init(d.commons)
             }
         }

@@ -285,6 +285,8 @@ pub struct TargetModelData {
     pub osc_dev_id: Option<OscDeviceId>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub retrigger: bool,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -501,6 +503,7 @@ impl TargetModelData {
             next_bar: false,
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
+            retrigger: model.retrigger(),
             tags: model.tags().to_vec(),
             mapping_snapshot: model.mapping_snapshot_desc(),
             mapping_snapshot_default_value: model
@@ -702,6 +705,7 @@ impl TargetModelData {
         ));
         model.change(C::SetOscDevId(self.osc_dev_id));
         model.change(C::SetPollForFeedback(self.poll_for_feedback));
+        model.change(C::SetRetrigger(self.retrigger));
         model.change(C::SetTags(self.tags.clone()));
         model.change(C::SetExclusivity(self.exclusivity));
         let group_id = conversion_context

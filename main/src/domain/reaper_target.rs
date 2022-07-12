@@ -392,6 +392,7 @@ impl ReaperTarget {
                 is_real_time_ready: false,
                 param: e.parameter,
                 poll_for_feedback: true,
+                retrigger: false,
             }),
             FxPresetChanged(e) => FxPreset(FxPresetTarget { fx: e.fx }),
             MasterTempoChanged(e) if e.touched => Tempo(TempoTarget {
@@ -435,6 +436,7 @@ impl ReaperTarget {
                     is_real_time_ready: false,
                     param,
                     poll_for_feedback: true,
+                    retrigger: false,
                 })
                 .into()
             }))
