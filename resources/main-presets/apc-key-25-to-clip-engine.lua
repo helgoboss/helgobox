@@ -382,7 +382,7 @@ function column_track_target(col, track_target_kind, exclusive)
         target = {
             kind = track_target_kind,
             track = clip_column_track(col),
-            exclusivity = exclusive and "WithinFolderOnOnly",
+            exclusivity = exclusive and "WithinFolderOnOnly" or nil,
         },
     }
 end
@@ -716,7 +716,7 @@ for col = 0, column_count - 1 do
     -- Column stop button functions
     table.insert(mappings, name("Stop column") + group(groups.column_stop) + no_mod + column_stop_button(col) + clip_column_action(col, "Stop"))
     table.insert(mappings, name("Solo track") + group(groups.column_solo) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
-    table.insert(mappings, name("Arm track") + group(groups.column_record_arm) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", true))
+    table.insert(mappings, name("Arm track") + group(groups.column_record_arm) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", false))
     table.insert(mappings, name("Mute track") + group(groups.column_mute) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
     table.insert(mappings, name("Select track") + group(groups.column_select) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
     -- Knob functions
