@@ -107,12 +107,21 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             ) -> Vec<MappingControlResult> {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
+                    let glue = m.mode().settings();
                     let v = if m.id() == self.desired_mapping_id {
-                        m.mode().settings().target_value_interval.max_val()
+                        if glue.reverse {
+                            glue.target_value_interval.min_val()
+                        } else {
+                            glue.target_value_interval.max_val()
+                        }
                     } else if self.exclusivity == SimpleExclusivity::Exclusive
                         && m.group_id() == self.group_id
                     {
-                        m.mode().settings().target_value_interval.min_val()
+                        if glue.reverse {
+                            glue.target_value_interval.max_val()
+                        } else {
+                            glue.target_value_interval.min_val()
+                        }
                     } else {
                         continue;
                     };

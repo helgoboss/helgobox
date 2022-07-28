@@ -277,11 +277,29 @@ function sustain_pressed(on)
     }
 end
 
-function shift_or_sustain_pressed(on)
+function shift_or_sustain_pressed()
     return PartialMapping {
         activation_condition = {
             kind = "Expression",
             condition = "p[2] || p[7]",
+        },
+    }
+end
+
+function shift_and_sustain_pressed()
+    return PartialMapping {
+        activation_condition = {
+            kind = "Modifier",
+            modifiers = {
+                {
+                    parameter = params.sustain.index,
+                    on = true,
+                },
+                {
+                    parameter = params.shift.index,
+                    on = true,
+                },
+            },
         },
     }
 end
@@ -335,6 +353,7 @@ local no_mod = shift_pressed(false)
 local shift = shift_pressed(true)
 local sustain = sustain_pressed(true)
 local shift_or_sustain = shift_or_sustain_pressed()
+local shift_and_sustain = shift_and_sustain_pressed()
 local short_press = fire_max(200)
 local long_press = fire_after_timeout(1000)
 local single_press = fire("OnSinglePress", 200)
@@ -609,6 +628,9 @@ local groups = {
     column_modes = {
         name = "Column modes",
     },
+    record_settings = {
+        name = "Record settings",
+    },
     knob_modes = {
         name = "Knob modes",
     },
@@ -709,6 +731,11 @@ local mappings = {
     name("Knob pan mode") + group(groups.knob_modes) + shift + button("col6/stop") + set_knob_mode(knob_modes.pan),
     name("Knob send mode") + group(groups.knob_modes) + shift + button("col7/stop") + set_knob_mode(knob_modes.sends),
     name("Knob device mode") + group(groups.knob_modes) + shift + button("col8/stop") + set_knob_mode(knob_modes.device),
+    name("Record 1 bar") + group(groups.record_settings) + shift_and_sustain + button("row1/play") + clip_matrix_action("SetRecordDurationToOneBar"),
+    name("Record 2 bars") + group(groups.record_settings) + shift_and_sustain + button("row2/play") + clip_matrix_action("SetRecordDurationToTwoBars"),
+    name("Record 4 bars") + group(groups.record_settings) + shift_and_sustain + button("row3/play") + clip_matrix_action("SetRecordDurationToFourBars"),
+    name("Record 8 bars") + group(groups.record_settings) + shift_and_sustain + button("row4/play") + clip_matrix_action("SetRecordDurationToEightBars"),
+    name("Record open-ended") + group(groups.record_settings) + shift_and_sustain + button("stop-all-clips") + clip_matrix_action("SetRecordDurationToOpenEnd"),
 }
 
 -- For each column

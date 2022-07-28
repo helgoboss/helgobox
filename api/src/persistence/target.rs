@@ -1021,6 +1021,16 @@ pub enum ClipMatrixAction {
     Redo,
     #[display(fmt = "Build scene")]
     BuildScene,
+    #[display(fmt = "Set record duration to open end")]
+    SetRecordDurationToOpenEnd,
+    #[display(fmt = "Set record duration to 1 bar")]
+    SetRecordDurationToOneBar,
+    #[display(fmt = "Set record duration to 2 bars")]
+    SetRecordDurationToTwoBars,
+    #[display(fmt = "Set record duration to 4 bars")]
+    SetRecordDurationToFourBars,
+    #[display(fmt = "Set record duration to 8 bars")]
+    SetRecordDurationToEightBars,
 }
 
 impl Default for ClipMatrixAction {

@@ -20,7 +20,8 @@ use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
-    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange,
+    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
+    TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
@@ -487,6 +488,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    pub fn settings(&self) -> &MatrixSettings {
+        &self.settings
+    }
+
+    pub fn set_record_duration(&mut self, record_length: RecordLength) {
+        self.settings.clip_record_settings.duration = record_length;
+        self.handler
+            .emit_event(ClipMatrixEvent::RecordDurationChanged);
+    }
+
     pub fn build_scene_in_first_empty_row(&mut self) -> ClipEngineResult<()> {
         let empty_row_index = (0usize..)
             .find(|row_index| self.scene_is_empty(*row_index))
@@ -902,6 +913,7 @@ pub trait ClipMatrixHandler: Sized {
 pub enum ClipMatrixEvent {
     AllClipsChanged,
     ClipChanged(QualifiedClipChangeEvent),
+    RecordDurationChanged,
 }
 
 impl ClipMatrixEvent {

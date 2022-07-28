@@ -5,6 +5,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use playtime_api::persistence::{EvenQuantization, RecordLength};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use realearn_api::persistence::ClipMatrixAction;
@@ -66,6 +67,21 @@ impl RealearnTarget for ClipMatrixTarget {
                     ClipMatrixAction::BuildScene => {
                         matrix.build_scene_in_first_empty_row()?;
                     }
+                    ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                        matrix.set_record_duration(RecordLength::OpenEnd);
+                    }
+                    ClipMatrixAction::SetRecordDurationToOneBar => {
+                        matrix.set_record_duration(record_duration_in_bars(1));
+                    }
+                    ClipMatrixAction::SetRecordDurationToTwoBars => {
+                        matrix.set_record_duration(record_duration_in_bars(2));
+                    }
+                    ClipMatrixAction::SetRecordDurationToFourBars => {
+                        matrix.set_record_duration(record_duration_in_bars(4));
+                    }
+                    ClipMatrixAction::SetRecordDurationToEightBars => {
+                        matrix.set_record_duration(record_duration_in_bars(8));
+                    }
                 }
                 Ok(None)
             },
@@ -91,6 +107,16 @@ impl RealearnTarget for ClipMatrixTarget {
             },
             ClipMatrixAction::Undo | ClipMatrixAction::Redo => match evt {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+                _ => (false, None),
+            },
+            ClipMatrixAction::SetRecordDurationToOpenEnd
+            | ClipMatrixAction::SetRecordDurationToOneBar
+            | ClipMatrixAction::SetRecordDurationToTwoBars
+            | ClipMatrixAction::SetRecordDurationToFourBars
+            | ClipMatrixAction::SetRecordDurationToEightBars => match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::RecordDurationChanged) => {
+                    (true, None)
+                }
                 _ => (false, None),
             },
         }
@@ -129,6 +155,25 @@ impl<'a> Target<'a> for ClipMatrixTarget {
                     ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => matrix.is_stoppable(),
                     ClipMatrixAction::Undo => matrix.can_undo(),
                     ClipMatrixAction::Redo => matrix.can_redo(),
+                    ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                        matrix.settings().clip_record_settings.duration == RecordLength::OpenEnd
+                    }
+                    ClipMatrixAction::SetRecordDurationToOneBar => {
+                        matrix.settings().clip_record_settings.duration
+                            == record_duration_in_bars(1)
+                    }
+                    ClipMatrixAction::SetRecordDurationToTwoBars => {
+                        matrix.settings().clip_record_settings.duration
+                            == record_duration_in_bars(2)
+                    }
+                    ClipMatrixAction::SetRecordDurationToFourBars => {
+                        matrix.settings().clip_record_settings.duration
+                            == record_duration_in_bars(4)
+                    }
+                    ClipMatrixAction::SetRecordDurationToEightBars => {
+                        matrix.settings().clip_record_settings.duration
+                            == record_duration_in_bars(8)
+                    }
                 };
                 Some(AbsoluteValue::from_bool(bool_value))
             })
@@ -195,9 +240,22 @@ pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
 fn control_type_and_character(action: ClipMatrixAction) -> (ControlType, TargetCharacter) {
     use ClipMatrixAction::*;
     match action {
-        Stop | Undo | Redo | BuildScene => (
+        SetRecordDurationToOpenEnd
+        | SetRecordDurationToOneBar
+        | SetRecordDurationToTwoBars
+        | SetRecordDurationToFourBars
+        | SetRecordDurationToEightBars
+        | Stop
+        | Undo
+        | Redo
+        | BuildScene => (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         ),
     }
+}
+
+/// Panics if you pass zero.
+fn record_duration_in_bars(bars: u32) -> RecordLength {
+    RecordLength::Quantized(EvenQuantization::new(bars, 1).unwrap())
 }
