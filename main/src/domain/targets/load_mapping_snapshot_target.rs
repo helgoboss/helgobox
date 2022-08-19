@@ -182,7 +182,19 @@ impl LoadMappingSnapshotInstruction {
                 if self.active_mappings_only && !m.is_effectively_active() {
                     return None;
                 }
-                let snapshot_value = get_snapshot_value(m).or(self.default_value)?;
+                let snapshot_value = get_snapshot_value(m).or_else(|| {
+                    let default_value = self.default_value?;
+                    // Sometimes we want to consider 0% as "on" and 100% as "off" when loading the
+                    // default value. For example, it's quite common to unmute particular tracks,
+                    // essentially activating them. So we have to reverse the "Track: Mute/unmute"
+                    // target: It should mute at 0% and unmute at 100%.
+                    let effective_value = if m.mode().settings().reverse {
+                        default_value.inverse(None)
+                    } else {
+                        default_value
+                    };
+                    Some(effective_value)
+                })?;
                 context
                     .domain_event_handler
                     .notify_mapping_matched(m.compartment(), m.id());
