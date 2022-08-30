@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, dialog_util, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -148,13 +148,16 @@ impl MainPanel {
 
     fn invalidate_status_1_text(&self) {
         use std::fmt::Write;
-        self.do_with_session(|session| {
+        let _ = self.do_with_session(|session| {
             let state = self.state.borrow();
             let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
             let mut text = format!(
-                "Showing mappings {} to {} of {}",
-                scroll_status.from_pos, scroll_status.to_pos, scroll_status.item_count
+                "Showing mappings {} to {} of {} | Session ID: {}",
+                scroll_status.from_pos,
+                scroll_status.to_pos,
+                scroll_status.item_count,
+                session.id()
             );
             if !tags.is_empty() {
                 let _ = write!(&mut text, " | Instance tags: {}", format_tags_as_csv(tags));
@@ -167,7 +170,7 @@ impl MainPanel {
 
     fn invalidate_status_2_text(&self) {
         use std::fmt::Write;
-        self.do_with_session(|session| {
+        let _ = self.do_with_session(|session| {
             let instance_state = session.instance_state().borrow();
             let instance_track = instance_state.instance_track_descriptor();
             let compartment = Compartment::Main;
@@ -198,22 +201,22 @@ impl MainPanel {
         });
     }
 
-    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Option<R> {
+    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Result<R, &'static str> {
         if let Some(data) = self.active_data.borrow() {
             if let Some(session) = data.session.upgrade() {
-                return Some(f(&session.borrow()));
+                return Ok(f(&session.borrow()));
             }
         }
-        None
+        Err("session not available")
     }
 
-    fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Option<R> {
+    fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Result<R, &'static str> {
         if let Some(data) = self.active_data.borrow() {
             if let Some(session) = data.session.upgrade() {
-                return Some(f(&mut session.borrow_mut()));
+                return Ok(f(&mut session.borrow_mut()));
             }
         }
-        None
+        Err("session not available")
     }
 
     fn invalidate_version_text(&self) {
@@ -237,11 +240,11 @@ impl MainPanel {
     }
 
     fn register_session_listeners(self: &SharedView<Self>) {
-        self.do_with_session(|session| {
+        let _ = self.do_with_session(|session| {
             self.when(session.everything_changed(), |view| {
                 view.invalidate_all_controls();
             });
-            self.when(session.tags.changed(), |view| {
+            self.when(session.tags.changed().merge(session.id.changed()), |view| {
                 view.invalidate_status_1_text();
             });
         });
@@ -308,18 +311,57 @@ impl MainPanel {
         }
     }
 
-    fn edit_tags(&self) {
-        let initial_csv = self
-            .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
-            .unwrap_or_default();
-        let new_tag_string = match dialog_util::prompt_for("Tags", &initial_csv) {
-            None => return,
-            Some(s) => s,
+    fn edit_instance_data(&self) -> Result<(), &'static str> {
+        let (initial_session_id, initial_tags_as_csv) = self.do_with_session(|session| {
+            (
+                session.id().to_owned(),
+                format_tags_as_csv(session.tags.get_ref()),
+            )
+        })?;
+        let initial_csv = format!("{}|{}", initial_session_id, initial_tags_as_csv);
+        // Show UI
+        let csv_result = Reaper::get().medium_reaper().get_user_inputs(
+            "ReaLearn",
+            2,
+            "Session ID,Tags,separator=|,extrawidth=200",
+            initial_csv,
+            512,
+        );
+        // Check if cancelled
+        let csv = match csv_result {
+            // Cancelled
+            None => return Ok(()),
+            Some(csv) => csv,
         };
-        let tags = parse_tags_from_csv(&new_tag_string);
-        self.do_with_session_mut(|session| {
-            session.tags.set(tags);
-        });
+        // Parse result CSV
+        let split: Vec<_> = csv.to_str().split('|').collect();
+        let (session_id, tags_as_csv) = match split.as_slice() {
+            [session_id, tags_as_csv] => (session_id, tags_as_csv),
+            _ => return Err("couldn't split result"),
+        };
+        // Take care of tags
+        if tags_as_csv != &initial_tags_as_csv {
+            let tags = parse_tags_from_csv(&tags_as_csv);
+            self.do_with_session_mut(|session| {
+                session.tags.set(tags);
+            })?;
+        }
+        // Take care of session ID
+        // TODO-low Introduce a SessionId newtype.
+        let new_session_id = session_id.replace(|ch| !nanoid::alphabet::SAFE.contains(&ch), "");
+        if !new_session_id.is_empty() && new_session_id != initial_session_id {
+            if App::get().has_session(&new_session_id) {
+                self.view.require_window().alert(
+                    "ReaLearn",
+                    "There's another open ReaLearn session which already has this session ID!",
+                );
+                return Ok(());
+            }
+            self.do_with_session_mut(|session| {
+                session.id.set(new_session_id);
+            })?;
+        }
+        Ok(())
     }
 
     fn when(
@@ -367,7 +409,9 @@ impl View for MainPanel {
     #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::IDC_EDIT_TAGS_BUTTON => self.edit_tags(),
+            root::IDC_EDIT_TAGS_BUTTON => {
+                self.edit_instance_data().unwrap();
+            }
             _ => {}
         }
     }

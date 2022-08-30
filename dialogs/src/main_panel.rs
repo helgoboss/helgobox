@@ -31,9 +31,9 @@ pub fn create(
             create_rect(56, 5 + line_spacing, 356, 9),
         ) + NOT_WS_GROUP,
         pushbutton(
-            " Edit tags...",
+            "Instance data...",
             ids.named_id("IDC_EDIT_TAGS_BUTTON"),
-            create_rect(416, 5 + line_spacing, 46, 14),
+            create_rect(406, 5 + line_spacing, 56, 14),
         ),
         ctext(
             "ReaLearn",

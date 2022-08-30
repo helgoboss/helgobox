@@ -1541,11 +1541,6 @@ impl Session {
         }
     }
 
-    /// Resets the session ID to the (hopefully) always unique instance ID.
-    pub fn reset_id(&mut self) {
-        self.id.set(self.instance_id.to_string());
-    }
-
     pub fn mapping_which_learns_source_changed(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {

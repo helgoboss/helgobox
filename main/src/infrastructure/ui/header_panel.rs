@@ -2209,31 +2209,10 @@ impl HeaderPanel {
     }
 
     fn change_session_id(&self) {
-        let current_session_id = { self.session().borrow().id.get_ref().clone() };
-        let new_session_id = match dialog_util::prompt_for("Session ID", &current_session_id) {
-            None => return,
-            Some(n) => n,
-        };
-        if new_session_id.trim().is_empty() {
-            return;
-        }
-        if new_session_id == current_session_id {
-            return;
-        }
-        if App::get().has_session(&new_session_id) {
-            self.view.require_window().alert(
-                "ReaLearn",
-                "There's another open ReaLearn session which already has this session ID!",
-            );
-            return;
-        }
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        if new_session_id.is_empty() {
-            session.reset_id();
-        } else {
-            session.id.set(new_session_id);
-        }
+        self.view.require_window().alert(
+            "ReaLearn",
+            "Please change the session ID using the \"Instance data...\" button on the bottom right!",
+        );
     }
 
     /// Don't borrow the session while calling this!
