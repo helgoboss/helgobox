@@ -10,7 +10,8 @@ use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTi
 use crate::domain::{
     BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GroupId,
     HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
-    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TrackDescriptor,
+    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
+    VirtualMappingSnapshotId,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -196,6 +197,25 @@ impl InstanceState {
 
     pub fn mapping_snapshot_container_mut(&mut self) -> &mut MappingSnapshotContainer {
         &mut self.mapping_snapshot_container
+    }
+
+    /// Marks the given snapshot as the active one for all tags in the given scope and sends
+    /// instance feedback.
+    pub fn mark_snapshot_active(
+        &mut self,
+        compartment: Compartment,
+        tag_scope: &TagScope,
+        snapshot_id: &VirtualMappingSnapshotId,
+    ) {
+        self.mapping_snapshot_container
+            .mark_snapshot_active(tag_scope, snapshot_id);
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::MappingSnapshotActivated {
+                compartment,
+                tag_scope: tag_scope.clone(),
+                snapshot_id: snapshot_id.clone(),
+            },
+        )
     }
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
@@ -515,13 +535,20 @@ impl Drop for InstanceState {
 #[derive(Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
+    /// For the "ReaLearn: Navigate within group" target.
     ActiveMappingWithinGroup {
         compartment: Compartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
-    ActiveMappingTags {
-        compartment: Compartment,
-    },
+    /// For the "ReaLearn: Enable/disable mappings" target.
+    ActiveMappingTags { compartment: Compartment },
+    /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
+    /// For the "ReaLearn: Load mapping snapshot" target.
+    MappingSnapshotActivated {
+        compartment: Compartment,
+        tag_scope: TagScope,
+        snapshot_id: VirtualMappingSnapshotId,
+    },
 }

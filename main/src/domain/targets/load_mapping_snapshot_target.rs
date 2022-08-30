@@ -1,14 +1,16 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, MainMapping, MappingControlContext, MappingControlResult,
-    MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstruction,
+    HitInstructionContext, HitInstructionReturnValue, InstanceState, InstanceStateChanged,
+    MainMapping, MappingControlContext, MappingControlResult, MappingSnapshotId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDesc;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadMappingSnapshotTarget {
+    pub compartment: Compartment,
     /// Mappings which are in the snapshot but not in the tag scope will be ignored.
     pub scope: TagScope,
     /// If `false`, mappings which are contained in the snapshot but are now inactive
@@ -32,26 +34,26 @@ pub struct UnresolvedLoadMappingSnapshotTarget {
     //  a) top-left-checkbox = conditional-activation
     //  b) top-left-checkbox = control-checkbox
     pub active_mappings_only: bool,
-    pub snapshot: VirtualMappingSnapshot,
+    pub snapshot: VirtualMappingSnapshotId,
     pub default_value: Option<AbsoluteValue>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum VirtualMappingSnapshot {
+pub enum VirtualMappingSnapshotId {
     Initial,
     ById(MappingSnapshotId),
 }
 
-impl VirtualMappingSnapshot {
+impl VirtualMappingSnapshotId {
     pub fn id(&self) -> Option<&MappingSnapshotId> {
         match self {
-            VirtualMappingSnapshot::Initial => None,
-            VirtualMappingSnapshot::ById(id) => Some(id),
+            VirtualMappingSnapshotId::Initial => None,
+            VirtualMappingSnapshotId::ById(id) => Some(id),
         }
     }
 }
 
-impl TryFrom<MappingSnapshotDesc> for VirtualMappingSnapshot {
+impl TryFrom<MappingSnapshotDesc> for VirtualMappingSnapshotId {
     type Error = &'static str;
 
     fn try_from(value: MappingSnapshotDesc) -> Result<Self, Self::Error> {
@@ -63,11 +65,11 @@ impl TryFrom<MappingSnapshotDesc> for VirtualMappingSnapshot {
     }
 }
 
-impl From<VirtualMappingSnapshot> for MappingSnapshotDesc {
-    fn from(value: VirtualMappingSnapshot) -> Self {
+impl From<VirtualMappingSnapshotId> for MappingSnapshotDesc {
+    fn from(value: VirtualMappingSnapshotId) -> Self {
         match value {
-            VirtualMappingSnapshot::Initial => Self::Initial,
-            VirtualMappingSnapshot::ById(s) => Self::ById { id: s.to_string() },
+            VirtualMappingSnapshotId::Initial => Self::Initial,
+            VirtualMappingSnapshotId::ById(s) => Self::ById { id: s.to_string() },
         }
     }
 }
@@ -80,9 +82,10 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::LoadMappingSnapshot(
             LoadMappingSnapshotTarget {
+                compartment: self.compartment,
                 scope: self.scope.clone(),
                 active_mappings_only: self.active_mappings_only,
-                snapshot: self.snapshot.clone(),
+                snapshot_id: self.snapshot.clone(),
                 default_value: self.default_value,
             },
         )])
@@ -91,9 +94,10 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
+    pub compartment: Compartment,
     pub scope: TagScope,
     pub active_mappings_only: bool,
-    pub snapshot: VirtualMappingSnapshot,
+    pub snapshot_id: VirtualMappingSnapshotId,
     pub default_value: Option<AbsoluteValue>,
 }
 
@@ -120,28 +124,46 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         let instruction = LoadMappingSnapshotInstruction {
             // So far this clone is okay because loading a snapshot is not something that happens
             // every few milliseconds. No need to use a ref to this target.
+            compartment: self.compartment,
             scope: self.scope.clone(),
             active_mappings_only: self.active_mappings_only,
-            snapshot: self.snapshot.clone(),
+            snapshot: self.snapshot_id.clone(),
             default_value: self.default_value,
         };
         Ok(Some(Box::new(instruction)))
     }
 
-    fn can_report_current_value(&self) -> bool {
-        false
-    }
-
     fn is_available(&self, _: ControlContext) -> bool {
         true
+    }
+
+    fn process_change_event(
+        &self,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        match evt {
+            CompoundChangeEvent::Instance(InstanceStateChanged::MappingSnapshotActivated {
+                compartment,
+                tag_scope,
+                ..
+            }) if *compartment == self.compartment && self.scope.overlaps_with(&tag_scope) => {
+                (true, None)
+            }
+            _ => (false, None),
+        }
     }
 }
 
 impl<'a> Target<'a> for LoadMappingSnapshotTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        None
+    fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
+        let instance_state = context.instance_state.borrow();
+        let is_active = instance_state
+            .mapping_snapshot_container()
+            .snapshot_is_active(&self.scope, &self.snapshot_id);
+        Some(AbsoluteValue::from_bool(is_active))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -157,16 +179,17 @@ pub const LOAD_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
 };
 
 struct LoadMappingSnapshotInstruction {
+    compartment: Compartment,
     scope: TagScope,
     active_mappings_only: bool,
-    snapshot: VirtualMappingSnapshot,
+    snapshot: VirtualMappingSnapshotId,
     default_value: Option<AbsoluteValue>,
 }
 
 impl LoadMappingSnapshotInstruction {
     fn load_snapshot(
         &self,
-        context: HitInstructionContext,
+        context: &mut HitInstructionContext,
         get_snapshot_value: impl Fn(&MainMapping) -> Option<AbsoluteValue>,
     ) -> Vec<MappingControlResult> {
         context
@@ -216,22 +239,31 @@ impl LoadMappingSnapshotInstruction {
             })
             .collect()
     }
+
+    fn mark_snapshot_as_active(&self, instance_state: &mut InstanceState) {
+        instance_state.mark_snapshot_active(self.compartment, &self.scope, &self.snapshot);
+    }
 }
 
 impl HitInstruction for LoadMappingSnapshotInstruction {
-    fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult> {
-        match &self.snapshot {
-            VirtualMappingSnapshot::Initial => {
-                self.load_snapshot(context, |m| m.initial_target_value())
+    fn execute(self: Box<Self>, mut context: HitInstructionContext) -> Vec<MappingControlResult> {
+        // Load snapshot
+        let results = match &self.snapshot {
+            VirtualMappingSnapshotId::Initial => {
+                self.load_snapshot(&mut context, |m| m.initial_target_value())
             }
-            VirtualMappingSnapshot::ById(id) => {
+            VirtualMappingSnapshotId::ById(id) => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let snapshot_container = instance_state.mapping_snapshot_container();
                 let snapshot = snapshot_container.find_snapshot_by_id(id);
-                self.load_snapshot(context, |m| {
+                self.load_snapshot(&mut context, |m| {
                     snapshot.and_then(|s| s.find_target_value_by_mapping_id(m.id()))
                 })
             }
-        }
+        };
+        // Mark snapshot as active.
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        self.mark_snapshot_as_active(&mut instance_state);
+        results
     }
 }

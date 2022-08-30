@@ -54,6 +54,10 @@ impl TagScope {
     pub fn has_tags(&self) -> bool {
         !self.tags.is_empty()
     }
+
+    pub fn overlaps_with(&self, tag_scope: &TagScope) -> bool {
+        has_any_of(&self.tags, &tag_scope.tags)
+    }
 }
 
 fn has_any_of<'a, T: 'a + Eq + Hash>(
