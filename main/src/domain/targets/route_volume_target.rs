@@ -3,9 +3,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     get_track_routes, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
@@ -74,12 +74,12 @@ impl RealearnTarget for RouteVolumeTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_volume(volume.unwrap_or(Volume::MIN), EditMode::NormalTweak)
             .map_err(|_| "couldn't set route volume")?;
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

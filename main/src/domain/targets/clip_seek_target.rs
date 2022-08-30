@@ -6,10 +6,9 @@ use playtime_api::runtime::ClipPlayState;
 
 use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
-    DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangeEvent, InternalClipPlayState, QualifiedClipChangeEvent};
@@ -65,11 +64,11 @@ impl RealearnTarget for ClipSeekTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
             matrix.seek_clip_legacy(self.slot_coordinates, value)?;
-            Ok(None)
+            Ok(HitResponse::processed_with_effect())
         })?
     }
 

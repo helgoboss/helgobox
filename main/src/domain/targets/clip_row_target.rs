@@ -1,8 +1,8 @@
 use crate::domain::{
-    BackboneState, Compartment, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnClipMatrix, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnClipMatrix,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::ClipRowAction;
@@ -63,29 +63,29 @@ impl RealearnTarget for ClipRowTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         match self.basics.action {
             ClipRowAction::PlayScene => {
                 if !value.is_on() {
-                    return Ok(None);
+                    return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context.control_context, |matrix| {
                     matrix.play_row(self.basics.row_index);
                 })?;
-                Ok(None)
+                Ok(HitResponse::processed_with_effect())
             }
             ClipRowAction::BuildScene => {
                 if !value.is_on() {
-                    return Ok(None);
+                    return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context.control_context, |matrix| {
                     matrix.build_scene(self.basics.row_index)?;
-                    Ok(None)
+                    Ok(HitResponse::processed_with_effect())
                 })?
             }
             ClipRowAction::CopyOrPasteScene => {
                 if !value.is_on() {
-                    return Ok(None);
+                    return Ok(HitResponse::ignored());
                 }
                 let clips_in_scene: Vec<_> = self
                     .with_matrix(context.control_context, |matrix| {
@@ -104,22 +104,22 @@ impl RealearnTarget for ClipRowTarget {
                     }
                     self.with_matrix(context.control_context, |matrix| {
                         matrix.fill_row_with_clips(self.basics.row_index, copied_clips_in_row)?;
-                        Ok(None)
+                        Ok(HitResponse::processed_with_effect())
                     })?
                 } else {
                     // Row has clips. Copy them.
                     let mut instance_state = context.control_context.instance_state.borrow_mut();
                     instance_state.copy_clips_in_row(clips_in_scene);
-                    Ok(None)
+                    Ok(HitResponse::processed_with_effect())
                 }
             }
             ClipRowAction::ClearScene => {
                 if !value.is_on() {
-                    return Ok(None);
+                    return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context.control_context, |matrix| {
                     matrix.clear_scene(self.basics.row_index)?;
-                    Ok(None)
+                    Ok(HitResponse::processed_with_effect())
                 })?
             }
         }

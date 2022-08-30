@@ -1,10 +1,9 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_bool_as_on_off, get_effective_tracks, ActionInvocationType, AdditionalFeedbackEvent,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::{U14, U7};
@@ -100,7 +99,7 @@ impl RealearnTarget for ActionTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if let Some(track) = &self.track {
             if !track.is_selected()
                 || self
@@ -111,18 +110,23 @@ impl RealearnTarget for ActionTarget {
                 track.select_exclusively();
             }
         }
-        match value {
+        let response = match value {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
-                    if !v.is_zero() {
+                    if v.is_zero() {
+                        HitResponse::ignored()
+                    } else {
                         self.invoke_absolute_with_unit_value(v, false);
+                        HitResponse::processed_with_effect()
                     }
                 }
                 ActionInvocationType::Absolute14Bit => {
                     self.invoke_absolute_with_unit_value(v, false);
+                    HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Absolute7Bit => {
                     self.invoke_absolute_with_unit_value(v, true);
+                    HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Relative => {
                     return Err("relative invocation type can't take absolute values");
@@ -130,15 +134,20 @@ impl RealearnTarget for ActionTarget {
             },
             ControlValue::AbsoluteDiscrete(f) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
-                    if !f.is_zero() {
+                    if f.is_zero() {
+                        HitResponse::ignored()
+                    } else {
                         self.invoke_absolute_with_fraction(f, false)?;
+                        HitResponse::processed_with_effect()
                     }
                 }
                 ActionInvocationType::Absolute14Bit => {
-                    self.invoke_absolute_with_fraction(f, false)?
+                    self.invoke_absolute_with_fraction(f, false)?;
+                    HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Absolute7Bit => {
-                    self.invoke_absolute_with_fraction(f, true)?
+                    self.invoke_absolute_with_fraction(f, true)?;
+                    HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Relative => {
                     return Err("relative invocation type can't take absolute values");
@@ -147,6 +156,7 @@ impl RealearnTarget for ActionTarget {
             ControlValue::RelativeDiscrete(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
                     self.action.invoke_relative(i.get(), Some(self.project));
+                    HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
                 }
@@ -155,12 +165,13 @@ impl RealearnTarget for ActionTarget {
                 if let ActionInvocationType::Relative = self.invocation_type {
                     let i = i.to_discrete_increment();
                     self.action.invoke_relative(i.get(), Some(self.project));
+                    HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
                 }
             }
         };
-        Ok(None)
+        Ok(response)
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

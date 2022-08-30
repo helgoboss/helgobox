@@ -2,8 +2,8 @@ use crate::application::BookmarkAnchorType;
 use crate::domain::{
     current_value_of_bookmark, find_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
@@ -87,36 +87,37 @@ impl RealearnTarget for GoToBookmarkTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        if !value.to_unit_value()?.is_zero() {
-            match self.bookmark_type {
-                BookmarkType::Marker => self
-                    .project
-                    .go_to_marker(BookmarkRef::Position(self.position)),
-                BookmarkType::Region => {
-                    self.project
-                        .go_to_region_with_smooth_seek(BookmarkRef::Position(self.position));
-                    if self.set_loop_points || self.set_time_selection {
-                        if let Some(bookmark) = self.find_bookmark() {
-                            if let Some(end_pos) = bookmark.basic_info.region_end_position {
-                                if self.set_loop_points {
-                                    self.project.set_loop_points(
-                                        bookmark.basic_info.position,
-                                        end_pos,
-                                        AutoSeekBehavior::DenyAutoSeek,
-                                    );
-                                }
-                                if self.set_time_selection {
-                                    self.project
-                                        .set_time_selection(bookmark.basic_info.position, end_pos);
-                                }
+    ) -> Result<HitResponse, &'static str> {
+        if value.to_unit_value()?.is_zero() {
+            return Ok(HitResponse::ignored());
+        }
+        match self.bookmark_type {
+            BookmarkType::Marker => self
+                .project
+                .go_to_marker(BookmarkRef::Position(self.position)),
+            BookmarkType::Region => {
+                self.project
+                    .go_to_region_with_smooth_seek(BookmarkRef::Position(self.position));
+                if self.set_loop_points || self.set_time_selection {
+                    if let Some(bookmark) = self.find_bookmark() {
+                        if let Some(end_pos) = bookmark.basic_info.region_end_position {
+                            if self.set_loop_points {
+                                self.project.set_loop_points(
+                                    bookmark.basic_info.position,
+                                    end_pos,
+                                    AutoSeekBehavior::DenyAutoSeek,
+                                );
+                            }
+                            if self.set_time_selection {
+                                self.project
+                                    .set_time_selection(bookmark.basic_info.position, end_pos);
                             }
                         }
                     }
                 }
             }
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

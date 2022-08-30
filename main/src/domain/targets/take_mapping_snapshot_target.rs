@@ -1,8 +1,8 @@
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, MappingControlContext, MappingControlResult, MappingSnapshot,
-    MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionResponse, HitResponse, MappingControlContext, MappingSnapshot, MappingSnapshotId,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForTake;
@@ -98,9 +98,9 @@ impl RealearnTarget for TakeMappingSnapshotTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if !value.is_on() {
-            return Ok(None);
+            return Ok(HitResponse::ignored());
         }
         let instruction = TakeMappingSnapshotInstruction {
             compartment: self.compartment,
@@ -110,7 +110,7 @@ impl RealearnTarget for TakeMappingSnapshotTarget {
             active_mappings_only: self.active_mappings_only,
             snapshot_id: self.snapshot_id.clone(),
         };
-        Ok(Some(Box::new(instruction)))
+        Ok(HitResponse::hit_instruction(Box::new(instruction)))
     }
 
     fn can_report_current_value(&self) -> bool {
@@ -149,7 +149,7 @@ struct TakeMappingSnapshotInstruction {
 }
 
 impl HitInstruction for TakeMappingSnapshotInstruction {
-    fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult> {
+    fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
         let target_values = context
             .mappings
             .values_mut()
@@ -173,13 +173,13 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
         let resolved_snapshot_id = match self.snapshot_id {
             VirtualMappingSnapshotIdForTake::LastLoaded => {
                 match snapshot_container.last_loaded_snapshot_id(&self.scope) {
-                    None => return vec![],
+                    None => return HitInstructionResponse::Ignored,
                     Some(id) => id,
                 }
             }
             VirtualMappingSnapshotIdForTake::ById(id) => id.clone(),
         };
         snapshot_container.update_snapshot(resolved_snapshot_id, snapshot);
-        vec![]
+        HitInstructionResponse::CausedEffect(vec![])
     }
 }

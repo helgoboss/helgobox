@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, fx_online_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -50,10 +50,10 @@ impl RealearnTarget for FxOnlineTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let online = !value.to_unit_value()?.is_zero();
         self.fx.set_online(online);
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

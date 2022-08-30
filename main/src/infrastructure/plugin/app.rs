@@ -802,6 +802,10 @@ impl App {
             .join("Data/helgoboss/realearn")
     }
 
+    pub fn realearn_sound_dir_path() -> PathBuf {
+        Self::realearn_data_dir_path().join("sounds")
+    }
+
     pub fn realearn_preset_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("presets")
     }

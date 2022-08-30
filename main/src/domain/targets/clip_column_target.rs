@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::main::ClipMatrixEvent;
@@ -53,22 +53,22 @@ impl RealearnTarget for ClipColumnTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        BackboneState::get().with_clip_matrix(
+    ) -> Result<HitResponse, &'static str> {
+        let response = BackboneState::get().with_clip_matrix(
             context.control_context.instance_state,
-            |matrix| -> Result<(), &'static str> {
+            |matrix| -> Result<HitResponse, &'static str> {
                 match self.action {
                     ClipColumnAction::Stop => {
                         if !value.is_on() {
-                            return Ok(());
+                            return Ok(HitResponse::ignored());
                         }
                         matrix.stop_column(self.column_index)?;
                     }
                 }
-                Ok(())
+                Ok(HitResponse::processed_with_effect())
             },
         )??;
-        Ok(None)
+        Ok(response)
     }
 
     fn process_change_event(

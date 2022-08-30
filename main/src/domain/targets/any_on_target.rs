@@ -1,8 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -55,19 +54,20 @@ impl RealearnTarget for AnyOnTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.is_on() {
-            for t in self.project.tracks() {
-                use AnyOnParameter::*;
-                match self.parameter {
-                    TrackSolo => t.unsolo(),
-                    TrackMute => t.unmute(),
-                    TrackArm => t.disarm(false),
-                    TrackSelection => t.unselect(),
-                }
+    ) -> Result<HitResponse, &'static str> {
+        if !value.is_on() {
+            return Ok(HitResponse::ignored());
+        }
+        for t in self.project.tracks() {
+            use AnyOnParameter::*;
+            match self.parameter {
+                TrackSolo => t.unsolo(),
+                TrackMute => t.unmute(),
+                TrackArm => t.disarm(false),
+                TrackSelection => t.unselect(),
             }
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

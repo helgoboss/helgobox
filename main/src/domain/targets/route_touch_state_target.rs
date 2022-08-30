@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, get_track_routes, Compartment, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -60,24 +60,26 @@ impl RealearnTarget for RouteTouchStateTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        if !value.is_on() {
-            match self.parameter_type {
-                TouchedRouteParameterType::Volume => {
-                    let current_value = self.route.volume().map_err(|e| e.message())?;
-                    self.route
-                        .set_volume(current_value, EditMode::EndOfEdit)
-                        .map_err(|e| e.message())?;
-                }
-                TouchedRouteParameterType::Pan => {
-                    let current_value = self.route.pan().map_err(|e| e.message())?;
-                    self.route
-                        .set_pan(current_value, EditMode::EndOfEdit)
-                        .map_err(|e| e.message())?;
-                }
+    ) -> Result<HitResponse, &'static str> {
+        if value.is_on() {
+            // Correct! Here, we only want an effect if the button is *released*.
+            return Ok(HitResponse::ignored());
+        }
+        match self.parameter_type {
+            TouchedRouteParameterType::Volume => {
+                let current_value = self.route.volume().map_err(|e| e.message())?;
+                self.route
+                    .set_volume(current_value, EditMode::EndOfEdit)
+                    .map_err(|e| e.message())?;
+            }
+            TouchedRouteParameterType::Pan => {
+                let current_value = self.route.pan().map_err(|e| e.message())?;
+                self.route
+                    .set_pan(current_value, EditMode::EndOfEdit)
+                    .map_err(|e| e.message())?;
             }
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

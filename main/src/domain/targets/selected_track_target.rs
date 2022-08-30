@@ -1,9 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
     selected_track_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -89,7 +88,7 @@ impl RealearnTarget for SelectedTrackTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let track_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_track_index(self.project, v),
             AbsoluteValue::Discrete(f) => {
@@ -117,7 +116,7 @@ impl RealearnTarget for SelectedTrackTarget {
         if self.scroll_mixer {
             track.scroll_mixer();
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

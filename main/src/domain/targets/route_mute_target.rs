@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, get_track_routes, mute_unit_value, Compartment, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     DEFAULT_TARGET,
@@ -66,13 +66,13 @@ impl RealearnTarget for RouteMuteTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
             self.route.unmute();
         } else {
             self.route.mute();
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

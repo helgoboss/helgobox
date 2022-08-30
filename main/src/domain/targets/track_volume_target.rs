@@ -3,9 +3,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     get_effective_tracks, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
@@ -73,10 +73,10 @@ impl RealearnTarget for TrackVolumeTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.track.set_volume(volume.unwrap_or(Volume::MIN));
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

@@ -1,10 +1,9 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, MappingControlResult,
-    MappingData, MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    HitInstructionResponse, HitResponse, InstanceStateChanged, MappingControlContext, MappingData,
+    MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -52,7 +51,7 @@ impl RealearnTarget for EnableMappingsTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
         struct EnableMappingsInstruction {
@@ -63,10 +62,7 @@ impl RealearnTarget for EnableMappingsTarget {
             exclusivity: Exclusivity,
         }
         impl HitInstruction for EnableMappingsInstruction {
-            fn execute(
-                self: Box<Self>,
-                context: HitInstructionContext,
-            ) -> Vec<MappingControlResult> {
+            fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
                 let mut activated_inverse_tags = HashSet::new();
                 for m in context.mappings.values_mut() {
                     // Don't touch ourselves.
@@ -118,7 +114,7 @@ impl RealearnTarget for EnableMappingsTarget {
                         self.is_enable,
                     );
                 }
-                vec![]
+                HitInstructionResponse::CausedEffect(vec![])
             }
         }
         let instruction = EnableMappingsInstruction {
@@ -130,7 +126,7 @@ impl RealearnTarget for EnableMappingsTarget {
             is_enable,
             exclusivity: self.exclusivity,
         };
-        Ok(Some(Box::new(instruction)))
+        Ok(HitResponse::hit_instruction(Box::new(instruction)))
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

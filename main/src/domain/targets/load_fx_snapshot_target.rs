@@ -2,9 +2,9 @@ use crate::base::hash_util;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -65,13 +65,14 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        if !value.to_unit_value()?.is_zero() {
-            BackboneState::target_context()
-                .borrow_mut()
-                .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?
+    ) -> Result<HitResponse, &'static str> {
+        if value.to_unit_value()?.is_zero() {
+            return Ok(HitResponse::ignored());
         }
-        Ok(None)
+        BackboneState::target_context()
+            .borrow_mut()
+            .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?;
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

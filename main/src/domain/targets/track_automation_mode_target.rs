@@ -1,9 +1,8 @@
 use crate::domain::{
     automation_mode_unit_value, change_track_prop, format_value_as_on_off, get_effective_tracks,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -73,7 +72,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -81,7 +80,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
             |t| t.set_automation_mode(self.mode),
             |t| t.set_automation_mode(AutomationMode::TrimRead),
         );
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

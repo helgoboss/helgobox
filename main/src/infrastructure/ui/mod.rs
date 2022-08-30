@@ -52,4 +52,7 @@ pub use clipboard::*;
 mod import;
 pub use import::*;
 
+mod sound_util;
+pub use sound_util::*;
+
 mod lua_serializer;

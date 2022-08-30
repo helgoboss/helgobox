@@ -28,6 +28,7 @@ pub enum DomainEvent<'a> {
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
+    TimeForCelebratingSuccess,
 }
 
 #[derive(Clone, Debug)]

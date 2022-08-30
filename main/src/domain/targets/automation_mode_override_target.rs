@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, global_automation_mode_override_unit_value, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -50,13 +50,13 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
             Reaper::get().set_global_automation_override(None);
         } else {
             Reaper::get().set_global_automation_override(self.mode_override);
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

@@ -2,7 +2,7 @@ use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     get_fx_params, AdditionalFeedbackEvent, Caller, Compartment, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
-    HitInstructionReturnValue, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
+    HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -133,14 +133,14 @@ impl RealearnTarget for FxParameterTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
         let v = ReaperNormalizedFxParamValue::new(value.to_unit_value()?.get());
         self.param
             .set_reaper_normalized_value(v)
             .map_err(|_| "couldn't set FX parameter value")?;
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

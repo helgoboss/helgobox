@@ -1,9 +1,9 @@
 use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionReturnValue, InstanceState, InstanceStateChanged,
-    MainMapping, MappingControlContext, MappingControlResult, MappingSnapshotId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceState,
+    InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
+    MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForLoad;
@@ -117,9 +117,9 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            return Ok(None);
+            return Ok(HitResponse::ignored());
         }
         let instruction = LoadMappingSnapshotInstruction {
             // So far this clone is okay because loading a snapshot is not something that happens
@@ -130,7 +130,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             snapshot: self.snapshot_id.clone(),
             default_value: self.default_value,
         };
-        Ok(Some(Box::new(instruction)))
+        Ok(HitResponse::hit_instruction(Box::new(instruction)))
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -232,7 +232,7 @@ impl LoadMappingSnapshotInstruction {
                         m.qualified_id(),
                     ),
                 );
-                if res.successful {
+                if res.at_least_one_target_was_reached {
                     m.update_last_non_performance_target_value(snapshot_value);
                 }
                 Some(res)
@@ -246,7 +246,7 @@ impl LoadMappingSnapshotInstruction {
 }
 
 impl HitInstruction for LoadMappingSnapshotInstruction {
-    fn execute(self: Box<Self>, mut context: HitInstructionContext) -> Vec<MappingControlResult> {
+    fn execute(self: Box<Self>, mut context: HitInstructionContext) -> HitInstructionResponse {
         let results = match &self.snapshot {
             VirtualMappingSnapshotIdForLoad::Initial => {
                 self.load_snapshot(&mut context, |m| m.initial_target_value())
@@ -264,6 +264,6 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
         // Mark snapshot as active.
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         self.mark_snapshot_as_active(&mut instance_state);
-        results
+        HitInstructionResponse::CausedEffect(results)
     }
 }

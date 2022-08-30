@@ -1,8 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, GroupId,
-    HitInstruction, HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged,
-    MappingControlContext, MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget,
+    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
+    InstanceStateChanged, MappingControlContext, MappingId, QualifiedMappingId, RealearnTarget,
     ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -74,7 +74,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_absolute_value()?;
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let desired_mapping_id = {
@@ -101,10 +101,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             desired_mapping_id: MappingId,
         }
         impl HitInstruction for CycleThroughGroupInstruction {
-            fn execute(
-                self: Box<Self>,
-                context: HitInstructionContext,
-            ) -> Vec<MappingControlResult> {
+            fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
                     let glue = m.mode().settings();
@@ -141,7 +138,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                     );
                     control_results.push(res);
                 }
-                control_results
+                HitInstructionResponse::CausedEffect(control_results)
             }
         }
         let instruction = CycleThroughGroupInstruction {
@@ -149,7 +146,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             exclusivity: self.exclusivity,
             desired_mapping_id,
         };
-        Ok(Some(Box::new(instruction)))
+        Ok(HitResponse::hit_instruction(Box::new(instruction)))
     }
 
     fn parse_as_value(

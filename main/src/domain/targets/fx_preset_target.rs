@@ -1,8 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -91,7 +91,7 @@ impl RealearnTarget for FxPresetTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let preset_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_preset_index(&self.fx, v),
             AbsoluteValue::Discrete(f) => {
@@ -107,7 +107,7 @@ impl RealearnTarget for FxPresetTarget {
             Some(i) => FxPresetRef::Preset(i),
         };
         self.fx.activate_preset(preset_ref);
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

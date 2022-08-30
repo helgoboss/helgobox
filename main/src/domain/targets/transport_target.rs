@@ -1,9 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
@@ -50,16 +49,17 @@ impl RealearnTarget for TransportTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         use TransportAction::*;
         let on = !value.to_unit_value()?.is_zero();
-        match self.action {
+        let response = match self.action {
             PlayStop => {
                 if on {
                     self.project.play();
                 } else {
                     self.project.stop();
                 }
+                HitResponse::processed_with_effect()
             }
             PlayPause => {
                 if on {
@@ -67,15 +67,22 @@ impl RealearnTarget for TransportTarget {
                 } else {
                     self.project.pause();
                 }
+                HitResponse::processed_with_effect()
             }
             Stop => {
                 if on {
                     self.project.stop();
+                    HitResponse::processed_with_effect()
+                } else {
+                    HitResponse::ignored()
                 }
             }
             Pause => {
                 if on {
                     self.project.pause();
+                    HitResponse::processed_with_effect()
+                } else {
+                    HitResponse::ignored()
                 }
             }
             RecordStop => {
@@ -84,6 +91,7 @@ impl RealearnTarget for TransportTarget {
                 } else {
                     Reaper::get().disable_record_in_current_project();
                 }
+                HitResponse::processed_with_effect()
             }
             Repeat => {
                 if on {
@@ -91,9 +99,10 @@ impl RealearnTarget for TransportTarget {
                 } else {
                     self.project.disable_repeat();
                 }
+                HitResponse::processed_with_effect()
             }
         };
-        Ok(None)
+        Ok(response)
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

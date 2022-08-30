@@ -1,8 +1,8 @@
 use crate::domain::{
     get_effective_tracks, get_track_name, percentage_for_track_within_project,
-    ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
@@ -116,12 +116,12 @@ impl RealearnTarget for TrackToolTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if !value.is_on() {
-            return Ok(None);
+            return Ok(HitResponse::ignored());
         }
         let request = match self.action {
-            TrackToolAction::DoNothing => return Ok(None),
+            TrackToolAction::DoNothing => return Ok(HitResponse::ignored()),
             TrackToolAction::SetAsInstanceTrack => InstanceTrackChangeRequest::SetFromMapping(
                 context.mapping_data.qualified_mapping_id(),
             ),
@@ -145,7 +145,7 @@ impl RealearnTarget for TrackToolTarget {
             .control_context
             .instance_container
             .change_instance_track(args)?;
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn can_report_current_value(&self) -> bool {

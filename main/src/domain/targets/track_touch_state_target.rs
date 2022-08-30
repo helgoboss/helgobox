@@ -2,9 +2,9 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value,
     AdditionalFeedbackEvent, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
-    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -62,7 +62,7 @@ impl RealearnTarget for TrackTouchStateTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let target_context = BackboneState::target_context();
         change_track_prop(
             &self.track,
@@ -79,7 +79,7 @@ impl RealearnTarget for TrackTouchStateTarget {
                     .untouch_automation_parameter(t, self.parameter_type)
             },
         );
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

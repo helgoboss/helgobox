@@ -1,8 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, get_fx_params, Compartment, ControlContext, ExtendedProcessorContext,
-    FxParameterDescriptor, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    FxParameterDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, FxParameter, Project, Track};
@@ -52,11 +51,13 @@ impl RealearnTarget for FxParameterTouchStateTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
-        if !value.is_on() {
-            self.param.end_edit().map_err(|e| e.message())?;
+    ) -> Result<HitResponse, &'static str> {
+        if value.is_on() {
+            // Correct! Here, we only want an effect if the button is *released*.
+            return Ok(HitResponse::ignored());
         }
-        Ok(None)
+        self.param.end_edit().map_err(|e| e.message())?;
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

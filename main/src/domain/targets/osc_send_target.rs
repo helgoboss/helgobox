@@ -1,10 +1,9 @@
 use crate::base::NamedChannelSender;
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FeedbackOutput,
-    HitInstructionReturnValue, MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    Compartment, ControlContext, ExtendedProcessorContext, FeedbackOutput, HitResponse,
+    MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, NumericFeedbackValue,
@@ -112,7 +111,7 @@ impl RealearnTarget for OscSendTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
@@ -148,7 +147,7 @@ impl RealearnTarget for OscSendTarget {
             .osc_feedback_task_sender
             .send_complaining(OscFeedbackTask::new(effective_dev_id, msg));
         self.artificial_value = AbsoluteValue::Continuous(value);
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

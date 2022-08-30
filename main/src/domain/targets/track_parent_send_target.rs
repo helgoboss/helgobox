@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -59,7 +59,7 @@ impl RealearnTarget for TrackParentSendTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -67,7 +67,7 @@ impl RealearnTarget for TrackParentSendTarget {
             |t| t.set_parent_send_enabled(true),
             |t| t.set_parent_send_enabled(false),
         );
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

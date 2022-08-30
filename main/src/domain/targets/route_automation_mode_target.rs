@@ -1,6 +1,6 @@
 use crate::domain::{
     automation_mode_unit_value, format_value_as_on_off, get_track_routes, Compartment,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
@@ -74,13 +74,13 @@ impl RealearnTarget for RouteAutomationModeTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
             self.route.set_automation_mode(AutomationMode::TrimRead)
         } else {
             self.route.set_automation_mode(self.mode);
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

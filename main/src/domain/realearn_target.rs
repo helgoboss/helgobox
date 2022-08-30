@@ -212,11 +212,12 @@ pub trait RealearnTarget {
             self.value_unit(context)
         )
     }
+
     fn hit(
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let (_, _) = (value, context);
         Err("not supported")
     }
@@ -500,10 +501,61 @@ impl MappingData {
     }
 }
 
-pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
+pub type BoxedHitInstruction = Box<dyn HitInstruction>;
+
+pub struct HitResponse {
+    /// If the target invocation caused an effect.
+    ///
+    /// Typical example: `false` if the button was released and the target only does something
+    /// when the button is pressed.
+    ///
+    /// At the moment, we also return `true` if the target invocation was done but the value stays
+    /// the same. That's okay.
+    ///
+    /// This can be `true` even if a hit instruction is given ... maybe part of the invocation can
+    /// be done before the hit instruction and has an effect already.
+    pub caused_effect: bool,
+    /// A hit instruction to be executed later.
+    pub hit_instruction: Option<BoxedHitInstruction>,
+}
+
+impl HitResponse {
+    pub fn ignored() -> Self {
+        Self {
+            caused_effect: false,
+            hit_instruction: None,
+        }
+    }
+
+    pub fn processed_with_effect() -> Self {
+        Self {
+            caused_effect: true,
+            hit_instruction: None,
+        }
+    }
+
+    /// Creates a response that says "no effect so far, but please execute the given hit
+    /// instruction".
+    pub fn hit_instruction(hit_instruction: Box<dyn HitInstruction>) -> Self {
+        Self {
+            caused_effect: false,
+            hit_instruction: Some(hit_instruction),
+        }
+    }
+}
+
+pub enum HitInstructionResponse {
+    /// Hit instruction ignored.
+    Ignored,
+    /// Hit instruction caused effect.
+    ///
+    /// Caller should inspect the given "inner" mapping control results and possibly execute
+    /// the hit instructions returned from them in a second pass.
+    CausedEffect(Vec<MappingControlResult>),
+}
 
 pub trait HitInstruction {
-    fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult>;
+    fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse;
 }
 
 pub struct HitInstructionContext<'a> {

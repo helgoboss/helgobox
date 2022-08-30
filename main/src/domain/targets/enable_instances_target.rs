@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, EnableInstancesArgs,
-    Exclusivity, ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged,
+    Exclusivity, ExtendedProcessorContext, HitResponse, InstanceStateChanged,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -44,7 +44,7 @@ impl RealearnTarget for EnableInstancesTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
         let args = EnableInstancesArgs {
@@ -68,7 +68,7 @@ impl RealearnTarget for EnableInstancesTarget {
             // Add or remove
             instance_state.activate_or_deactivate_instance_tags(&self.scope.tags, is_enable);
         }
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

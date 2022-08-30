@@ -1,6 +1,6 @@
 use crate::domain::{
     get_fx_name, percentage_for_fx_within_chain, ChangeInstanceFxArgs, Compartment, ControlContext,
-    ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue, InstanceFxChangeRequest,
+    ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -118,12 +118,12 @@ impl RealearnTarget for FxToolTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         if !value.is_on() {
-            return Ok(None);
+            return Ok(HitResponse::ignored());
         }
         let request = match self.action {
-            FxToolAction::DoNothing => return Ok(None),
+            FxToolAction::DoNothing => return Ok(HitResponse::ignored()),
             FxToolAction::SetAsInstanceFx => {
                 InstanceFxChangeRequest::SetFromMapping(context.mapping_data.qualified_mapping_id())
             }
@@ -152,7 +152,7 @@ impl RealearnTarget for FxToolTarget {
             .control_context
             .instance_container
             .change_instance_fx(args)?;
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn can_report_current_value(&self) -> bool {

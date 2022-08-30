@@ -2,9 +2,9 @@ use crate::domain::{
     format_step_size_as_playback_speed_factor_without_unit,
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
@@ -77,11 +77,11 @@ impl RealearnTarget for PlayrateTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let play_rate =
             PlayRate::from_normalized_value(NormalizedPlayRate::new(value.to_unit_value()?.get()));
         self.project.set_play_rate(play_rate);
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

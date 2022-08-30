@@ -44,10 +44,10 @@ use crate::domain::{
     TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
-    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
-    HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
-    RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
-    TrackPhaseTarget, TrackToolTarget,
+    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
+    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
+    RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
+    TrackToolTarget,
 };
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence

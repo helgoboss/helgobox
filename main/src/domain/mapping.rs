@@ -1,8 +1,8 @@
 use crate::domain::{
     get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
-    ActivationCondition, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
-    HitInstructionReturnValue, KeyMessage, KeySource, MappingActivationEffect,
+    ActivationCondition, BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent,
+    ControlContext, ControlEvent, ControlEventTimestamp, ControlOptions, ExtendedProcessorContext,
+    FeedbackResolution, GroupId, HitResponse, KeyMessage, KeySource, MappingActivationEffect,
     MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
     MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
     PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
@@ -255,6 +255,10 @@ impl MainMapping {
             initial_target_value: None,
             last_non_performance_target_value: Cell::new(None),
         }
+    }
+
+    pub fn success_celebration_enabled(&self) -> bool {
+        true
     }
 
     /// This is for:
@@ -899,7 +903,8 @@ impl MainMapping {
         let mut send_manual_feedback_because_of_target = false;
         let mut at_least_one_relevant_target_exists = false;
         let mut at_least_one_target_was_reached = false;
-        let mut hit_instruction = None;
+        let mut at_least_one_target_caused_effect = false;
+        let mut first_hit_instruction = None;
         use ModeControlResult::*;
         let mut fresh_targets = if options.enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
@@ -942,12 +947,19 @@ impl MainMapping {
                     // Be graceful here.
                     log_mode_control_result(HitTarget { value });
                     match target.hit(value, ctx) {
-                        // TODO-low For now, the first hit instruction wins (at the moment we don't
-                        // have multi-targets in which multiple targets send hit instructions
-                        // anyway).
-                        Ok(hi) => {
-                            if hit_instruction.is_none() {
-                                hit_instruction = hi;
+                        Ok(response) => {
+                            if response.caused_effect {
+                                at_least_one_target_caused_effect = true;
+                            }
+                            if let Some(hi) = response.hit_instruction {
+                                // We have a hit instruction! Save it so it can be executed in
+                                // the next step.
+                                // TODO-low For now, the first hit instruction wins (at the moment we don't
+                                //  have multi-targets in which multiple targets send hit instructions
+                                //  anyway).
+                                if first_hit_instruction.is_none() {
+                                    first_hit_instruction = Some(hi);
+                                }
                             }
                         }
                         Err(msg) => slog::debug!(logger, "Control failed: {}", msg),
@@ -974,14 +986,17 @@ impl MainMapping {
         if send_manual_feedback_because_of_target {
             let new_target_value = self.current_aggregated_target_value(context);
             MappingControlResult {
-                successful: at_least_one_target_was_reached,
+                at_least_one_target_was_reached,
+                at_least_one_target_caused_effect,
                 new_target_value,
                 feedback_value: self.manual_feedback_because_of_target(new_target_value, context),
-                hit_instruction,
+                hit_instruction: first_hit_instruction,
+                celebrate_success: self.success_celebration_enabled(),
             }
         } else {
             MappingControlResult {
-                successful: at_least_one_target_was_reached,
+                at_least_one_target_was_reached,
+                at_least_one_target_caused_effect: at_least_one_target_caused_effect,
                 new_target_value: None,
                 feedback_value: if !is_polling && at_least_one_relevant_target_exists {
                     // Before #396, we only sent "feedback after control" if the target was not hit at all.
@@ -1010,7 +1025,8 @@ impl MainMapping {
                 } else {
                     None
                 },
-                hit_instruction,
+                hit_instruction: first_hit_instruction,
+                celebrate_success: self.success_celebration_enabled(),
             }
         }
     }
@@ -2113,7 +2129,7 @@ impl RealearnTarget for CompoundMappingTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.hit(value, context),
@@ -2402,13 +2418,17 @@ pub fn aggregate_target_values(
 pub struct MappingControlResult {
     /// `true` if target hit or almost hit but left untouched because it already has desired value.
     /// `false` e.g. if source message filtered out (e.g. because of button filter) or no target.
-    pub successful: bool,
+    pub at_least_one_target_was_reached: bool,
+    /// `true` if at least one target has been invoked already *with an effect*.
+    /// Can only be `true` if at least one target has been reached is also `true`.
+    pub at_least_one_target_caused_effect: bool,
     /// In case the target doesn't support automatic feedback (even polling not enabled for it),
     /// this should contain the target value determined at the occasion of hitting the target.
     pub new_target_value: Option<AbsoluteValue>,
     /// Even if not hit, this can contain a feedback value (if "Send feedback after control" on)!
     pub feedback_value: Option<CompoundFeedbackValue>,
-    pub hit_instruction: HitInstructionReturnValue,
+    pub hit_instruction: Option<BoxedHitInstruction>,
+    pub celebrate_success: bool,
 }
 
 /// Not usable for mappings with virtual targets.

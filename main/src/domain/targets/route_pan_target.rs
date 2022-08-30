@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -75,12 +75,12 @@ impl RealearnTarget for RoutePanTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_pan(pan, EditMode::NormalTweak)
             .map_err(|_| "couldn't set route pan")?;
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

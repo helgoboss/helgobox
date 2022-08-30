@@ -1,7 +1,7 @@
 use crate::base::NamedChannelSender;
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, HitInstructionReturnValue, MappingControlContext, MidiDestination,
+    FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -154,7 +154,7 @@ impl RealearnTarget for MidiSendTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_absolute_value()?;
         // We arrive here only if controlled via OSC, group interaction (as follower), mapping
         // snapshot or autoload. Sending MIDI in response to incoming MIDI messages is handled
@@ -197,7 +197,7 @@ impl RealearnTarget for MidiSendTarget {
                     .send_complaining(FeedbackAudioHookTask::SendMidi(dev_id, raw_midi_events));
             }
         };
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

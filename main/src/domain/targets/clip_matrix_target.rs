@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::persistence::{EvenQuantization, RecordLength};
@@ -47,12 +47,12 @@ impl RealearnTarget for ClipMatrixTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| {
                 if !value.is_on() {
-                    return Ok(None);
+                    return Ok(HitResponse::ignored());
                 }
                 match self.action {
                     ClipMatrixAction::Stop => {
@@ -83,7 +83,7 @@ impl RealearnTarget for ClipMatrixTarget {
                         matrix.set_record_duration(record_duration_in_bars(8));
                     }
                 }
-                Ok(None)
+                Ok(HitResponse::processed_with_effect())
             },
         )?
     }

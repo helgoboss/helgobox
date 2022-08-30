@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::{
     bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    SharedIndependentPanelManager, SharedMainState, Sound,
 };
 
 use lazycell::LazyCell;
@@ -63,6 +63,7 @@ struct ActiveData {
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
+    success_sound: Option<Sound>,
 }
 
 impl MainPanel {
@@ -97,6 +98,7 @@ impl MainPanel {
             )
             .into(),
             panel_manager,
+            success_sound: Sound::from_file("success.mp3").ok(),
         };
         self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
@@ -305,6 +307,14 @@ impl MainPanel {
         }
     }
 
+    fn celebrate_success(&self) {
+        if let Some(data) = self.active_data.borrow() {
+            if let Some(s) = &data.success_sound {
+                let _ = s.play();
+            }
+        }
+    }
+
     fn handle_changed_midi_devices(&self) {
         if let Some(data) = self.active_data.borrow() {
             data.header_panel.handle_changed_midi_devices();
@@ -432,6 +442,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn midi_devices_changed(&self) {
         upgrade_panel(self).handle_changed_midi_devices();
+    }
+
+    fn celebrate_success(&self) {
+        upgrade_panel(self).celebrate_success();
     }
 
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {

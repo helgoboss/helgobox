@@ -1,7 +1,7 @@
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -76,10 +76,10 @@ impl RealearnTarget for TempoTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let tempo = reaper_high::Tempo::from_normalized_value(value.to_unit_value()?.get());
         self.project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

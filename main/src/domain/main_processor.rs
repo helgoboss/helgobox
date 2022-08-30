@@ -5,9 +5,9 @@ use crate::domain::{
     ControlEventTimestamp, ControlInput, ControlMode, ControlOutcome, DeviceFeedbackOutput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
-    LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
+    FeedbackSendBehavior, GroupId, HitInstructionContext, HitInstructionResponse,
+    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
+    KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
@@ -481,7 +481,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         Default::default()
                     };
-                    let (is_source_poll, mut final_poll_result) = if mode_poll_result.successful {
+                    let (is_source_poll, mut final_poll_result) = if mode_poll_result
+                        .at_least_one_target_was_reached
+                    {
                         // Mode was polled successfully. This one has precedence.
                         // We poll even if control is effectively off because it might have been
                         // on before and user might have pressed a button which started some
@@ -530,7 +532,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // When this is a mode poll, we only do target-value based group interaction after
                 // polling (makes sense because control-value based one has been done at control
                 // time already).
-                let needs_group_interaction = control_result.successful
+                let needs_group_interaction = control_result.at_least_one_target_was_reached
                     && (is_source_poll || group_interaction.is_target_based());
                 control_mapping_stage_three(
                     &self.basics,
@@ -2790,6 +2792,11 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn celebrate_success(&self) {
+        self.event_handler
+            .handle_event_ignoring_error(DomainEvent::TimeForCelebratingSuccess);
+    }
+
     pub fn target_control_logger(
         &self,
         context_label: &'static str,
@@ -3685,7 +3692,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     basics
         .event_handler
         .notify_mapping_matched(m.compartment(), m.id());
-    m.control_from_mode(
+    let result = m.control_from_mode(
         control_event,
         options,
         basics.control_context(),
@@ -3693,7 +3700,11 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         ExtendedProcessorContext::new(&basics.context, params, basics.control_context()),
         m.last_non_performance_target_value(),
         basics.target_control_logger("normal control", m.qualified_id()),
-    )
+    );
+    if result.at_least_one_target_caused_effect && result.celebrate_success {
+        basics.celebrate_success();
+    }
+    result
 }
 
 /// Executes stage two of a typical mapping control invocation.
@@ -3746,7 +3757,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
             &collections.parameters,
             control_context,
         );
-        let pass_2_control_results = hi.execute(HitInstructionContext {
+        let response = hi.execute(HitInstructionContext {
             mappings: &mut collections.mappings[compartment],
             control_context,
             domain_event_handler: &basics.event_handler,
@@ -3754,17 +3765,22 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
             processor_context,
             basic_settings: &basics.settings,
         });
-        // Second pass, without group interaction this time!
-        for pass_2_control_result in pass_2_control_results {
-            if let Some(pass_2_hi) = pass_2_control_result.hit_instruction {
-                pass_2_hi.execute(HitInstructionContext {
-                    mappings: &mut collections.mappings[compartment],
-                    control_context,
-                    domain_event_handler: &basics.event_handler,
-                    logger: &basics.logger,
-                    processor_context,
-                    basic_settings: &basics.settings,
-                });
+        if let HitInstructionResponse::CausedEffect(pass_2_control_results) = response {
+            // Second pass, without group interaction this time!
+            for pass_2_control_result in pass_2_control_results {
+                if let Some(pass_2_hi) = pass_2_control_result.hit_instruction {
+                    pass_2_hi.execute(HitInstructionContext {
+                        mappings: &mut collections.mappings[compartment],
+                        control_context,
+                        domain_event_handler: &basics.event_handler,
+                        logger: &basics.logger,
+                        processor_context,
+                        basic_settings: &basics.settings,
+                    });
+                }
+            }
+            if control_result.celebrate_success {
+                basics.celebrate_success();
             }
         }
     }
@@ -3775,7 +3791,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
                 compartment,
                 input.mapping_id,
                 input.control_event,
-                control_result.successful,
+                control_result.at_least_one_target_was_reached,
             );
         }
     }

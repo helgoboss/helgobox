@@ -1,7 +1,7 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
     transport_is_enabled_unit_value, BackboneState, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
     RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
@@ -79,13 +79,13 @@ impl RealearnTarget for ClipTransportTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         use ClipTransportAction::*;
         let on = value.is_on();
         BackboneState::get().with_clip_matrix_mut(
             context.control_context.instance_state,
             |matrix| {
-                match self.basics.action {
+                let response = match self.basics.action {
                     PlayStop => {
                         if on {
                             matrix.play_clip(
@@ -98,6 +98,7 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
+                        HitResponse::processed_with_effect()
                     }
                     PlayPause => {
                         if on {
@@ -108,6 +109,7 @@ impl RealearnTarget for ClipTransportTarget {
                         } else {
                             matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
                         }
+                        HitResponse::processed_with_effect()
                     }
                     Stop => {
                         if on {
@@ -115,11 +117,17 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.slot_coordinates,
                                 self.basics.options.play_stop_timing,
                             )?;
+                            HitResponse::processed_with_effect()
+                        } else {
+                            HitResponse::ignored()
                         }
                     }
                     Pause => {
                         if on {
                             matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
+                            HitResponse::processed_with_effect()
+                        } else {
+                            HitResponse::ignored()
                         }
                     }
                     RecordStop => {
@@ -138,6 +146,7 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
+                        HitResponse::processed_with_effect()
                     }
                     RecordPlayStop => {
                         if on {
@@ -176,12 +185,18 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
+                        HitResponse::processed_with_effect()
                     }
                     Looped => {
-                        matrix.toggle_looped(self.basics.slot_coordinates)?;
+                        if on {
+                            matrix.toggle_looped(self.basics.slot_coordinates)?;
+                            HitResponse::processed_with_effect()
+                        } else {
+                            HitResponse::ignored()
+                        }
                     }
                 };
-                Ok(None)
+                Ok(response)
             },
         )?
     }

@@ -4,9 +4,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     interpret_current_clip_slot_value, BackboneState, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
@@ -67,7 +67,7 @@ impl RealearnTarget for ClipVolumeTarget {
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
             .unwrap_or_default();
         let db = volume.db();
@@ -76,7 +76,7 @@ impl RealearnTarget for ClipVolumeTarget {
             context.control_context.instance_state,
             |matrix| {
                 matrix.set_clip_volume(self.slot_coordinates, api_db)?;
-                Ok(None)
+                Ok(HitResponse::processed_with_effect())
             },
         )?
     }

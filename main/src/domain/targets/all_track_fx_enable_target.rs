@@ -1,7 +1,7 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
@@ -70,7 +70,7 @@ impl RealearnTarget for AllTrackFxEnableTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -78,7 +78,7 @@ impl RealearnTarget for AllTrackFxEnableTarget {
             |t| t.enable_fx(),
             |t| t.disable_fx(),
         );
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

@@ -1,6 +1,6 @@
 use crate::domain::{
     AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -52,7 +52,7 @@ impl RealearnTarget for SeekTarget {
         &mut self,
         value: ControlValue,
         _: MappingControlContext,
-    ) -> Result<HitInstructionReturnValue, &'static str> {
+    ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options, false);
         let desired_pos_within_range = value.get() * info.length();
@@ -64,7 +64,7 @@ impl RealearnTarget for SeekTarget {
                 seek_play: self.options.seek_play,
             },
         );
-        Ok(None)
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
