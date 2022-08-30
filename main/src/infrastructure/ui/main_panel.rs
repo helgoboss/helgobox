@@ -98,7 +98,7 @@ impl MainPanel {
             )
             .into(),
             panel_manager,
-            success_sound: Sound::from_file("success.mp3").ok(),
+            success_sound: Sound::from_file("high-click.mp3").ok(),
         };
         self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!

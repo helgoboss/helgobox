@@ -300,6 +300,8 @@ async fn load_mapping_snapshot_all_mappings() {
             Midi(Plain(note_on(0, 63, 64))),
             // Mute
             Midi(Plain(note_on(0, 62, 0))),
+            // Load snapshot
+            Midi(Plain(note_on(0, 65, 127))),
         ],
         "feedback should be sent after loading preset"
     );
@@ -370,6 +372,8 @@ async fn load_mapping_snapshot_some_mappings() {
             Midi(Plain(note_on(0, 63, 64))),
             // Mute
             Midi(Plain(note_on(0, 62, 0))),
+            // Load snapshot
+            Midi(Plain(note_on(0, 65, 127))),
         ],
         "feedback should be sent after loading preset"
     );
