@@ -47,7 +47,7 @@ use crate::domain::{
     UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
     UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
     VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualMappingSnapshot, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    VirtualFxParameter, VirtualMappingSnapshotId, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -1670,16 +1670,16 @@ impl TargetModel {
         Some(fx)
     }
 
-    pub fn virtual_mapping_snapshot(&self) -> Result<VirtualMappingSnapshot, &'static str> {
+    pub fn virtual_mapping_snapshot(&self) -> Result<VirtualMappingSnapshotId, &'static str> {
         match self.mapping_snapshot_type {
-            MappingSnapshotType::Initial => Ok(VirtualMappingSnapshot::Initial),
+            MappingSnapshotType::Initial => Ok(VirtualMappingSnapshotId::Initial),
             MappingSnapshotType::ById => {
                 let id = self
                     .mapping_snapshot_id
                     .as_ref()
                     .ok_or("no mapping snapshot ID")?
                     .clone();
-                Ok(VirtualMappingSnapshot::ById(id))
+                Ok(VirtualMappingSnapshotId::ById(id))
             }
         }
     }
@@ -2251,6 +2251,7 @@ impl TargetModel {
                     }),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
+                            compartment,
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
                             snapshot: self.virtual_mapping_snapshot()?,
@@ -2631,13 +2632,17 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         }
     }
 
-    fn mapping_snapshot_label(&self) -> String {
+    fn mapping_snapshot_type_label(&self) -> String {
         match self.target.mapping_snapshot_type {
             MappingSnapshotType::Initial => MappingSnapshotType::Initial.to_string(),
-            MappingSnapshotType::ById => match &self.target.mapping_snapshot_id {
-                None => "-".into(),
-                Some(id) => id.to_string(),
-            },
+            MappingSnapshotType::ById => self.mapping_snapshot_id_label(),
+        }
+    }
+
+    fn mapping_snapshot_id_label(&self) -> String {
+        match &self.target.mapping_snapshot_id {
+            None => "-".into(),
+            Some(id) => id.to_string(),
         }
     }
 
@@ -2806,8 +2811,11 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                             .map(|s| s.to_string())
                             .unwrap_or_else(|| "-".to_owned())
                     ),
-                    LoadMappingSnapshot | TakeMappingSnapshot => {
-                        write!(f, "{}\n{}", tt, self.mapping_snapshot_label())
+                    LoadMappingSnapshot => {
+                        write!(f, "{}\n{}", tt, self.mapping_snapshot_type_label())
+                    }
+                    TakeMappingSnapshot => {
+                        write!(f, "{}\n{}", tt, self.mapping_snapshot_id_label())
                     }
                     TrackTouchState => write!(
                         f,
