@@ -18,10 +18,11 @@ use crate::domain::{
     UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
     UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
     UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
-    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
-    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget,
-    UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -61,6 +62,7 @@ pub enum UnresolvedReaperTarget {
     TrackPan(UnresolvedTrackPanTarget),
     TrackWidth(UnresolvedTrackWidthTarget),
     TrackArm(UnresolvedTrackArmTarget),
+    TrackParentSend(UnresolvedTrackParentSendTarget),
     TrackSelection(UnresolvedTrackSelectionTarget),
     TrackMute(UnresolvedTrackMuteTarget),
     TrackPhase(UnresolvedTrackPhaseTarget),

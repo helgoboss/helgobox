@@ -22,6 +22,7 @@ pub enum Target {
     Tempo(TempoTarget),
     GoToBookmark(GoToBookmarkTarget),
     TrackArmState(TrackArmStateTarget),
+    TrackParentSendState(TrackParentSendStateTarget),
     AllTrackFxOnOffState(AllTrackFxOnOffStateTarget),
     TrackMuteState(TrackMuteStateTarget),
     TrackPeak(TrackPeakTarget),
@@ -204,6 +205,17 @@ pub struct GoToBookmarkTarget {
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackArmStateTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusivity: Option<TrackExclusivity>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrackParentSendStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -42,12 +42,12 @@ use crate::domain::{
     UnresolvedSelectedTrackTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
     UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
     UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
-    VirtualMappingSnapshot, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
+    VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualFxParameter, VirtualMappingSnapshot, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -2043,6 +2043,12 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
                     }),
+                    TrackParentSend => {
+                        UnresolvedReaperTarget::TrackParentSend(UnresolvedTrackParentSendTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            exclusivity: self.track_exclusivity,
+                        })
+                    }
                     TrackSelection => {
                         UnresolvedReaperTarget::TrackSelection(UnresolvedTrackSelectionTarget {
                             track_descriptor: self.track_descriptor()?,

@@ -31,9 +31,9 @@ use realearn_api::persistence::{
     RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
     SendMidiTarget, SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
     TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
+    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -372,6 +372,16 @@ fn convert_real_target(
         PlayRate => T::PlayRate(PlayRateTarget { commons }),
         Tempo => T::Tempo(TempoTarget { commons }),
         TrackArm => T::TrackArmState(TrackArmStateTarget {
+            commons,
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                &data.clip_column,
+                style,
+            ),
+            exclusivity: convert_track_exclusivity(data.track_exclusivity),
+        }),
+        TrackParentSend => T::TrackParentSendState(TrackParentSendStateTarget {
             commons,
             track: convert_track_descriptor(
                 data.track_data,

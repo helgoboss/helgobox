@@ -40,8 +40,8 @@ use crate::domain::{
     RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
     SelectedTrackTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmTarget,
     TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -98,6 +98,7 @@ pub enum ReaperTarget {
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
     TrackArm(TrackArmTarget),
+    TrackParentSend(TrackParentSendTarget),
     TrackSelection(TrackSelectionTarget),
     TrackMute(TrackMuteTarget),
     TrackPhase(TrackPhaseTarget),
@@ -589,6 +590,7 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackPan(t) => t.current_value(context),
             TrackWidth(t) => t.current_value(context),
             TrackArm(t) => t.current_value(context),
+            TrackParentSend(t) => t.current_value(context),
             TrackRouteVolume(t) => t.current_value(context),
             TrackSelection(t) => t.current_value(context),
             TrackMute(t) => t.current_value(context),
