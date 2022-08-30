@@ -8,15 +8,18 @@ use std::str::FromStr;
 #[derive(Debug, Default)]
 pub struct MappingSnapshotContainer {
     snapshots: HashMap<MappingSnapshotId, MappingSnapshot>,
-    active_snapshot_id_by_tag: HashMap<Tag, VirtualMappingSnapshotId>,
+    active_snapshot_id_by_tag: HashMap<Tag, MappingSnapshotId>,
 }
 
 impl MappingSnapshotContainer {
     /// Creates the container.
-    pub fn new(snapshots: HashMap<MappingSnapshotId, MappingSnapshot>) -> Self {
+    pub fn new(
+        snapshots: HashMap<MappingSnapshotId, MappingSnapshot>,
+        active_snapshot_id_by_tag: HashMap<Tag, MappingSnapshotId>,
+    ) -> Self {
         Self {
             snapshots,
-            active_snapshot_id_by_tag: Default::default(),
+            active_snapshot_id_by_tag,
         }
     }
 
@@ -32,8 +35,15 @@ impl MappingSnapshotContainer {
         snapshot_id: &VirtualMappingSnapshotId,
     ) {
         for tag in &tag_scope.tags {
-            self.active_snapshot_id_by_tag
-                .insert(tag.clone(), snapshot_id.clone());
+            match snapshot_id {
+                VirtualMappingSnapshotId::Initial => {
+                    self.active_snapshot_id_by_tag.remove(tag);
+                }
+                VirtualMappingSnapshotId::ById(id) => {
+                    self.active_snapshot_id_by_tag
+                        .insert(tag.clone(), id.clone());
+                }
+            }
         }
     }
 
@@ -46,11 +56,19 @@ impl MappingSnapshotContainer {
     ) -> bool {
         tag_scope.tags.iter().all(|tag| {
             if let Some(active_snapshot_id) = self.active_snapshot_id_by_tag.get(tag) {
-                snapshot_id == active_snapshot_id
+                if let VirtualMappingSnapshotId::ById(snapshot_id) = snapshot_id {
+                    snapshot_id == active_snapshot_id
+                } else {
+                    false
+                }
             } else {
-                false
+                matches!(snapshot_id, VirtualMappingSnapshotId::Initial)
             }
         })
+    }
+
+    pub fn active_snapshot_id_by_tag(&self) -> &HashMap<Tag, MappingSnapshotId> {
+        &self.active_snapshot_id_by_tag
     }
 
     /// Returns the snapshot contents associated with the given snapshot ID.

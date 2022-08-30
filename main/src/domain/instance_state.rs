@@ -80,7 +80,7 @@ pub struct InstanceState {
     //  - FxTargetDescriptor contains FxDescriptor contains VirtualFx
     //  ... where TrackTargetDescriptor contains the condition and TrackDescriptor doesn't.
     instance_fx_descriptor: FxDescriptor,
-    mapping_snapshot_container: MappingSnapshotContainer,
+    mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
 }
 
 #[derive(Debug)]
@@ -187,16 +187,26 @@ impl InstanceState {
         }
     }
 
-    pub fn set_mapping_snapshot_container(&mut self, container: MappingSnapshotContainer) {
-        self.mapping_snapshot_container = container;
+    pub fn set_mapping_snapshot_container(
+        &mut self,
+        compartment: Compartment,
+        container: MappingSnapshotContainer,
+    ) {
+        self.mapping_snapshot_container[compartment] = container;
     }
 
-    pub fn mapping_snapshot_container(&self) -> &MappingSnapshotContainer {
-        &self.mapping_snapshot_container
+    pub fn mapping_snapshot_container(
+        &self,
+        compartment: Compartment,
+    ) -> &MappingSnapshotContainer {
+        &self.mapping_snapshot_container[compartment]
     }
 
-    pub fn mapping_snapshot_container_mut(&mut self) -> &mut MappingSnapshotContainer {
-        &mut self.mapping_snapshot_container
+    pub fn mapping_snapshot_container_mut(
+        &mut self,
+        compartment: Compartment,
+    ) -> &mut MappingSnapshotContainer {
+        &mut self.mapping_snapshot_container[compartment]
     }
 
     /// Marks the given snapshot as the active one for all tags in the given scope and sends
@@ -207,8 +217,7 @@ impl InstanceState {
         tag_scope: &TagScope,
         snapshot_id: &VirtualMappingSnapshotId,
     ) {
-        self.mapping_snapshot_container
-            .mark_snapshot_active(tag_scope, snapshot_id);
+        self.mapping_snapshot_container[compartment].mark_snapshot_active(tag_scope, snapshot_id);
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::MappingSnapshotActivated {
                 compartment,

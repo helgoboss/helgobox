@@ -8,6 +8,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
 pub struct UnresolvedTakeMappingSnapshotTarget {
+    pub compartment: Compartment,
     /// Mappings which are not in the tag scope don't make it into the snapshot.
     pub scope: TagScope,
     /// Defines whether mappings that are inactive due to conditional activation should make it
@@ -27,6 +28,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::TakeMappingSnapshot(
             TakeMappingSnapshotTarget {
+                compartment: self.compartment,
                 scope: self.scope.clone(),
                 active_mappings_only: self.active_mappings_only,
                 snapshot_id: self.snapshot_id.clone(),
@@ -37,6 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TakeMappingSnapshotTarget {
+    pub compartment: Compartment,
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot_id: MappingSnapshotId,
@@ -63,6 +66,7 @@ impl RealearnTarget for TakeMappingSnapshotTarget {
             return Ok(None);
         }
         let instruction = TakeMappingSnapshotInstruction {
+            compartment: self.compartment,
             // So far this clone is okay because saveing a snapshot is not something that happens
             // every few milliseconds. No need to use a ref to this target.
             scope: self.scope.clone(),
@@ -101,6 +105,7 @@ pub const SAVE_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
 };
 
 struct TakeMappingSnapshotInstruction {
+    compartment: Compartment,
     scope: TagScope,
     active_mappings_only: bool,
     snapshot_id: MappingSnapshotId,
@@ -126,7 +131,7 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
             .collect();
         let snapshot = MappingSnapshot::new(target_values);
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        let snapshot_container = instance_state.mapping_snapshot_container_mut();
+        let snapshot_container = instance_state.mapping_snapshot_container_mut(self.compartment);
         snapshot_container.update_snapshot(self.snapshot_id.clone(), snapshot);
         vec![]
     }

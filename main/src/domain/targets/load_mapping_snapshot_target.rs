@@ -161,7 +161,7 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let is_active = instance_state
-            .mapping_snapshot_container()
+            .mapping_snapshot_container(self.compartment)
             .snapshot_is_active(&self.scope, &self.snapshot_id);
         Some(AbsoluteValue::from_bool(is_active))
     }
@@ -247,14 +247,14 @@ impl LoadMappingSnapshotInstruction {
 
 impl HitInstruction for LoadMappingSnapshotInstruction {
     fn execute(self: Box<Self>, mut context: HitInstructionContext) -> Vec<MappingControlResult> {
-        // Load snapshot
         let results = match &self.snapshot {
             VirtualMappingSnapshotId::Initial => {
                 self.load_snapshot(&mut context, |m| m.initial_target_value())
             }
             VirtualMappingSnapshotId::ById(id) => {
                 let instance_state = context.control_context.instance_state.borrow();
-                let snapshot_container = instance_state.mapping_snapshot_container();
+                let snapshot_container =
+                    instance_state.mapping_snapshot_container(self.compartment);
                 let snapshot = snapshot_container.find_snapshot_by_id(id);
                 self.load_snapshot(&mut context, |m| {
                     snapshot.and_then(|s| s.find_target_value_by_mapping_id(m.id()))

@@ -236,6 +236,12 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     mapping_snapshots: Vec<MappingSnapshot>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    controller_mapping_snapshots: Vec<MappingSnapshot>,
 }
 
 fn focused_fx_descriptor() -> FxDescriptor {
@@ -264,6 +270,12 @@ struct CompartmentState {
         skip_serializing_if = "is_default"
     )]
     active_mapping_tags: HashSet<Tag>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    active_mapping_snapshots: HashMap<Tag, MappingSnapshotId>,
 }
 
 impl CompartmentState {
@@ -271,6 +283,10 @@ impl CompartmentState {
         CompartmentState {
             active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
             active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
+            active_mapping_snapshots: instance_state
+                .mapping_snapshot_container(compartment)
+                .active_snapshot_id_by_tag()
+                .clone(),
         }
     }
 }
@@ -332,6 +348,7 @@ impl Default for SessionData {
             instance_track: Default::default(),
             instance_fx: session_defaults::INSTANCE_FX_DESCRIPTOR,
             mapping_snapshots: vec![],
+            controller_mapping_snapshots: vec![],
         }
     }
 }
@@ -438,13 +455,16 @@ impl SessionData {
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
             instance_fx: session.instance_fx_descriptor().clone(),
-            mapping_snapshots: {
-                let compartment_in_session = CompartmentInSession::new(session, Compartment::Main);
-                convert_mapping_snapshots_to_api(
-                    instance_state.mapping_snapshot_container(),
-                    &compartment_in_session,
-                )
-            },
+            mapping_snapshots: convert_mapping_snapshots_to_api(
+                session,
+                &instance_state,
+                Compartment::Main,
+            ),
+            controller_mapping_snapshots: convert_mapping_snapshots_to_api(
+                session,
+                &instance_state,
+                Compartment::Controller,
+            ),
         }
     }
 
@@ -507,8 +527,16 @@ impl SessionData {
                 Some(output)
             }
         };
-        let mapping_snapshot_container =
-            convert_mapping_snapshots_to_model(&self.mapping_snapshots, &main_conversion_context)?;
+        let main_mapping_snapshot_container = convert_mapping_snapshots_to_model(
+            &self.mapping_snapshots,
+            &self.main.active_mapping_snapshots,
+            &main_conversion_context,
+        )?;
+        let controller_mapping_snapshot_container = convert_mapping_snapshots_to_model(
+            &self.controller_mapping_snapshots,
+            &self.controller.active_mapping_snapshots,
+            &main_conversion_context,
+        )?;
         // Mutation
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         if let Some(id) = &self.id {
@@ -695,6 +723,7 @@ impl SessionData {
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific
+            // Active mapping by group
             instance_state.set_active_mapping_by_group(
                 Compartment::Controller,
                 self.controller.active_mapping_by_group.clone(),
@@ -703,13 +732,20 @@ impl SessionData {
                 Compartment::Main,
                 self.main.active_mapping_by_group.clone(),
             );
+            // Active mapping tags
             instance_state.set_active_mapping_tags(
                 Compartment::Controller,
                 self.controller.active_mapping_tags.clone(),
             );
             instance_state
                 .set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
-            instance_state.set_mapping_snapshot_container(mapping_snapshot_container);
+            // Mapping snapshots (contents) and IDs
+            instance_state
+                .set_mapping_snapshot_container(Compartment::Main, main_mapping_snapshot_container);
+            instance_state.set_mapping_snapshot_container(
+                Compartment::Controller,
+                controller_mapping_snapshot_container,
+            );
         }
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).
@@ -879,6 +915,18 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
 }
 
 fn convert_mapping_snapshots_to_api(
+    session: &Session,
+    instance_state: &InstanceState,
+    compartment: Compartment,
+) -> Vec<MappingSnapshot> {
+    let compartment_in_session = CompartmentInSession::new(session, compartment);
+    convert_mapping_snapshots_to_api_internal(
+        instance_state.mapping_snapshot_container(compartment),
+        &compartment_in_session,
+    )
+}
+
+fn convert_mapping_snapshots_to_api_internal(
     container: &MappingSnapshotContainer,
     conversion_context: &impl ModelToDataConversionContext,
 ) -> Vec<MappingSnapshot> {
@@ -902,6 +950,7 @@ fn convert_mapping_snapshots_to_api(
 
 fn convert_mapping_snapshots_to_model(
     api_snapshots: &[MappingSnapshot],
+    active_snapshot_id_by_tag: &HashMap<Tag, MappingSnapshotId>,
     conversion_context: &impl DataToModelConversionContext,
 ) -> Result<MappingSnapshotContainer, &'static str> {
     let snapshots: Result<
@@ -927,5 +976,8 @@ fn convert_mapping_snapshots_to_model(
             Ok((id, snapshot))
         })
         .collect();
-    Ok(MappingSnapshotContainer::new(snapshots?))
+    Ok(MappingSnapshotContainer::new(
+        snapshots?,
+        active_snapshot_id_by_tag.clone(),
+    ))
 }

@@ -2260,6 +2260,7 @@ impl TargetModel {
                     ),
                     TakeMappingSnapshot => UnresolvedReaperTarget::TakeMappingSnapshot(
                         UnresolvedTakeMappingSnapshotTarget {
+                            compartment,
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
                             snapshot_id: self
