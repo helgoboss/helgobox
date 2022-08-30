@@ -759,7 +759,7 @@ pub struct LoadMappingSnapshotTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_mappings_only: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub snapshot: Option<MappingSnapshotDesc>,
+    pub snapshot: Option<MappingSnapshotDescForLoad>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<TargetValue>,
 }
@@ -773,28 +773,64 @@ pub struct TakeMappingSnapshotTarget {
     pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_mappings_only: Option<bool>,
-    pub snapshot_id: String,
+    #[serde(alias = "snapshot_id")]
+    pub snapshot: BackwardCompatibleMappingSnapshotDescForTake,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BackwardCompatibleMappingSnapshotDescForTake {
+    Old(String),
+    New(MappingSnapshotDescForTake),
+}
+
+impl Default for BackwardCompatibleMappingSnapshotDescForTake {
+    fn default() -> Self {
+        Self::New(Default::default())
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
-pub enum MappingSnapshotDesc {
+pub enum MappingSnapshotDescForLoad {
     Initial,
     ById { id: String },
 }
 
-impl MappingSnapshotDesc {
+impl MappingSnapshotDescForLoad {
     pub fn id(&self) -> Option<&str> {
         match self {
-            MappingSnapshotDesc::Initial => None,
-            MappingSnapshotDesc::ById { id } => Some(id),
+            MappingSnapshotDescForLoad::Initial => None,
+            MappingSnapshotDescForLoad::ById { id } => Some(id),
         }
     }
 }
 
-impl Default for MappingSnapshotDesc {
+impl Default for MappingSnapshotDescForLoad {
     fn default() -> Self {
         Self::Initial
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum MappingSnapshotDescForTake {
+    LastLoaded,
+    ById { id: String },
+}
+
+impl MappingSnapshotDescForTake {
+    pub fn id(&self) -> Option<&str> {
+        match self {
+            MappingSnapshotDescForTake::LastLoaded => None,
+            MappingSnapshotDescForTake::ById { id } => Some(id),
+        }
+    }
+}
+
+impl Default for MappingSnapshotDescForTake {
+    fn default() -> Self {
+        Self::LastLoaded
     }
 }
 

@@ -1,10 +1,8 @@
 use crate::application::Session;
 use crate::domain::{compartment_param_index_iter, Compartment, Tag};
 use crate::infrastructure::ui::bindings::root;
-use itertools::Itertools;
 use realearn_dialogs::constants;
 use reaper_high::Reaper;
-use std::fmt::Display;
 use std::str::FromStr;
 use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
 
@@ -231,14 +229,6 @@ pub fn parse_tags_from_csv(text: &str) -> Vec<Tag> {
     text.split(',')
         .filter_map(|item| Tag::from_str(item).ok())
         .collect()
-}
-
-pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String {
-    format_as_csv(tags)
-}
-
-fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
-    iter.into_iter().join(", ")
 }
 
 pub fn compartment_parameter_dropdown_contents(

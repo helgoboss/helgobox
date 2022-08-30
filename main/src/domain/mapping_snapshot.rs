@@ -1,8 +1,9 @@
 use crate::domain::{
-    convert_to_identifier, MappingId, SmallAsciiString, Tag, TagScope, VirtualMappingSnapshotId,
+    convert_to_identifier, MappingId, SmallAsciiString, Tag, TagScope,
+    VirtualMappingSnapshotIdForLoad,
 };
 use helgoboss_learn::AbsoluteValue;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 #[derive(Debug, Default)]
@@ -28,18 +29,37 @@ impl MappingSnapshotContainer {
         self.snapshots.insert(id, snapshot);
     }
 
+    /// Returns the last loaded snapshot ID for the given tags.
+    ///
+    /// If there's no record of a last loaded snapshot for any of the given tags, it returns `None`.
+    ///
+    /// If the last loaded snapshot IDs differ between the tags, it also returns `None`.
+    pub fn last_loaded_snapshot_id(&self, scope: &TagScope) -> Option<MappingSnapshotId> {
+        let active_snapshot_ids: HashSet<_> = scope
+            .tags
+            .iter()
+            .map(|tag| self.active_snapshot_id_by_tag.get(tag))
+            .collect();
+        if active_snapshot_ids.len() > 1 {
+            // Active snapshots differ.
+            return None;
+        }
+        let single_active_snapshot_id = active_snapshot_ids.iter().next()?.cloned()?;
+        Some(single_active_snapshot_id)
+    }
+
     /// Marks the given snapshot as the active one for all tags in the given scope.
     pub fn mark_snapshot_active(
         &mut self,
         tag_scope: &TagScope,
-        snapshot_id: &VirtualMappingSnapshotId,
+        snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) {
         for tag in &tag_scope.tags {
             match snapshot_id {
-                VirtualMappingSnapshotId::Initial => {
+                VirtualMappingSnapshotIdForLoad::Initial => {
                     self.active_snapshot_id_by_tag.remove(tag);
                 }
-                VirtualMappingSnapshotId::ById(id) => {
+                VirtualMappingSnapshotIdForLoad::ById(id) => {
                     self.active_snapshot_id_by_tag
                         .insert(tag.clone(), id.clone());
                 }
@@ -52,17 +72,17 @@ impl MappingSnapshotContainer {
     pub fn snapshot_is_active(
         &self,
         tag_scope: &TagScope,
-        snapshot_id: &VirtualMappingSnapshotId,
+        snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) -> bool {
         tag_scope.tags.iter().all(|tag| {
             if let Some(active_snapshot_id) = self.active_snapshot_id_by_tag.get(tag) {
-                if let VirtualMappingSnapshotId::ById(snapshot_id) = snapshot_id {
+                if let VirtualMappingSnapshotIdForLoad::ById(snapshot_id) = snapshot_id {
                     snapshot_id == active_snapshot_id
                 } else {
                     false
                 }
             } else {
-                matches!(snapshot_id, VirtualMappingSnapshotId::Initial)
+                matches!(snapshot_id, VirtualMappingSnapshotIdForLoad::Initial)
             }
         })
     }

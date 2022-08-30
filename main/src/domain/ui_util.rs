@@ -1,9 +1,10 @@
-use crate::domain::{InstanceId, MatchOutcome, OwnedIncomingMidiMessage};
+use crate::domain::{InstanceId, MatchOutcome, OwnedIncomingMidiMessage, Tag};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
+use itertools::Itertools;
 use reaper_high::{Reaper, Volume};
 use reaper_medium::Db;
 use rosc::{OscMessage, OscPacket};
@@ -215,4 +216,12 @@ fn log(instance_id: &InstanceId, label: impl Display, msg: impl Display) {
         label,
         msg
     ));
+}
+
+pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String {
+    format_as_csv(tags)
+}
+
+fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
+    iter.into_iter().join(", ")
 }

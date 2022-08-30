@@ -5,6 +5,7 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+use realearn_api::persistence::MappingSnapshotDescForTake;
 
 #[derive(Debug)]
 pub struct UnresolvedTakeMappingSnapshotTarget {
@@ -17,7 +18,43 @@ pub struct UnresolvedTakeMappingSnapshotTarget {
     /// Mappings which are explicitly disabled for control are ignored anyway because they won't be
     /// loaded with the "Load mapping snapshot" target anyway.
     pub active_mappings_only: bool,
-    pub snapshot_id: MappingSnapshotId,
+    pub snapshot_id: VirtualMappingSnapshotIdForTake,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum VirtualMappingSnapshotIdForTake {
+    LastLoaded,
+    ById(MappingSnapshotId),
+}
+
+impl VirtualMappingSnapshotIdForTake {
+    pub fn id(&self) -> Option<&MappingSnapshotId> {
+        match self {
+            VirtualMappingSnapshotIdForTake::LastLoaded => None,
+            VirtualMappingSnapshotIdForTake::ById(id) => Some(id),
+        }
+    }
+}
+
+impl TryFrom<MappingSnapshotDescForTake> for VirtualMappingSnapshotIdForTake {
+    type Error = &'static str;
+
+    fn try_from(value: MappingSnapshotDescForTake) -> Result<Self, Self::Error> {
+        let res = match value {
+            MappingSnapshotDescForTake::LastLoaded => Self::LastLoaded,
+            MappingSnapshotDescForTake::ById { id } => Self::ById(id.parse()?),
+        };
+        Ok(res)
+    }
+}
+
+impl From<VirtualMappingSnapshotIdForTake> for MappingSnapshotDescForTake {
+    fn from(value: VirtualMappingSnapshotIdForTake) -> Self {
+        match value {
+            VirtualMappingSnapshotIdForTake::LastLoaded => Self::LastLoaded,
+            VirtualMappingSnapshotIdForTake::ById(s) => Self::ById { id: s.to_string() },
+        }
+    }
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
@@ -42,7 +79,7 @@ pub struct TakeMappingSnapshotTarget {
     pub compartment: Compartment,
     pub scope: TagScope,
     pub active_mappings_only: bool,
-    pub snapshot_id: MappingSnapshotId,
+    pub snapshot_id: VirtualMappingSnapshotIdForTake,
 }
 
 impl RealearnTarget for TakeMappingSnapshotTarget {
@@ -108,8 +145,9 @@ struct TakeMappingSnapshotInstruction {
     compartment: Compartment,
     scope: TagScope,
     active_mappings_only: bool,
-    snapshot_id: MappingSnapshotId,
+    snapshot_id: VirtualMappingSnapshotIdForTake,
 }
+
 impl HitInstruction for TakeMappingSnapshotInstruction {
     fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult> {
         let target_values = context
@@ -132,7 +170,16 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
         let snapshot = MappingSnapshot::new(target_values);
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let snapshot_container = instance_state.mapping_snapshot_container_mut(self.compartment);
-        snapshot_container.update_snapshot(self.snapshot_id.clone(), snapshot);
+        let resolved_snapshot_id = match self.snapshot_id {
+            VirtualMappingSnapshotIdForTake::LastLoaded => {
+                match snapshot_container.last_loaded_snapshot_id(&self.scope) {
+                    None => return vec![],
+                    Some(id) => id,
+                }
+            }
+            VirtualMappingSnapshotIdForTake::ById(id) => id.clone(),
+        };
+        snapshot_container.update_snapshot(resolved_snapshot_id, snapshot);
         vec![]
     }
 }

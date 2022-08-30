@@ -6,7 +6,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use realearn_api::persistence::MappingSnapshotDesc;
+use realearn_api::persistence::MappingSnapshotDescForLoad;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadMappingSnapshotTarget {
@@ -34,42 +34,42 @@ pub struct UnresolvedLoadMappingSnapshotTarget {
     //  a) top-left-checkbox = conditional-activation
     //  b) top-left-checkbox = control-checkbox
     pub active_mappings_only: bool,
-    pub snapshot: VirtualMappingSnapshotId,
+    pub snapshot_id: VirtualMappingSnapshotIdForLoad,
     pub default_value: Option<AbsoluteValue>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum VirtualMappingSnapshotId {
+pub enum VirtualMappingSnapshotIdForLoad {
     Initial,
     ById(MappingSnapshotId),
 }
 
-impl VirtualMappingSnapshotId {
+impl VirtualMappingSnapshotIdForLoad {
     pub fn id(&self) -> Option<&MappingSnapshotId> {
         match self {
-            VirtualMappingSnapshotId::Initial => None,
-            VirtualMappingSnapshotId::ById(id) => Some(id),
+            VirtualMappingSnapshotIdForLoad::Initial => None,
+            VirtualMappingSnapshotIdForLoad::ById(id) => Some(id),
         }
     }
 }
 
-impl TryFrom<MappingSnapshotDesc> for VirtualMappingSnapshotId {
+impl TryFrom<MappingSnapshotDescForLoad> for VirtualMappingSnapshotIdForLoad {
     type Error = &'static str;
 
-    fn try_from(value: MappingSnapshotDesc) -> Result<Self, Self::Error> {
+    fn try_from(value: MappingSnapshotDescForLoad) -> Result<Self, Self::Error> {
         let res = match value {
-            MappingSnapshotDesc::Initial => Self::Initial,
-            MappingSnapshotDesc::ById { id } => Self::ById(id.parse()?),
+            MappingSnapshotDescForLoad::Initial => Self::Initial,
+            MappingSnapshotDescForLoad::ById { id } => Self::ById(id.parse()?),
         };
         Ok(res)
     }
 }
 
-impl From<VirtualMappingSnapshotId> for MappingSnapshotDesc {
-    fn from(value: VirtualMappingSnapshotId) -> Self {
+impl From<VirtualMappingSnapshotIdForLoad> for MappingSnapshotDescForLoad {
+    fn from(value: VirtualMappingSnapshotIdForLoad) -> Self {
         match value {
-            VirtualMappingSnapshotId::Initial => Self::Initial,
-            VirtualMappingSnapshotId::ById(s) => Self::ById { id: s.to_string() },
+            VirtualMappingSnapshotIdForLoad::Initial => Self::Initial,
+            VirtualMappingSnapshotIdForLoad::ById(s) => Self::ById { id: s.to_string() },
         }
     }
 }
@@ -85,7 +85,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
                 compartment: self.compartment,
                 scope: self.scope.clone(),
                 active_mappings_only: self.active_mappings_only,
-                snapshot_id: self.snapshot.clone(),
+                snapshot_id: self.snapshot_id.clone(),
                 default_value: self.default_value,
             },
         )])
@@ -97,7 +97,7 @@ pub struct LoadMappingSnapshotTarget {
     pub compartment: Compartment,
     pub scope: TagScope,
     pub active_mappings_only: bool,
-    pub snapshot_id: VirtualMappingSnapshotId,
+    pub snapshot_id: VirtualMappingSnapshotIdForLoad,
     pub default_value: Option<AbsoluteValue>,
 }
 
@@ -182,7 +182,7 @@ struct LoadMappingSnapshotInstruction {
     compartment: Compartment,
     scope: TagScope,
     active_mappings_only: bool,
-    snapshot: VirtualMappingSnapshotId,
+    snapshot: VirtualMappingSnapshotIdForLoad,
     default_value: Option<AbsoluteValue>,
 }
 
@@ -248,10 +248,10 @@ impl LoadMappingSnapshotInstruction {
 impl HitInstruction for LoadMappingSnapshotInstruction {
     fn execute(self: Box<Self>, mut context: HitInstructionContext) -> Vec<MappingControlResult> {
         let results = match &self.snapshot {
-            VirtualMappingSnapshotId::Initial => {
+            VirtualMappingSnapshotIdForLoad::Initial => {
                 self.load_snapshot(&mut context, |m| m.initial_target_value())
             }
-            VirtualMappingSnapshotId::ById(id) => {
+            VirtualMappingSnapshotIdForLoad::ById(id) => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let snapshot_container =
                     instance_state.mapping_snapshot_container(self.compartment);

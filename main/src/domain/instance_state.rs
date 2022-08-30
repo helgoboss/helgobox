@@ -11,7 +11,7 @@ use crate::domain::{
     BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GroupId,
     HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
     NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
-    VirtualMappingSnapshotId,
+    VirtualMappingSnapshotIdForLoad,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -215,7 +215,7 @@ impl InstanceState {
         &mut self,
         compartment: Compartment,
         tag_scope: &TagScope,
-        snapshot_id: &VirtualMappingSnapshotId,
+        snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) {
         self.mapping_snapshot_container[compartment].mark_snapshot_active(tag_scope, snapshot_id);
         self.instance_feedback_event_sender.send_complaining(
@@ -558,6 +558,6 @@ pub enum InstanceStateChanged {
     MappingSnapshotActivated {
         compartment: Compartment,
         tag_scope: TagScope,
-        snapshot_id: VirtualMappingSnapshotId,
+        snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
 }

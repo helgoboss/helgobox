@@ -807,7 +807,15 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             active_mappings_only: d
                 .active_mappings_only
                 .unwrap_or(defaults::TARGET_SAVE_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY),
-            mapping_snapshot: MappingSnapshotDesc::ById { id: d.snapshot_id },
+            take_mapping_snapshot: {
+                let final_snapshot = match d.snapshot {
+                    BackwardCompatibleMappingSnapshotDescForTake::Old(id) => {
+                        MappingSnapshotDescForTake::ById { id }
+                    }
+                    BackwardCompatibleMappingSnapshotDescForTake::New(snapshot) => snapshot,
+                };
+                Some(final_snapshot)
+            },
             ..init(d.commons)
         },
         Target::CycleThroughGroupMappings(d) => TargetModelData {

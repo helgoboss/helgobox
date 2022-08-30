@@ -19,21 +19,22 @@ use crate::infrastructure::data::{
 };
 use realearn_api::persistence;
 use realearn_api::persistence::{
-    AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
-    ClipRowTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
-    CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
-    CycleThroughTracksTarget, DummyTarget, EnableInstancesTarget, EnableMappingsTarget,
-    FxOnOffStateTarget, FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget,
-    FxParameterValueTarget, FxToolTarget, FxVisibilityTarget, GoToBookmarkTarget,
-    LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotTarget, PlayRateTarget,
-    ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget,
-    RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SendMidiTarget, SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
-    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
+    BackwardCompatibleMappingSnapshotDescForTake, BookmarkDescriptor, BookmarkRef,
+    ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget,
+    ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget, CycleThroughFxPresetsTarget,
+    CycleThroughFxTarget, CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, DummyTarget,
+    EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
+    FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -608,10 +609,9 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             active_mappings_only: Some(data.active_mappings_only),
-            snapshot_id: data
-                .mapping_snapshot
-                .id()
-                .map(|id| id.to_string())
+            snapshot: data
+                .take_mapping_snapshot
+                .map(|s| BackwardCompatibleMappingSnapshotDescForTake::New(s))
                 .unwrap_or_default(),
         }),
         NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {

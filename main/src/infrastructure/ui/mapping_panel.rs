@@ -36,16 +36,19 @@ use crate::application::{
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MappingSnapshotType, MidiSourceType, ModeCommand,
-    ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session,
-    SessionProp, SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel,
-    SourceProp, TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp,
-    TargetUnit, TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType,
-    VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
+    MappingCommand, MappingModel, MappingProp, MappingSnapshotTypeForLoad,
+    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
+    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
-use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
+use crate::domain::ui_util::{
+    format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
+};
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
     KeyStrokePortability, PortabilityIssue, ReaperTargetType, SendMidiDestination,
@@ -62,8 +65,8 @@ use crate::domain::{
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
-    compartment_parameter_dropdown_contents, format_tags_as_csv, open_in_browser,
-    parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    compartment_parameter_dropdown_contents, open_in_browser, parse_tags_from_csv, symbols,
+    MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
@@ -422,7 +425,7 @@ impl MappingPanel {
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::MappingSnapshotType | P::MappingSnapshotId => {
+                                            P::MappingSnapshotTypeForLoad | P::MappingSnapshotTypeForTake | P::MappingSnapshotId => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingSnapshotDefaultValue => {
@@ -2353,7 +2356,16 @@ impl<'a> MutableMappingPanel<'a> {
                         .try_into()
                         .unwrap_or_default();
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetMappingSnapshotType(snapshot_type),
+                        TargetCommand::SetMappingSnapshotTypeForLoad(snapshot_type),
+                    ));
+                }
+                ReaperTargetType::TakeMappingSnapshot => {
+                    let snapshot_type = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMappingSnapshotTypeForTake(snapshot_type),
                     ));
                 }
                 t if t.supports_feedback_resolution() => {
@@ -3938,10 +3950,25 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingSnapshotType::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.mapping_snapshot_type().into(),
+                            self.mapping
+                                .target_model
+                                .mapping_snapshot_type_for_load()
+                                .into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::TakeMappingSnapshot => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping
+                                .target_model
+                                .mapping_snapshot_type_for_take()
+                                .into(),
                         )
                         .unwrap();
                 }

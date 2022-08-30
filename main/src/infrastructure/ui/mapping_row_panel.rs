@@ -6,6 +6,7 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId, ReaperTarget};
 
+use crate::domain::ui_util::format_tags_as_csv;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
@@ -16,7 +17,7 @@ use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{format_tags_as_csv, mapping_row_panel_height, symbols};
+use crate::infrastructure::ui::util::{mapping_row_panel_height, symbols};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,

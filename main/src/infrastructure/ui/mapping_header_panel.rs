@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv, symbols};
+use crate::infrastructure::ui::util::{parse_tags_from_csv, symbols};
 
 use enum_iterator::IntoEnumIterator;
 use std::cell::{Cell, RefCell};
@@ -12,6 +12,7 @@ use crate::application::{
     GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
     SharedSession, WeakSession,
 };
+use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{Compartment, MappingId, Tag};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};

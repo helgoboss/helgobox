@@ -14,6 +14,7 @@ use crate::application::{
     SessionUi, VirtualFxType, WeakSession,
 };
 use crate::base::when;
+use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
     RealearnClipMatrix, TargetValueChangedEvent,
@@ -26,9 +27,7 @@ use crate::infrastructure::server::grpc::{
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
-use crate::infrastructure::ui::util::{
-    format_tags_as_csv, header_panel_height, parse_tags_from_csv,
-};
+use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::proto::{

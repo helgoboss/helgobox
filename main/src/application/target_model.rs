@@ -47,19 +47,22 @@ use crate::domain::{
     UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
     UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
     VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualMappingSnapshotId, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    VirtualFxParameter, VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake,
+    VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
+use crate::domain::ui_util::format_tags_as_csv;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDesc, MonitoringMode,
-    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
+    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
+    MappingSnapshotDescForTake, MonitoringMode, TrackDescriptorCommons, TrackFxChain,
+    TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -150,7 +153,8 @@ pub enum TargetCommand {
     SetExclusivity(Exclusivity),
     SetGroupId(GroupId),
     SetActiveMappingsOnly(bool),
-    SetMappingSnapshotType(MappingSnapshotType),
+    SetMappingSnapshotTypeForLoad(MappingSnapshotTypeForLoad),
+    SetMappingSnapshotTypeForTake(MappingSnapshotTypeForTake),
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
 }
@@ -239,7 +243,8 @@ pub enum TargetProp {
     Exclusivity,
     GroupId,
     ActiveMappingsOnly,
-    MappingSnapshotType,
+    MappingSnapshotTypeForLoad,
+    MappingSnapshotTypeForTake,
     MappingSnapshotId,
     MappingSnapshotDefaultValue,
 }
@@ -524,9 +529,13 @@ impl<'a> Change<'a> for TargetModel {
                 self.active_mappings_only = v;
                 One(P::ActiveMappingsOnly)
             }
-            C::SetMappingSnapshotType(v) => {
-                self.mapping_snapshot_type = v;
-                One(P::MappingSnapshotType)
+            C::SetMappingSnapshotTypeForLoad(v) => {
+                self.mapping_snapshot_type_for_load = v;
+                One(P::MappingSnapshotTypeForLoad)
+            }
+            C::SetMappingSnapshotTypeForTake(v) => {
+                self.mapping_snapshot_type_for_take = v;
+                One(P::MappingSnapshotTypeForTake)
             }
             C::SetMappingSnapshotId(v) => {
                 self.mapping_snapshot_id = v;
@@ -701,7 +710,8 @@ pub struct TargetModel {
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
-    mapping_snapshot_type: MappingSnapshotType,
+    mapping_snapshot_type_for_load: MappingSnapshotTypeForLoad,
+    mapping_snapshot_type_for_take: MappingSnapshotTypeForTake,
     mapping_snapshot_id: Option<MappingSnapshotId>,
     mapping_snapshot_default_value: Option<AbsoluteValue>,
     exclusivity: Exclusivity,
@@ -777,7 +787,8 @@ impl Default for TargetModel {
             osc_dev_id: None,
             poll_for_feedback: true,
             tags: Default::default(),
-            mapping_snapshot_type: MappingSnapshotType::Initial,
+            mapping_snapshot_type_for_load: MappingSnapshotTypeForLoad::Initial,
+            mapping_snapshot_type_for_take: MappingSnapshotTypeForTake::LastLoaded,
             mapping_snapshot_id: None,
             mapping_snapshot_default_value: None,
             exclusivity: Default::default(),
@@ -943,8 +954,12 @@ impl TargetModel {
         self.fx_snapshot.as_ref()
     }
 
-    pub fn mapping_snapshot_type(&self) -> MappingSnapshotType {
-        self.mapping_snapshot_type
+    pub fn mapping_snapshot_type_for_load(&self) -> MappingSnapshotTypeForLoad {
+        self.mapping_snapshot_type_for_load
+    }
+
+    pub fn mapping_snapshot_type_for_take(&self) -> MappingSnapshotTypeForTake {
+        self.mapping_snapshot_type_for_take
     }
 
     pub fn mapping_snapshot_id(&self) -> Option<&MappingSnapshotId> {
@@ -1670,30 +1685,64 @@ impl TargetModel {
         Some(fx)
     }
 
-    pub fn virtual_mapping_snapshot(&self) -> Result<VirtualMappingSnapshotId, &'static str> {
-        match self.mapping_snapshot_type {
-            MappingSnapshotType::Initial => Ok(VirtualMappingSnapshotId::Initial),
-            MappingSnapshotType::ById => {
+    pub fn virtual_mapping_snapshot_id_for_load(
+        &self,
+    ) -> Result<VirtualMappingSnapshotIdForLoad, &'static str> {
+        match self.mapping_snapshot_type_for_load {
+            MappingSnapshotTypeForLoad::Initial => Ok(VirtualMappingSnapshotIdForLoad::Initial),
+            MappingSnapshotTypeForLoad::ById => {
                 let id = self
                     .mapping_snapshot_id
                     .as_ref()
                     .ok_or("no mapping snapshot ID")?
                     .clone();
-                Ok(VirtualMappingSnapshotId::ById(id))
+                Ok(VirtualMappingSnapshotIdForLoad::ById(id))
             }
         }
     }
 
-    pub fn mapping_snapshot_desc(&self) -> MappingSnapshotDesc {
+    pub fn virtual_mapping_snapshot_id_for_take(
+        &self,
+    ) -> Result<VirtualMappingSnapshotIdForTake, &'static str> {
+        match self.mapping_snapshot_type_for_take {
+            MappingSnapshotTypeForTake::LastLoaded => {
+                Ok(VirtualMappingSnapshotIdForTake::LastLoaded)
+            }
+            MappingSnapshotTypeForTake::ById => {
+                let id = self
+                    .mapping_snapshot_id
+                    .as_ref()
+                    .ok_or("no mapping snapshot ID")?
+                    .clone();
+                Ok(VirtualMappingSnapshotIdForTake::ById(id))
+            }
+        }
+    }
+
+    pub fn mapping_snapshot_desc_for_load(&self) -> MappingSnapshotDescForLoad {
         if self.target_type() == ReaperTargetType::TakeMappingSnapshot {
-            self.mapping_snapshot_id
-                .as_ref()
-                .map(|id| MappingSnapshotDesc::ById { id: id.to_string() })
-                .unwrap_or_default()
+            Default::default()
         } else {
-            match self.mapping_snapshot_type {
-                MappingSnapshotType::Initial => MappingSnapshotDesc::Initial,
-                MappingSnapshotType::ById => MappingSnapshotDesc::ById {
+            match self.mapping_snapshot_type_for_load {
+                MappingSnapshotTypeForLoad::Initial => MappingSnapshotDescForLoad::Initial,
+                MappingSnapshotTypeForLoad::ById => MappingSnapshotDescForLoad::ById {
+                    id: self
+                        .mapping_snapshot_id
+                        .as_ref()
+                        .map(|id| id.to_string())
+                        .unwrap_or_default(),
+                },
+            }
+        }
+    }
+
+    pub fn mapping_snapshot_desc_for_take(&self) -> MappingSnapshotDescForTake {
+        if self.target_type() == ReaperTargetType::LoadMappingSnapshot {
+            Default::default()
+        } else {
+            match self.mapping_snapshot_type_for_take {
+                MappingSnapshotTypeForTake::LastLoaded => MappingSnapshotDescForTake::LastLoaded,
+                MappingSnapshotTypeForTake::ById => MappingSnapshotDescForTake::ById {
                     id: self
                         .mapping_snapshot_id
                         .as_ref()
@@ -2254,7 +2303,7 @@ impl TargetModel {
                             compartment,
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
-                            snapshot: self.virtual_mapping_snapshot()?,
+                            snapshot_id: self.virtual_mapping_snapshot_id_for_load()?,
                             default_value: self.mapping_snapshot_default_value,
                         },
                     ),
@@ -2263,11 +2312,7 @@ impl TargetModel {
                             compartment,
                             scope: self.tag_scope(),
                             active_mappings_only: self.active_mappings_only,
-                            snapshot_id: self
-                                .mapping_snapshot_id
-                                .as_ref()
-                                .ok_or("no mapping snapshot ID given")?
-                                .clone(),
+                            snapshot_id: self.virtual_mapping_snapshot_id_for_take()?,
                         },
                     ),
                     EnableMappings => {
@@ -2481,8 +2526,12 @@ impl TargetModel {
         }
         use ReaperTargetType::*;
         match self.r#type {
-            LoadMappingSnapshot => self.mapping_snapshot_type == MappingSnapshotType::ById,
-            TakeMappingSnapshot => true,
+            LoadMappingSnapshot => {
+                self.mapping_snapshot_type_for_load == MappingSnapshotTypeForLoad::ById
+            }
+            TakeMappingSnapshot => {
+                self.mapping_snapshot_type_for_take == MappingSnapshotTypeForTake::ById
+            }
             _ => false,
         }
     }
@@ -2633,10 +2682,19 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         }
     }
 
-    fn mapping_snapshot_type_label(&self) -> String {
-        match self.target.mapping_snapshot_type {
-            MappingSnapshotType::Initial => MappingSnapshotType::Initial.to_string(),
-            MappingSnapshotType::ById => self.mapping_snapshot_id_label(),
+    fn mapping_snapshot_for_load_label(&self) -> String {
+        match self.target.mapping_snapshot_type_for_load {
+            MappingSnapshotTypeForLoad::Initial => MappingSnapshotTypeForLoad::Initial.to_string(),
+            MappingSnapshotTypeForLoad::ById => self.mapping_snapshot_id_label(),
+        }
+    }
+
+    fn mapping_snapshot_for_take_label(&self) -> String {
+        match self.target.mapping_snapshot_type_for_take {
+            MappingSnapshotTypeForTake::LastLoaded => {
+                MappingSnapshotTypeForTake::LastLoaded.to_string()
+            }
+            MappingSnapshotTypeForTake::ById => self.mapping_snapshot_id_label(),
         }
     }
 
@@ -2813,10 +2871,26 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                             .unwrap_or_else(|| "-".to_owned())
                     ),
                     LoadMappingSnapshot => {
-                        write!(f, "{}\n{}", tt, self.mapping_snapshot_type_label())
+                        write!(
+                            f,
+                            "{}\n\
+                            Snapshot: {}\n\
+                            Tags: {}",
+                            tt,
+                            self.mapping_snapshot_for_load_label(),
+                            format_tags_as_csv(self.target.tags())
+                        )
                     }
                     TakeMappingSnapshot => {
-                        write!(f, "{}\n{}", tt, self.mapping_snapshot_id_label())
+                        write!(
+                            f,
+                            "{}\n\
+                            Snapshot: {}\n\
+                            Tags: {}",
+                            tt,
+                            self.mapping_snapshot_for_take_label(),
+                            format_tags_as_csv(self.target.tags())
+                        )
                     }
                     TrackTouchState => write!(
                         f,
@@ -3193,7 +3267,7 @@ impl Default for VirtualTrackType {
     Display,
 )]
 #[repr(usize)]
-pub enum MappingSnapshotType {
+pub enum MappingSnapshotTypeForLoad {
     #[display(fmt = "<Initial>")]
     #[serde(rename = "initial")]
     Initial,
@@ -3201,9 +3275,37 @@ pub enum MappingSnapshotType {
     ById,
 }
 
-impl Default for MappingSnapshotType {
+impl Default for MappingSnapshotTypeForLoad {
     fn default() -> Self {
         Self::Initial
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Serialize,
+    Deserialize,
+    Display,
+)]
+#[repr(usize)]
+pub enum MappingSnapshotTypeForTake {
+    #[display(fmt = "<Last loaded>")]
+    #[serde(rename = "last-loaded")]
+    LastLoaded,
+    #[display(fmt = "By ID")]
+    ById,
+}
+
+impl Default for MappingSnapshotTypeForTake {
+    fn default() -> Self {
+        Self::LastLoaded
     }
 }
 

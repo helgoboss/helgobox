@@ -4,10 +4,10 @@ use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
-    FxSnapshot, MappingSnapshotType, RealearnAutomationMode, RealearnTrackArea, TargetCategory,
-    TargetCommand, TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType,
+    FxSnapshot, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, RealearnAutomationMode,
+    RealearnTrackArea, TargetCategory, TargetCommand, TargetModel, TargetUnit, TrackPropValues,
+    TrackRoutePropValues, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
@@ -30,7 +30,8 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxToolAction, MappingSnapshotDesc, MonitoringMode, TargetValue, TrackToolAction,
+    FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
+    TargetValue, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -298,7 +299,15 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub mapping_snapshot: MappingSnapshotDesc,
+    pub mapping_snapshot: MappingSnapshotDescForLoad,
+    /// Introduced with ReaLearn v2.14.0-pre.1.
+    /// Before that, it was always "By ID" and encoded as part of "mapping_snapshot".
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub take_mapping_snapshot: Option<MappingSnapshotDescForTake>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -505,7 +514,8 @@ impl TargetModelData {
             poll_for_feedback: model.poll_for_feedback(),
             retrigger: model.retrigger(),
             tags: model.tags().to_vec(),
-            mapping_snapshot: model.mapping_snapshot_desc(),
+            mapping_snapshot: model.mapping_snapshot_desc_for_load(),
+            take_mapping_snapshot: Some(model.mapping_snapshot_desc_for_take()),
             mapping_snapshot_default_value: model
                 .mapping_snapshot_default_value()
                 .map(convert_target_value_to_api),
@@ -750,18 +760,49 @@ impl TargetModelData {
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
-        let (mapping_snapshot_type, mapping_snapshot_id) = match &self.mapping_snapshot {
-            MappingSnapshotDesc::Initial => (MappingSnapshotType::Initial, None),
-            MappingSnapshotDesc::ById { id } => (MappingSnapshotType::ById, id.parse().ok()),
+        // "Load mapping snapshot" stuff
+        let mapping_snapshot_id_for_load = {
+            let (mapping_snapshot_type, mapping_snapshot_id) = match &self.mapping_snapshot {
+                MappingSnapshotDescForLoad::Initial => (MappingSnapshotTypeForLoad::Initial, None),
+                MappingSnapshotDescForLoad::ById { id } => {
+                    (MappingSnapshotTypeForLoad::ById, id.parse().ok())
+                }
+            };
+            model.change(C::SetMappingSnapshotTypeForLoad(mapping_snapshot_type));
+            let mapping_snapshot_default_value = match self.mapping_snapshot_default_value.as_ref()
+            {
+                None => None,
+                Some(v) => Some(convert_target_value_to_model(v)?),
+            };
+            model.change(C::SetMappingSnapshotDefaultValue(
+                mapping_snapshot_default_value,
+            ));
+            mapping_snapshot_id
         };
-        model.change(C::SetMappingSnapshotType(mapping_snapshot_type));
-        model.change(C::SetMappingSnapshotId(mapping_snapshot_id));
-        let mapping_snapshot_default_value = match self.mapping_snapshot_default_value.as_ref() {
-            None => None,
-            Some(v) => Some(convert_target_value_to_model(v)?),
+        // "Take mapping snapshot" stuff
+        let mapping_snapshot_id_for_take = {
+            let (mapping_snapshot_type, mapping_snapshot_id) = match &self.take_mapping_snapshot {
+                None => {
+                    // Was written with ReaLearn < 2.14.0-pre.1 (take info from mapping_snapshot).
+                    (
+                        MappingSnapshotTypeForTake::ById,
+                        self.mapping_snapshot.id().and_then(|id| id.parse().ok()),
+                    )
+                }
+                Some(desc) => match desc {
+                    MappingSnapshotDescForTake::LastLoaded => {
+                        (MappingSnapshotTypeForTake::LastLoaded, None)
+                    }
+                    MappingSnapshotDescForTake::ById { id } => {
+                        (MappingSnapshotTypeForTake::ById, id.parse().ok())
+                    }
+                },
+            };
+            model.change(C::SetMappingSnapshotTypeForTake(mapping_snapshot_type));
+            mapping_snapshot_id
         };
-        model.change(C::SetMappingSnapshotDefaultValue(
-            mapping_snapshot_default_value,
+        model.change(C::SetMappingSnapshotId(
+            mapping_snapshot_id_for_load.or(mapping_snapshot_id_for_take),
         ));
         Ok(())
     }
