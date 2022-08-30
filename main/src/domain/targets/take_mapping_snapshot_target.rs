@@ -177,7 +177,7 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
                     Some(id) => id,
                 }
             }
-            VirtualMappingSnapshotIdForTake::ById(id) => id.clone(),
+            VirtualMappingSnapshotIdForTake::ById(id) => id,
         };
         snapshot_container.update_snapshot(resolved_snapshot_id, snapshot);
         HitInstructionResponse::CausedEffect(vec![])

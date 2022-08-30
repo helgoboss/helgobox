@@ -996,7 +996,7 @@ impl MainMapping {
         } else {
             MappingControlResult {
                 at_least_one_target_was_reached,
-                at_least_one_target_caused_effect: at_least_one_target_caused_effect,
+                at_least_one_target_caused_effect,
                 new_target_value: None,
                 feedback_value: if !is_polling && at_least_one_relevant_target_exists {
                     // Before #396, we only sent "feedback after control" if the target was not hit at all.

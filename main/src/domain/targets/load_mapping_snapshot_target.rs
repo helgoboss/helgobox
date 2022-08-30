@@ -147,7 +147,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                 compartment,
                 tag_scope,
                 ..
-            }) if *compartment == self.compartment && self.scope.overlaps_with(&tag_scope) => {
+            }) if *compartment == self.compartment && self.scope.overlaps_with(tag_scope) => {
                 (true, None)
             }
             _ => (false, None),

@@ -398,7 +398,7 @@ impl Column {
             .map_err(|_| "couldn't create source from item")?;
         let clip = api::Clip {
             name: None,
-            source: source,
+            source,
             frozen_source: None,
             active_source: Default::default(),
             // TODO-high Derive whether time or beat from item/track/project

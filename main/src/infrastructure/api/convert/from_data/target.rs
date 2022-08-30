@@ -611,7 +611,7 @@ fn convert_real_target(
             active_mappings_only: Some(data.active_mappings_only),
             snapshot: data
                 .take_mapping_snapshot
-                .map(|s| BackwardCompatibleMappingSnapshotDescForTake::New(s))
+                .map(BackwardCompatibleMappingSnapshotDescForTake::New)
                 .unwrap_or_default(),
         }),
         NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {

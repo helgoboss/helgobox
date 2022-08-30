@@ -351,7 +351,7 @@ impl MainPanel {
         };
         // Take care of tags
         if tags_as_csv != &initial_tags_as_csv {
-            let tags = parse_tags_from_csv(&tags_as_csv);
+            let tags = parse_tags_from_csv(tags_as_csv);
             self.do_with_session_mut(|session| {
                 session.tags.set(tags);
             })?;
