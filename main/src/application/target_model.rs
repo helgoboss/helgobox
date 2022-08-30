@@ -2631,6 +2631,16 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         }
     }
 
+    fn mapping_snapshot_label(&self) -> String {
+        match self.target.mapping_snapshot_type {
+            MappingSnapshotType::Initial => MappingSnapshotType::Initial.to_string(),
+            MappingSnapshotType::ById => match &self.target.mapping_snapshot_id {
+                None => "-".into(),
+                Some(id) => id.to_string(),
+            },
+        }
+    }
+
     fn route_label(&self) -> Cow<str> {
         let virtual_route = self.target.virtual_track_route().ok();
         let virtual_route = match virtual_route.as_ref() {
@@ -2796,6 +2806,9 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                             .map(|s| s.to_string())
                             .unwrap_or_else(|| "-".to_owned())
                     ),
+                    LoadMappingSnapshot | TakeMappingSnapshot => {
+                        write!(f, "{}\n{}", tt, self.mapping_snapshot_label())
+                    }
                     TrackTouchState => write!(
                         f,
                         "{}\nTrack {}\n{}",
