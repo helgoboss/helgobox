@@ -1,3 +1,7 @@
+-- Configuration
+
+local use_column_stop_buttons = false
+
 -- Utility functions
 
 --- Takes a key-value table and adds a new attribute `id` to each value that
@@ -711,10 +715,6 @@ set_keys_as_ids(groups)
 local mappings = {
     name("Stop all clips") + no_mod + button("stop-all-clips") + clip_matrix_action("Stop"),
     name("Play/stop") + no_mod + button("play") + toggle() + transport_action("PlayStop"),
-    name("Scroll up") + shift_or_sustain + button("col1/stop") + feedback_disabled() + turbo() + scroll_vertically(-1),
-    name("Scroll down") + shift_or_sustain + button("col2/stop") + feedback_disabled() + turbo() + scroll_vertically(1),
-    name("Scroll left") + shift_or_sustain + button("col3/stop") + feedback_disabled() + turbo() + scroll_horizontally(-1),
-    name("Scroll right") + shift_or_sustain + button("col4/stop") + feedback_disabled() + turbo() + scroll_horizontally(1),
     name("Shift modifier") + button("shift") + set_param(params.shift.index),
     name("Sustain modifier") + button("sustain") + set_param(params.sustain.index),
     name("Undo") + shift + button("play") + clip_matrix_action("Undo"),
@@ -727,10 +727,6 @@ local mappings = {
     name("Column arm mode") + group(groups.column_modes) + shift + short_press + button("row3/play") + set_column_mode(column_modes.record_arm),
     name("Column mute mode") + group(groups.column_modes) + shift + short_press + button("row4/play") + set_column_mode(column_modes.mute),
     name("Column select mode") + group(groups.column_modes) + shift + short_press + button("row5/play") + set_column_mode(column_modes.select),
-    name("Knob volume mode") + group(groups.knob_modes) + shift + button("col5/stop") + set_knob_mode(knob_modes.volume),
-    name("Knob pan mode") + group(groups.knob_modes) + shift + button("col6/stop") + set_knob_mode(knob_modes.pan),
-    name("Knob send mode") + group(groups.knob_modes) + shift + button("col7/stop") + set_knob_mode(knob_modes.sends),
-    name("Knob device mode") + group(groups.knob_modes) + shift + button("col8/stop") + set_knob_mode(knob_modes.device),
     name("Record 1 bar") + group(groups.record_settings) + shift_and_sustain + button("row1/play") + clip_matrix_action("SetRecordDurationToOneBar"),
     name("Record 2 bars") + group(groups.record_settings) + shift_and_sustain + button("row2/play") + clip_matrix_action("SetRecordDurationToTwoBars"),
     name("Record 4 bars") + group(groups.record_settings) + shift_and_sustain + button("row3/play") + clip_matrix_action("SetRecordDurationToFourBars"),
@@ -738,14 +734,29 @@ local mappings = {
     name("Record open-ended") + group(groups.record_settings) + shift_and_sustain + button("stop-all-clips") + clip_matrix_action("SetRecordDurationToOpenEnd"),
 }
 
+if use_column_stop_buttons then
+    -- Scrolling
+    table.insert(mappings, name("Scroll up") + shift_or_sustain + button("col1/stop") + feedback_disabled() + turbo() + scroll_vertically(-1))
+    table.insert(mappings, name("Scroll down") + shift_or_sustain + button("col2/stop") + feedback_disabled() + turbo() + scroll_vertically(1))
+    table.insert(mappings, name("Scroll left") + shift_or_sustain + button("col3/stop") + feedback_disabled() + turbo() + scroll_horizontally(-1))
+    table.insert(mappings, name("Scroll right") + shift_or_sustain + button("col4/stop") + feedback_disabled() + turbo() + scroll_horizontally(1))
+    -- Modes
+    table.insert(mappings, name("Knob volume mode") + group(groups.knob_modes) + shift + button("col5/stop") + set_knob_mode(knob_modes.volume))
+    table.insert(mappings, name("Knob pan mode") + group(groups.knob_modes) + shift + button("col6/stop") + set_knob_mode(knob_modes.pan))
+    table.insert(mappings, name("Knob send mode") + group(groups.knob_modes) + shift + button("col7/stop") + set_knob_mode(knob_modes.sends))
+    table.insert(mappings, name("Knob device mode") + group(groups.knob_modes) + shift + button("col8/stop") + set_knob_mode(knob_modes.device))
+end
+
 -- For each column
 for col = 0, column_count - 1 do
     -- Column stop button functions
-    table.insert(mappings, name("Stop column") + group(groups.column_stop) + no_mod + column_stop_button(col) + clip_column_action(col, "Stop"))
-    table.insert(mappings, name("Solo track") + group(groups.column_solo) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
-    table.insert(mappings, name("Arm track") + group(groups.column_record_arm) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", false))
-    table.insert(mappings, name("Mute track") + group(groups.column_mute) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
-    table.insert(mappings, name("Select track") + group(groups.column_select) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
+    if use_column_stop_buttons then
+        table.insert(mappings, name("Stop column") + group(groups.column_stop) + no_mod + column_stop_button(col) + clip_column_action(col, "Stop"))
+        table.insert(mappings, name("Solo track") + group(groups.column_solo) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSoloState"))
+        table.insert(mappings, name("Arm track") + group(groups.column_record_arm) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackArmState", false))
+        table.insert(mappings, name("Mute track") + group(groups.column_mute) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackMuteState"))
+        table.insert(mappings, name("Select track") + group(groups.column_select) + no_mod + toggle() + column_stop_button(col) + column_track_target(col, "TrackSelectionState", true))
+    end
     -- Knob functions
     table.insert(mappings, name("Track volume") + group(groups.knob_volume) + multi(col) + column_track_target(col, "TrackVolume"))
     table.insert(mappings, name("Track pan") + group(groups.knob_pan) + multi(col) + column_track_target(col, "TrackPan"))
