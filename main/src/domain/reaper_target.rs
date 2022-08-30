@@ -925,6 +925,12 @@ pub enum ActionInvocationType {
     Absolute7Bit = 3,
 }
 
+impl ActionInvocationType {
+    pub fn is_absolute(&self) -> bool {
+        matches!(self, Self::Absolute14Bit | Self::Absolute7Bit)
+    }
+}
+
 impl Default for ActionInvocationType {
     fn default() -> Self {
         ActionInvocationType::Absolute14Bit

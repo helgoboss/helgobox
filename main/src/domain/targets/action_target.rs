@@ -200,14 +200,18 @@ impl<'a> Target<'a> for ActionTarget {
         let val = if let Some(state) = self.action.is_on() {
             // Toggle action: Return toggle state as 0 or 1.
             convert_bool_to_unit_value(state)
-        } else {
-            // Non-toggle action. Try to return current absolute value if this is a
+        } else if self.invocation_type.is_absolute() {
+            // Absolute non-toggle action. Try to return current absolute "fake" value if this is a
             // MIDI CC/mousewheel action.
             if let Some(value) = self.action.normalized_value() {
                 UnitValue::new(value)
             } else {
                 UnitValue::MIN
             }
+        } else {
+            // Relative or trigger. Returning any "fake" value here because this will let the
+            // glue section make wrong assumptions, especially for "Trigger" invocation mode.
+            return None;
         };
         Some(AbsoluteValue::Continuous(val))
     }
