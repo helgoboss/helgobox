@@ -677,7 +677,7 @@ dependencies = [
 [[package]]
 name = "cc"
 version = "1.0.73"
-source = "git+https://github.com/petrochenkov/cc-rs.git?rev=9efa25c77c50229fa84fb09f59c034417d816aa8#9efa25c77c50229fa84fb09f59c034417d816aa8"
+source = "git+https://github.com/petrochenkov/cc-rs.git?rev=4d52bd211aeb2b4ddccd1b9c0a0841e03aaaef7c#4d52bd211aeb2b4ddccd1b9c0a0841e03aaaef7c"
 
 [[package]]
 name = "cexpr"

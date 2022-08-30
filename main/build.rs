@@ -107,6 +107,7 @@ fn compile_dialogs() {
         .cpp(true)
         .warnings(false)
         .file("src/infrastructure/ui/dialogs.cpp")
+        // Important when building with Rust 1.61, otherwise missing GUI.
         .link_lib_modifiers(Some("+whole-archive"));
     if let Some(stdlib) = util::determine_cpp_stdlib() {
         // Settings this to None on Linux causes the linker to automatically link against C++
