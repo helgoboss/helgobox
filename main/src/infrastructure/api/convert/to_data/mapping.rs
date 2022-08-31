@@ -73,6 +73,7 @@ pub fn convert_mapping(
         visible_in_projection: m
             .visible_in_projection
             .unwrap_or(defaults::MAPPING_VISIBLE_IN_PROJECTION),
+        success_audio_feedback: m.success_audio_feedback,
     };
     Ok(v)
 }

@@ -212,6 +212,9 @@ impl MappingPanel {
                                         );
                                     view.invalidate_mode_controls();
                                 }
+                                P::BeepOnSuccess => {
+                                    view.invalidate_beep_on_success_checkbox();
+                                }
                                 P::IsEnabled => {
                                     view.invalidate_mapping_enabled_check_box();
                                 }
@@ -1242,6 +1245,14 @@ impl<'a> MutableMappingPanel<'a> {
             initiator,
             self.panel.session.clone(),
         );
+    }
+
+    fn update_beep_on_success(&mut self) {
+        let checked = self
+            .view
+            .require_control(root::IDC_BEEP_ON_SUCCESS_CHECK_BOX)
+            .is_checked();
+        self.change_mapping(MappingCommand::SetBeepOnSuccess(checked));
     }
 
     fn update_mapping_is_enabled(&mut self) {
@@ -3007,6 +3018,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_all_controls(&self) {
         self.invalidate_window_title();
         self.panel.mapping_header_panel.invalidate_controls();
+        self.invalidate_beep_on_success_checkbox();
         self.invalidate_mapping_enabled_check_box();
         self.invalidate_mapping_feedback_send_behavior_combo_box();
         self.invalidate_mapping_visible_in_projection_check_box();
@@ -3170,6 +3182,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo
             .select_combo_box_item_by_index(self.mapping.feedback_send_behavior().into())
             .unwrap();
+    }
+
+    fn invalidate_beep_on_success_checkbox(&self) {
+        self.view
+            .require_control(root::IDC_BEEP_ON_SUCCESS_CHECK_BOX)
+            .set_checked(self.mapping.beep_on_success());
     }
 
     fn invalidate_mapping_enabled_check_box(&self) {
@@ -6031,6 +6049,9 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Mapping
+            root::IDC_BEEP_ON_SUCCESS_CHECK_BOX => {
+                self.write(|p| p.update_beep_on_success());
+            }
             root::IDC_MAPPING_ENABLED_CHECK_BOX => {
                 self.write(|p| p.update_mapping_is_enabled());
             }

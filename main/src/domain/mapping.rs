@@ -52,6 +52,7 @@ pub struct ProcessorMappingOptions {
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub feedback_send_behavior: FeedbackSendBehavior,
+    pub beep_on_success: bool,
 }
 
 impl ProcessorMappingOptions {
@@ -257,8 +258,8 @@ impl MainMapping {
         }
     }
 
-    pub fn success_celebration_enabled(&self) -> bool {
-        true
+    fn beep_on_success(&self) -> bool {
+        self.core.options.beep_on_success
     }
 
     /// This is for:
@@ -991,7 +992,7 @@ impl MainMapping {
                 new_target_value,
                 feedback_value: self.manual_feedback_because_of_target(new_target_value, context),
                 hit_instruction: first_hit_instruction,
-                celebrate_success: self.success_celebration_enabled(),
+                celebrate_success: self.beep_on_success(),
             }
         } else {
             MappingControlResult {
@@ -1026,7 +1027,7 @@ impl MainMapping {
                     None
                 },
                 hit_instruction: first_hit_instruction,
-                celebrate_success: self.success_celebration_enabled(),
+                celebrate_success: self.beep_on_success(),
             }
         }
     }

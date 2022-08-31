@@ -38,6 +38,8 @@ pub struct Mapping {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target: Option<Target>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub success_audio_feedback: Option<SuccessAudioFeedback>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub unprocessed: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
@@ -58,6 +60,12 @@ pub enum SendMidiFeedbackAction {
 pub enum RawMidiMessage {
     HexString(String),
     ByteArray(Vec<u8>),
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum SuccessAudioFeedback {
+    Simple,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]

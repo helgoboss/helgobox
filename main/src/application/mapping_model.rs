@@ -30,6 +30,7 @@ pub enum MappingCommand {
     SetFeedbackIsEnabled(bool),
     SetFeedbackSendBehavior(FeedbackSendBehavior),
     SetVisibleInProjection(bool),
+    SetBeepOnSuccess(bool),
     ChangeActivationCondition(ActivationConditionCommand),
     ChangeSource(SourceCommand),
     ChangeMode(ModeCommand),
@@ -46,6 +47,7 @@ pub enum MappingProp {
     FeedbackIsEnabled,
     FeedbackSendBehavior,
     VisibleInProjection,
+    BeepOnSuccess,
     AdvancedSettings,
     InActivationCondition(Affected<ActivationConditionProp>),
     InSource(Affected<SourceProp>),
@@ -63,7 +65,8 @@ impl GetProcessingRelevance for MappingProp {
             | P::FeedbackIsEnabled
             | P::FeedbackSendBehavior
             | P::VisibleInProjection
-            | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
+            | P::AdvancedSettings
+            | P::BeepOnSuccess => Some(ProcessingRelevance::ProcessingRelevant),
             P::InActivationCondition(p) => p.processing_relevance(),
             P::InMode(p) => p.processing_relevance(),
             P::InSource(p) => p.processing_relevance(),
@@ -92,6 +95,7 @@ pub struct MappingModel {
     feedback_send_behavior: FeedbackSendBehavior,
     pub activation_condition_model: ActivationConditionModel,
     visible_in_projection: bool,
+    beep_on_success: bool,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -161,6 +165,10 @@ impl<'a> Change<'a> for MappingModel {
                 self.visible_in_projection = v;
                 One(P::VisibleInProjection)
             }
+            C::SetBeepOnSuccess(v) => {
+                self.beep_on_success = v;
+                One(P::BeepOnSuccess)
+            }
             C::ChangeActivationCondition(cmd) => {
                 return self
                     .activation_condition_model
@@ -210,6 +218,7 @@ impl MappingModel {
             feedback_send_behavior: Default::default(),
             activation_condition_model: Default::default(),
             visible_in_projection: true,
+            beep_on_success: false,
             source_model: SourceModel::new(compartment),
             mode_model: Default::default(),
             target_model: TargetModel::default_for_compartment(compartment),
@@ -248,6 +257,10 @@ impl MappingModel {
 
     pub fn visible_in_projection(&self) -> bool {
         self.visible_in_projection
+    }
+
+    pub fn beep_on_success(&self) -> bool {
+        self.beep_on_success
     }
 
     pub fn activation_condition_model(&self) -> &ActivationConditionModel {
@@ -545,6 +558,7 @@ impl MappingModel {
             control_is_enabled: group_data.control_is_enabled && self.control_is_enabled(),
             feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled(),
             feedback_send_behavior: self.feedback_send_behavior(),
+            beep_on_success: self.beep_on_success,
         };
         let mut merged_tags = group_data.tags;
         merged_tags.extend_from_slice(&self.tags);

@@ -45,6 +45,7 @@ pub fn convert_mapping(
         },
         glue: style.required_value(convert_glue(data.mode, style)?),
         target: style.required_value(convert_target(data.target, style)?),
+        success_audio_feedback: data.success_audio_feedback,
         unprocessed: style.optional_value(advanced.unprocessed),
     };
     Ok(mapping)

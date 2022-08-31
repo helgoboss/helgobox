@@ -9,6 +9,7 @@ use crate::infrastructure::data::{
     ModeModelData, ModelToDataConversionContext, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::plugin::App;
+use realearn_api::persistence::SuccessAudioFeedback;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +74,12 @@ pub struct MappingModelData {
     pub advanced: Option<serde_yaml::mapping::Mapping>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub visible_in_projection: bool,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub success_audio_feedback: Option<SuccessAudioFeedback>,
 }
 
 impl MappingModelData {
@@ -107,6 +114,11 @@ impl MappingModelData {
             ),
             advanced: model.advanced_settings().cloned(),
             visible_in_projection: model.visible_in_projection(),
+            success_audio_feedback: if model.beep_on_success() {
+                Some(SuccessAudioFeedback::Simple)
+            } else {
+                None
+            },
         }
     }
 
@@ -241,6 +253,7 @@ impl MappingModelData {
         model.change(P::SetFeedbackSendBehavior(feedback_send_behavior));
         let _ = model.set_advanced_settings(self.advanced.clone());
         model.change(P::SetVisibleInProjection(self.visible_in_projection));
+        model.change(P::SetBeepOnSuccess(self.success_audio_feedback.is_some()));
         Ok(())
     }
 }

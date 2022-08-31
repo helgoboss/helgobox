@@ -710,6 +710,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + ES_MULTILINE
             + ES_READONLY
             + WS_VSCROLL,
+        context.checkbox(
+            "Beep on success",
+            ids.named_id("IDC_BEEP_ON_SUCCESS_CHECK_BOX"),
+            rect(7, 516, 70, 10),
+        ) + WS_TABSTOP,
         ok_button(
             ids.named_id("ID_MAPPING_PANEL_OK"),
             context.rect(201, 514, 50, 14),
