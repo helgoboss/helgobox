@@ -2827,7 +2827,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                     ),
                     TrackTool | TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm
                     | TrackSelection | TrackMute | TrackPhase | TrackSolo | TrackShow
-                    | FxNavigate | AllTrackFxEnable => {
+                    | FxNavigate | AllTrackFxEnable | TrackParentSend => {
                         write!(f, "{}\nTrack {}", tt, self.track_label())
                     }
                     TrackAutomationMode => {
