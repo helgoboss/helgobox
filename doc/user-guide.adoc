@@ -811,6 +811,7 @@ MIDI messages.
 activation)
 *** <<raw-midi-source,Raw MIDI source>> (for sending MIDI sys-ex data in response to target value changes)
 *** <<script-source,MIDI script source>> (same but for more complex scenarios)
+*** <<midi-send-message>> target (for sending MIDI sys-ex data triggered by a source)
 
 So even ReaLearn is made for any controller, it's still useful to have a list of specific controllers and how they work in combination with ReaLearn. This list is available link:https://github.com/helgoboss/realearn/tree/master/doc/controllers.adoc[here]
 
@@ -1103,6 +1104,7 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
 ====
 * *Freeze clip matrix*: Don't use this, this feature is not ready yet!
 
+[#options]
 ====== Options
 
 * *Auto-correct settings:* By default, whenever you change something in ReaLearn, it tries to
@@ -4148,7 +4150,7 @@ A mapping can change its active/inactive state based on the following factors:
 * *Target validity:* A mapping can turn inactive when the target is not valid anymore, e.g. when it's a target that's
  based on the currently selected track but no track is currently selected. Analogously, it can turn active again once
  a valid target can be resolved.
-* *Feedback enabled checkbox:* A mapping can turn inactive as soon as this checkbox is unticked and turn active
+* *Feedback enabled checkbox (or mapping-enabled checkbox):* A mapping can turn inactive as soon as this checkbox is unticked and turn active
  again when ticking it. This is also the best way to test your configuration.
 
 (Controller) mappings with virtual targets are always considered active as long as the feedback checkbox is ticked.
@@ -4203,3 +4205,5 @@ on_activate:
 ----
 
 ReaLearn will ignore any unknown properties.
+
+TIP: If you use control input `<FX input>` and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see <<options>>)!

@@ -1330,6 +1330,7 @@ impl RealTimeMapping {
     pub fn compartment(&self) -> Compartment {
         self.core.compartment
     }
+
     pub fn lifecycle_midi_messages(&self, phase: LifecyclePhase) -> &[LifecycleMidiMessage] {
         use LifecyclePhase::*;
         match phase {
