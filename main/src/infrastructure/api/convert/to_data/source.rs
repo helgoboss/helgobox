@@ -163,6 +163,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MackieLcd(_)
         | MackieSevenSegmentDisplay(_)
         | SiniConE24Display(_)
+        | SlKeyboardDisplay(_)
         | LaunchpadProScrollingTextDisplay(_) => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
         Key(_) => SourceCategory::Keyboard,

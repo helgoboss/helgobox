@@ -33,6 +33,7 @@ pub enum Source {
     MidiScript(MidiScriptSource),
     MackieLcd(MackieLcdSource),
     MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySource),
+    SlKeyboardDisplay(SlKeyboardDisplaySource),
     SiniConE24Display(SiniConE24DisplaySource),
     LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplaySource),
     // OSC
@@ -266,6 +267,15 @@ mod midi {
         pub extender_index: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub line: Option<u8>,
+    }
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct SlKeyboardDisplaySource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub section: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub line: Option<u8>,
     }

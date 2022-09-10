@@ -165,6 +165,13 @@ pub fn convert_source(
                             };
                             persistence::Source::MackieSevenSegmentDisplay(s)
                         }
+                        SlKeyboardDisplay => {
+                            let s = persistence::SlKeyboardDisplaySource {
+                                section: data.display_id,
+                                line: data.line,
+                            };
+                            persistence::Source::SlKeyboardDisplay(s)
+                        }
                         SiniConE24 => {
                             let s = persistence::SiniConE24DisplaySource {
                                 cell_index: data.display_id,

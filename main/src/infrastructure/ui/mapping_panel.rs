@@ -1376,7 +1376,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Display => {
                         use DisplayType::*;
                         let value = match self.mapping.source_model.display_type() {
-                            MackieLcd | MackieXtLcd | SiniConE24 => {
+                            MackieLcd | MackieXtLcd | SiniConE24 | SlKeyboardDisplay => {
                                 match b.selected_combo_box_item_data() {
                                     -1 => None,
                                     id => Some(id as u8),
@@ -3524,7 +3524,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Display => {
                         use DisplayType::*;
                         match self.source.display_type() {
-                            MackieLcd | MackieXtLcd | SiniConE24 => {
+                            MackieLcd | MackieXtLcd | SiniConE24 | SlKeyboardDisplay => {
                                 b.show();
                                 let display_count = self.source.display_count() as isize;
                                 b.fill_combo_box_with_data_vec(

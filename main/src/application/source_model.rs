@@ -12,7 +12,8 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
-    OscTypeTag, SiniConE24Scope, SourceCharacter, UnitValue, DEFAULT_OSC_ARG_VALUE_RANGE,
+    OscTypeTag, SiniConE24Scope, SlKeyboardDisplayScope, SourceCharacter, UnitValue,
+    DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -694,6 +695,9 @@ impl SourceModel {
             MackieSevenSegmentDisplay => DisplaySpec::MackieSevenSegmentDisplay {
                 scope: self.mackie_7_segment_display_scope(),
             },
+            SlKeyboardDisplay => DisplaySpec::SlKeyboard {
+                scope: self.sl_keyboard_display_scope(),
+            },
             SiniConE24 => DisplaySpec::SiniConE24 {
                 scope: self.sinicon_e24_scope(),
                 // TODO-low Not so nice to have runtime state in this descriptor.
@@ -709,6 +713,10 @@ impl SourceModel {
 
     pub fn sinicon_e24_scope(&self) -> SiniConE24Scope {
         SiniConE24Scope::new(self.display_id, self.line)
+    }
+
+    pub fn sl_keyboard_display_scope(&self) -> SlKeyboardDisplayScope {
+        SlKeyboardDisplayScope::new(self.display_id, self.line)
     }
 
     pub fn mackie_7_segment_display_scope(&self) -> MackieSevenSegmentDisplayScope {
