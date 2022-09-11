@@ -848,7 +848,7 @@ impl Display for SourceModel {
                                 Encoder1 => "Encoder 1",
                                 Encoder2 => "Encoder 2",
                                 Encoder3 => "Encoder 3",
-                                ToggleButton => "Toggle button :-(",
+                                ToggleButton => "Toggle-only button",
                             };
                             label.into()
                         }
@@ -865,7 +865,21 @@ impl Display for SourceModel {
             ],
             Osc => vec!["OSC".into(), (&self.osc_address_pattern).into()],
             Reaper => {
-                vec![self.reaper_source_type.to_string().into()]
+                let type_label = self.reaper_source_type.to_string().into();
+                match self.reaper_source_type {
+                    ReaperSourceType::Timer => {
+                        vec![type_label, format!("{} ms", self.timer_millis).into()]
+                    }
+                    ReaperSourceType::RealearnParameter => {
+                        vec![
+                            type_label,
+                            format!("Parameter #{}", self.parameter_index.get() + 1).into(),
+                        ]
+                    }
+                    _ => {
+                        vec![type_label]
+                    }
+                }
             }
             Never => vec!["None".into()],
             Keyboard => {
