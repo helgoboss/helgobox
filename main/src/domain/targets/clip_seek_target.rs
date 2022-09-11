@@ -84,6 +84,7 @@ impl RealearnTarget for ClipSeekTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // When feedback resolution is beat, we only react to the main timeline beat changes.
+            // TODO-low Beat-changed events are emitted only when the project is playing (important)
             CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(_))
                 if self.feedback_resolution == FeedbackResolution::Beat =>
             {
