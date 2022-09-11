@@ -488,8 +488,11 @@ impl SessionData {
         params: &PluginParams,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
-        let main_conversion_context =
-            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
+        let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
+            &self.groups,
+            &self.mappings,
+            Some(CompartmentInSession::new(session, Compartment::Main)),
+        );
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
@@ -595,10 +598,12 @@ impl SessionData {
                 .set_without_notification(unmatched);
         }
         // Groups
-        let controller_conversion_context = SimpleDataToModelConversionContext::new(
-            &self.controller_groups,
-            &self.controller_mappings,
-        );
+        let controller_conversion_context =
+            SimpleDataToModelConversionContext::from_session_or_random(
+                &self.controller_groups,
+                &self.controller_mappings,
+                Some(CompartmentInSession::new(session, Compartment::Controller)),
+            );
         let conversion_context = |compartment: Compartment| match compartment {
             Compartment::Controller => &controller_conversion_context,
             Compartment::Main => &main_conversion_context,
@@ -864,6 +869,8 @@ impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
     }
 }
 
+/// Consists of methods that return a persistent business ID ("key") for a given transient technical
+/// ID ("ID").
 pub trait ModelToDataConversionContext {
     fn group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
         if group_id.is_default() {
@@ -877,6 +884,8 @@ pub trait ModelToDataConversionContext {
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey>;
 }
 
+/// Consists of methods that return a transient technical ID ("ID") for a given persistent
+/// business ID ("key").
 pub trait DataToModelConversionContext {
     fn group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
         if key.is_empty() {
@@ -890,24 +899,44 @@ pub trait DataToModelConversionContext {
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId>;
 }
 
-/// Defines a translation from keys to random IDs.
+/// Defines a direct translation from keys to IDs.
 pub struct SimpleDataToModelConversionContext {
     group_id_by_key: HashMap<GroupKey, GroupId>,
     mapping_id_by_key: HashMap<MappingKey, MappingId>,
 }
 
 impl SimpleDataToModelConversionContext {
-    pub fn new(groups: &[GroupModelData], mappings: &[MappingModelData]) -> Self {
+    /// Prefers IDs from existing session if it can find a group/mapping with the same key but
+    /// generates new, random IDs if it doesn't.
+    ///
+    /// It's important that IDs are picked up from the session because we have some data that is
+    /// not part of the compartment but the session, which is not going to replaced but refers to
+    /// existing technical mapping IDs, for example mapping snapshots. If we would always come up
+    /// with random technical IDs, these snapshots would immediately get orphans. See
+    /// https://github.com/helgoboss/realearn/issues/652.
+    pub fn from_session_or_random(
+        groups: &[GroupModelData],
+        mappings: &[MappingModelData],
+        compartment_in_session: Option<CompartmentInSession>,
+    ) -> Self {
         Self {
             group_id_by_key: groups
                 .iter()
-                .map(|g| (g.id.clone(), GroupId::random()))
+                .map(|g| {
+                    let technical_id = compartment_in_session
+                        .and_then(|cs| cs.group_id_by_key(&g.id))
+                        .unwrap_or_else(GroupId::random);
+                    (g.id.clone(), technical_id)
+                })
                 .collect(),
             mapping_id_by_key: mappings
                 .iter()
                 .filter_map(|m| {
                     let key = m.id.as_ref()?;
-                    Some((key.clone(), MappingId::random()))
+                    let technical_id = compartment_in_session
+                        .and_then(|cs| cs.mapping_id_by_key(key))
+                        .unwrap_or_else(MappingId::random);
+                    Some((key.clone(), technical_id))
                 })
                 .collect(),
         }

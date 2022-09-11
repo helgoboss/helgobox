@@ -76,7 +76,7 @@ impl PresetData for ControllerPresetData {
             id,
             self.name.clone(),
             self.data
-                .to_model(self.version.as_ref(), Compartment::Controller)?,
+                .to_model(self.version.as_ref(), Compartment::Controller, None)?,
         );
         Ok(preset)
     }

@@ -2023,7 +2023,7 @@ impl HeaderPanel {
             // For now, let's assume that the imported data is always tailored to the running
             // ReaLearn version.
             let version = App::version();
-            match data.to_model(Some(version), compartment) {
+            match data.to_model(Some(version), compartment, Some(&session)) {
                 Ok(model) => {
                     session.import_compartment(compartment, Some(model));
                 }

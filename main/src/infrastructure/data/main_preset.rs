@@ -75,7 +75,7 @@ impl PresetData for MainPresetData {
             id,
             self.name.clone(),
             self.data
-                .to_model(self.version.as_ref(), Compartment::Main)?,
+                .to_model(self.version.as_ref(), Compartment::Main, None)?,
         );
         Ok(preset)
     }

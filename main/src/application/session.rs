@@ -2567,6 +2567,7 @@ pub enum SessionProp {
     InCompartment(Compartment, Affected<CompartmentProp>),
 }
 
+#[derive(Copy, Clone)]
 pub struct CompartmentInSession<'a> {
     pub session: &'a Session,
     pub compartment: Compartment,

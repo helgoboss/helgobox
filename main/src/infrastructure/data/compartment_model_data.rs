@@ -1,4 +1,4 @@
-use crate::application::{CompartmentModel, GroupModel};
+use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, Session};
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{
     Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
@@ -86,10 +86,13 @@ impl CompartmentModelData {
         }
     }
 
+    /// Pass a session if you want to create mapping and group models with IDs of the current
+    /// sessions (instead of creating new random ones).
     pub fn to_model(
         &self,
         version: Option<&Version>,
         compartment: Compartment,
+        session: Option<&Session>,
     ) -> Result<CompartmentModel, String> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
@@ -97,8 +100,11 @@ impl CompartmentModelData {
             self.parameters.values(),
         )?;
         let migration_descriptor = MigrationDescriptor::new(version);
-        let conversion_context =
-            SimpleDataToModelConversionContext::new(&self.groups, &self.mappings);
+        let conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
+            &self.groups,
+            &self.mappings,
+            session.map(|s| CompartmentInSession::new(s, compartment)),
+        );
         let final_default_group = self
             .default_group
             .as_ref()
