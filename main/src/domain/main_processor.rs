@@ -11,8 +11,8 @@ use crate::domain::{
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
-    ProcessorContext, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
-    RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    ProcessorContext, ProjectionFeedbackValue, QualifiedClipMatrixEvent, QualifiedMappingId,
+    QualifiedSource, RawParamValue, RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload, ReaperMessage,
     ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
     SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
@@ -2615,6 +2615,7 @@ pub struct BasicSettings {
     pub send_feedback_only_if_armed: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
+    pub reset_feedback_when_releasing_source: bool,
 }
 
 impl BasicSettings {
@@ -2798,6 +2799,17 @@ impl FeedbackReason {
         matches!(
             self,
             FeedbackReason::SuspendInstance | FeedbackReason::ClearAllAllowingSourceTakeover
+        )
+    }
+
+    /// When this returns true, it's feedback that's supposed to reset the source (fader, lights)
+    /// because it has been released. This kind of feedback will only be sent if
+    /// "Reset feedback when releasing source" is enabled.
+    pub fn is_reset_because_of_source_release(self) -> bool {
+        use FeedbackReason::*;
+        matches!(
+            self,
+            ClearUnusedSource | ClearAllPreventingSourceTakeover | FinallySwitchOffSource
         )
     }
 }
@@ -3371,6 +3383,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
         source_feedback_value: SourceFeedbackValue,
         is_feedback_after_control: bool,
     ) {
+        if feedback_reason.is_reset_because_of_source_release()
+            && !self.settings.reset_feedback_when_releasing_source
+        {
+            return;
+        }
         // Block duplicates.
         // Extracting a feedback address is not super cheap for OSC and MIDI Raw because it has to
         // clone the address string. On the other hand, address strings are not large, so what.
@@ -3460,40 +3477,58 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_value: RealFeedbackValue,
         is_feedback_after_control: bool,
     ) {
-        if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
-            if let Some(feedback_output) = self.settings.feedback_output {
-                if let Some(source_feedback_value) = feedback_value.source {
-                    // At this point we can be sure that this mapping can't have a
-                    // virtual source.
-                    if feedback_reason.is_source_release() {
-                        // Possible interference with other instances. Don't switch off yet!
-                        // Give other instances the chance to take over.
-                        let event =
-                            InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
-                                instance_id: self.instance_id.to_owned(),
-                                feedback_output,
-                                feedback_value: source_feedback_value,
-                            });
-                        self.channels
-                            .instance_orchestration_event_sender
-                            .send_complaining(event);
-                    } else {
-                        // Send feedback right now.
-                        self.send_direct_source_feedback(
-                            feedback_output,
-                            feedback_reason,
-                            source_feedback_value,
-                            is_feedback_after_control,
-                        );
-                    }
-                }
-            }
-        }
-        if let Some(projection_feedback_value) = feedback_value.projection {
+        self.send_direct_device_feedback(
+            feedback_reason,
+            feedback_value.source,
+            is_feedback_after_control,
+        );
+        self.send_direct_projection_feedback(feedback_value.projection);
+    }
+
+    fn send_direct_projection_feedback(&self, feedback_value: Option<ProjectionFeedbackValue>) {
+        if let Some(projection_feedback_value) = feedback_value {
             self.event_handler
                 .handle_event_ignoring_error(DomainEvent::ProjectionFeedback(
                     projection_feedback_value,
                 ));
+        }
+    }
+
+    fn send_direct_device_feedback(
+        &self,
+        feedback_reason: FeedbackReason,
+        feedback_value: Option<SourceFeedbackValue>,
+        is_feedback_after_control: bool,
+    ) {
+        if !feedback_reason.is_always_allowed() && !self.instance_feedback_is_effectively_enabled()
+        {
+            return;
+        }
+        if let Some(feedback_output) = self.settings.feedback_output {
+            if let Some(source_feedback_value) = feedback_value {
+                // At this point we can be sure that this mapping can't have a
+                // virtual source.
+                if feedback_reason.is_source_release() {
+                    // Possible interference with other instances. Don't switch off yet!
+                    // Give other instances the chance to take over.
+                    let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
+                        instance_id: self.instance_id.to_owned(),
+                        feedback_output,
+                        feedback_value: source_feedback_value,
+                    });
+                    self.channels
+                        .instance_orchestration_event_sender
+                        .send_complaining(event);
+                } else {
+                    // Send feedback right now.
+                    self.send_direct_source_feedback(
+                        feedback_output,
+                        feedback_reason,
+                        source_feedback_value,
+                        is_feedback_after_control,
+                    );
+                }
+            }
         }
     }
 

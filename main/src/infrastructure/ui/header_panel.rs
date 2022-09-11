@@ -369,6 +369,14 @@ impl HeaderPanel {
                             || ContextMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
+                            "Reset feedback when releasing source",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.reset_feedback_when_releasing_source.get(),
+                            },
+                            || ContextMenuAction::ToggleResetFeedbackWhenReleasingSource,
+                        ),
+                        item_with_opts(
                             "Make instance superior",
                             ItemOpts {
                                 enabled: true,
@@ -634,6 +642,9 @@ impl HeaderPanel {
             ContextMenuAction::ToggleTargetControlLogging => self.toggle_target_control_logging(),
             ContextMenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
+            }
+            ContextMenuAction::ToggleResetFeedbackWhenReleasingSource => {
+                self.toggle_reset_feedback_when_releasing_source()
             }
             ContextMenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
             ContextMenuAction::ToggleUseInstancePresetLinksOnly => {
@@ -1120,6 +1131,13 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .send_feedback_only_if_armed
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_reset_feedback_when_releasing_source(&self) {
+        self.session()
+            .borrow_mut()
+            .reset_feedback_when_releasing_source
             .set_with(|prev| !*prev);
     }
 
@@ -2846,6 +2864,7 @@ enum ContextMenuAction {
     ToggleVirtualOutputLogging,
     ToggleTargetControlLogging,
     ToggleSendFeedbackOnlyIfTrackArmed,
+    ToggleResetFeedbackWhenReleasingSource,
     ToggleUpperFloorMembership,
     ToggleServer,
     ToggleUseInstancePresetLinksOnly,

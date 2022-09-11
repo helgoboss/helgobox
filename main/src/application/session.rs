@@ -95,6 +95,7 @@ pub struct Session {
     pub virtual_output_logging_enabled: Prop<bool>,
     pub target_control_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
+    pub reset_feedback_when_releasing_source: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
@@ -199,6 +200,7 @@ pub mod session_defaults {
     pub const AUTO_CORRECT_SETTINGS: bool = true;
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
+    pub const RESET_FEEDBACK_WHEN_RELEASING_SOURCE: bool = true;
     pub const MAIN_PRESET_AUTO_LOAD_MODE: MainPresetAutoLoadMode = MainPresetAutoLoadMode::Off;
     /// This is mainly for backward-compatibility with "Auto-load: Depending on focused FX"
     /// but also is a quite common use case, so why not.
@@ -241,6 +243,9 @@ impl Session {
             virtual_output_logging_enabled: prop(false),
             target_control_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
+            reset_feedback_when_releasing_source: prop(
+                session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
+            ),
             control_input: prop(Default::default()),
             feedback_output: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
@@ -566,6 +571,7 @@ impl Session {
             .merge(self.feedback_output.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
+            .merge(self.reset_feedback_when_releasing_source.changed())
             .merge(self.main_preset_auto_load_mode.changed())
             .merge(self.real_input_logging_enabled.changed())
             .merge(self.real_output_logging_enabled.changed())
@@ -2236,6 +2242,7 @@ impl Session {
             virtual_output_logging_enabled: self.virtual_output_logging_enabled.get(),
             target_control_logging_enabled: self.target_control_logging_enabled.get(),
             send_feedback_only_if_armed: self.send_feedback_only_if_armed.get(),
+            reset_feedback_when_releasing_source: self.reset_feedback_when_releasing_source.get(),
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
         };

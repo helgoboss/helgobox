@@ -79,6 +79,8 @@ pub struct SessionData {
     // false by default because in older versions, feedback was always sent no matter if armed or
     // not
     send_feedback_only_if_armed: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    reset_feedback_when_releasing_source: bool,
     /// `None` means "<FX input>"
     #[serde(
         default,
@@ -323,6 +325,8 @@ impl Default for SessionData {
             always_auto_detect_mode: session_defaults::AUTO_CORRECT_SETTINGS,
             lives_on_upper_floor: session_defaults::LIVES_ON_UPPER_FLOOR,
             send_feedback_only_if_armed: session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED,
+            reset_feedback_when_releasing_source:
+                session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             control_device_id: None,
             feedback_device_id: None,
             default_group: None,
@@ -389,6 +393,9 @@ impl SessionData {
             always_auto_detect_mode: session.auto_correct_settings.get(),
             lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
+            reset_feedback_when_releasing_source: session
+                .reset_feedback_when_releasing_source
+                .get(),
             control_device_id: {
                 match session.control_input() {
                     ControlInput::Midi(MidiControlInput::FxInput) => None,
@@ -549,6 +556,9 @@ impl SessionData {
         session
             .send_feedback_only_if_armed
             .set_without_notification(self.send_feedback_only_if_armed);
+        session
+            .reset_feedback_when_releasing_source
+            .set_without_notification(self.reset_feedback_when_releasing_source);
         session
             .control_input
             .set_without_notification(control_input);
