@@ -1,7 +1,7 @@
 use crate::domain::{ControlContext, PluginParams};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
-use reaper_medium::TypeSpecificPluginContext;
+use reaper_medium::{ParamId, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;
 use vst::plugin::HostCallback;
@@ -46,6 +46,7 @@ pub struct ProcessorContext {
     host: HostCallback,
     containing_fx: Fx,
     project: Option<Project>,
+    bypass_param_index: u32,
 }
 
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
@@ -54,10 +55,14 @@ impl ProcessorContext {
     pub fn from_host(host: HostCallback) -> Result<ProcessorContext, &'static str> {
         let fx = get_containing_fx(&host)?;
         let project = fx.project();
+        let bypass_param = fx
+            .parameter_by_id(ParamId::Bypass)
+            .ok_or("bypass parameter not found")?;
         let context = ProcessorContext {
             host,
             containing_fx: fx,
             project,
+            bypass_param_index: bypass_param.index(),
         };
         Ok(context)
     }
@@ -68,6 +73,11 @@ impl ProcessorContext {
 
     pub fn track(&self) -> Option<&Track> {
         self.containing_fx.track()
+    }
+
+    /// Returns the index of ReaLearn's "Bypass" parameter.
+    pub fn bypass_param_index(&self) -> u32 {
+        self.bypass_param_index
     }
 
     /// This falls back to the current project if on the monitoring FX chain.

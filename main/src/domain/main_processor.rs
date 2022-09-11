@@ -1547,18 +1547,29 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     pub fn process_control_surface_change_events(&self, events: &[ChangeEvent]) {
         // Potentially enable/disable control/feedback
-        let influences_global_control_and_feedback = events.iter().any(|event| match event {
-            ChangeEvent::FxEnabledChanged(evt)
-                if &evt.fx == self.basics.context.containing_fx() =>
-            {
-                true
+        let influences_global_control_and_feedback = events.iter().any(|event| {
+            match event {
+                // Whenever ReaLearn is enabled/disabled via checkbox or dedicated API method.
+                ChangeEvent::FxEnabledChanged(evt)
+                    if &evt.fx == self.basics.context.containing_fx() =>
+                {
+                    true
+                }
+                // Whenever ReaLearn is enabled/disabled via Bypass parameter (e.g. via automation).
+                ChangeEvent::FxParameterValueChanged(evt)
+                    if evt.parameter.index() == self.basics.context.bypass_param_index()
+                        && evt.parameter.fx() == self.basics.context.containing_fx() =>
+                {
+                    true
+                }
+                // Whenever ReaLearn's containing track is armed or disarmed.
+                ChangeEvent::TrackArmChanged(evt)
+                    if Some(&evt.track) == self.basics.context.containing_fx().track() =>
+                {
+                    true
+                }
+                _ => false,
             }
-            ChangeEvent::TrackArmChanged(evt)
-                if Some(&evt.track) == self.basics.context.containing_fx().track() =>
-            {
-                true
-            }
-            _ => false,
         });
         if influences_global_control_and_feedback {
             self.basics
