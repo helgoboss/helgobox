@@ -95,6 +95,5 @@ impl<'a> Target<'a> for DummyTarget {
 pub const DUMMY_TARGET: TargetTypeDef = TargetTypeDef {
     name: "ReaLearn: Dummy target",
     short_name: "Dummy",
-    supports_feedback: false,
     ..DEFAULT_TARGET
 };
