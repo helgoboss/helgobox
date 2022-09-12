@@ -148,6 +148,12 @@ impl Plugin for RealearnPlugin {
                 control_main_task_sender,
                 App::garbage_bin().clone(),
             );
+            let real_time_processor = Arc::new(Mutex::new(real_time_processor));
+            // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,
+            // locking a mutex the first time apparently allocates. If we don't lock the
+            // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
+            // complain in debug builds.
+            let _ = real_time_processor.lock_recover();
             Self {
                 instance_id,
                 logger: logger.clone(),
@@ -159,7 +165,7 @@ impl Plugin for RealearnPlugin {
                 normal_real_time_task_sender,
                 feedback_real_time_task_sender,
                 normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
-                real_time_processor: Arc::new(Mutex::new(real_time_processor)),
+                real_time_processor,
                 parameter_main_task_receiver,
                 control_main_task_receiver,
                 normal_rt_to_main_task_receiver,
