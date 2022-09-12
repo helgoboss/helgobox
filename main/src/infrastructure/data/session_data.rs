@@ -7,7 +7,7 @@ use crate::domain::{
     compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
     ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MappingKey,
     MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
-    Param, PluginParamIndex, PluginParams, Tag,
+    Param, PluginParamIndex, PluginParams, StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -63,6 +63,13 @@ pub struct SessionData {
     let_matched_events_through: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     let_unmatched_events_through: bool,
+    /// Introduced with ReaLearn 2.14.0-pre.1. Before that "Always".
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    stay_active_when_project_in_background: Option<StayActiveWhenProjectInBackground>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     always_auto_detect_mode: bool,
     #[serde(
@@ -322,6 +329,9 @@ impl Default for SessionData {
             id: None,
             let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
             let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
+            stay_active_when_project_in_background: Some(
+                session_defaults::STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND,
+            ),
             always_auto_detect_mode: session_defaults::AUTO_CORRECT_SETTINGS,
             lives_on_upper_floor: session_defaults::LIVES_ON_UPPER_FLOOR,
             send_feedback_only_if_armed: session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED,
@@ -390,6 +400,9 @@ impl SessionData {
             id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
+            stay_active_when_project_in_background: Some(
+                session.stay_active_when_project_in_background.get(),
+            ),
             always_auto_detect_mode: session.auto_correct_settings.get(),
             lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
@@ -596,6 +609,12 @@ impl SessionData {
             session
                 .let_unmatched_events_through
                 .set_without_notification(unmatched);
+            let stay_active_when_project_in_background = self
+                .stay_active_when_project_in_background
+                .unwrap_or(StayActiveWhenProjectInBackground::Always);
+            session
+                .stay_active_when_project_in_background
+                .set_without_notification(stay_active_when_project_in_background);
         }
         // Groups
         let controller_conversion_context =

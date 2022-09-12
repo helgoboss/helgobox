@@ -2649,6 +2649,36 @@ pub struct BasicSettings {
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
     pub reset_feedback_when_releasing_source: bool,
+    pub stay_active_when_project_in_background: StayActiveWhenProjectInBackground,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    enum_iterator::IntoEnumIterator,
+    derive_more::Display,
+)]
+pub enum StayActiveWhenProjectInBackground {
+    /// Never.
+    #[display(fmt = "Never")]
+    Never,
+    /// Respecting the REAPER project tab settings such as "Run background projects".
+    #[display(fmt = "Only if background project is running")]
+    OnlyIfBackgroundProjectIsRunning,
+    /// As far as possible.
+    #[display(fmt = "Always (more or less)")]
+    Always,
+}
+
+impl Default for StayActiveWhenProjectInBackground {
+    fn default() -> Self {
+        Self::OnlyIfBackgroundProjectIsRunning
+    }
 }
 
 impl BasicSettings {
@@ -2929,7 +2959,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &mut self,
         project_options: ProjectOptions,
     ) -> Option<bool> {
-        let new_value = determine_control_globally_enabled(&self.context, project_options);
+        let new_value =
+            determine_control_globally_enabled(&self.context, &self.settings, project_options);
         let changed = new_value != self.control_is_globally_enabled;
         self.control_is_globally_enabled = new_value;
         if changed {
@@ -3936,10 +3967,15 @@ struct ControlFeedbackSettings {
 
 fn determine_control_globally_enabled(
     context: &ProcessorContext,
+    settings: &BasicSettings,
     project_options: ProjectOptions,
 ) -> bool {
     context.containing_fx().is_enabled()
-        && passes_background_project_check(context, project_options)
+        && passes_background_project_check(
+            context,
+            settings.stay_active_when_project_in_background,
+            project_options,
+        )
 }
 
 fn determine_feedback_globally_enabled(
@@ -3950,17 +3986,32 @@ fn determine_feedback_globally_enabled(
     settings.feedback_output.is_some()
         && context.containing_fx().is_enabled()
         && track_arm_conditions_are_met(context, settings)
-        && passes_background_project_check(context, project_options)
+        && passes_background_project_check(
+            context,
+            settings.stay_active_when_project_in_background,
+            project_options,
+        )
 }
 
-fn passes_background_project_check(context: &ProcessorContext, opts: ProjectOptions) -> bool {
-    match (
-        opts.run_background_projects,
-        opts.run_stopped_background_projects,
-    ) {
-        (false, _) => is_current_project(context),
-        (true, false) => is_current_project(context) || is_playing(context),
-        (true, true) => true,
+fn passes_background_project_check(
+    context: &ProcessorContext,
+    stay_active_when_project_in_background: StayActiveWhenProjectInBackground,
+    opts: ProjectOptions,
+) -> bool {
+    use StayActiveWhenProjectInBackground::*;
+    match stay_active_when_project_in_background {
+        Never => is_current_project(context),
+        OnlyIfBackgroundProjectIsRunning => {
+            match (
+                opts.run_background_projects,
+                opts.run_stopped_background_projects,
+            ) {
+                (false, _) => is_current_project(context),
+                (true, false) => is_current_project(context) || is_playing(context),
+                (true, true) => true,
+            }
+        }
+        Always => true,
     }
 }
 

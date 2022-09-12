@@ -25,7 +25,7 @@ use crate::base::{when, Global};
 use crate::domain::{
     convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef, Compartment,
     CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
-    ParamSetting, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    ParamSetting, ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -392,6 +392,28 @@ impl HeaderPanel {
                             },
                             || ContextMenuAction::ToggleUseInstancePresetLinksOnly,
                         ),
+                        menu(
+                            "Stay active when project in background",
+                            StayActiveWhenProjectInBackground::into_enum_iter()
+                                .map(|option| {
+                                    item_with_opts(
+                                        option.to_string(),
+                                        ItemOpts {
+                                            enabled: true,
+                                            checked: session
+                                                .stay_active_when_project_in_background
+                                                .get()
+                                                == option,
+                                        },
+                                        move || {
+                                            ContextMenuAction::SetStayActiveWhenProjectInBackground(
+                                                option,
+                                            )
+                                        },
+                                    )
+                                })
+                                .collect(),
+                        ),
                     ],
                 ),
                 menu(
@@ -647,6 +669,9 @@ impl HeaderPanel {
                 self.toggle_reset_feedback_when_releasing_source()
             }
             ContextMenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
+            ContextMenuAction::SetStayActiveWhenProjectInBackground(option) => {
+                self.set_stay_active_when_project_in_background(option)
+            }
             ContextMenuAction::ToggleUseInstancePresetLinksOnly => {
                 self.toggle_use_instance_preset_links_only()
             }
@@ -1132,6 +1157,13 @@ impl HeaderPanel {
             .borrow_mut()
             .send_feedback_only_if_armed
             .set_with(|prev| !*prev);
+    }
+
+    fn set_stay_active_when_project_in_background(&self, value: StayActiveWhenProjectInBackground) {
+        self.session()
+            .borrow_mut()
+            .stay_active_when_project_in_background
+            .set(value);
     }
 
     fn toggle_reset_feedback_when_releasing_source(&self) {
@@ -2866,6 +2898,7 @@ enum ContextMenuAction {
     ToggleSendFeedbackOnlyIfTrackArmed,
     ToggleResetFeedbackWhenReleasingSource,
     ToggleUpperFloorMembership,
+    SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,
     ToggleUseInstancePresetLinksOnly,
     AddFirewallRule,

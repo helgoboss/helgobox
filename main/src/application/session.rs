@@ -18,8 +18,8 @@ use crate::domain::{
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
     NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
     ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    SharedInstanceState, SourceFeedbackValue, StayActiveWhenProjectInBackground, Tag,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -88,6 +88,7 @@ pub struct Session {
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
+    pub stay_active_when_project_in_background: Prop<StayActiveWhenProjectInBackground>,
     pub auto_correct_settings: Prop<bool>,
     pub real_input_logging_enabled: Prop<bool>,
     pub real_output_logging_enabled: Prop<bool>,
@@ -193,10 +194,13 @@ impl LearnManyState {
 
 pub mod session_defaults {
     use crate::application::MainPresetAutoLoadMode;
+    use crate::domain::StayActiveWhenProjectInBackground;
     use realearn_api::persistence::FxDescriptor;
 
     pub const LET_MATCHED_EVENTS_THROUGH: bool = false;
     pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;
+    pub const STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND: StayActiveWhenProjectInBackground =
+        StayActiveWhenProjectInBackground::OnlyIfBackgroundProjectIsRunning;
     pub const AUTO_CORRECT_SETTINGS: bool = true;
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
@@ -236,6 +240,9 @@ impl Session {
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
+            stay_active_when_project_in_background: prop(
+                session_defaults::STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND,
+            ),
             auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
             real_input_logging_enabled: prop(false),
             real_output_logging_enabled: prop(false),
@@ -567,6 +574,7 @@ impl Session {
         self.let_matched_events_through
             .changed()
             .merge(self.let_unmatched_events_through.changed())
+            .merge(self.stay_active_when_project_in_background.changed())
             .merge(self.control_input.changed())
             .merge(self.feedback_output.changed())
             .merge(self.auto_correct_settings.changed())
@@ -2245,6 +2253,9 @@ impl Session {
             reset_feedback_when_releasing_source: self.reset_feedback_when_releasing_source.get(),
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
+            stay_active_when_project_in_background: self
+                .stay_active_when_project_in_background
+                .get(),
         };
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateSettings(settings));
