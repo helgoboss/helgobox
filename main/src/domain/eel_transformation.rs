@@ -1,6 +1,8 @@
 use crate::base::eel;
 use helgoboss_learn::{Transformation, TransformationInput, TransformationOutput};
+use std::os::raw::c_void;
 
+use reaper_medium::reaper_str;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -46,7 +48,8 @@ impl EelTransformation {
         if eel_script.trim().is_empty() {
             return Err("script empty".to_string());
         }
-        let vm = eel::Vm::new();
+        let mut vm = eel::Vm::new();
+        vm.register_single_arg_function(reaper_str!("stop"), stop);
         let program = vm.compile(eel_script)?;
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
@@ -75,6 +78,10 @@ impl EelTransformation {
         };
         Ok(transformation)
     }
+}
+
+unsafe extern "C" fn stop(_: *mut c_void, amt: *mut f64) -> f64 {
+    CONTROL_AND_STOP_MAGIC + (*amt).clamp(0.0, 1.0)
 }
 
 impl Transformation for EelTransformation {
@@ -106,6 +113,8 @@ impl Transformation for EelTransformation {
             TransformationOutput::Stop
         } else if v == NONE {
             TransformationOutput::None
+        } else if v >= CONTROL_AND_STOP_MAGIC && v <= CONTROL_AND_STOP_MAGIC + 1.0 {
+            TransformationOutput::ControlAndStop(v - CONTROL_AND_STOP_MAGIC)
         } else {
             TransformationOutput::Control(v)
         };
@@ -117,5 +126,16 @@ impl Transformation for EelTransformation {
     }
 }
 
+/// Exposed as variable `stop`.
 const STOP: f64 = f64::MAX;
+/// Exposed as variable `none`.
 const NONE: f64 = f64::MIN;
+/// Not exposed but used internally when using function `stop`, e.g. `stop(0.5)`.
+///
+/// Since all we can do at the moment is returning one number, we define a magic number.
+/// If the returned value is at a maximum 1.0 greater than that magic number, we interpret that
+/// as stop instruction and extract the corresponding number!
+///
+/// It's good that this is encapsulated in a function. Maybe we can improve the behavior in future
+/// by setting an extra output variable in the implementation of our `stop` function.
+const CONTROL_AND_STOP_MAGIC: f64 = 8965019.0;

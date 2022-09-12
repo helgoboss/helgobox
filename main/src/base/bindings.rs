@@ -26,15 +26,12 @@ pub mod root {
     pub const NSEEL_RAM_BLOCKS: u32 = 512;
     pub const NSEEL_RAM_ITEMSPERBLOCK: u32 = 65536;
     pub const NSEEL_STACK_SIZE: u32 = 4096;
-    pub type INT_PTR = isize;
     pub mod std {
         #[allow(unused_imports)]
         use self::super::super::root;
     }
-    pub mod __gnu_cxx {
-        #[allow(unused_imports)]
-        use self::super::super::root;
-    }
+    pub type __darwin_intptr_t = ::std::os::raw::c_long;
+    pub type INT_PTR = isize;
     pub type EEL_F = f64;
     extern "C" {
         pub fn NSEEL_HOSTSTUB_EnterMutex();
@@ -407,5 +404,19 @@ pub mod root {
     }
     extern "C" {
         pub static mut NSEEL_RAM_memused_errors: ::std::os::raw::c_int;
+    }
+    extern "C" {
+        pub fn NSEEL_PProc_RAM(
+            data: *mut ::std::os::raw::c_void,
+            data_size: ::std::os::raw::c_int,
+            ctx: *mut root::_compileContext,
+        ) -> *mut ::std::os::raw::c_void;
+    }
+    extern "C" {
+        pub fn NSEEL_PProc_THIS(
+            data: *mut ::std::os::raw::c_void,
+            data_size: ::std::os::raw::c_int,
+            ctx: *mut root::_compileContext,
+        ) -> *mut ::std::os::raw::c_void;
     }
 }

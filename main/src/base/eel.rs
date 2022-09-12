@@ -1,9 +1,16 @@
 use crate::base::bindings::root;
+use crate::base::bindings::root::eel_function_table;
+use reaper_medium::ReaperStr;
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
+use std::os::raw::c_void;
+use std::ptr::null_mut;
 
 #[derive(Debug)]
-pub struct Vm(root::NSEEL_VMCTX);
+pub struct Vm {
+    vm_ctx: root::NSEEL_VMCTX,
+    function_table: Box<root::eel_function_table>,
+}
 
 unsafe impl Send for Vm {}
 
@@ -25,12 +32,40 @@ unsafe impl Sync for Variable {}
 
 impl Vm {
     pub fn new() -> Vm {
-        Vm(unsafe { root::NSEEL_VM_alloc() })
+        let vm_ctx = unsafe { root::NSEEL_VM_alloc() };
+        let mut function_table = Box::new(eel_function_table {
+            list: null_mut(),
+            list_size: 0,
+        });
+        unsafe {
+            root::NSEEL_VM_SetFunctionTable(vm_ctx, &mut *function_table as *mut _);
+        }
+        Vm {
+            vm_ctx,
+            function_table,
+        }
+    }
+
+    pub fn register_single_arg_function(
+        &mut self,
+        name: &'static ReaperStr,
+        f: unsafe extern "C" fn(opaque: *mut c_void, amt: *mut f64) -> f64,
+    ) {
+        unsafe {
+            root::NSEEL_addfunc_ret_type(
+                name.as_c_str().as_ptr(),
+                1,
+                1,
+                Some(root::NSEEL_PProc_THIS),
+                f as *mut c_void,
+                &mut *self.function_table as *mut _,
+            );
+        }
     }
 
     pub fn register_variable(&self, name: &str) -> Variable {
         let c_string = CString::new(name).expect("variable name is not valid UTF-8");
-        let ptr = unsafe { root::NSEEL_VM_regvar(self.0, c_string.as_ptr()) };
+        let ptr = unsafe { root::NSEEL_VM_regvar(self.vm_ctx, c_string.as_ptr()) };
         Variable(ptr)
     }
 
@@ -44,8 +79,9 @@ impl Vm {
 
     pub fn get_mem_slice(&self, index: u32, size: u32) -> &[f64] {
         let mut valid_count = MaybeUninit::zeroed();
-        let ptr =
-            unsafe { root::NSEEL_VM_getramptr_noalloc(self.0, index, valid_count.as_mut_ptr()) };
+        let ptr = unsafe {
+            root::NSEEL_VM_getramptr_noalloc(self.vm_ctx, index, valid_count.as_mut_ptr())
+        };
         let valid_count = unsafe { valid_count.assume_init() };
         if ptr.is_null() || valid_count <= 0 {
             return &[];
@@ -60,9 +96,9 @@ impl Vm {
             return Err("Empty".to_owned());
         }
         let c_string = CString::new(code).map_err(|_| "Code is not valid UTF-8")?;
-        let code_handle = unsafe { root::NSEEL_code_compile(self.0, c_string.as_ptr(), 0) };
+        let code_handle = unsafe { root::NSEEL_code_compile(self.vm_ctx, c_string.as_ptr(), 0) };
         if code_handle.is_null() {
-            let error = unsafe { root::NSEEL_code_getcodeerror(self.0) };
+            let error = unsafe { root::NSEEL_code_getcodeerror(self.vm_ctx) };
             if error.is_null() {
                 return Err("Unknown error".to_string());
             }
@@ -96,7 +132,7 @@ impl Variable {
 impl Drop for Vm {
     fn drop(&mut self) {
         unsafe {
-            root::NSEEL_VM_free(self.0);
+            root::NSEEL_VM_free(self.vm_ctx);
         }
     }
 }
