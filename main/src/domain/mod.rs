@@ -99,6 +99,9 @@ pub use key_source::*;
 mod device_change_detector;
 pub use device_change_detector::*;
 
+mod reaper_config_change_detector;
+pub use reaper_config_change_detector::*;
+
 mod small_ascii_string;
 pub use small_ascii_string::*;
 

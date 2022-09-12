@@ -1,6 +1,6 @@
 use crate::domain::{
-    aggregate_target_values, AdditionalFeedbackEvent, BackboneState, Compartment,
-    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    aggregate_target_values, get_project_options, AdditionalFeedbackEvent, BackboneState,
+    Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlMode, ControlOutcome, DeviceFeedbackOutput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
@@ -11,12 +11,13 @@ use crate::domain::{
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
-    ProcessorContext, ProjectionFeedbackValue, QualifiedClipMatrixEvent, QualifiedMappingId,
-    QualifiedSource, RawParamValue, RealFeedbackValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload, ReaperMessage,
-    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
-    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue,
+    ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedClipMatrixEvent,
+    QualifiedMappingId, QualifiedSource, RawParamValue, RealFeedbackValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
+    VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -1212,19 +1213,37 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         any_main_mapping_is_effectively_on: bool,
     ) {
-        self.potentially_enable_or_disable_control(any_main_mapping_is_effectively_on);
-        self.potentially_enable_or_disable_feedback(any_main_mapping_is_effectively_on);
+        let project_options = get_project_options();
+        self.potentially_enable_or_disable_control(
+            any_main_mapping_is_effectively_on,
+            project_options,
+        );
+        self.potentially_enable_or_disable_feedback(
+            any_main_mapping_is_effectively_on,
+            project_options,
+        );
     }
 
-    fn potentially_enable_or_disable_control(&mut self, any_main_mapping_is_effectively_on: bool) {
-        self.basics
-            .potentially_enable_or_disable_control_internal(any_main_mapping_is_effectively_on);
+    fn potentially_enable_or_disable_control(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+        project_options: ProjectOptions,
+    ) {
+        self.basics.potentially_enable_or_disable_control_internal(
+            any_main_mapping_is_effectively_on,
+            project_options,
+        );
     }
 
-    fn potentially_enable_or_disable_feedback(&mut self, any_main_mapping_is_effectively_on: bool) {
-        let new_feedback_is_enabled = self
-            .basics
-            .potentially_enable_or_disable_feedback_internal(any_main_mapping_is_effectively_on);
+    fn potentially_enable_or_disable_feedback(
+        &mut self,
+        any_main_mapping_is_effectively_on: bool,
+        project_options: ProjectOptions,
+    ) {
+        let new_feedback_is_enabled = self.basics.potentially_enable_or_disable_feedback_internal(
+            any_main_mapping_is_effectively_on,
+            project_options,
+        );
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             if new_feedback_is_enabled {
                 for compartment in Compartment::enum_iter() {
@@ -1511,6 +1530,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             })
     }
 
+    pub fn process_reaper_config_changes(&self, changes: &[ReaperConfigChange]) {
+        for change in changes {
+            match change {
+                ReaperConfigChange::ProjectOptions(_) => {
+                    self.basics.channels.self_normal_sender.send_complaining(
+                        NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback,
+                    );
+                }
+            }
+        }
+    }
+
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
         if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
@@ -1568,6 +1599,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 {
                     true
                 }
+                // Whenever the project tab is switched.
+                ChangeEvent::ProjectSwitched(_) => true,
                 _ => false,
             }
         });
@@ -2845,8 +2878,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
     pub fn potentially_enable_or_disable_control_internal(
         &mut self,
         any_main_mapping_is_effectively_on: bool,
+        project_options: ProjectOptions,
     ) {
-        let new_control_is_enabled = self.potentially_enable_or_disable_control_very_internal();
+        let new_control_is_enabled =
+            self.potentially_enable_or_disable_control_very_internal(project_options);
         if let Some(new_control_is_enabled) = new_control_is_enabled {
             debug!(
                 self.logger,
@@ -2869,8 +2904,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
     pub fn potentially_enable_or_disable_feedback_internal(
         &mut self,
         any_main_mapping_is_effectively_on: bool,
+        project_options: ProjectOptions,
     ) -> Option<bool> {
-        let new_feedback_is_enabled = self.potentially_enable_or_disable_feedback_very_internal();
+        let new_feedback_is_enabled =
+            self.potentially_enable_or_disable_feedback_very_internal(project_options);
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             debug!(
                 self.logger,
@@ -2888,8 +2925,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
     }
 
     /// Returns `Some` with new value if has actually changed.
-    fn potentially_enable_or_disable_control_very_internal(&mut self) -> Option<bool> {
-        let new_value = determine_control_globally_enabled(&self.context);
+    fn potentially_enable_or_disable_control_very_internal(
+        &mut self,
+        project_options: ProjectOptions,
+    ) -> Option<bool> {
+        let new_value = determine_control_globally_enabled(&self.context, project_options);
         let changed = new_value != self.control_is_globally_enabled;
         self.control_is_globally_enabled = new_value;
         if changed {
@@ -2900,8 +2940,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
     }
 
     /// Returns `Some` with new value if has actually changed.
-    fn potentially_enable_or_disable_feedback_very_internal(&mut self) -> Option<bool> {
-        let new_value = determine_feedback_globally_enabled(&self.context, &self.settings);
+    fn potentially_enable_or_disable_feedback_very_internal(
+        &mut self,
+        project_options: ProjectOptions,
+    ) -> Option<bool> {
+        let new_value =
+            determine_feedback_globally_enabled(&self.context, &self.settings, project_options);
         let changed = new_value != self.feedback_is_globally_enabled;
         self.feedback_is_globally_enabled = new_value;
         if changed {
@@ -3890,17 +3934,47 @@ struct ControlFeedbackSettings {
     feedback_is_globally_enabled: bool,
 }
 
-fn determine_control_globally_enabled(context: &ProcessorContext) -> bool {
+fn determine_control_globally_enabled(
+    context: &ProcessorContext,
+    project_options: ProjectOptions,
+) -> bool {
     context.containing_fx().is_enabled()
+        && passes_background_project_check(context, project_options)
 }
 
 fn determine_feedback_globally_enabled(
     context: &ProcessorContext,
     settings: &BasicSettings,
+    project_options: ProjectOptions,
 ) -> bool {
     settings.feedback_output.is_some()
         && context.containing_fx().is_enabled()
         && track_arm_conditions_are_met(context, settings)
+        && passes_background_project_check(context, project_options)
+}
+
+fn passes_background_project_check(context: &ProcessorContext, opts: ProjectOptions) -> bool {
+    match (
+        opts.run_background_projects,
+        opts.run_stopped_background_projects,
+    ) {
+        (false, _) => is_current_project(context),
+        (true, false) => is_current_project(context) || is_playing(context),
+        (true, true) => true,
+    }
+}
+
+fn is_current_project(context: &ProcessorContext) -> bool {
+    if let Some(project) = context.project() {
+        project == Reaper::get().current_project()
+    } else {
+        // When ReaLearn is on the monitoring FX chain, we always control the current project.
+        true
+    }
+}
+
+fn is_playing(context: &ProcessorContext) -> bool {
+    context.project_or_current_project().is_playing()
 }
 
 fn track_arm_conditions_are_met(context: &ProcessorContext, settings: &BasicSettings) -> bool {

@@ -5,8 +5,9 @@ use crate::domain::{
     EelTransformation, FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData,
     MainProcessor, MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId,
     OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget,
-    SharedMainProcessors, SharedRealTimeProcessor, SourceFeedbackValue, TouchedTrackParameterType,
+    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector,
+    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor,
+    SourceFeedbackValue, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
@@ -62,6 +63,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
     device_change_detector: DeviceChangeDetector,
+    reaper_config_change_detector: ReaperConfigChangeDetector,
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
 }
@@ -233,6 +235,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             osc_input_devices: vec![],
             garbage_receiver,
             device_change_detector,
+            reaper_config_change_detector: Default::default(),
             control_surface_event_sender,
             control_surface_event_receiver,
         }
@@ -280,6 +283,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.process_server_tasks();
         self.process_incoming_additional_feedback();
         self.process_instance_orchestration_events();
+        self.detect_reaper_config_changes();
         self.emit_beats_as_feedback_events();
         self.emit_device_changes_as_reaper_source_messages(timestamp);
         self.process_incoming_osc_messages(timestamp);
@@ -533,6 +537,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    fn detect_reaper_config_changes(&mut self) {
+        let changes = self.reaper_config_change_detector.poll_for_changes();
+        for p in &*self.main_processors.borrow() {
+            p.process_reaper_config_changes(&changes);
+        }
+    }
+
     fn emit_beats_as_feedback_events(&mut self) {
         for project in Reaper::get().projects() {
             let reference_pos = if project.is_playing() {
@@ -545,7 +556,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     project,
                     new_value: reference_pos,
                 });
-                for p in &mut *self.main_processors.borrow_mut() {
+                for p in &*self.main_processors.borrow() {
                     p.process_additional_feedback_event(&event);
                 }
             }
