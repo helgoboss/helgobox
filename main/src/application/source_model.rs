@@ -220,7 +220,6 @@ impl<'a> Change<'a> for SourceModel {
 /// A model for creating sources
 #[derive(Clone, Debug)]
 pub struct SourceModel {
-    compartment: Compartment,
     category: SourceCategory,
     custom_character: SourceCharacter,
     // MIDI
@@ -256,9 +255,8 @@ pub struct SourceModel {
 }
 
 impl SourceModel {
-    pub fn new(compartment: Compartment) -> Self {
+    pub fn new() -> Self {
         Self {
-            compartment,
             category: SourceCategory::Never,
             midi_source_type: Default::default(),
             control_element_type: Default::default(),
@@ -495,6 +493,12 @@ impl SourceModel {
             Reaper(s) => {
                 self.category = SourceCategory::Reaper;
                 self.reaper_source_type = ReaperSourceType::from_source(s);
+                match s {
+                    ReaperSource::RealearnParameter(p) => {
+                        self.parameter_index = p.parameter_index;
+                    }
+                    _ => {}
+                }
             }
             Never => {
                 self.category = SourceCategory::Never;
@@ -676,7 +680,6 @@ impl SourceModel {
 
     fn create_realearn_parameter_source(&self) -> RealearnParameterSource {
         RealearnParameterSource {
-            compartment: self.compartment,
             parameter_index: self.parameter_index,
         }
     }
@@ -1227,7 +1230,7 @@ mod tests {
     #[test]
     fn create_source() {
         // Given
-        let m = SourceModel::new(Compartment::Main);
+        let m = SourceModel::new();
         // When
         let s = m.create_source();
         // Then

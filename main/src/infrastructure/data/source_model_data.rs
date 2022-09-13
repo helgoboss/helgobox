@@ -386,7 +386,7 @@ mod tests {
             control_element_type: VirtualControlElementType::Multi,
             ..Default::default()
         };
-        let mut model = SourceModel::new(Compartment::Main);
+        let mut model = SourceModel::new();
         // When
         data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
@@ -419,7 +419,7 @@ mod tests {
             control_element_type: VirtualControlElementType::Multi,
             ..Default::default()
         };
-        let mut model = SourceModel::new(Compartment::Main);
+        let mut model = SourceModel::new();
         // When
         data.apply_to_model_flexible(&mut model, Compartment::Main, None);
         // Then
@@ -440,7 +440,7 @@ mod tests {
     fn from_1() {
         // Given
         use SourceCommand as C;
-        let mut model = SourceModel::new(Compartment::Main);
+        let mut model = SourceModel::new();
         model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ControlChangeValue));
         model.change(C::SetChannel(Some(channel(15))));
@@ -472,7 +472,7 @@ mod tests {
     fn from_2() {
         // Given
         use SourceCommand as C;
-        let mut model = SourceModel::new(Compartment::Main);
+        let mut model = SourceModel::new();
         model.change(C::SetCategory(SourceCategory::Midi));
         model.change(C::SetMidiSourceType(MidiSourceType::ParameterNumberValue));
         model.change(C::SetChannel(None));

@@ -1862,12 +1862,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             } => {
-                self.process_incoming_msg_for_learning(
-                    allow_virtual_sources,
-                    osc_arg_index_hint,
-                    evt.payload().create_capture_result(),
-                );
-                MatchOutcome::Consumed
+                if let Some(capture_result) = evt.payload().create_capture_result() {
+                    self.process_incoming_msg_for_learning(
+                        allow_virtual_sources,
+                        osc_arg_index_hint,
+                        capture_result,
+                    );
+                    MatchOutcome::Consumed
+                } else {
+                    // Should only happen with REAPER sources (where the match outcome isn't
+                    // relevant).
+                    MatchOutcome::Unmatched
+                }
             }
             ControlMode::Disabled => {
                 // "Disabled" means we use global learning, which is why we could consider it at

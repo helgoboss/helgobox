@@ -219,7 +219,7 @@ impl MappingModel {
             activation_condition_model: Default::default(),
             visible_in_projection: true,
             beep_on_success: false,
-            source_model: SourceModel::new(compartment),
+            source_model: SourceModel::new(),
             mode_model: Default::default(),
             target_model: TargetModel::default_for_compartment(compartment),
             advanced_settings: None,

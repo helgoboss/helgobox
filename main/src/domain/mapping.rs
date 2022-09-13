@@ -6,10 +6,11 @@ use crate::domain::{
     MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
     MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
     PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
-    RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
-    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
-    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    RealTimeTargetUpdate, RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget,
+    ReaperMessage, ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
+    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
+    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -1223,6 +1224,7 @@ impl MainMapping {
         &mut self,
         msg: MainSourceMessage,
     ) -> Option<ControlOutcome<ControlValue>> {
+        let compartment = self.compartment();
         match (msg, &mut self.core.source) {
             (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => {
                 // With OSC sources, we don't distinguish between matched or consumed because
@@ -1232,7 +1234,7 @@ impl MainMapping {
             (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => {
                 // With REAPER sources, we don't distinguish between matched or consumed because
                 // there's no such thing such as "letting messages through".
-                s.control(m).map(ControlOutcome::Matched)
+                s.control(m, compartment).map(ControlOutcome::Matched)
             }
             (MainSourceMessage::Key(m), CompoundMappingSource::Key(s)) => s.control(m),
             _ => None,
@@ -1279,16 +1281,29 @@ pub enum MainSourceMessage<'a> {
 }
 
 impl<'a> MainSourceMessage<'a> {
-    pub fn create_capture_result(&self) -> MessageCaptureResult {
+    /// Extracts data if this kind of message supports source learning, filtering etc., otherwise
+    /// returns `None`.
+    pub fn create_capture_result(&self) -> Option<MessageCaptureResult> {
         use MainSourceMessage::*;
-        match *self {
+        let res = match *self {
             Osc(msg) => MessageCaptureResult::Osc(OscScanResult {
                 message: msg.clone(),
                 dev_id: None,
             }),
             Key(msg) => MessageCaptureResult::Keyboard(msg),
-            Reaper(_) => panic!("capturing of incoming MIDI messages not supported"),
-        }
+            Reaper(msg) => {
+                use ReaperMessage::*;
+                match msg {
+                    MidiDevicesConnected(_)
+                    | MidiDevicesDisconnected(_)
+                    | RealearnInstanceStarted => return None,
+                    RealearnParameterChange(payload) => {
+                        MessageCaptureResult::RealearnParameter(*payload)
+                    }
+                }
+            }
+        };
+        Some(res)
     }
 }
 
@@ -1645,6 +1660,12 @@ impl CompoundMappingSource {
             Keyboard(msg) => {
                 let key_source = KeySource::new(msg.stroke());
                 Self::Key(key_source)
+            }
+            RealearnParameter(payload) => {
+                let reaper_source = ReaperSource::RealearnParameter(RealearnParameterSource {
+                    parameter_index: payload.parameter_index,
+                });
+                Self::Reaper(reaper_source)
             }
         };
         Some(res)
@@ -2513,18 +2534,24 @@ pub enum MessageCaptureResult {
     Midi(MidiScanResult),
     Osc(OscScanResult),
     Keyboard(KeyMessage),
+    RealearnParameter(RealearnParameterChangePayload),
 }
 
 impl MessageCaptureResult {
+    /// Returns the captured source value.
+    ///
+    /// Used for source filtering, source virtualization, learning (ignoring sources).
     pub fn message(&self) -> IncomingCompoundSourceValue {
         use MessageCaptureResult::*;
         match self {
             Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
             Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
             Keyboard(res) => IncomingCompoundSourceValue::Key(*res),
+            RealearnParameter(payload) => IncomingCompoundSourceValue::RealearnParameter(*payload),
         }
     }
 
+    /// For finding sessions matching a certain source.
     pub fn to_input_descriptor(&self, ignore_midi_channel: bool) -> Option<InputDescriptor> {
         use MessageCaptureResult::*;
         let res = match self {
@@ -2540,6 +2567,7 @@ impl MessageCaptureResult {
                 device_id: r.dev_id?,
             },
             Keyboard(_) => InputDescriptor::Keyboard,
+            RealearnParameter(_) => return None,
         };
         Some(res)
     }
@@ -2551,6 +2579,7 @@ pub enum IncomingCompoundSourceValue<'a> {
     Osc(&'a OscMessage),
     Virtual(&'a VirtualSourceValue),
     Key(KeyMessage),
+    RealearnParameter(RealearnParameterChangePayload),
 }
 
 pub enum InputDescriptor {

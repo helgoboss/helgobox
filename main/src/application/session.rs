@@ -644,7 +644,7 @@ impl Session {
                     let element = m.target_model.create_control_element();
                     let virtual_source =
                         CompoundMappingSource::Virtual(VirtualSource::new(element));
-                    let mut virtual_model = SourceModel::new(Compartment::Main);
+                    let mut virtual_model = SourceModel::new();
                     let _ = virtual_model.apply_from_source(&virtual_source);
                     Some(virtual_model)
                 } else {

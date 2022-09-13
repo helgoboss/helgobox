@@ -21,7 +21,6 @@ pub enum ReaperSource {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct RealearnParameterSource {
-    pub compartment: Compartment,
     pub parameter_index: CompartmentParamIndex,
 }
 
@@ -119,7 +118,11 @@ impl ReaperSource {
         }
     }
 
-    pub fn control(&mut self, msg: &ReaperMessage) -> Option<ControlValue> {
+    pub fn control(
+        &mut self,
+        msg: &ReaperMessage,
+        compartment: Compartment,
+    ) -> Option<ControlValue> {
         use ReaperMessage::*;
         let control_value = match msg {
             MidiDevicesConnected(_) => match self {
@@ -138,7 +141,7 @@ impl ReaperSource {
             },
             RealearnParameterChange(c) => match self {
                 ReaperSource::RealearnParameter(s)
-                    if c.compartment == s.compartment && c.parameter_index == s.parameter_index =>
+                    if c.compartment == compartment && c.parameter_index == s.parameter_index =>
                 {
                     ControlValue::AbsoluteContinuous(UnitValue::new_clamped(c.value as f64))
                 }
@@ -159,7 +162,7 @@ pub enum ReaperMessage {
     RealearnParameterChange(RealearnParameterChangePayload),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct RealearnParameterChangePayload {
     pub compartment: Compartment,
     pub parameter_index: CompartmentParamIndex,
