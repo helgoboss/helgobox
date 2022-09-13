@@ -2214,11 +2214,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: Compartment,
         now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
-        self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
             FeedbackReason::Normal,
             self.feedback_all_in_compartment(compartment),
         );
+        // It's important to send that *after* sending normal feedback since #660 because we might
+        // have global source state (e.g. X-Touch Color state) and the order how we apply feedback
+        // values to that global source state matters. It must correspond to the order in which
+        // feedback messages are ultimately sent. "Off" feedback will always be sent *after* other
+        // feedback because it's first subject to source takeover by other instances.
+        self.send_off_feedback_for_unused_sources(now_unused_sources);
     }
 
     fn handle_feedback_after_having_updated_particular_mappings(
@@ -2227,11 +2232,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
-        self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
             FeedbackReason::Normal,
             self.feedback_particular_mappings(compartment, mapping_ids),
         );
+        // It's important to send that *after* sending normal feedback since #660 because we might
+        // have global source state (e.g. X-Touch Color state) and the order how we apply feedback
+        // values to that global source state matters. It must correspond to the order in which
+        // feedback messages are ultimately sent. "Off" feedback will always be sent *after* other
+        // feedback because it's first subject to source takeover by other instances.
+        self.send_off_feedback_for_unused_sources(now_unused_sources);
     }
 
     /// Indicate via off feedback the sources which are not in use anymore.
@@ -2473,7 +2483,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         Fb::none()
                     };
-                    (fb1, fb2)
+                    // Unused *after* new (because sent in that order, important for #660)
+                    (fb2, fb1)
                 }
             } else {
                 // Previous lights were off.
