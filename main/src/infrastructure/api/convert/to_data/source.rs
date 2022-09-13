@@ -161,6 +161,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MidiRaw(_)
         | MidiScript(_)
         | MackieLcd(_)
+        | XTouchMackieLcd(_)
         | MackieSevenSegmentDisplay(_)
         | SiniConE24Display(_)
         | SlKeyboardDisplay(_)
@@ -186,7 +187,7 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
         MidiClockTransport(_) => MidiSourceType::ClockTransport,
         MidiRaw(_) => MidiSourceType::Raw,
         MidiScript(_) => MidiSourceType::Script,
-        MackieLcd(_) | MackieSevenSegmentDisplay(_) | SiniConE24Display(_) => {
+        MackieLcd(_) | XTouchMackieLcd(_) | MackieSevenSegmentDisplay(_) | SiniConE24Display(_) => {
             MidiSourceType::Display
         }
         _ => MidiSourceType::default(),

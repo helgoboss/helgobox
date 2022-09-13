@@ -4,8 +4,8 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, Compartment,
-    DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
+    AdditionalFeedbackEvent, AdditionalTransformationInput, BackboneState, BasicSettings,
+    Compartment, DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     QualifiedMappingId, RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope,
@@ -29,7 +29,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
-    TransformationInputProvider, UnitValue,
+    SourceContext, TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipMatrixEvent;
@@ -439,6 +439,12 @@ impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTime
 }
 
 impl<'a> ControlContext<'a> {
+    pub fn with_source_context<R>(&self, f: impl FnOnce(&mut SourceContext) -> R) -> R {
+        let mut backbone_source_context = BackboneState::source_context().borrow_mut();
+        let source_context = backbone_source_context.get_source_context(self.feedback_output);
+        f(source_context)
+    }
+
     pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
         if self.output_logging_enabled {
             for e in events {

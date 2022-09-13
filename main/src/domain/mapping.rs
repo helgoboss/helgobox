@@ -18,8 +18,8 @@ use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
     ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
-    ValueFormatter, ValueParser,
+    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, SourceContext, Target,
+    UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -1049,9 +1049,9 @@ impl MainMapping {
     fn manual_feedback_because_of_target(
         &self,
         new_target_value: Option<AbsoluteValue>,
-        context: ControlContext,
+        control_context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
-        self.feedback_entry_point(true, true, new_target_value?, context)
+        self.feedback_entry_point(true, true, new_target_value?, control_context)
             .map(CompoundFeedbackValue::normal)
     }
 
@@ -1108,13 +1108,16 @@ impl MainMapping {
         } else {
             true
         };
-        self.feedback_given_target_value(
-            Cow::Owned(feedback_value),
-            FeedbackDestinations {
-                with_projection_feedback,
-                with_source_feedback: with_source_feedback && source_feedback_is_okay,
-            },
-        )
+        control_context.with_source_context(|source_context| {
+            self.feedback_given_target_value(
+                Cow::Owned(feedback_value),
+                FeedbackDestinations {
+                    with_projection_feedback,
+                    with_source_feedback: with_source_feedback && source_feedback_is_okay,
+                },
+                source_context,
+            )
+        })
     }
 
     pub fn current_aggregated_target_value(
@@ -1142,6 +1145,7 @@ impl MainMapping {
         &self,
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
+        source_context: &mut SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
@@ -1152,13 +1156,14 @@ impl MainMapping {
             options,
             Default::default(),
         )?;
-        self.feedback_given_mode_value(mode_value, destinations)
+        self.feedback_given_mode_value(mode_value, destinations, source_context)
     }
 
     fn feedback_given_mode_value(
         &self,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
+        source_context: &mut SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
@@ -1166,13 +1171,17 @@ impl MainMapping {
             &self.core.source,
             mode_value,
             destinations,
+            source_context,
         )
     }
 
     /// This returns a "lights off" feedback.
     ///
     /// Used when mappings get inactive.
-    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(
+        &self,
+        source_context: &mut SourceContext,
+    ) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
         self.feedback_given_mode_value(
@@ -1181,6 +1190,7 @@ impl MainMapping {
                 with_projection_feedback: true,
                 with_source_feedback: true,
             },
+            source_context,
         )
         .map(CompoundFeedbackValue::normal)
     }
@@ -1506,7 +1516,7 @@ pub struct QualifiedSource {
 }
 
 impl QualifiedSource {
-    pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(self, source_context: &mut SourceContext) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
             self.mapping_key,
@@ -1516,6 +1526,7 @@ impl QualifiedSource {
                 with_projection_feedback: true,
                 with_source_feedback: true,
             },
+            source_context,
         )
         .map(CompoundFeedbackValue::normal)
     }
@@ -1679,11 +1690,15 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: Cow<FeedbackValue>) -> Option<SourceFeedbackValue> {
+    pub fn feedback(
+        &self,
+        feedback_value: Cow<FeedbackValue>,
+        source_context: &mut SourceContext,
+    ) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s
-                .feedback(feedback_value.into_owned())
+                .feedback_flexible(feedback_value.into_owned(), source_context)
                 .map(SourceFeedbackValue::Midi),
             Osc(s) => s
                 .feedback(feedback_value.into_owned())
@@ -1770,6 +1785,7 @@ impl SpecificCompoundFeedbackValue {
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
+        source_context: &mut SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;
@@ -1793,7 +1809,7 @@ impl SpecificCompoundFeedbackValue {
                 None
             };
             let source = if destinations.with_source_feedback {
-                source.feedback(mode_value)
+                source.feedback(mode_value, source_context)
             } else {
                 None
             };

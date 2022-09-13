@@ -32,6 +32,7 @@ pub enum Source {
     MidiRaw(MidiRawSource),
     MidiScript(MidiScriptSource),
     MackieLcd(MackieLcdSource),
+    XTouchMackieLcd(XTouchMackieLcdSource),
     MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySource),
     SlKeyboardDisplay(SlKeyboardDisplaySource),
     SiniConE24Display(SiniConE24DisplaySource),
@@ -263,6 +264,17 @@ mod midi {
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MackieLcdSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub extender_index: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub line: Option<u8>,
+    }
+
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct XTouchMackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub extender_index: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]

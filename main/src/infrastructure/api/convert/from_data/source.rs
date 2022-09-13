@@ -155,6 +155,28 @@ pub fn convert_source(
                             };
                             persistence::Source::MackieLcd(s)
                         }
+                        XTouchMackieLcd => {
+                            let s = persistence::XTouchMackieLcdSource {
+                                extender_index: style.required_value_with_default(
+                                    0,
+                                    defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX,
+                                ),
+                                channel: data.display_id,
+                                line: data.line,
+                            };
+                            persistence::Source::XTouchMackieLcd(s)
+                        }
+                        XTouchMackieXtLcd => {
+                            let s = persistence::XTouchMackieLcdSource {
+                                extender_index: style.required_value_with_default(
+                                    1,
+                                    defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX,
+                                ),
+                                channel: data.display_id,
+                                line: data.line,
+                            };
+                            persistence::Source::XTouchMackieLcd(s)
+                        }
                         MackieSevenSegmentDisplay => {
                             let s = persistence::MackieSevenSegmentDisplaySource {
                                 scope: data.display_id.and_then(|id| {

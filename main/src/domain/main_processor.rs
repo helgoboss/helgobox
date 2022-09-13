@@ -23,7 +23,8 @@ use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, AbstractTimestamp, ControlValue, GroupInteraction, MidiSourceValue,
-    MinIsMaxBehavior, ModeControlOptions, ModeControlResult, RawMidiEvent, Target, BASE_EPSILON,
+    MinIsMaxBehavior, ModeControlOptions, ModeControlResult, RawMidiEvent, SourceContext, Target,
+    BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -2174,10 +2175,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Mappings with virtual targets should not be included here because they might not be in
         // use and therefore should not *directly* send zeros. However, they will receive zeros
         // if one of the main mappings with virtual sources are connected to them.
-        self.all_mappings_without_virtual_targets()
-            .filter(|m| m.feedback_is_effectively_on())
-            .filter_map(|m| m.off_feedback())
-            .collect()
+        self.basics.with_source_context(|source_context| {
+            self.all_mappings_without_virtual_targets()
+                .filter(|m| m.feedback_is_effectively_on())
+                .filter_map(|m| m.off_feedback(source_context))
+                .collect()
+        })
     }
 
     fn currently_feedback_enabled_sources(
@@ -2233,9 +2236,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
-        for s in now_unused_sources.into_values() {
-            self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
-        }
+        self.basics.with_source_context(|source_context| {
+            for s in now_unused_sources.into_values() {
+                self.send_feedback(
+                    FeedbackReason::ClearUnusedSource,
+                    s.off_feedback(source_context),
+                );
+            }
+        });
     }
 
     fn log_debug_info(&mut self) {
@@ -2415,7 +2423,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let fb = if is_on_now {
                     Fb::normal(self.get_mapping_feedback_follow_virtual(&*m))
                 } else {
-                    Fb::unused(m.off_feedback())
+                    self.basics.with_source_context(|source_context| {
+                        Fb::unused(m.off_feedback(source_context))
+                    })
                 };
                 self.send_feedback(fb.0, fb.1);
             }
@@ -2448,12 +2458,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         )
                     } else {
                         // Lights should now be off.
-                        (Fb::unused(mapping.off_feedback()), Fb::none())
+                        self.basics.with_source_context(|source_context| {
+                            (Fb::unused(mapping.off_feedback(source_context)), Fb::none())
+                        })
                     }
                 } else {
                     // Source has changed.
                     // Switch previous source light off.
-                    let fb1 = Fb::unused(previous_mapping.off_feedback());
+
+                    let fb1 = self.basics.with_source_context(|source_context| {
+                        Fb::unused(previous_mapping.off_feedback(source_context))
+                    });
                     let fb2 = if mapping.feedback_is_effectively_on() {
                         // Lights should be on. Send new lights.
                         Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping))
@@ -3058,6 +3073,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    pub fn with_source_context<R>(&self, f: impl FnOnce(&mut SourceContext) -> R) -> R {
+        let mut backbone_source_context = BackboneState::source_context().borrow_mut();
+        let source_context =
+            backbone_source_context.get_source_context(self.settings.feedback_output);
+        f(source_context)
+    }
+
     pub fn process_group_interaction(
         &self,
         collections: &mut Collections,
@@ -3391,64 +3413,67 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
-        for feedback_value in feedback_values.into_iter() {
-            match feedback_value.value {
-                SpecificCompoundFeedbackValue::Virtual {
-                    destinations,
-                    value,
-                } => {
-                    // At this point we still include controller mappings for which feedback
-                    // is explicitly not enabled (not supported by controller) in order to
-                    // support at least projection feedback (#414)!
-                    if self.settings.virtual_output_logging_enabled {
-                        log_virtual_feedback_output(&self.instance_id, &value);
-                    }
-                    // Iterate over (controller) mappings with virtual targets.
-                    for m in mappings_with_virtual_targets
-                        .values()
-                        .filter(|m| m.feedback_is_effectively_on())
-                    {
-                        // Should always be true.
-                        if let Some(t) = m.virtual_target() {
-                            if t.control_element() == value.control_element() {
-                                // Virtual source matched virtual target. The following method
-                                // will always produce real target values (because controller
-                                // mappings can't have virtual sources).
-                                let compound_feedback_value = m.feedback_given_target_value(
-                                    // This clone is unavoidable because we are producing
-                                    // real feedback values and these will be sent to another
-                                    //  thread, so they must be self-contained.
-                                    Cow::Borrowed(value.feedback_value()),
-                                    FeedbackDestinations {
-                                        with_source_feedback: destinations.with_source_feedback
-                                            && m.feedback_is_enabled(),
-                                        ..destinations
-                                    },
-                                );
-                                if let Some(SpecificCompoundFeedbackValue::Real(
-                                    final_feedback_value,
-                                )) = compound_feedback_value
-                                {
-                                    // Successful virtual-to-real feedback
-                                    self.send_direct_feedback(
-                                        feedback_reason,
-                                        final_feedback_value,
-                                        feedback_value.is_feedback_after_control,
+        self.with_source_context(|source_context| {
+            for feedback_value in feedback_values.into_iter() {
+                match feedback_value.value {
+                    SpecificCompoundFeedbackValue::Virtual {
+                        destinations,
+                        value,
+                    } => {
+                        // At this point we still include controller mappings for which feedback
+                        // is explicitly not enabled (not supported by controller) in order to
+                        // support at least projection feedback (#414)!
+                        if self.settings.virtual_output_logging_enabled {
+                            log_virtual_feedback_output(&self.instance_id, &value);
+                        }
+                        // Iterate over (controller) mappings with virtual targets.
+                        for m in mappings_with_virtual_targets
+                            .values()
+                            .filter(|m| m.feedback_is_effectively_on())
+                        {
+                            // Should always be true.
+                            if let Some(t) = m.virtual_target() {
+                                if t.control_element() == value.control_element() {
+                                    // Virtual source matched virtual target. The following method
+                                    // will always produce real target values (because controller
+                                    // mappings can't have virtual sources).
+                                    let compound_feedback_value = m.feedback_given_target_value(
+                                        // This clone is unavoidable because we are producing
+                                        // real feedback values and these will be sent to another
+                                        //  thread, so they must be self-contained.
+                                        Cow::Borrowed(value.feedback_value()),
+                                        FeedbackDestinations {
+                                            with_source_feedback: destinations.with_source_feedback
+                                                && m.feedback_is_enabled(),
+                                            ..destinations
+                                        },
+                                        source_context,
                                     );
+                                    if let Some(SpecificCompoundFeedbackValue::Real(
+                                        final_feedback_value,
+                                    )) = compound_feedback_value
+                                    {
+                                        // Successful virtual-to-real feedback
+                                        self.send_direct_feedback(
+                                            feedback_reason,
+                                            final_feedback_value,
+                                            feedback_value.is_feedback_after_control,
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                SpecificCompoundFeedbackValue::Real(final_feedback_value) => {
-                    self.send_direct_feedback(
-                        feedback_reason,
-                        final_feedback_value,
-                        feedback_value.is_feedback_after_control,
-                    );
+                    SpecificCompoundFeedbackValue::Real(final_feedback_value) => {
+                        self.send_direct_feedback(
+                            feedback_reason,
+                            final_feedback_value,
+                            feedback_value.is_feedback_after_control,
+                        );
+                    }
                 }
             }
-        }
+        });
     }
 
     pub fn send_direct_source_feedback(

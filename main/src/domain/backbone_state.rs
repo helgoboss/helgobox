@@ -2,8 +2,8 @@ use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
     InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnTargetContext, ReaperTarget, SafeLua,
-    SharedInstanceState, WeakInstanceState,
+    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceContext, RealearnTargetContext,
+    ReaperTarget, SafeLua, SharedInstanceState, WeakInstanceState,
 };
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::{Reaper, Track};
@@ -17,6 +17,7 @@ make_available_globally_in_main_thread_on_demand!(BackboneState);
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
 pub struct BackboneState {
+    source_context: RefCell<RealearnSourceContext>,
     target_context: RefCell<RealearnTargetContext>,
     last_touched_target: RefCell<Option<ReaperTarget>>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
@@ -33,6 +34,7 @@ pub struct BackboneState {
 impl BackboneState {
     pub fn new(target_context: RealearnTargetContext) -> Self {
         Self {
+            source_context: Default::default(),
             target_context: RefCell::new(target_context),
             last_touched_target: Default::default(),
             control_input_usages: Default::default(),
@@ -63,6 +65,10 @@ impl BackboneState {
         unsafe impl Sync for SingleThreadLua {}
         static LUA: Lazy<SingleThreadLua> = Lazy::new(|| SingleThreadLua(SafeLua::new().unwrap()));
         &LUA.0
+    }
+
+    pub fn source_context() -> &'static RefCell<RealearnSourceContext> {
+        &BackboneState::get().source_context
     }
 
     pub fn target_context() -> &'static RefCell<RealearnTargetContext> {

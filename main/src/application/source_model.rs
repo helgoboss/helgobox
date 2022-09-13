@@ -692,6 +692,14 @@ impl SourceModel {
                 scope: self.mackie_lcd_scope(),
                 extender_index: 1,
             },
+            XTouchMackieLcd => DisplaySpec::XTouchMackieLcd {
+                scope: self.mackie_lcd_scope(),
+                extender_index: 0,
+            },
+            XTouchMackieXtLcd => DisplaySpec::XTouchMackieLcd {
+                scope: self.mackie_lcd_scope(),
+                extender_index: 1,
+            },
             MackieSevenSegmentDisplay => DisplaySpec::MackieSevenSegmentDisplay {
                 scope: self.mackie_7_segment_display_scope(),
             },
