@@ -1,4 +1,4 @@
-use crate::domain::{InstanceId, MatchOutcome, OwnedIncomingMidiMessage, Tag};
+use crate::domain::{FeedbackReason, InstanceId, MatchOutcome, OwnedIncomingMidiMessage, Tag};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -113,8 +113,16 @@ pub fn log_virtual_feedback_output(instance_id: &InstanceId, msg: impl Display) 
     log_output(instance_id, OutputReason::VirtualFeedback, msg);
 }
 
-pub fn log_real_feedback_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::RealFeedback, msg);
+pub fn log_real_feedback_output(
+    instance_id: &InstanceId,
+    feedback_reason: FeedbackReason,
+    msg: impl Display,
+) {
+    log_output(
+        instance_id,
+        OutputReason::RealFeedback,
+        format!("{} ({:?})", msg, feedback_reason),
+    );
 }
 
 pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {

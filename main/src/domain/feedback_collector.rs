@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use helgoboss_learn::devices::x_touch::XTouchMackieLcdState;
 use helgoboss_learn::{
-    MackieLcdScope, MidiSourceValue, PreliminaryMidiSourceFeedbackValue, RawMidiEvent,
+    DisplaySpecAddress, MackieLcdScope, MidiSourceValue, RawFeedbackAddressInfo, RawMidiEvent,
     XTouchMackieLcdColorRequest,
 };
 use std::collections::HashSet;
@@ -42,6 +42,8 @@ impl<'a> FeedbackCollector<'a> {
         }
     }
 
+    /// Spits the given feedback value immediately out again if it's already final or only has a
+    /// projection part, but collects it if it's non-final.
     pub fn process(
         &mut self,
         preliminary_feedback_value: PreliminaryRealFeedbackValue,
@@ -50,18 +52,15 @@ impl<'a> FeedbackCollector<'a> {
             // Has projection part only.
             None => FinalRealFeedbackValue::new(preliminary_feedback_value.projection, None),
             Some(preliminary_source_feedback_value) => match preliminary_source_feedback_value {
-                PreliminarySourceFeedbackValue::Midi(v) => match v {
-                    // Is final MIDI value already.
-                    PreliminaryMidiSourceFeedbackValue::Final(v) => FinalRealFeedbackValue::new(
-                        preliminary_feedback_value.projection,
-                        Some(FinalSourceFeedbackValue::Midi(v)),
-                    ),
-                    // Is non-final.
-                    PreliminaryMidiSourceFeedbackValue::XTouchMackieLcdColor(req) => {
+                PreliminarySourceFeedbackValue::Midi(v) => {
+                    if let Some(req) = v.x_touch_mackie_lcd_color_request {
                         self.process_x_touch_mackie_lcd_color_request(req);
-                        None
                     }
-                },
+                    FinalRealFeedbackValue::new(
+                        preliminary_feedback_value.projection,
+                        Some(FinalSourceFeedbackValue::Midi(v.final_value)),
+                    )
+                }
                 // Is final OSC value already.
                 PreliminarySourceFeedbackValue::Osc(v) => FinalRealFeedbackValue::new(
                     preliminary_feedback_value.projection,
@@ -72,7 +71,9 @@ impl<'a> FeedbackCollector<'a> {
     }
 
     /// Takes the collected and aggregated material and produces the final feedback values.
-    pub fn generate_final_feedback_values(self) -> impl Iterator<Item = FinalRealFeedbackValue> {
+    pub fn generate_final_feedback_values(
+        self,
+    ) -> impl Iterator<Item = FinalRealFeedbackValue> + 'a {
         self.x_touch_mackie_lcd_feedback_collector
             .into_iter()
             .flat_map(|x_touch_collector| {
@@ -82,8 +83,11 @@ impl<'a> FeedbackCollector<'a> {
                     .filter_map(|extender_index| {
                         let sysex = x_touch_collector.state.sysex(extender_index);
                         let midi_event = RawMidiEvent::try_from_iter(0, sysex).ok()?;
+                        let feedback_address = RawFeedbackAddressInfo::Display {
+                            spec: DisplaySpecAddress::XTouchMackieLcdColors { extender_index },
+                        };
                         let source_feedback_value = FinalSourceFeedbackValue::Midi(
-                            MidiSourceValue::single_raw(None, midi_event),
+                            MidiSourceValue::single_raw(Some(feedback_address), midi_event),
                         );
                         FinalRealFeedbackValue::new(None, Some(source_feedback_value))
                     })

@@ -2836,7 +2836,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 ///
 /// In any case, they are nice for tracing when debugging feedback issues.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-enum FeedbackReason {
+pub enum FeedbackReason {
     /// When ReaLearn detects a single source as unused.
     ClearUnusedSource,
     /// When all feedback for that instance gets disabled (e.g. by instance deactivation) but other
@@ -3531,6 +3531,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
                                     &self.instance_id,
+                                    feedback_reason,
                                     format_midi_source_value(&v),
                                 );
                             }
@@ -3552,6 +3553,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
                                     &self.instance_id,
+                                    feedback_reason,
                                     format_midi_source_value(&v),
                                 );
                             }
@@ -3565,7 +3567,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 }
                 (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
-                        log_real_feedback_output(&self.instance_id, format_osc_message(&msg));
+                        log_real_feedback_output(
+                            &self.instance_id,
+                            feedback_reason,
+                            format_osc_message(&msg),
+                        );
                     }
                     self.channels
                         .osc_feedback_task_sender
