@@ -1108,16 +1108,14 @@ impl MainMapping {
         } else {
             true
         };
-        control_context.with_source_context(|source_context| {
-            self.feedback_given_target_value(
-                Cow::Owned(feedback_value),
-                FeedbackDestinations {
-                    with_projection_feedback,
-                    with_source_feedback: with_source_feedback && source_feedback_is_okay,
-                },
-                source_context,
-            )
-        })
+        self.feedback_given_target_value(
+            Cow::Owned(feedback_value),
+            FeedbackDestinations {
+                with_projection_feedback,
+                with_source_feedback: with_source_feedback && source_feedback_is_okay,
+            },
+            &control_context.source_context,
+        )
     }
 
     pub fn current_aggregated_target_value(
@@ -1145,7 +1143,7 @@ impl MainMapping {
         &self,
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &mut SourceContext,
+        source_context: &SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
@@ -1163,7 +1161,7 @@ impl MainMapping {
         &self,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &mut SourceContext,
+        source_context: &SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
@@ -1178,10 +1176,7 @@ impl MainMapping {
     /// This returns a "lights off" feedback.
     ///
     /// Used when mappings get inactive.
-    pub fn off_feedback(
-        &self,
-        source_context: &mut SourceContext,
-    ) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(&self, source_context: &SourceContext) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
         self.feedback_given_mode_value(
@@ -1516,7 +1511,7 @@ pub struct QualifiedSource {
 }
 
 impl QualifiedSource {
-    pub fn off_feedback(self, source_context: &mut SourceContext) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(self, source_context: &SourceContext) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
             self.mapping_key,
@@ -1693,7 +1688,7 @@ impl CompoundMappingSource {
     pub fn feedback(
         &self,
         feedback_value: Cow<FeedbackValue>,
-        source_context: &mut SourceContext,
+        source_context: &SourceContext,
     ) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
@@ -1785,7 +1780,7 @@ impl SpecificCompoundFeedbackValue {
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &mut SourceContext,
+        source_context: &SourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;

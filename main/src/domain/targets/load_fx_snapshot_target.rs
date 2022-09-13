@@ -69,7 +69,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         if value.to_unit_value()?.is_zero() {
             return Ok(HitResponse::ignored());
         }
-        BackboneState::target_context()
+        BackboneState::target_state()
             .borrow_mut()
             .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?;
         Ok(HitResponse::processed_with_effect())
@@ -126,7 +126,7 @@ impl<'a> Target<'a> for LoadFxSnapshotTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let is_loaded = BackboneState::target_context()
+        let is_loaded = BackboneState::target_state()
             .borrow()
             .current_fx_snapshot_chunk_hash(&self.fx)
             == Some(self.chunk_hash);

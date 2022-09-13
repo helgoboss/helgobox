@@ -14,7 +14,7 @@ use crate::domain::{
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
     QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
+    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetState, ReaperTarget,
     SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
@@ -322,7 +322,7 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
-        BackboneState::make_available_globally(BackboneState::new(RealearnTargetContext::new(
+        BackboneState::make_available_globally(BackboneState::new(RealearnTargetState::new(
             self.additional_feedback_event_sender.clone(),
         )));
         App::get().register_actions();

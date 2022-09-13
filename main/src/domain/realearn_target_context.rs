@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
-pub struct RealearnTargetContext {
+pub struct RealearnTargetState {
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     // For "Load FX snapshot" target.
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
@@ -32,7 +32,7 @@ impl TouchedThing {
     }
 }
 
-impl RealearnTargetContext {
+impl RealearnTargetState {
     pub fn new(
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     ) -> Self {

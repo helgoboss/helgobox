@@ -738,7 +738,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
         if let Ok(domain_type) = TouchedTrackParameterType::try_from_reaper(args.parameter_type) {
-            BackboneState::target_context()
+            BackboneState::target_state()
                 .borrow()
                 .automation_parameter_is_touched(args.track, domain_type)
         } else {

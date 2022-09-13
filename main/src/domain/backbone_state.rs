@@ -2,7 +2,7 @@ use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
     ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
     InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceContext, RealearnTargetContext,
+    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceState, RealearnTargetState,
     ReaperTarget, SafeLua, SharedInstanceState, WeakInstanceState,
 };
 use playtime_clip_engine::rt::WeakMatrix;
@@ -17,8 +17,8 @@ make_available_globally_in_main_thread_on_demand!(BackboneState);
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
 pub struct BackboneState {
-    source_context: RefCell<RealearnSourceContext>,
-    target_context: RefCell<RealearnTargetContext>,
+    source_state: RefCell<RealearnSourceState>,
+    target_state: RefCell<RealearnTargetState>,
     last_touched_target: RefCell<Option<ReaperTarget>>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
     control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<InstanceId>>>,
@@ -32,10 +32,10 @@ pub struct BackboneState {
 }
 
 impl BackboneState {
-    pub fn new(target_context: RealearnTargetContext) -> Self {
+    pub fn new(target_context: RealearnTargetState) -> Self {
         Self {
-            source_context: Default::default(),
-            target_context: RefCell::new(target_context),
+            source_state: Default::default(),
+            target_state: RefCell::new(target_context),
             last_touched_target: Default::default(),
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
@@ -67,12 +67,12 @@ impl BackboneState {
         &LUA.0
     }
 
-    pub fn source_context() -> &'static RefCell<RealearnSourceContext> {
-        &BackboneState::get().source_context
+    pub fn source_state() -> &'static RefCell<RealearnSourceState> {
+        &BackboneState::get().source_state
     }
 
-    pub fn target_context() -> &'static RefCell<RealearnTargetContext> {
-        &BackboneState::get().target_context
+    pub fn target_state() -> &'static RefCell<RealearnTargetState> {
+        &BackboneState::get().target_state
     }
 
     pub fn last_touched_target(&self) -> Option<ReaperTarget> {

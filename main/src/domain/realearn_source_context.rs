@@ -1,19 +1,18 @@
-use crate::domain::FeedbackOutput;
-use helgoboss_learn::SourceContext;
+use helgoboss_learn::devices::x_touch::XTouchMackieLcdState;
+use reaper_medium::MidiOutputDeviceId;
 use std::collections::HashMap;
 
+/// Global state about sources.
 #[derive(Default)]
-pub struct RealearnSourceContext {
-    source_context_by_feedback_output: HashMap<Option<FeedbackOutput>, SourceContext>,
+pub struct RealearnSourceState {
+    x_touch_mackie_lcd_state_by_device: HashMap<MidiOutputDeviceId, XTouchMackieLcdState>,
 }
 
-impl RealearnSourceContext {
-    pub fn get_source_context(
+impl RealearnSourceState {
+    pub fn get_x_touch_mackie_lcd_state_mut(
         &mut self,
-        feedback_output: Option<FeedbackOutput>,
-    ) -> &mut SourceContext {
-        self.source_context_by_feedback_output
-            .entry(feedback_output)
-            .or_default()
+        device: MidiOutputDeviceId,
+    ) -> Option<&mut XTouchMackieLcdState> {
+        self.x_touch_mackie_lcd_state_by_device.get_mut(&device)
     }
 }

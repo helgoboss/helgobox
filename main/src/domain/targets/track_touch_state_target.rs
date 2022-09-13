@@ -63,7 +63,7 @@ impl RealearnTarget for TrackTouchStateTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let target_context = BackboneState::target_context();
+        let target_context = BackboneState::target_state();
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -127,7 +127,7 @@ impl<'a> Target<'a> for TrackTouchStateTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let is_touched = BackboneState::target_context()
+        let is_touched = BackboneState::target_state()
             .borrow()
             .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
         Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))

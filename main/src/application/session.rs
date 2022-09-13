@@ -34,7 +34,7 @@ use std::fmt::Debug;
 
 use crate::domain;
 use core::iter;
-use helgoboss_learn::{AbsoluteValue, ControlResult, ControlValue, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::main::ClipMatrixEvent;
 use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
@@ -747,6 +747,9 @@ impl Session {
     }
 
     pub fn control_context(&self) -> ControlContext {
+        // TODO-low At the moment, we don't use the source context concept yet but as soon as we do,
+        //  we should share the same source context between main processor and session.
+        const SOURCE_CONTEXT: SourceContext = SourceContext;
         ControlContext {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
@@ -756,6 +759,7 @@ impl Session {
             instance_state: self.instance_state(),
             instance_id: self.instance_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),
+            source_context: &SOURCE_CONTEXT,
             processor_context: &self.processor_context,
         }
     }
