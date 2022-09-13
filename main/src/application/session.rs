@@ -13,12 +13,12 @@ use crate::domain::{
     convert_plugin_param_index_range_to_iter, BackboneState, BasicSettings, Compartment,
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InputDescriptor, InstanceContainer, InstanceId, InstanceState, MainMapping, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, StayActiveWhenProjectInBackground, Tag,
+    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
+    IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, InstanceState,
+    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
+    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix,
+    RealearnTarget, ReaperTarget, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
     TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
@@ -2196,7 +2196,7 @@ impl Session {
     /// Good for checking produced feedback when doing integration testing.
     pub fn use_integration_test_feedback_sender(
         &self,
-        sender: SenderToNormalThread<SourceFeedbackValue>,
+        sender: SenderToNormalThread<FinalSourceFeedbackValue>,
     ) {
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UseIntegrationTestFeedbackSender(sender));

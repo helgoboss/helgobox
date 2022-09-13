@@ -10,6 +10,9 @@ pub use mapping::*;
 mod control_surface;
 pub use control_surface::*;
 
+mod feedback_collector;
+pub use feedback_collector::*;
+
 mod audio_hook;
 pub use audio_hook::*;
 

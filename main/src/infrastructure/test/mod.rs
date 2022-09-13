@@ -1,5 +1,5 @@
 use crate::base::{Global, SenderToNormalThread};
-use crate::domain::{with_fx_name, SourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{with_fx_name, FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use helgoboss_learn::{MidiSourceValue, BASE_EPSILON, FEEDBACK_EPSILON};
@@ -10,8 +10,8 @@ use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
 use tokio::time::Duration;
+use FinalSourceFeedbackValue::Midi;
 use MidiSourceValue::{ParameterNumber, Plain};
-use SourceFeedbackValue::Midi;
 
 pub fn register_test_action() {
     Reaper::get().register_action(
@@ -149,7 +149,7 @@ async fn setup() -> RealearnTestInstance {
 
 struct RealearnTestInstance {
     fx: Fx,
-    feedback_receiver: crossbeam_channel::Receiver<SourceFeedbackValue>,
+    feedback_receiver: crossbeam_channel::Receiver<FinalSourceFeedbackValue>,
 }
 
 impl RealearnTestInstance {
@@ -164,7 +164,7 @@ impl RealearnTestInstance {
     }
 
     /// Returns all recorded feedback and removes it from the list.
-    fn pop_feedback(&self) -> Vec<SourceFeedbackValue> {
+    fn pop_feedback(&self) -> Vec<FinalSourceFeedbackValue> {
         self.feedback_receiver.try_iter().collect()
     }
 }
@@ -994,7 +994,7 @@ async fn fx_by_id() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        // vec![Midi(Plain(note_on(0, 64, 0)))],
+        // vec![concrete_midi(Plain(note_on(0, 64, 0)))],
         vec![],
         "gone feedback"
     );
@@ -1141,7 +1141,7 @@ async fn conditional_activation_modifiers() {
     assert_eq!(
         realearn.pop_feedback(),
         // TODO-medium Why no gone feedback!? When I test this in real, it works!
-        // vec![Midi(Plain(note_on(0, 64, 0)))],
+        // vec![concrete_midi(Plain(note_on(0, 64, 0)))],
         vec![],
         "gone feedback finally here, hooray"
     );
@@ -1171,7 +1171,7 @@ async fn conditional_activation_modifiers() {
         realearn.pop_feedback(),
         // If the "gone" feedback above would work, this would be sent. Right now, it's omitted
         // because of duplicate-feedback prevention measures - which in itself is correct.
-        // vec![Midi(Plain(note_on(0, 64, 10))),],
+        // vec![concrete_midi(Plain(note_on(0, 64, 10))),],
         vec![],
         "feedback should be sent as soon as activation condition is met (met again)"
     );

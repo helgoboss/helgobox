@@ -2,12 +2,12 @@ use crate::base::{Global, NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
     DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
-    EelTransformation, FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData,
-    MainProcessor, MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId,
-    OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector,
-    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor,
-    SourceFeedbackValue, TouchedTrackParameterType,
+    EelTransformation, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, InstanceId,
+    LifecycleMidiData, MainProcessor, MidiCaptureSender, MidiDeviceChangePayload,
+    NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult, QualifiedClipMatrixEvent,
+    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    ReaperConfigChangeDetector, ReaperMessage, ReaperTarget, SharedMainProcessors,
+    SharedRealTimeProcessor, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
@@ -149,7 +149,7 @@ pub struct IoUpdatedEvent {
 pub struct SourceReleasedEvent {
     pub instance_id: InstanceId,
     pub feedback_output: FeedbackOutput,
-    pub feedback_value: SourceFeedbackValue,
+    pub feedback_value: FinalSourceFeedbackValue,
 }
 
 #[derive(Debug)]

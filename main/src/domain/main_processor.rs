@@ -4,18 +4,19 @@ use crate::domain::{
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlMode, ControlOutcome, DeviceFeedbackOutput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, GroupId, HitInstructionContext, HitInstructionResponse,
-    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
-    KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
+    FeedbackCollector, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    GroupId, HitInstructionContext, HitInstructionResponse, InstanceContainer,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
+    LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
     ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedClipMatrixEvent,
-    QualifiedMappingId, QualifiedSource, RawParamValue, RealFeedbackValue, RealTimeMappingUpdate,
+    QualifiedMappingId, QualifiedSource, RawParamValue, RealTimeMappingUpdate,
     RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
     VirtualSourceValue,
 };
@@ -90,12 +91,15 @@ struct Basics<EH: DomainEventHandler> {
     // "experiment/feedback-change-detection-mutable") but it the end it turned out to be impossible
     // because the reaper-rs control surface doesn't emit feedback-triggering events in a mutable
     // context. Rightfully so, because it's potentially reentrant!
+    // TODO-low This reason is now outdated. We detected a general issue with reentrancy.
+    //  https://github.com/helgoboss/reaper-rs/issues/54
     last_feedback_checksum_by_address:
         RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
     target_based_conditional_activation_processors:
         EnumMap<Compartment, TargetBasedConditionalActivationProcessor>,
 }
 
+/// Used for detecting and preventing subsequent duplicate feedback.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum FeedbackChecksum {
     MidiPlain(RawShortMessage),
@@ -106,11 +110,10 @@ enum FeedbackChecksum {
 }
 
 impl FeedbackChecksum {
-    fn from_value(v: &SourceFeedbackValue) -> Self {
-        use SourceFeedbackValue::*;
+    fn from_value(v: &FinalSourceFeedbackValue) -> Self {
         match v {
-            Midi(v) => Self::from_midi(v),
-            Osc(v) => Self::from_osc(v),
+            FinalSourceFeedbackValue::Midi(v) => Self::from_midi(v),
+            FinalSourceFeedbackValue::Osc(v) => Self::from_osc(v),
         }
     }
 
@@ -230,7 +233,7 @@ struct Channels {
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
-    integration_test_feedback_sender: Option<SenderToNormalThread<SourceFeedbackValue>>,
+    integration_test_feedback_sender: Option<SenderToNormalThread<FinalSourceFeedbackValue>>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -361,7 +364,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn finally_switch_off_source(
         &self,
         feedback_output: FeedbackOutput,
-        feedback_value: SourceFeedbackValue,
+        feedback_value: FinalSourceFeedbackValue,
     ) {
         debug!(
             self.basics.logger,
@@ -2643,7 +2646,7 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
-    UseIntegrationTestFeedbackSender(SenderToNormalThread<SourceFeedbackValue>),
+    UseIntegrationTestFeedbackSender(SenderToNormalThread<FinalSourceFeedbackValue>),
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -3402,6 +3405,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
+        let mut global_source_state = BackboneState::source_state().borrow_mut();
+        let mut feedback_collector =
+            FeedbackCollector::new(&mut global_source_state, self.settings.feedback_output);
         for feedback_value in feedback_values.into_iter() {
             match feedback_value.value {
                 SpecificCompoundFeedbackValue::Virtual {
@@ -3438,28 +3444,40 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     &self.source_context,
                                 );
                                 if let Some(SpecificCompoundFeedbackValue::Real(
-                                    final_feedback_value,
+                                    preliminary_feedback_value,
                                 )) = compound_feedback_value
                                 {
                                     // Successful virtual-to-real feedback
-                                    self.send_direct_feedback(
-                                        feedback_reason,
-                                        final_feedback_value,
-                                        feedback_value.is_feedback_after_control,
-                                    );
+                                    if let Some(final_feedback_value) =
+                                        feedback_collector.process(preliminary_feedback_value)
+                                    {
+                                        self.send_direct_feedback(
+                                            feedback_reason,
+                                            final_feedback_value,
+                                            feedback_value.is_feedback_after_control,
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                SpecificCompoundFeedbackValue::Real(final_feedback_value) => {
-                    self.send_direct_feedback(
-                        feedback_reason,
-                        final_feedback_value,
-                        feedback_value.is_feedback_after_control,
-                    );
+                SpecificCompoundFeedbackValue::Real(preliminary_feedback_value) => {
+                    if let Some(final_feedback_value) =
+                        feedback_collector.process(preliminary_feedback_value)
+                    {
+                        self.send_direct_feedback(
+                            feedback_reason,
+                            final_feedback_value,
+                            feedback_value.is_feedback_after_control,
+                        );
+                    }
                 }
             }
+        }
+        // Send special collected feedback
+        for final_feedback_value in feedback_collector.generate_final_feedback_values() {
+            self.send_direct_feedback(feedback_reason, final_feedback_value, false);
         }
     }
 
@@ -3467,7 +3485,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         feedback_output: FeedbackOutput,
         feedback_reason: FeedbackReason,
-        source_feedback_value: SourceFeedbackValue,
+        source_feedback_value: FinalSourceFeedbackValue,
         is_feedback_after_control: bool,
     ) {
         if feedback_reason.is_reset_because_of_source_release()
@@ -3507,7 +3525,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         } else {
             // Production
             match (source_feedback_value, feedback_output) {
-                (SourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
+                (FinalSourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
                     match midi_output {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
@@ -3545,7 +3563,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         }
                     }
                 }
-                (SourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
+                (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
                         log_real_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
@@ -3561,7 +3579,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     fn send_direct_feedback(
         &self,
         feedback_reason: FeedbackReason,
-        feedback_value: RealFeedbackValue,
+        feedback_value: FinalRealFeedbackValue,
         is_feedback_after_control: bool,
     ) {
         self.send_direct_device_feedback(
@@ -3584,7 +3602,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     fn send_direct_device_feedback(
         &self,
         feedback_reason: FeedbackReason,
-        feedback_value: Option<SourceFeedbackValue>,
+        feedback_value: Option<FinalSourceFeedbackValue>,
         is_feedback_after_control: bool,
     ) {
         if !feedback_reason.is_always_allowed() && !self.instance_feedback_is_effectively_enabled()

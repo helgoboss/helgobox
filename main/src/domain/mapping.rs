@@ -18,8 +18,8 @@ use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
     ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, SourceContext, Target,
-    UnitValue, ValueFormatter, ValueParser,
+    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
+    SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -1577,12 +1577,11 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// -  Source takeover (feedback)
-    ///
-    pub fn has_same_feedback_address_as_value(&self, value: &SourceFeedbackValue) -> bool {
+    pub fn has_same_feedback_address_as_value(&self, value: &FinalSourceFeedbackValue) -> bool {
         use CompoundMappingSource::*;
         match (self, value) {
-            (Osc(s), SourceFeedbackValue::Osc(v)) => s.has_same_feedback_address_as_value(v),
-            (Midi(s), SourceFeedbackValue::Midi(v)) => s.has_same_feedback_address_as_value(v),
+            (Osc(s), FinalSourceFeedbackValue::Osc(v)) => s.has_same_feedback_address_as_value(v),
+            (Midi(s), FinalSourceFeedbackValue::Midi(v)) => s.has_same_feedback_address_as_value(v),
             _ => false,
         }
     }
@@ -1689,15 +1688,15 @@ impl CompoundMappingSource {
         &self,
         feedback_value: Cow<FeedbackValue>,
         source_context: &SourceContext,
-    ) -> Option<SourceFeedbackValue> {
+    ) -> Option<PreliminarySourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s
                 .feedback_flexible(feedback_value.into_owned(), source_context)
-                .map(SourceFeedbackValue::Midi),
+                .map(PreliminarySourceFeedbackValue::Midi),
             Osc(s) => s
                 .feedback(feedback_value.into_owned())
-                .map(SourceFeedbackValue::Osc),
+                .map(PreliminarySourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
@@ -1756,7 +1755,7 @@ pub enum SpecificCompoundFeedbackValue {
         value: VirtualFeedbackValue,
         destinations: FeedbackDestinations,
     },
-    Real(RealFeedbackValue),
+    Real(PreliminaryRealFeedbackValue),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1808,14 +1807,19 @@ impl SpecificCompoundFeedbackValue {
             } else {
                 None
             };
-            SpecificCompoundFeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
+            SpecificCompoundFeedbackValue::Real(PreliminaryRealFeedbackValue::new(
+                projection, source,
+            )?)
         };
         Some(val)
     }
 }
 
+pub type PreliminaryRealFeedbackValue = AbstractRealFeedbackValue<PreliminarySourceFeedbackValue>;
+pub type FinalRealFeedbackValue = AbstractRealFeedbackValue<FinalSourceFeedbackValue>;
+
 #[derive(Clone, PartialEq, Debug)]
-pub struct RealFeedbackValue {
+pub struct AbstractRealFeedbackValue<T> {
     /// Feedback to be sent to projection.
     ///
     /// This is an option because there are situations when we don't want projection feedback but
@@ -1825,14 +1829,11 @@ pub struct RealFeedbackValue {
     ///
     /// This is an option because there are situations when we don't want source feedback but
     /// projection feedback (e.g. if "MIDI feedback output" is set to None).
-    pub source: Option<SourceFeedbackValue>,
+    pub source: Option<T>,
 }
 
-impl RealFeedbackValue {
-    pub fn new(
-        projection: Option<ProjectionFeedbackValue>,
-        source: Option<SourceFeedbackValue>,
-    ) -> Option<Self> {
+impl<T> AbstractRealFeedbackValue<T> {
+    pub fn new(projection: Option<ProjectionFeedbackValue>, source: Option<T>) -> Option<Self> {
         if projection.is_none() && source.is_none() {
             return None;
         }
@@ -1859,19 +1860,26 @@ impl ProjectionFeedbackValue {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum SourceFeedbackValue {
+pub enum PreliminarySourceFeedbackValue {
+    Midi(PreliminaryMidiSourceFeedbackValue<'static, RawShortMessage>),
+    Osc(OscMessage),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum FinalSourceFeedbackValue {
     Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
 }
 
-impl SourceFeedbackValue {
+impl FinalSourceFeedbackValue {
     pub fn extract_address(&self) -> Option<CompoundMappingSourceAddress> {
-        use SourceFeedbackValue::*;
         match self {
-            Midi(v) => v
+            FinalSourceFeedbackValue::Midi(v) => v
                 .extract_feedback_address()
                 .map(CompoundMappingSourceAddress::Midi),
-            Osc(v) => Some(CompoundMappingSourceAddress::Osc(v.addr.clone())),
+            FinalSourceFeedbackValue::Osc(v) => {
+                Some(CompoundMappingSourceAddress::Osc(v.addr.clone()))
+            }
         }
     }
 }
