@@ -1360,8 +1360,7 @@ impl Session {
     ) {
         // Prepare
         self.disable_control();
-        self.stop_learning_source();
-        self.stop_learning_target();
+        self.stop_mapping_actions();
         // Add initial mapping and start learning its source
         self.add_and_learn_one_of_many_mappings(
             session,
@@ -1461,8 +1460,7 @@ impl Session {
     pub fn stop_learning_many_mappings(&mut self) {
         self.learn_many_state.set(None);
         let source_learning_mapping_id = self.mapping_which_learns_source.get();
-        self.stop_learning_source();
-        self.stop_learning_target();
+        self.stop_mapping_actions();
         self.enable_control();
         // Remove last added mapping if source not learned already
         if let Some(id) = source_learning_mapping_id {
@@ -1625,14 +1623,14 @@ impl Session {
             let mut session = shared_session.borrow_mut();
             if let Some(qualified_id) = session.mapping_which_learns_source.get() {
                 if let Some(source) = session.create_compound_source(event) {
-                    session
-                        .change_mapping_by_id_with_closure(
-                            qualified_id,
-                            None,
-                            Rc::downgrade(&shared_session),
-                            |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
-                        )
-                        .unwrap();
+                    // The learn process should stop when removing a mapping but just in case,
+                    // let's react gracefully if the mapping doesn't exist anymore (do nothing).
+                    let _ = session.change_mapping_by_id_with_closure(
+                        qualified_id,
+                        None,
+                        Rc::downgrade(&shared_session),
+                        |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
+                    );
                 }
             }
         });
@@ -1761,8 +1759,14 @@ impl Session {
     }
 
     pub fn remove_mapping(&mut self, id: QualifiedMappingId) {
+        self.stop_mapping_actions();
         self.mappings[id.compartment].retain(|m| m.borrow().id() != id.id);
         self.notify_mapping_list_changed(id.compartment, None);
+    }
+
+    fn stop_mapping_actions(&mut self) {
+        self.stop_learning_source();
+        self.stop_learning_target();
     }
 
     pub fn duplicate_mapping(&mut self, id: QualifiedMappingId) -> Result<(), &str> {
@@ -1953,6 +1957,7 @@ impl Session {
 
     /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
     fn replace_compartment(&mut self, compartment: Compartment, model: Option<CompartmentModel>) {
+        self.stop_mapping_actions();
         if let Some(model) = model {
             let default_group = match compartment {
                 Compartment::Main => &mut self.default_main_group,
