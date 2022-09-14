@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-07-06 (v2.13.0)`
+|Last update of text: |`2022-08-14 (v2.14.1-pre.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -986,8 +986,9 @@ This allows you to save all currently visible mappings as a new preset. Please c
  (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at
  `Data/helgoboss/realearn/presets`. They are JSON files and very similar to what you get when you press
  _Export to clipboard_.
-** JSON files that represent controller mappings can also contain custom data sections. For example, the ReaLearn
- Companion app adds a custom data section in order to memorize the positions and shapes of all control elements.
+** Those files are usually in the root of that `presets` directory but can also reside in sub directories (one level only, sub/sub directories are not supported). Please note that the sub directory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn instances to stay intact.
+** JSON files can also contain custom data sections. For example, the ReaLearn
+ Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
 ** When pressing this button, ReaLearn might detect that your current mappings are referring to specific tracks and
  FX instances _within the current project_. This would somehow defeat the purpose of presets because what good
  are presets that are usable only within one project? That's why ReaLearn also offers you to automatically
@@ -1119,6 +1120,7 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
  it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
  naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
  track is unarmed (*this is subject to change in future!*).
+* *Reset feedback when releasing source:* When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switch off, displays are cleared, motor faders are pulled down). You can prevent this ReaLearn instance from doing this by disabling this option. This can be useful e.g. when using REAPER/ReaLearn to control a hardware device (essentially using ReaLearn the other way around, "controlling from target to source").
 * *Make instance superior:* If ticked, this instance is allowed to suspend other instances which share the same
  input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your
  controller control e.g. the currently focused FX but fall back to your usual controls when it's closed. It's intended
@@ -1134,6 +1136,12 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
  instance _superior_. Then, whenever this instance has at least one active mapping, all non-superior instances
  with the same control and/or feedback device will be disabled for control and/or feedback.
 ** You can have multiple superior instances. Make sure they get along with each other :)
+* *Use instance-wide FX-to-preset links only:* By default, instance-specific links are applied _in addition_ to the global links and take precedence over the global ones. This checkbox makes sure that only instance-specific links are used.
+* *Stay active when project in background:* Determines if and under which conditions this ReaLearn instance should stay active when the containing project tab is not the active one. Applies to in-project ReaLearn instances only, not to monitoring FX instances!
+** *Never:* Will only be active when its project tab is active.
+** *Only if background project is running:* Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
+** *Always (more or less):* Attempts to stay active no matter what. Please note that this is technically not always possible when using _<FX input>_ or _<FX output>_ when the background project is not running.
+
 
 ====== Server
 
@@ -1141,33 +1149,14 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
  connect to ReaLearn.
 * *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
  displays instructions how to do it.
-* *Change session ID…:* This lets you customize the ID used to address this particular ReaLearn
- instance when using the <<projection>> feature.
-** By default, the session ID is a random cryptic string
- which ensures that every instance is uniquely addressable. The result is that scanning the QR code
- of this ReaLearn instance will let your mobile device connect for sure with this unique
- instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
- is usually what you want.
-** But a side effect is that with every new ReaLearn instance that you create,
- you first have to point your mobile device to it in order to see its
- <<projection>> (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
- that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
- your mobile device that it should always show the <<projection>> of this very ReaLearn instance -
- no matter in which REAPER project you are and even if they control the volumes of totally
- different tracks.
-** You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
- to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
- You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
- ReaLearn instances in each project.
-** *Make sure to not have more than one ReaLearn instance with the same session
- ID active at the same time because then it's not clear to which your mobile device will connect!*
-** *At the moment, the session ID is part of the ReaLearn preset!* That means, opening a preset, copying/cutting
- a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
- future in favor of a more nuanced approach!
 
 ====== Help
 
 As the name says.
+
+====== Open preset folder
+
+Opens the ReaLearn preset folder in a file manager.
 
 ====== Reload all presets from disk
 
@@ -1275,9 +1264,46 @@ where it doesn't work though. In this case you can send feedback manually using 
 [#bottom-panel]
 ==== Bottom panel
 
-At the bottom you can see the current scroll position, optional tags assigned to this ReaLearn instance, information about the current instance track and instance FX, as well as information about what version of ReaLearn you have.
+At the bottom you can see:
 
-* *Edit tags...:* Press this button to assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
+- The current scroll position.
+- The session ID of this this ReaLearn instance.
+- Tags assigned to this ReaLearn instance.
+- Information about the current instance track and instance FX.
+- Information about what version of ReaLearn you have.
+
+===== Instance data...
+
+Press this button to change various key-value data of this ReaLearn instance as a whole.
+
+* *Session ID…:* This lets you customize the ID used to address this particular ReaLearn
+instance when using the <<projection>> feature.
+** By default, the session ID is a random cryptic string
+which ensures that every instance is uniquely addressable. The result is that scanning the QR code
+of this ReaLearn instance will let your mobile device connect for sure with this unique
+instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
+is usually what you want.
+** But a side effect is that with every new ReaLearn instance that you create,
+you first have to point your mobile device to it in order to see its
+<<projection>> (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
+that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
+your mobile device that it should always show the <<projection>> of this very ReaLearn instance -
+no matter in which REAPER project you are and even if they control the volumes of totally
+different tracks.
+** You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
+to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
+You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
+ReaLearn instances in each project.
++
+[CAUTION]
+====
+Make sure to not have more than one ReaLearn instance with the same session
+ID active at the same time because then it's not clear to which your mobile device will connect!
+====
+** *At the moment, the session ID is part of the ReaLearn preset!* That means, opening a preset, copying/cutting
+a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
+future in favor of a more nuanced approach!
+* *Tags:* Lets you assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
 [#instance-track]
 ===== Instance track
@@ -1454,10 +1480,6 @@ and `Pianoteq 7 STAGE.vst3` (VST3).
 
 This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn instance. This is useful if you have 2 controllers (= and therefore 2 ReaLearn instances) and want them to auto-load different presets although the instance FX points to the same plug-in.
 
-====== Options → Use instance-wide FX-to-preset links only
-
-By default, instance-specific links are applied _in addition_ to the global links and take precedence over the global ones. This checkbox makes sure that only instance-specific links are used.
-
 
 ==== Mapping row
 
@@ -1586,7 +1608,8 @@ This section provides the following mapping-related settings and functions:
  properties.
 * *Find in mapping list:* Scrolls the mapping rows panel so that the corresponding mapping row for
  this mapping gets visible.
-* *Enabled:* Enables or disables the mapping as a whole.
+* *Beep on success (checkbox on the bottom-left):* Makes the mapping play a sound whenever the target has been invoked successfully. Nice for trigger-like targets such as <<realearn-take-mapping-snapshot>> for which there's no other good way to know if it worked.
+* *Enabled (checkbox on the bottom-right):* Enables or disables the mapping as a whole.
 
 [#conditional-activation]
 ==== Conditional activation
@@ -2168,11 +2191,14 @@ This is a feedback-only source used to display text on MIDI-controllable hardwar
 * *Protocol:* Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
 ** *Mackie LCD:* Use this for MCU-compatible LCDs. Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
 ** *Mackie XT LCD:* Use this to control the displays of MCU XT devices (= control surface extenders, which provide additional faders and displays).
+** *X-Touch Mackie LCD:* Like _Mackie LCD_ but also supports colors on certain X-Touch devices.
+** *X-Touch Mackie XT LCD:* Like _Mackie LCD XT_ but also supports colors on certain X-Touch devices.
 ** *Mackie 7-segment display:* Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits). There's usually one small assignment display and a larger one for showing the time code.
 ** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
+** *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro. Only seems to work if you set _Feedback output_ to `MIDIOUT2 (Launchpad Pro)`.
+** *Studiologic SL Keyboard display:* Displays text on the display of Studiologic SL keyboards (tested with SL88).
 * *Display:* Choose the particular display or display portion to which you want to send text.
 * *Line:* Choose the line number.
-* *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro. Only seems to work if you set _Feedback output_ to `MIDIOUT2 (Launchpad Pro)`.
 
 CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines. This is great if you need to display a lot of text but one display doesn't provide enough space. But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
 
@@ -3018,6 +3044,10 @@ use the _Track: Select/unselect_ target instead.
 Enables all the track's FX instances if the incoming absolute control value is greater than
 0%, otherwise disables them.
 
+====== Track: Enable/disable parent send
+
+Enables the parent send routing of the track if the incoming absolute control value is greater than 0%, otherwise disables it.
+
 ====== Track: Mute/unmute
 
 Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
@@ -3333,9 +3363,9 @@ TIP: This target is great for switching between completely different controller 
 [#realearn-dummy-target]
 ====== Realearn: Dummy target
 
-This target simply does nothing when invoked and also doesn't provide any feedback.
+This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
 
-It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>. Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message.
+It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>. Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message. Or if you want to send some text feedback to a hardware display, if the text is just a constant string or uses a placeholder that doesn't need target context.
 
 [#realearn-enable-disable-mappings]
 ====== Realearn: Enable/disable mappings
@@ -3365,7 +3395,7 @@ Restores target values for all or certain mappings in this ReaLearn instances.
 * *Snapshot:* Choose the snapshot that you want to load.
 ** *<Initial>:* Restores the initial target values for the mappings.
 ** *By ID:* Restores target values contained in a snapshot that was taken via <<realearn-take-mapping-snapshot>>. Simply enter the corresponding ID here.
-* *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping.
+* *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping. If that participating mapping has <<Reverse>> checked, the inverse of the default value will be loaded.
 * *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
 ** If this field is empty, target values of all mappings will be restored.
 ** If this field contains tags (comma-separated), target values will be restored only for mappings that are tagged with any of these.
@@ -3374,14 +3404,19 @@ Restores target values for all or certain mappings in this ReaLearn instances.
 Please note:
 
 * Mappings for which control is not enabled, never participate in snapshotting.
-* Some targets don't report values (e.g. the <<realearn-load-mapping-snapshot>> target itself) and therefore don't participate in snapshotting.
+* Some targets don't report values and therefore don't participate in snapshotting.
+* Feedback of this target indicates whether the desired snapshot is the one which has last been loaded (for the given tags).
 
 [#realearn-take-mapping-snapshot]
 ====== Realearn: Take mapping snapshot
 
 Memorizes target values for all or certain mappings in this ReaLearn instances and saves them in a snapshot of your choice.
 
-* *Snapshot*: Enter the unique ID of the snapshot, e.g. `scene_1`.
+* *Snapshot*: Choose the snapshot to which you want to save the mapping values.
+** *<Last loaded>:* Always chooses the snapshot which is currently active (was last loaded) for the given tags.
++
+TIP: Only works if tags are not empty and if all tags have the same last-loaded snapshot. So the best is if you always enter exactly one tag.
+** *By ID:* Enter the unique ID of the snapshot, e.g. `scene_1`.
 * *Tags:* Allows you to restrict the set of mappings whose target values will be memorized.
 ** If this field is empty, target values of all mappings will be memorized.
 ** If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
@@ -3801,7 +3836,7 @@ The script can be much more
  complicated than the mentioned examples and make use of all built-in EEL2 language features. The
  important thing is to assign the desired value to `y` at some point.
 
-The following variables are available in the formula:
+The following variables/functions are available in the formula:
 
 [cols="m,1"]
 |===
@@ -3833,9 +3868,10 @@ A few examples:
 * Sinus LFO: `y = (sin(rel_time / 500) + 1) / 2`
 * Linear transition to control value (1 second): `y = abs(x - y) < 0.05 ? stop : x * min(rel_time / 500, 1)`
 * 2 seconds chaos: `y = rel_time < 2000 ? rand(1) : stop`
+* Setting a value with delay: `y = rel_time < 2000 ? none : stop(0.5)`
 
 |
-stop
+stop and stop(...)
 |
 
 In combination with `rel_time`, this stops repeated invocation of the formula until the mapping is triggered again.
@@ -3843,6 +3879,8 @@ In combination with `rel_time`, this stops repeated invocation of the formula un
 Good for building transitions with a defined end.
 
 Stopping the invocation at some point is also important if the same parameter should be controlled by other mappings as well. Otherwise, if multiple mappings continuously change the target parameter, only the last one wins.
+
+This also exists as a function, which lets you do both, returning a target value *and* stopping the transition. Pass the desired value in the parentheses, e.g. `stop(0.5)`.
 
 |
 none
