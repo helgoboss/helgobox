@@ -19,6 +19,7 @@ use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
+use crate::base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
@@ -228,6 +229,27 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    fn run_internal(&mut self) {
+        let timestamp = ControlEventTimestamp::now();
+        self.process_change_events();
+        self.main_task_middleware.run();
+        self.future_middleware.run();
+        self.rx_middleware.run();
+        self.process_main_tasks();
+        self.process_incoming_additional_feedback();
+        self.process_instance_orchestration_events();
+        self.detect_reaper_config_changes();
+        self.emit_beats_as_feedback_events();
+        self.emit_device_changes_as_reaper_source_messages(timestamp);
+        self.process_incoming_osc_messages(timestamp);
+        self.poll_clip_matrixes();
+        self.process_incoming_clip_matrix_events();
+        self.run_main_processors(timestamp);
+        self.drop_garbage();
+        self.process_deferred_control_surface_events();
+        self.counter += 1;
+    }
+
     pub fn remove_main_processor(&mut self, id: &InstanceId) {
         self.main_processors
             .borrow_mut()
@@ -263,7 +285,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn process_change_events(&mut self) {
         let mut normal_events = self.change_event_queue.borrow_mut();
         let monitoring_fx_events =
-            metrics_util::measure_time("detect monitoring FX changes", || {
+            metrics_util::measure_time("detect_monitoring_fx_changes", || {
                 self.monitoring_fx_chain_change_detector.poll_for_changes()
             });
         if normal_events.is_empty() && monitoring_fx_events.is_empty() {
@@ -635,24 +657,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        let timestamp = ControlEventTimestamp::now();
-        self.process_change_events();
-        self.main_task_middleware.run();
-        self.future_middleware.run();
-        self.rx_middleware.run();
-        self.process_main_tasks();
-        self.process_incoming_additional_feedback();
-        self.process_instance_orchestration_events();
-        self.detect_reaper_config_changes();
-        self.emit_beats_as_feedback_events();
-        self.emit_device_changes_as_reaper_source_messages(timestamp);
-        self.process_incoming_osc_messages(timestamp);
-        self.poll_clip_matrixes();
-        self.process_incoming_clip_matrix_events();
-        self.run_main_processors(timestamp);
-        self.drop_garbage();
-        self.process_deferred_control_surface_events();
-        self.counter += 1;
+        measure_time("run_control_surface", || {
+            self.run_internal();
+        });
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {

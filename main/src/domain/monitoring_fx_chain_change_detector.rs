@@ -1,7 +1,7 @@
 use either::Either;
 use reaper_high::{
     ChangeEvent, Fx, FxAddedEvent, FxClosedEvent, FxEnabledChangedEvent, FxOpenedEvent,
-    FxPresetChangedEvent, FxRemovedEvent, FxReorderedEvent, Guid, Reaper,
+    FxRemovedEvent, FxReorderedEvent, Guid, Reaper,
 };
 use std::collections::HashMap;
 use std::iter;
@@ -11,11 +11,13 @@ use std::iter;
 ///
 /// There are various ways we handle this:
 ///
-/// - FX parameter value changes: By polling (only mapped parameters though, because iterating over
-///   all parameters on each main loop cycle could be very resource-consuming).
-/// - FX focused: Seems to be detected correctly already.
-/// - FX on/off, FX added/removed/reordered, FX closed/open, FX preset changed
-///   We do that here by polling all monitoring FX instances on each main loop cycle.
+/// - **FX parameter value changes:** By polling (only mapped parameters though, because iterating
+///   over all parameters on each main loop cycle could be very resource-consuming).
+/// - **FX focused:** Seems to be detected correctly already.
+/// - **FX on/off, FX added/removed/reordered, FX closed/open:** We do that here by polling all
+///   monitoring FX instances on each main loop cycle.
+/// - **FX preset changed:** We don't do that because it takes quite a long time compared to all the
+///   other checks (checked with REAPER 6.56).
 #[derive(Debug, Default)]
 pub struct MonitoringFxChainChangeDetector {
     items: HashMap<Guid, Item>,
@@ -27,7 +29,6 @@ struct Item {
     index: u32,
     enabled: bool,
     open: bool,
-    preset_index: Option<u32>,
 }
 
 impl MonitoringFxChainChangeDetector {
@@ -107,18 +108,10 @@ fn diff(
             } else {
                 None
             };
-            let preset_changed = if next_item.preset_index != prev_item.preset_index {
-                Some(ChangeEvent::FxPresetChanged(FxPresetChangedEvent {
-                    fx: next_item.fx.clone(),
-                }))
-            } else {
-                None
-            };
             Either::Left(
                 opened_closed
                     .into_iter()
                     .chain(enabled.into_iter())
-                    .chain(preset_changed)
                     .into_iter(),
             )
         } else {
@@ -144,7 +137,6 @@ fn gather_monitoring_fxs() -> HashMap<Guid, Item> {
                 index: i as u32,
                 enabled: fx.is_enabled(),
                 open: fx.window_is_open(),
-                preset_index: fx.preset_index_and_count().index,
                 fx,
             };
             (key, value)
