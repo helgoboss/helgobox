@@ -71,12 +71,13 @@ impl RealearnTarget for ActionTarget {
             ),
             ActionInvocationType::Absolute14Bit | ActionInvocationType::Absolute7Bit => {
                 match self.action.character() {
-                    ActionCharacter::Toggle => {
+                    Ok(ActionCharacter::Toggle) => {
                         (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
                     }
-                    ActionCharacter::Trigger => {
+                    Ok(ActionCharacter::Trigger) => {
                         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
                     }
+                    Err(_) => (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
                 }
             }
             ActionInvocationType::Relative => (ControlType::Relative, TargetCharacter::Discrete),
@@ -88,7 +89,8 @@ impl RealearnTarget for ActionTarget {
         Reaper::get()
             .main_section()
             .action_by_command_id(CommandId::new(40605))
-            .invoke_as_trigger(Some(self.project));
+            .invoke_as_trigger(Some(self.project))
+            .expect("built-in action should exist");
     }
 
     fn format_value(&self, _: UnitValue, _: ControlContext) -> String {
@@ -116,16 +118,16 @@ impl RealearnTarget for ActionTarget {
                     if v.is_zero() {
                         HitResponse::ignored()
                     } else {
-                        self.invoke_absolute_with_unit_value(v, false);
+                        self.invoke_absolute_with_unit_value(v, false)?;
                         HitResponse::processed_with_effect()
                     }
                 }
                 ActionInvocationType::Absolute14Bit => {
-                    self.invoke_absolute_with_unit_value(v, false);
+                    self.invoke_absolute_with_unit_value(v, false)?;
                     HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Absolute7Bit => {
-                    self.invoke_absolute_with_unit_value(v, true);
+                    self.invoke_absolute_with_unit_value(v, true)?;
                     HitResponse::processed_with_effect()
                 }
                 ActionInvocationType::Relative => {
@@ -155,7 +157,7 @@ impl RealearnTarget for ActionTarget {
             },
             ControlValue::RelativeDiscrete(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
-                    self.action.invoke_relative(i.get(), Some(self.project));
+                    self.action.invoke_relative(i.get(), Some(self.project))?;
                     HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
@@ -164,7 +166,7 @@ impl RealearnTarget for ActionTarget {
             ControlValue::RelativeContinuous(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
                     let i = i.to_discrete_increment();
-                    self.action.invoke_relative(i.get(), Some(self.project));
+                    self.action.invoke_relative(i.get(), Some(self.project))?;
                     HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
@@ -187,7 +189,7 @@ impl RealearnTarget for ActionTarget {
             // We can't provide a value from the event itself because the action hooks don't
             // pass values.
             CompoundChangeEvent::Additional(AdditionalFeedbackEvent::ActionInvoked(e))
-                if e.command_id == self.action.command_id() =>
+                if Ok(e.command_id) == self.action.command_id() =>
             {
                 (true, None)
             }
@@ -196,7 +198,7 @@ impl RealearnTarget for ActionTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(format_bool_as_on_off(self.action.is_on()?).into())
+        Some(format_bool_as_on_off(self.action.is_on().ok()??).into())
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -208,7 +210,7 @@ impl<'a> Target<'a> for ActionTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = if let Some(state) = self.action.is_on() {
+        let val = if let Some(state) = self.action.is_on().ok()? {
             // Toggle action: Return toggle state as 0 or 1.
             convert_bool_to_unit_value(state)
         } else if self.invocation_type.is_absolute() {
@@ -249,13 +251,18 @@ impl ActionTarget {
             value_change,
             WindowContext::Win(Reaper::get().main_window()),
             self.project.context(),
-        );
+        )?;
         Ok(())
     }
 
-    fn invoke_absolute_with_unit_value(&self, v: UnitValue, enforce_7_bit: bool) {
+    fn invoke_absolute_with_unit_value(
+        &self,
+        v: UnitValue,
+        enforce_7_bit: bool,
+    ) -> Result<(), &'static str> {
         self.action
-            .invoke_absolute(v.get(), Some(self.project), enforce_7_bit)
+            .invoke_absolute(v.get(), Some(self.project), enforce_7_bit)?;
+        Ok(())
     }
 }
 

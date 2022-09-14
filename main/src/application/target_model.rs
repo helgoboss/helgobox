@@ -2554,7 +2554,11 @@ impl TargetModel {
             None => "-".into(),
             Some(action) => {
                 if action.is_available() {
-                    action.command_id().to_string().into()
+                    action
+                        .command_id()
+                        .expect("should be available")
+                        .to_string()
+                        .into()
                 } else if let Some(command_name) = action.command_name() {
                     format!("<Not present> ({})", command_name.to_str()).into()
                 } else {
@@ -2575,7 +2579,7 @@ impl TargetModel {
     pub fn action_name_label(&self) -> Cow<str> {
         match self.resolved_action().ok() {
             None => "-".into(),
-            Some(a) => a.name().into_string().into(),
+            Some(a) => a.name().expect("should be available").into_string().into(),
         }
     }
 }
@@ -2592,7 +2596,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                 match tt {
                     Action => match self.0.resolved_action().ok() {
                         None => write!(f, "Action {}", self.0.command_id_label()),
-                        Some(a) => f.write_str(a.name().to_str()),
+                        Some(a) => f.write_str(a.name().expect("should be available").to_str()),
                     },
                     AutomationModeOverride => {
                         write!(f, "{}: ", tt.short_name())?;

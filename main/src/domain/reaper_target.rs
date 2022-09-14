@@ -996,7 +996,7 @@ impl TransportAction {
 
 fn determine_target_for_action(action: Action) -> ReaperTarget {
     let project = Reaper::get().current_project();
-    match action.command_id().get() {
+    match action.command_id().expect("should be available").get() {
         // Play button | stop button
         1007 | 1016 => ReaperTarget::Transport(TransportTarget {
             project,

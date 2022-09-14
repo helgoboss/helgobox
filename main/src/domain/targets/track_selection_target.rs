@@ -90,7 +90,8 @@ impl RealearnTarget for TrackSelectionTarget {
             Reaper::get()
                 .main_section()
                 .action_by_command_id(CommandId::new(40913))
-                .invoke_as_trigger(Some(self.track.project()));
+                .invoke_as_trigger(Some(self.track.project()))
+                .expect("built-in action should exist");
         }
         if self.scroll_mixer {
             self.track.scroll_mixer();

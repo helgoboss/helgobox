@@ -414,7 +414,7 @@ impl Slot {
         Reaper::get()
             .main_section()
             .action_by_command_id(apply_fx_id)
-            .invoke_as_trigger(Some(project));
+            .invoke_as_trigger(Some(project))?;
         let frozen_take = manifestation
             .item
             .active_take()
@@ -441,7 +441,7 @@ impl Slot {
             // open_midi_editor_via_action(temporary_project, item);
             open_midi_editor_directly(editor_track, manifestation.take);
         } else {
-            open_audio_editor(temporary_project, manifestation.item);
+            open_audio_editor(temporary_project, manifestation.item)?;
         }
         Ok(())
     }
@@ -463,7 +463,7 @@ impl Slot {
             Reaper::get()
                 .main_section()
                 .action_by_command_id(CommandId::new(40848))
-                .invoke_as_trigger(Some(temporary_project));
+                .invoke_as_trigger(Some(temporary_project))?;
         }
         Ok(())
     }
@@ -1010,7 +1010,7 @@ fn open_midi_editor_directly(editor_track: Track, take: Take) {
 }
 
 #[allow(dead_code)]
-fn open_midi_editor_via_action(project: Project, item: Item) {
+fn open_midi_editor_via_action(project: Project, item: Item) -> ClipEngineResult<()> {
     project.select_item_exclusively(item);
     // Open built-in MIDI editor
     let open_midi_editor_command_id = CommandId::new(40153);
@@ -1019,18 +1019,20 @@ fn open_midi_editor_via_action(project: Project, item: Item) {
     Reaper::get()
         .main_section()
         .action_by_command_id(open_midi_editor_command_id)
-        .invoke_as_trigger(item.project());
+        .invoke_as_trigger(item.project())?;
     configure_midi_editor();
+    Ok(())
 }
 
-fn open_audio_editor(project: Project, item: Item) {
+fn open_audio_editor(project: Project, item: Item) -> ClipEngineResult<()> {
     project.select_item_exclusively(item);
     // Toggle zoom to selected items
     let open_midi_editor_command_id = CommandId::new(41622);
     Reaper::get()
         .main_section()
         .action_by_command_id(open_midi_editor_command_id)
-        .invoke_as_trigger(item.project());
+        .invoke_as_trigger(item.project())?;
+    Ok(())
 }
 
 fn configure_midi_editor() {

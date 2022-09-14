@@ -456,12 +456,12 @@ impl TargetModelData {
             category: model.category(),
             unit: model.unit(),
             r#type: model.target_type(),
-            command_name: model.action().map(|a| match a.command_name() {
+            command_name: model.action().and_then(|a| match a.command_name() {
                 // Built-in actions don't have a command name but a persistent command ID.
                 // Use command ID as string.
-                None => a.command_id().to_string(),
+                None => a.command_id().ok().map(|id| id.to_string()),
                 // ReaScripts and custom actions have a command name as persistent identifier.
-                Some(name) => name.into_string(),
+                Some(name) => Some(name.into_string()),
             }),
             invocation_type: model.action_invocation_type(),
             // Not serialized anymore because deprecated

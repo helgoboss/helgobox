@@ -689,7 +689,7 @@ impl MappingPanel {
                 use InitialAction::*;
                 let initial_action = match mapping.borrow().target_model.action() {
                     None => NoneSelected,
-                    Some(a) => Selected(a.command_id()),
+                    Some(a) => Selected(a.command_id()?),
                 };
                 // TODO-low Add this to reaper-high with rxRust
                 if reaper.low().pointers().PromptForAction.is_none() {

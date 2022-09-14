@@ -69,7 +69,8 @@ pub trait RealearnTarget {
             Reaper::get()
                 .main_section()
                 .action_by_command_id(CommandId::new(40913))
-                .invoke_as_trigger(Some(track.project()));
+                .invoke_as_trigger(Some(track.project()))
+                .expect("built-in action should exist");
         }
     }
 
