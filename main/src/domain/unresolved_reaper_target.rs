@@ -559,7 +559,10 @@ impl TrackRouteSelector {
                 resolve_track_route_by_index(track, route_type, i)?
             }
             ById(guid) => {
-                let related_track = track.project().track_by_guid(guid);
+                let related_track = track
+                    .project()
+                    .track_by_guid(guid)
+                    .map_err(|_| TrackRouteResolveError::ProjectNotAvailable)?;
                 let route = find_route_by_related_track(track, &related_track, route_type)?;
                 route.ok_or(TrackRouteResolveError::TrackRouteNotFound {
                     guid: Some(*guid),
@@ -1266,7 +1269,8 @@ impl VirtualTrack {
                     // If this is monitoring FX, we want this to resolve to the master track since
                     // in most functions, monitoring FX chain is the "input FX chain" of the master
                     // track.
-                    .unwrap_or_else(|| project.master_track());
+                    .or_else(|| project.master_track().ok())
+                    .ok_or(TrackResolveError::ProjectNotAvailable)?;
                 vec![single]
             }
             Selected { allow_multiple } => project
@@ -1278,7 +1282,9 @@ impl VirtualTrack {
                 let single = resolve_track_by_index(project, index)?;
                 vec![single]
             }
-            Master => vec![project.master_track()],
+            Master => vec![project
+                .master_track()
+                .map_err(|_| TrackResolveError::ProjectNotAvailable)?],
             Instance => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let instance_track = instance_state.instance_track_descriptor();
@@ -1288,7 +1294,9 @@ impl VirtualTrack {
                 return instance_track.track.resolve(context, compartment);
             }
             ByIdOrName(guid, name) => {
-                let t = project.track_by_guid(guid);
+                let t = project
+                    .track_by_guid(guid)
+                    .map_err(|_| TrackResolveError::ProjectNotAvailable)?;
                 let single = if t.is_available() {
                     t
                 } else {
@@ -1301,7 +1309,9 @@ impl VirtualTrack {
                 vec![single]
             }
             ById(guid) => {
-                let single = project.track_by_guid(guid);
+                let single = project
+                    .track_by_guid(guid)
+                    .map_err(|_| TrackResolveError::ProjectNotAvailable)?;
                 if !single.is_available() {
                     return Err(TrackResolveError::TrackNotFound {
                         guid: Some(*guid),
@@ -1548,6 +1558,7 @@ pub enum TrackResolveError {
     ExpressionFailed,
     #[display(fmt = "OutOfRange")]
     OutOfRange,
+    ProjectNotAvailable,
     #[display(fmt = "TrackNotFound")]
     TrackNotFound {
         guid: Option<Guid>,
@@ -1579,6 +1590,7 @@ pub enum TrackRouteResolveError {
     OutOfRange,
     #[display(fmt = "InvalidRoute")]
     InvalidRoute,
+    ProjectNotAvailable,
     #[display(fmt = "TrackRouteNotFound")]
     TrackRouteNotFound {
         guid: Option<Guid>,
@@ -1862,7 +1874,9 @@ fn resolve_track_by_index(project: Project, index: i32) -> Result<Track, TrackRe
                 index: Some(i),
             })
     } else {
-        Ok(project.master_track())
+        project
+            .master_track()
+            .map_err(|_| TrackResolveError::ProjectNotAvailable)
     }
 }
 

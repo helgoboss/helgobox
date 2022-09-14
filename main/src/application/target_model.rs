@@ -1541,7 +1541,10 @@ impl TargetModel {
             } else {
                 // Must be monitoring FX. In this case we want the master track (it's REAPER's
                 // convention and ours).
-                context.project_or_current_project().master_track()
+                context
+                    .project_or_current_project()
+                    .master_track()
+                    .expect("no way")
             };
             let _ = self.set_virtual_track(virtualize_track(&track, context, true), Some(context));
         } else if let Some(track) = target.track() {
@@ -3150,10 +3153,12 @@ fn virtualize_track(
     context: &ProcessorContext,
     special_monitoring_fx_handling: bool,
 ) -> VirtualTrack {
-    let own_track = context
-        .track()
-        .cloned()
-        .unwrap_or_else(|| context.project_or_current_project().master_track());
+    let own_track = context.track().cloned().unwrap_or_else(|| {
+        context
+            .project_or_current_project()
+            .master_track()
+            .expect("no way")
+    });
     if own_track == *track {
         VirtualTrack::This
     } else if track.is_master_track() {
@@ -3889,14 +3894,11 @@ impl<'a> ConcreteTrackInstruction<'a> {
                 ById {
                     id: Some(id),
                     context: Some(c),
-                } => {
-                    let t = c.project_or_current_project().track_by_guid(id);
-                    if t.is_available() {
-                        Some(t)
-                    } else {
-                        None
-                    }
-                }
+                } => c
+                    .project_or_current_project()
+                    .track_by_guid(id)
+                    .ok()
+                    .and_then(|t| if t.is_available() { Some(t) } else { None }),
                 ByIdWithTrack(t) => Some(t.clone()),
                 _ => None,
             },

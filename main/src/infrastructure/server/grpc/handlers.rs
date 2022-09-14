@@ -124,22 +124,28 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Self::GetOccasionalMatrixUpdatesStream>, Status> {
         use occasional_matrix_update::Update;
         let initial_matrix_updates = App::get()
-            .with_clip_matrix(&request.get_ref().clip_matrix_id, |matrix| {
-                let project = matrix.permanent_project().or_current_project();
-                let master_track = project.master_track();
-                [
-                    Update::Volume(master_track.volume().db().get()),
-                    Update::Pan(master_track.pan().reaper_value().get()),
-                    Update::Tempo(project.tempo().bpm().get()),
-                    Update::ArrangementPlayState(
-                        ArrangementPlayState::from_engine(project.play_state()).into(),
-                    ),
-                ]
-                .into_iter()
-                .map(|u| OccasionalMatrixUpdate { update: Some(u) })
-                .collect()
-            })
-            .map_err(Status::not_found)?;
+            .with_clip_matrix(
+                &request.get_ref().clip_matrix_id,
+                |matrix| -> Result<_, &'static str> {
+                    let project = matrix.permanent_project().or_current_project();
+                    let master_track = project.master_track()?;
+                    let updates = [
+                        Update::Volume(master_track.volume().db().get()),
+                        Update::Pan(master_track.pan().reaper_value().get()),
+                        Update::Tempo(project.tempo().bpm().get()),
+                        Update::ArrangementPlayState(
+                            ArrangementPlayState::from_engine(project.play_state()).into(),
+                        ),
+                    ];
+                    let updates: Vec<_> = updates
+                        .into_iter()
+                        .map(|u| OccasionalMatrixUpdate { update: Some(u) })
+                        .collect();
+                    Ok(updates)
+                },
+            )
+            .map_err(Status::not_found)?
+            .map_err(Status::unknown)?;
         let initial_reply = GetOccasionalMatrixUpdatesReply {
             matrix_updates: initial_matrix_updates,
         };

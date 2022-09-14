@@ -100,7 +100,7 @@ impl RealearnTarget for SelectedTrackTarget {
             }
         };
         let track = match track_index {
-            None => self.project.master_track(),
+            None => self.project.master_track()?,
             Some(i) => self
                 .project
                 .track_by_index(i)

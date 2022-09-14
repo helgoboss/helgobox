@@ -101,7 +101,7 @@ impl Column {
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
             let guid = Guid::from_string_without_braces(id.get())?;
-            Some(self.project.or_current_project().track_by_guid(&guid))
+            self.project.or_current_project().track_by_guid(&guid).ok()
         } else {
             None
         };
@@ -703,7 +703,7 @@ fn resolve_recording_track(
 ) -> ClipEngineResult<Track> {
     if let Some(track_id) = &column_settings.track {
         let track_guid = Guid::from_string_without_braces(track_id.get())?;
-        let track = playback_track.project().track_by_guid(&track_guid);
+        let track = playback_track.project().track_by_guid(&track_guid)?;
         if track.is_available() {
             Ok(track)
         } else {

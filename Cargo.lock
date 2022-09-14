@@ -3295,6 +3295,7 @@ dependencies = [
  "backtrace",
  "c_str_macro",
  "crossbeam-channel",
+ "either",
  "enumflags2",
  "futures",
  "helgoboss-midi",

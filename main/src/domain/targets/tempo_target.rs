@@ -78,7 +78,7 @@ impl RealearnTarget for TempoTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let tempo = reaper_high::Tempo::from_normalized_value(value.to_unit_value()?.get());
-        self.project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);
+        self.project.set_tempo(tempo, UndoBehavior::OmitUndoPoint)?;
         Ok(HitResponse::processed_with_effect())
     }
 

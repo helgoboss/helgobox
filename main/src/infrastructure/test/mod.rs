@@ -122,7 +122,7 @@ async fn setup() -> RealearnTestInstance {
     // When
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
-    let track = project.add_track();
+    let track = project.add_track().unwrap();
     let fx = track
         .normal_fx_chain()
         .add_fx_by_original_name("ReaLearn (Helgoboss)")
@@ -755,7 +755,7 @@ async fn track_by_id() {
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
     assert_eq!(realearn.pop_feedback(), vec![]);
     // When
-    let track_2 = realearn.track().project().add_track();
+    let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
@@ -786,7 +786,7 @@ async fn track_by_position() {
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
     // When
-    let track_2 = realearn.track().project().add_track();
+    let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
@@ -811,7 +811,7 @@ async fn fx_by_position() {
     // Given
     let realearn = setup().await;
     let project = Reaper::get().current_project();
-    let chain = project.add_track().normal_fx_chain();
+    let chain = project.add_track().unwrap().normal_fx_chain();
     let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
@@ -890,7 +890,7 @@ async fn fx_by_name() {
     // Given
     let realearn = setup().await;
     let project = Reaper::get().current_project();
-    let chain = project.add_track().normal_fx_chain();
+    let chain = project.add_track().unwrap().normal_fx_chain();
     let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
@@ -956,7 +956,7 @@ async fn fx_by_id() {
     // Given
     let realearn = setup().await;
     let project = Reaper::get().current_project();
-    let chain = project.add_track().normal_fx_chain();
+    let chain = project.add_track().unwrap().normal_fx_chain();
     let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let eq_guid_string = eq.guid().unwrap().to_string_without_braces();
@@ -1042,7 +1042,7 @@ async fn track_by_name() {
         "no feedback should be sent if target value not changed"
     );
     // When
-    let track_2 = realearn.track().project().add_track();
+    let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);

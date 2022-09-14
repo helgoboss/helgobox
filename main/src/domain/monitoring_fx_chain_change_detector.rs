@@ -80,7 +80,10 @@ fn diff(
     });
     let reordered = if is_reordered {
         let event = FxReorderedEvent {
-            track: Reaper::get().current_project().master_track(),
+            track: Reaper::get()
+                .current_project()
+                .master_track()
+                .expect("master track of current project must exist"),
         };
         Either::Left(iter::once(ChangeEvent::FxReordered(event)))
     } else {

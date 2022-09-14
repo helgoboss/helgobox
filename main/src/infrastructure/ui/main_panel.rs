@@ -678,7 +678,11 @@ fn send_continuous_matrix_updates(session: &Session) {
             second: pos.get(),
             bar: (next_bar.position() - 1) as i32,
             beat: full_beats.get(),
-            peaks: get_track_peaks(&project.or_current_project().master_track()),
+            peaks: project
+                .or_current_project()
+                .master_track()
+                .map(|t| get_track_peaks(&t))
+                .unwrap_or_default(),
         },
     };
     let _ = sender.send(batch_event);

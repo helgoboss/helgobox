@@ -435,7 +435,7 @@ impl Slot {
     pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
         let is_midi = content.runtime_data.material_info.is_midi();
-        let editor_track = find_or_create_editor_track(temporary_project, !is_midi);
+        let editor_track = find_or_create_editor_track(temporary_project, !is_midi)?;
         let manifestation = manifest_clip_on_track(temporary_project, content, &editor_track)?;
         if is_midi {
             // open_midi_editor_via_action(temporary_project, item);
@@ -934,15 +934,17 @@ pub fn create_midi_overdub_instruction(
     Ok(instruction)
 }
 
-fn find_or_create_editor_track(project: Project, show_track: bool) -> Track {
-    let track = find_editor_track(project).unwrap_or_else(|| {
-        let track = project.add_track();
-        track.set_name(EDITOR_TRACK_NAME);
-        track
-    });
+fn find_or_create_editor_track(project: Project, show_track: bool) -> ClipEngineResult<Track> {
+    let track = find_editor_track(project)
+        .or_else(|| {
+            let track = project.add_track().ok()?;
+            track.set_name(EDITOR_TRACK_NAME);
+            Some(track)
+        })
+        .ok_or("couldn't find or create editor track")?;
     track.set_shown(TrackArea::Mcp, show_track);
     track.set_shown(TrackArea::Tcp, show_track);
-    track
+    Ok(track)
 }
 
 fn find_editor_track(project: Project) -> Option<Track> {

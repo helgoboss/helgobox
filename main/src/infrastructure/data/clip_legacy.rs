@@ -151,10 +151,10 @@ impl LegacyClipOutput {
             "track-based columns are not supported when clip engine runs in monitoring FX chain",
         );
         let track = match self {
-            MasterTrack => Some(containing_track?.project().master_track()),
+            MasterTrack => Some(containing_track?.project().master_track()?),
             ThisTrack => Some(containing_track?),
             TrackById(id) => {
-                let track = containing_track?.project().track_by_guid(id);
+                let track = containing_track?.project().track_by_guid(id)?;
                 if track.is_available() {
                     Some(track)
                 } else {
