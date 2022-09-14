@@ -283,7 +283,22 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_change_events(&mut self) {
-        let mut normal_events = self.change_event_queue.borrow_mut();
+        // Our goal is to always keep using the same change event queue vector so that we don't
+        // have to reallocate on each main loop cycle. That's also why we use `drain` further down.
+        // Previously, we just directly used the `change_event_queue` variable. However, an
+        // issue occurred: https://github.com/helgoboss/realearn/issues/672#issuecomment-1246997201.
+        // A user got a panic while the main processors processed the change events ... which is not
+        // optimal but can happen in certain cases that are a topic for another day, see the
+        // comment. The issue we need to deal with here is another one: The same panic occurred
+        // until eternity because at the next main loop cycle the same event was still in the queue!
+        // That's exactly the reason why we now temporarily replace `change_event_queue` with an
+        // empty vector (doesn't require allocation) and replace it again with the old vector
+        // when everything run through successfully. To my knowledge, this is the only place where
+        // we need this logic because everywhere else we use channels, which have this logic baked
+        // in already ("pop instead of peek").
+        // Long story short: The following line ensures we make a "pop" instead of a "peek" in order
+        // to avoid an infinite loop in case of a panic.
+        let mut normal_events = self.change_event_queue.replace(vec![]);
         let monitoring_fx_events =
             metrics_util::measure_time("detect_monitoring_fx_changes", || {
                 self.monitoring_fx_chain_change_detector.poll_for_changes()
@@ -318,6 +333,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        // Now that everything ran successfully, we can assign the old drained vector back to the
+        // original event queue. This ensures we can keep using the previous memory allocation.
+        *self.change_event_queue.borrow_mut() = normal_events;
     }
 
     fn process_deferred_control_surface_events(&self) {
