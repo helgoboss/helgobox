@@ -61,7 +61,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             .filter_map(|result| {
                 let dir_entry = result.ok()?;
                 let file_type = dir_entry.file_type().ok()?;
-                if !file_type.is_file() {
+                if !file_type.is_file() && !file_type.is_symlink() {
                     return None;
                 }
                 let path = dir_entry.path();
