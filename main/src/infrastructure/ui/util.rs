@@ -3,6 +3,7 @@ use crate::domain::{compartment_param_index_iter, Compartment, Tag};
 use crate::infrastructure::ui::bindings::root;
 use realearn_dialogs::constants;
 use reaper_high::Reaper;
+use std::path::Path;
 use std::str::FromStr;
 use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
 
@@ -203,6 +204,26 @@ pub fn open_in_browser(url: &str) {
             format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
         );
     }
+}
+
+#[cfg(target_os = "windows")]
+const FILE_MANAGER_CMD: &str = "explorer";
+
+#[cfg(target_os = "macos")]
+const FILE_MANAGER_CMD: &str = "open";
+
+#[cfg(target_os = "linux")]
+const FILE_MANAGER_CMD: &str = "xdg-open";
+
+pub fn open_in_file_manager(path: &Path) -> Result<(), &'static str> {
+    let final_path = path
+        .canonicalize()
+        .map_err(|_| "couldn't canonicalize path")?;
+    std::process::Command::new(FILE_MANAGER_CMD)
+        .arg(final_path)
+        .spawn()
+        .map_err(|_| "couldn't execute command to open file manager")?;
+    Ok(())
 }
 
 pub fn open_in_text_editor(

@@ -41,7 +41,7 @@ use crate::infrastructure::ui::bindings::root;
 use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::open_in_browser;
+use crate::infrastructure::ui::util::{open_in_browser, open_in_file_manager};
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
@@ -547,6 +547,7 @@ impl HeaderPanel {
                         item("Donate", || ContextMenuAction::Donate),
                     ],
                 ),
+                item("Open preset folder", || ContextMenuAction::OpenPresetFolder),
                 item("Reload all presets from disk", || {
                     ContextMenuAction::ReloadAllPresets
                 }),
@@ -748,6 +749,7 @@ impl HeaderPanel {
             ContextMenuAction::OpenWebsite => self.open_website(),
             ContextMenuAction::Donate => self.donate(),
             ContextMenuAction::ReloadAllPresets => self.reload_all_presets(),
+            ContextMenuAction::OpenPresetFolder => self.open_preset_folder(),
             ContextMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
             ContextMenuAction::LogDebugInfo => self.log_debug_info(),
             ContextMenuAction::EditPresetLinkFxId(scope, fx_id) => {
@@ -2211,6 +2213,12 @@ impl HeaderPanel {
         let _ = App::get().main_preset_manager().borrow_mut().load_presets();
     }
 
+    fn open_preset_folder(&self) {
+        let path = App::realearn_preset_dir_path();
+        let result = open_in_file_manager(&path).map_err(|e| e.into());
+        self.notify_user_on_error(result);
+    }
+
     fn make_mappings_project_independent_if_desired(&self) {
         let session = self.session();
         let compartment = self.active_compartment();
@@ -2914,6 +2922,7 @@ enum ContextMenuAction {
     OpenWebsite,
     Donate,
     ReloadAllPresets,
+    OpenPresetFolder,
     EditNewOscDevice,
     EditExistingOscDevice(OscDeviceId),
     RemoveOscDevice(OscDeviceId),
