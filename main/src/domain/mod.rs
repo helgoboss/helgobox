@@ -108,6 +108,9 @@ pub use device_change_detector::*;
 mod reaper_config_change_detector;
 pub use reaper_config_change_detector::*;
 
+mod monitoring_fx_chain_change_detector;
+pub use monitoring_fx_chain_change_detector::*;
+
 mod small_ascii_string;
 pub use small_ascii_string::*;
 

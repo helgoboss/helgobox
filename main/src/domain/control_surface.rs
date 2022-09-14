@@ -1,13 +1,13 @@
-use crate::base::{Global, NamedChannelSender, SenderToNormalThread};
+use crate::base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
     DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
     EelTransformation, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, InstanceId,
     LifecycleMidiData, MainProcessor, MidiCaptureSender, MidiDeviceChangePayload,
-    NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult, QualifiedClipMatrixEvent,
-    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    ReaperConfigChangeDetector, ReaperMessage, ReaperTarget, SharedMainProcessors,
-    SharedRealTimeProcessor, TouchedTrackParameterType,
+    MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId, OscInputDevice,
+    OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector, ReaperMessage,
+    ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
@@ -45,6 +45,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     logger: slog::Logger,
     change_detection_middleware: ChangeDetectionMiddleware,
     change_event_queue: RefCell<Vec<ChangeEvent>>,
+    monitoring_fx_chain_change_detector: MonitoringFxChainChangeDetector,
     rx_middleware: ControlSurfaceRxMiddleware,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
@@ -209,6 +210,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
             change_event_queue: RefCell::new(Vec::with_capacity(100)),
+            monitoring_fx_chain_change_detector: Default::default(),
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             main_processors,
             main_task_receiver,
@@ -275,7 +277,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
-        self.process_enqueued_change_events();
+        self.process_change_events();
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
@@ -299,15 +301,30 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.counter += 1;
     }
 
-    fn process_enqueued_change_events(&mut self) {
-        let mut change_event_queue = self.change_event_queue.borrow_mut();
+    fn process_change_events(&mut self) {
+        let mut normal_events = self.change_event_queue.borrow_mut();
+        let monitoring_fx_events =
+            metrics_util::measure_time("detect monitoring FX changes", || {
+                self.monitoring_fx_chain_change_detector.poll_for_changes()
+            });
+        if normal_events.is_empty() && monitoring_fx_events.is_empty() {
+            return;
+        }
         // This is for feedback processing. No Rx!
         let main_processors = self.main_processors.borrow();
         for p in main_processors.iter() {
-            p.process_control_surface_change_events(&change_event_queue);
+            if !normal_events.is_empty() {
+                p.process_control_surface_change_events(&normal_events);
+            }
+            if !monitoring_fx_events.is_empty() {
+                p.process_control_surface_change_events(&monitoring_fx_events);
+            }
         }
         // The rest is only for upper layers (e.g. UI), not for processing.
-        for e in change_event_queue.drain(..) {
+        for e in normal_events
+            .drain(..)
+            .chain(monitoring_fx_events.into_iter())
+        {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
                 // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)

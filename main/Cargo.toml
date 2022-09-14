@@ -162,6 +162,8 @@ metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 nom = "7.0.0"
 # For obtaining dialog constants from dialog crate
 realearn-dialogs = { path = "../dialogs" }
+# For being able to return iterators of different types
+either = "1.8.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

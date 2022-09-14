@@ -3,7 +3,8 @@ use crate::application::{
 };
 use crate::base::default_util::is_default;
 use crate::base::{
-    notification, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+    metrics_util, notification, Global, NamedChannelSender, SenderToNormalThread,
+    SenderToRealTimeThread,
 };
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs,
@@ -315,6 +316,7 @@ impl App {
 
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
+        metrics_util::init_metrics();
         playtime_clip_engine::init();
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {

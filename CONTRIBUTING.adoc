@@ -209,6 +209,11 @@ audio thread - which is atypical for a VST plug-in. REAPER's built-in FX perform
 - Setting the environment variable `CONTROL_SURFACE_METRICS` (value doesn't matter) makes ReaLearn continuously record histograms of control surface (`IReaperControlSurface`) method execution times.
 - In addition to the Prometheus endpoint, response times will be logged to `stdout` at warn level whenever they exceed a certain threshold.
 
+=== ReaLearn metrics
+
+- You can turn on ReaLearn metrics by setting the environment variable `ReaLearn_METRICS` (value doesn't matter).
+- If this environment variable is set (value doesn't matter), ReaLearn will record some metrics and expose them on the Prometheus endpoint mentioned above.
+
 === Clip engine metrics
 
 - You can turn on clip engine metrics by setting the environment variable `CLIP_ENGINE_METRICS` (value doesn't matter).

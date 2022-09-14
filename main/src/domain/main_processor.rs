@@ -1199,14 +1199,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.any_main_mapping_is_effectively_on(),
                     );
                 }
-                GetEffectNameHasBeenCalled => {
-                    if self.basics.context.is_on_monitoring_fx_chain() {
-                        // We don't get informed about
-                        self.potentially_enable_or_disable_control_or_feedback(
-                            self.any_main_mapping_is_effectively_on(),
-                        );
-                    }
-                }
             }
             count += 1;
             if count == NORMAL_TASK_BULK_SIZE {
@@ -2649,10 +2641,6 @@ pub enum NormalMainTask {
     /// auto-load is enabled).
     NotifyConditionsChanged,
     UpdateSettings(BasicSettings),
-    /// This is a hacky way to notify a ReaLearn instance on the monitoring FX chain
-    /// that it might have been enabled or disabled (unfortunately, REAPER doesn't
-    /// call CSURF_EXT_SETFXENABLED for monitoring FX).
-    GetEffectNameHasBeenCalled,
     PotentiallyEnableOrDisableControlOrFeedback,
     SendAllFeedback,
     LogDebugInfo,

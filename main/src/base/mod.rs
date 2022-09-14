@@ -7,6 +7,8 @@ mod tracing_util;
 #[macro_use]
 mod global_macros;
 
+pub mod metrics_util;
+
 mod global;
 pub use global::*;
 

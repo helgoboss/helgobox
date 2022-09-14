@@ -599,12 +599,6 @@ impl RealearnPlugin {
                 }
                 0xbeef
             }
-            GetEffectName => {
-                self.normal_main_task_channel
-                    .0
-                    .send_if_space(NormalMainTask::GetEffectNameHasBeenCalled);
-                0
-            }
             _ => 0,
         }
     }
