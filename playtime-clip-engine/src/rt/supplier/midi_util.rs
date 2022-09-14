@@ -56,7 +56,7 @@ pub fn silence_midi(
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum SilenceMidiBlockMode {
     Prepend,
     Append,

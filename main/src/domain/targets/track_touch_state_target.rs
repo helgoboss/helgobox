@@ -42,7 +42,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackTouchStateTarget {
     pub track: Track,
     pub parameter_type: TouchedTrackParameterType,

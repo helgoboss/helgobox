@@ -28,7 +28,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAutomationModeOverrideTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AutomationModeOverrideTarget {
     pub mode_override: Option<GlobalAutomationModeOverride>,
 }

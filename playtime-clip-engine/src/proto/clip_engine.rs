@@ -1,29 +1,29 @@
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetOccasionalTrackUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetContinuousMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetContinuousColumnUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetContinuousSlotUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
@@ -38,7 +38,7 @@ pub struct GetOccasionalTrackUpdatesReply {
     #[prost(message, repeated, tag = "1")]
     pub track_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalTrackUpdate>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesReply {
     #[prost(message, repeated, tag = "1")]
     pub slot_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalSlotUpdate>,
@@ -145,19 +145,19 @@ pub mod occasional_track_update {
         Pan(f64),
     }
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct TrackColor {
     #[prost(int32, optional, tag = "1")]
     pub color: ::core::option::Option<i32>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct TrackInput {
     #[prost(oneof = "track_input::Input", tags = "1, 2, 3")]
     pub input: ::core::option::Option<track_input::Input>,
 }
 /// Nested message and enum types in `TrackInput`.
 pub mod track_input {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Eq, PartialEq, ::prost::Oneof)]
     pub enum Input {
         #[prost(uint32, tag = "1")]
         Mono(u32),
@@ -167,38 +167,38 @@ pub mod track_input {
         Midi(super::TrackMidiInput),
     }
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct TrackMidiInput {
     #[prost(uint32, optional, tag = "1")]
     pub device: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag = "2")]
     pub channel: ::core::option::Option<u32>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct MidiInputDevices {
     #[prost(message, repeated, tag = "1")]
     pub devices: ::prost::alloc::vec::Vec<MidiInputDevice>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct MidiInputDevice {
     #[prost(uint32, tag = "1")]
     pub id: u32,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct AudioInputChannels {
     #[prost(message, repeated, tag = "1")]
     pub channels: ::prost::alloc::vec::Vec<AudioInputChannel>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct AudioInputChannel {
     #[prost(uint32, tag = "1")]
     pub index: u32,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct QualifiedOccasionalSlotUpdate {
     #[prost(message, optional, tag = "1")]
     pub slot_coordinates: ::core::option::Option<SlotCoordinates>,
@@ -207,7 +207,7 @@ pub struct QualifiedOccasionalSlotUpdate {
 }
 /// Nested message and enum types in `QualifiedOccasionalSlotUpdate`.
 pub mod qualified_occasional_slot_update {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Eq, PartialEq, ::prost::Oneof)]
     pub enum Update {
         #[prost(enumeration = "super::SlotPlayState", tag = "2")]
         PlayState(i32),
@@ -225,7 +225,7 @@ pub struct ContinuousClipUpdate {
     #[prost(double, tag = "2")]
     pub peak: f64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Eq, PartialEq, ::prost::Message)]
 pub struct SlotCoordinates {
     #[prost(uint32, tag = "1")]
     pub column: u32,

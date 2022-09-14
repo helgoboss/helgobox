@@ -155,7 +155,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             leaf_id.to_string()
         } else {
             // Preset is in sub directory
-            let relative_path_with_slashes = relative_path.to_string_lossy().replace("\\", "/");
+            let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
             format!("{}/{}", relative_path_with_slashes, leaf_id)
         };
         let json = fs::read_to_string(&path)
@@ -192,7 +192,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
-        .map(|s| s.starts_with("."))
+        .map(|s| s.starts_with('.'))
         .unwrap_or(false)
 }
 

@@ -7,7 +7,7 @@ use crate::domain::MappingKey;
 use crate::infrastructure::data::{DataToModelConversionContext, ModelToDataConversionContext};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationConditionData {
     #[serde(

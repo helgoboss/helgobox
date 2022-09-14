@@ -1,7 +1,7 @@
 use helgoboss_learn::{Interval, DEFAULT_OSC_ARG_VALUE_RANGE};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct IntervalData<T> {
     min: T,
     max: T,

@@ -169,7 +169,7 @@ impl SupplierChain {
         downbeat.set_enabled(true);
         // Configure pre-buffer
         let pre_buffer = chain.pre_buffer_mut();
-        let _ = pre_buffer.set_enabled(true);
+        pre_buffer.set_enabled(true);
         Ok(chain)
     }
 
@@ -618,7 +618,7 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
     type Command = ChainPreBufferCommand;
 
     fn process_command(&self, command: ChainPreBufferCommand, supplier: &SharedLooperTail) {
-        let mut entrance = non_blocking_lock(&*supplier, "command processing");
+        let mut entrance = non_blocking_lock(supplier, "command processing");
         use ChainPreBufferCommand::*;
         match command {
             SetAudioFadesEnabledForSource(enabled) => {

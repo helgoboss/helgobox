@@ -2,13 +2,13 @@ use derive_more::Display;
 use helgoboss_midi::RawShortMessage;
 use std::ops::RangeInclusive;
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Widget {
     pub name: String,
     pub capabilities: Vec<Capability>,
 }
 
-#[derive(PartialEq, Debug, Display)]
+#[derive(Eq, PartialEq, Debug, Display)]
 pub enum Capability {
     #[display(fmt = "Press")]
     Press {
@@ -61,13 +61,13 @@ impl Capability {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Accelerations {
     pub decrements: Acceleration,
     pub increments: Acceleration,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum Acceleration {
     Sequence(Vec<u8>),
     Range(RangeInclusive<u8>),

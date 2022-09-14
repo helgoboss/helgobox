@@ -50,7 +50,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAllTrackFxEnableTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AllTrackFxEnableTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,

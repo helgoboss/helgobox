@@ -95,7 +95,7 @@ pub fn calc_distance_from_pos(
 /// n times on x/n and round each time. Latter is what happens in practice because we advance
 /// frames step by step in n blocks.
 fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usize) -> isize {
-    let abs_value = value.abs() as usize;
+    let abs_value = value.unsigned_abs();
     let block_count = abs_value / block_length;
     let remainder = abs_value % block_length;
     let adjusted_block_length = adjust_proportionally_positive(block_length as f64, factor);

@@ -26,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableInstancesTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EnableInstancesTarget {
     pub scope: TagScope,
     pub exclusivity: Exclusivity,

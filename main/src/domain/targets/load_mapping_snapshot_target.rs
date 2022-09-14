@@ -38,7 +38,7 @@ pub struct UnresolvedLoadMappingSnapshotTarget {
     pub default_value: Option<AbsoluteValue>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum VirtualMappingSnapshotIdForLoad {
     Initial,
     ById(MappingSnapshotId),
@@ -92,7 +92,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
     pub compartment: Compartment,
     pub scope: TagScope,

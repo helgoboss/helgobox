@@ -26,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlayrateTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlayrateTarget {
     pub project: Project,
 }

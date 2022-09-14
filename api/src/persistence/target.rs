@@ -80,14 +80,14 @@ impl Default for Target {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TargetCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<TargetUnit>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TargetUnit {
     Native,
     Percent,
@@ -99,14 +99,14 @@ impl Default for TargetUnit {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LastTouchedTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AutomationModeOverrideTarget {
     #[serde(flatten)]
@@ -115,7 +115,7 @@ pub struct AutomationModeOverrideTarget {
     pub r#override: Option<AutomationModeOverride>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReaperActionTarget {
     #[serde(flatten)]
@@ -128,7 +128,7 @@ pub struct ReaperActionTarget {
     pub track: Option<TrackDescriptor>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TransportActionTarget {
     #[serde(flatten)]
@@ -136,7 +136,7 @@ pub struct TransportActionTarget {
     pub action: TransportAction,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AnyOnTarget {
     #[serde(flatten)]
@@ -144,7 +144,7 @@ pub struct AnyOnTarget {
     pub parameter: AnyOnParameter,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughTracksTarget {
     #[serde(flatten)]
@@ -155,7 +155,7 @@ pub struct CycleThroughTracksTarget {
     pub scroll_mixer: Option<bool>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SeekTarget {
     #[serde(flatten)]
@@ -176,21 +176,21 @@ pub struct SeekTarget {
     pub feedback_resolution: Option<FeedbackResolution>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PlayRateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TempoTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GoToBookmarkTarget {
     #[serde(flatten)]
@@ -202,7 +202,7 @@ pub struct GoToBookmarkTarget {
     pub set_loop_points: Option<bool>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackArmStateTarget {
     #[serde(flatten)]
@@ -213,7 +213,7 @@ pub struct TrackArmStateTarget {
     pub exclusivity: Option<TrackExclusivity>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackParentSendStateTarget {
     #[serde(flatten)]
@@ -224,7 +224,7 @@ pub struct TrackParentSendStateTarget {
     pub exclusivity: Option<TrackExclusivity>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AllTrackFxOnOffStateTarget {
     #[serde(flatten)]
@@ -237,7 +237,7 @@ pub struct AllTrackFxOnOffStateTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackMuteStateTarget {
     #[serde(flatten)]
@@ -248,7 +248,7 @@ pub struct TrackMuteStateTarget {
     pub exclusivity: Option<TrackExclusivity>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackPeakTarget {
     #[serde(flatten)]
@@ -257,7 +257,7 @@ pub struct TrackPeakTarget {
     pub track: Option<TrackDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackPhaseTarget {
     #[serde(flatten)]
@@ -270,7 +270,7 @@ pub struct TrackPhaseTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackSelectionStateTarget {
     #[serde(flatten)]
@@ -285,7 +285,7 @@ pub struct TrackSelectionStateTarget {
     pub scroll_mixer: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackAutomationModeTarget {
     #[serde(flatten)]
@@ -297,7 +297,7 @@ pub struct TrackAutomationModeTarget {
     pub mode: AutomationMode,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackMonitoringModeTarget {
     #[serde(flatten)]
@@ -309,7 +309,7 @@ pub struct TrackMonitoringModeTarget {
     pub mode: MonitoringMode,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackAutomationTouchStateTarget {
     #[serde(flatten)]
@@ -321,7 +321,7 @@ pub struct TrackAutomationTouchStateTarget {
     pub touched_parameter: TouchedTrackParameter,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackPanTarget {
     #[serde(flatten)]
@@ -330,7 +330,7 @@ pub struct TrackPanTarget {
     pub track: Option<TrackDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackWidthTarget {
     #[serde(flatten)]
@@ -339,7 +339,7 @@ pub struct TrackWidthTarget {
     pub track: Option<TrackDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackVolumeTarget {
     #[serde(flatten)]
@@ -348,7 +348,7 @@ pub struct TrackVolumeTarget {
     pub track: Option<TrackDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackToolTarget {
     #[serde(flatten)]
@@ -364,6 +364,7 @@ pub struct TrackToolTarget {
 #[derive(
     Copy,
     Clone,
+    Eq,
     PartialEq,
     Debug,
     Serialize,
@@ -390,7 +391,7 @@ impl Default for TrackToolAction {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackVisibilityTarget {
     #[serde(flatten)]
@@ -404,7 +405,7 @@ pub struct TrackVisibilityTarget {
     pub area: TrackArea,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackSoloStateTarget {
     #[serde(flatten)]
@@ -417,7 +418,7 @@ pub struct TrackSoloStateTarget {
     pub behavior: Option<SoloBehavior>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughFxTarget {
     #[serde(flatten)]
@@ -427,7 +428,7 @@ pub struct CycleThroughFxTarget {
     pub display_kind: Option<FxDisplayKind>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxOnOffStateTarget {
     #[serde(flatten)]
@@ -436,7 +437,7 @@ pub struct FxOnOffStateTarget {
     pub fx: Option<FxDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxOnlineOfflineStateTarget {
     #[serde(flatten)]
@@ -445,7 +446,7 @@ pub struct FxOnlineOfflineStateTarget {
     pub fx: Option<FxDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LoadFxSnapshotTarget {
     #[serde(flatten)]
@@ -456,7 +457,7 @@ pub struct LoadFxSnapshotTarget {
     pub snapshot: Option<FxSnapshot>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughFxPresetsTarget {
     #[serde(flatten)]
@@ -465,7 +466,7 @@ pub struct CycleThroughFxPresetsTarget {
     pub fx: Option<FxDescriptor>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxToolTarget {
     #[serde(flatten)]
@@ -481,6 +482,7 @@ pub struct FxToolTarget {
 #[derive(
     Copy,
     Clone,
+    Eq,
     PartialEq,
     Debug,
     Serialize,
@@ -507,7 +509,7 @@ impl Default for FxToolAction {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxVisibilityTarget {
     #[serde(flatten)]
@@ -518,7 +520,7 @@ pub struct FxVisibilityTarget {
     pub display_kind: Option<FxDisplayKind>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxParameterValueTarget {
     #[serde(flatten)]
@@ -530,7 +532,7 @@ pub struct FxParameterValueTarget {
     pub retrigger: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxParameterAutomationTouchStateTarget {
     #[serde(flatten)]
@@ -538,7 +540,7 @@ pub struct FxParameterAutomationTouchStateTarget {
     pub parameter: FxParameterDescriptor,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteAutomationModeTarget {
     #[serde(flatten)]
@@ -549,7 +551,7 @@ pub struct RouteAutomationModeTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteMonoStateTarget {
     #[serde(flatten)]
@@ -559,7 +561,7 @@ pub struct RouteMonoStateTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteMuteStateTarget {
     #[serde(flatten)]
@@ -569,7 +571,7 @@ pub struct RouteMuteStateTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RoutePhaseTarget {
     #[serde(flatten)]
@@ -579,7 +581,7 @@ pub struct RoutePhaseTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RoutePanTarget {
     #[serde(flatten)]
@@ -587,7 +589,7 @@ pub struct RoutePanTarget {
     pub route: RouteDescriptor,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteVolumeTarget {
     #[serde(flatten)]
@@ -595,7 +597,7 @@ pub struct RouteVolumeTarget {
     pub route: RouteDescriptor,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteTouchStateTarget {
     #[serde(flatten)]
@@ -604,7 +606,7 @@ pub struct RouteTouchStateTarget {
     pub touched_parameter: TouchedRouteParameter,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
@@ -621,7 +623,7 @@ pub struct ClipTransportActionTarget {
     pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipColumnTarget {
     #[serde(flatten)]
@@ -630,7 +632,7 @@ pub struct ClipColumnTarget {
     pub action: ClipColumnAction,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipRowTarget {
     #[serde(flatten)]
@@ -639,7 +641,7 @@ pub struct ClipRowTarget {
     pub action: ClipRowAction,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipMatrixTarget {
     #[serde(flatten)]
@@ -647,7 +649,7 @@ pub struct ClipMatrixTarget {
     pub action: ClipMatrixAction,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipSeekTarget {
     #[serde(flatten)]
@@ -657,7 +659,7 @@ pub struct ClipSeekTarget {
     pub feedback_resolution: Option<FeedbackResolution>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
@@ -696,7 +698,7 @@ pub struct AdjustClipSectionLengthAction {
     pub factor: f64,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SendMidiTarget {
     #[serde(flatten)]
@@ -707,7 +709,7 @@ pub struct SendMidiTarget {
     pub destination: Option<MidiDestination>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DummyTarget {
     #[serde(flatten)]
@@ -727,7 +729,7 @@ pub struct SendOscTarget {
     pub destination: Option<OscDestination>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EnableInstancesTarget {
     #[serde(flatten)]
@@ -738,7 +740,7 @@ pub struct EnableInstancesTarget {
     pub exclusivity: Option<InstanceExclusivity>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EnableMappingsTarget {
     #[serde(flatten)]
@@ -764,7 +766,7 @@ pub struct LoadMappingSnapshotTarget {
     pub default_value: Option<TargetValue>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TakeMappingSnapshotTarget {
     #[serde(flatten)]
@@ -777,7 +779,7 @@ pub struct TakeMappingSnapshotTarget {
     pub snapshot: BackwardCompatibleMappingSnapshotDescForTake,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum BackwardCompatibleMappingSnapshotDescForTake {
     Old(String),
@@ -790,7 +792,7 @@ impl Default for BackwardCompatibleMappingSnapshotDescForTake {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum MappingSnapshotDescForLoad {
     Initial,
@@ -812,7 +814,7 @@ impl Default for MappingSnapshotDescForLoad {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum MappingSnapshotDescForTake {
     LastLoaded,
@@ -834,7 +836,7 @@ impl Default for MappingSnapshotDescForTake {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughGroupMappingsTarget {
     #[serde(flatten)]
@@ -845,7 +847,7 @@ pub struct CycleThroughGroupMappingsTarget {
     pub group: Option<String>,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct VirtualTarget {
     pub id: VirtualControlElementId,
@@ -853,14 +855,14 @@ pub struct VirtualTarget {
     pub character: Option<VirtualControlElementCharacter>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum AutomationModeOverride {
     Bypass,
     Mode { mode: AutomationMode },
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum AutomationMode {
     TrimRead,
     Read,
@@ -873,6 +875,7 @@ pub enum AutomationMode {
 #[derive(
     Copy,
     Clone,
+    Eq,
     PartialEq,
     Debug,
     Serialize,
@@ -899,7 +902,7 @@ impl Default for MonitoringMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TransportAction {
     PlayStop,
     PlayPause,
@@ -1087,7 +1090,7 @@ impl Default for ClipMatrixAction {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum AnyOnParameter {
     TrackSolo,
     TrackMute,
@@ -1095,7 +1098,7 @@ pub enum AnyOnParameter {
     TrackSelection,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum ActionInvocationKind {
     Trigger,
     #[serde(alias = "Absolute")]
@@ -1110,14 +1113,14 @@ impl Default for ActionInvocationKind {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum ReaperCommand {
     Id(u32),
     Name(String),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum TrackDescriptor {
     This {
@@ -1187,14 +1190,14 @@ impl Default for TrackDescriptor {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track_must_be_selected: Option<bool>,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum FeedbackResolution {
     Beat,
     High,
@@ -1206,7 +1209,7 @@ impl Default for FeedbackResolution {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[allow(clippy::enum_variant_names)]
 pub enum TrackExclusivity {
     WithinProject,
@@ -1215,43 +1218,43 @@ pub enum TrackExclusivity {
     WithinFolderOnOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum InstanceExclusivity {
     Exclusive,
     ExclusiveOnOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum MappingExclusivity {
     Exclusive,
     ExclusiveOnOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum GroupMappingExclusivity {
     Exclusive,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TouchedTrackParameter {
     Volume,
     Pan,
     Width,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TouchedRouteParameter {
     Volume,
     Pan,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TrackArea {
     Tcp,
     Mcp,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum SoloBehavior {
     InPlace,
     IgnoreRouting,
@@ -1264,28 +1267,28 @@ impl Default for SoloBehavior {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum BookmarkDescriptor {
     Marker(BookmarkRef),
     Region(BookmarkRef),
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum BookmarkRef {
     ById { id: u32 },
     ByIndex { index: u32 },
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx_must_have_focus: Option<bool>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum FxDescriptor {
     This {
@@ -1336,7 +1339,7 @@ impl Default for FxDescriptor {
 
 // The best default for this would be a <This> FX chain but we don't have this yet!
 // Therefore we don't implement Default at all for now. We can still do it later.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum FxChainDescriptor {
     Track {
@@ -1365,7 +1368,7 @@ impl Default for TrackFxChain {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum FxDisplayKind {
     FloatingWindow,
     Chain,
@@ -1377,7 +1380,7 @@ impl Default for FxDisplayKind {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1389,13 +1392,13 @@ pub struct FxSnapshot {
     pub content: FxSnapshotContent,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum FxSnapshotContent {
     Chunk { chunk: String },
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum FxParameterDescriptor {
     Dynamic {
@@ -1420,7 +1423,7 @@ pub enum FxParameterDescriptor {
     },
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RouteDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1429,7 +1432,7 @@ pub struct RouteDescriptorCommons {
     pub kind: Option<TrackRouteKind>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum RouteDescriptor {
     Dynamic {
@@ -1454,7 +1457,7 @@ pub enum RouteDescriptor {
     },
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TrackRouteKind {
     Send,
     Receive,
@@ -1467,7 +1470,7 @@ impl Default for TrackRouteKind {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
     Selected,
@@ -1487,7 +1490,7 @@ impl Default for ClipSlotDescriptor {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
     Selected,
@@ -1501,7 +1504,7 @@ impl Default for ClipColumnDescriptor {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
     Selected,
@@ -1515,7 +1518,7 @@ impl Default for ClipRowDescriptor {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum MidiDestination {
     FxOutput,
@@ -1528,7 +1531,7 @@ impl Default for MidiDestination {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum OscDestination {
     FeedbackOutput,

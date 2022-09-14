@@ -6518,7 +6518,7 @@ fn get_text_right_to_step_size_edit_control(
 fn track_combo_box_entries(project: Project) -> impl Iterator<Item = String> + ExactSizeIterator {
     let mut current_folder_level: i32 = 0;
     project.tracks().enumerate().map(move |(i, track)| {
-        let indentation = ".".repeat(current_folder_level.abs() as usize * 4);
+        let indentation = ".".repeat(current_folder_level.unsigned_abs() as usize * 4);
         let space = if indentation.is_empty() { "" } else { " " };
         let name = track.name().expect("non-master track must have name");
         let label = format!("{}. {}{}{}", i + 1, indentation, space, name.to_str());

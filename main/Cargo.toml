@@ -27,7 +27,7 @@ helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
 # For being able to (de)serialize using FromStr and Display
-serde_with = "1.6.4"
+serde_with = "2.0.1"
 c_str_macro = "1.0.2"
 vst = "0.3.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }

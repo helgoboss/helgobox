@@ -36,7 +36,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackWidthTarget {
     pub track: Track,
 }

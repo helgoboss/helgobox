@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Copy,
     Clone,
+    Eq,
     PartialEq,
     Debug,
     Serialize,
@@ -44,7 +45,7 @@ impl Default for ActivationType {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct ModifierConditionModel {
     #[serde(rename = "paramIndex")]
     pub param_index: Option<CompartmentParamIndex>,
@@ -81,7 +82,7 @@ impl ModifierConditionModel {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct BankConditionModel {
     #[serde(rename = "paramIndex")]
     pub param_index: CompartmentParamIndex,

@@ -40,7 +40,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackParentSendTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackParentSendTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,

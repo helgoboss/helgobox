@@ -34,7 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipColumnTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipColumnTarget {
     pub column_index: usize,
     pub action: ClipColumnAction,
@@ -135,7 +135,7 @@ impl<'a> Target<'a> for ClipColumnTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RealTimeClipColumnTarget {
     column_index: usize,
     action: ClipColumnAction,

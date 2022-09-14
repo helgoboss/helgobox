@@ -123,7 +123,7 @@ impl RealearnAudioHook {
                         MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 for event in events {
-                                    mo.send_msg(&*event, SendMidiTime::Instantly);
+                                    mo.send_msg(event, SendMidiTime::Instantly);
                                 }
                             }
                         });
@@ -148,7 +148,7 @@ impl RealearnAudioHook {
                     MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                         if let Some(mo) = mo {
                             for event in &raw_midi_events {
-                                mo.send_msg(&*event, SendMidiTime::Instantly);
+                                mo.send_msg(event, SendMidiTime::Instantly);
                             }
                         }
                     });

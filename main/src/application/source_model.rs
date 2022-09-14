@@ -57,7 +57,7 @@ pub enum SourceCommand {
     SetControlElementId(VirtualControlElementId),
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum SourceProp {
     Category,
     MidiSourceType,
@@ -493,11 +493,12 @@ impl SourceModel {
             Reaper(s) => {
                 self.category = SourceCategory::Reaper;
                 self.reaper_source_type = ReaperSourceType::from_source(s);
+                use ReaperSource::*;
                 match s {
-                    ReaperSource::RealearnParameter(p) => {
+                    RealearnParameter(p) => {
                         self.parameter_index = p.parameter_index;
                     }
-                    _ => {}
+                    MidiDeviceChanges | RealearnInstanceStart | Timer(_) => {}
                 }
             }
             Never => {

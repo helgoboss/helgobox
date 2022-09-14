@@ -39,7 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMuteTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackMuteTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,

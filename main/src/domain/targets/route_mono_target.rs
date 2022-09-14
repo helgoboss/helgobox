@@ -47,7 +47,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteMonoTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteMonoTarget {
     pub route: TrackRoute,
     pub poll_for_feedback: bool,

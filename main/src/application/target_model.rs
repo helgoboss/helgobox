@@ -159,7 +159,7 @@ pub enum TargetCommand {
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum TargetProp {
     Category,
     Unit,

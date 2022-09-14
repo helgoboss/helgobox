@@ -29,7 +29,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAnyOnTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AnyOnTarget {
     pub project: Project,
     pub parameter: AnyOnParameter,

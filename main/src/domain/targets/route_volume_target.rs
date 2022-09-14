@@ -36,7 +36,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteVolumeTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteVolumeTarget {
     pub route: TrackRoute,
 }

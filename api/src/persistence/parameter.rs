@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Parameter {
     pub index: u32,

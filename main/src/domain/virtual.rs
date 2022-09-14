@@ -50,7 +50,7 @@ impl<'a> Target<'a> for VirtualTarget {
 /// With virtual sources it's easy: The control element is the address.
 pub type VirtualSourceAddress = VirtualControlElement;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct VirtualSource {
     control_element: VirtualControlElement,
 }
@@ -146,7 +146,7 @@ impl VirtualSourceValue {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct VirtualFeedbackValue {
     control_element: VirtualControlElement,
     feedback_value: FeedbackValue<'static>,

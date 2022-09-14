@@ -333,7 +333,7 @@ where
     }
 }
 
-impl<'a, T, I, S, S2, N, N2> PartialEq for Prop<T, I, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> PartialEq for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
     I: Copy,

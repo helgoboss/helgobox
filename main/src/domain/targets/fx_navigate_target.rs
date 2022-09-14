@@ -48,7 +48,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxNavigateTarget {
     pub fx_chain: FxChain,
     pub display_type: FxDisplayType,

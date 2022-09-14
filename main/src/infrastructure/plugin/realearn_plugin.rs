@@ -153,7 +153,7 @@ impl Plugin for RealearnPlugin {
             // locking a mutex the first time apparently allocates. If we don't lock the
             // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
             // complain in debug builds.
-            let _ = real_time_processor.lock_recover();
+            std::mem::drop(real_time_processor.lock_recover());
             Self {
                 instance_id,
                 logger: logger.clone(),

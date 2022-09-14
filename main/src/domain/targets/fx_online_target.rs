@@ -32,7 +32,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxOnlineTarget {
     pub fx: Fx,
 }

@@ -238,7 +238,7 @@ pub struct SupplyRequestInfo {
     pub is_realtime: bool,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PreBufferFillRequest {
     pub start_frame: isize,
 }
@@ -350,7 +350,7 @@ impl SupplyResponse {
 
 impl<T: WithMaterialInfo> WithMaterialInfo for Arc<Mutex<T>> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        non_blocking_lock(&*self, "material info").material_info()
+        non_blocking_lock(self, "material info").material_info()
     }
 }
 
@@ -390,6 +390,6 @@ impl<T: PreBufferSourceSkill> PreBufferSourceSkill for Arc<Mutex<T>> {
 
 impl<T: PositionTranslationSkill> PositionTranslationSkill for Arc<Mutex<T>> {
     fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        non_blocking_lock(&*self, "position translation").translate_play_pos_to_source_pos(play_pos)
+        non_blocking_lock(self, "position translation").translate_play_pos_to_source_pos(play_pos)
     }
 }

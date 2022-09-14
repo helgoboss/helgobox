@@ -952,7 +952,7 @@ pub enum ClipRecordTiming {
     StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct ClipTransportOptions {
     /// If this is on and one of the record actions is triggered, it will only have an effect if
     /// the record track of the clip column is armed.

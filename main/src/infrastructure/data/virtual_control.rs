@@ -1,7 +1,7 @@
 use crate::domain::VirtualControlElementId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum VirtualControlElementIdData {
     Indexed(u32),

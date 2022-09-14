@@ -8,7 +8,7 @@ use reaper_medium::{
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct KeySource {
     currently_pressed: bool,
     stroke: Keystroke,
@@ -77,7 +77,7 @@ impl Display for KeySource {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct KeyMessage {
     kind: AccelMsgKind,
     stroke: Keystroke,
@@ -108,7 +108,7 @@ impl Display for KeyMessage {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, derive_more::Display)]
 pub enum KeyInteractionKind {
     Press,
     Release,
@@ -126,19 +126,19 @@ impl KeyInteractionKind {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Keystroke {
     modifiers: BitFlags<AcceleratorBehavior>,
     key: AcceleratorKeyCode,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, derive_more::Display)]
 pub enum KeyStrokePortability {
     NonPortable(PortabilityIssue),
     Portable,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, derive_more::Display)]
 pub enum PortabilityIssue {
     NotNormalized,
     OperatingSystemRelated,

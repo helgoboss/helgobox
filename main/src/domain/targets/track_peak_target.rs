@@ -39,7 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPeakTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackPeakTarget {
     pub track: Track,
 }

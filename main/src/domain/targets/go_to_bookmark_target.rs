@@ -50,7 +50,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GoToBookmarkTarget {
     pub project: Project,
     pub bookmark_type: BookmarkType,

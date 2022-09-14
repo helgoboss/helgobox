@@ -2,7 +2,7 @@ use crate::domain::{Exclusivity, Tag};
 use std::collections::HashSet;
 use std::hash::Hash;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TagScope {
     pub tags: HashSet<Tag>,
 }

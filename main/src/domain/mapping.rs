@@ -1115,7 +1115,7 @@ impl MainMapping {
                 with_projection_feedback,
                 with_source_feedback: with_source_feedback && source_feedback_is_okay,
             },
-            &control_context.source_context,
+            control_context.source_context,
         )
     }
 
@@ -1779,7 +1779,7 @@ pub enum SpecificCompoundFeedbackValue {
     Real(PreliminaryRealFeedbackValue),
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FeedbackDestinations {
     /// Feedback to projection clients.
     pub with_projection_feedback: bool,
@@ -1839,7 +1839,7 @@ impl SpecificCompoundFeedbackValue {
 pub type PreliminaryRealFeedbackValue = AbstractRealFeedbackValue<PreliminarySourceFeedbackValue>;
 pub type FinalRealFeedbackValue = AbstractRealFeedbackValue<FinalSourceFeedbackValue>;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct AbstractRealFeedbackValue<T> {
     /// Feedback to be sent to projection.
     ///
@@ -1863,7 +1863,7 @@ impl<T> AbstractRealFeedbackValue<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
     pub compartment: Compartment,
     pub mapping_key: Rc<str>,

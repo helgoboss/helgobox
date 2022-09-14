@@ -36,7 +36,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SeekTarget {
     pub project: Project,
     pub options: SeekOptions,

@@ -67,7 +67,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxToolTarget {
     pub fx: Option<Fx>,
     pub action: FxToolAction,

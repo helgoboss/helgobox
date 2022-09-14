@@ -504,7 +504,7 @@ impl Display for Control {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display)]
 pub enum ControlKind {
     LTEXT,
     RTEXT,

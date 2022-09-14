@@ -37,7 +37,7 @@ pub enum MappingCommand {
     ChangeTarget(TargetCommand),
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum MappingProp {
     Name,
     Tags,

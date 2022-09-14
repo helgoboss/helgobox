@@ -59,7 +59,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxParameterTarget {
     pub is_real_time_ready: bool,
     pub param: FxParameter,
@@ -242,7 +242,7 @@ impl<'a> Target<'a> for FxParameterTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RealTimeFxParameterTarget {
     track: MediaTrack,
     fx_location: TrackFxLocation,

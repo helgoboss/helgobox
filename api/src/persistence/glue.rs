@@ -66,12 +66,12 @@ pub enum FeedbackValueTable {
     FromTextToContinuous(FeedbackValueTableContent<String, f64>),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
     pub value: HashMap<K, V>,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum AbsoluteMode {
     Normal,
     IncrementalButton,
@@ -98,7 +98,7 @@ impl Default for RelativeMode {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum FireMode {
     Normal(NormalFireMode),
@@ -114,21 +114,21 @@ impl Default for FireMode {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NormalFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub press_duration_interval: Option<Interval<u32>>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutKeepFiringFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,34 +136,34 @@ pub struct AfterTimeoutKeepFiringFireMode {
     pub rate: Option<u32>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OnDoublePressFireMode;
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum VirtualColor {
     Rgb(RgbColor),
     Prop(PropColor),
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PropColor {
     pub prop: String,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum OutOfRangeBehavior {
     MinOrMax,
     Min,
@@ -176,7 +176,7 @@ impl Default for OutOfRangeBehavior {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TakeoverMode {
     PickUp,
     LongTimeNoSee,
@@ -190,19 +190,19 @@ impl Default for TakeoverMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum ButtonFilter {
     PressOnly,
     ReleaseOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum EncoderFilter {
     IncrementOnly,
     DecrementOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum Interaction {
     SameControl,
     SameTargetValue,
@@ -211,7 +211,7 @@ pub enum Interaction {
     InverseTargetValueOnOnly,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FeedbackCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -220,7 +220,7 @@ pub struct FeedbackCommons {
     pub background_color: Option<VirtualColor>,
 }
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Feedback {
     Numeric(NumericFeedback),
@@ -233,7 +233,7 @@ impl Default for Feedback {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NumericFeedback {
     #[serde(flatten)]
@@ -242,7 +242,7 @@ pub struct NumericFeedback {
     pub transformation: Option<String>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextFeedback {
     #[serde(flatten)]
@@ -251,5 +251,5 @@ pub struct TextFeedback {
     pub text_expression: Option<String>,
 }
 
-#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Interval<T>(pub T, pub T);

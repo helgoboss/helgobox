@@ -2,7 +2,7 @@ use crate::persistence::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Group {
     /// An optional ID that you can assign to this group in order to refer

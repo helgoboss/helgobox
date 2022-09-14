@@ -69,7 +69,7 @@ impl From<EffectiveParamValue> for f64 {
 }
 
 /// Parameter setting.
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParamSetting {
     #[serde(

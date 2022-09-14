@@ -111,12 +111,7 @@ fn diff(
             } else {
                 None
             };
-            Either::Left(
-                opened_closed
-                    .into_iter()
-                    .chain(enabled.into_iter())
-                    .into_iter(),
-            )
+            Either::Left(opened_closed.into_iter().chain(enabled.into_iter()))
         } else {
             Either::Right(iter::empty())
         }

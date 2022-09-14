@@ -31,7 +31,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSelectedTrackTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SelectedTrackTarget {
     pub project: Project,
     pub scroll_arrange_view: bool,

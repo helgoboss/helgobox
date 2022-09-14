@@ -20,7 +20,7 @@ pub struct Section<S> {
     midi_reset_msg_range: MidiResetMessageRange,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
 pub struct SectionBounds {
     start_frame: usize,
     length: Option<usize>,

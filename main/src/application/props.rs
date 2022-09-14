@@ -1,5 +1,5 @@
 /// A type which can express what properties are potentially be affected by a change operation.
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum Affected<T> {
     /// Just the given property might be affected.
     One(T),

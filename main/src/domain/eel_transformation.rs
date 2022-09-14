@@ -113,7 +113,7 @@ impl Transformation for EelTransformation {
             TransformationOutput::Stop
         } else if v == NONE {
             TransformationOutput::None
-        } else if v >= CONTROL_AND_STOP_MAGIC && v <= CONTROL_AND_STOP_MAGIC + 1.0 {
+        } else if (CONTROL_AND_STOP_MAGIC..=CONTROL_AND_STOP_MAGIC + 1.0).contains(&v) {
             TransformationOutput::ControlAndStop(v - CONTROL_AND_STOP_MAGIC)
         } else {
             TransformationOutput::Control(v)

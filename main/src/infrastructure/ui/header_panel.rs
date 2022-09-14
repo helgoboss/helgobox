@@ -673,9 +673,6 @@ impl HeaderPanel {
             ContextMenuAction::SetStayActiveWhenProjectInBackground(option) => {
                 self.set_stay_active_when_project_in_background(option)
             }
-            ContextMenuAction::ToggleUseInstancePresetLinksOnly => {
-                self.toggle_use_instance_preset_links_only()
-            }
             ContextMenuAction::ToggleServer => {
                 enum ServerAction {
                     Start,
@@ -684,19 +681,15 @@ impl HeaderPanel {
                 }
                 let next_server_action = {
                     let server = app.server().borrow();
-                    let next_server_action = {
-                        use ServerAction::*;
-                        if server.is_running() {
-                            if app.config().server_is_enabled() {
-                                Disable
-                            } else {
-                                Enable
-                            }
+                    if server.is_running() {
+                        if app.config().server_is_enabled() {
+                            ServerAction::Disable
                         } else {
-                            Start
+                            ServerAction::Enable
                         }
-                    };
-                    next_server_action
+                    } else {
+                        ServerAction::Start
+                    }
                 };
                 match next_server_action {
                     ServerAction::Start => {
@@ -714,9 +707,9 @@ impl HeaderPanel {
                     ServerAction::Disable => {
                         app.disable_server_persistently();
                         self.view.require_window().alert(
-                                    "ReaLearn",
-                                    "Disabled projection server. This will take effect on the next start of REAPER.",
-                                );
+                            "ReaLearn",
+                            "Disabled projection server. This will take effect on the next start of REAPER.",
+                        );
                     }
                     ServerAction::Enable => {
                         app.enable_server_persistently();
@@ -725,6 +718,9 @@ impl HeaderPanel {
                             .alert("ReaLearn", "Enabled projection server again.");
                     }
                 }
+            }
+            ContextMenuAction::ToggleUseInstancePresetLinksOnly => {
+                self.toggle_use_instance_preset_links_only()
             }
             ContextMenuAction::AddFirewallRule => {
                 let (http_port, https_port, grpc_port) = {

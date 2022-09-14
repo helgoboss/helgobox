@@ -11,7 +11,7 @@ use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
 use std::time::{Duration, Instant};
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ReaperSource {
     MidiDeviceChanges,
     RealearnInstanceStart,
@@ -19,12 +19,12 @@ pub enum ReaperSource {
     RealearnParameter(RealearnParameterSource),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct RealearnParameterSource {
     pub parameter_index: CompartmentParamIndex,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct TimerSource {
     duration: Duration,
     last_fire: Option<Instant>,
@@ -179,7 +179,7 @@ impl Display for RealearnParameterChangePayload {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct MidiDeviceChangePayload {
     pub input_devices: HashSet<MidiInputDeviceId>,
     pub output_devices: HashSet<MidiOutputDeviceId>,

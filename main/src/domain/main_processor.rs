@@ -2430,7 +2430,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if was_on_before != is_on_now {
             if let Some(m) = self.get_normal_or_virtual_target_mapping(id.compartment, id.id) {
                 let fb = if is_on_now {
-                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*m))
+                    Fb::normal(self.get_mapping_feedback_follow_virtual(m))
                 } else {
                     Fb::unused(m.off_feedback(&self.basics.source_context))
                 };
@@ -2461,7 +2461,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // Send new lights.
                         (
                             Fb::none(),
-                            Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                            Fb::normal(self.get_mapping_feedback_follow_virtual(mapping)),
                         )
                     } else {
                         // Lights should now be off.
@@ -2477,7 +2477,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         Fb::unused(previous_mapping.off_feedback(&self.basics.source_context));
                     let fb2 = if mapping.feedback_is_effectively_on() {
                         // Lights should be on. Send new lights.
-                        Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping))
+                        Fb::normal(self.get_mapping_feedback_follow_virtual(mapping))
                     } else {
                         Fb::none()
                     };
@@ -2490,7 +2490,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Now should be on.
                     (
                         Fb::none(),
-                        Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                        Fb::normal(self.get_mapping_feedback_follow_virtual(mapping)),
                     )
                 } else {
                     // Still off.
@@ -2503,7 +2503,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // Lights on.
                 (
                     Fb::none(),
-                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                    Fb::normal(self.get_mapping_feedback_follow_virtual(mapping)),
                 )
             } else {
                 // Lights off.

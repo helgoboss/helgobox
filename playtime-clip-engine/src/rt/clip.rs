@@ -1509,7 +1509,7 @@ pub struct ClipRecordArgs {
     pub settings: MatrixClipRecordSettings,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum ClipStopBehavior {
     Immediately,
     EndOfClip,

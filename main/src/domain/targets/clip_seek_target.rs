@@ -49,7 +49,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipSeekTarget {
     pub slot_coordinates: ClipSlotCoordinates,
     pub feedback_resolution: FeedbackResolution,

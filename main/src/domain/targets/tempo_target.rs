@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTempoTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TempoTarget {
     pub project: Project,
 }

@@ -30,7 +30,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTouchStateTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxParameterTouchStateTarget {
     pub param: FxParameter,
 }

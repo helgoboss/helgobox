@@ -30,7 +30,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EnableMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.

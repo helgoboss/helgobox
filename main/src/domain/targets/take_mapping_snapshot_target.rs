@@ -21,7 +21,7 @@ pub struct UnresolvedTakeMappingSnapshotTarget {
     pub snapshot_id: VirtualMappingSnapshotIdForTake,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum VirtualMappingSnapshotIdForTake {
     LastLoaded,
     ById(MappingSnapshotId),
@@ -74,7 +74,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TakeMappingSnapshotTarget {
     pub compartment: Compartment,
     pub scope: TagScope,

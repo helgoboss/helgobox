@@ -26,7 +26,7 @@ pub struct MainState {
     pub scroll_status: Prop<ScrollStatus>,
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct ScrollStatus {
     pub from_pos: usize,
     pub to_pos: usize,

@@ -66,7 +66,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackToolTarget {
     pub track: Option<Track>,
     pub action: TrackToolAction,

@@ -40,7 +40,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOpenTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxOpenTarget {
     pub fx: Fx,
     pub display_type: FxDisplayType,

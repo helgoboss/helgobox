@@ -83,7 +83,7 @@ impl MappingRowPanel {
         use Affected::*;
         use CompartmentProp::*;
         use SessionProp::*;
-        let _ = self.with_mapping(|_, m| {
+        self.with_mapping(|_, m| {
             match affected {
                 One(InCompartment(compartment, One(InGroup(_, _))))
                     if *compartment == m.compartment() =>
@@ -787,7 +787,7 @@ impl MappingRowPanel {
                 .unwrap();
             }
             MenuAction::CopyMappingAsLua(style) => {
-                let _ = copy_mapping_object(
+                copy_mapping_object(
                     self.session(),
                     triple.compartment,
                     triple.mapping_id,

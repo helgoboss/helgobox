@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedDummyTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct DummyTarget {
     // For making basic toggle/relative control possible.
     artificial_value: AbsoluteValue,

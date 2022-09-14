@@ -45,7 +45,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSelectionTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackSelectionTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,

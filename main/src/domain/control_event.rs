@@ -9,7 +9,7 @@ pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestam
 //
 // Don't expose the inner field, it should stay private. We might swap the time unit in future to
 // improve performance and accuracy.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ControlEventTimestamp(Instant);
 
 impl AbstractTimestamp for ControlEventTimestamp {

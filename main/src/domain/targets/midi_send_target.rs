@@ -35,7 +35,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MidiSendTarget {
     pattern: RawMidiPattern,
     destination: SendMidiDestination,

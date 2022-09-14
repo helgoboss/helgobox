@@ -20,7 +20,7 @@ pub trait PresetLinkMutator {
     fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId);
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxPresetLinkConfig {
     links: Vec<FxPresetLink>,
@@ -72,7 +72,7 @@ impl FxPresetLinkConfig {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxPresetLink {
     #[serde(rename = "fx")]
@@ -196,6 +196,7 @@ impl FxId {
 #[derive(
     Copy,
     Clone,
+    Eq,
     PartialEq,
     Debug,
     Serialize,

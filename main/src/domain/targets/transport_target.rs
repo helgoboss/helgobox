@@ -30,7 +30,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTransportTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransportTarget {
     pub project: Project,
     pub action: TransportAction,

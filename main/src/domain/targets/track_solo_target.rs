@@ -43,7 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackSoloTarget {
     pub track: Track,
     pub behavior: SoloBehavior,

@@ -42,7 +42,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadFxSnapshotTarget {
     pub fx: Fx,
     pub chunk: Rc<String>,

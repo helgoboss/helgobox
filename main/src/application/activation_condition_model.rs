@@ -16,7 +16,7 @@ pub enum ActivationConditionCommand {
     SetMappingId(Option<MappingId>),
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum ActivationConditionProp {
     ActivationType,
     ModifierCondition1,

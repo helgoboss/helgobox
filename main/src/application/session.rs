@@ -149,14 +149,14 @@ pub struct Session {
     instance_fx_descriptor: FxDescriptor,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct LearnManyState {
     pub compartment: Compartment,
     pub current_mapping_id: MappingId,
     pub sub_state: LearnManySubState,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum LearnManySubState {
     LearningSource {
         // Only relevant in controller compartment

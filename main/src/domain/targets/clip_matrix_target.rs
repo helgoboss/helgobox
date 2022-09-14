@@ -29,7 +29,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipMatrixTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipMatrixTarget {
     pub action: ClipMatrixAction,
 }
@@ -185,7 +185,7 @@ impl<'a> Target<'a> for ClipMatrixTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RealTimeClipMatrixTarget {
     action: ClipMatrixAction,
 }

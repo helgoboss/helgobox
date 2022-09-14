@@ -34,7 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NavigateWithinGroupTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// not have any effect when controlling (only when querying the values).

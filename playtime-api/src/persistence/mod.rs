@@ -74,7 +74,7 @@ impl Default for TempoRange {
 }
 
 /// Matrix-global settings related to playing clips.
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlaySettings {
     pub start_timing: ClipPlayStartTiming,
@@ -82,7 +82,7 @@ pub struct MatrixClipPlaySettings {
     pub audio_settings: MatrixClipPlayAudioSettings,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlayAudioSettings {
     pub resample_mode: VirtualResampleMode,
@@ -91,7 +91,7 @@ pub struct MatrixClipPlayAudioSettings {
 }
 
 /// Matrix-global settings related to recording clips.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordSettings {
     pub start_timing: ClipRecordStartTiming,
@@ -202,7 +202,7 @@ impl Default for MatrixClipRecordSettings {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
     pub record_mode: MidiClipRecordMode,
@@ -232,7 +232,7 @@ impl Default for MatrixClipRecordMidiSettings {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
@@ -244,7 +244,7 @@ pub struct MatrixClipRecordAudioSettings {
     pub detect_input: bool,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum RecordLength {
     /// Records open-ended until the user decides to stop.
@@ -259,7 +259,7 @@ impl Default for RecordLength {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordTimeBase {
     /// Derives the time base of the resulting clip from the clip start timing.
@@ -276,7 +276,7 @@ impl Default for ClipRecordTimeBase {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStartTiming {
     /// Uses the inherited clip play start timing (from column or matrix).
@@ -329,7 +329,7 @@ impl Default for ClipRecordStopTiming {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStopTiming {
     /// Uses the record start timing.
@@ -361,7 +361,7 @@ impl ClipRecordStopTiming {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
@@ -383,7 +383,7 @@ impl Default for MidiClipRecordMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStartTiming {
     /// Starts playing immediately.
@@ -408,7 +408,7 @@ impl ClipPlayStartTiming {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStopTiming {
     /// Uses the play start timing.
@@ -427,7 +427,7 @@ impl Default for ClipPlayStopTiming {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipSettingOverrideAfterRecording<T> {
     /// Doesn't apply any override.
@@ -447,7 +447,7 @@ impl<T> Default for ClipSettingOverrideAfterRecording<T> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Override<T> {
     pub value: T,
@@ -456,7 +456,7 @@ pub struct Override<T> {
 /// An even quantization.
 ///
 /// Even in the sense of that's it's not swing or dotted.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvenQuantization {
     numerator: u32,
@@ -524,7 +524,7 @@ pub struct Column {
     pub slots: Option<Vec<Slot>>,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlaySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -550,7 +550,7 @@ pub struct ColumnClipPlaySettings {
     pub audio_settings: ColumnClipPlayAudioSettings,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ColumnPlayMode {
     /// - Only one clip in the column can play at a certain point in time.
@@ -588,7 +588,7 @@ impl ColumnPlayMode {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
     pub origin: RecordOrigin,
@@ -597,7 +597,7 @@ pub struct ColumnClipRecordSettings {
     pub track: Option<TrackId>,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlayAudioSettings {
     /// Overrides the matrix-global resample mode for clips in this column.
@@ -644,7 +644,7 @@ pub struct Row {
     pub time_signature: Option<TimeSignature>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum AudioTimeStretchMode {
     /// Doesn't just stretch/squeeze the material but also changes the pitch.
@@ -663,7 +663,7 @@ impl Default for AudioTimeStretchMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum VirtualResampleMode {
     /// Uses the resample mode set as default for this REAPER project.
@@ -678,19 +678,19 @@ impl Default for VirtualResampleMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReaperResampleMode {
     pub mode: u32,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimeStretchMode {
     pub mode: VirtualTimeStretchMode,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum VirtualTimeStretchMode {
     /// Uses the pitch shift mode set as default for this REAPER project.
@@ -705,14 +705,14 @@ impl Default for VirtualTimeStretchMode {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReaperPitchShiftMode {
     pub mode: u32,
     pub sub_mode: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum RecordOrigin {
     /// Records using the hardware input set for the track (MIDI or stereo).
@@ -723,7 +723,7 @@ pub enum RecordOrigin {
     FxAudioInput(ChannelRange),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum SourceOrigin {
     /// Normal source.
     Normal,
@@ -737,7 +737,7 @@ impl Default for SourceOrigin {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChannelRange {
     pub first_channel_index: u32,
@@ -808,7 +808,7 @@ pub struct Clip {
     // canvas: Option<Canvas>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
@@ -863,7 +863,7 @@ impl Default for ClipAudioSettings {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
@@ -902,7 +902,7 @@ pub fn preferred_clip_midi_settings() -> ClipMidiSettings {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessageRange {
     /// Which MIDI reset messages to apply at the beginning.
@@ -911,7 +911,7 @@ pub struct MidiResetMessageRange {
     pub right: MidiResetMessages,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessages {
     /// Only supported at "right" position at the moment.
@@ -950,7 +950,7 @@ pub struct Section {
     pub length: Option<PositiveSecond>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum AudioCacheBehavior {
     /// Loads directly from the disk.
@@ -968,7 +968,7 @@ impl Default for AudioCacheBehavior {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipColor {
     /// Inherits the color of the column's play track.
@@ -979,19 +979,19 @@ pub enum ClipColor {
     PaletteColor(PaletteClipColor),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CustomClipColor {
     pub value: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PaletteClipColor {
     pub index: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Source {
     /// Takes content from a media file on the file system (audio or MIDI).
@@ -1000,7 +1000,7 @@ pub enum Source {
     MidiChunk(MidiChunkSource),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FileSource {
     /// Path to the media file.
@@ -1009,7 +1009,7 @@ pub struct FileSource {
     pub path: PathBuf,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiChunkSource {
     /// MIDI data in the same format that REAPER uses for in-project MIDI.
@@ -1045,14 +1045,14 @@ pub struct BeatTimeBase {
     pub downbeat: PositiveBeat,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimeSignature {
     pub numerator: u32,
     pub denominator: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct TrackId(String);
 
 impl TrackId {
@@ -1131,7 +1131,7 @@ impl Db {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 type PlaytimeApiResult<T> = Result<T, &'static str>;

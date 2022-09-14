@@ -38,7 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteTouchStateTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteTouchStateTarget {
     pub route: TrackRoute,
     pub parameter_type: TouchedRouteParameterType,

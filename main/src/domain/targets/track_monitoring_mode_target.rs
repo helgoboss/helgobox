@@ -42,7 +42,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMonitoringModeTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackMonitoringModeTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,

@@ -50,7 +50,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteAutomationModeTarget {
     pub route: TrackRoute,
     pub poll_for_feedback: bool,

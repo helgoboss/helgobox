@@ -35,7 +35,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackVolumeTarget {
     pub track: Track,
 }
