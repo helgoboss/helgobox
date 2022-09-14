@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::http::ServerClients;
 use axum::extract::{Query, WebSocketUpgrade};
 use axum::handler::Handler;
@@ -25,20 +25,12 @@ pub async fn start_http_server(
     https_port: u16,
     clients: ServerClients,
     (key, cert): (String, String),
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
-    control_surface_metrics_enabled: bool,
     prometheus_handle: PrometheusHandle,
 ) -> Result<(), io::Error> {
     // Router
-    let router = create_router(
-        cert.clone(),
-        control_surface_task_sender,
-        clients,
-        prometheus_handle,
-        control_surface_metrics_enabled,
-    );
+    let router = create_router(cert.clone(), clients, prometheus_handle);
     // Binding
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
@@ -83,10 +75,8 @@ pub async fn start_http_server(
 
 fn create_router(
     cert: String,
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     clients: ServerClients,
     prometheus_handle: PrometheusHandle,
-    control_surface_metrics_enabled: bool,
 ) -> Router {
     let router = Router::new()
         .route("/", get(welcome_handler))
@@ -113,19 +103,11 @@ fn create_router(
         .route(
             "/realearn/controller/:id",
             patch(patch_controller_handler.layer(MainThreadLayer)),
+        )
+        .route(
+            "/realearn/metrics",
+            get(move || async move { create_metrics_response(prometheus_handle).await }),
         );
-    #[cfg(feature = "realearn-metrics")]
-    let router = router.route(
-        "/realearn/metrics",
-        get(move || async move {
-            create_metrics_response(
-                control_surface_task_sender.clone(),
-                prometheus_handle,
-                control_surface_metrics_enabled,
-            )
-            .await
-        }),
-    );
     router
         .layer(
             CorsLayer::new()

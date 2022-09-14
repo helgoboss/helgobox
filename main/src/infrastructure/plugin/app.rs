@@ -14,9 +14,8 @@ use crate::domain::{
     MainProcessor, MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask,
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
     QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetState, ReaperTarget,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
+    RealearnTargetState, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -80,9 +79,6 @@ pub type RealearnControlSurface =
 pub type RealearnControlSurfaceMainTaskSender =
     SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
 
-pub type RealearnControlSurfaceServerTaskSender =
-    SenderToNormalThread<RealearnControlSurfaceServerTask>;
-
 #[derive(Debug)]
 pub struct App {
     state: RefCell<AppState>,
@@ -145,8 +141,6 @@ struct UninitializedState {
     control_surface_main_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
     clip_matrix_event_receiver: crossbeam_channel::Receiver<QualifiedClipMatrixEvent>,
-    control_surface_server_task_receiver:
-        crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: crossbeam_channel::Receiver<InstanceOrchestrationEvent>,
     normal_audio_hook_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
@@ -210,8 +204,6 @@ impl App {
             SenderToNormalThread::new_unbounded_channel("control surface main tasks");
         let (clip_matrix_event_sender, clip_matrix_event_receiver) =
             SenderToNormalThread::new_unbounded_channel("clip matrix events");
-        let (server_sender, server_receiver) =
-            SenderToNormalThread::new_unbounded_channel("control surface server tasks");
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
             SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
@@ -231,7 +223,6 @@ impl App {
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             clip_matrix_event_receiver,
-            control_surface_server_task_receiver: server_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
             normal_audio_hook_task_receiver,
@@ -260,8 +251,6 @@ impl App {
                 config.main.server_https_port,
                 config.main.server_grpc_port,
                 App::server_resource_dir_path().join("certificates"),
-                server_sender,
-                Self::control_surface_metrics_enabled(),
                 prometheus_handle,
             ))),
             config: RefCell::new(config),
@@ -347,11 +336,9 @@ impl App {
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.clip_matrix_event_receiver,
-            uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
             Self::garbage_channel().1.clone(),
-            Self::control_surface_metrics_enabled(),
             shared_main_processors.clone(),
         ));
         let audio_hook = RealearnAudioHook::new(
@@ -366,11 +353,6 @@ impl App {
             accelerator: Box::new(accelerator),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
-    }
-
-    fn control_surface_metrics_enabled() -> bool {
-        static ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("CONTROL_SURFACE_METRICS").is_ok());
-        *ENABLED
     }
 
     fn reconnect_osc_devices(&self) {

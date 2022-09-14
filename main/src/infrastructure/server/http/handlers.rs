@@ -1,10 +1,9 @@
 use crate::base::Global;
 use crate::infrastructure::data::ControllerPresetData;
-use crate::infrastructure::plugin::RealearnControlSurfaceServerTaskSender;
 use crate::infrastructure::server::data::{
     get_clip_matrix_data, get_controller_preset_data, get_controller_routing_by_session_id,
-    obtain_control_surface_metrics_snapshot, patch_controller, ControllerRouting, DataError,
-    DataErrorCategory, PatchRequest, SessionResponseData, Topics,
+    patch_controller, ControllerRouting, DataError, DataErrorCategory, PatchRequest,
+    SessionResponseData, Topics,
 };
 use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
 use axum::body::{boxed, Body, BoxBody};
@@ -79,39 +78,12 @@ pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<BoxB
         .unwrap()
 }
 
-#[cfg(feature = "realearn-metrics")]
-pub async fn create_metrics_response(
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
-    prometheus_handle: PrometheusHandle,
-    control_surface_metrics_enabled: bool,
-) -> Response<BoxBody> {
-    let mut text = prometheus_handle.render();
-    if control_surface_metrics_enabled {
-        obtain_control_surface_metrics_snapshot(control_surface_task_sender)
-            .await
-            .map(|r| {
-                let control_surface_text = match r {
-                    Ok(text) => text,
-                    Err(text) => text,
-                };
-                text.push_str(&control_surface_text);
-                Response::builder()
-                    .status(StatusCode::OK)
-                    .body(boxed(Body::from(text)))
-                    .unwrap()
-            })
-            .unwrap_or_else(|_| {
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(boxed(Body::from("sender dropped")))
-                    .unwrap()
-            })
-    } else {
-        Response::builder()
-            .status(StatusCode::OK)
-            .body(boxed(Body::from(text)))
-            .unwrap()
-    }
+pub async fn create_metrics_response(prometheus_handle: PrometheusHandle) -> Response<BoxBody> {
+    let text = prometheus_handle.render();
+    Response::builder()
+        .status(StatusCode::OK)
+        .body(boxed(Body::from(text)))
+        .unwrap()
 }
 
 pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients: ServerClients) {

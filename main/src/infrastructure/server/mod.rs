@@ -1,6 +1,6 @@
 //! Contains the ReaLearn server interface and runtime.
 
-use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
+use crate::infrastructure::plugin::App;
 
 use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, SanType};
 use reaper_high::Reaper;
@@ -41,8 +41,6 @@ pub struct RealearnServer {
     certs_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
     local_ip: Option<IpAddr>,
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
-    control_surface_metrics_enabled: bool,
     #[derivative(Debug = "ignore")]
     prometheus_handle: PrometheusHandle,
 }
@@ -79,8 +77,6 @@ impl RealearnServer {
         https_port: u16,
         grpc_port: u16,
         certs_dir_path: PathBuf,
-        control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
-        control_surface_metrics_enabled: bool,
         prometheus_handle: PrometheusHandle,
     ) -> RealearnServer {
         RealearnServer {
@@ -91,8 +87,6 @@ impl RealearnServer {
             certs_dir_path,
             changed_subject: Default::default(),
             local_ip: get_local_ip(),
-            control_surface_task_sender,
-            control_surface_metrics_enabled,
             prometheus_handle,
         }
     }
@@ -111,11 +105,9 @@ impl RealearnServer {
         let https_port = self.https_port;
         let grpc_port = self.grpc_port;
         let key_and_cert = self.key_and_cert();
-        let control_surface_task_sender = self.control_surface_task_sender.clone();
         let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
         let https_shutdown_receiver = shutdown_sender.subscribe();
         let grpc_shutdown_receiver = shutdown_sender.subscribe();
-        let control_surface_metrics_enabled = self.control_surface_metrics_enabled;
         let prometheus_handle = self.prometheus_handle.clone();
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
@@ -130,11 +122,9 @@ impl RealearnServer {
                     grpc_port,
                     clients_clone,
                     key_and_cert,
-                    control_surface_task_sender,
                     http_shutdown_receiver,
                     https_shutdown_receiver,
                     grpc_shutdown_receiver,
-                    control_surface_metrics_enabled,
                     prometheus_handle,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
@@ -284,11 +274,9 @@ async fn start_servers(
     grpc_port: u16,
     clients: ServerClients,
     (key, cert): (String, String),
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
     grpc_shutdown_receiver: broadcast::Receiver<()>,
-    control_surface_metrics_enabled: bool,
     prometheus_handle: PrometheusHandle,
 ) {
     let http_server_future = start_http_server(
@@ -296,10 +284,8 @@ async fn start_servers(
         https_port,
         clients,
         (key, cert),
-        control_surface_task_sender,
         http_shutdown_receiver,
         https_shutdown_receiver,
-        control_surface_metrics_enabled,
         prometheus_handle,
     );
     let grpc_server_future = start_grpc_server(

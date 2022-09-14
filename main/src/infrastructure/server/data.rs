@@ -3,13 +3,9 @@
 use crate::application::{
     ControllerPreset, Preset, PresetManager, Session, SourceCategory, TargetCategory,
 };
-use crate::base::NamedChannelSender;
-use crate::domain::{
-    BackboneState, Compartment, MappingKey, ProjectionFeedbackValue,
-    RealearnControlSurfaceServerTask,
-};
+use crate::domain::{BackboneState, Compartment, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
-use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
+use crate::infrastructure::plugin::App;
 use helgoboss_learn::UnitValue;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
@@ -137,17 +133,6 @@ pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPreset
         .ok_or(DataError::SessionNotFound)?;
     let session = session.borrow();
     get_controller_preset_data_internal(&session)
-}
-
-#[cfg(feature = "realearn-metrics")]
-pub async fn obtain_control_surface_metrics_snapshot(
-    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
-) -> Result<Result<String, String>, tokio::sync::oneshot::error::RecvError> {
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    control_surface_task_sender.send_complaining(
-        RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(sender),
-    );
-    receiver.await.map(Ok)
 }
 
 pub fn get_controller_routing(session: &Session) -> ControllerRouting {

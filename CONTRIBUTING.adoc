@@ -182,8 +182,7 @@ visible is to execute REAPER with a debugger.
 
 == Metrics
 
-
-It's possible to make ReaLearn expose execution metrics by building ReaLearn with the feature `realearn-metrics` (the default).
+It's possible to make ReaLearn expose execution metrics.
 
 === Prometheus endpoint
 
@@ -200,14 +199,6 @@ scrape_configs:
 ----
 
 ** If you don't have any metrics enabled, this will show zeros only.
-
-=== Control surface metrics
-
-- Control surface metrics are the most relevant metrics for ReaLearn because the processing is done in control surface methods for the most part.
-- That also means ReaLearn's logic is largely executed in the main thread, not in the
-audio thread - which is atypical for a VST plug-in. REAPER's built-in FX performance measuring is not too interesting in case of ReaLearn because all it does in the audio thread is processing some MIDI messages.
-- Setting the environment variable `CONTROL_SURFACE_METRICS` (value doesn't matter) makes ReaLearn continuously record histograms of control surface (`IReaperControlSurface`) method execution times.
-- In addition to the Prometheus endpoint, response times will be logged to `stdout` at warn level whenever they exceed a certain threshold.
 
 === ReaLearn metrics
 

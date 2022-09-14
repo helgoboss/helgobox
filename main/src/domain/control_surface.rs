@@ -33,7 +33,6 @@ use std::collections::HashMap;
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
-const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
@@ -50,16 +49,12 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
-    server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
-    #[cfg(feature = "realearn-metrics")]
-    meter_middleware: reaper_high::MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
     full_beats: HashMap<ReaProject, u32>,
-    metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
@@ -182,21 +177,15 @@ pub struct ParameterAutomationTouchStateChangedEvent {
     pub new_value: bool,
 }
 
-pub enum RealearnControlSurfaceServerTask {
-    ProvidePrometheusMetrics(tokio::sync::oneshot::Sender<String>),
-}
-
 impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
-        server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         garbage_receiver: crossbeam_channel::Receiver<Garbage>,
-        control_surface_metrics_enabled: bool,
         main_processors: SharedMainProcessors<EH>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -215,11 +204,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_processors,
             main_task_receiver,
             clip_matrix_event_receiver,
-            server_task_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            #[cfg(feature = "realearn-metrics")]
-            meter_middleware: reaper_high::MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
                 Global::get().task_sender(),
@@ -232,7 +218,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             ),
             counter: 0,
             full_beats: Default::default(),
-            metrics_enabled: control_surface_metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
             garbage_receiver,
@@ -273,32 +258,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // So we just consume all without executing them.
         self.main_task_middleware.reset();
         self.future_middleware.reset();
-    }
-
-    fn run_internal(&mut self) {
-        let timestamp = ControlEventTimestamp::now();
-        self.process_change_events();
-        self.main_task_middleware.run();
-        self.future_middleware.run();
-        self.rx_middleware.run();
-        self.process_main_tasks();
-        self.process_server_tasks();
-        self.process_incoming_additional_feedback();
-        self.process_instance_orchestration_events();
-        self.detect_reaper_config_changes();
-        self.emit_beats_as_feedback_events();
-        self.emit_device_changes_as_reaper_source_messages(timestamp);
-        self.process_incoming_osc_messages(timestamp);
-        self.poll_clip_matrixes();
-        self.process_incoming_clip_matrix_events();
-        self.run_main_processors(timestamp);
-        #[cfg(feature = "realearn-metrics")]
-        if self.metrics_enabled {
-            self.process_metrics();
-        }
-        self.drop_garbage();
-        self.process_deferred_control_surface_events();
-        self.counter += 1;
     }
 
     fn process_change_events(&mut self) {
@@ -342,7 +301,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn process_deferred_control_surface_events(&self) {
         while let Ok(event) = self.control_surface_event_receiver.try_recv() {
             let mut change_event_queue = self.change_event_queue.borrow_mut();
-            self.handle_event_very_internal(&event, &mut change_event_queue);
+            self.handle_event_internal(&event, &mut change_event_queue);
         }
     }
 
@@ -359,8 +318,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 LogDebugInfo => {
                     self.log_debug_info();
-                    #[cfg(feature = "realearn-metrics")]
-                    self.meter_middleware.log_metrics();
                 }
                 StartLearningTargets(sender) => {
                     self.state = State::LearningTarget(sender);
@@ -380,41 +337,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn process_server_tasks(&mut self) {
-        for t in self
-            .server_task_receiver
-            .try_iter()
-            .take(CONTROL_SURFACE_SERVER_TASK_BULK_SIZE)
-        {
-            use RealearnControlSurfaceServerTask::*;
-            match t {
-                ProvidePrometheusMetrics(sender) => {
-                    #[cfg(feature = "realearn-metrics")]
-                    let text = serde_prometheus::to_string(
-                        self.meter_middleware.metrics(),
-                        Some("realearn"),
-                        HashMap::new(),
-                    )
-                    .unwrap();
-                    #[cfg(not(feature = "realearn-metrics"))]
-                    let text = String::new();
-                    let _ = sender.send(text);
-                }
-            }
-        }
-    }
-
     fn drop_garbage(&mut self) {
         for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
             let _ = garbage;
-        }
-    }
-
-    #[cfg(feature = "realearn-metrics")]
-    fn process_metrics(&mut self) {
-        // Roughly every 10 seconds
-        if self.counter % (30 * 10) == 0 {
-            self.meter_middleware.warn_about_critical_metrics();
         }
     }
 
@@ -666,21 +591,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn handle_event_internal(&self, event: &ControlSurfaceEvent) -> bool {
-        // Reentrancy check (check if we are currently mutably in `run()`)
-        // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
-        //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
-        match self.change_event_queue.try_borrow_mut() {
-            Ok(mut queue) => self.handle_event_very_internal(event, &mut queue),
-            Err(_) => {
-                self.control_surface_event_sender
-                    .send_complaining(event.clone().into_owned());
-                false
-            }
-        }
-    }
-
-    fn handle_event_very_internal(
+    fn handle_event_internal(
         &self,
         event: &ControlSurfaceEvent,
         change_event_queue: &mut Vec<ChangeEvent>,
@@ -724,33 +635,38 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        #[cfg(feature = "realearn-metrics")]
-        if self.metrics_enabled {
-            let elapsed = reaper_high::MeterMiddleware::measure(|| {
-                self.run_internal();
-            });
-            self.meter_middleware.record_run(elapsed);
-        } else {
-            self.run_internal();
-        }
-        #[cfg(not(feature = "realearn-metrics"))]
-        {
-            self.run_internal();
-        }
+        let timestamp = ControlEventTimestamp::now();
+        self.process_change_events();
+        self.main_task_middleware.run();
+        self.future_middleware.run();
+        self.rx_middleware.run();
+        self.process_main_tasks();
+        self.process_incoming_additional_feedback();
+        self.process_instance_orchestration_events();
+        self.detect_reaper_config_changes();
+        self.emit_beats_as_feedback_events();
+        self.emit_device_changes_as_reaper_source_messages(timestamp);
+        self.process_incoming_osc_messages(timestamp);
+        self.poll_clip_matrixes();
+        self.process_incoming_clip_matrix_events();
+        self.run_main_processors(timestamp);
+        self.drop_garbage();
+        self.process_deferred_control_surface_events();
+        self.counter += 1;
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
-        #[cfg(feature = "realearn-metrics")]
-        if self.metrics_enabled {
-            let elapsed = reaper_high::MeterMiddleware::measure(|| {
-                self.handle_event_internal(&event);
-            });
-            self.meter_middleware.record_event(&event, elapsed)
-        } else {
-            self.handle_event_internal(&event)
+        // Reentrancy check (check if we are currently mutably in `run()`)
+        // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
+        //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
+        match self.change_event_queue.try_borrow_mut() {
+            Ok(mut queue) => self.handle_event_internal(&event, &mut queue),
+            Err(_) => {
+                self.control_surface_event_sender
+                    .send_complaining(event.clone().into_owned());
+                false
+            }
         }
-        #[cfg(not(feature = "realearn-metrics"))]
-        self.handle_event_internal(event)
     }
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {

@@ -7,13 +7,10 @@ build = "build.rs"
 license = "GPL-3.0"
 
 [features]
-default = ["realearn-metrics"]
+default = []
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
-
-# Measure performance and expose metrics endpoint in prometheus format (via projection server)
-realearn-metrics = ["reaper-high/reaper-meter", "serde_prometheus"]
 
 [dependencies]
 reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
@@ -109,8 +106,6 @@ slog-stdlog = "4.1.0"
 futures-timer = "3.0.2"
 # To open user guide in local PDF app
 open = "1"
-# For exposing metrics in Prometheus format
-serde_prometheus = { version = "0.1.5", optional = true }
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
