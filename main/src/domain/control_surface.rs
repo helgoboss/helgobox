@@ -299,6 +299,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Long story short: The following line ensures we make a "pop" instead of a "peek" in order
         // to avoid an infinite loop in case of a panic.
         let mut normal_events = self.change_event_queue.replace(vec![]);
+        // Important because we deferred the change event handling, so it could be invalid now!
+        // See https://github.com/helgoboss/realearn/issues/672.
+        normal_events.retain(|e| e.is_still_valid());
         let monitoring_fx_events =
             metrics_util::measure_time("detect_monitoring_fx_changes", || {
                 self.monitoring_fx_chain_change_detector.poll_for_changes()
