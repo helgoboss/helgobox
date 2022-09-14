@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
 pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
@@ -31,6 +32,7 @@ pub trait ExtendedPresetManager {
 }
 
 pub struct PresetInfo {
+    pub id: String,
     pub name: String,
 }
 
@@ -56,22 +58,23 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn load_presets_internal(&mut self) -> Result<(), String> {
-        let preset_file_paths = fs::read_dir(&self.preset_dir_path)
-            .map_err(|_| "couldn't read preset directory".to_string())?
-            .filter_map(|result| {
-                let dir_entry = result.ok()?;
-                let file_type = dir_entry.file_type().ok()?;
-                if !file_type.is_file() && !file_type.is_symlink() {
+        let preset_file_paths = WalkDir::new(&self.preset_dir_path)
+            .follow_links(true)
+            .max_depth(2)
+            .into_iter()
+            .filter_entry(|e| !is_hidden(e))
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                if !entry.file_type().is_file() {
                     return None;
                 }
-                let path = dir_entry.path();
-                if path.extension() != Some(std::ffi::OsStr::new("json")) {
+                if entry.path().extension() != Some(std::ffi::OsStr::new("json")) {
                     return None;
-                };
-                Some(path)
+                }
+                Some(entry.into_path())
             });
         self.presets = preset_file_paths
-            .filter_map(|p| match Self::load_preset(p) {
+            .filter_map(|p| match self.load_preset(&p) {
                 Ok(p) => Some(p),
                 Err(msg) => {
                     notification::warn(msg);
@@ -133,19 +136,28 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.preset_dir_path.join(format!("{}.json", id))
     }
 
-    fn load_preset(path: impl AsRef<Path>) -> Result<P, String> {
-        let path = path.as_ref();
-        let id = path
-            .file_stem()
-            .ok_or_else(|| {
-                format!(
-                    "Preset file \"{}\" only has an extension but not a name. \
+    fn load_preset(&self, path: &Path) -> Result<P, String> {
+        let relative_path = path
+            .parent()
+            .unwrap()
+            .strip_prefix(&self.preset_dir_path)
+            .unwrap();
+        let file_stem = path.file_stem().ok_or_else(|| {
+            format!(
+                "Preset file \"{}\" only has an extension but not a name. \
                     The name is necessary because it makes up the preset ID.",
-                    path.display()
-                )
-            })?
-            .to_string_lossy()
-            .to_string();
+                path.display()
+            )
+        })?;
+        let leaf_id = file_stem.to_string_lossy();
+        let id = if relative_path.parent().is_none() {
+            // Preset is in root
+            leaf_id.to_string()
+        } else {
+            // Preset is in sub directory
+            let relative_path_with_slashes = relative_path.to_string_lossy().replace("\\", "/");
+            format!("{}/{}", relative_path_with_slashes, leaf_id)
+        };
         let json = fs::read_to_string(&path)
             .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
         let data: PD = serde_json::from_str(&json).map_err(|e| {
@@ -176,6 +188,14 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 }
 
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
+
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
     fn find_index_by_id(&self, id: &str) -> Option<usize> {
         self.presets.iter().position(|p| p.id() == id)
@@ -197,6 +217,7 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
         self.presets
             .iter()
             .map(|p| PresetInfo {
+                id: p.id().to_owned(),
                 name: p.name().to_owned(),
             })
             .collect()

@@ -1464,7 +1464,7 @@ impl HeaderPanel {
                 .preset_infos()
                 .into_iter()
                 .enumerate()
-                .map(|(i, info)| (i as isize, info.name)),
+                .map(|(i, info)| (i as isize, format!("{} ({})", info.name, info.id))),
         );
         combo.fill_combo_box_with_data_small(all_entries);
     }

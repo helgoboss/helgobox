@@ -159,6 +159,8 @@ nom = "7.0.0"
 realearn-dialogs = { path = "../dialogs" }
 # For being able to return iterators of different types
 either = "1.8.0"
+# For reading preset directories recursively
+walkdir = "2"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
