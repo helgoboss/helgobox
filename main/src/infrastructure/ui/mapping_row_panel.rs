@@ -9,7 +9,7 @@ use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingI
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
-    MappingModelData, ModeModelData, SourceModelData, TargetModelData,
+    ActivationConditionData, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
@@ -664,6 +664,10 @@ impl MappingRowPanel {
                             format!("Paste target ({})", t.category),
                             DataObject::Target(Envelope { value: t }),
                         )),
+                        Some(DataObject::ActivationCondition(Envelope { value: t })) => Some((
+                            format!("Paste activation condition ({})", t.activation_type),
+                            DataObject::ActivationCondition(Envelope { value: t }),
+                        )),
                         _ => None,
                     };
                     if let Some((label, obj)) = desc {
@@ -692,6 +696,9 @@ impl MappingRowPanel {
                 menu(
                     "Copy part",
                     vec![
+                        item("Copy activation condition", || {
+                            MenuAction::CopyPart(ObjectType::ActivationCondition)
+                        }),
                         item("Copy source", || MenuAction::CopyPart(ObjectType::Source)),
                         item("Copy glue", || MenuAction::CopyPart(ObjectType::Glue)),
                         item("Copy target", || MenuAction::CopyPart(ObjectType::Target)),
@@ -948,6 +955,12 @@ fn copy_mapping_object(
                 &compartment_in_session,
             )),
         }),
+        ActivationCondition => DataObject::ActivationCondition(Envelope {
+            value: Box::new(ActivationConditionData::from_model(
+                &mapping.activation_condition_model,
+                &compartment_in_session,
+            )),
+        }),
     };
     let text = serialize_data_object(data_object, format)?;
     copy_text_to_clipboard(text);
@@ -959,6 +972,7 @@ enum ObjectType {
     Source,
     Glue,
     Target,
+    ActivationCondition,
 }
 
 fn paste_data_object_in_place(
@@ -1009,6 +1023,13 @@ fn paste_data_object_in_place(
                 session.extended_context(),
                 &compartment_in_session,
             )?;
+        }
+        DataObject::ActivationCondition(Envelope { value: c }) => {
+            let compartment_in_session = session.compartment_in_session(triple.compartment);
+            c.apply_to_model(
+                &mut mapping.activation_condition_model,
+                &compartment_in_session,
+            );
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
     };

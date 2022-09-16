@@ -10,8 +10,8 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    CompartmentModelData, MappingModelData, ModeModelData, SessionData, SourceModelData,
-    TargetModelData,
+    ActivationConditionData, CompartmentModelData, MappingModelData, ModeModelData, SessionData,
+    SourceModelData, TargetModelData,
 };
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::lua_serializer;
@@ -42,6 +42,7 @@ pub enum DataObject {
     #[serde(alias = "Mode")]
     Glue(Envelope<Box<ModeModelData>>),
     Target(Envelope<Box<TargetModelData>>),
+    ActivationCondition(Envelope<Box<ActivationConditionData>>),
 }
 
 /// This corresponds to the way controller and main presets are structured.
