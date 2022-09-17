@@ -1996,6 +1996,9 @@ impl Session {
         self.set_groups_without_notification(compartment, std::iter::empty());
         self.set_mappings_without_notification(compartment, std::iter::empty());
         self.params.compartment_params_mut(compartment).reset_all();
+        self.param_container
+            .update_compartment_params(compartment, Default::default());
+        self.custom_compartment_data[compartment] = Default::default();
     }
 
     pub fn update_certain_param_settings(
