@@ -799,6 +799,10 @@ impl ReaperTargetType {
         self.definition().supports_fx()
     }
 
+    pub fn supports_seek_behavior(self) -> bool {
+        self.definition().supports_seek_behavior()
+    }
+
     pub fn supports_tags(self) -> bool {
         self.definition().supports_tags()
     }
@@ -867,6 +871,7 @@ pub struct TargetTypeDef {
     pub supports_feedback_resolution: bool,
     pub supports_control: bool,
     pub supports_feedback: bool,
+    pub supports_seek_behavior: bool,
 }
 
 impl TargetTypeDef {
@@ -890,6 +895,9 @@ impl TargetTypeDef {
     }
     pub const fn supports_clip_slot(&self) -> bool {
         self.supports_clip_slot
+    }
+    pub const fn supports_seek_behavior(&self) -> bool {
+        self.supports_seek_behavior
     }
     pub const fn supports_fx(&self) -> bool {
         self.supports_fx
@@ -949,6 +957,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_exclusivity: false,
     supports_poll_for_feedback: false,
     supports_feedback_resolution: false,
+    supports_seek_behavior: false,
 };
 
 pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";

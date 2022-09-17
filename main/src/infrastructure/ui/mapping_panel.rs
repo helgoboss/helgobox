@@ -26,7 +26,9 @@ use helgoboss_learn::{
     SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor,
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::persistence::{FxToolAction, MidiScriptKind, MonitoringMode, TrackToolAction};
+use realearn_api::persistence::{
+    FxToolAction, MidiScriptKind, MonitoringMode, SeekBehavior, TrackToolAction,
+};
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -464,7 +466,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::MonitoringMode | P::TrackArea => {
+                                            P::SoloBehavior | P::SeekBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::MonitoringMode | P::TrackArea => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -2619,6 +2621,13 @@ impl<'a> MutableMappingPanel<'a> {
                         }
                     }
                 }
+                t if t.supports_seek_behavior() => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid seek behavior");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetSeekBehavior(v),
+                    ));
+                }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid action invocation type");
@@ -4467,6 +4476,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
+                t if t.supports_seek_behavior() => Some("Behavior"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
             },
@@ -4688,6 +4698,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     } else {
                         combo.hide();
                     }
+                }
+                t if t.supports_seek_behavior() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(SeekBehavior::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.seek_behavior().into())
+                        .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();

@@ -23,7 +23,7 @@ use helgoboss_learn::{
 };
 use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::ClipTransportAction;
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior};
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
@@ -1399,5 +1399,15 @@ pub fn get_control_type_and_character_for_track_exclusivity(
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Switch,
         )
+    }
+}
+
+pub fn with_seek_behavior(behavior: SeekBehavior, f: impl FnOnce()) {
+    use SeekBehavior::*;
+    match behavior {
+        ReaperPreference => f(),
+        Immediate | Smooth => {
+            Reaper::get().with_smooth_seek(behavior == Smooth, f);
+        }
     }
 }

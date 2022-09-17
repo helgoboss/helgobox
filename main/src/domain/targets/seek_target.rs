@@ -1,5 +1,5 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
+    with_seek_behavior, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -7,6 +7,7 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
+use realearn_api::persistence::SeekBehavior;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeMode, TimeModeOverride,
@@ -16,6 +17,7 @@ use std::borrow::Cow;
 #[derive(Debug)]
 pub struct UnresolvedSeekTarget {
     pub options: SeekOptions,
+    pub behavior: SeekBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
@@ -28,6 +30,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
         Ok(vec![ReaperTarget::Seek(SeekTarget {
             project,
             options: self.options,
+            behavior: self.behavior,
         })])
     }
 
@@ -40,6 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
 pub struct SeekTarget {
     pub project: Project,
     pub options: SeekOptions,
+    pub behavior: SeekBehavior,
 }
 
 impl RealearnTarget for SeekTarget {
@@ -57,13 +61,15 @@ impl RealearnTarget for SeekTarget {
         let info = get_seek_info(self.project, self.options, false);
         let desired_pos_within_range = value.get() * info.length();
         let desired_pos = info.start_pos.get() + desired_pos_within_range;
-        self.project.set_edit_cursor_position(
-            PositionInSeconds::new(desired_pos),
-            SetEditCurPosOptions {
-                move_view: self.options.move_view,
-                seek_play: self.options.seek_play,
-            },
-        );
+        with_seek_behavior(self.behavior, || {
+            self.project.set_edit_cursor_position(
+                PositionInSeconds::new(desired_pos),
+                SetEditCurPosOptions {
+                    move_view: self.options.move_view,
+                    seek_play: self.options.seek_play,
+                },
+            );
+        });
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -377,5 +383,6 @@ pub const SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Project: Seek",
     short_name: "Seek",
     supports_feedback_resolution: true,
+    supports_seek_behavior: true,
     ..DEFAULT_TARGET
 };

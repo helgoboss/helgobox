@@ -1,15 +1,17 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::{
-    current_value_of_bookmark, find_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior,
+    AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
 };
+use realearn_api::persistence::SeekBehavior;
 use reaper_high::{BookmarkType, ChangeEvent, FindBookmarkResult, Project, Reaper};
-use reaper_medium::{AutoSeekBehavior, BookmarkRef};
+use reaper_medium::{AutoSeekBehavior, BookmarkRef, SetEditCurPosOptions};
 use std::borrow::Cow;
 use std::num::NonZeroU32;
 
@@ -20,6 +22,7 @@ pub struct UnresolvedGoToBookmarkTarget {
     pub bookmark_ref: u32,
     pub set_time_selection: bool,
     pub set_loop_points: bool,
+    pub seek_behavior: SeekBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
@@ -42,6 +45,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
             position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
             set_time_selection: self.set_time_selection,
             set_loop_points: self.set_loop_points,
+            seek_behavior: self.seek_behavior,
         })])
     }
 
@@ -62,6 +66,7 @@ pub struct GoToBookmarkTarget {
     pub position: NonZeroU32,
     pub set_time_selection: bool,
     pub set_loop_points: bool,
+    pub seek_behavior: SeekBehavior,
 }
 
 impl GoToBookmarkTarget {
@@ -92,12 +97,34 @@ impl RealearnTarget for GoToBookmarkTarget {
             return Ok(HitResponse::ignored());
         }
         match self.bookmark_type {
-            BookmarkType::Marker => self
-                .project
-                .go_to_marker(BookmarkRef::Position(self.position)),
+            BookmarkType::Marker => {
+                with_seek_behavior(self.seek_behavior, || {
+                    self.project
+                        .go_to_marker(BookmarkRef::Position(self.position))
+                });
+            }
             BookmarkType::Region => {
-                self.project
-                    .go_to_region_with_smooth_seek(BookmarkRef::Position(self.position));
+                let smooth_seek = match self.seek_behavior {
+                    SeekBehavior::Immediate => false,
+                    SeekBehavior::Smooth => true,
+                    SeekBehavior::ReaperPreference => Reaper::get().smooth_seek_is_enabled(),
+                };
+                if smooth_seek {
+                    // At the moment, "Smooth seek" with regions always means playing until the end
+                    // of the region.
+                    self.project
+                        .go_to_region_with_smooth_seek(BookmarkRef::Position(self.position));
+                } else if let Some(bookmark) = self.find_bookmark() {
+                    with_seek_behavior(SeekBehavior::Immediate, || {
+                        self.project.set_edit_cursor_position(
+                            bookmark.basic_info.position,
+                            SetEditCurPosOptions {
+                                move_view: false,
+                                seek_play: true,
+                            },
+                        );
+                    });
+                }
                 if self.set_loop_points || self.set_time_selection {
                     if let Some(bookmark) = self.find_bookmark() {
                         if let Some(end_pos) = bookmark.basic_info.region_end_position {
@@ -211,5 +238,6 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
 pub const GO_TO_BOOKMARK_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Marker/region: Go to",
     short_name: "Go to bookmark",
+    supports_seek_behavior: true,
     ..DEFAULT_TARGET
 };

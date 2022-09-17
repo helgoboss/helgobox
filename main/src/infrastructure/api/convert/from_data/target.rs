@@ -135,6 +135,7 @@ fn convert_real_target(
                 data.seek_options.use_loop_points,
                 defaults::TARGET_BOOKMARK_SET_LOOP_POINTS,
             ),
+            seek_behavior: style.optional_value(data.seek_behavior),
         }),
         TrackAutomationMode => T::TrackAutomationMode(TrackAutomationModeTarget {
             commons,
@@ -369,6 +370,7 @@ fn convert_real_target(
                 data.seek_options.feedback_resolution,
                 style,
             ),
+            behavior: style.optional_value(data.seek_behavior),
         }),
         PlayRate => T::PlayRate(PlayRateTarget { commons }),
         Tempo => T::Tempo(TempoTarget { commons }),

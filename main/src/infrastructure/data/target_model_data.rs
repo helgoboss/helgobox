@@ -31,7 +31,7 @@ use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    TargetValue, TrackToolAction,
+    SeekBehavior, TargetValue, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -123,6 +123,9 @@ pub struct TargetModelData {
         skip_serializing_if = "is_none_or_some_default"
     )]
     pub solo_behavior: Option<SoloBehavior>,
+    // Seek and goto bookmark target, available from v2.14.0-pre.2
+    #[serde(default, deserialize_with = "deserialize_null_default")]
+    pub seek_behavior: Option<SeekBehavior>,
     // Toggleable track targets (since v2.4.0)
     #[serde(
         default,
@@ -475,6 +478,7 @@ impl TargetModelData {
             fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
             solo_behavior: Some(model.solo_behavior()),
+            seek_behavior: Some(model.seek_behavior()),
             track_exclusivity: model.track_exclusivity(),
             track_tool_action: model.track_tool_action(),
             fx_tool_action: model.fx_tool_action(),
@@ -662,6 +666,24 @@ impl TargetModelData {
             }
         });
         model.change(C::SetSoloBehavior(solo_behavior));
+        let seek_behavior = self.seek_behavior.unwrap_or_else(|| {
+            // Older version didn't have an explicit seek behavior. Determine old behavior.
+            match self.r#type {
+                ReaperTargetType::Seek => SeekBehavior::ReaperPreference,
+                ReaperTargetType::GoToBookmark => {
+                    if self.bookmark_data.is_region {
+                        // When targeting a region, we always used smooth region seeking
+                        SeekBehavior::Smooth
+                    } else {
+                        // Otherwise we followed the REAPER preference
+                        SeekBehavior::ReaperPreference
+                    }
+                }
+                // Shouldn't matter for other targets
+                _ => Default::default(),
+            }
+        });
+        model.change(C::SetSeekBehavior(seek_behavior));
         model.change(C::SetTransportAction(self.transport_action));
         model.change(C::SetAnyOnParameter(self.any_on_parameter));
         model.change(C::SetControlElementType(self.control_element_type));

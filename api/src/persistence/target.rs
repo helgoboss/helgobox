@@ -174,6 +174,8 @@ pub struct SeekTarget {
     pub seek_play: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_resolution: Option<FeedbackResolution>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<SeekBehavior>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -200,6 +202,8 @@ pub struct GoToBookmarkTarget {
     pub set_time_selection: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub set_loop_points: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seek_behavior: Option<SeekBehavior>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -1264,6 +1268,36 @@ pub enum SoloBehavior {
 impl Default for SoloBehavior {
     fn default() -> Self {
         SoloBehavior::InPlace
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    JsonSchema,
+)]
+#[repr(usize)]
+pub enum SeekBehavior {
+    #[display(fmt = "Immediate")]
+    Immediate,
+    #[display(fmt = "Smooth")]
+    Smooth,
+    #[display(fmt = "Use REAPER preference")]
+    ReaperPreference,
+}
+
+impl Default for SeekBehavior {
+    fn default() -> Self {
+        SeekBehavior::Immediate
     }
 }
 

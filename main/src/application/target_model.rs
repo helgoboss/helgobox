@@ -61,7 +61,7 @@ use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, TrackDescriptorCommons, TrackFxChain,
+    MappingSnapshotDescForTake, MonitoringMode, SeekBehavior, TrackDescriptorCommons, TrackFxChain,
     TrackToolAction,
 };
 use reaper_medium::{
@@ -103,6 +103,7 @@ pub enum TargetCommand {
     SetRouteIndex(u32),
     SetRouteName(String),
     SetRouteExpression(String),
+    SetSeekBehavior(SeekBehavior),
     SetSoloBehavior(SoloBehavior),
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
@@ -194,6 +195,7 @@ pub enum TargetProp {
     RouteName,
     RouteExpression,
     SoloBehavior,
+    SeekBehavior,
     TrackExclusivity,
     TrackToolAction,
     FxToolAction,
@@ -380,6 +382,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetSoloBehavior(v) => {
                 self.solo_behavior = v;
                 One(P::SoloBehavior)
+            }
+            C::SetSeekBehavior(v) => {
+                self.seek_behavior = v;
+                One(P::SeekBehavior)
             }
             C::SetTrackExclusivity(v) => {
                 self.track_exclusivity = v;
@@ -649,6 +655,8 @@ pub struct TargetModel {
     touched_route_parameter_type: TouchedRouteParameterType,
     // # For track solo targets
     solo_behavior: SoloBehavior,
+    // # For seek and goto bookmark targets
+    seek_behavior: SeekBehavior,
     // # For toggleable track targets
     track_exclusivity: TrackExclusivity,
     // # For transport target
@@ -756,6 +764,7 @@ impl Default for TargetModel {
             route_expression: Default::default(),
             touched_route_parameter_type: Default::default(),
             solo_behavior: Default::default(),
+            seek_behavior: Default::default(),
             track_exclusivity: Default::default(),
             transport_action: TransportAction::default(),
             any_on_parameter: AnyOnParameter::default(),
@@ -928,6 +937,10 @@ impl TargetModel {
 
     pub fn solo_behavior(&self) -> SoloBehavior {
         self.solo_behavior
+    }
+
+    pub fn seek_behavior(&self) -> SeekBehavior {
+        self.seek_behavior
     }
 
     pub fn track_exclusivity(&self) -> TrackExclusivity {
@@ -2256,10 +2269,12 @@ impl TargetModel {
                             bookmark_ref: self.bookmark_ref,
                             set_time_selection: self.use_time_selection,
                             set_loop_points: self.use_loop_points,
+                            seek_behavior: self.seek_behavior,
                         })
                     }
                     Seek => UnresolvedReaperTarget::Seek(UnresolvedSeekTarget {
                         options: self.seek_options(),
+                        behavior: self.seek_behavior,
                     }),
                     SendMidi => UnresolvedReaperTarget::SendMidi(UnresolvedMidiSendTarget {
                         pattern: self.raw_midi_pattern.parse().unwrap_or_default(),

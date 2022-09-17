@@ -127,6 +127,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                     d.feedback_resolution.unwrap_or_default(),
                 ),
             },
+            seek_behavior: d.behavior,
             ..init(d.commons)
         },
         Target::PlayRate(d) => TargetModelData {
@@ -169,8 +170,10 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 use_loop_points: d
                     .set_loop_points
                     .unwrap_or(defaults::TARGET_BOOKMARK_SET_LOOP_POINTS),
+
                 ..Default::default()
             },
+            seek_behavior: d.seek_behavior,
             ..init(d.commons)
         },
         Target::TrackArmState(d) => {
