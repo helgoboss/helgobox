@@ -1,10 +1,13 @@
-use crate::base::eel::Vm;
-use crate::domain::{EelMidiSourceScript, LuaMidiSourceScript, SafeLua};
+use crate::domain::{
+    AdditionalTransformationInput, EelMidiSourceScript, EelTransformation, LuaMidiSourceScript,
+    SafeLua,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue, UnitValue,
+    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
+    Transformation, UnitValue,
 };
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -30,17 +33,12 @@ impl LuaMidiScriptEngine {
     }
 }
 
-pub struct EelMidiScriptEngine(());
+pub struct EelMidiScriptEngine;
 
-impl EelMidiScriptEngine {
-    pub fn new() -> Self {
-        Self(())
-    }
-}
-
-impl ScriptEngine for Vm {
+impl ScriptEngine for EelMidiScriptEngine {
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
-        self.compile(code)?;
+        let script = EelMidiSourceScript::compile(code)?;
+        script.execute(create_midi_script_test_feedback_value())?;
         Ok(())
     }
 
@@ -49,15 +47,51 @@ impl ScriptEngine for Vm {
     }
 }
 
-impl ScriptEngine for SafeLua {
+pub struct EelControlTransformationEngine;
+
+impl ScriptEngine for EelControlTransformationEngine {
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
-        let env = self.create_fresh_environment(false)?;
-        self.compile_as_function("MIDI script", code, env)?;
+        let transformation = EelTransformation::compile_for_control(code)?;
+        transformation.transform_continuous(
+            Default::default(),
+            Default::default(),
+            AdditionalTransformationInput::default(),
+        )?;
         Ok(())
     }
 
     fn file_extension(&self) -> &'static str {
-        ".lua"
+        ".eel"
+    }
+}
+
+pub struct EelFeedbackTransformationEngine;
+
+impl ScriptEngine for EelFeedbackTransformationEngine {
+    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
+        let transformation = EelTransformation::compile_for_feedback(code)?;
+        transformation.transform_continuous(
+            Default::default(),
+            Default::default(),
+            AdditionalTransformationInput::default(),
+        )?;
+        Ok(())
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".eel"
+    }
+}
+
+pub struct TextualFeedbackExpressionEngine;
+
+impl ScriptEngine for TextualFeedbackExpressionEngine {
+    fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".mustache"
     }
 }
 
@@ -77,18 +111,6 @@ impl ScriptEngine for LuaMidiScriptEngine {
 
     fn file_extension(&self) -> &'static str {
         ".lua"
-    }
-}
-
-impl ScriptEngine for EelMidiScriptEngine {
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
-        let script = EelMidiSourceScript::compile(code)?;
-        script.execute(create_midi_script_test_feedback_value())?;
-        Ok(())
-    }
-
-    fn file_extension(&self) -> &'static str {
-        ".eel"
     }
 }
 

@@ -40,11 +40,16 @@ pub struct EelTransformation {
 }
 
 impl EelTransformation {
+    pub fn compile_for_control(eel_script: &str) -> Result<EelTransformation, String> {
+        EelTransformation::compile(eel_script, OutputVariable::Y)
+    }
+
+    pub fn compile_for_feedback(eel_script: &str) -> Result<EelTransformation, String> {
+        EelTransformation::compile(eel_script, OutputVariable::X)
+    }
+
     // Compiles the given script and creates an appropriate transformation.
-    pub fn compile(
-        eel_script: &str,
-        result_var: OutputVariable,
-    ) -> Result<EelTransformation, String> {
+    fn compile(eel_script: &str, result_var: OutputVariable) -> Result<EelTransformation, String> {
         if eel_script.trim().is_empty() {
             return Err("script empty".to_string());
         }

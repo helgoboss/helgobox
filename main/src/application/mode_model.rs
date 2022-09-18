@@ -1,4 +1,4 @@
-use crate::domain::{EelTransformation, Mode, OutputVariable};
+use crate::domain::{EelTransformation, Mode};
 
 use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
@@ -609,13 +609,12 @@ impl ModeModel {
                 OutOfRangeBehavior::default()
             },
             control_transformation: if is_relevant(ModeParameter::ControlTransformation) {
-                EelTransformation::compile(&self.eel_control_transformation, OutputVariable::Y).ok()
+                EelTransformation::compile_for_control(&self.eel_control_transformation).ok()
             } else {
                 None
             },
             feedback_transformation: if is_relevant(ModeParameter::FeedbackTransformation) {
-                EelTransformation::compile(&self.eel_feedback_transformation, OutputVariable::X)
-                    .ok()
+                EelTransformation::compile_for_feedback(&self.eel_feedback_transformation).ok()
             } else {
                 None
             },

@@ -560,8 +560,13 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + NOT_WS_GROUP,
         edittext(
             ids.named_id("ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL"),
-            context.rect(15, 435, 203, 14),
+            context.rect(15, 435, 184, 14),
         ) + ES_AUTOHSCROLL,
+        pushbutton(
+            "...",
+            ids.named_id("ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON"),
+            context.rect(201, 435, 13, 14),
+        ),
         groupbox(
             "For encoders and incremental buttons (control only)",
             ids.named_id("ID_MODE_RELATIVE_GROUP_BOX"),

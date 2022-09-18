@@ -71,8 +71,9 @@ use crate::infrastructure::ui::util::{
     MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    ScriptEditorPanel, ScriptEngine, YamlEditorPanel,
+    EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
+    LuaMidiScriptEngine, MainPanel, MappingHeaderPanel, ScriptEditorPanel, ScriptEngine,
+    TextualFeedbackExpressionEngine, YamlEditorPanel,
 };
 
 #[derive(Debug)]
@@ -655,18 +656,25 @@ impl MappingPanel {
             .mode_model
             .feedback_background_color()
             .cloned();
-        let instruction = prompt_for_color(
+        let result = show_feedback_popup_menu(
             self.view.require_window(),
             current_color,
             current_background_color,
         )?;
-        let cmd = match instruction.target {
-            ColorTarget::Color => ModeCommand::SetFeedbackColor(instruction.color),
-            ColorTarget::BackgroundColor => {
-                ModeCommand::SetFeedbackBackgroundColor(instruction.color)
+        match result {
+            FeedbackPopupMenuResult::EditMultiLine => {
+                self.edit_feedback_transformation_or_text_expression();
             }
-        };
-        self.change_mapping(MappingCommand::ChangeMode(cmd));
+            FeedbackPopupMenuResult::ChangeColor(instruction) => {
+                let cmd = match instruction.target {
+                    ColorTarget::Color => ModeCommand::SetFeedbackColor(instruction.color),
+                    ColorTarget::BackgroundColor => {
+                        ModeCommand::SetFeedbackBackgroundColor(instruction.color)
+                    }
+                };
+                self.change_mapping(MappingCommand::ChangeMode(cmd));
+            }
+        }
         Ok(())
     }
 
@@ -800,6 +808,66 @@ impl MappingPanel {
         );
     }
 
+    fn edit_control_transformation(&self) {
+        let session = self.session.clone();
+        self.edit_script_internal(
+            Box::new(EelControlTransformationEngine),
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
+            |m| m.mode_model.eel_control_transformation().to_owned(),
+            move |m, eel| {
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    m,
+                    MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
+                    None,
+                );
+            },
+        );
+    }
+
+    fn edit_feedback_transformation_or_text_expression(&self) {
+        let mapping = self.mapping();
+        let mapping = mapping.borrow();
+        match mapping.mode_model.feedback_type() {
+            FeedbackType::Numerical => self.edit_feedback_transformation(),
+            FeedbackType::Textual => self.edit_textual_feedback_expression(),
+        }
+    }
+
+    fn edit_feedback_transformation(&self) {
+        let session = self.session.clone();
+        self.edit_script_internal(
+            Box::new(EelFeedbackTransformationEngine),
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            |m| m.mode_model.eel_feedback_transformation().to_owned(),
+            move |m, eel| {
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    m,
+                    MappingCommand::ChangeMode(ModeCommand::SetEelFeedbackTransformation(eel)),
+                    None,
+                );
+            },
+        );
+    }
+
+    fn edit_textual_feedback_expression(&self) {
+        let session = self.session.clone();
+        self.edit_script_internal(
+            Box::new(TextualFeedbackExpressionEngine),
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            |m| m.mode_model.textual_feedback_expression().to_owned(),
+            move |m, eel| {
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    m,
+                    MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
+                    None,
+                );
+            },
+        );
+    }
+
     fn edit_midi_source_script_internal(
         &self,
         get_initial_value: impl Fn(&MappingModel) -> String,
@@ -807,13 +875,24 @@ impl MappingPanel {
     ) {
         let mapping = self.mapping();
         let engine: Box<dyn ScriptEngine> = match mapping.borrow().source_model.midi_script_kind() {
-            MidiScriptKind::Eel => Box::new(EelMidiScriptEngine::new()),
+            MidiScriptKind::Eel => Box::new(EelMidiScriptEngine),
             MidiScriptKind::Lua => Box::new(LuaMidiScriptEngine::new()),
         };
-        let weak_mapping = Rc::downgrade(&mapping);
-        let initial_value = { get_initial_value(&mapping.borrow()) };
         let help_url =
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source";
+        self.edit_script_internal(engine, help_url, get_initial_value, apply);
+    }
+
+    fn edit_script_internal(
+        &self,
+        engine: Box<dyn ScriptEngine>,
+        help_url: &'static str,
+        get_initial_value: impl Fn(&MappingModel) -> String,
+        apply: impl Fn(&mut MappingModel, String) + 'static,
+    ) {
+        let mapping = self.mapping();
+        let weak_mapping = Rc::downgrade(&mapping);
+        let initial_value = { get_initial_value(&mapping.borrow()) };
         let editor =
             ScriptEditorPanel::new(initial_value, engine, help_url, move |edited_script| {
                 let m = match weak_mapping.upgrade() {
@@ -3714,8 +3793,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 MidiSourceType::Script => {
                     let midi_script = self.source.midi_script();
                     (
-                        Some(midi_script.lines().next().unwrap_or_default().to_owned()),
-                        midi_script.lines().count() > 1,
+                        Some(extract_first_line(midi_script).to_owned()),
+                        has_multiple_lines(midi_script),
                     )
                 }
                 _ => (None, false),
@@ -5902,23 +5981,28 @@ impl<'a> ImmutableMappingPanel<'a> {
         if initiator == Some(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL) {
             return;
         }
-        self.view
-            .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
-            .set_text(self.mode.eel_control_transformation());
+        let control = self
+            .view
+            .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL);
+        let text = self.mode.eel_control_transformation();
+        control.set_text(extract_first_line(text));
+        control.set_enabled(!has_multiple_lines(text));
     }
 
     fn invalidate_mode_eel_feedback_transformation_edit_control(&self, initiator: Option<u32>) {
         if initiator == Some(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL) {
             return;
         }
-        let prop = if self.mode.feedback_type().is_textual() {
+        let control = self
+            .view
+            .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL);
+        let text = if self.mode.feedback_type().is_textual() {
             self.mode.textual_feedback_expression()
         } else {
             self.mode.eel_feedback_transformation()
         };
-        self.view
-            .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
-            .set_text(prop);
+        control.set_text(extract_first_line(text));
+        control.set_enabled(!has_multiple_lines(text));
     }
 
     fn fill_source_category_combo_box(&self) {
@@ -6097,6 +6181,9 @@ impl View for MappingPanel {
             }
             root::ID_SOURCE_LINE_4_BUTTON => {
                 let _ = self.handle_source_line_4_button_press();
+            }
+            root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON => {
+                self.edit_control_transformation()
             }
             root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_midi_source_script(),
             // Mode
@@ -6841,6 +6928,11 @@ enum ColorTarget {
     BackgroundColor,
 }
 
+enum FeedbackPopupMenuResult {
+    EditMultiLine,
+    ChangeColor(ChangeColorInstruction),
+}
+
 struct ChangeColorInstruction {
     target: ColorTarget,
     color: Option<VirtualColor>,
@@ -6852,15 +6944,16 @@ impl ChangeColorInstruction {
     }
 }
 
-fn prompt_for_color(
+fn show_feedback_popup_menu(
     window: Window,
     color: Option<VirtualColor>,
     background_color: Option<VirtualColor>,
-) -> Result<ChangeColorInstruction, &'static str> {
+) -> Result<FeedbackPopupMenuResult, &'static str> {
     enum MenuAction {
         ControllerDefault(ColorTarget),
         OpenColorPicker(ColorTarget),
         UseColorProp(ColorTarget, &'static str),
+        EditMultiLine,
     }
     let pure_menu = {
         use swell_ui::menu_tree::*;
@@ -6906,6 +6999,7 @@ fn prompt_for_color(
             )
         };
         let entries = vec![
+            item("Edit multi-line...", || MenuAction::EditMultiLine),
             create_color_target_menu(ColorTarget::Color),
             create_color_target_menu(ColorTarget::BackgroundColor),
         ];
@@ -6914,27 +7008,38 @@ fn prompt_for_color(
     let item = window
         .open_simple_popup_menu(pure_menu, Window::cursor_pos())
         .ok_or("color selection cancelled")?;
-    let instruction = match item {
-        MenuAction::ControllerDefault(target) => ChangeColorInstruction::new(target, None),
-        MenuAction::UseColorProp(target, key) => ChangeColorInstruction::new(
-            target,
-            Some(VirtualColor::Prop {
-                prop: key.to_string(),
-            }),
-        ),
+    let result = match item {
+        MenuAction::EditMultiLine => FeedbackPopupMenuResult::EditMultiLine,
+        MenuAction::ControllerDefault(target) => {
+            let instruction = ChangeColorInstruction::new(target, None);
+            FeedbackPopupMenuResult::ChangeColor(instruction)
+        }
+        MenuAction::UseColorProp(target, key) => {
+            let instruction = ChangeColorInstruction::new(
+                target,
+                Some(VirtualColor::Prop {
+                    prop: key.to_string(),
+                }),
+            );
+            FeedbackPopupMenuResult::ChangeColor(instruction)
+        }
         MenuAction::OpenColorPicker(target) => {
             let reaper = Reaper::get().medium_reaper();
             if let Some(native_color) =
                 reaper.gr_select_color(WindowContext::Win(window.raw_non_null()))
             {
                 let reaper_medium::RgbColor { r, g, b } = reaper.color_from_native(native_color);
-                ChangeColorInstruction::new(target, Some(VirtualColor::Rgb(RgbColor::new(r, g, b))))
+                let instruction = ChangeColorInstruction::new(
+                    target,
+                    Some(VirtualColor::Rgb(RgbColor::new(r, g, b))),
+                );
+                FeedbackPopupMenuResult::ChangeColor(instruction)
             } else {
                 return Err("color picking cancelled");
             }
         }
     };
-    Ok(instruction)
+    Ok(result)
 }
 
 fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
@@ -7121,4 +7226,12 @@ fn parse_osc_arg_value_range(text: &str) -> Interval<f64> {
     parse_range(text)
         .map(|r| r.1)
         .unwrap_or(DEFAULT_OSC_ARG_VALUE_RANGE)
+}
+
+fn extract_first_line(text: &str) -> &str {
+    text.lines().next().unwrap_or_default()
+}
+
+fn has_multiple_lines(text: &str) -> bool {
+    text.lines().count() > 1
 }
