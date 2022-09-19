@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-08-14 (v2.14.1-pre.1)`
+|Last update of text: |`2022-08-19 (v2.14.0-pre.2)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1003,6 +1003,10 @@ This allows you to save all currently visible mappings as a new preset. Please c
 This permanently deletes the currently chosen preset. You can also delete built-in presets.
  However, if you use ReaPack for installation, it should restore them on next sync.
 
+===== Notes
+
+Allows you to save custom notes/comments for the current compartment. These notes are also included in compartment presets.
+
 ===== Add one
 
 Adds a new mapping at the end of the current mapping list.
@@ -1514,7 +1518,7 @@ which allows you access to the following functionality:
  a part of a mapping (source, mode or target), then just this part gets replaced.
 * *Paste (insert below):* Creates a new mapping that's like the mapping in the clipboard and places it below
  this mapping.
-* *Copy part:* Copies just a part of the mapping (source, mode or target).
+* *Copy part:* Copies just a part of the mapping (activation condition, source, mode or target).
 * *Move to group:* Lets you move this mapping to another mapping group.
 * *Advanced:* Provides access to expert features.
 ** *Copy as Lua:* Copies this mapping as Lua code. This is an indispensable tool if you want to build your mappings in Lua because it gives you a readily executable code snippet that you can adjust as desired.
@@ -2919,6 +2923,7 @@ with feedback that indicates the current position!
 ** *Beat:* Every beat.
 ** *Fast:* As fast as possible, thereby giving the satisfying feeling of continuity. This obviously uses some more
  resources. No idea how far you can go with that. Try yourself.
+* *Behavior:* Determines whether to use immediate or smooth seeking.
 * *Seek play:* Doesn't just change the edit cursor but also changes the play position when the project is currently
  being played.
 * *Move view:* Allow to scroll / change viewport when seeking.
@@ -3005,6 +3010,7 @@ User interface elements specific to this target:
  user-assigned ID or by its position on the timeline.
 ** *Right dropdown:* This dropdown displays the markers or regions (depending on the _Regions_ checkbox state).
 * *Now!:* This sets the target to the currently playing (or currently focused, if stopped) marker/region.
+* *Behavior:* Determines whether to use immediate or smooth seeking.
 * *Regions:* Switches between markers and regions.
 * *Set loop points:* For regions, this will additionally set the loop points to the region start and end position.
 * *Set time selection:* For regions, this will additionally set the time selection to the region start and end
