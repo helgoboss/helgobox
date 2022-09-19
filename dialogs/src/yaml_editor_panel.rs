@@ -20,9 +20,9 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(445, 291, 40, 14),
         ),
         ltext(
-            "Foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla",
+            "",
             ids.named_id("ID_YAML_EDIT_INFO_TEXT"),
-            context.rect(5,294,355,9),
+            context.rect(5, 294, 355, 9),
         ) + NOT_WS_GROUP,
     ];
     Dialog {

@@ -66,6 +66,15 @@ struct ActiveData {
     success_sound: Option<Sound>,
 }
 
+impl ActiveData {
+    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Result<R, &'static str> {
+        match self.session.upgrade() {
+            None => Err("session not available anymore"),
+            Some(session) => Ok(f(&session.borrow())),
+        }
+    }
+}
+
 impl MainPanel {
     pub fn new(plugin_parameters: sync::Weak<RealearnPluginParameters>) -> Self {
         Self {
@@ -204,12 +213,10 @@ impl MainPanel {
     }
 
     fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Result<R, &'static str> {
-        if let Some(data) = self.active_data.borrow() {
-            if let Some(session) = data.session.upgrade() {
-                return Ok(f(&session.borrow()));
-            }
+        match self.active_data.borrow() {
+            None => Err("session not available"),
+            Some(active_data) => active_data.do_with_session(f),
         }
-        Err("session not available")
     }
 
     fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Result<R, &'static str> {

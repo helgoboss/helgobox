@@ -86,7 +86,7 @@ pub struct MappingPanel {
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
     yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
-    eel_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
+    script_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -140,7 +140,7 @@ impl MappingPanel {
             is_invoked_programmatically: false.into(),
             window_cache: None.into(),
             yaml_editor: Default::default(),
-            eel_editor: Default::default(),
+            script_editor: Default::default(),
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
@@ -903,7 +903,7 @@ impl MappingPanel {
             });
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.eel_editor.replace(Some(editor)) {
+        if let Some(existing_editor) = self.script_editor.replace(Some(editor)) {
             existing_editor.close();
         };
         editor_clone.open(self.view.require_window());
@@ -1029,7 +1029,7 @@ impl MappingPanel {
         if let Some(p) = self.yaml_editor.replace(None) {
             p.close();
         }
-        if let Some(p) = self.eel_editor.replace(None) {
+        if let Some(p) = self.script_editor.replace(None) {
             p.close();
         }
         self.mapping_header_panel.clear_item();

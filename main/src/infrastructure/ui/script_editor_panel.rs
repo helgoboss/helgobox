@@ -3,6 +3,7 @@ use crate::domain::{
     SafeLua,
 };
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::bindings::root::ID_YAML_HELP_BUTTON;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;
 use helgoboss_learn::{
@@ -30,6 +31,18 @@ impl LuaMidiScriptEngine {
         Self {
             lua: SafeLua::new().unwrap(),
         }
+    }
+}
+
+pub struct PlainTextEngine;
+
+impl ScriptEngine for PlainTextEngine {
+    fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".txt"
     }
 }
 
@@ -127,6 +140,8 @@ pub struct ScriptEditorPanel {
 }
 
 impl ScriptEditorPanel {
+    /// If the help URL is empty, the help button will be hidden and the info text (whether
+    /// compiled successfully) as well.
     pub fn new(
         initial_content: String,
         engine: Box<dyn ScriptEngine>,
@@ -146,21 +161,30 @@ impl ScriptEditorPanel {
         (self.apply)(self.content.borrow().clone());
     }
 
-    fn invalidate_text_from_initial_content(&self) {
+    fn invalidate_initial(&self) {
         let initial_content = &self.content.borrow();
         self.set_text(initial_content);
         self.invalidate_info();
+        if self.help_url.is_empty() {
+            self.view.require_control(ID_YAML_HELP_BUTTON).hide();
+        }
     }
 
     fn update_content(&self) {
         *self.content.borrow_mut() = self.text();
-        self.invalidate_info();
+        if !self.help_url.is_empty() {
+            self.invalidate_info();
+        }
     }
 
     fn invalidate_info(&self) {
-        let info_text = match self.engine.compile(&self.text()) {
-            Ok(_) => "Your script compiled successfully and seems to work.".to_string(),
-            Err(e) => e.to_string(),
+        let info_text = if self.help_url.is_empty() {
+            "".to_string()
+        } else {
+            match self.engine.compile(&self.text()) {
+                Ok(_) => "Your script compiled successfully and seems to work.".to_string(),
+                Err(e) => e.to_string(),
+            }
         };
         self.view
             .require_control(root::ID_YAML_EDIT_INFO_TEXT)
@@ -202,7 +226,7 @@ impl View for ScriptEditorPanel {
     }
 
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
-        self.invalidate_text_from_initial_content();
+        self.invalidate_initial();
         true
     }
 

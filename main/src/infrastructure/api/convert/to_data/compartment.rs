@@ -61,6 +61,7 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelD
             .collect(),
         groups: context.groups,
         custom_data: c.custom_data.unwrap_or_default(),
+        notes: c.notes.unwrap_or_default(),
     };
     Ok(data)
 }

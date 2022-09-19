@@ -35,6 +35,7 @@ pub fn convert_compartment(
             style.required_value(v)
         },
         custom_data: style.required_value(data.custom_data),
+        notes: style.required_value(data.notes),
     };
     Ok(compartment)
 }

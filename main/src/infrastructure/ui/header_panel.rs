@@ -16,10 +16,10 @@ use slog::debug;
 use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
-    FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, Preset,
-    PresetLinkMutator, PresetManager, SessionProp, SharedMapping, SharedSession,
-    VirtualControlElementType, WeakSession,
+    reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
+    ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
+    MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
+    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::{when, Global};
 use crate::domain::{
@@ -47,8 +47,8 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
-    SharedMainState, SourceFilter, UntaggedDataObject,
+    MappingRowsPanel, PlainTextEngine, ScriptEditorPanel, SearchExpression, SerializationFormat,
+    SharedIndependentPanelManager, SharedMainState, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -72,6 +72,7 @@ pub struct HeaderPanel {
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
+    notes_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -90,8 +91,43 @@ impl HeaderPanel {
             plugin_parameters,
             panel_manager,
             group_panel: Default::default(),
+            notes_editor: Default::default(),
             is_invoked_programmatically: false.into(),
         }
+    }
+
+    fn edit_compartment_notes(&self) {
+        let compartment = self.active_compartment();
+        let session = self.session();
+        let initial_notes = session.borrow().compartment_notes(compartment).to_owned();
+        let weak_session = self.session.clone();
+        let editor = ScriptEditorPanel::new(
+            initial_notes,
+            Box::new(PlainTextEngine),
+            "",
+            move |edited_notes| {
+                let weak_session = weak_session.clone();
+                if let Some(session) = weak_session.upgrade() {
+                    session.borrow_mut().change_with_notification(
+                        SessionCommand::ChangeCompartment(
+                            compartment,
+                            CompartmentCommand::SetNotes(edited_notes),
+                        ),
+                        None,
+                        weak_session,
+                    )
+                }
+            },
+        );
+        let shared_editor = SharedView::new(editor);
+        if let Some(existing_editor) = self
+            .notes_editor
+            .borrow_mut()
+            .replace(shared_editor.clone())
+        {
+            existing_editor.close();
+        };
+        shared_editor.open(self.view.require_window());
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -114,6 +150,11 @@ impl HeaderPanel {
                 if *compartment == self.active_compartment() =>
             {
                 self.invalidate_group_controls();
+            }
+            One(InCompartment(compartment, One(Notes)))
+                if *compartment == self.active_compartment() =>
+            {
+                self.invalidate_notes_button();
             }
             _ => {}
         }
@@ -1249,6 +1290,7 @@ impl HeaderPanel {
         self.invalidate_target_filter_buttons();
         self.invalidate_add_one_button();
         self.invalidate_learn_many_button();
+        self.invalidate_notes_button();
     }
 
     fn invalidate_let_through_controls(&self) {
@@ -1909,6 +1951,18 @@ impl HeaderPanel {
         button.set_enabled(enabled);
     }
 
+    fn invalidate_notes_button(&self) {
+        let compartment = self.active_compartment();
+        let notes_empty = self
+            .session()
+            .borrow()
+            .compartment_notes(compartment)
+            .is_empty();
+        let text = if notes_empty { "Notes" } else { "Notes*" };
+        let button = self.view.require_control(root::ID_NOTES_BUTTON);
+        button.set_text(text);
+    }
+
     fn invalidate_add_one_button(&self) {
         self.view
             .require_control(root::ID_ADD_MAPPING_BUTTON)
@@ -2522,6 +2576,7 @@ impl View for HeaderPanel {
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
             root::ID_GROUP_EDIT_BUTTON => self.edit_group(),
+            root::ID_NOTES_BUTTON => self.edit_compartment_notes(),
             root::ID_ADD_MAPPING_BUTTON => self.add_mapping(),
             root::ID_LEARN_MANY_MAPPINGS_BUTTON => {
                 self.toggle_learn_many_mappings();

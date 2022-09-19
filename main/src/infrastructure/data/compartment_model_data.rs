@@ -49,6 +49,12 @@ pub struct CompartmentModelData {
         skip_serializing_if = "is_default"
     )]
     pub custom_data: HashMap<String, serde_json::Value>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub notes: String,
 }
 
 impl ModelToDataConversionContext for CompartmentModel {
@@ -83,6 +89,7 @@ impl CompartmentModelData {
                 .map(|(key, value)| (key.to_string(), value.clone()))
                 .collect(),
             custom_data: model.custom_data.clone(),
+            notes: model.notes.clone(),
         }
     }
 
@@ -141,6 +148,7 @@ impl CompartmentModelData {
                 .collect(),
             groups,
             custom_data: self.custom_data.clone(),
+            notes: self.notes.clone(),
         };
         Ok(model)
     }

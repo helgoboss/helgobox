@@ -1,6 +1,6 @@
 use crate::application::{
-    reaper_supports_global_midi_filter, CompartmentInSession, FxPresetLinkConfig, GroupModel,
-    MainPresetAutoLoadMode, Session, SessionCommand,
+    reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
+    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand,
 };
 use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
@@ -147,6 +147,18 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     controller_custom_data: HashMap<String, serde_json::Value>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    controller_notes: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    main_notes: String,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -346,6 +358,8 @@ impl Default for SessionData {
             mappings: vec![],
             controller_mappings: vec![],
             controller_custom_data: Default::default(),
+            controller_notes: Default::default(),
+            main_notes: Default::default(),
             active_controller_id: None,
             active_main_preset_id: None,
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
@@ -441,6 +455,10 @@ impl SessionData {
             controller_custom_data: session
                 .custom_compartment_data(Compartment::Controller)
                 .clone(),
+            controller_notes: session
+                .compartment_notes(Compartment::Controller)
+                .to_owned(),
+            main_notes: session.compartment_notes(Compartment::Main).to_owned(),
             active_controller_id: session
                 .active_preset_id(Compartment::Controller)
                 .map(|id| id.to_string()),
@@ -694,6 +712,14 @@ impl SessionData {
             Compartment::Controller,
             self.controller_custom_data.clone(),
         );
+        let _ = session.change(SessionCommand::ChangeCompartment(
+            Compartment::Controller,
+            CompartmentCommand::SetNotes(self.controller_notes.clone()),
+        ));
+        let _ = session.change(SessionCommand::ChangeCompartment(
+            Compartment::Main,
+            CompartmentCommand::SetNotes(self.main_notes.clone()),
+        ));
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         session.set_active_main_preset_id_without_notification(self.active_main_preset_id.clone());
         session

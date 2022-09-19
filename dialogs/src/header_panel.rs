@@ -139,6 +139,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_GROUP_EDIT_BUTTON"),
             context.rect(278, 86, 28, 14),
         ) + NOT_WS_TABSTOP,
+        pushbutton(
+            "Notes",
+            ids.named_id("ID_NOTES_BUTTON"),
+            context.rect(426, 86, 35, 14),
+        ) + NOT_WS_TABSTOP,
         // Mapping list actions
         ltext("Mappings", ids.id(), context.rect(7, 109, 33, 9)) + NOT_WS_GROUP,
         pushbutton(

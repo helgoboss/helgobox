@@ -20,4 +20,6 @@ pub struct Compartment {
     /// it's not saved together with the session.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_data: Option<HashMap<String, serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
 }

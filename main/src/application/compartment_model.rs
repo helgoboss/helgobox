@@ -12,13 +12,16 @@ pub struct CompartmentModel {
     pub mappings: Vec<MappingModel>,
     /// At the moment, custom data is only used in the controller compartment.
     pub custom_data: HashMap<String, serde_json::Value>,
+    pub notes: String,
 }
 
 pub enum CompartmentCommand {
+    SetNotes(String),
     ChangeMapping(MappingId, MappingCommand),
 }
 
 pub enum CompartmentProp {
+    Notes,
     InGroup(GroupId, Affected<GroupProp>),
     InMapping(MappingId, Affected<MappingProp>),
 }
