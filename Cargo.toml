@@ -16,6 +16,18 @@ members = [
 # This is important for having line numbers in bug reports.
 debug = 2
 
+[profile.dev-llvm-out-of-memory-fix]
+inherits = "dev"
+# Lately, i686 Windows builds often fail due to "LLVM ERROR: out of memory".
+# Lowering the amount of debug information included in the binary is supposed to fix that.
+debug = 1
+
+[profile.release-llvm-out-of-memory-fix]
+inherits = "release"
+# Lately, i686 Windows builds often fail due to "LLVM ERROR: out of memory".
+# Lowering the amount of debug information included in the binary is supposed to fix that.
+debug = 1
+
 [patch.crates-io]
 
 # TODO-low-wait
