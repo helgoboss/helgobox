@@ -31,7 +31,7 @@ use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    SeekBehavior, TargetValue, TrackToolAction,
+    MouseAction, SeekBehavior, TargetValue, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -287,6 +287,13 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub osc_dev_id: Option<OscDeviceId>,
+    // Mouse
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub mouse_action: MouseAction,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -547,6 +554,7 @@ impl TargetModelData {
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
             clip_play_start_timing: model.clip_play_start_timing(),
             clip_play_stop_timing: model.clip_play_stop_timing(),
+            mouse_action: model.mouse_action(),
         }
     }
 
@@ -826,6 +834,7 @@ impl TargetModelData {
         model.change(C::SetMappingSnapshotId(
             mapping_snapshot_id_for_load.or(mapping_snapshot_id_for_take),
         ));
+        model.set_mouse_action_without_notification(self.mouse_action);
         Ok(())
     }
 }

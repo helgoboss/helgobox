@@ -31,17 +31,18 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget, Caller,
     ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, FxEnableTarget,
-    FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget,
-    FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
-    LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
-    RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
-    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
-    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SelectedTrackTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, EnigoMouseTarget,
+    FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
+    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
+    HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget,
+    OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
+    RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
+    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, RsMouseTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
@@ -87,6 +88,7 @@ impl TargetCharacter {
 #[enum_dispatch]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
+    Mouse(EnigoMouseTarget),
     Action(ActionTarget),
     FxTool(FxToolTarget),
     FxParameter(FxParameterTarget),
@@ -578,6 +580,7 @@ impl<'a> Target<'a> for ReaperTarget {
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use ReaperTarget::*;
         match self {
+            Mouse(t) => t.current_value(context),
             SendOsc(t) => t.current_value(context),
             SendMidi(t) => t.current_value(()),
             Dummy(t) => t.current_value(()),

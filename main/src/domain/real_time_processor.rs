@@ -1,14 +1,15 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, Compartment, CompoundMappingSource, ControlEvent,
-    ControlEventTimestamp, ControlMainTask, ControlMode, ControlOptions, FeedbackSendBehavior,
-    Garbage, GarbageBin, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingId, MatchOutcome,
-    MidiClockCalculator, MidiEvent, MidiMessageClassification, MidiScanResult, MidiScanner,
-    MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
+    ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
+    ControlOptions, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId, LifecycleMidiMessage,
+    LifecyclePhase, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
+    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
+    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
     SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
+use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -1005,7 +1006,7 @@ impl RealTimeProcessor {
             if let CompoundMappingSource::Midi(s) = &m.source() {
                 let midi_event = source_value_event.payload();
                 if let Some(control_value) = s.control(midi_event.payload()) {
-                    let _ = process_real_mapping(
+                    process_real_mapping(
                         m,
                         &self.control_main_task_sender,
                         &self.feedback_task_sender,
@@ -1435,7 +1436,7 @@ fn control_controller_mappings_midi(
                     virtual_match_outcome
                 }
                 ProcessDirect(control_value) => {
-                    let _ = process_real_mapping(
+                    process_real_mapping(
                         m,
                         main_task_sender,
                         rt_feedback_sender,
@@ -1478,7 +1479,7 @@ fn process_real_mapping(
     log_options: LogOptions,
     clip_matrix: Option<&WeakMatrix>,
     is_rendering: bool,
-) -> Result<(), &'static str> {
+) {
     let pure_control_event = flatten_control_midi_event(value_event);
     let mapping_id = mapping.id();
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
@@ -1487,57 +1488,69 @@ fn process_real_mapping(
         if reaper_target.wants_real_time_control(caller, is_rendering) {
             // Try to process directly here in real-time.
             let control_context = RealTimeControlContext { clip_matrix };
-            let control_value: Option<ControlValue> = mapping
-                .core
-                .mode
-                .control_with_options(
-                    pure_control_event,
-                    reaper_target,
-                    control_context,
-                    options.mode_control_options,
-                    // Performance control not supported when controlling real-time
-                    None,
-                )
-                .ok_or("mode didn't return control value")?
-                .into();
-            let control_value = control_value.ok_or("target already has desired value")?;
+            let mode_control_result = mapping.core.mode.control_with_options(
+                pure_control_event,
+                reaper_target,
+                control_context,
+                options.mode_control_options,
+                // Performance control not supported when controlling real-time
+                None,
+            );
+            let (log_entry_kind, control_value, error) = match mode_control_result {
+                None => (ControlLogEntryKind::FilteredOutByGlue, None, ""),
+                Some(ModeControlResult::LeaveTargetUntouched(v)) => {
+                    (ControlLogEntryKind::LeftTargetUntouched, Some(v), "")
+                }
+                Some(ModeControlResult::HitTarget {
+                    value: control_value,
+                }) => {
+                    let hit_result = match reaper_target {
+                        RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
+                            t,
+                            caller,
+                            control_value,
+                            midi_feedback_output,
+                            log_options,
+                            main_task_sender,
+                            rt_feedback_sender,
+                            value_event.payload(),
+                        ),
+                        RealTimeReaperTarget::ClipTransport(t) => {
+                            t.hit(control_value, control_context)
+                        }
+                        RealTimeReaperTarget::ClipColumn(t) => {
+                            t.hit(control_value, control_context)
+                        }
+                        RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
+                        RealTimeReaperTarget::ClipMatrix(t) => {
+                            t.hit(control_value, control_context)
+                        }
+                        RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
+                        RealTimeReaperTarget::Dummy(t) => {
+                            t.hit(control_value);
+                            Ok(())
+                        }
+                    };
+                    match hit_result {
+                        Ok(_) => (
+                            ControlLogEntryKind::HitSuccessfully,
+                            Some(control_value),
+                            "",
+                        ),
+                        Err(e) => (ControlLogEntryKind::HitFailed, Some(control_value), e),
+                    }
+                }
+            };
             if log_options.target_control_logging_enabled {
+                let entry = ControlLogEntry {
+                    kind: log_entry_kind,
+                    control_value,
+                    error,
+                };
                 main_task_sender.send_complaining(ControlMainTask::LogTargetControl {
                     mapping_id: QualifiedMappingId::new(compartment, mapping_id),
-                    control_value,
+                    entry,
                 });
-            }
-            match reaper_target {
-                RealTimeReaperTarget::SendMidi(t) => {
-                    real_time_target_send_midi(
-                        t,
-                        caller,
-                        control_value,
-                        midi_feedback_output,
-                        log_options,
-                        main_task_sender,
-                        rt_feedback_sender,
-                        value_event.payload(),
-                    )?;
-                }
-                RealTimeReaperTarget::ClipTransport(t) => {
-                    t.hit(control_value, control_context)?;
-                }
-                RealTimeReaperTarget::ClipColumn(t) => {
-                    t.hit(control_value, control_context)?;
-                }
-                RealTimeReaperTarget::ClipRow(t) => {
-                    t.hit(control_value, control_context)?;
-                }
-                RealTimeReaperTarget::ClipMatrix(t) => {
-                    t.hit(control_value, control_context)?;
-                }
-                RealTimeReaperTarget::FxParameter(t) => {
-                    t.hit(control_value)?;
-                }
-                RealTimeReaperTarget::Dummy(t) => {
-                    t.hit(control_value);
-                }
             }
         } else {
             // Forward to main processor.
@@ -1558,8 +1571,7 @@ fn process_real_mapping(
             pure_control_event,
             options,
         );
-    };
-    Ok(())
+    }
 }
 
 // TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
@@ -1679,7 +1691,7 @@ fn control_main_mappings_virtual(
         if let CompoundMappingSource::Virtual(s) = &m.source() {
             let midi_event = value_event.payload();
             if let Some(control_value) = s.control(&midi_event.payload()) {
-                let _ = process_real_mapping(
+                process_real_mapping(
                     m,
                     main_task_sender,
                     rt_feedback_sender,

@@ -24,6 +24,12 @@ use std::rc::Rc;
 
 pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
     let data = match t {
+        Target::Mouse(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::Mouse,
+            mouse_action: d.action,
+            ..init(d.commons)
+        },
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LastTouched,

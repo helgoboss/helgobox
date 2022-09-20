@@ -2,13 +2,13 @@ use crate::domain::{
     aggregate_target_values, get_project_options, AdditionalFeedbackEvent, BackboneState,
     Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlInput, ControlMode, ControlOutcome, DeviceFeedbackOutput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackCollector, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
-    GroupId, HitInstructionContext, HitInstructionResponse, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage,
-    LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
+    ControlEventTimestamp, ControlInput, ControlLogEntry, ControlMode, ControlOutcome,
+    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations, FeedbackOutput,
+    FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue,
+    FinalSourceFeedbackValue, GroupId, HitInstructionContext, HitInstructionResponse,
+    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
+    KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
@@ -24,8 +24,7 @@ use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, AbstractTimestamp, ControlValue, GroupInteraction, MidiSourceValue,
-    MinIsMaxBehavior, ModeControlOptions, ModeControlResult, RawMidiEvent, SourceContext, Target,
-    BASE_EPSILON,
+    MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, SourceContext, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -450,16 +449,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             LogTargetOutput { event } => {
                 log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
             }
-            LogTargetControl {
-                mapping_id,
-                control_value,
-            } => {
+            LogTargetControl { mapping_id, entry } => {
                 let logger = self
                     .basics
                     .target_control_logger("real-time control", mapping_id);
-                logger(ModeControlResult::HitTarget {
-                    value: control_value,
-                })
+                logger(entry);
             }
         }
     }
@@ -2705,7 +2699,7 @@ impl BasicSettings {
         instance_state: &'a SharedInstanceState,
         context_label: &'static str,
         mapping_id: QualifiedMappingId,
-    ) -> impl Fn(ModeControlResult<ControlValue>) + 'a {
+    ) -> impl Fn(ControlLogEntry) + 'a {
         move |r| {
             if self.target_control_logging_enabled {
                 let instance_state = instance_state.borrow();
@@ -2716,7 +2710,7 @@ impl BasicSettings {
                 };
                 log_target_control(
                     &instance_state.instance_id(),
-                    format!("Mapping {}: {} during {}", mapping_name, r, context_label),
+                    format!("Mapping {}: [{}] during {}", mapping_name, r, context_label),
                 );
             }
         }
@@ -2801,7 +2795,7 @@ pub enum ControlMainTask {
     },
     LogTargetControl {
         mapping_id: QualifiedMappingId,
-        control_value: ControlValue,
+        entry: ControlLogEntry,
     },
 }
 
@@ -2905,7 +2899,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         context_label: &'static str,
         mapping_id: QualifiedMappingId,
-    ) -> impl Fn(ModeControlResult<ControlValue>) + '_ {
+    ) -> impl Fn(ControlLogEntry) + '_ {
         self.settings
             .target_control_logger(&self.instance_state, context_label, mapping_id)
     }

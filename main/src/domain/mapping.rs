@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Display, Formatter};
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -750,7 +750,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         timestamp: ControlEventTimestamp,
-        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
+        log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
         self.control_internal(
             ControlOptions::default(),
@@ -781,7 +781,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         last_non_performance_target_value: Option<AbsoluteValue>,
-        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
+        log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
         self.control_internal(
             options,
@@ -816,7 +816,7 @@ impl MainMapping {
         logger: &slog::Logger,
         inverse: bool,
         processor_context: ExtendedProcessorContext,
-        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
+        log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
         self.control_internal(
             options,
@@ -868,7 +868,7 @@ impl MainMapping {
         //  if target refresh is enforced, which is not the case here.
         processor_context: ExtendedProcessorContext,
         value: AbsoluteValue,
-        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
+        log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
         self.control_internal(
             ControlOptions::default(),
@@ -894,7 +894,7 @@ impl MainMapping {
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         is_polling: bool,
-        log_mode_control_result: impl Fn(ModeControlResult<ControlValue>),
+        log_mode_control_result: impl Fn(ControlLogEntry),
         get_mode_control_result: impl Fn(
             ControlOptions,
             MappingControlContext,
@@ -933,57 +933,77 @@ impl MainMapping {
                 continue;
             };
             at_least_one_relevant_target_exists = true;
-            match get_mode_control_result(options, ctx, &mut self.core.mode, target) {
-                None => {
-                    // The incoming source value doesn't reach the target because the source value
-                    // was filtered out. If `send_feedback_after_control` is enabled, we
-                    // still send feedback - this can be useful with controllers which insist on
-                    // controlling the LED on their own. The feedback sent by ReaLearn
-                    // will fix this self-controlled LED state.
-                }
-                Some(HitTarget { value }) => {
-                    at_least_one_target_was_reached = true;
-                    if !is_polling {
-                        self.core.time_of_last_control = Some(Instant::now());
+            let (log_entry_kind, control_value, error) =
+                match get_mode_control_result(options, ctx, &mut self.core.mode, target) {
+                    None => {
+                        // The incoming source value doesn't reach the target because the source value
+                        // was filtered out. If `send_feedback_after_control` is enabled, we
+                        // still send feedback - this can be useful with controllers which insist on
+                        // controlling the LED on their own. The feedback sent by ReaLearn
+                        // will fix this self-controlled LED state.
+                        (ControlLogEntryKind::FilteredOutByGlue, None, "")
                     }
-                    // Be graceful here.
-                    log_mode_control_result(HitTarget { value });
-                    match target.hit(value, ctx) {
-                        Ok(response) => {
-                            if response.caused_effect {
-                                at_least_one_target_caused_effect = true;
-                            }
-                            if let Some(hi) = response.hit_instruction {
-                                // We have a hit instruction! Save it so it can be executed in
-                                // the next step.
-                                // TODO-low For now, the first hit instruction wins (at the moment we don't
-                                //  have multi-targets in which multiple targets send hit instructions
-                                //  anyway).
-                                if first_hit_instruction.is_none() {
-                                    first_hit_instruction = Some(hi);
-                                }
-                            }
+                    Some(HitTarget { value }) => {
+                        at_least_one_target_was_reached = true;
+                        if !is_polling {
+                            self.core.time_of_last_control = Some(Instant::now());
                         }
-                        Err(msg) => slog::debug!(logger, "Control failed: {}", msg),
+                        // Be graceful here.
+                        let (log_entry_kind, error) = match target.hit(value, ctx) {
+                            Ok(response) => {
+                                if response.caused_effect {
+                                    at_least_one_target_caused_effect = true;
+                                }
+                                let log_entry_kind = if let Some(hi) = response.hit_instruction {
+                                    // We have a hit instruction! Save it so it can be executed in
+                                    // the next step.
+                                    // TODO-low For now, the first hit instruction wins (at the moment we don't
+                                    //  have multi-targets in which multiple targets send hit instructions
+                                    //  anyway).
+                                    if first_hit_instruction.is_none() {
+                                        first_hit_instruction = Some(hi);
+                                        ControlLogEntryKind::CreatedHitInstruction
+                                    } else {
+                                        ControlLogEntryKind::DiscardedHitInstruction
+                                    }
+                                } else if response.caused_effect {
+                                    ControlLogEntryKind::HitSuccessfully
+                                } else {
+                                    ControlLogEntryKind::Ignored
+                                };
+                                (log_entry_kind, "")
+                            }
+                            Err(msg) => {
+                                slog::debug!(logger, "Control failed: {}", msg);
+                                (ControlLogEntryKind::HitFailed, msg)
+                            }
+                        };
+                        if should_send_manual_feedback_due_to_target(
+                            target,
+                            &self.core.options,
+                            &self.activation_state,
+                            self.unresolved_target.as_ref(),
+                        ) {
+                            send_manual_feedback_because_of_target = true;
+                        }
+                        (log_entry_kind, Some(value), error)
                     }
-                    if should_send_manual_feedback_due_to_target(
-                        target,
-                        &self.core.options,
-                        &self.activation_state,
-                        self.unresolved_target.as_ref(),
-                    ) {
-                        send_manual_feedback_because_of_target = true;
+                    Some(LeaveTargetUntouched(v)) => {
+                        // The target already has the desired value.
+                        // If `send_feedback_after_control` is enabled, we still send feedback - this
+                        // can be useful with controllers which insist on controlling the LED on their
+                        // own. The feedback sent by ReaLearn will fix this self-controlled LED state.
+                        at_least_one_target_was_reached = true;
+                        (ControlLogEntryKind::LeftTargetUntouched, Some(v), "")
                     }
-                }
-                Some(LeaveTargetUntouched(v)) => {
-                    // The target already has the desired value.
-                    // If `send_feedback_after_control` is enabled, we still send feedback - this
-                    // can be useful with controllers which insist on controlling the LED on their
-                    // own. The feedback sent by ReaLearn will fix this self-controlled LED state.
-                    log_mode_control_result(LeaveTargetUntouched(v));
-                    at_least_one_target_was_reached = true;
-                }
-            }
+                };
+            // Log
+            let log_entry = ControlLogEntry {
+                kind: log_entry_kind,
+                control_value,
+                error,
+            };
+            log_mode_control_result(log_entry);
         }
         if send_manual_feedback_because_of_target {
             let new_target_value = self.current_aggregated_target_value(context);
@@ -2597,4 +2617,49 @@ pub enum InputDescriptor {
 pub enum ControlOutcome<T> {
     Consumed,
     Matched(T),
+}
+
+#[derive(Copy, Clone)]
+pub struct ControlLogEntry {
+    pub kind: ControlLogEntryKind,
+    pub control_value: Option<ControlValue>,
+    pub error: &'static str,
+}
+
+impl Display for ControlLogEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.kind.fmt(f)?;
+        if let Some(v) = self.control_value {
+            write!(f, " with control value {}", v)?;
+        }
+        if !self.error.is_empty() {
+            write!(f, ": {}", self.error)?;
+        }
+        Ok(())
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, derive_more::Display)]
+pub enum ControlLogEntryKind {
+    /// Event didn't even reach the target because it was filtered out by the glue section.
+    FilteredOutByGlue,
+    /// Didn't even invoke target because it already has the desired value.
+    LeftTargetUntouched,
+    /// Target chose to ignore the incoming control value.
+    Ignored,
+    /// Target executed successfully.
+    HitSuccessfully,
+    /// Target failed executing.
+    HitFailed,
+    /// Target created a hit instruction (to be executed later).
+    CreatedHitInstruction,
+    /// Target created a hit instruction but it was discarded because there was another target
+    /// in that mapping whose hit instruction "won" (at the moment, we support only one hit
+    /// instruction for multi-targets).
+    DiscardedHitInstruction,
+    /// Hit instruction was executed successfully.
+    ExecutedHitInstructionSuccessfully,
+    /// Hit instruction execution failed.
+    FailedExecutingHitInstruction,
 }

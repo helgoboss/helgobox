@@ -161,6 +161,9 @@ realearn-dialogs = { path = "../dialogs" }
 either = "1.8.0"
 # For reading preset directories recursively
 walkdir = "2"
+# For the mouse target
+mouse-rs = "0.4.2"
+enigo = "0.0.14"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

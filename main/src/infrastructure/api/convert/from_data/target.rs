@@ -27,14 +27,14 @@ use realearn_api::persistence::{
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget,
-    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
-    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    LoadMappingSnapshotTarget, MouseTarget, PlayRateTarget, ReaperActionTarget,
+    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
+    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
+    SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
+    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
+    TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
+    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -56,6 +56,10 @@ fn convert_real_target(
     use ReaperTargetType::*;
     let commons = convert_commons(data.unit, style)?;
     let target = match data.r#type {
+        Mouse => T::Mouse(MouseTarget {
+            commons,
+            action: data.mouse_action,
+        }),
         LastTouched => T::LastTouched(LastTouchedTarget { commons }),
         AutomationModeOverride => {
             let t = AutomationModeOverrideTarget {

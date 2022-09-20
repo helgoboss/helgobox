@@ -34,7 +34,7 @@ use crate::domain::{
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
     UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
     UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
@@ -58,11 +58,11 @@ use crate::domain::ui_util::format_tags_as_csv;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
-    ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
+    Axis, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, SeekBehavior, TrackDescriptorCommons, TrackFxChain,
-    TrackToolAction,
+    MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, SeekBehavior,
+    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -137,6 +137,9 @@ pub enum TargetCommand {
     SetOscArgTypeTag(OscTypeTag),
     SetOscArgValueRange(Interval<f64>),
     SetOscDevId(Option<OscDeviceId>),
+    SetMouseActionType(MouseActionType),
+    SetAxis(Axis),
+    SetMouseButton(MouseButton),
     SetClipSlot(ClipSlotDescriptor),
     SetClipColumn(ClipColumnDescriptor),
     SetClipRow(ClipRowDescriptor),
@@ -228,6 +231,9 @@ pub enum TargetProp {
     OscArgTypeTag,
     OscArgValueRange,
     OscDevId,
+    MouseActionType,
+    Axis,
+    MouseButton,
     ClipSlot,
     ClipColumn,
     ClipRow,
@@ -515,6 +521,18 @@ impl<'a> Change<'a> for TargetModel {
                 self.osc_dev_id = v;
                 One(P::OscDevId)
             }
+            C::SetMouseActionType(v) => {
+                self.mouse_action_type = v;
+                One(P::MouseActionType)
+            }
+            C::SetAxis(v) => {
+                self.axis = v;
+                One(P::Axis)
+            }
+            C::SetMouseButton(v) => {
+                self.mouse_button = v;
+                One(P::MouseButton)
+            }
             C::SetPollForFeedback(v) => {
                 self.poll_for_feedback = v;
                 One(P::PollForFeedback)
@@ -702,6 +720,10 @@ pub struct TargetModel {
     osc_arg_type_tag: OscTypeTag,
     osc_arg_value_range: Interval<f64>,
     osc_dev_id: Option<OscDeviceId>,
+    // # For mouse target
+    mouse_action_type: MouseActionType,
+    axis: Axis,
+    mouse_button: MouseButton,
     // # For clip targets
     clip_slot: ClipSlotDescriptor,
     clip_column: ClipColumnDescriptor,
@@ -794,6 +816,9 @@ impl Default for TargetModel {
             osc_arg_type_tag: Default::default(),
             osc_arg_value_range: DEFAULT_OSC_ARG_VALUE_RANGE,
             osc_dev_id: None,
+            mouse_action_type: Default::default(),
+            axis: Default::default(),
+            mouse_button: Default::default(),
             poll_for_feedback: true,
             tags: Default::default(),
             mapping_snapshot_type_for_load: MappingSnapshotTypeForLoad::Initial,
@@ -957,6 +982,18 @@ impl TargetModel {
 
     pub fn transport_action(&self) -> TransportAction {
         self.transport_action
+    }
+
+    pub fn mouse_action_type(&self) -> MouseActionType {
+        self.mouse_action_type
+    }
+
+    pub fn axis(&self) -> Axis {
+        self.axis
+    }
+
+    pub fn mouse_button(&self) -> MouseButton {
+        self.mouse_button
     }
 
     pub fn any_on_parameter(&self) -> AnyOnParameter {
@@ -2059,6 +2096,9 @@ impl TargetModel {
             Reaper => {
                 use ReaperTargetType::*;
                 let target = match self.r#type {
+                    Mouse => UnresolvedReaperTarget::Mouse(UnresolvedMouseTarget {
+                        action: self.mouse_action(),
+                    }),
                     Action => UnresolvedReaperTarget::Action(UnresolvedActionTarget {
                         action: self.resolved_action()?,
                         invocation_type: self.action_invocation_type,
@@ -2441,6 +2481,41 @@ impl TargetModel {
         ))
     }
 
+    pub fn mouse_action(&self) -> MouseAction {
+        match self.mouse_action_type {
+            MouseActionType::Move => MouseAction::Move { axis: self.axis },
+            MouseActionType::Drag => MouseAction::Drag {
+                axis: self.axis,
+                button: self.mouse_button,
+            },
+            MouseActionType::Click => MouseAction::Click {
+                button: self.mouse_button,
+            },
+            MouseActionType::Scroll => MouseAction::Scroll,
+        }
+    }
+
+    pub fn set_mouse_action_without_notification(&mut self, mouse_action: MouseAction) {
+        match mouse_action {
+            MouseAction::Move { axis } => {
+                self.mouse_action_type = MouseActionType::Move;
+                self.axis = axis;
+            }
+            MouseAction::Drag { axis, button } => {
+                self.mouse_action_type = MouseActionType::Drag;
+                self.axis = axis;
+                self.mouse_button = button;
+            }
+            MouseAction::Click { button } => {
+                self.mouse_action_type = MouseActionType::Click;
+                self.mouse_button = button;
+            }
+            MouseAction::Scroll => {
+                self.mouse_action_type = MouseActionType::Scroll;
+            }
+        }
+    }
+
     pub fn with_context<'a>(
         &'a self,
         context: ExtendedProcessorContext<'a>,
@@ -2451,6 +2526,20 @@ impl TargetModel {
             context,
             compartment,
         }
+    }
+
+    pub fn supports_mouse_axis(&self) -> bool {
+        matches!(
+            self.mouse_action_type,
+            MouseActionType::Move | MouseActionType::Drag
+        )
+    }
+
+    pub fn supports_mouse_button(&self) -> bool {
+        matches!(
+            self.mouse_action_type,
+            MouseActionType::Drag | MouseActionType::Click
+        )
     }
 
     pub fn supports_track(&self) -> bool {
@@ -4107,5 +4196,30 @@ fn convert_monitoring_mode_to_realearn(monitoring_mode: InputMonitoringMode) -> 
         InputMonitoringMode::Normal => MonitoringMode::Normal,
         InputMonitoringMode::NotWhenPlaying => MonitoringMode::TapeStyle,
         InputMonitoringMode::Unknown(_) => MonitoringMode::Off,
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum MouseActionType {
+    Move,
+    Drag,
+    Click,
+    Scroll,
+}
+
+impl Default for MouseActionType {
+    fn default() -> Self {
+        Self::Move
     }
 }

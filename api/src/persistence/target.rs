@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Target {
+    Mouse(MouseTarget),
     LastTouched(LastTouchedTarget),
     AutomationModeOverride(AutomationModeOverrideTarget),
     ReaperAction(ReaperActionTarget),
@@ -97,6 +98,14 @@ impl Default for TargetUnit {
     fn default() -> Self {
         Self::Native
     }
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MouseTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub action: MouseAction,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -392,6 +401,123 @@ pub enum TrackToolAction {
 impl Default for TrackToolAction {
     fn default() -> Self {
         Self::DoNothing
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum MouseAction {
+    /// Mouse position on the given axis.
+    ///
+    /// Control:
+    ///
+    /// - Move by (using relative control value)
+    /// - Move to (use absolute control value)
+    /// - Move to absolute coordinates before clicking (2 mappings for moving, 1 for clicking)
+    ///
+    /// Feedback:
+    ///
+    /// - Reflect position of the mouse cursor
+    ///
+    /// Future extension possibilities:
+    ///
+    /// - Canvas: Relative to all screens, current screen, REAPER window or focused window
+    /// - Pixel density: Take pixel density into account
+    Move { axis: Axis },
+    /// Like [`Self::Move`] but automatically presses a button while moving and releases it
+    /// when the move is finished.
+    ///
+    /// Future extension possibilities:
+    ///
+    /// - Timeout: Set time when to release button
+    Drag { axis: Axis, button: MouseButton },
+    /// Button state.
+    ///
+    /// Control:
+    ///
+    /// - Press and release a mouse button
+    /// - Press a mouse button and keep it pressed (press-only filter)
+    /// - Just release a mouse button (release-only filter, e.g. for manual drag control)
+    ///
+    /// Feedback:
+    ///
+    /// - Whether the button is down or up
+    ///
+    /// Future extension possibilities:
+    ///
+    /// - Click or double-click a mouse button (press and immediate release, this could be a generic
+    /// "Glue" option because it could be useful for other on/off targets as well).
+    Click { button: MouseButton },
+    /// Scroll wheel.
+    ///
+    /// Control:
+    ///
+    /// - Invoke scroll wheel
+    ///
+    /// Feedback: None
+    Scroll,
+}
+
+impl Default for MouseAction {
+    fn default() -> Self {
+        Self::Move {
+            axis: Default::default(),
+        }
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum Axis {
+    #[display(fmt = "X (horizontal)")]
+    X,
+    #[display(fmt = "Y (vertical)")]
+    Y,
+}
+
+impl Default for Axis {
+    fn default() -> Self {
+        Self::X
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum MouseButton {
+    Left,
+    Middle,
+    Right,
+}
+
+impl Default for MouseButton {
+    fn default() -> Self {
+        Self::Left
     }
 }
 

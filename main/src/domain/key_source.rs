@@ -275,8 +275,8 @@ impl Keystroke {
                         Some(NonPortable(PortabilityIssue::Other))
                     }
                     // Characters
-                    k => match k.get() {
-                        b'A'..=b'Z' | b'0'..=b'9' => Some(Portable),
+                    k => match u8::try_from(k.get()) {
+                        Ok(b'A'..=b'Z' | b'0'..=b'9') => Some(Portable),
                         // Other basic characters don't qualify as explicitly portable.
                         _ => None,
                     },

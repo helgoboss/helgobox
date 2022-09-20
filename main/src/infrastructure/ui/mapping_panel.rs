@@ -27,7 +27,7 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    FxToolAction, MidiScriptKind, MonitoringMode, SeekBehavior, TrackToolAction,
+    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -39,7 +39,7 @@ use crate::application::{
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
     MappingCommand, MappingModel, MappingProp, MappingSnapshotTypeForLoad,
-    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
+    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp, MouseActionType,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
     SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
@@ -503,6 +503,15 @@ impl MappingPanel {
                                             }
                                             P::OscArgValueRange => {
                                                 view.invalidate_target_line_5(initiator);
+                                            }
+                                            P::MouseActionType => {
+                                                view.invalidate_target_controls(initiator);
+                                            }
+                                            P::Axis => {
+                                                view.invalidate_target_line_3(initiator);
+                                            }
+                                            P::MouseButton => {
+                                                view.invalidate_target_line_4(initiator);
                                             }
                                             P::ScrollArrangeView | P::SeekPlay => {
                                                 view.invalidate_target_check_boxes();
@@ -2607,6 +2616,13 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetAutomationModeOverrideType(v),
                     ));
                 }
+                ReaperTargetType::Mouse => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid mouse action type");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMouseActionType(v),
+                    ));
+                }
                 ReaperTargetType::Transport => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid transport action");
@@ -2707,6 +2723,11 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetSeekBehavior(v),
                     ));
                 }
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid axis type");
+                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetAxis(v)));
+                }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid action invocation type");
@@ -2774,6 +2795,13 @@ impl<'a> MutableMappingPanel<'a> {
                     let v = get_osc_type_tag_from_combo(combo);
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetOscArgTypeTag(v),
+                    ));
+                }
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid mouse button type");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMouseButton(v),
                     ));
                 }
                 t if t.supports_fx_parameter() => {
@@ -3997,6 +4025,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
                 ReaperTargetType::AutomationModeOverride => Some("Behavior"),
@@ -4107,6 +4136,15 @@ impl<'a> ImmutableMappingPanel<'a> {
         let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Mouse => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MouseActionType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.mouse_action_type().into(),
+                        )
+                        .unwrap();
+                }
                 ReaperTargetType::Transport => {
                     combo.show();
                     combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
@@ -4545,6 +4583,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                    Some("Axis")
+                }
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
@@ -4584,6 +4625,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_4_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
+                    Some("Button")
+                }
                 ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
@@ -4785,6 +4829,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.seek_behavior().into())
                         .unwrap();
                 }
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(Axis::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.axis().into())
+                        .unwrap();
+                }
                 ReaperTargetType::Action => {
                     combo.show();
                     combo.fill_combo_box_indexed(ActionInvocationType::into_enum_iter());
@@ -4857,6 +4908,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc if self.target.osc_arg_index().is_some() => {
                     let tag = self.target.osc_arg_type_tag();
                     invalidate_with_osc_arg_type_tag(combo, tag);
+                }
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MouseButton::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.mouse_button().into())
+                        .unwrap();
                 }
                 t if t.supports_fx_parameter()
                     && self.target.param_type() == VirtualFxParameterType::ById =>

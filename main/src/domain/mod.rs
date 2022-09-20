@@ -137,3 +137,6 @@ pub use control_event::*;
 
 mod lua_support;
 pub use lua_support::*;
+
+mod mouse;
+pub use mouse::*;

@@ -11,7 +11,7 @@ use crate::domain::{
     UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
     UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
     UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
@@ -52,6 +52,7 @@ const MAX_MULTIPLE: usize = 1000;
 #[enum_dispatch]
 #[derive(Debug)]
 pub enum UnresolvedReaperTarget {
+    Mouse(UnresolvedMouseTarget),
     Action(UnresolvedActionTarget),
     FxParameter(UnresolvedFxParameterTarget),
     FxParameterTouchState(UnresolvedFxParameterTouchStateTarget),
