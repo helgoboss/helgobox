@@ -504,7 +504,7 @@ pub enum Axis {
 
 impl Default for Axis {
     fn default() -> Self {
-        Self::X
+        Self::Y
     }
 }
 
