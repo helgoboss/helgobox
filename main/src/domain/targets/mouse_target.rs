@@ -48,7 +48,10 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
                 };
                 (control_type, TargetCharacter::Discrete)
             }
-            MouseAction::Click { .. } => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+            MouseAction::Click { .. } => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Switch,
+            ),
             MouseAction::Scroll => (ControlType::Relative, TargetCharacter::Discrete),
         }
     }
