@@ -1,11 +1,13 @@
-use realearn_api::persistence::MouseButton;
+use realearn_api::persistence::{Axis, MouseButton};
 
 pub trait Mouse {
+    fn axis_size(&self, axis: Axis) -> u32;
+
     fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str>;
 
     fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> Result<(), &'static str>;
 
-    // fn adjust_cursor_position(mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str>;
+    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str>;
 
     fn scroll(&mut self, delta: i32) -> Result<(), &'static str>;
 

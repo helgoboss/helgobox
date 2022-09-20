@@ -1,7 +1,8 @@
 use crate::domain::{Mouse, MouseCursorPosition};
 use mouse_rs::types::keys::Keys;
 use mouse_rs::Mouse as RawMouse;
-use realearn_api::persistence::MouseButton;
+use realearn_api::persistence::{Axis, MouseButton};
+use reaper_low::{raw, Swell};
 use std::fmt::{Debug, Formatter};
 
 pub struct RsMouse(RawMouse);
@@ -33,6 +34,14 @@ impl Debug for RsMouse {
 }
 
 impl Mouse for RsMouse {
+    fn axis_size(&self, axis: Axis) -> u32 {
+        let index = match axis {
+            Axis::X => raw::SM_CXSCREEN,
+            Axis::Y => raw::SM_CYSCREEN,
+        };
+        Swell::get().GetSystemMetrics(index) as _
+    }
+
     fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str> {
         let point = self
             .0
@@ -48,6 +57,15 @@ impl Mouse for RsMouse {
         self.0
             .move_to(new_pos.x as _, new_pos.y as _)
             .map_err(|_| "couldn't move mouse cursor")
+    }
+
+    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str> {
+        let current_pos = self.cursor_position()?;
+        let new_pos = MouseCursorPosition::new(
+            (current_pos.x as i32 + x_delta).max(0) as _,
+            (current_pos.y as i32 + y_delta).max(0) as _,
+        );
+        self.set_cursor_position(new_pos)
     }
 
     fn scroll(&mut self, delta: i32) -> Result<(), &'static str> {

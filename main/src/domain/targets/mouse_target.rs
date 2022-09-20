@@ -84,11 +84,7 @@ impl<M: Mouse> MouseTarget<M> {
     }
 
     fn axis_size(&self, axis: Axis) -> u32 {
-        let index = match axis {
-            Axis::X => raw::SM_CXSCREEN,
-            Axis::Y => raw::SM_CYSCREEN,
-        };
-        Swell::get().GetSystemMetrics(index) as _
+        self.mouse.axis_size(axis)
     }
 
     fn drag_cursor(
@@ -106,35 +102,41 @@ impl<M: Mouse> MouseTarget<M> {
         value: ControlValue,
         axis: Axis,
     ) -> Result<HitResponse, &'static str> {
-        let current_pos = self.cursor_position()?;
-        let current_pos_on_axis = get_pos_on_axis(current_pos, axis);
-        let new_pos_on_axis = match value {
+        let instruction = match value {
             // Move to pixel
-            ControlValue::AbsoluteDiscrete(v) => v.actual() as i32,
+            ControlValue::AbsoluteDiscrete(v) => MoveCursorInstruction::To(v.actual()),
             // Move by pixels
-            ControlValue::RelativeDiscrete(v) => current_pos_on_axis as i32 + v.get(),
+            ControlValue::RelativeDiscrete(v) => MoveCursorInstruction::By(v.get()),
             // Move to percentage of canvas
             ControlValue::AbsoluteContinuous(v) => {
                 let axis_size = self.axis_size(axis);
                 let new_pos = v.get() * axis_size as f64;
-                new_pos.round() as i32
+                MoveCursorInstruction::To(new_pos.round() as u32)
             }
             // Move by percentage of canvas
             ControlValue::RelativeContinuous(v) => {
                 let axis_size = self.axis_size(axis);
                 let amount = v.get() * axis_size as f64;
-                let new_pos = current_pos_on_axis as f64 + amount;
-                new_pos.round() as i32
+                MoveCursorInstruction::By(amount.round() as i32)
             }
         };
-        let new_pos_on_axis = new_pos_on_axis.max(0) as u32;
-        let new_pos = match axis {
-            Axis::X => MouseCursorPosition::new(new_pos_on_axis, current_pos.y),
-            Axis::Y => MouseCursorPosition::new(current_pos.x, new_pos_on_axis),
-        };
-        self.mouse
-            .set_cursor_position(new_pos)
-            .map_err(|_| "couldn't move cursor")?;
+        match instruction {
+            MoveCursorInstruction::To(pos) => {
+                let current_pos = self.cursor_position()?;
+                let new_pos = match axis {
+                    Axis::X => MouseCursorPosition::new(pos, current_pos.y),
+                    Axis::Y => MouseCursorPosition::new(current_pos.x, pos),
+                };
+                self.mouse.set_cursor_position(new_pos)?;
+            }
+            MoveCursorInstruction::By(delta) => {
+                let (x_delta, y_delta) = match axis {
+                    Axis::X => (delta, 0),
+                    Axis::Y => (0, delta),
+                };
+                self.mouse.adjust_cursor_position(x_delta, y_delta)?;
+            }
+        }
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -160,6 +162,11 @@ impl<M: Mouse> MouseTarget<M> {
         }
         Ok(HitResponse::processed_with_effect())
     }
+}
+
+enum MoveCursorInstruction {
+    To(u32),
+    By(i32),
 }
 
 impl<'a, M: Mouse> Target<'a> for MouseTarget<M> {

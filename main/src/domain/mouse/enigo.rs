@@ -1,6 +1,6 @@
 use crate::domain::{Mouse, MouseCursorPosition};
 use enigo::{Enigo, MouseControllable};
-use realearn_api::persistence::MouseButton;
+use realearn_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
 
 #[derive(Debug, Default)]
@@ -21,6 +21,15 @@ impl PartialEq for EnigoMouse {
 impl Eq for EnigoMouse {}
 
 impl Mouse for EnigoMouse {
+    fn axis_size(&self, axis: Axis) -> u32 {
+        let (width, height) = Enigo::main_display_size();
+        let axis_size = match axis {
+            Axis::X => width,
+            Axis::Y => height,
+        };
+        axis_size as u32
+    }
+
     fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str> {
         let (x, y) = Enigo::mouse_location();
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
@@ -28,6 +37,11 @@ impl Mouse for EnigoMouse {
 
     fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> Result<(), &'static str> {
         self.0.mouse_move_to(new_pos.x as _, new_pos.y as _);
+        Ok(())
+    }
+
+    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str> {
+        self.0.mouse_move_relative(x_delta, y_delta);
         Ok(())
     }
 
