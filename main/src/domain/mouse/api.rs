@@ -9,7 +9,7 @@ pub trait Mouse {
 
     fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str>;
 
-    fn scroll(&mut self, delta: i32) -> Result<(), &'static str>;
+    fn scroll(&mut self, axis: Axis, delta: i32) -> Result<(), &'static str>;
 
     fn press(&mut self, button: MouseButton) -> Result<(), &'static str>;
 

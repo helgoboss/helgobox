@@ -39,7 +39,7 @@ use crate::application::{
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
     MappingCommand, MappingModel, MappingProp, MappingSnapshotTypeForLoad,
-    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp, MouseActionType,
+    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
     SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
@@ -53,7 +53,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    KeyStrokePortability, PortabilityIssue, ReaperTargetType, SendMidiDestination,
+    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
     SimpleExclusivity, TouchedRouteParameterType, WithControlContext,
 };
 use crate::domain::{

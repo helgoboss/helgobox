@@ -38,11 +38,10 @@ use crate::domain::{
     OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
     RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, RsMouseTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
-    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget, TempoTarget,
+    TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
+    TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
+    TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,

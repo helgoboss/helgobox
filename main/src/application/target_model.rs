@@ -21,8 +21,8 @@ use crate::domain::{
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
-    MappingSnapshotId, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
+    MappingSnapshotId, MouseActionType, OscDeviceId, ProcessorContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
     TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
@@ -2097,7 +2097,9 @@ impl TargetModel {
                 use ReaperTargetType::*;
                 let target = match self.r#type {
                     Mouse => UnresolvedReaperTarget::Mouse(UnresolvedMouseTarget {
-                        action: self.mouse_action(),
+                        action_type: self.mouse_action_type,
+                        axis: self.axis,
+                        button: self.mouse_button,
                     }),
                     Action => UnresolvedReaperTarget::Action(UnresolvedActionTarget {
                         action: self.resolved_action()?,
@@ -2483,15 +2485,19 @@ impl TargetModel {
 
     pub fn mouse_action(&self) -> MouseAction {
         match self.mouse_action_type {
-            MouseActionType::Move => MouseAction::Move { axis: self.axis },
+            MouseActionType::Move => MouseAction::Move {
+                axis: Some(self.axis),
+            },
             MouseActionType::Drag => MouseAction::Drag {
-                axis: self.axis,
-                button: self.mouse_button,
+                axis: Some(self.axis),
+                button: Some(self.mouse_button),
             },
             MouseActionType::Click => MouseAction::Click {
-                button: self.mouse_button,
+                button: Some(self.mouse_button),
             },
-            MouseActionType::Scroll => MouseAction::Scroll,
+            MouseActionType::Scroll => MouseAction::Scroll {
+                axis: Some(self.axis),
+            },
         }
     }
 
@@ -2499,19 +2505,20 @@ impl TargetModel {
         match mouse_action {
             MouseAction::Move { axis } => {
                 self.mouse_action_type = MouseActionType::Move;
-                self.axis = axis;
+                self.axis = axis.unwrap_or_default();
             }
             MouseAction::Drag { axis, button } => {
                 self.mouse_action_type = MouseActionType::Drag;
-                self.axis = axis;
-                self.mouse_button = button;
+                self.axis = axis.unwrap_or_default();
+                self.mouse_button = button.unwrap_or_default();
             }
             MouseAction::Click { button } => {
                 self.mouse_action_type = MouseActionType::Click;
-                self.mouse_button = button;
+                self.mouse_button = button.unwrap_or_default();
             }
-            MouseAction::Scroll => {
+            MouseAction::Scroll { axis } => {
                 self.mouse_action_type = MouseActionType::Scroll;
+                self.axis = axis.unwrap_or_default();
             }
         }
     }
@@ -2531,7 +2538,7 @@ impl TargetModel {
     pub fn supports_mouse_axis(&self) -> bool {
         matches!(
             self.mouse_action_type,
-            MouseActionType::Move | MouseActionType::Drag
+            MouseActionType::Move | MouseActionType::Drag | MouseActionType::Scroll
         )
     }
 
@@ -3012,6 +3019,16 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                     ),
                     GoToBookmark => {
                         write!(f, "{}\n{}", tt, self.bookmark_label())
+                    }
+                    Mouse => {
+                        write!(f, "{}\n{}", tt, self.target.mouse_action_type)?;
+                        if self.target.supports_mouse_axis() {
+                            write!(f, "\n{}", self.target.axis)?;
+                        }
+                        if self.target.supports_mouse_button() {
+                            write!(f, "\n{}", self.target.mouse_button)?;
+                        }
+                        Ok(())
                     }
                     _ => write!(f, "{}", tt),
                 }
@@ -4196,30 +4213,5 @@ fn convert_monitoring_mode_to_realearn(monitoring_mode: InputMonitoringMode) -> 
         InputMonitoringMode::Normal => MonitoringMode::Normal,
         InputMonitoringMode::NotWhenPlaying => MonitoringMode::TapeStyle,
         InputMonitoringMode::Unknown(_) => MonitoringMode::Off,
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Debug,
-    derive_more::Display,
-    enum_iterator::IntoEnumIterator,
-    num_enum::TryFromPrimitive,
-    num_enum::IntoPrimitive,
-)]
-#[repr(usize)]
-pub enum MouseActionType {
-    Move,
-    Drag,
-    Click,
-    Scroll,
-}
-
-impl Default for MouseActionType {
-    fn default() -> Self {
-        Self::Move
     }
 }

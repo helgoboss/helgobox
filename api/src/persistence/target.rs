@@ -423,14 +423,22 @@ pub enum MouseAction {
     ///
     /// - Canvas: Relative to all screens, current screen, REAPER window or focused window
     /// - Pixel density: Take pixel density into account
-    Move { axis: Axis },
+    Move {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        axis: Option<Axis>,
+    },
     /// Like [`Self::Move`] but automatically presses a button while moving and releases it
     /// when the move is finished.
     ///
     /// Future extension possibilities:
     ///
     /// - Timeout: Set time when to release button
-    Drag { axis: Axis, button: MouseButton },
+    Drag {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        axis: Option<Axis>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        button: Option<MouseButton>,
+    },
     /// Button state.
     ///
     /// Control:
@@ -447,7 +455,10 @@ pub enum MouseAction {
     ///
     /// - Click or double-click a mouse button (press and immediate release, this could be a generic
     /// "Glue" option because it could be useful for other on/off targets as well).
-    Click { button: MouseButton },
+    Click {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        button: Option<MouseButton>,
+    },
     /// Scroll wheel.
     ///
     /// Control:
@@ -455,7 +466,10 @@ pub enum MouseAction {
     /// - Invoke scroll wheel
     ///
     /// Feedback: None
-    Scroll,
+    Scroll {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        axis: Option<Axis>,
+    },
 }
 
 impl Default for MouseAction {

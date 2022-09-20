@@ -68,10 +68,14 @@ impl Mouse for RsMouse {
         self.set_cursor_position(new_pos)
     }
 
-    fn scroll(&mut self, delta: i32) -> Result<(), &'static str> {
-        self.0
-            .scroll(delta)
-            .map_err(|_| "couldn't scroll mouse wheel")
+    fn scroll(&mut self, axis: Axis, delta: i32) -> Result<(), &'static str> {
+        match axis {
+            Axis::X => Err("scrolling on X axis not supported"),
+            Axis::Y => self
+                .0
+                .scroll(delta)
+                .map_err(|_| "couldn't scroll mouse wheel"),
+        }
     }
 
     fn press(&mut self, button: MouseButton) -> Result<(), &'static str> {
