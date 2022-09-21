@@ -705,7 +705,7 @@ then go directly to ReaLearn and right-click the header panel.
 [discrete]
 ==== Step 4: Activate "Auto-load"
 
-Now you just have to set _Auto-load_ to _Depending on instance FX_. Since the <<instance-fx>> is by default the currently focused FX, ReaLearn will from now on activate your "Vital" preset
+Now you just have to set _Auto-load_ to _Based on instance FX_. Since the <<instance-fx>> is by default the currently focused FX, ReaLearn will from now on activate your "Vital" preset
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
 
@@ -1128,7 +1128,7 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
 * *Make instance superior:* If ticked, this instance is allowed to suspend other instances which share the same
  input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your
  controller control e.g. the currently focused FX but fall back to your usual controls when it's closed. It's intended
- to be used primarily on instances that use &quot;Auto-load: Depending on instance FX&quot;.
+ to be used primarily on instances that use &quot;Auto-load: Based on instance FX&quot;.
 ** By default, ReaLearn instances are not superior, just normal. This is often okay because ReaLearn instances
  are friendly fellows and like sharing controllers with each other.
 ** For example, if 2 instances use the same input or output device and they use different control elements, they
@@ -1444,7 +1444,7 @@ The header panel for main mappings consists of a few more user interface element
 
 ===== Auto-load
 
-If you switch this to _Depending on instance FX_, ReaLearn will start to observe the <<instance-fx>> of this ReaLearn instance. By default, the instance FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused. Whenever the instance FX changes, it will check if you have linked a compartment preset
+If you switch this to _Based on instance FX_, ReaLearn will start to observe the <<instance-fx>> of this ReaLearn instance. By default, the instance FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused. Whenever the instance FX changes, it will check if you have linked a compartment preset
  to it and will automatically load it. Whenever the instance FX switches to an unlinked FX, the mapping
  list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
  presets. Read on!
