@@ -48,7 +48,7 @@ impl Mouse for EnigoMouse {
     fn scroll(&mut self, axis: Axis, delta: i32) -> Result<(), &'static str> {
         match axis {
             Axis::X => self.0.mouse_scroll_x(delta),
-            Axis::Y => self.0.mouse_scroll_y(delta),
+            Axis::Y => self.0.mouse_scroll_y(-delta),
         }
         Ok(())
     }

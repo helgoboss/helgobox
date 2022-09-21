@@ -9,6 +9,10 @@ pub trait Mouse {
 
     fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str>;
 
+    /// Invokes the scroll wheel.
+    ///
+    /// - On the x axis, positive delta scrolls right and negative left.
+    /// - On the y axis, positive delta scrolls up and negative down.
     fn scroll(&mut self, axis: Axis, delta: i32) -> Result<(), &'static str>;
 
     fn press(&mut self, button: MouseButton) -> Result<(), &'static str>;
