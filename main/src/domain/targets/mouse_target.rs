@@ -1,5 +1,4 @@
 use crate::domain::enigo::EnigoMouse;
-use crate::domain::mouse_rs::RsMouse;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     convert_count_to_step_size, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
@@ -32,7 +31,6 @@ impl UnresolvedReaperTargetDef for UnresolvedMouseTarget {
     }
 }
 
-pub type RsMouseTarget = MouseTarget<RsMouse>;
 pub type EnigoMouseTarget = MouseTarget<EnigoMouse>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

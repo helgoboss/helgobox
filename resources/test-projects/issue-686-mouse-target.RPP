@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "6.56+dev0425/macOS-arm64" 1663758271
+<REAPER_PROJECT 0.1 "6.56+dev0425/macOS-arm64" 1663758501
   <NOTES 0 2
   >
   RIPPLE 0
@@ -115,8 +115,8 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 298 80 991 703
-      SHOW 1
+      WNDRECT 179 89 991 703
+      SHOW 0
       LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
@@ -971,8 +971,8 @@
         amdiZ21najpoa2dmY29naTpkY2hhYWFhYToKamxpaGtnbmI6Y2NjYmdwbGY6bGNva2NrYmU6YWE6ZnA6YWU6Y2g6ZWg6ZW46aWE6bmI6b2o6YWI6YXA6YmI6YwpkOmNm
         OmNnOmNtOmRiOmRkOmRoOmRtOmRwOmVhOmViOmVkOmZtOmZvIWdkZ2NGV0FKQTI2NWdkZ2NGV1ZBMTBnCmpnb2dqaGVnamdiZ21namhrZ2Zjb2dpZGNoYUE0OWdkZ2NG
         V1ZBNzRnZGdjRldWQTEwamxpaGtnSGNjY2JncGwKZmxjb2tja2JlamNQWG1wb2RwbWpoQm9ua2psak1oYU9rbURaWUVOSFRtZmhjQlFtY2tmcGpHaGJGVUVTbGRJSApq
-        amthQ25kQmlrS0RJUmxlZ2pna2xpZ2RnY0ZXQ0ExMGtibmFtbkpnZGdjRldBSkEyNjVnZGdjRldHQTEzOGdkCmdjRldBSkEyNjVnZGdjRldMQTI3Z2RnY0ZXVkE3ND0z
-        NzUxNgoAAA==
+        amthQ25kQmlrS0RJUmxlZ2pna2xpZ2RnY0ZXQ0ExMGdiaHBtb0pnZGdjRldBSkEyNjVnZGdjRldHQTEzOGdkCmdjRldBSkEyNjVnZGdjRldMQTI3Z2RnY0ZXVkE3ND0z
+        NzUyMgoAAA==
         AGluaXRpYWxpemUAEAAAAA==
       >
       PRESETNAME initialize
