@@ -676,7 +676,7 @@ fn send_continuous_matrix_updates(session: &Session) {
     let pos = timeline.cursor_pos();
     let bar_quantization = EvenQuantization::ONE_BAR;
     let next_bar = timeline.next_quantized_pos_at(pos, bar_quantization, Laziness::EagerForNextPos);
-    // TODO-high CONTINUE We are mainly interested in beats relative to the bar in order to get a
+    // TODO-high-playtime CONTINUE We are mainly interested in beats relative to the bar in order to get a
     //  typical position display and a useful visual metronome!
     let full_beats = timeline.full_beats_at_pos(pos);
     let batch_event = ContinuousMatrixUpdateBatch {
