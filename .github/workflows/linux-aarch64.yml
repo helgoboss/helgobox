@@ -23,7 +23,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm php
+          sudo apt-get install nasm php libxdo-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal

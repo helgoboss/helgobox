@@ -86,7 +86,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu
+          sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libxdo-dev
       - run: brew install php
         if: matrix.os == 'macos-latest'
       # Override SDK root and deployment target (macOS aarch64 only)
