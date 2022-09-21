@@ -56,9 +56,10 @@ pub struct MouseTarget<M> {
 )]
 #[repr(usize)]
 pub enum MouseActionType {
-    #[display(fmt = "Move cursor")]
-    Move,
-    Drag,
+    #[display(fmt = "Move cursor to")]
+    MoveTo,
+    #[display(fmt = "Move cursor by")]
+    MoveBy,
     #[display(fmt = "Press or release button")]
     PressOrRelease,
     #[display(fmt = "Turn scroll wheel")]
@@ -67,7 +68,7 @@ pub enum MouseActionType {
 
 impl Default for MouseActionType {
     fn default() -> Self {
-        Self::Move
+        Self::MoveTo
     }
 }
 
@@ -75,13 +76,14 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use MouseActionType::*;
         match self.action_type {
-            Move | Drag => {
+            MoveTo => {
                 let control_type = ControlType::AbsoluteDiscrete {
                     atomic_step_size: convert_count_to_step_size(self.axis_size()),
                     is_retriggerable: false,
                 };
                 (control_type, TargetCharacter::Discrete)
             }
+            MoveBy => (ControlType::Relative, TargetCharacter::Discrete),
             PressOrRelease => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Switch,
@@ -97,8 +99,8 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
     ) -> Result<HitResponse, &'static str> {
         use MouseActionType::*;
         match self.action_type {
-            Move => self.move_cursor(value),
-            Drag => self.drag_cursor(value),
+            MoveTo => self.move_cursor(value),
+            MoveBy => self.drag_cursor(value),
             PressOrRelease => self.click_button(value),
             Scroll => self.scroll_wheel(value),
         }
@@ -201,7 +203,7 @@ impl<'a, M: Mouse> Target<'a> for MouseTarget<M> {
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         use MouseActionType::*;
         match self.action_type {
-            Move | Drag => {
+            MoveTo | MoveBy => {
                 let axis_size = self.axis_size();
                 let pos = self.cursor_position().ok()?;
                 let pos_on_axis = get_pos_on_axis(pos, self.axis);

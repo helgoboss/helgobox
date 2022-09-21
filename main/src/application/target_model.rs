@@ -2485,12 +2485,11 @@ impl TargetModel {
 
     pub fn mouse_action(&self) -> MouseAction {
         match self.mouse_action_type {
-            MouseActionType::Move => MouseAction::Move {
+            MouseActionType::MoveTo => MouseAction::MoveTo {
                 axis: Some(self.axis),
             },
-            MouseActionType::Drag => MouseAction::Drag {
+            MouseActionType::MoveBy => MouseAction::MoveBy {
                 axis: Some(self.axis),
-                button: Some(self.mouse_button),
             },
             MouseActionType::PressOrRelease => MouseAction::PressOrRelease {
                 button: Some(self.mouse_button),
@@ -2503,14 +2502,13 @@ impl TargetModel {
 
     pub fn set_mouse_action_without_notification(&mut self, mouse_action: MouseAction) {
         match mouse_action {
-            MouseAction::Move { axis } => {
-                self.mouse_action_type = MouseActionType::Move;
+            MouseAction::MoveTo { axis } => {
+                self.mouse_action_type = MouseActionType::MoveTo;
                 self.axis = axis.unwrap_or_default();
             }
-            MouseAction::Drag { axis, button } => {
-                self.mouse_action_type = MouseActionType::Drag;
+            MouseAction::MoveBy { axis } => {
+                self.mouse_action_type = MouseActionType::MoveBy;
                 self.axis = axis.unwrap_or_default();
-                self.mouse_button = button.unwrap_or_default();
             }
             MouseAction::PressOrRelease { button } => {
                 self.mouse_action_type = MouseActionType::PressOrRelease;
@@ -2538,15 +2536,12 @@ impl TargetModel {
     pub fn supports_mouse_axis(&self) -> bool {
         matches!(
             self.mouse_action_type,
-            MouseActionType::Move | MouseActionType::Drag | MouseActionType::Scroll
+            MouseActionType::MoveTo | MouseActionType::MoveBy | MouseActionType::Scroll
         )
     }
 
     pub fn supports_mouse_button(&self) -> bool {
-        matches!(
-            self.mouse_action_type,
-            MouseActionType::Drag | MouseActionType::PressOrRelease
-        )
+        matches!(self.mouse_action_type, MouseActionType::PressOrRelease)
     }
 
     pub fn supports_track(&self) -> bool {

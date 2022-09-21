@@ -423,21 +423,15 @@ pub enum MouseAction {
     ///
     /// - Canvas: Relative to all screens, current screen, REAPER window or focused window
     /// - Pixel density: Take pixel density into account
-    Move {
+    MoveTo {
         #[serde(skip_serializing_if = "Option::is_none")]
         axis: Option<Axis>,
     },
-    /// Like [`Self::Move`] but automatically presses a button while moving and releases it
-    /// when the move is finished.
-    ///
-    /// Future extension possibilities:
-    ///
-    /// - Timeout: Set time when to release button
-    Drag {
+    /// Like [`Self::Move`] but prefers relative control, so the glue section will feed it
+    /// with relative control values whenever possible. Could make a little difference.
+    MoveBy {
         #[serde(skip_serializing_if = "Option::is_none")]
         axis: Option<Axis>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        button: Option<MouseButton>,
     },
     /// Button state.
     ///
@@ -474,7 +468,7 @@ pub enum MouseAction {
 
 impl Default for MouseAction {
     fn default() -> Self {
-        Self::Move {
+        Self::MoveTo {
             axis: Default::default(),
         }
     }
