@@ -28,7 +28,7 @@ pub fn create(
         ctext(
             "Status 2",
             ids.named_id("ID_MAIN_PANEL_STATUS_2_TEXT"),
-            create_rect(56, 5 + line_spacing, 356, 9),
+            create_rect(60, 5 + line_spacing, 348, 9),
         ) + NOT_WS_GROUP,
         pushbutton(
             "Instance data...",

@@ -5524,6 +5524,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 &[
                     root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
                     root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON,
                 ],
             );
             let show_absolute_mode = is_relevant(ModeParameter::AbsoluteMode);
