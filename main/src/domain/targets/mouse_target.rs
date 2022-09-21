@@ -58,7 +58,7 @@ pub struct MouseTarget<M> {
 pub enum MouseActionType {
     Move,
     Drag,
-    Click,
+    PressOrRelease,
     Scroll,
 }
 
@@ -79,7 +79,7 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
                 };
                 (control_type, TargetCharacter::Discrete)
             }
-            Click => (
+            PressOrRelease => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Switch,
             ),
@@ -96,7 +96,7 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
         match self.action_type {
             Move => self.move_cursor(value),
             Drag => self.drag_cursor(value),
-            Click => self.click_button(value),
+            PressOrRelease => self.click_button(value),
             Scroll => self.scroll_wheel(value),
         }
     }
@@ -201,7 +201,7 @@ impl<'a, M: Mouse> Target<'a> for MouseTarget<M> {
                 let fraction = Fraction::new(pos_on_axis, axis_size);
                 Some(AbsoluteValue::Discrete(fraction))
             }
-            Click => {
+            PressOrRelease => {
                 let is_pressed = self.mouse.is_pressed(self.button).ok()?;
                 Some(AbsoluteValue::Continuous(convert_bool_to_unit_value(
                     is_pressed,

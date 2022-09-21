@@ -2492,7 +2492,7 @@ impl TargetModel {
                 axis: Some(self.axis),
                 button: Some(self.mouse_button),
             },
-            MouseActionType::Click => MouseAction::Click {
+            MouseActionType::PressOrRelease => MouseAction::PressOrRelease {
                 button: Some(self.mouse_button),
             },
             MouseActionType::Scroll => MouseAction::Scroll {
@@ -2512,8 +2512,8 @@ impl TargetModel {
                 self.axis = axis.unwrap_or_default();
                 self.mouse_button = button.unwrap_or_default();
             }
-            MouseAction::Click { button } => {
-                self.mouse_action_type = MouseActionType::Click;
+            MouseAction::PressOrRelease { button } => {
+                self.mouse_action_type = MouseActionType::PressOrRelease;
                 self.mouse_button = button.unwrap_or_default();
             }
             MouseAction::Scroll { axis } => {
@@ -2545,7 +2545,7 @@ impl TargetModel {
     pub fn supports_mouse_button(&self) -> bool {
         matches!(
             self.mouse_action_type,
-            MouseActionType::Drag | MouseActionType::Click
+            MouseActionType::Drag | MouseActionType::PressOrRelease
         )
     }
 
