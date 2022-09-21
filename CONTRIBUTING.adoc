@@ -88,7 +88,7 @@ including Rust setup:
 ----
 # Install native dependencies
 sudo apt update
-sudo apt install curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang -y
+sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libxdo-dev
 
 # Install Rust (copied from the official Linux installation instructions)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
@@ -117,6 +117,7 @@ Some words about the native dependencies:
  absolute mode work.
 * `llvm-dev`, `libclang-dev` and `clang` are necessary for building with feature `generate` (to generate
  bindings to C).
+ * `libxdo-dev` is needed to control the mouse (see target "Global: Mouse")
 
 === macOS
 

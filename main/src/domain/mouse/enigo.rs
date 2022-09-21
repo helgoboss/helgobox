@@ -26,16 +26,33 @@ impl Eq for EnigoMouse {}
 
 impl Mouse for EnigoMouse {
     fn axis_size(&self, axis: Axis) -> u32 {
-        let (width, height) = Enigo::main_display_size();
-        let axis_size = match axis {
-            Axis::X => width,
-            Axis::Y => height,
-        };
-        axis_size as u32
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        {
+            let (width, height) = Enigo::main_display_size();
+            let axis_size = match axis {
+                Axis::X => width,
+                Axis::Y => height,
+            };
+            axis_size as u32
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let index = match axis {
+                Axis::X => reaper_low::raw::SM_CXSCREEN,
+                Axis::Y => reaper_low::raw::SM_CYSCREEN,
+            };
+            reaper_low::Swell::get().GetSystemMetrics(index) as _
+        }
     }
 
     fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str> {
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
         let (x, y) = Enigo::mouse_location();
+        #[cfg(target_os = "linux")]
+        let (x, y) = {
+            let device_state = self.device_state.query_pointer();
+            (device_state.coords.0, device_state.coords.1)
+        };
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
     }
 
