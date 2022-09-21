@@ -56,9 +56,12 @@ pub struct MouseTarget<M> {
 )]
 #[repr(usize)]
 pub enum MouseActionType {
+    #[display(fmt = "Move cursor")]
     Move,
     Drag,
+    #[display(fmt = "Press or release button")]
     PressOrRelease,
+    #[display(fmt = "Turn scroll wheel")]
     Scroll,
 }
 
@@ -107,6 +110,10 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::Mouse)
+    }
+
+    fn supports_automatic_feedback(&self) -> bool {
+        false
     }
 }
 
