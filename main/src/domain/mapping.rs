@@ -2619,6 +2619,24 @@ pub enum ControlOutcome<T> {
     Matched(T),
 }
 
+#[derive(Eq, PartialEq, derive_more::Display)]
+pub enum ControlLogContext {
+    #[display(fmt = "normal control")]
+    Normal,
+    #[display(fmt = "polling")]
+    Polling,
+    #[display(fmt = "group navigation")]
+    GroupNavigation,
+    #[display(fmt = "real-time control")]
+    RealTime,
+    #[display(fmt = "direct control")]
+    Direct,
+    #[display(fmt = "group interaction")]
+    GroupInteraction,
+    #[display(fmt = "loading mapping snapshot")]
+    LoadingMappingSnapshot,
+}
+
 #[derive(Copy, Clone)]
 pub struct ControlLogEntry {
     pub kind: ControlLogEntryKind,
@@ -2640,7 +2658,7 @@ impl Display for ControlLogEntry {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display)]
 pub enum ControlLogEntryKind {
     /// Event didn't even reach the target because it was filtered out by the glue section.
     FilteredOutByGlue,

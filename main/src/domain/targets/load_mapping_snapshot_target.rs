@@ -1,6 +1,6 @@
 use crate::domain::{
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceState,
+    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
+    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, InstanceState,
     InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
     MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -228,7 +228,7 @@ impl LoadMappingSnapshotInstruction {
                     snapshot_value,
                     context.basic_settings.target_control_logger(
                         context.processor_context.control_context.instance_state,
-                        "mapping snapshot loading",
+                        ControlLogContext::LoadingMappingSnapshot,
                         m.qualified_id(),
                     ),
                 );

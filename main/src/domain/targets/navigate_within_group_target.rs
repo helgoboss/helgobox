@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, GroupId,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
+    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
+    GroupId, HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
     InstanceStateChanged, MappingControlContext, MappingId, QualifiedMappingId, RealearnTarget,
     ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -132,7 +132,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                         AbsoluteValue::Continuous(v),
                         context.basic_settings.target_control_logger(
                             context.processor_context.control_context.instance_state,
-                            "group navigation",
+                            ControlLogContext::GroupNavigation,
                             m.qualified_id(),
                         ),
                     );

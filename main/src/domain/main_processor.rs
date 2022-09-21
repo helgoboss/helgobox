@@ -2,19 +2,19 @@ use crate::domain::{
     aggregate_target_values, get_project_options, AdditionalFeedbackEvent, BackboneState,
     Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlInput, ControlLogEntry, ControlMode, ControlOutcome,
-    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations, FeedbackOutput,
-    FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue,
-    FinalSourceFeedbackValue, GroupId, HitInstructionContext, HitInstructionResponse,
-    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
-    KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage, MappingActivationEffect,
-    MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
-    MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
-    ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedClipMatrixEvent,
-    QualifiedMappingId, QualifiedSource, RawParamValue, RealTimeMappingUpdate,
-    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
+    ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
+    FinalRealFeedbackValue, FinalSourceFeedbackValue, GroupId, HitInstructionContext,
+    HitInstructionResponse, InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged,
+    IoUpdatedEvent, KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
+    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
     SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
@@ -452,7 +452,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             LogTargetControl { mapping_id, entry } => {
                 let logger = self
                     .basics
-                    .target_control_logger("real-time control", mapping_id);
+                    .target_control_logger(ControlLogContext::RealTime, mapping_id);
                 logger(entry);
             }
         }
@@ -476,8 +476,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.basics.logger,
                             processor_context,
                             timestamp,
-                            self.basics
-                                .target_control_logger("polling", m.qualified_id()),
+                            self.basics.target_control_logger(
+                                ControlLogContext::Polling,
+                                m.qualified_id(),
+                            ),
                         )
                     } else {
                         Default::default()
@@ -2565,7 +2567,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 ),
                 value,
                 self.basics
-                    .target_control_logger("direct control", m.qualified_id()),
+                    .target_control_logger(ControlLogContext::Direct, m.qualified_id()),
             );
             control_mapping_stage_two(
                 &self.basics,
@@ -2697,22 +2699,30 @@ impl BasicSettings {
     pub fn target_control_logger<'a>(
         &'a self,
         instance_state: &'a SharedInstanceState,
-        context_label: &'static str,
+        context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + 'a {
-        move |r| {
-            if self.target_control_logging_enabled {
-                let instance_state = instance_state.borrow();
-                let mapping_name = if let Some(info) = instance_state.get_mapping_info(mapping_id) {
-                    info.name.as_str()
-                } else {
-                    "<unknown>"
-                };
-                log_target_control(
-                    &instance_state.instance_id(),
-                    format!("Mapping {}: [{}] during {}", mapping_name, r, context_label),
-                );
+        move |entry| {
+            if !self.target_control_logging_enabled {
+                return;
             }
+            if context == ControlLogContext::Polling
+                && entry.error.is_empty()
+                && entry.kind == ControlLogEntryKind::FilteredOutByGlue
+            {
+                // This pollutes the log massively.
+                return;
+            }
+            let instance_state = instance_state.borrow();
+            let mapping_name = if let Some(info) = instance_state.get_mapping_info(mapping_id) {
+                info.name.as_str()
+            } else {
+                "<unknown>"
+            };
+            log_target_control(
+                &instance_state.instance_id(),
+                format!("Mapping {}: [{}] during {}", mapping_name, entry, context),
+            );
         }
     }
     /// For real-time processor usage.
@@ -2897,11 +2907,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn target_control_logger(
         &self,
-        context_label: &'static str,
+        context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + '_ {
         self.settings
-            .target_control_logger(&self.instance_state, context_label, mapping_id)
+            .target_control_logger(&self.instance_state, context, mapping_id)
     }
 
     pub fn update_settings_internal(
@@ -3158,7 +3168,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         control_context,
                                     ),
                                     basics.target_control_logger(
-                                        "group interaction",
+                                        ControlLogContext::GroupInteraction,
                                         other_mapping.qualified_id(),
                                     ),
                                 )
@@ -3855,7 +3865,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         &basics.logger,
         ExtendedProcessorContext::new(&basics.context, params, basics.control_context()),
         m.last_non_performance_target_value(),
-        basics.target_control_logger("normal control", m.qualified_id()),
+        basics.target_control_logger(ControlLogContext::Normal, m.qualified_id()),
     );
     if result.at_least_one_target_caused_effect && result.celebrate_success {
         basics.celebrate_success();
