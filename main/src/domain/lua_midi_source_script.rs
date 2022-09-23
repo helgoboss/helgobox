@@ -1,7 +1,7 @@
 use crate::domain::SafeLua;
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
-    RawMidiEvent,
+    RawMidiEvent, RgbColor,
 };
 use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
 use std::error::Error;
@@ -12,6 +12,7 @@ pub struct LuaMidiSourceScript<'lua> {
     function: Function<'lua>,
     env: Table<'lua>,
     y_key: Value<'lua>,
+    context_key: Value<'lua>,
 }
 
 unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
@@ -28,8 +29,37 @@ impl<'lua> LuaMidiSourceScript<'lua> {
             env,
             function,
             y_key: "y".to_lua(lua.as_ref())?,
+            context_key: "context".to_lua(lua.as_ref())?,
         };
         Ok(script)
+    }
+}
+
+#[derive(serde::Serialize)]
+struct ScriptContext {
+    feedback_event: ScriptFeedbackEvent,
+}
+
+#[derive(serde::Serialize)]
+struct ScriptFeedbackEvent {
+    color: Option<ScriptColor>,
+    background_color: Option<ScriptColor>,
+}
+
+#[derive(serde::Serialize)]
+struct ScriptColor {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl From<RgbColor> for ScriptColor {
+    fn from(c: RgbColor) -> Self {
+        Self {
+            r: c.r(),
+            g: c.g(),
+            b: c.b(),
+        }
     }
 }
 
@@ -38,6 +68,13 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         // TODO-high We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
         //  scripts!
+        // Build input data
+        let context = ScriptContext {
+            feedback_event: ScriptFeedbackEvent {
+                color: input_value.color().map(ScriptColor::from),
+                background_color: input_value.background_color().map(ScriptColor::from),
+            },
+        };
         let y_value = match input_value {
             FeedbackValue::Off => Value::Nil,
             FeedbackValue::Numeric(n) => match n.value {
@@ -49,13 +86,20 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
                 .to_lua(self.lua.as_ref())
                 .map_err(|_| "couldn't convert string to Lua string")?,
         };
+        // Set input data as variables "y" and "context".
         self.env
             .raw_set(self.y_key.clone(), y_value)
             .map_err(|_| "couldn't set y variable")?;
+        let context_lua_value = self.lua.as_ref().to_value(&context).unwrap();
+        self.env
+            .raw_set(self.context_key.clone(), context_lua_value)
+            .map_err(|_| "couldn't set context variable")?;
+        // Invoke script
         let value: Value = self
             .function
             .call(())
             .map_err(|_| "failed to invoke Lua script")?;
+        // Process return value
         let outcome: LuaScriptOutcome = self
             .lua
             .as_ref()
@@ -85,7 +129,9 @@ struct LuaScriptOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helgoboss_learn::{FeedbackStyle, NumericFeedbackValue, TextualFeedbackValue, UnitValue};
+    use helgoboss_learn::{
+        FeedbackStyle, NumericFeedbackValue, RgbColor, TextualFeedbackValue, UnitValue,
+    };
 
     #[test]
     fn basics() {
@@ -157,6 +203,49 @@ mod tests {
         assert_eq!(
             unmatched_outcome.events,
             vec![RawMidiEvent::try_from_slice(0, &[0xb0, 0x4b, 0]).unwrap()]
+        );
+    }
+
+    #[test]
+    fn colors() {
+        // Given
+        let text = "
+            local color = context.feedback_event.color
+            if color == nil then
+                -- This means no specific color is set. Choose whatever you need.
+                color = { r = 0, g = 0, b = 0 }
+            end
+            return {
+                -- A unique number that identifies the LED/display.
+                -- (Necessary if you want correct lights-off behavior and coordination
+                -- between multiple mappings using the same LED/display).
+                address = 0x4b,
+                -- Whatever messages your device needs to set that color.
+                messages = {
+                    { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
+                }
+            }
+        ";
+        let lua = SafeLua::new().unwrap();
+        let script = LuaMidiSourceScript::compile(&lua, text).unwrap();
+        // When
+        let style = FeedbackStyle {
+            color: Some(RgbColor::new(255, 0, 255)),
+            background_color: None,
+        };
+        let value = NumericFeedbackValue::new(style, Default::default());
+        let outcome = script.execute(FeedbackValue::Numeric(value)).unwrap();
+        // Then
+        assert_eq!(
+            outcome.address,
+            Some(MidiSourceAddress::Script { bytes: 0x4b })
+        );
+        assert_eq!(
+            outcome.events,
+            vec![
+                RawMidiEvent::try_from_slice(0, &[0xf0, 0x02, 0x4b, 0xff, 0x00, 0xff, 0xf7])
+                    .unwrap()
+            ]
         );
     }
 }
