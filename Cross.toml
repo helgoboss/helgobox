@@ -1,5 +1,5 @@
 [target.aarch64-unknown-linux-gnu]
-pre-build = ["apt-get update && apt-get install -y libxdo-dev"]
+pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install -y libxdo-dev:arm64"]
 
 [target.armv7-unknown-linux-gnueabihf]
-pre-build = ["apt-get update && apt-get install -y libxdo-dev"]
+pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install -y libxdo-dev:armhf"]
