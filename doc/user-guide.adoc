@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-08-19 (v2.14.0-pre.2)`
+|Last update of text: |`2022-09-24 (v2.14.0-pre.4)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -2147,14 +2147,18 @@ msg_size = 3;
 *Lua script specifics*
 
 * *Script input*
-** Lua scripts can access both numeric and text feedback values. The feedback value is contained in the variable `y`.
+** Lua scripts can access both numeric and text feedback values.
+** Here's the list of input variables:
+*** `y`: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
+*** `context.feedback_event.color`: The color as set in the <<glue>> section. Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
+*** `context.feedback_event.background_color`: The background color.
 * *Script output*
 ** A Lua script can even generate multiple output messages.
 ** You need to return a table which contains the following keys:
 *** `address`: The feedback address.
 *** `messages`: An array containing all the messages, where each message itself is an array contaning the message bytes.
 * *Examples*
-** The following example creates a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
+** Creates a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
 +
 [source,lua]
 ----
@@ -2166,7 +2170,24 @@ return {
 }
 ----
 +
-** The following example creates a 3-byte MIDI message, assuming that `y` is a text value.
+** Creates a MIDI sys-ex message that changes the color of some fictional device LED/display:
++
+[source,lua]
+----
+local color = context.feedback_event.color
+if color == nil then
+    -- This means no specific color is set. Choose whatever you need.
+    color = { r = 0, g = 0, b = 0 }
+end
+return {
+    address = 0x4b,
+    -- Whatever messages your device needs to set that color.
+    messages = {
+        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
+    }
+}
+----
+** Creates a 3-byte MIDI message, assuming that `y` is a text value.
 +
 [source,lua]
 ----
@@ -2810,6 +2831,24 @@ This will control whatever target has been last touched in REAPER. It's similar 
 
 . It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
 . It offers feedback.
+
+====== Global: Mouse
+
+This will control the mouse.
+
+* *Action*
+** *Move cursor to:* Moves the mouse cursor on the given axis in an absolute manner. This is a good choice for absolute mouse movement, that is, if you want to position the mouse cursor to a specific screen position. Although it's also possible to move the mouse cursor relatively with this action by controlling the target with relative messages, it's usually better to use _Move cursor by_ instead.
+** *Move cursor by:* Moves the mouse cursor on the given axis in a relative manner. This is a good choice if you want to move the cursor e.g. up a bit, starting from its current position. This only works with relative control elements such as encoders or features such as <<make-relative>>.
+** *Press or release button:* Presses or releases a certain mouse button, depending on the incoming control value (0% = release, anything else = press).
+** *Turn scroll wheel:* Simulates the scroll wheel.
+* *Axis:* Determines the direction of movement or scrolling.
+* *Button:* Determines which mouse button to use.
+
+TIP: One popular use of this target is to adjust the FX parameter under the mouse cursor. For this, it's usually best to set _Action_ to "Turn scroll wheel" and _Axis_ to "Y (vertical)".
+
+TIP: You can unfold the magic of this target by combining multiple mappings. E.g. one can simulate mouse dragging by using one mapping to press/release the left button and another mapping to move the cursor. link:https://raw.githubusercontent.com/helgoboss/realearn/master/resources/test-projects/issue-686-mouse-target.RPP[This example project] contains multiple examples (one per group).
+
+WARNING: Feedback for this target is not fully implemented.
 
 ====== Global: Set automation mode override
 
@@ -3758,6 +3797,7 @@ toggle function, it's quite likely that it gets out of sync with the actual targ
 ReaLearn's own toggle mode has a clear advantage here.
 ====
 
+[#make-relative]
 ====== Make relative
 
 This converts incoming absolute fader/knob movements into relative adjustments of the target value. It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important differences:
