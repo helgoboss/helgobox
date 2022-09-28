@@ -5121,7 +5121,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.gang_behavior(),
                         TrackGangBehavior::SelectionOnly | TrackGangBehavior::SelectionAndGrouping
                     );
-                    Some(("Apply to all selected", is_enabled))
+                    Some(("Selection ganging", is_enabled))
                 }
                 _ => None,
             },

@@ -1,15 +1,15 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-    track_solo_unit_value, with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SoloBehavior, TargetCharacter, TargetTypeDef, TrackDescriptor,
-    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    track_solo_unit_value, with_gang_behavior, with_solo_behavior, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoloBehavior,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
-use reaper_medium::SoloMode;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -74,21 +74,15 @@ impl RealearnTarget for TrackSoloTarget {
             self.gang_behavior,
             true,
             |gang_behavior| {
-                let solo_track = |t: &Track| {
-                    use SoloBehavior::*;
-                    match self.behavior {
-                        InPlace => t.set_solo_mode(SoloMode::SoloInPlace),
-                        IgnoreRouting => t.set_solo_mode(SoloMode::SoloIgnoreRouting),
-                        ReaperPreference => t.solo(gang_behavior),
-                    }
-                };
-                change_track_prop(
-                    &self.track,
-                    self.exclusivity,
-                    value,
-                    |t| solo_track(t),
-                    |t| t.unsolo(gang_behavior),
-                );
+                with_solo_behavior(self.behavior, || {
+                    change_track_prop(
+                        &self.track,
+                        self.exclusivity,
+                        value,
+                        |t| t.solo(gang_behavior),
+                        |t| t.unsolo(gang_behavior),
+                    );
+                });
             },
         );
         Ok(HitResponse::processed_with_effect())

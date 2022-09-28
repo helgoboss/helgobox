@@ -1423,6 +1423,16 @@ pub fn get_control_type_and_character_for_track_exclusivity(
     }
 }
 
+pub fn with_solo_behavior(behavior: SoloBehavior, f: impl FnOnce()) {
+    use SoloBehavior::*;
+    match behavior {
+        ReaperPreference => f(),
+        InPlace | IgnoreRouting => {
+            Reaper::get().with_solo_in_place(behavior == InPlace, f);
+        }
+    }
+}
+
 pub fn with_seek_behavior(behavior: SeekBehavior, f: impl FnOnce()) {
     use SeekBehavior::*;
     match behavior {

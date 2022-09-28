@@ -2570,26 +2570,11 @@ impl TargetModel {
     }
 
     pub fn supports_gang_selected(&self) -> bool {
-        if !self.r#type.definition().supports_gang_selected() {
-            return false;
-        }
-        self.supports_gang_behavior()
+        self.r#type.definition().supports_gang_selected()
     }
 
     pub fn supports_gang_grouping(&self) -> bool {
-        if !self.r#type.definition().supports_gang_grouping() {
-            return false;
-        }
-        self.supports_gang_behavior()
-    }
-
-    fn supports_gang_behavior(&self) -> bool {
-        if self.r#type == ReaperTargetType::TrackSolo
-            && self.solo_behavior != SoloBehavior::ReaperPreference
-        {
-            return false;
-        }
-        true
+        self.r#type.definition().supports_gang_grouping()
     }
 
     pub fn supports_track(&self) -> bool {
