@@ -233,5 +233,7 @@ fn get_pos_on_axis(pos: MouseCursorPosition, axis: Axis) -> u32 {
 pub const MOUSE_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Global: Mouse",
     short_name: "Mouse",
+    supports_axis: true,
+    supports_mouse_button: true,
     ..DEFAULT_TARGET
 };

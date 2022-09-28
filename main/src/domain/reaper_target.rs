@@ -11,8 +11,8 @@ use reaper_high::{
     Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
-    AutomationMode, Bpm, GlobalAutomationModeOverride, NormalizedPlayRate, PlaybackSpeedFactor,
-    PositionInSeconds, ReaperPanValue, ReaperWidthValue,
+    AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate,
+    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ use helgoboss_learn::{
 };
 use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior};
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackGangBehavior};
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
@@ -341,7 +341,10 @@ impl ReaperTarget {
         use ChangeEvent::*;
         use ReaperTarget::*;
         let target = match evt {
-            TrackVolumeChanged(e) if e.touched => TrackVolume(TrackVolumeTarget { track: e.track }),
+            TrackVolumeChanged(e) if e.touched => TrackVolume(TrackVolumeTarget {
+                track: e.track,
+                gang_behavior: Default::default(),
+            }),
             TrackPanChanged(e) if e.touched => {
                 if let AvailablePanValue::Complete(new_value) = e.new_value {
                     figure_out_touched_pan_component(e.track, e.old_value, new_value)
@@ -357,10 +360,12 @@ impl ReaperTarget {
             TrackArmChanged(e) => TrackArm(TrackArmTarget {
                 track: e.track,
                 exclusivity: Default::default(),
+                gang_behavior: Default::default(),
             }),
             TrackMuteChanged(e) if e.touched => TrackMute(TrackMuteTarget {
                 track: e.track,
                 exclusivity: Default::default(),
+                gang_behavior: Default::default(),
             }),
             TrackSoloChanged(e) => {
                 // When we press the solo button of some track, REAPER actually sends many
@@ -374,6 +379,7 @@ impl ReaperTarget {
                     track: e.track,
                     behavior: Default::default(),
                     exclusivity: Default::default(),
+                    gang_behavior: Default::default(),
                 })
             }
             TrackSelectedChanged(e) if e.new_value => {
@@ -414,6 +420,7 @@ impl ReaperTarget {
                 track: e.track,
                 exclusivity: Default::default(),
                 mode: e.new_value,
+                gang_behavior: Default::default(),
             }),
             GlobalAutomationOverrideChanged(e) => {
                 AutomationModeOverride(AutomationModeOverrideTarget {
@@ -452,11 +459,13 @@ impl ReaperTarget {
                     .fx_preset_changed()
                     .map(move |fx| FxPreset(FxPresetTarget { fx }).into()),
             )
-            .merge(
-                csurf_rx
-                    .track_volume_touched()
-                    .map(move |track| TrackVolume(TrackVolumeTarget { track }).into()),
-            )
+            .merge(csurf_rx.track_volume_touched().map(move |track| {
+                TrackVolume(TrackVolumeTarget {
+                    track,
+                    gang_behavior: Default::default(),
+                })
+                .into()
+            }))
             .merge(csurf_rx.track_pan_touched().map(move |(track, old, new)| {
                 figure_out_touched_pan_component(track, old, new).into()
             }))
@@ -464,6 +473,7 @@ impl ReaperTarget {
                 TrackArm(TrackArmTarget {
                     track,
                     exclusivity: Default::default(),
+                    gang_behavior: Default::default(),
                 })
                 .into()
             }))
@@ -489,6 +499,7 @@ impl ReaperTarget {
                 TrackMute(TrackMuteTarget {
                     track,
                     exclusivity: Default::default(),
+                    gang_behavior: Default::default(),
                 })
                 .into()
             }))
@@ -507,6 +518,7 @@ impl ReaperTarget {
                     track,
                     exclusivity: Default::default(),
                     mode,
+                    gang_behavior: Default::default(),
                 })
                 .into()
             }))
@@ -523,6 +535,7 @@ impl ReaperTarget {
                             track,
                             behavior: Default::default(),
                             exclusivity: Default::default(),
+                            gang_behavior: Default::default(),
                         })
                         .into()
                     }),
@@ -1062,9 +1075,15 @@ fn figure_out_touched_pan_component(
     new: reaper_medium::Pan,
 ) -> ReaperTarget {
     if old.width() != new.width() {
-        ReaperTarget::TrackWidth(TrackWidthTarget { track })
+        ReaperTarget::TrackWidth(TrackWidthTarget {
+            track,
+            gang_behavior: Default::default(),
+        })
     } else {
-        ReaperTarget::TrackPan(TrackPanTarget { track })
+        ReaperTarget::TrackPan(TrackPanTarget {
+            track,
+            gang_behavior: Default::default(),
+        })
     }
 }
 
@@ -1411,5 +1430,28 @@ pub fn with_seek_behavior(behavior: SeekBehavior, f: impl FnOnce()) {
         Immediate | Smooth => {
             Reaper::get().with_smooth_seek(behavior == Smooth, f);
         }
+    }
+}
+
+pub fn with_gang_behavior(
+    project: Project,
+    behavior: TrackGangBehavior,
+    is_mute_or_solo_or_arm: bool,
+    f: impl FnOnce(GangBehavior),
+) {
+    use TrackGangBehavior::*;
+    match behavior {
+        Off => {
+            if is_mute_or_solo_or_arm {
+                // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
+                // track grouping even when passing DenyGang. So we need to switch it off
+                // temporarily.
+                project.with_track_grouping(false, || f(GangBehavior::DenyGang))
+            } else {
+                f(GangBehavior::DenyGang)
+            }
+        }
+        SelectionOnly => project.with_track_grouping(false, || f(GangBehavior::AllowGang)),
+        SelectionAndGrouping => f(GangBehavior::AllowGang),
     }
 }

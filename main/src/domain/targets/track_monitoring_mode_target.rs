@@ -1,11 +1,12 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    change_track_prop, format_value_as_on_off, get_effective_tracks, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    change_track_prop, format_value_as_on_off, get_effective_tracks, with_gang_behavior,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::InputMonitoringMode;
 use std::borrow::Cow;
@@ -15,6 +16,7 @@ pub struct UnresolvedTrackMonitoringModeTarget {
     pub track_descriptor: TrackDescriptor,
     pub exclusivity: TrackExclusivity,
     pub mode: InputMonitoringMode,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackMonitoringModeTarget {
@@ -31,6 +33,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMonitoringModeTarget {
                         track,
                         exclusivity: self.exclusivity,
                         mode: self.mode,
+                        gang_behavior: self.gang_behavior,
                     })
                 })
                 .collect(),
@@ -47,6 +50,7 @@ pub struct TrackMonitoringModeTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
     pub mode: InputMonitoringMode,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackMonitoringModeTarget {
@@ -74,12 +78,20 @@ impl RealearnTarget for TrackMonitoringModeTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        change_track_prop(
-            &self.track,
-            self.exclusivity,
-            value.to_unit_value()?,
-            |t| t.set_input_monitoring_mode(self.mode),
-            |t| t.set_input_monitoring_mode(InputMonitoringMode::Off),
+        let value = value.to_unit_value()?;
+        with_gang_behavior(
+            self.track.project(),
+            self.gang_behavior,
+            false,
+            |gang_behavior| {
+                change_track_prop(
+                    &self.track,
+                    self.exclusivity,
+                    value,
+                    |t| t.set_input_monitoring_mode(self.mode, gang_behavior),
+                    |t| t.set_input_monitoring_mode(InputMonitoringMode::Off, gang_behavior),
+                );
+            },
         );
         Ok(HitResponse::processed_with_effect())
     }
@@ -148,6 +160,7 @@ pub const TRACK_MONITORING_MODE_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track monitoring mode",
     supports_track: true,
     supports_track_exclusivity: true,
+    supports_gang_selected: true,
     ..DEFAULT_TARGET
 };
 

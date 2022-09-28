@@ -1,19 +1,21 @@
 use crate::domain::{
-    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, PanExt, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
+    with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, PanExt, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
     BASE_EPSILON,
 };
+use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
 use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackPanTarget {
     pub track_descriptor: TrackDescriptor,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
@@ -25,7 +27,12 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackPan(TrackPanTarget { track }))
+                .map(|track| {
+                    ReaperTarget::TrackPan(TrackPanTarget {
+                        track,
+                        gang_behavior: self.gang_behavior,
+                    })
+                })
                 .collect(),
         )
     }
@@ -38,6 +45,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackPanTarget {
     pub track: Track,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackPanTarget {
@@ -91,7 +99,14 @@ impl RealearnTarget for TrackPanTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
-        self.track.set_pan(pan);
+        with_gang_behavior(
+            self.track.project(),
+            self.gang_behavior,
+            false,
+            |gang_behavior| {
+                self.track.set_pan(pan, gang_behavior);
+            },
+        );
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -171,5 +186,7 @@ pub const TRACK_PAN_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Set pan",
     short_name: "Track pan",
     supports_track: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
     ..DEFAULT_TARGET
 };

@@ -1,12 +1,13 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-    track_solo_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    track_solo_unit_value, with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, SoloBehavior, TargetCharacter, TargetTypeDef, TrackDescriptor,
     TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::SoloMode;
 use std::borrow::Cow;
@@ -16,6 +17,7 @@ pub struct UnresolvedTrackSoloTarget {
     pub track_descriptor: TrackDescriptor,
     pub exclusivity: TrackExclusivity,
     pub behavior: SoloBehavior,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
@@ -32,6 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
                         track,
                         exclusivity: self.exclusivity,
                         behavior: self.behavior,
+                        gang_behavior: self.gang_behavior,
                     })
                 })
                 .collect(),
@@ -48,6 +51,7 @@ pub struct TrackSoloTarget {
     pub track: Track,
     pub behavior: SoloBehavior,
     pub exclusivity: TrackExclusivity,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackSoloTarget {
@@ -64,20 +68,28 @@ impl RealearnTarget for TrackSoloTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let solo_track = |t: &Track| {
-            use SoloBehavior::*;
-            match self.behavior {
-                InPlace => t.set_solo_mode(SoloMode::SoloInPlace),
-                IgnoreRouting => t.set_solo_mode(SoloMode::SoloIgnoreRouting),
-                ReaperPreference => t.solo(),
-            }
-        };
-        change_track_prop(
-            &self.track,
-            self.exclusivity,
-            value.to_unit_value()?,
-            |t| solo_track(t),
-            |t| t.unsolo(),
+        let value = value.to_unit_value()?;
+        with_gang_behavior(
+            self.track.project(),
+            self.gang_behavior,
+            true,
+            |gang_behavior| {
+                let solo_track = |t: &Track| {
+                    use SoloBehavior::*;
+                    match self.behavior {
+                        InPlace => t.set_solo_mode(SoloMode::SoloInPlace),
+                        IgnoreRouting => t.set_solo_mode(SoloMode::SoloIgnoreRouting),
+                        ReaperPreference => t.solo(gang_behavior),
+                    }
+                };
+                change_track_prop(
+                    &self.track,
+                    self.exclusivity,
+                    value,
+                    |t| solo_track(t),
+                    |t| t.unsolo(gang_behavior),
+                );
+            },
         );
         Ok(HitResponse::processed_with_effect())
     }
@@ -145,5 +157,7 @@ pub const TRACK_SOLO_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "(Un)solo track",
     supports_track: true,
     supports_track_exclusivity: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
     ..DEFAULT_TARGET
 };

@@ -62,7 +62,7 @@ use realearn_api::persistence::{
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
     MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, SeekBehavior,
-    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
+    TrackDescriptorCommons, TrackFxChain, TrackGangBehavior, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -107,6 +107,7 @@ pub enum TargetCommand {
     SetSoloBehavior(SoloBehavior),
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
+    SetGangBehavior(TrackGangBehavior),
     SetFxToolAction(FxToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
@@ -201,6 +202,7 @@ pub enum TargetProp {
     SeekBehavior,
     TrackExclusivity,
     TrackToolAction,
+    GangBehavior,
     FxToolAction,
     TransportAction,
     AnyOnParameter,
@@ -400,6 +402,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetTrackToolAction(v) => {
                 self.track_tool_action = v;
                 One(P::TrackToolAction)
+            }
+            C::SetGangBehavior(v) => {
+                self.gang_behavior = v;
+                One(P::GangBehavior)
             }
             C::SetFxToolAction(v) => {
                 self.fx_tool_action = v;
@@ -648,6 +654,7 @@ pub struct TargetModel {
     enable_only_if_track_selected: bool,
     clip_column_track_context: ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
+    gang_behavior: TrackGangBehavior,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -843,6 +850,7 @@ impl Default for TargetModel {
             clip_play_stop_timing: None,
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
+            gang_behavior: Default::default(),
         }
     }
 }
@@ -922,6 +930,10 @@ impl TargetModel {
 
     pub fn enable_only_if_fx_has_focus(&self) -> bool {
         self.enable_only_if_fx_has_focus
+    }
+
+    pub fn gang_behavior(&self) -> TrackGangBehavior {
+        self.gang_behavior
     }
 
     pub fn param_type(&self) -> VirtualFxParameterType {
@@ -2125,6 +2137,7 @@ impl TargetModel {
                     TrackVolume => {
                         UnresolvedReaperTarget::TrackVolume(UnresolvedTrackVolumeTarget {
                             track_descriptor: self.track_descriptor()?,
+                            gang_behavior: self.gang_behavior,
                         })
                     }
                     TrackTool => UnresolvedReaperTarget::TrackTool(UnresolvedTrackToolTarget {
@@ -2142,13 +2155,16 @@ impl TargetModel {
                     }
                     TrackPan => UnresolvedReaperTarget::TrackPan(UnresolvedTrackPanTarget {
                         track_descriptor: self.track_descriptor()?,
+                        gang_behavior: self.gang_behavior,
                     }),
                     TrackWidth => UnresolvedReaperTarget::TrackWidth(UnresolvedTrackWidthTarget {
                         track_descriptor: self.track_descriptor()?,
+                        gang_behavior: self.gang_behavior,
                     }),
                     TrackArm => UnresolvedReaperTarget::TrackArm(UnresolvedTrackArmTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
+                        gang_behavior: self.gang_behavior,
                     }),
                     TrackParentSend => {
                         UnresolvedReaperTarget::TrackParentSend(UnresolvedTrackParentSendTarget {
@@ -2167,6 +2183,7 @@ impl TargetModel {
                     TrackMute => UnresolvedReaperTarget::TrackMute(UnresolvedTrackMuteTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
+                        gang_behavior: self.gang_behavior,
                     }),
                     TrackPhase => UnresolvedReaperTarget::TrackPhase(UnresolvedTrackPhaseTarget {
                         track_descriptor: self.track_descriptor()?,
@@ -2194,12 +2211,14 @@ impl TargetModel {
                             track_descriptor: self.track_descriptor()?,
                             exclusivity: self.track_exclusivity,
                             mode: convert_monitoring_mode_to_reaper(self.monitoring_mode),
+                            gang_behavior: self.gang_behavior,
                         },
                     ),
                     TrackSolo => UnresolvedReaperTarget::TrackSolo(UnresolvedTrackSoloTarget {
                         track_descriptor: self.track_descriptor()?,
                         behavior: self.solo_behavior,
                         exclusivity: self.track_exclusivity,
+                        gang_behavior: self.gang_behavior,
                     }),
                     RoutePan => UnresolvedReaperTarget::RoutePan(UnresolvedRoutePanTarget {
                         descriptor: self.route_descriptor()?,
@@ -2533,7 +2552,10 @@ impl TargetModel {
         }
     }
 
-    pub fn supports_mouse_axis(&self) -> bool {
+    pub fn supports_axis(&self) -> bool {
+        if !self.r#type.definition().supports_axis() {
+            return false;
+        }
         matches!(
             self.mouse_action_type,
             MouseActionType::MoveTo | MouseActionType::MoveBy | MouseActionType::Scroll
@@ -2541,12 +2563,37 @@ impl TargetModel {
     }
 
     pub fn supports_mouse_button(&self) -> bool {
+        if !self.r#type.definition().supports_mouse_button() {
+            return false;
+        }
         matches!(self.mouse_action_type, MouseActionType::PressOrRelease)
     }
 
+    pub fn supports_gang_selected(&self) -> bool {
+        if !self.r#type.definition().supports_gang_selected() {
+            return false;
+        }
+        self.supports_gang_behavior()
+    }
+
+    pub fn supports_gang_grouping(&self) -> bool {
+        if !self.r#type.definition().supports_gang_grouping() {
+            return false;
+        }
+        self.supports_gang_behavior()
+    }
+
+    fn supports_gang_behavior(&self) -> bool {
+        if self.r#type == ReaperTargetType::TrackSolo
+            && self.solo_behavior != SoloBehavior::ReaperPreference
+        {
+            return false;
+        }
+        true
+    }
+
     pub fn supports_track(&self) -> bool {
-        let target_type = self.r#type;
-        if !target_type.supports_track() {
+        if !self.r#type.supports_track() {
             return false;
         }
         self.requires_track_apart_from_type()
@@ -3017,7 +3064,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                     }
                     Mouse => {
                         write!(f, "{}\n{}", tt, self.target.mouse_action_type)?;
-                        if self.target.supports_mouse_axis() {
+                        if self.target.supports_axis() {
                             write!(f, "\n{}", self.target.axis)?;
                         }
                         if self.target.supports_mouse_button() {

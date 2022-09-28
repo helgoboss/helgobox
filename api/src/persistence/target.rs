@@ -1405,6 +1405,19 @@ impl Default for SoloBehavior {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum TrackGangBehavior {
+    Off,
+    SelectionOnly,
+    SelectionAndGrouping,
+}
+
+impl Default for TrackGangBehavior {
+    fn default() -> Self {
+        Self::Off
+    }
+}
+
 #[derive(
     Copy,
     Clone,

@@ -4,7 +4,7 @@ use crate::domain::{
     TouchedTrackParameterType,
 };
 use reaper_high::{Fx, Track};
-use reaper_medium::MediaTrack;
+use reaper_medium::{GangBehavior, MediaTrack};
 use std::collections::{HashMap, HashSet};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
@@ -102,13 +102,13 @@ impl RealearnTargetState {
     fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedTrackParameterType) {
         match parameter_type {
             TouchedTrackParameterType::Volume => {
-                track.set_volume(track.volume());
+                track.set_volume(track.volume(), GangBehavior::DenyGang);
             }
             TouchedTrackParameterType::Pan => {
-                track.set_pan(track.pan());
+                track.set_pan(track.pan(), GangBehavior::DenyGang);
             }
             TouchedTrackParameterType::Width => {
-                track.set_width(track.width());
+                track.set_width(track.width(), GangBehavior::DenyGang);
             }
         }
     }

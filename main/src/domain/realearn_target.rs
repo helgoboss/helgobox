@@ -858,6 +858,10 @@ pub struct TargetTypeDef {
     pub short_name: &'static str,
     pub hint: &'static str,
     pub supports_track: bool,
+    pub supports_mouse_button: bool,
+    pub supports_axis: bool,
+    pub supports_gang_selected: bool,
+    pub supports_gang_grouping: bool,
     pub if_so_supports_track_must_be_selected: bool,
     pub supports_track_scrolling: bool,
     pub supports_clip_slot: bool,
@@ -888,6 +892,18 @@ impl TargetTypeDef {
     }
     pub const fn supports_track(&self) -> bool {
         self.supports_track
+    }
+    pub const fn supports_mouse_button(&self) -> bool {
+        self.supports_mouse_button
+    }
+    pub const fn supports_axis(&self) -> bool {
+        self.supports_axis
+    }
+    pub const fn supports_gang_selected(&self) -> bool {
+        self.supports_gang_selected
+    }
+    pub const fn supports_gang_grouping(&self) -> bool {
+        self.supports_gang_grouping
     }
     pub const fn supports_track_must_be_selected(&self) -> bool {
         self.supports_track() && self.if_so_supports_track_must_be_selected
@@ -946,6 +962,10 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_control: true,
     supports_feedback: true,
     supports_track: false,
+    supports_mouse_button: false,
+    supports_axis: false,
+    supports_gang_selected: false,
+    supports_gang_grouping: false,
     if_so_supports_track_must_be_selected: true,
     supports_track_scrolling: false,
     supports_clip_slot: false,

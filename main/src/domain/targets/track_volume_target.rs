@@ -2,18 +2,20 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    get_effective_tracks, Compartment, CompoundChangeEvent, ControlContext,
+    get_effective_tracks, with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track, Volume};
 use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackVolumeTarget {
     pub track_descriptor: TrackDescriptor,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
@@ -25,7 +27,12 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackVolume(TrackVolumeTarget { track }))
+                .map(|track| {
+                    ReaperTarget::TrackVolume(TrackVolumeTarget {
+                        track,
+                        gang_behavior: self.gang_behavior,
+                    })
+                })
                 .collect(),
         )
     }
@@ -38,6 +45,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackVolumeTarget {
     pub track: Track,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackVolumeTarget {
@@ -75,7 +83,15 @@ impl RealearnTarget for TrackVolumeTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
-        self.track.set_volume(volume.unwrap_or(Volume::MIN));
+        with_gang_behavior(
+            self.track.project(),
+            self.gang_behavior,
+            false,
+            |gang_behavior| {
+                self.track
+                    .set_volume(volume.unwrap_or(Volume::MIN), gang_behavior);
+            },
+        );
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -147,5 +163,7 @@ pub const TRACK_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Set volume",
     short_name: "Track volume",
     supports_track: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
     ..DEFAULT_TARGET
 };

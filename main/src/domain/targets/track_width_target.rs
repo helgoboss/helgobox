@@ -3,18 +3,20 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{
-    get_effective_tracks, width_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, PanExt, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_effective_tracks, width_unit_value, with_gang_behavior, Compartment, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, PanExt,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
 use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackWidthTarget {
     pub track_descriptor: TrackDescriptor,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
@@ -26,7 +28,12 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackWidth(TrackWidthTarget { track }))
+                .map(|track| {
+                    ReaperTarget::TrackWidth(TrackWidthTarget {
+                        track,
+                        gang_behavior: self.gang_behavior,
+                    })
+                })
                 .collect(),
         )
     }
@@ -39,6 +46,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrackWidthTarget {
     pub track: Track,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackWidthTarget {
@@ -88,7 +96,14 @@ impl RealearnTarget for TrackWidthTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let width = Width::from_normalized_value(value.to_unit_value()?.get());
-        self.track.set_width(width);
+        with_gang_behavior(
+            self.track.project(),
+            self.gang_behavior,
+            false,
+            |gang_behavior| {
+                self.track.set_width(width, gang_behavior);
+            },
+        );
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -153,5 +168,7 @@ pub const TRACK_WIDTH_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Set stereo pan width",
     short_name: "Track pan width",
     supports_track: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
     ..DEFAULT_TARGET
 };

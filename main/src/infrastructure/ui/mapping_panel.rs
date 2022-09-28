@@ -27,7 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior, TrackToolAction,
+    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior,
+    TrackGangBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -467,8 +468,12 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::SeekBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::MonitoringMode | P::TrackArea => {
+                                            P::SeekBehavior | P::TouchedTrackParameterType | P::AutomationMode | P::MonitoringMode | P::TrackArea => {
                                                 view.invalidate_target_line_3(None);
+                                            }
+                                            P::SoloBehavior => {
+                                                view.invalidate_target_line_3(None);
+                                                view.invalidate_target_check_boxes();
                                             }
                                             P::AutomationModeOverrideType => {
                                                 view.invalidate_window_title();
@@ -516,6 +521,9 @@ impl MappingPanel {
                                             P::ScrollArrangeView | P::SeekPlay => {
                                                 view.invalidate_target_check_boxes();
                                                 view.invalidate_target_value_controls();
+                                            }
+                                            P::GangBehavior => {
+                                                view.invalidate_target_check_boxes();
                                             }
                                             P::EnableOnlyIfTrackSelected | P::ScrollMixer | P::MoveView => {
                                                 view.invalidate_target_check_boxes();
@@ -2320,6 +2328,16 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseProject(is_checked),
                     ));
                 }
+                _ if self.mapping.target_model.supports_gang_selected() => {
+                    let gang_behavior = if is_checked {
+                        TrackGangBehavior::SelectionOnly
+                    } else {
+                        TrackGangBehavior::Off
+                    };
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetGangBehavior(gang_behavior),
+                    ));
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -2383,6 +2401,20 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetUseTimeSelection(is_checked),
+                    ));
+                }
+                _ if self.mapping.target_model.supports_gang_grouping() => {
+                    let gang_behavior = if is_checked {
+                        TrackGangBehavior::SelectionAndGrouping
+                    } else if self.mapping.target_model.gang_behavior()
+                        == TrackGangBehavior::SelectionAndGrouping
+                    {
+                        TrackGangBehavior::SelectionOnly
+                    } else {
+                        TrackGangBehavior::Off
+                    };
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetGangBehavior(gang_behavior),
                     ));
                 }
                 _ => {}
@@ -2723,7 +2755,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetSeekBehavior(v),
                     ));
                 }
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid axis type");
                     self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetAxis(v)));
@@ -4583,7 +4615,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
                     Some("Axis")
                 }
                 ReaperTargetType::Action => Some("Invoke"),
@@ -4829,7 +4861,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.seek_behavior().into())
                         .unwrap();
                 }
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_axis() => {
+                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
                     combo.show();
                     combo.fill_combo_box_indexed(Axis::into_enum_iter());
                     combo
@@ -5084,6 +5116,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
                 ReaperTargetType::Seek => Some(("Use project", self.target.use_project())),
+                _ if self.target.supports_gang_selected() => {
+                    let is_enabled = matches!(
+                        self.target.gang_behavior(),
+                        TrackGangBehavior::SelectionOnly | TrackGangBehavior::SelectionAndGrouping
+                    );
+                    Some(("Apply to all selected", is_enabled))
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5129,6 +5168,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set time selection", self.target.use_time_selection()))
+                }
+                _ if self.target.supports_gang_grouping() => {
+                    let is_enabled = matches!(
+                        self.target.gang_behavior(),
+                        TrackGangBehavior::SelectionAndGrouping
+                    );
+                    Some(("Respect grouping", is_enabled))
                 }
                 _ => None,
             },
