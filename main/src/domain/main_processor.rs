@@ -3767,9 +3767,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         options,
                         ManualFeedbackProcessing::Off,
                     );
-                    if let Some(new_value) = control_result.new_target_value {
-                        self.notify_target_value_changed(m, new_value);
-                    }
                     enforce_target_refresh = true;
                     let extended_control_result = ExtendedMappingControlResult {
                         control_result,
