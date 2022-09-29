@@ -444,7 +444,7 @@ impl MainMapping {
     pub fn check_activation_effect_of_target_value_update(
         &self,
         lead_mapping_id: MappingId,
-        target_value: AbsoluteValue,
+        target_value: Option<AbsoluteValue>,
     ) -> Option<MappingActivationEffect> {
         let effect_1 = self
             .activation_condition_1
@@ -692,6 +692,12 @@ impl MainMapping {
     /// Doesn't check if explicitly enabled or disabled.
     pub fn is_active_in_terms_of_activation_state(&self) -> bool {
         self.activation_state.is_active()
+    }
+
+    /// A target is considered as active if it resolves successfully to at least one real target
+    /// and the target activation conditions (e.g. track must be selected) are met.
+    pub fn target_is_active(&self) -> bool {
+        self.core.options.target_is_active
     }
 
     /// Returns `true` if the mapping itself and the target is active.

@@ -832,7 +832,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 } => {
                     self.process_conditional_activation_target_value_change(
                         lead_mapping_id,
-                        target_value,
+                        true,
+                        Some(target_value),
                     );
                 }
             }
@@ -843,28 +844,42 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    /// Handles the change of a target value of a lead mapping in terms of target-based conditional
+    /// activation.
+    ///
+    /// Pass the target value at hand, usually the result of querying the mapping to return the
+    /// aggregated target value. This method takes care of correctly handling the situation that
+    /// we have a target value but the target is inactive.
     fn process_conditional_activation_target_value_change(
         &mut self,
-        lead_mapping_id: QualifiedMappingId,
-        target_value: AbsoluteValue,
+        id: QualifiedMappingId,
+        target_is_active: bool,
+        target_value: Option<AbsoluteValue>,
     ) {
-        let compartment = lead_mapping_id.compartment;
-        let activation_effects: Vec<MappingActivationEffect> =
-            self.basics.target_based_conditional_activation_processors[compartment]
-                .get_follow_mappings(lead_mapping_id.id)
-                .filter_map(|follow_mapping_id| {
-                    let follow_mapping = get_normal_or_virtual_target_mapping_mut(
-                        &mut self.collections.mappings,
-                        &mut self.collections.mappings_with_virtual_targets,
-                        compartment,
-                        follow_mapping_id,
-                    )?;
-                    follow_mapping.check_activation_effect_of_target_value_update(
-                        lead_mapping_id.id,
-                        target_value,
-                    )
-                })
-                .collect();
+        // Calculate final target value
+        let target_value = match determine_final_target_value_for_conditional_activation(
+            target_is_active,
+            target_value,
+        ) {
+            Err(_) => return,
+            Ok(v) => v,
+        };
+        // Process it
+        let compartment = id.compartment;
+        let activation_effects: Vec<MappingActivationEffect> = self
+            .basics
+            .target_based_conditional_activation_processors[compartment]
+            .get_follow_mappings(id.id)
+            .filter_map(|follow_mapping_id| {
+                let follow_mapping = get_normal_or_virtual_target_mapping_mut(
+                    &mut self.collections.mappings,
+                    &mut self.collections.mappings_with_virtual_targets,
+                    compartment,
+                    follow_mapping_id,
+                )?;
+                follow_mapping.check_activation_effect_of_target_value_update(id.id, target_value)
+            })
+            .collect();
         self.process_activation_effects(compartment, activation_effects, false);
     }
 
@@ -995,6 +1010,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_incoming_message_internal(control_event);
     }
 
+    /// This is called after determining mapping and/or target activation changes.
     fn process_activation_effects(
         &mut self,
         compartment: Compartment,
@@ -1254,6 +1270,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    /// This should be called on events such as track list change, FX focus etc.
+    ///
+    /// It will trigger a refresh of all targets (re-resolve) or even a preset change (if
+    /// auto-load is enabled).
+    ///
     /// Shouldn't be called directly when the REAPER change event occurs but in the next main loop
     /// cycle. That's especially important for auto-load because REAPER first needs to digest info
     /// such as "Is the window open?" and "What FX is the focused FX?".
@@ -1294,18 +1315,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
             }
-            if !target_updates.is_empty() {
-                // In some cases like closing projects, it's possible that this will
-                // fail because the real-time processor is
-                // already gone. But it doesn't matter.
-                self.basics
-                    .channels
-                    .normal_real_time_task_sender
-                    .send_if_space(NormalRealTimeTask::UpdateTargetsPartially(
-                        compartment,
-                        target_updates,
-                    ));
-            }
+            self.process_target_updates(compartment, target_updates);
             // Important to send IO event first ...
             self.notify_feedback_dev_usage_might_have_changed(compartment);
             self.handle_feedback_after_having_updated_particular_mappings(
@@ -1975,17 +1985,54 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     mapping_updates,
                 ));
         }
-        if !target_updates.is_empty() {
-            self.basics
-                .channels
-                .normal_real_time_task_sender
-                .send_complaining(NormalRealTimeTask::UpdateTargetsPartially(
-                    compartment,
-                    target_updates,
-                ));
-        }
+        self.process_target_updates(compartment, target_updates);
         // Update on mappings
         self.update_on_mappings();
+    }
+
+    fn process_target_updates(
+        &mut self,
+        compartment: Compartment,
+        target_updates: Vec<RealTimeTargetUpdate>,
+    ) {
+        if target_updates.is_empty() {
+            return;
+        }
+        // #692 If the target turns active/inactive or it changes to something else, we want it
+        // to have an effect on target-based conditional activation.
+        for target_update in &target_updates {
+            if !self.basics.target_based_conditional_activation_processors[compartment]
+                .is_lead_mapping(target_update.id)
+            {
+                continue;
+            }
+            let (target_is_active, target_value) =
+                match self.collections.mappings[compartment].get(&target_update.id) {
+                    None => continue,
+                    Some(mapping) => {
+                        let target_is_active = mapping.target_is_active();
+                        let target_value =
+                            mapping.current_aggregated_target_value(self.basics.control_context());
+                        (target_is_active, target_value)
+                    }
+                };
+            let qualified_id = QualifiedMappingId::new(compartment, target_update.id);
+            self.process_conditional_activation_target_value_change(
+                qualified_id,
+                target_is_active,
+                target_value,
+            );
+        }
+        // In some cases like closing projects, it's possible that this will
+        // fail because the real-time processor is
+        // already gone. But it doesn't matter.
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_if_space(NormalRealTimeTask::UpdateTargetsPartially(
+                compartment,
+                target_updates,
+            ));
     }
 
     fn update_single_mapping_on_state(&self, id: QualifiedMappingId) {
@@ -2360,14 +2407,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.get_normal_or_virtual_target_mapping(mapping.compartment(), mapping.id()),
             &mapping,
         );
+        let target_is_active = mapping.target_is_active();
         self.update_map_entries(compartment, *mapping);
         self.send_diff_feedback(diff_feedback);
         self.update_single_mapping_on_state(id);
         // This could be a lead mapping in terms of target-based conditional activation. If so,
         // the target value probably changed and all follow mappings can be affected.
-        if let Some(v) = initial_target_value {
-            self.process_conditional_activation_target_value_change(id, v);
-        }
+        self.process_conditional_activation_target_value_change(
+            id,
+            target_is_active,
+            initial_target_value,
+        );
         // But it could also be a follow mapping.
         self.process_conditional_activation_target_value_changes(compartment, lead_mapping_ids);
     }
@@ -2378,18 +2428,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         lead_mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         for lead_mapping_id in lead_mapping_ids {
-            let target_val = self.collections.mappings[compartment]
-                .get(&lead_mapping_id)
-                .and_then(|lead_mapping| {
-                    lead_mapping.current_aggregated_target_value(self.basics.control_context())
-                });
-            let target_val = match target_val {
-                None => continue,
-                Some(v) => v,
-            };
+            let (target_is_active, target_value) =
+                match self.collections.mappings[compartment].get(&lead_mapping_id) {
+                    None => continue,
+                    Some(mapping) => {
+                        let target_is_active = mapping.target_is_active();
+                        let target_value =
+                            mapping.current_aggregated_target_value(self.basics.control_context());
+                        (target_is_active, target_value)
+                    }
+                };
+            let qualified_id = QualifiedMappingId::new(compartment, lead_mapping_id);
             self.process_conditional_activation_target_value_change(
-                QualifiedMappingId::new(compartment, lead_mapping_id),
-                target_val,
+                qualified_id,
+                target_is_active,
+                target_value,
             );
         }
     }
@@ -2775,6 +2828,9 @@ pub enum FeedbackMainTask {
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,
     /// Only sent if this mapping is somewhere referenced in target value activation conditions.
+    ///
+    /// It's used for asynchronously re-evaluating the follow mappings' activation conditions.
+    /// At this point, it can be assumed that the target is active!
     MappingTargetValueChanged {
         lead_mapping_id: QualifiedMappingId,
         target_value: AbsoluteValue,
@@ -4163,5 +4219,24 @@ impl TargetBasedConditionalActivationProcessor {
         self.mapping_relations
             .iter()
             .any(|r| r.lead_mapping == mapping_id)
+    }
+}
+
+fn determine_final_target_value_for_conditional_activation(
+    target_is_active: bool,
+    target_value: Option<AbsoluteValue>,
+) -> Result<Option<AbsoluteValue>, &'static str> {
+    if target_is_active {
+        if let Some(v) = target_value {
+            // Normal case. Target is active. We provide the new value.
+            Ok(Some(v))
+        } else {
+            // Target is active (implies it successfully resolved) but it can't return a
+            // current value. We consider this as something temporary and don't do anything.
+            return Err("target value not available");
+        }
+    } else {
+        // Target is inactive. We let the condition distinguish this case by passing `None`.
+        Ok(None)
     }
 }

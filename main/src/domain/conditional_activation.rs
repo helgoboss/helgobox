@@ -1,7 +1,7 @@
 use crate::base::eel;
 use crate::domain::{
     CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
-    RawParamValue, COMPARTMENT_PARAMETER_COUNT,
+    RawParamValue, COMPARTMENT_PARAMETER_COUNT, EXPRESSION_NONE_VALUE,
 };
 use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
@@ -68,18 +68,24 @@ impl ActivationCondition {
 
     /// Returns `Some` if the given value update affects the mapping's activation state and if the
     /// resulting state is on or off.
+    ///
+    /// Passing a `None` target value means the target is inactive.
     pub fn process_target_value_update(
         &self,
         lead_mapping_id: MappingId,
-        target_value: AbsoluteValue,
+        target_value: Option<AbsoluteValue>,
     ) -> Option<bool> {
         match self {
             ActivationCondition::TargetValue {
                 lead_mapping: Some(rm),
                 condition,
             } if lead_mapping_id == *rm => {
-                let y = target_value.to_unit_value().get();
+                let y = match target_value {
+                    None => EXPRESSION_NONE_VALUE,
+                    Some(v) => v.to_unit_value().get(),
+                };
                 let result = condition.evaluate_with_vars(|name, _| match name {
+                    "none" => Some(EXPRESSION_NONE_VALUE),
                     "y" => Some(y),
                     _ => None,
                 });
