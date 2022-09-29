@@ -218,6 +218,7 @@ impl<'a> Target<'a> for RealTimeClipRowTarget {
 pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip row",
     short_name: "Clip row",
+    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
 

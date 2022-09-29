@@ -234,6 +234,7 @@ impl<'a> Target<'a> for RealTimeClipMatrixTarget {
 pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip matrix",
     short_name: "Clip matrix",
+    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
 

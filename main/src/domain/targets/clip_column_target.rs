@@ -182,6 +182,7 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
 pub const CLIP_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip column",
     short_name: "Clip column",
+    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
 

@@ -879,6 +879,7 @@ pub struct TargetTypeDef {
     pub supports_feedback: bool,
     pub supports_seek_behavior: bool,
     pub supports_track_grouping_only_gang_behavior: bool,
+    pub supports_real_time_control: bool,
 }
 
 impl TargetTypeDef {
@@ -957,6 +958,9 @@ impl TargetTypeDef {
     pub const fn supports_feedback(&self) -> bool {
         self.supports_feedback
     }
+    pub const fn supports_real_time_control(&self) -> bool {
+        self.supports_real_time_control
+    }
 }
 
 pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
@@ -985,6 +989,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_feedback_resolution: false,
     supports_seek_behavior: false,
     supports_track_grouping_only_gang_behavior: false,
+    supports_real_time_control: false,
 };
 
 pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";

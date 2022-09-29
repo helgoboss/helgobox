@@ -417,6 +417,7 @@ pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Clip transport",
     supports_track: false,
     supports_clip_slot: true,
+    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
 

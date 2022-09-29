@@ -257,5 +257,6 @@ pub const MIDI_SEND_TARGET: TargetTypeDef = TargetTypeDef {
     name: "MIDI: Send message",
     short_name: "Send MIDI",
     supports_feedback: false,
+    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };

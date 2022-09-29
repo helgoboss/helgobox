@@ -4063,12 +4063,30 @@ impl<'a> ImmutableMappingPanel<'a> {
                 combo
                     .select_combo_box_item_by_data(item_data as isize)
                     .unwrap();
-                self.target.target_type().hint()
+                let real_time_hint = if self
+                    .target
+                    .target_type()
+                    .definition()
+                    .supports_real_time_control()
+                {
+                    "Supports MIDI real-time control"
+                } else {
+                    ""
+                };
+                let custom_hint = self.target.target_type().hint();
+                let mut text = real_time_hint.to_string();
+                if !custom_hint.is_empty() {
+                    if !text.is_empty() {
+                        text.push_str(" | ");
+                    }
+                    text.push_str(custom_hint);
+                }
+                text
             }
             Virtual => {
                 let item_index = self.target.control_element_type().into();
                 combo.select_combo_box_item_by_index(item_index).unwrap();
-                ""
+                "".to_owned()
             }
         };
         self.view
