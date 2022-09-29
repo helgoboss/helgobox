@@ -17,7 +17,7 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
-    RealearnClipMatrix, TargetValueChangedEvent,
+    RealearnClipMatrix, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
@@ -276,6 +276,14 @@ impl MainPanel {
         }
     }
 
+    fn handle_target_control_event(&self, event: TargetControlEvent) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_target_control_event(event);
+        }
+    }
+
     fn handle_affected(
         self: SharedView<Self>,
         affected: Affected<SessionProp>,
@@ -482,6 +490,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
         upgrade_panel(self).handle_matched_mapping(event);
+    }
+
+    fn target_controlled(&self, event: TargetControlEvent) {
+        upgrade_panel(self).handle_target_control_event(event);
     }
 
     #[allow(clippy::single_match)]

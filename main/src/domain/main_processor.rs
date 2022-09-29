@@ -16,7 +16,7 @@ use crate::domain::{
     QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
     RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
     VirtualSourceValue,
 };
@@ -2761,7 +2761,7 @@ impl BasicSettings {
             }
             if context == ControlLogContext::Polling
                 && entry.error.is_empty()
-                && entry.kind == ControlLogEntryKind::FilteredOutByGlue
+                && entry.kind == ControlLogEntryKind::IgnoredByGlue
             {
                 // This pollutes the log massively.
                 return;
@@ -2774,7 +2774,7 @@ impl BasicSettings {
             };
             log_target_control(
                 &instance_state.instance_id(),
-                format!("Mapping {}: [{}] during {}", mapping_name, entry, context),
+                format!("Mapping {}: {} (during {})", mapping_name, entry, context),
             );
         }
     }
@@ -2966,8 +2966,19 @@ impl<EH: DomainEventHandler> Basics<EH> {
         context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + '_ {
-        self.settings
-            .target_control_logger(&self.instance_state, context, mapping_id)
+        let console_logger =
+            self.settings
+                .target_control_logger(&self.instance_state, context, mapping_id);
+        move |entry| {
+            // Handle logging to mapping panel
+            if context != ControlLogContext::Polling {
+                let event = TargetControlEvent::new(mapping_id, context, entry);
+                self.event_handler
+                    .handle_event_ignoring_error(DomainEvent::TargetControlled(event));
+            }
+            // Handle logging to console
+            console_logger(entry);
+        }
     }
 
     pub fn update_settings_internal(

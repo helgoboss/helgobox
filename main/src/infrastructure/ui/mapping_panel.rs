@@ -54,7 +54,8 @@ use crate::domain::ui_util::{
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
     KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
-    SimpleExclusivity, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior,
+    WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -976,6 +977,29 @@ impl MappingPanel {
         self.view
             .require_window()
             .set_timer(SOURCE_MATCH_INDICATOR_TIMER_ID, Duration::from_millis(50));
+    }
+
+    pub fn handle_target_control_event(self: SharedView<Self>, event: TargetControlEvent) {
+        self.invoke_programmatically(|| {
+            let title = if event.log_entry.error.is_empty() {
+                "Target control info"
+            } else {
+                "Target control error"
+            };
+            let body = format!("{} (during {})", event.log_entry, event.log_context);
+            self.view
+                .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
+                .hide();
+            self.view
+                .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
+                .hide();
+            self.view
+                .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+                .set_text(title);
+            self.view
+                .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+                .set_text(body);
+        });
     }
 
     pub fn handle_changed_target_value(

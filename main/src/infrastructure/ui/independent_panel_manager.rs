@@ -3,7 +3,9 @@ use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
-use crate::domain::{Compartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
+use crate::domain::{
+    Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
+};
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -36,6 +38,12 @@ impl IndependentPanelManager {
     pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
             p.handle_matched_mapping();
+        });
+    }
+
+    pub fn handle_target_control_event(&self, event: TargetControlEvent) {
+        self.do_with_mapping_panel(event.id.compartment, event.id.id, |p| {
+            p.handle_target_control_event(event);
         });
     }
 

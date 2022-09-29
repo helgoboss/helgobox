@@ -1497,7 +1497,7 @@ fn process_real_mapping(
                 None,
             );
             let (log_entry_kind, control_value, error) = match mode_control_result {
-                None => (ControlLogEntryKind::FilteredOutByGlue, None, ""),
+                None => (ControlLogEntryKind::IgnoredByGlue, None, ""),
                 Some(ModeControlResult::LeaveTargetUntouched(v)) => {
                     (ControlLogEntryKind::LeftTargetUntouched, Some(v), "")
                 }

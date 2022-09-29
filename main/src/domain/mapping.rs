@@ -947,7 +947,7 @@ impl MainMapping {
                         // still send feedback - this can be useful with controllers which insist on
                         // controlling the LED on their own. The feedback sent by ReaLearn
                         // will fix this self-controlled LED state.
-                        (ControlLogEntryKind::FilteredOutByGlue, None, "")
+                        (ControlLogEntryKind::IgnoredByGlue, None, "")
                     }
                     Some(HitTarget { value }) => {
                         at_least_one_target_was_reached = true;
@@ -975,7 +975,7 @@ impl MainMapping {
                                 } else if response.caused_effect {
                                     ControlLogEntryKind::HitSuccessfully
                                 } else {
-                                    ControlLogEntryKind::Ignored
+                                    ControlLogEntryKind::IgnoredByTarget
                                 };
                                 (log_entry_kind, "")
                             }
@@ -2625,7 +2625,7 @@ pub enum ControlOutcome<T> {
     Matched(T),
 }
 
-#[derive(Eq, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, derive_more::Display)]
 pub enum ControlLogContext {
     #[display(fmt = "normal control")]
     Normal,
@@ -2643,7 +2643,7 @@ pub enum ControlLogContext {
     LoadingMappingSnapshot,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ControlLogEntry {
     pub kind: ControlLogEntryKind,
     pub control_value: Option<ControlValue>,
@@ -2664,26 +2664,28 @@ impl Display for ControlLogEntry {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, derive_more::Display)]
 pub enum ControlLogEntryKind {
-    /// Event didn't even reach the target because it was filtered out by the glue section.
-    FilteredOutByGlue,
-    /// Didn't even invoke target because it already has the desired value.
+    #[display(fmt = "Control value ignored by glue")]
+    IgnoredByGlue,
+    #[display(fmt = "Left target untouched because it already has desired value")]
     LeftTargetUntouched,
-    /// Target chose to ignore the incoming control value.
-    Ignored,
-    /// Target executed successfully.
+    #[display(fmt = "Control value ignored by target")]
+    IgnoredByTarget,
+    #[display(fmt = "Hit target successfully")]
     HitSuccessfully,
-    /// Target failed executing.
+    #[display(fmt = "Failed to hit target")]
     HitFailed,
     /// Target created a hit instruction (to be executed later).
+    #[display(fmt = "Created target hit instruction")]
     CreatedHitInstruction,
     /// Target created a hit instruction but it was discarded because there was another target
     /// in that mapping whose hit instruction "won" (at the moment, we support only one hit
     /// instruction for multi-targets).
+    #[display(fmt = "Discarded target hit instruction")]
     DiscardedHitInstruction,
-    /// Hit instruction was executed successfully.
+    #[display(fmt = "Executed hit instruction successfully")]
     ExecutedHitInstructionSuccessfully,
-    /// Hit instruction execution failed.
+    #[display(fmt = "Failed to execute hit instruction")]
     FailedExecutingHitInstruction,
 }

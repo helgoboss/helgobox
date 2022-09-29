@@ -19,7 +19,8 @@ use crate::domain::{
     NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
     ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix,
     RealearnTarget, ReaperTarget, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    TargetControlEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
+    VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -62,6 +63,7 @@ pub trait SessionUi {
         event: &ChangeEvent,
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
+    fn target_controlled(&self, event: TargetControlEvent);
     fn handle_affected(
         &self,
         session: &Session,
@@ -2467,6 +2469,10 @@ impl DomainEventHandler for WeakSession {
             MappingMatched(event) => {
                 let s = session.try_borrow()?;
                 s.ui.mapping_matched(event);
+            }
+            TargetControlled(event) => {
+                let s = session.try_borrow()?;
+                s.ui.target_controlled(event);
             }
             MappingEnabledChangeRequested(event) => {
                 let mut s = session.try_borrow_mut()?;

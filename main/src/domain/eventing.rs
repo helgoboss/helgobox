@@ -1,6 +1,7 @@
 use crate::domain::{
-    Compartment, CompoundMappingTarget, MappingId, MessageCaptureResult, PluginParamIndex,
-    PluginParams, ProjectionFeedbackValue, QualifiedMappingId, RawParamValue, RealearnClipMatrix,
+    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, MappingId,
+    MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
+    QualifiedMappingId, RawParamValue, RealearnClipMatrix,
 };
 use helgoboss_learn::AbsoluteValue;
 use playtime_clip_engine::main::ClipMatrixEvent;
@@ -23,6 +24,7 @@ pub enum DomainEvent<'a> {
     TargetValueChanged(TargetValueChangedEvent<'a>),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
+    TargetControlled(TargetControlEvent),
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
@@ -62,6 +64,27 @@ impl MappingMatchedEvent {
         MappingMatchedEvent {
             compartment,
             mapping_id,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct TargetControlEvent {
+    pub id: QualifiedMappingId,
+    pub log_context: ControlLogContext,
+    pub log_entry: ControlLogEntry,
+}
+
+impl TargetControlEvent {
+    pub fn new(
+        id: QualifiedMappingId,
+        log_context: ControlLogContext,
+        log_entry: ControlLogEntry,
+    ) -> Self {
+        Self {
+            id,
+            log_context,
+            log_entry,
         }
     }
 }
