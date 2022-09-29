@@ -4,11 +4,10 @@ use crate::domain::ui_util::{
 use crate::domain::{
     get_effective_tracks, with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track, Volume};
 use std::borrow::Cow;
 
@@ -86,12 +85,12 @@ impl RealearnTarget for TrackVolumeTarget {
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
-            false,
+            &TRACK_VOLUME_TARGET,
             |gang_behavior| {
                 self.track
                     .set_volume(volume.unwrap_or(Volume::MIN), gang_behavior);
             },
-        );
+        )?;
         Ok(HitResponse::processed_with_effect())
     }
 

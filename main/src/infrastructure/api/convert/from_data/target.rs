@@ -162,6 +162,10 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             mode: data.track_monitoring_mode,
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         TrackTouchState => T::TrackAutomationTouchState(TrackAutomationTouchStateTarget {
             commons,
@@ -387,6 +391,14 @@ fn convert_real_target(
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         TrackParentSend => T::TrackParentSendState(TrackParentSendStateTarget {
             commons,
@@ -421,6 +433,14 @@ fn convert_real_target(
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         TrackPeak => T::TrackPeak(TrackPeakTarget {
             commons,
@@ -471,6 +491,14 @@ fn convert_real_target(
                 &data.clip_column,
                 style,
             ),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         TrackWidth => T::TrackWidth(TrackWidthTarget {
             commons,
@@ -480,6 +508,14 @@ fn convert_real_target(
                 &data.clip_column,
                 style,
             ),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         TrackVolume => T::TrackVolume(TrackVolumeTarget {
             commons,
@@ -488,6 +524,14 @@ fn convert_real_target(
                 data.enable_only_if_track_is_selected,
                 &data.clip_column,
                 style,
+            ),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
             ),
         }),
         TrackTool => T::TrackTool(TrackToolTarget {
@@ -520,6 +564,14 @@ fn convert_real_target(
                 });
                 style.optional_value(v)
             },
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
         }),
         FxTool => T::FxTool(FxToolTarget {
             commons,

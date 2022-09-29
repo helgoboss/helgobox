@@ -3,11 +3,10 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, mute_unit_value,
     with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
 use std::borrow::Cow;
 
@@ -68,7 +67,7 @@ impl RealearnTarget for TrackMuteTarget {
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
-            true,
+            &TRACK_MUTE_TARGET,
             |gang_behavior| {
                 change_track_prop(
                     &self.track,
@@ -78,7 +77,7 @@ impl RealearnTarget for TrackMuteTarget {
                     |t| t.unmute(gang_behavior),
                 );
             },
-        );
+        )?;
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -145,5 +144,6 @@ pub const TRACK_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track_exclusivity: true,
     supports_gang_selected: true,
     supports_gang_grouping: true,
+    supports_track_grouping_only_gang_behavior: true,
     ..DEFAULT_TARGET
 };

@@ -23,7 +23,7 @@ use helgoboss_learn::{
 };
 use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackGangBehavior};
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior};
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
@@ -38,10 +38,11 @@ use crate::domain::{
     OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
     RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget, TempoTarget,
-    TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
-    TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
-    TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
@@ -1177,6 +1178,53 @@ pub enum SoloBehavior {
     ReaperPreference,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum TrackGangBehavior {
+    Off,
+    SelectionOnly,
+    GroupingOnly,
+    SelectionAndGrouping,
+}
+
+impl TrackGangBehavior {
+    pub fn from_bools(
+        target_type_def: &TargetTypeDef,
+        use_selection_ganging: bool,
+        use_track_grouping: bool,
+    ) -> Self {
+        let unfixed = match (use_selection_ganging, use_track_grouping) {
+            (false, false) => TrackGangBehavior::Off,
+            (false, true) => TrackGangBehavior::GroupingOnly,
+            (true, false) => TrackGangBehavior::SelectionOnly,
+            (true, true) => TrackGangBehavior::SelectionAndGrouping,
+        };
+        unfixed.fixed(target_type_def)
+    }
+
+    pub fn fixed(&self, target_type_def: &TargetTypeDef) -> Self {
+        match self {
+            Self::GroupingOnly if !target_type_def.supports_track_grouping_only_gang_behavior => {
+                Self::SelectionAndGrouping
+            }
+            _ => *self,
+        }
+    }
+
+    pub fn use_selection_ganging(&self) -> bool {
+        matches!(self, Self::SelectionOnly | Self::SelectionAndGrouping)
+    }
+
+    pub fn use_track_grouping(&self) -> bool {
+        matches!(self, Self::GroupingOnly | Self::SelectionAndGrouping)
+    }
+}
+
+impl Default for TrackGangBehavior {
+    fn default() -> Self {
+        Self::Off
+    }
+}
+
 impl Default for SoloBehavior {
     fn default() -> Self {
         // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
@@ -1446,13 +1494,13 @@ pub fn with_seek_behavior(behavior: SeekBehavior, f: impl FnOnce()) {
 pub fn with_gang_behavior(
     project: Project,
     behavior: TrackGangBehavior,
-    is_mute_or_solo_or_arm: bool,
+    target_type_def: &TargetTypeDef,
     f: impl FnOnce(GangBehavior),
-) {
+) -> Result<(), &'static str> {
     use TrackGangBehavior::*;
     match behavior {
         Off => {
-            if is_mute_or_solo_or_arm {
+            if target_type_def.supports_track_grouping_only_gang_behavior {
                 // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
                 // track grouping even when passing DenyGang. So we need to switch it off
                 // temporarily.
@@ -1462,6 +1510,16 @@ pub fn with_gang_behavior(
             }
         }
         SelectionOnly => project.with_track_grouping(false, || f(GangBehavior::AllowGang)),
+        GroupingOnly => {
+            if target_type_def.supports_track_grouping_only_gang_behavior {
+                // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
+                // track grouping even when passing DenyGang. Perfect.
+                f(GangBehavior::DenyGang)
+            } else {
+                return Err("grouping-only is not supported for this target");
+            }
+        }
         SelectionAndGrouping => f(GangBehavior::AllowGang),
-    }
+    };
+    Ok(())
 }

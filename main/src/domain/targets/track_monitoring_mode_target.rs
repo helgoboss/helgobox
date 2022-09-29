@@ -3,10 +3,10 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off, get_effective_tracks, with_gang_behavior,
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::InputMonitoringMode;
 use std::borrow::Cow;
@@ -82,7 +82,7 @@ impl RealearnTarget for TrackMonitoringModeTarget {
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
-            false,
+            &TRACK_MONITORING_MODE_TARGET,
             |gang_behavior| {
                 change_track_prop(
                     &self.track,
@@ -92,7 +92,7 @@ impl RealearnTarget for TrackMonitoringModeTarget {
                     |t| t.set_input_monitoring_mode(InputMonitoringMode::Off, gang_behavior),
                 );
             },
-        );
+        )?;
         Ok(HitResponse::processed_with_effect())
     }
 

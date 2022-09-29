@@ -27,8 +27,7 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior,
-    TrackGangBehavior, TrackToolAction,
+    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -55,7 +54,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
     KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
-    SimpleExclusivity, TouchedRouteParameterType, WithControlContext,
+    SimpleExclusivity, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -2328,12 +2327,15 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseProject(is_checked),
                     ));
                 }
-                _ if self.mapping.target_model.supports_gang_selected() => {
-                    let gang_behavior = if is_checked {
-                        TrackGangBehavior::SelectionOnly
-                    } else {
-                        TrackGangBehavior::Off
-                    };
+                t if self.mapping.target_model.supports_gang_selected() => {
+                    let gang_behavior = TrackGangBehavior::from_bools(
+                        t.definition(),
+                        is_checked,
+                        self.mapping
+                            .target_model
+                            .fixed_gang_behavior()
+                            .use_track_grouping(),
+                    );
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetGangBehavior(gang_behavior),
                     ));
@@ -2403,16 +2405,15 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseTimeSelection(is_checked),
                     ));
                 }
-                _ if self.mapping.target_model.supports_gang_grouping() => {
-                    let gang_behavior = if is_checked {
-                        TrackGangBehavior::SelectionAndGrouping
-                    } else if self.mapping.target_model.gang_behavior()
-                        == TrackGangBehavior::SelectionAndGrouping
-                    {
-                        TrackGangBehavior::SelectionOnly
-                    } else {
-                        TrackGangBehavior::Off
-                    };
+                t if self.mapping.target_model.supports_gang_grouping() => {
+                    let gang_behavior = TrackGangBehavior::from_bools(
+                        t.definition(),
+                        self.mapping
+                            .target_model
+                            .fixed_gang_behavior()
+                            .use_selection_ganging(),
+                        is_checked,
+                    );
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetGangBehavior(gang_behavior),
                     ));
@@ -5116,13 +5117,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
                 ReaperTargetType::Seek => Some(("Use project", self.target.use_project())),
-                _ if self.target.supports_gang_selected() => {
-                    let is_enabled = matches!(
-                        self.target.gang_behavior(),
-                        TrackGangBehavior::SelectionOnly | TrackGangBehavior::SelectionAndGrouping
-                    );
-                    Some(("Selection ganging", is_enabled))
-                }
+                _ if self.target.supports_gang_selected() => Some((
+                    "Selection ganging",
+                    self.target.fixed_gang_behavior().use_selection_ganging(),
+                )),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5169,13 +5167,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set time selection", self.target.use_time_selection()))
                 }
-                _ if self.target.supports_gang_grouping() => {
-                    let is_enabled = matches!(
-                        self.target.gang_behavior(),
-                        TrackGangBehavior::SelectionAndGrouping
-                    );
-                    Some(("Respect grouping", is_enabled))
-                }
+                _ if self.target.supports_gang_grouping() => Some((
+                    "Respect grouping",
+                    self.target.fixed_gang_behavior().use_track_grouping(),
+                )),
                 _ => None,
             },
             TargetCategory::Virtual => None,

@@ -224,6 +224,10 @@ pub struct TrackArmStateTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -259,6 +263,10 @@ pub struct TrackMuteStateTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -320,6 +328,8 @@ pub struct TrackMonitoringModeTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
     pub mode: MonitoringMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -341,6 +351,10 @@ pub struct TrackPanTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -350,6 +364,10 @@ pub struct TrackWidthTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -359,6 +377,10 @@ pub struct TrackVolumeTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -554,6 +576,10 @@ pub struct TrackSoloStateTarget {
     pub exclusivity: Option<TrackExclusivity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub behavior: Option<SoloBehavior>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1402,19 +1428,6 @@ pub enum SoloBehavior {
 impl Default for SoloBehavior {
     fn default() -> Self {
         SoloBehavior::InPlace
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub enum TrackGangBehavior {
-    Off,
-    SelectionOnly,
-    SelectionAndGrouping,
-}
-
-impl Default for TrackGangBehavior {
-    fn default() -> Self {
-        Self::Off
     }
 }
 

@@ -878,6 +878,7 @@ pub struct TargetTypeDef {
     pub supports_control: bool,
     pub supports_feedback: bool,
     pub supports_seek_behavior: bool,
+    pub supports_track_grouping_only_gang_behavior: bool,
 }
 
 impl TargetTypeDef {
@@ -904,6 +905,9 @@ impl TargetTypeDef {
     }
     pub const fn supports_gang_grouping(&self) -> bool {
         self.supports_gang_grouping
+    }
+    pub const fn supports_track_grouping_only_gang_behavior(&self) -> bool {
+        self.supports_track_grouping_only_gang_behavior
     }
     pub const fn supports_track_must_be_selected(&self) -> bool {
         self.supports_track() && self.if_so_supports_track_must_be_selected
@@ -980,6 +984,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_poll_for_feedback: false,
     supports_feedback_resolution: false,
     supports_seek_behavior: false,
+    supports_track_grouping_only_gang_behavior: false,
 };
 
 pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";

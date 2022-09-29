@@ -2,13 +2,13 @@ use crate::domain::{
     format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
     with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, PanExt, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
     BASE_EPSILON,
 };
-use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
 use std::borrow::Cow;
 
@@ -102,11 +102,11 @@ impl RealearnTarget for TrackPanTarget {
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
-            false,
+            &TRACK_PAN_TARGET,
             |gang_behavior| {
                 self.track.set_pan(pan, gang_behavior);
             },
-        );
+        )?;
         Ok(HitResponse::processed_with_effect())
     }
 

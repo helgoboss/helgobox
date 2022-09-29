@@ -4,11 +4,10 @@ use crate::domain::{
     track_solo_unit_value, with_gang_behavior, with_solo_behavior, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoloBehavior,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use realearn_api::persistence::TrackGangBehavior;
 use reaper_high::{ChangeEvent, Project, Track};
 use std::borrow::Cow;
 
@@ -72,7 +71,7 @@ impl RealearnTarget for TrackSoloTarget {
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
-            true,
+            &TRACK_SOLO_TARGET,
             |gang_behavior| {
                 with_solo_behavior(self.behavior, || {
                     change_track_prop(
@@ -84,7 +83,7 @@ impl RealearnTarget for TrackSoloTarget {
                     );
                 });
             },
-        );
+        )?;
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -153,5 +152,6 @@ pub const TRACK_SOLO_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track_exclusivity: true,
     supports_gang_selected: true,
     supports_gang_grouping: true,
+    supports_track_grouping_only_gang_behavior: true,
     ..DEFAULT_TARGET
 };

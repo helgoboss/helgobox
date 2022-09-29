@@ -17,7 +17,7 @@ use crate::domain::{
     get_fx_chains, ActionInvocationType, AnyOnParameter, Compartment, Exclusivity,
     ExtendedProcessorContext, FxDisplayType, GroupKey, OscDeviceId, ReaperTargetType, SeekOptions,
     SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType, TouchedTrackParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    TrackExclusivity, TrackGangBehavior, TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::{
@@ -103,6 +103,20 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub enable_only_if_fx_has_focus: bool,
+    /// Introduced with ReaLearn v2.14.0-pre.5.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub use_selection_ganging: Option<bool>,
+    /// Introduced with ReaLearn v2.14.0-pre.5.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub use_track_grouping: Option<bool>,
     // Track route target
     #[serde(flatten)]
     pub track_route_data: TrackRouteData,
@@ -481,6 +495,8 @@ impl TargetModelData {
             with_track: model.with_track(),
             fx_data: serialize_fx(model.fx()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus(),
+            use_selection_ganging: Some(model.fixed_gang_behavior().use_selection_ganging()),
+            use_track_grouping: Some(model.fixed_gang_behavior().use_track_grouping()),
             track_route_data: serialize_track_route(model.track_route()),
             fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
@@ -637,6 +653,26 @@ impl TargetModelData {
         model.change(C::SetEnableOnlyIfTrackSelected(
             self.enable_only_if_track_is_selected,
         ));
+        let gang_behavior = match (self.use_selection_ganging, self.use_track_grouping) {
+            (Some(use_selection_ganging), Some(use_track_grouping)) => {
+                TrackGangBehavior::from_bools(
+                    self.r#type.definition(),
+                    use_selection_ganging,
+                    use_track_grouping,
+                )
+            }
+            _ => {
+                // Older versions had a target-specific behavior.
+                use ReaperTargetType::*;
+                match self.r#type {
+                    TrackArm | TrackMute | TrackSolo => TrackGangBehavior::GroupingOnly,
+                    TrackPan | TrackVolume | TrackWidth => TrackGangBehavior::Off,
+                    TrackMonitoringMode => TrackGangBehavior::Off,
+                    _ => Default::default(),
+                }
+            }
+        };
+        model.change(C::SetGangBehavior(gang_behavior));
         model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(

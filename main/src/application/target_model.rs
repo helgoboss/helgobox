@@ -24,7 +24,7 @@ use crate::domain::{
     MappingSnapshotId, MouseActionType, OscDeviceId, ProcessorContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
     TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
     UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
@@ -62,7 +62,7 @@ use realearn_api::persistence::{
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
     MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, SeekBehavior,
-    TrackDescriptorCommons, TrackFxChain, TrackGangBehavior, TrackToolAction,
+    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -932,8 +932,8 @@ impl TargetModel {
         self.enable_only_if_fx_has_focus
     }
 
-    pub fn gang_behavior(&self) -> TrackGangBehavior {
-        self.gang_behavior
+    pub fn fixed_gang_behavior(&self) -> TrackGangBehavior {
+        self.gang_behavior.fixed(self.r#type.definition())
     }
 
     pub fn param_type(&self) -> VirtualFxParameterType {
@@ -2137,7 +2137,7 @@ impl TargetModel {
                     TrackVolume => {
                         UnresolvedReaperTarget::TrackVolume(UnresolvedTrackVolumeTarget {
                             track_descriptor: self.track_descriptor()?,
-                            gang_behavior: self.gang_behavior,
+                            gang_behavior: self.fixed_gang_behavior(),
                         })
                     }
                     TrackTool => UnresolvedReaperTarget::TrackTool(UnresolvedTrackToolTarget {
@@ -2155,16 +2155,16 @@ impl TargetModel {
                     }
                     TrackPan => UnresolvedReaperTarget::TrackPan(UnresolvedTrackPanTarget {
                         track_descriptor: self.track_descriptor()?,
-                        gang_behavior: self.gang_behavior,
+                        gang_behavior: self.fixed_gang_behavior(),
                     }),
                     TrackWidth => UnresolvedReaperTarget::TrackWidth(UnresolvedTrackWidthTarget {
                         track_descriptor: self.track_descriptor()?,
-                        gang_behavior: self.gang_behavior,
+                        gang_behavior: self.fixed_gang_behavior(),
                     }),
                     TrackArm => UnresolvedReaperTarget::TrackArm(UnresolvedTrackArmTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
-                        gang_behavior: self.gang_behavior,
+                        gang_behavior: self.fixed_gang_behavior(),
                     }),
                     TrackParentSend => {
                         UnresolvedReaperTarget::TrackParentSend(UnresolvedTrackParentSendTarget {
@@ -2183,7 +2183,7 @@ impl TargetModel {
                     TrackMute => UnresolvedReaperTarget::TrackMute(UnresolvedTrackMuteTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
-                        gang_behavior: self.gang_behavior,
+                        gang_behavior: self.fixed_gang_behavior(),
                     }),
                     TrackPhase => UnresolvedReaperTarget::TrackPhase(UnresolvedTrackPhaseTarget {
                         track_descriptor: self.track_descriptor()?,
@@ -2211,14 +2211,14 @@ impl TargetModel {
                             track_descriptor: self.track_descriptor()?,
                             exclusivity: self.track_exclusivity,
                             mode: convert_monitoring_mode_to_reaper(self.monitoring_mode),
-                            gang_behavior: self.gang_behavior,
+                            gang_behavior: self.fixed_gang_behavior(),
                         },
                     ),
                     TrackSolo => UnresolvedReaperTarget::TrackSolo(UnresolvedTrackSoloTarget {
                         track_descriptor: self.track_descriptor()?,
                         behavior: self.solo_behavior,
                         exclusivity: self.track_exclusivity,
-                        gang_behavior: self.gang_behavior,
+                        gang_behavior: self.fixed_gang_behavior(),
                     }),
                     RoutePan => UnresolvedReaperTarget::RoutePan(UnresolvedRoutePanTarget {
                         descriptor: self.route_descriptor()?,
