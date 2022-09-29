@@ -4244,7 +4244,7 @@ fn determine_final_target_value_for_conditional_activation(
         } else {
             // Target is active (implies it successfully resolved) but it can't return a
             // current value. We consider this as something temporary and don't do anything.
-            return Err("target value not available");
+            Err("target value not available")
         }
     } else {
         // Target is inactive. We let the condition distinguish this case by passing `None`.

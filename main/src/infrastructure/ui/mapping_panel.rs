@@ -3344,9 +3344,14 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_window_title(&self) {
-        self.view
-            .require_window()
-            .set_text(format!("Mapping \"{}\"", self.mapping.effective_name()));
+        let mapping_is_on = self
+            .session
+            .instance_state()
+            .borrow()
+            .mapping_is_on(self.mapping.qualified_id());
+        let suffix = if mapping_is_on { "" } else { " (inactive)" };
+        let text = format!("Mapping \"{}\"{}", self.mapping.effective_name(), suffix);
+        self.view.require_window().set_text(text);
     }
 
     fn invalidate_mapping_feedback_send_behavior_combo_box(&self) {
@@ -5375,6 +5380,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .slot_contents_changed(),
             |view, _| {
                 view.invalidate_target_line_3_label_2();
+            },
+        );
+        self.panel.when(
+            self.session.instance_state().borrow().on_mappings_changed(),
+            |view, _| {
+                view.invalidate_window_title();
             },
         );
         self.panel.when(
