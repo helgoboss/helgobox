@@ -26,3 +26,13 @@ pub fn non_blocking_lock<'a, T>(
         Err(e) => e.into_inner(),
     }
 }
+
+/// Locks the given mutex.
+///
+/// Returns the guard even if mutex is poisoned.
+pub fn blocking_lock<T>(mutex: &Mutex<T>) -> MutexGuard<T> {
+    match mutex.lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    }
+}

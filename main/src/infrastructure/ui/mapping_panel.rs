@@ -828,8 +828,8 @@ impl MappingPanel {
     }
 
     fn edit_control_transformation(&self) {
-        // let session = self.session.clone();
-        // self.edit_script_internal(
+        let session = self.session.clone();
+        // self.edit_script_in_simple_editor(
         //     Box::new(EelControlTransformationEngine),
         //     "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
         //     |m| m.mode_model.eel_control_transformation().to_owned(),
@@ -842,7 +842,17 @@ impl MappingPanel {
         //         );
         //     },
         // );
-        self.edit_script_in_advanced_editor();
+        self.edit_script_in_advanced_editor(
+            |m| m.mode_model.eel_control_transformation().to_owned(),
+            move |m, eel| {
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    m,
+                    MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
+                    None,
+                );
+            },
+        );
     }
 
     fn edit_feedback_transformation_or_text_expression(&self) {
@@ -929,8 +939,21 @@ impl MappingPanel {
         editor_clone.open(self.view.require_window());
     }
 
-    fn edit_script_in_advanced_editor(&self) {
-        let editor = AdvancedScriptEditorPanel::new();
+    fn edit_script_in_advanced_editor(
+        &self,
+        get_initial_value: impl Fn(&MappingModel) -> String,
+        apply: impl Fn(&mut MappingModel, String) + 'static,
+    ) {
+        let mapping = self.mapping();
+        let weak_mapping = Rc::downgrade(&mapping);
+        let initial_value = { get_initial_value(&mapping.borrow()) };
+        let editor = AdvancedScriptEditorPanel::new(initial_value, move |edited_script| {
+            let m = match weak_mapping.upgrade() {
+                None => return,
+                Some(m) => m,
+            };
+            apply(&mut m.borrow_mut(), edited_script);
+        });
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
         if let Some(existing_editor) = self.advanced_script_editor.replace(Some(editor)) {

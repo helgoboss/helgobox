@@ -166,7 +166,9 @@ enigo = "0.0.14"
 # For the mouse target (to query mouse state)
 device_query = "1.1.1"
 # For egui graphics
-realearn-egui = { path = "../egui" }
+#realearn-egui = { path = "../egui" }
+egui-baseview = { git = "https://github.com/BillyDM/egui-baseview.git" }
+baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c" }
 egui = "0.19.0"
 
 [target.'cfg(windows)'.dependencies]
