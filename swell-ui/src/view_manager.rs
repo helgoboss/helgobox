@@ -44,14 +44,19 @@ pub(crate) fn create_window(
 ///
 /// This is necessary to get from "global" win32 world into beloved "local" Rust struct world.
 #[derive(Default)]
-struct ViewManager {
+pub struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
     view_map: HashMap<raw::HWND, WeakView<dyn View>>,
 }
 
 impl ViewManager {
+    /// Returns whether the given window is one of ours.
+    pub fn is_our_window(&self, hwnd: raw::HWND) -> bool {
+        self.view_map.contains_key(&hwnd)
+    }
+
     /// Returns the global window manager instance
-    fn get() -> &'static RefCell<ViewManager> {
+    pub fn get() -> &'static RefCell<ViewManager> {
         static mut VIEW_MANAGER: Option<RefCell<ViewManager>> = None;
         static INIT_VIEW_MANAGER: Once = Once::new();
         // We need to initialize the manager lazily because it's impossible to do that using a const
@@ -230,6 +235,7 @@ unsafe extern "C" fn view_dialog_proc(
                     let distance = hiword_signed(wparam);
                     view.mouse_wheel_turned(distance as _).into()
                 }
+                raw::WM_KEYDOWN => view.key_down(wparam as _).into(),
                 raw::WM_KEYUP => view.key_up(wparam as _).into(),
                 raw::WM_CLOSE => {
                     let processed = view.close_requested();

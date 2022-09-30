@@ -15,7 +15,8 @@ use crate::domain::{
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
     QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, SharedMainProcessors,
+    SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -53,7 +54,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
-use swell_ui::{SharedView, View};
+use swell_ui::{SharedView, View, ViewManager};
 use tempfile::TempDir;
 use url::Url;
 
@@ -71,7 +72,7 @@ const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 
 make_available_globally_in_main_thread!(App);
 
-pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession>;
+pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession, RealearnSnitch>;
 
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
@@ -346,7 +347,7 @@ impl App {
             uninit_state.feedback_audio_hook_task_receiver,
             Self::garbage_bin().clone(),
         );
-        let accelerator = RealearnAccelerator::new(shared_main_processors);
+        let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
@@ -1780,5 +1781,23 @@ fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDes
         TrackDescriptor::Master {
             commons: Default::default(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct RealearnSnitch;
+
+impl RealearnWindowSnitch for RealearnSnitch {
+    fn realearn_window_is_focused(&self) -> bool {
+        let swell = Swell::get();
+        let view_manager = ViewManager::get().borrow();
+        let mut current_window = swell.GetFocus();
+        while !current_window.is_null() {
+            if view_manager.is_our_window(current_window) {
+                return true;
+            }
+            current_window = unsafe { swell.GetParent(current_window) };
+        }
+        false
     }
 }

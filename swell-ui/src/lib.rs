@@ -1,5 +1,5 @@
 mod view_manager;
-use view_manager::*;
+pub use view_manager::*;
 
 mod window;
 pub use window::*;

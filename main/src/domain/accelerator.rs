@@ -5,18 +5,30 @@ use crate::domain::{
 use helgoboss_learn::AbstractTimestamp;
 use reaper_medium::{AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
 
-#[derive(Debug)]
-pub struct RealearnAccelerator<EH: DomainEventHandler> {
-    main_processors: SharedMainProcessors<EH>,
+pub trait RealearnWindowSnitch {
+    fn realearn_window_is_focused(&self) -> bool;
 }
 
-impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
-    pub fn new(main_processors: SharedMainProcessors<EH>) -> Self {
-        Self { main_processors }
+#[derive(Debug)]
+pub struct RealearnAccelerator<EH: DomainEventHandler, S> {
+    main_processors: SharedMainProcessors<EH>,
+    snitch: S,
+}
+
+impl<EH: DomainEventHandler, S> RealearnAccelerator<EH, S> {
+    pub fn new(main_processors: SharedMainProcessors<EH>, snitch: S) -> Self {
+        Self {
+            main_processors,
+            snitch,
+        }
     }
 }
 
-impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
+impl<EH, S> RealearnAccelerator<EH, S>
+where
+    EH: DomainEventHandler,
+    S: RealearnWindowSnitch,
+{
     fn process_message(&mut self, msg: KeyMessage) -> TranslateAccelResult {
         let evt = ControlEvent::new(msg, ControlEventTimestamp::now());
         let mut filter_out_event = false;
@@ -27,13 +39,19 @@ impl<EH: DomainEventHandler> RealearnAccelerator<EH> {
         }
         if filter_out_event {
             TranslateAccelResult::Eat
+        } else if self.snitch.realearn_window_is_focused() {
+            TranslateAccelResult::ProcessEventRaw
         } else {
             TranslateAccelResult::NotOurWindow
         }
     }
 }
 
-impl<EH: DomainEventHandler> TranslateAccel for RealearnAccelerator<EH> {
+impl<EH, S> TranslateAccel for RealearnAccelerator<EH, S>
+where
+    EH: DomainEventHandler,
+    S: RealearnWindowSnitch,
+{
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
         if args.msg.message == AccelMsgKind::Char {
             return TranslateAccelResult::NotOurWindow;

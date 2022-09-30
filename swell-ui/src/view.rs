@@ -113,13 +113,22 @@ pub trait View {
         false
     }
 
+    /// WM_KEYDOWN.
+    ///
+    /// Should return `true` if processed.
+    fn key_down(self: SharedView<Self>, key_code: u8) -> bool {
+        let _ = key_code;
+        false
+    }
+
     /// WM_KEYUP.
     ///
     /// On macOS, a multi-line text field fires this instead of edit_control_changed.
     /// But it's not fired on Windows!
     ///
     /// Should return `true` if processed.
-    fn key_up(self: SharedView<Self>, _key_code: u8) -> bool {
+    fn key_up(self: SharedView<Self>, key_code: u8) -> bool {
+        let _ = key_code;
         false
     }
 
