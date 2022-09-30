@@ -47,7 +47,7 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, PlainTextEngine, SearchExpression, SerializationFormat,
+    MappingRowsPanel, PlainTextEngine, ScriptEditorInput, SearchExpression, SerializationFormat,
     SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
     UntaggedDataObject,
 };
@@ -102,11 +102,11 @@ impl HeaderPanel {
         let session = self.session();
         let initial_notes = session.borrow().compartment_notes(compartment).to_owned();
         let weak_session = self.session.clone();
-        let editor = SimpleScriptEditorPanel::new(
-            initial_notes,
-            Box::new(PlainTextEngine),
-            "",
-            move |edited_notes| {
+        let input = ScriptEditorInput {
+            initial_content: initial_notes,
+            engine: Box::new(PlainTextEngine),
+            help_url: "",
+            apply: move |edited_notes| {
                 let weak_session = weak_session.clone();
                 if let Some(session) = weak_session.upgrade() {
                     session.borrow_mut().change_with_notification(
@@ -119,7 +119,8 @@ impl HeaderPanel {
                     )
                 }
             },
-        );
+        };
+        let editor = SimpleScriptEditorPanel::new(input);
         let shared_editor = SharedView::new(editor);
         if let Some(existing_editor) = self
             .notes_editor

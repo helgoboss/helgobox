@@ -15,8 +15,10 @@ use std::cell::RefCell;
 use std::error::Error;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
-pub trait ScriptEngine {
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>>;
+pub trait ScriptEngine: Send {
+    type Script;
+
+    fn compile(&self, code: &str) -> Result<Self::Script, Box<dyn Error>>;
 
     /// Must include the dot!
     fn file_extension(&self) -> &'static str;
@@ -37,6 +39,8 @@ impl LuaMidiScriptEngine {
 pub struct PlainTextEngine;
 
 impl ScriptEngine for PlainTextEngine {
+    type Script = ();
+
     fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
@@ -49,6 +53,8 @@ impl ScriptEngine for PlainTextEngine {
 pub struct EelMidiScriptEngine;
 
 impl ScriptEngine for EelMidiScriptEngine {
+    type Script = ();
+
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
         let script = EelMidiSourceScript::compile(code)?;
         script.execute(create_midi_script_test_feedback_value())?;
@@ -63,14 +69,16 @@ impl ScriptEngine for EelMidiScriptEngine {
 pub struct EelControlTransformationEngine;
 
 impl ScriptEngine for EelControlTransformationEngine {
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
+    type Script = EelTransformation;
+
+    fn compile(&self, code: &str) -> Result<EelTransformation, Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_control(code)?;
         transformation.transform_continuous(
             Default::default(),
             Default::default(),
             AdditionalTransformationInput::default(),
         )?;
-        Ok(())
+        Ok(transformation)
     }
 
     fn file_extension(&self) -> &'static str {
@@ -81,6 +89,8 @@ impl ScriptEngine for EelControlTransformationEngine {
 pub struct EelFeedbackTransformationEngine;
 
 impl ScriptEngine for EelFeedbackTransformationEngine {
+    type Script = ();
+
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_feedback(code)?;
         transformation.transform_continuous(
@@ -99,6 +109,8 @@ impl ScriptEngine for EelFeedbackTransformationEngine {
 pub struct TextualFeedbackExpressionEngine;
 
 impl ScriptEngine for TextualFeedbackExpressionEngine {
+    type Script = ();
+
     fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
@@ -116,6 +128,8 @@ fn create_midi_script_test_feedback_value() -> FeedbackValue<'static> {
 }
 
 impl ScriptEngine for LuaMidiScriptEngine {
+    type Script = ();
+
     fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
         let script = LuaMidiSourceScript::compile(&self.lua, code)?;
         script.execute(create_midi_script_test_feedback_value())?;
@@ -127,6 +141,13 @@ impl ScriptEngine for LuaMidiScriptEngine {
     }
 }
 
+pub struct ScriptEditorInput<A, S> {
+    pub initial_content: String,
+    pub engine: Box<dyn ScriptEngine<Script = S>>,
+    pub help_url: &'static str,
+    pub apply: A,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct SimpleScriptEditorPanel {
@@ -135,25 +156,20 @@ pub struct SimpleScriptEditorPanel {
     #[derivative(Debug = "ignore")]
     apply: Box<dyn Fn(String)>,
     #[derivative(Debug = "ignore")]
-    engine: Box<dyn ScriptEngine>,
+    engine: Box<dyn ScriptEngine<Script = ()>>,
     help_url: &'static str,
 }
 
 impl SimpleScriptEditorPanel {
     /// If the help URL is empty, the help button will be hidden and the info text (whether
     /// compiled successfully) as well.
-    pub fn new(
-        initial_content: String,
-        engine: Box<dyn ScriptEngine>,
-        help_url: &'static str,
-        apply: impl Fn(String) + 'static,
-    ) -> Self {
+    pub fn new(input: ScriptEditorInput<impl Fn(String) + 'static, ()>) -> Self {
         Self {
             view: Default::default(),
-            content: RefCell::new(initial_content),
-            apply: Box::new(apply),
-            engine,
-            help_url,
+            content: RefCell::new(input.initial_content),
+            apply: Box::new(input.apply),
+            engine: input.engine,
+            help_url: input.help_url,
         }
     }
 
