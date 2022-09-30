@@ -337,7 +337,6 @@ pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track: true,
     supports_fx: true,
     supports_fx_parameter: true,
-    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
 
