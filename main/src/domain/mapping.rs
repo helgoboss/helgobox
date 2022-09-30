@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -241,6 +241,7 @@ impl MainMapping {
                 group_interaction,
                 options,
                 time_of_last_control: None,
+                invocation_count: 0,
             },
             key: {
                 let key_str: &str = key.as_ref();
@@ -917,6 +918,8 @@ impl MainMapping {
         let mut fresh_targets = if options.enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
             if !conditions_are_met {
+                // In this case we don't log and don't increase the invocation counter because
+                // the target is inactive - so the complete mapping is also considered inactive.
                 return MappingControlResult::default();
             }
             targets
@@ -932,7 +935,8 @@ impl MainMapping {
         } else {
             &mut self.targets
         };
-        for target in actual_targets {
+        self.core.increase_invocation_count();
+        for (target_index, target) in actual_targets.into_iter().enumerate() {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
@@ -1007,6 +1011,8 @@ impl MainMapping {
             let log_entry = ControlLogEntry {
                 kind: log_entry_kind,
                 control_value,
+                target_index,
+                invocation_count: self.core.invocation_count(),
                 error,
             };
             log_mode_control_result(log_entry);
@@ -1501,9 +1507,23 @@ pub struct MappingCore {
     options: ProcessorMappingOptions,
     /// Used for preventing echo feedback.
     time_of_last_control: Option<Instant>,
+    /// Invocation counter.
+    ///
+    /// Increasing with every source match, increasing even when glue filtered the message out.
+    /// For multi-targets, this increases only once even when controlling multiple targets in one
+    /// go.
+    invocation_count: u32,
 }
 
 impl MappingCore {
+    pub fn invocation_count(&self) -> u32 {
+        self.invocation_count
+    }
+
+    pub fn increase_invocation_count(&mut self) {
+        self.invocation_count = self.invocation_count.wrapping_add(1);
+    }
+
     fn is_echo(&self) -> bool {
         if let Some(t) = self.time_of_last_control {
             t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY
@@ -2645,20 +2665,41 @@ pub enum ControlLogContext {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ControlLogEntry {
+    /// The kind of thing that happened.
     pub kind: ControlLogEntryKind,
+    /// The control value if there was one.
+    ///
+    /// `None` if the glue section didn't produce a final control value (usually because it filtered
+    /// the message out).
     pub control_value: Option<ControlValue>,
+    /// For multi-targets, this can be greater than 0.
+    pub target_index: usize,
+    /// Invocation counter.
+    ///
+    /// Increasing with every source match, increasing even when glue filtered the message out.
+    /// For multi-targets, this increases only once even when controlling multiple targets in one
+    /// go.
+    pub invocation_count: u32,
+    /// Empty if no error.
     pub error: &'static str,
 }
 
 impl Display for ControlLogEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.kind.fmt(f)?;
-        if let Some(v) = self.control_value {
-            write!(f, " with control value {}", v)?;
-        }
         if !self.error.is_empty() {
             write!(f, ": {}", self.error)?;
         }
+        write!(
+            f,
+            " [invocation = {}, target = {}",
+            self.invocation_count,
+            self.target_index + 1
+        )?;
+        if let Some(v) = self.control_value {
+            write!(f, ", control value = {}", v)?;
+        }
+        f.write_char(']')?;
         Ok(())
     }
 }

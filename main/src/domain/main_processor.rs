@@ -2774,7 +2774,7 @@ impl BasicSettings {
             };
             log_target_control(
                 &instance_state.instance_id(),
-                format!("Mapping {}: {} (during {})", mapping_name, entry, context),
+                format!("Mapping {}: {} ({})", mapping_name, entry, context),
             );
         }
     }

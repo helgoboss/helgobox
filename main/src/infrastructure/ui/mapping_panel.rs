@@ -986,7 +986,7 @@ impl MappingPanel {
             } else {
                 "Target control error"
             };
-            let body = format!("{} (during {})", event.log_entry, event.log_context);
+            let body = format!("{} ({})", event.log_entry, event.log_context);
             self.view
                 .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
                 .hide();

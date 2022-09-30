@@ -1487,6 +1487,7 @@ fn process_real_mapping(
     {
         if reaper_target.wants_real_time_control(caller, is_rendering) {
             // Try to process directly here in real-time.
+            mapping.core.increase_invocation_count();
             let control_context = RealTimeControlContext { clip_matrix };
             let mode_control_result = mapping.core.mode.control_with_options(
                 pure_control_event,
@@ -1545,6 +1546,8 @@ fn process_real_mapping(
                 let entry = ControlLogEntry {
                     kind: log_entry_kind,
                     control_value,
+                    target_index: 0,
+                    invocation_count: mapping.core.invocation_count(),
                     error,
                 };
                 main_task_sender.send_complaining(ControlMainTask::LogTargetControl {
