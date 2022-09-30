@@ -67,7 +67,7 @@ impl RealearnTarget for ActionTarget {
         match self.invocation_type {
             ActionInvocationType::Trigger => (
                 ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Switch,
+                TargetCharacter::Trigger,
             ),
             ActionInvocationType::Absolute14Bit | ActionInvocationType::Absolute7Bit => {
                 match self.action.character() {
