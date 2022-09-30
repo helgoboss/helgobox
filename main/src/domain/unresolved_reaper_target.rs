@@ -1127,6 +1127,9 @@ impl ExpressionEvaluator {
 /// boolean check and react to it accordingly. fasteval doesn't have a
 /// dedicated value for that, so we just define an exotic f64 to represent it! We need one that
 /// is equal to itself, so NAN and NEG_INFINITY are no options.
+///
+/// It's important that this is lower than zero because we want `foo > 0` evaluate to `false` if
+/// `foo` is "None".
 pub const EXPRESSION_NONE_VALUE: f64 = f64::MIN;
 
 impl fmt::Display for VirtualTrack {
