@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-09-24 (v2.14.0-pre.4)`
+|Last update of text: |`2022-09-30 (v2.14.0-pre.5)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1774,7 +1774,7 @@ It works like this:
 . In the **Expression** text field to the right, enter `y > 0`.
 * This means you want the follow mapping to be active whenever the target value of the lead mapping is greater than 0.0. Or in other words, when it's "switched on".
 
-That's it!
+You can detect an inactive target by using `y == none`.
 
 [discrete]
 ===== Custom parameter names
@@ -2663,6 +2663,16 @@ When choosing a track, the following additional elements and selectors are avail
 ====== Track must be selected
 
 If checked, this mapping will be active only if the track set in _Track_ is currently selected.
+
+====== Selection ganging
+
+If checked and if the track in question is selected, all other selected tracks will be adjusted as well. This uses REAPER's built-in selection-ganging feature and therefore should behave exactly like it.
+
+====== Respect grouping
+
+If checked, track grouping will be taken into account when adjusting the value. This uses REAPER's built-in track grouping feature and therefore should behave exactly like it.
+
+For volume, pan and width targets, this can only be enabled together with selection ganging.
 
 ====== Selector <This>
 
@@ -4109,9 +4119,22 @@ This allows you to easily ignore button presses or releases.
  because it will mess with the button LED color or on/off state.
 * *Release only:* Makes ReaLearn ignore the press of the button (just processing its release). Rare, but possible.
 
-==== Help
+==== Bottom section
 
-This section provides context-sensitive help for the glue section. Whenever you touch a setting in
+This section has two functions:
+
+- Providing context-sensitive help for the glue section
+- Providing target control information and error reporting
+
+===== Target control information
+
+This shows information about how an incoming control value was handled and possible target control errors.
+
+NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
+
+===== Help
+
+Context-sensitive help for the glue section. Whenever you touch a setting in
 the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
