@@ -302,4 +302,5 @@ pub mod root {
     pub const ID_YAML_EDIT_CONTROL: u32 = 30244;
     pub const ID_YAML_HELP_BUTTON: u32 = 30245;
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30246;
+    pub const ID_EMPTY_PANEL: u32 = 30248;
 }

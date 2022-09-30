@@ -72,9 +72,9 @@ use crate::infrastructure::ui::util::{
     MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
-    LuaMidiScriptEngine, MainPanel, MappingHeaderPanel, ScriptEditorPanel, ScriptEngine,
-    TextualFeedbackExpressionEngine, YamlEditorPanel,
+    AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
+    EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
+    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
 };
 
 #[derive(Debug)]
@@ -87,7 +87,8 @@ pub struct MappingPanel {
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
     yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
-    script_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
+    simple_script_editor: RefCell<Option<SharedView<SimpleScriptEditorPanel>>>,
+    advanced_script_editor: RefCell<Option<SharedView<AdvancedScriptEditorPanel>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -141,7 +142,8 @@ impl MappingPanel {
             is_invoked_programmatically: false.into(),
             window_cache: None.into(),
             yaml_editor: Default::default(),
-            script_editor: Default::default(),
+            simple_script_editor: Default::default(),
+            advanced_script_editor: Default::default(),
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
@@ -826,20 +828,21 @@ impl MappingPanel {
     }
 
     fn edit_control_transformation(&self) {
-        let session = self.session.clone();
-        self.edit_script_internal(
-            Box::new(EelControlTransformationEngine),
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
-            |m| m.mode_model.eel_control_transformation().to_owned(),
-            move |m, eel| {
-                Session::change_mapping_from_ui_simple(
-                    session.clone(),
-                    m,
-                    MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
-                    None,
-                );
-            },
-        );
+        // let session = self.session.clone();
+        // self.edit_script_internal(
+        //     Box::new(EelControlTransformationEngine),
+        //     "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
+        //     |m| m.mode_model.eel_control_transformation().to_owned(),
+        //     move |m, eel| {
+        //         Session::change_mapping_from_ui_simple(
+        //             session.clone(),
+        //             m,
+        //             MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
+        //             None,
+        //         );
+        //     },
+        // );
+        self.edit_script_in_advanced_editor();
     }
 
     fn edit_feedback_transformation_or_text_expression(&self) {
@@ -853,7 +856,7 @@ impl MappingPanel {
 
     fn edit_feedback_transformation(&self) {
         let session = self.session.clone();
-        self.edit_script_internal(
+        self.edit_script_in_simple_editor(
             Box::new(EelFeedbackTransformationEngine),
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.eel_feedback_transformation().to_owned(),
@@ -870,7 +873,7 @@ impl MappingPanel {
 
     fn edit_textual_feedback_expression(&self) {
         let session = self.session.clone();
-        self.edit_script_internal(
+        self.edit_script_in_simple_editor(
             Box::new(TextualFeedbackExpressionEngine),
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
@@ -897,10 +900,10 @@ impl MappingPanel {
         };
         let help_url =
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source";
-        self.edit_script_internal(engine, help_url, get_initial_value, apply);
+        self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
     }
 
-    fn edit_script_internal(
+    fn edit_script_in_simple_editor(
         &self,
         engine: Box<dyn ScriptEngine>,
         help_url: &'static str,
@@ -911,7 +914,7 @@ impl MappingPanel {
         let weak_mapping = Rc::downgrade(&mapping);
         let initial_value = { get_initial_value(&mapping.borrow()) };
         let editor =
-            ScriptEditorPanel::new(initial_value, engine, help_url, move |edited_script| {
+            SimpleScriptEditorPanel::new(initial_value, engine, help_url, move |edited_script| {
                 let m = match weak_mapping.upgrade() {
                     None => return,
                     Some(m) => m,
@@ -920,7 +923,17 @@ impl MappingPanel {
             });
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.script_editor.replace(Some(editor)) {
+        if let Some(existing_editor) = self.simple_script_editor.replace(Some(editor)) {
+            existing_editor.close();
+        };
+        editor_clone.open(self.view.require_window());
+    }
+
+    fn edit_script_in_advanced_editor(&self) {
+        let editor = AdvancedScriptEditorPanel::new();
+        let editor = SharedView::new(editor);
+        let editor_clone = editor.clone();
+        if let Some(existing_editor) = self.advanced_script_editor.replace(Some(editor)) {
             existing_editor.close();
         };
         editor_clone.open(self.view.require_window());
@@ -1069,7 +1082,10 @@ impl MappingPanel {
         if let Some(p) = self.yaml_editor.replace(None) {
             p.close();
         }
-        if let Some(p) = self.script_editor.replace(None) {
+        if let Some(p) = self.simple_script_editor.replace(None) {
+            p.close();
+        }
+        if let Some(p) = self.advanced_script_editor.replace(None) {
             p.close();
         }
         self.mapping_header_panel.clear_item();

@@ -47,8 +47,9 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, PlainTextEngine, ScriptEditorPanel, SearchExpression, SerializationFormat,
-    SharedIndependentPanelManager, SharedMainState, SourceFilter, UntaggedDataObject,
+    MappingRowsPanel, PlainTextEngine, SearchExpression, SerializationFormat,
+    SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
+    UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -72,7 +73,7 @@ pub struct HeaderPanel {
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
-    notes_editor: RefCell<Option<SharedView<ScriptEditorPanel>>>,
+    notes_editor: RefCell<Option<SharedView<SimpleScriptEditorPanel>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -101,7 +102,7 @@ impl HeaderPanel {
         let session = self.session();
         let initial_notes = session.borrow().compartment_notes(compartment).to_owned();
         let weak_session = self.session.clone();
-        let editor = ScriptEditorPanel::new(
+        let editor = SimpleScriptEditorPanel::new(
             initial_notes,
             Box::new(PlainTextEngine),
             "",

@@ -463,8 +463,8 @@ impl Display for Dialog {
         if let Some(font) = self.font.as_ref() {
             writeln!(f, "FONT {}", font)?;
         }
+        f.write_str("BEGIN\n")?;
         if !self.controls.is_empty() {
-            f.write_str("BEGIN\n")?;
             for control in &self.controls {
                 #[cfg(target_os = "macos")]
                 if control.conditions.contains(&Condition::SkipOnMacOs) {
@@ -472,8 +472,8 @@ impl Display for Dialog {
                 }
                 writeln!(f, "    {}", control)?;
             }
-            f.write_str("END")?;
         }
+        f.write_str("END")?;
         Ok(())
     }
 }

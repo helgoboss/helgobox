@@ -129,7 +129,7 @@ impl ScriptEngine for LuaMidiScriptEngine {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct ScriptEditorPanel {
+pub struct SimpleScriptEditorPanel {
     view: ViewContext,
     content: RefCell<String>,
     #[derivative(Debug = "ignore")]
@@ -139,7 +139,7 @@ pub struct ScriptEditorPanel {
     help_url: &'static str,
 }
 
-impl ScriptEditorPanel {
+impl SimpleScriptEditorPanel {
     /// If the help URL is empty, the help button will be hidden and the info text (whether
     /// compiled successfully) as well.
     pub fn new(
@@ -216,7 +216,7 @@ impl ScriptEditorPanel {
     }
 }
 
-impl View for ScriptEditorPanel {
+impl View for SimpleScriptEditorPanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_YAML_EDITOR_PANEL
     }

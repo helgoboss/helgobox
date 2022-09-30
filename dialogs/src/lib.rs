@@ -7,6 +7,7 @@ use std::path::Path;
 
 mod base;
 pub mod constants;
+mod empty_panel;
 mod ext;
 mod group_panel;
 mod header_panel;
@@ -16,7 +17,7 @@ mod mapping_row_panel;
 mod mapping_rows_panel;
 mod message_panel;
 mod shared_group_mapping_panel;
-mod yaml_editor_panel;
+mod simple_editor_panel;
 
 pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef<Path>) {
     let default_font = Font {
@@ -140,7 +141,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             mapping_rows_panel_dialog.rect.height,
         )
     };
-    let yaml_editor_panel_dialog = yaml_editor_panel::create(context.global(), &mut ids);
+    let simple_editor_panel_dialog = simple_editor_panel::create(context.global(), &mut ids);
+    let empty_panel_dialog = empty_panel::create(context.global(), &mut ids);
     let resource = Resource {
         dialogs: vec![
             group_panel_dialog,
@@ -151,7 +153,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             message_panel_dialog,
             shared_group_mapping_panel_dialog,
             maine_panel_dialog,
-            yaml_editor_panel_dialog,
+            simple_editor_panel_dialog,
+            empty_panel_dialog,
         ],
     };
     let header_info = resource.generate_info(&context);

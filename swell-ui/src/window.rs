@@ -1,4 +1,5 @@
-use crate::{menu_tree, DialogUnits, Menu, MenuBar, Pixels, Point, SwellStringArg};
+use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
+use raw_window_handle::{AppKitHandle, HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
@@ -57,6 +58,15 @@ impl Window {
 
     pub fn raw(self) -> raw::HWND {
         self.raw
+    }
+
+    pub fn size(self) -> Dimensions<DialogUnits> {
+        let mut rect = RECT::default();
+        unsafe { Swell::get().GetWindowRect(self.raw, &mut rect) };
+        Dimensions::new(
+            DialogUnits(rect.right as u32 - rect.left as u32),
+            DialogUnits(rect.bottom as u32 - rect.top as u32),
+        )
     }
 
     pub fn raw_non_null(self) -> NonNull<raw::HWND__> {
@@ -582,6 +592,14 @@ impl Window {
         }
         #[cfg(target_family = "unix")]
         point.in_pixels().into()
+    }
+}
+
+unsafe impl HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        let mut handle = AppKitHandle::empty();
+        handle.ns_view = self.raw as *mut core::ffi::c_void;
+        RawWindowHandle::AppKit(handle)
     }
 }
 

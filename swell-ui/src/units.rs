@@ -180,6 +180,8 @@ impl Dimensions<Pixels> {
 
 impl Dimensions<DialogUnits> {
     /// Converts the given dialog unit dimensions to pixels.
+    ///
+    /// Doesn't take window-specific HIDPI info into account! Use `Window` for this.
     pub fn in_pixels(&self) -> Dimensions<Pixels> {
         self.to_point().in_pixels().to_dimensions()
     }

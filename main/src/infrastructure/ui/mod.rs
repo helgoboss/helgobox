@@ -33,8 +33,11 @@ pub use message_panel::*;
 mod yaml_editor_panel;
 pub use yaml_editor_panel::*;
 
-mod script_editor_panel;
-pub use script_editor_panel::*;
+mod simple_script_editor_panel;
+pub use simple_script_editor_panel::*;
+
+mod advanced_script_editor_panel;
+pub use advanced_script_editor_panel::*;
 
 mod independent_panel_manager;
 pub use independent_panel_manager::*;
