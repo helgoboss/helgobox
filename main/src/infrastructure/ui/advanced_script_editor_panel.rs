@@ -8,20 +8,34 @@ use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use crate::infrastructure::ui::{ScriptEditorInput, ScriptEngine};
 use baseview::WindowHandle;
 use derivative::Derivative;
-use egui::plot::{PlotPoint, PlotPoints};
-use egui::{CentralPanel, Style, TextEdit, Visuals};
+use egui::plot::{Line, Plot, PlotPoint, PlotPoints};
+use egui::{CentralPanel, Style, TextEdit, Ui, Visuals};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
     Transformation, TransformationInput, TransformationInputMetaData, UnitValue,
 };
 use reaper_low::raw;
+use semver::Version;
 use std::cell::RefCell;
 use std::error::Error;
+use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use swell_ui::{Dimensions, SharedView, View, ViewContext, Window};
 
 pub type SharedContent = Arc<Mutex<String>>;
+
+pub struct ScriptTemplateGroup {
+    pub name: &'static str,
+    pub templates: &'static [ScriptTemplate],
+}
+
+pub struct ScriptTemplate {
+    pub name: &'static str,
+    pub content: &'static str,
+    pub description: &'static str,
+    pub min_realearn_version: Option<Version>,
+}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -35,7 +49,10 @@ pub struct AdvancedScriptEditorPanel {
 }
 
 impl AdvancedScriptEditorPanel {
-    pub fn new(input: ScriptEditorInput<impl Fn(String) + 'static, EelTransformation>) -> Self {
+    pub fn new(
+        input: ScriptEditorInput<impl Fn(String) + 'static, EelTransformation>,
+        script_template_groups: &'static [ScriptTemplateGroup],
+    ) -> Self {
         Self {
             view: Default::default(),
             content: Arc::new(Mutex::new(input.initial_content)),
@@ -44,6 +61,7 @@ impl AdvancedScriptEditorPanel {
                 let toolbox = Toolbox {
                     engine: input.engine,
                     help_url: input.help_url,
+                    script_template_groups,
                 };
                 RefCell::new(Some(toolbox))
             },
@@ -81,7 +99,7 @@ impl View for AdvancedScriptEditorPanel {
         // RealearnEgui::run(args);
         let settings = baseview::WindowOpenOptions {
             title: "Script editor".into(),
-            size: baseview::Size::new(size.width.get() as _, size.height.get() as _),
+            size: baseview::Size::new(size.width.get() as _, size.height.get() as f64),
             scale: baseview::WindowScalePolicy::SystemScaleFactor,
             gl_config: Some(Default::default()),
         };
@@ -116,24 +134,92 @@ impl View for AdvancedScriptEditorPanel {
 
 struct State {
     content: SharedContent,
-    last_compilation_error: String,
-    last_plot_points: Vec<PlotPoint>,
+    last_build_outcome: BuildOutcome,
+    template_in_preview: Option<TemplateInPreview>,
     toolbox: Toolbox,
+}
+
+struct TemplateInPreview {
+    template: &'static ScriptTemplate,
+    build_outcome: BuildOutcome,
+}
+
+#[derive(Default)]
+struct BuildOutcome {
+    plot_points: Vec<PlotPoint>,
+    error: String,
 }
 
 struct Toolbox {
     engine: Box<dyn ScriptEngine<Script = EelTransformation>>,
     help_url: &'static str,
+    script_template_groups: &'static [ScriptTemplateGroup],
+}
+
+impl Toolbox {
+    fn build(&self, content: &str) -> BuildOutcome {
+        let (plot_points, error) = match self.engine.compile(&content) {
+            Ok(script) => {
+                let uses_time = script.wants_to_be_polled();
+                let sample_count = if uses_time {
+                    // 301 samples from 0 to 10 seconds
+                    // TODO-high Check what happens to first invocation. Maybe not in time domain?
+                    301
+                } else {
+                    // 101 samples from 0.0 to 1.0
+                    101
+                };
+                let points = (0..sample_count)
+                    .filter_map(|i| {
+                        let (x, rel_time_millis) = if uses_time {
+                            // TODO-high This is not enough. We must also increase the x axis bounds
+                            //  to reflect the seconds.
+                            (1.0, 33 * i)
+                        } else {
+                            (0.01 * i as f64, 0)
+                        };
+                        let input = TransformationInput::new(
+                            UnitValue::new_clamped(x),
+                            TransformationInputMetaData {
+                                rel_time: Duration::from_millis(rel_time_millis),
+                            },
+                        );
+                        let additional_input = AdditionalTransformationInput { y_last: 0.0 };
+                        let output = script
+                            .transform_continuous(input, UnitValue::MIN, additional_input)
+                            .ok()?;
+                        let plot_x = if uses_time {
+                            rel_time_millis as f64 / 10_000.0
+                        } else {
+                            x
+                        };
+                        let y = output.value()?;
+                        Some(PlotPoint::new(plot_x, y.get()))
+                    })
+                    .collect();
+                (points, "".to_string())
+            }
+            Err(e) => (vec![], e.to_string()),
+        };
+        BuildOutcome { plot_points, error }
+    }
 }
 
 impl State {
     pub fn new(content: SharedContent, toolbox: Toolbox) -> Self {
-        State {
+        let mut state = State {
             content,
-            last_compilation_error: "".into(),
-            last_plot_points: Default::default(),
+            last_build_outcome: Default::default(),
+            template_in_preview: None,
             toolbox,
-        }
+        };
+        state.invalidate();
+        state
+    }
+
+    pub fn invalidate(&mut self) {
+        let content = blocking_lock(&self.content);
+        self.last_build_outcome = self.toolbox.build(&*content);
     }
 }
 
@@ -142,56 +228,73 @@ fn run_ui(ctx: &egui::Context, state: &mut State) {
     use egui::{
         emath, epaint, pos2, vec2, Color32, Frame, Pos2, Rect, SidePanel, Stroke, TextEdit, Window,
     };
-    SidePanel::left("left-panel").show(ctx, |ui| {
-        let mut content = blocking_lock(&state.content);
-        let text_edit = TextEdit::multiline(&mut *content)
-            .code_editor()
-            .desired_rows(20)
-            .desired_width(f32::INFINITY);
-        let response = ui.add(text_edit);
-        if response.changed() {
-            let (points, error) = match state.toolbox.engine.compile(&*content) {
-                Ok(script) => {
-                    let uses_time = script.wants_to_be_polled();
-                    let sample_count = if uses_time {
-                        // 301 samples from 0 to 10 seconds
-                        // TODO-high Check what happens to first invocation. Maybe not in time domain?
-                        301
-                    } else {
-                        // 101 samples from 0.0 to 1.0
-                        101
-                    };
-                    let points = (0..sample_count)
-                        .filter_map(|i| {
-                            let (x, rel_time) = if uses_time {
-                                (1.0, Duration::from_millis(33 * i))
-                            } else {
-                                (0.01 * i as f64, Duration::ZERO)
-                            };
-                            let input = TransformationInput::new(
-                                x,
-                                TransformationInputMetaData { rel_time },
-                            );
-                            let additional_input = AdditionalTransformationInput { y_last: 0.0 };
-                            let output = script.transform(input, 0.0, additional_input).ok()?;
-                            let y = output.value()?;
-                            Some(PlotPoint::new(x, y))
-                        })
-                        .collect();
-                    (points, "".to_string())
+    SidePanel::left("left-panel")
+        .default_width(ctx.available_rect().width() / 2.0)
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                let response = ui.menu_button("Templates", |ui| {
+                    for group in state.toolbox.script_template_groups {
+                        ui.menu_button(group.name, |ui| {
+                            for template in group.templates {
+                                let response = ui.button(template.name);
+                                if response.hovered() {
+                                    // Preview template
+                                    let template_changed = state
+                                        .template_in_preview
+                                        .as_ref()
+                                        .map(|t| !ptr::eq(t.template, template))
+                                        .unwrap_or(true);
+                                    if template_changed {
+                                        let build_outcome = state.toolbox.build(template.content);
+                                        let template_in_preview = TemplateInPreview {
+                                            template,
+                                            build_outcome,
+                                        };
+                                        state.template_in_preview = Some(template_in_preview);
+                                    }
+                                }
+                                if response.clicked() {
+                                    // Apply template
+                                    *blocking_lock(&state.content) = template.content.to_string();
+                                    state.invalidate();
+                                    ui.close_menu();
+                                }
+                            }
+                        });
+                    }
+                });
+                if response.response.clicked_elsewhere() {
+                    // Menu closed
+                    state.template_in_preview = None;
                 }
-                Err(e) => (vec![], e.to_string()),
+                if ui.hyperlink_to("Help", state.toolbox.help_url).clicked() {
+                    open_in_browser(state.toolbox.help_url);
+                };
+            });
+            let response = {
+                let mut content = blocking_lock(&state.content);
+                let text_edit = TextEdit::multiline(&mut *content).code_editor();
+                ui.add_sized(ui.available_size(), text_edit)
             };
-            state.last_compilation_error = error;
-            state.last_plot_points = points;
-        }
-        ui.label(&state.last_compilation_error);
-    });
+            if response.changed() {
+                state.invalidate();
+            }
+        });
     CentralPanel::default().show(ctx, |ui| {
-        let line = Line::new(PlotPoints::Owned(state.last_plot_points.clone()));
-        Plot::new("transformation_plot")
-            .view_aspect(2.0)
-            .show(ui, |plot_ui| plot_ui.line(line));
+        if let Some(template_in_preview) = &state.template_in_preview {
+            // A template is being hovered. Show a preview!
+            // Description
+            ui.label(template_in_preview.template.description);
+            // Code preview
+            let mut content = template_in_preview.template.content;
+            let text_edit = TextEdit::multiline(&mut content).code_editor();
+            ui.add(text_edit);
+            // Plot preview
+            plot_build_outcome(ui, &template_in_preview.build_outcome);
+        } else {
+            // Plot our script
+            plot_build_outcome(ui, &state.last_build_outcome);
+        }
     });
     // Window::new("Hey")
     //     .collapsible(true)
@@ -235,4 +338,26 @@ fn run_ui(ctx: &egui::Context, state: &mut State) {
     //     ui.painter().extend(shapes);
     // });
     // });
+}
+
+fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
+    if !build_outcome.error.is_empty() {
+        ui.colored_label(ui.visuals().error_fg_color, &build_outcome.error);
+        return;
+    }
+    let line = Line::new(PlotPoints::Owned(build_outcome.plot_points.clone()));
+    Plot::new("transformation_plot")
+        .allow_boxed_zoom(false)
+        .allow_drag(false)
+        .allow_scroll(false)
+        .allow_zoom(false)
+        .height(ui.available_height())
+        .data_aspect(1.0)
+        .view_aspect(1.0)
+        .include_x(1.0)
+        .include_y(1.0)
+        .show_background(false)
+        .show(ui, |plot_ui| {
+            plot_ui.line(line);
+        });
 }

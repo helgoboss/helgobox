@@ -62,7 +62,7 @@ impl Window {
 
     pub fn size(self) -> Dimensions<DialogUnits> {
         let mut rect = RECT::default();
-        unsafe { Swell::get().GetWindowRect(self.raw, &mut rect) };
+        unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
         Dimensions::new(
             DialogUnits(rect.right as u32 - rect.left as u32),
             DialogUnits(rect.bottom as u32 - rect.top as u32),

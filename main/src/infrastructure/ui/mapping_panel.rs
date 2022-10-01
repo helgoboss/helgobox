@@ -75,7 +75,7 @@ use crate::infrastructure::ui::{
     AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
     ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
-    YamlEditorPanel,
+    YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -970,7 +970,7 @@ impl MappingPanel {
                 apply(&mut m.borrow_mut(), edited_script);
             },
         };
-        let editor = AdvancedScriptEditorPanel::new(input);
+        let editor = AdvancedScriptEditorPanel::new(input, CONTROL_TRANSFORMATION_TEMPLATES);
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
         if let Some(existing_editor) = self.advanced_script_editor.replace(Some(editor)) {

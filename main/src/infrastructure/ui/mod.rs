@@ -39,6 +39,9 @@ pub use simple_script_editor_panel::*;
 mod advanced_script_editor_panel;
 pub use advanced_script_editor_panel::*;
 
+mod control_transformation_templates;
+pub use control_transformation_templates::*;
+
 mod independent_panel_manager;
 pub use independent_panel_manager::*;
 
