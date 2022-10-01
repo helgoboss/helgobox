@@ -3,7 +3,11 @@ use crate::domain::{
     SharedMainProcessors,
 };
 use helgoboss_learn::AbstractTimestamp;
-use reaper_medium::{AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult};
+use reaper_high::AcceleratorKey;
+use reaper_low::raw;
+use reaper_medium::{
+    AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult, VirtKey,
+};
 
 pub trait RealearnWindowSnitch {
     fn realearn_window_is_focused(&self) -> bool;
@@ -39,6 +43,10 @@ where
         }
         if filter_out_event {
             TranslateAccelResult::Eat
+        } else if msg.stroke().accelerator_key() == ESCAPE_KEY {
+            // Don't process escape raw. We want the normal close behavior. Especially important
+            // for the floating ReaLearn FX window.
+            TranslateAccelResult::NotOurWindow
         } else if self.snitch.realearn_window_is_focused() {
             TranslateAccelResult::ProcessEventRaw
         } else {
@@ -61,3 +69,5 @@ where
         self.process_message(msg)
     }
 }
+
+const ESCAPE_KEY: AcceleratorKey = AcceleratorKey::VirtKey(VirtKey::new(raw::VK_ESCAPE as _));

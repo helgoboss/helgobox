@@ -6548,6 +6548,16 @@ impl View for MappingPanel {
         };
     }
 
+    fn key_up(self: SharedView<Self>, key_code: u8) -> bool {
+        match key_code as u32 {
+            raw::VK_ESCAPE => {
+                self.hide();
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
         if self.is_invoked_programmatically() {
             // We don't want to continue if the edit control change was not caused by the user.

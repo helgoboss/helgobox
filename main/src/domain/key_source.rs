@@ -285,7 +285,7 @@ impl Keystroke {
         }
     }
 
-    fn accelerator_key(&self) -> AcceleratorKey {
+    pub fn accelerator_key(&self) -> AcceleratorKey {
         AcceleratorKey::from_behavior_and_key_code(self.modifiers, self.key)
     }
 
