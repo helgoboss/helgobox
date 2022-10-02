@@ -1,5 +1,5 @@
 use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
-use raw_window_handle::{AppKitHandle, HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
@@ -60,12 +60,12 @@ impl Window {
         self.raw
     }
 
-    pub fn size(self) -> Dimensions<DialogUnits> {
+    pub fn size(self) -> Dimensions<Pixels> {
         let mut rect = RECT::default();
         unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
         Dimensions::new(
-            DialogUnits(rect.right as u32 - rect.left as u32),
-            DialogUnits(rect.bottom as u32 - rect.top as u32),
+            Pixels(rect.right as u32 - rect.left as u32),
+            Pixels(rect.bottom as u32 - rect.top as u32),
         )
     }
 
@@ -561,6 +561,19 @@ impl Window {
         }
     }
 
+    pub fn dpi_scaling_factor(&self) -> f64 {
+        self.dpi() as f64 / 96.0
+    }
+
+    pub fn dpi(&self) -> u32 {
+        #[cfg(target_family = "windows")]
+        {
+            unsafe { winapi::um::winuser::GetDpiForWindow(self.raw as _) }
+        }
+        #[cfg(target_family = "unix")]
+        96
+    }
+
     /// Converts the given dialog unit point or dimensions to a pixels point or dimensions by using
     /// window information.
     ///
@@ -593,13 +606,47 @@ impl Window {
         #[cfg(target_family = "unix")]
         point.in_pixels().into()
     }
+
+    /// The reverse of `convert_to_pixels`.
+    pub fn convert_to_dialog_units<T: From<Point<DialogUnits>>>(
+        &self,
+        point: impl Into<Point<Pixels>>,
+    ) -> T {
+        // Because Windows doesn't provide the reverse of MapDialogRect, we calculate the
+        // scaling factors ourselves.
+        let (x_factor, y_factor) = self.dialog_unit_to_pixel_scaling_factors();
+        let point = point.into();
+        Point::new(
+            DialogUnits((point.x.get() as f64 / x_factor).round() as u32),
+            DialogUnits((point.y.get() as f64 / y_factor).round() as u32),
+        )
+        .into()
+    }
+
+    /// Calculates the dialog-unit to pixel scaling factors for each axis.
+    fn dialog_unit_to_pixel_scaling_factors(&self) -> (f64, f64) {
+        let du_rect = Point::new(DialogUnits(1000), DialogUnits(1000));
+        let px_rect: Point<_> = self.convert_to_pixels(du_rect);
+        let x_factor = px_rect.x.get() as f64 / du_rect.x.get() as f64;
+        let y_factor = px_rect.y.get() as f64 / du_rect.y.get() as f64;
+        (x_factor, y_factor)
+    }
 }
 
 unsafe impl HasRawWindowHandle for Window {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        let mut handle = AppKitHandle::empty();
-        handle.ns_view = self.raw as *mut core::ffi::c_void;
-        RawWindowHandle::AppKit(handle)
+        #[cfg(target_os = "macos")]
+        {
+            let mut handle = raw_window_handle::AppKitHandle::empty();
+            handle.ns_view = self.raw as *mut core::ffi::c_void;
+            RawWindowHandle::AppKit(handle)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let mut handle = raw_window_handle::Win32Handle::empty();
+            handle.hwnd = self.raw as *mut core::ffi::c_void;
+            RawWindowHandle::Win32(handle)
+        }
     }
 }
 

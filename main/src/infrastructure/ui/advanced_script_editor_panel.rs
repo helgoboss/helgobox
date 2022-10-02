@@ -14,7 +14,7 @@ use helgoboss_learn::{
     AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
     Transformation, TransformationInput, TransformationInputMetaData, UnitValue,
 };
-use reaper_low::raw;
+use reaper_low::{raw, Swell};
 use semver::Version;
 use std::cell::RefCell;
 use std::error::Error;
@@ -84,22 +84,15 @@ impl View for AdvancedScriptEditorPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        let size = window.size();
-        let size: Dimensions<_> = window.convert_to_pixels(size);
+        let window_size = window.size();
+        let dpi_factor = window.dpi_scaling_factor();
+        let window_width = window_size.width.get() as f64 / dpi_factor;
+        let window_height = window_size.height.get() as f64 / dpi_factor;
         let toolbox = self.toolbox.take().expect("toolbox already in use");
         let state = State::new(self.content.clone(), toolbox);
-        // let args = RealearnEguiRunArgs {
-        //     parent_window: self.view.require_window(),
-        //     title: "Script editor".into(),
-        //     width: size.width.get(),
-        //     height: size.height.get(),
-        //     state,
-        //     update: run_ui,
-        // };
-        // RealearnEgui::run(args);
         let settings = baseview::WindowOpenOptions {
             title: "Script editor".into(),
-            size: baseview::Size::new(size.width.get() as _, size.height.get() as f64),
+            size: baseview::Size::new(window_width, window_height),
             scale: baseview::WindowScalePolicy::SystemScaleFactor,
             gl_config: Some(Default::default()),
         };
@@ -109,7 +102,18 @@ impl View for AdvancedScriptEditorPanel {
             state,
             |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, _state: &mut State| {
                 let mut style: egui::Style = (*ctx.style()).clone();
-                style.visuals = Visuals::light();
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
+                {
+                    style.visuals = if Window::dark_mode_is_enabled() {
+                        Visuals::dark()
+                    } else {
+                        Visuals::light()
+                    };
+                }
+                #[cfg(target_os = "linux")]
+                {
+                    style.visuals = Visuals::light();
+                }
                 ctx.set_style(style);
             },
             |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, state: &mut State| {

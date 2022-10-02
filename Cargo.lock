@@ -508,24 +508,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "baseview"
-version = "0.1.0"
-source = "git+https://github.com/RustAudio/baseview.git#eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c"
-dependencies = [
- "cocoa",
- "core-foundation 0.9.1",
- "keyboard-types",
- "nix 0.22.3",
- "objc",
- "raw-window-handle",
- "uuid",
- "winapi 0.3.9",
- "x11",
- "xcb 0.9.0",
- "xcb-util",
-]
-
-[[package]]
 name = "beef"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1245,7 +1227,7 @@ name = "egui-baseview"
 version = "0.1.0"
 source = "git+https://github.com/BillyDM/egui-baseview.git#46e21cc11c57c705fb83611389399ec3d2670a44"
 dependencies = [
- "baseview 0.1.0 (git+https://github.com/RustAudio/baseview.git?rev=eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c)",
+ "baseview",
  "copypasta",
  "egui",
  "egui_glow",
@@ -2209,8 +2191,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b7668b7cff6a51fe61cdde64cd27c8a220786f399501b57ebe36f7d8112fd68"
 dependencies = [
  "bitflags",
- "serde",
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -3624,7 +3604,7 @@ dependencies = [
  "axum",
  "axum-server",
  "backtrace",
- "baseview 0.1.0 (git+https://github.com/RustAudio/baseview.git?rev=eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c)",
+ "baseview",
  "bindgen",
  "built",
  "bytesize",
@@ -3754,18 +3734,6 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "indexmap 1.7.0",
-]
-
-[[package]]
-name = "realearn-egui"
-version = "0.1.0"
-dependencies = [
- "baseview 0.1.0 (git+https://github.com/RustAudio/baseview.git)",
- "egui",
- "egui_glow",
- "keyboard-types",
- "raw-window-handle",
- "tracing",
 ]
 
 [[package]]

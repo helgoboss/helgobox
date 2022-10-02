@@ -2,7 +2,6 @@
 members = [
     "api",
     "dialogs",
-    "egui",
     "playtime-clip-engine",
     "playtime-api",
     "csi",
