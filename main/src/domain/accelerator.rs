@@ -45,10 +45,17 @@ where
             TranslateAccelResult::Eat
         } else if msg.stroke().accelerator_key() == ESCAPE_KEY {
             // Don't process escape raw. We want the normal close behavior. Especially important
-            // for the floating ReaLearn FX window.
+            // for the floating ReaLearn FX window where closing the main panel would not close
+            // the surrounding floating window.
             TranslateAccelResult::NotOurWindow
         } else if self.snitch.realearn_window_is_focused() {
-            TranslateAccelResult::ProcessEventRaw
+            if cfg!(target_os = "macos") {
+                // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
+                // Everything else breaks the complete text field, it doesn't receive input anymore.
+                TranslateAccelResult::ProcessEventRaw
+            } else {
+                TranslateAccelResult::ForcePassOnToWindow
+            }
         } else {
             TranslateAccelResult::NotOurWindow
         }
