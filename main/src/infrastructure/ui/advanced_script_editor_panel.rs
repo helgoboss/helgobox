@@ -9,7 +9,7 @@ use crate::infrastructure::ui::{ScriptEditorInput, ScriptEngine};
 use baseview::WindowHandle;
 use derivative::Derivative;
 use egui::plot::{Line, Plot, PlotPoint, PlotPoints};
-use egui::{CentralPanel, Style, TextEdit, Ui, Visuals};
+use egui::{CentralPanel, Sense, Style, TextEdit, Ui, Visuals};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
     Transformation, TransformationInput, TransformationInputMetaData, UnitValue,
@@ -252,6 +252,8 @@ fn run_ui(ctx: &egui::Context, state: &mut State) {
                                         };
                                         state.template_in_preview = Some(template_in_preview);
                                     }
+                                    // TODO-high clear template in preview when moving out of
+                                    //  menu button area
                                 }
                                 if response.clicked() {
                                     // Apply template
@@ -286,9 +288,32 @@ fn run_ui(ctx: &egui::Context, state: &mut State) {
             // Description
             ui.label(template_in_preview.template.description);
             // Code preview
+            // TODO-high Increase window width
+            // TODO-high Make the basics work cross-platform (and check which things work, which
+            //  don't)
+            // TODO-high Make built-in undo work for German layout
+            // TODO-high Or build a dedicated undo/redo working directly on the content
+            // TODO-high Make copy/cut work (somehow the C/X keys are eaten when holding command,
+            //  they don't arrive in baseview)
+            // TODO-high Maybe reuse whatever clipboard code is used in ReaLearn in general
             let mut content = template_in_preview.template.content;
-            let text_edit = TextEdit::multiline(&mut content).code_editor();
-            ui.add(text_edit);
+            let output = TextEdit::multiline(&mut content).code_editor().show(ui);
+            let anything_selected = output
+                .cursor_range
+                .map_or(false, |cursor| !cursor.is_empty());
+            output.response.context_menu(|ui| {
+                if ui
+                    .add_enabled(anything_selected, egui::Button::new("Copy"))
+                    .clicked()
+                {
+                    if let Some(text_cursor_range) = output.cursor_range {
+                        use egui::TextBuffer as _;
+                        let selected_chars = text_cursor_range.as_sorted_char_range();
+                        let selected_text = content.char_range(selected_chars);
+                        ctx.output().copied_text = selected_text.to_string();
+                    }
+                }
+            });
             // Plot preview
             plot_build_outcome(ui, &template_in_preview.build_outcome);
         } else {
