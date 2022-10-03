@@ -647,6 +647,12 @@ unsafe impl HasRawWindowHandle for Window {
             handle.hwnd = self.raw as *mut core::ffi::c_void;
             RawWindowHandle::Win32(handle)
         }
+        #[cfg(target_os = "linux")]
+        {
+            let mut handle = raw_window_handle::XlibHandle::empty();
+            // TODO-high CONTINUE Find out what we need to pass here and how we obtain it.
+            RawWindowHandle::Xlib(handle)
+        }
     }
 }
 
