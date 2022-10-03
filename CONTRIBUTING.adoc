@@ -88,7 +88,8 @@ including Rust setup:
 ----
 # Install native dependencies
 sudo apt update
-sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libxdo-dev
+sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev
+
 
 # Install Rust (copied from the official Linux installation instructions)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
@@ -108,16 +109,17 @@ cargo build
 
 Some words about the native dependencies:
 
-* `curl`, `git`, `build-essential` and `pkg-config` are bare essentials.
+* `curl git build-essential pkg-config` are bare essentials.
 * `php` is needed to translate the ReaLearn dialog resource file to C++ so it can be processed by the SWELL
  dialog generator. It's also necessary for generating the 64-bit EEL assembler code. All of this is the
  typical WDL C++ way of doing things, no Rust specifics here.
 * `nasm` is needed for assembling the 64-bit EEL assembler code to produce `asm-nseel-x64.o`, which is
  necessary to make the custom https://www.cockos.com/EEL2/[EEL] control and feedback transformations in ReaLearn's
  absolute mode work.
-* `llvm-dev`, `libclang-dev` and `clang` are necessary for building with feature `generate` (to generate
+* `llvm-dev libclang-dev clang` are necessary for building with feature `generate` (to generate
  bindings to C).
- * `libxdo-dev` is needed to control the mouse (see target "Global: Mouse")
+* `libxdo-dev` is needed to control the mouse (see target "Global: Mouse")
+* `libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev` are necessary for https://github.com/BillyDM/egui-baseview[egui-baseview] (https://github.com/emilk/egui[egui] is the GUI framework used for ReaLearn's control transformation editor)
 
 === macOS
 
