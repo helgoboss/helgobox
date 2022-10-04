@@ -31,7 +31,7 @@ pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
-        .default_width(ctx.available_rect().width() / 2.0)
+        .default_width(ctx.available_rect().width() * 0.6)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.menu_button("Templates", |ui| {
@@ -177,6 +177,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         .allow_drag(false)
         .allow_scroll(false)
         .allow_zoom(false)
+        .width(ui.available_width())
         .height(ui.available_height())
         .data_aspect(1.0)
         .view_aspect(1.0)
