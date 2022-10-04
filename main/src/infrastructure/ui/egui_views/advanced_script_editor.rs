@@ -2,12 +2,13 @@ use crate::base::blocking_lock;
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
-use egui::plot::{Line, Plot};
-use egui::{CentralPanel, Ui, Visuals};
+use egui::plot::{Legend, Line, MarkerShape, Plot, PlotPoint, Points, VLine};
+use egui::{CentralPanel, Color32, Ui, Visuals};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
 };
+use itertools::Itertools;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -33,7 +34,7 @@ pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
-        .default_width(ctx.available_rect().width() * 0.6)
+        .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.menu_button("Templates", |ui| {
@@ -122,48 +123,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             plot_build_outcome(ui, &state.last_build_outcome);
         }
     });
-    // Window::new("Hey")
-    //     .collapsible(true)
-    //     .show(context, |ui| {
-    // let color = if ui.visuals().dark_mode {
-    //     Color32::from_additive_luminance(196)
-    // } else {
-    //     Color32::from_black_alpha(240)
-    // };
-    //
-    // Frame::canvas(ui.style()).show(ui, |ui| {
-    //     ui.ctx().request_repaint();
-    //     let time = ui.input().time;
-    //
-    //     let desired_size = ui.available_width() * vec2(1.0, 0.35);
-    //     let (_id, rect) = ui.allocate_space(desired_size);
-    //
-    //     let to_screen =
-    //         emath::RectTransform::from_to(Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0), rect);
-    //
-    //     let mut shapes = vec![];
-    //
-    //     for &mode in &[2, 3, 5] {
-    //         let mode = mode as f64;
-    //         let n = 120;
-    //         let speed = 1.5;
-    //
-    //         let points: Vec<Pos2> = (0..=n)
-    //             .map(|i| {
-    //                 let t = i as f64 / (n as f64);
-    //                 let amp = (time * speed * mode).sin() / mode;
-    //                 let y = amp * (t * std::f64::consts::TAU / 2.0 * mode).sin();
-    //                 to_screen * pos2(t as f32, y as f32)
-    //             })
-    //             .collect();
-    //
-    //         let thickness = 10.0 / mode as f32;
-    //         shapes.push(epaint::Shape::line(points, Stroke::new(thickness, color)));
-    //     }
-    //
-    //     ui.painter().extend(shapes);
-    // });
-    // });
 }
 
 fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
@@ -171,7 +130,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         ui.colored_label(ui.visuals().error_fg_color, &build_outcome.error);
         return;
     }
-    Plot::new("transformation_plot")
+    let mut plot = Plot::new("transformation_plot")
         .allow_boxed_zoom(false)
         .allow_drag(false)
         .allow_scroll(false)
@@ -183,21 +142,67 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         .include_x(1.0)
         .include_y(1.0)
         .show_background(false)
-        .show(ui, |plot_ui| {
-            let plot_points: Vec<_> = build_outcome
-                .plot_entries
-                .iter()
-                .filter_map(|e| {
-                    let y = match e.output {
-                        TransformationOutput::Stop | TransformationOutput::None => return None,
-                        TransformationOutput::Control(v)
-                        | TransformationOutput::ControlAndStop(v) => v.get(),
-                    };
-                    Some([e.input, y])
-                })
-                .collect();
-            plot_ui.line(Line::new(plot_points));
-        });
+        .legend(Legend::default());
+    if build_outcome.uses_time {
+        plot = plot.x_axis_formatter(|v, range| format!("{}s", v));
+    }
+    plot.show(ui, |plot_ui| {
+        let mut x = 0.0;
+        let mut prev_y = 0.0;
+        let mut normal_points = vec![];
+        let mut none_points = vec![];
+        let mut stop_points = vec![];
+        for e in &build_outcome.plot_entries {
+            x = e.input;
+            prev_y = match e.output {
+                TransformationOutput::None => {
+                    none_points.push([x, prev_y]);
+                    prev_y
+                }
+                TransformationOutput::Control(v) => {
+                    normal_points.push([x, v.get()]);
+                    v.get()
+                }
+                TransformationOutput::ControlAndStop(v) => {
+                    stop_points.push([x, v.get()]);
+                    break;
+                }
+                TransformationOutput::Stop => {
+                    stop_points.push([x, prev_y]);
+                    break;
+                }
+            };
+        }
+        let visuals = &plot_ui.ctx().style().visuals;
+        plot_ui.points(
+            Points::new(normal_points)
+                .color(visuals.hyperlink_color)
+                .name("Control"),
+        );
+        plot_ui.points(
+            Points::new(none_points)
+                .color(Color32::from_white_alpha(1))
+                .name("Nothing"),
+        );
+        plot_ui.points(
+            Points::new(stop_points)
+                .shape(MarkerShape::Square)
+                .color(visuals.error_fg_color)
+                .filled(true)
+                .name("Stop")
+                .radius(6.0),
+        );
+        if build_outcome.uses_time {
+            plot_ui.ctx().request_repaint();
+            let time = plot_ui.ctx().input().time;
+            let bar_color = if visuals.dark_mode {
+                Color32::WHITE
+            } else {
+                Color32::BLACK
+            };
+            plot_ui.vline(VLine::new(time % x).color(bar_color));
+        }
+    });
 }
 
 pub struct State {
@@ -230,38 +235,42 @@ pub struct Toolbox {
     pub script_template_groups: &'static [ScriptTemplateGroup],
 }
 
+/// How much time to cover in the plot for time-dependent scripts.
+const MAX_TIME_IN_MILLIS: u32 = 10_000;
+/// The rate of invocations of time-dependent scripts (per second).
+const INVOCATION_RATE: u32 = 30;
+
 impl Toolbox {
     fn build(&self, content: &str) -> BuildOutcome {
         match self.engine.compile(content) {
             Ok(script) => {
                 let uses_time = script.uses_time();
                 let sample_count = if uses_time {
-                    // 301 samples from 0 to 10 seconds
+                    // One sample per invocation over 10 seconds
                     // TODO-high Check what happens to first invocation. Maybe not in time domain?
-                    301
+                    MAX_TIME_IN_MILLIS * INVOCATION_RATE / 1000
                 } else {
                     // 101 samples from 0.0 to 1.0
                     101
                 };
+                let mut prev_y = UnitValue::MIN;
                 let plot_entries = (0..sample_count)
                     .filter_map(|i| {
                         let (x, rel_time_millis) = if uses_time {
                             // TODO-high This is not enough. We must also increase the x axis bounds
                             //  to reflect the seconds.
-                            (1.0, 33 * i)
+                            (1.0, i * 1000 / INVOCATION_RATE)
                         } else {
                             (0.01 * i as f64, 0)
                         };
                         let input = TransformationInput::new(
                             UnitValue::new_clamped(x),
                             TransformationInputMetaData {
-                                rel_time: Duration::from_millis(rel_time_millis),
+                                rel_time: Duration::from_millis(rel_time_millis as u64),
                             },
                         );
                         let additional_input = AdditionalTransformationInput { y_last: 0.0 };
-                        let output = script
-                            .evaluate(input, UnitValue::MIN, additional_input)
-                            .ok()?;
+                        let output = script.evaluate(input, prev_y, additional_input).ok()?;
                         let entry = PlotEntry {
                             input: if uses_time {
                                 rel_time_millis as f64 / 1000.0
@@ -270,6 +279,9 @@ impl Toolbox {
                             },
                             output,
                         };
+                        if let Some(v) = output.value() {
+                            prev_y = v;
+                        }
                         Some(entry)
                     })
                     .collect();
