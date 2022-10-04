@@ -165,11 +165,11 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
                 }
                 TransformationOutput::ControlAndStop(v) => {
                     stop_points.push([x, v.get()]);
-                    break;
+                    v.get()
                 }
                 TransformationOutput::Stop => {
                     stop_points.push([x, prev_y]);
-                    break;
+                    prev_y
                 }
             };
         }
@@ -247,44 +247,46 @@ impl Toolbox {
                 let uses_time = script.uses_time();
                 let sample_count = if uses_time {
                     // One sample per invocation over 10 seconds
-                    // TODO-high Check what happens to first invocation. Maybe not in time domain?
                     MAX_TIME_IN_MILLIS * INVOCATION_RATE / 1000
                 } else {
                     // 101 samples from 0.0 to 1.0
                     101
                 };
                 let mut prev_y = UnitValue::MIN;
-                let plot_entries = (0..sample_count)
-                    .filter_map(|i| {
-                        let (x, rel_time_millis) = if uses_time {
-                            // TODO-high This is not enough. We must also increase the x axis bounds
-                            //  to reflect the seconds.
-                            (1.0, i * 1000 / INVOCATION_RATE)
+                let mut plot_entries = vec![];
+                for i in 0..sample_count {
+                    let (x, rel_time_millis) = if uses_time {
+                        (1.0, i * 1000 / INVOCATION_RATE)
+                    } else {
+                        (0.01 * i as f64, 0)
+                    };
+                    let input = TransformationInput::new(
+                        UnitValue::new_clamped(x),
+                        TransformationInputMetaData {
+                            rel_time: Duration::from_millis(rel_time_millis as u64),
+                        },
+                    );
+                    let additional_input = AdditionalTransformationInput { y_last: 0.0 };
+                    let output = match script.evaluate(input, prev_y, additional_input).ok() {
+                        None => continue,
+                        Some(e) => e,
+                    };
+                    let entry = PlotEntry {
+                        input: if uses_time {
+                            rel_time_millis as f64 / 1000.0
                         } else {
-                            (0.01 * i as f64, 0)
-                        };
-                        let input = TransformationInput::new(
-                            UnitValue::new_clamped(x),
-                            TransformationInputMetaData {
-                                rel_time: Duration::from_millis(rel_time_millis as u64),
-                            },
-                        );
-                        let additional_input = AdditionalTransformationInput { y_last: 0.0 };
-                        let output = script.evaluate(input, prev_y, additional_input).ok()?;
-                        let entry = PlotEntry {
-                            input: if uses_time {
-                                rel_time_millis as f64 / 1000.0
-                            } else {
-                                x
-                            },
-                            output,
-                        };
-                        if let Some(v) = output.value() {
-                            prev_y = v;
-                        }
-                        Some(entry)
-                    })
-                    .collect();
+                            x
+                        },
+                        output,
+                    };
+                    if let Some(v) = output.value() {
+                        prev_y = v;
+                    }
+                    plot_entries.push(entry);
+                    if output.is_stop() {
+                        break;
+                    }
+                }
                 BuildOutcome {
                     plot_entries,
                     uses_time,
