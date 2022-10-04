@@ -52,10 +52,10 @@ use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    control_element_domains, AnyOnParameter, ControlContext, EelTransformation, Exclusivity,
-    FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, TargetControlEvent,
-    TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
+    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
+    SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior,
+    WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -830,32 +830,21 @@ impl MappingPanel {
 
     fn edit_control_transformation(&self) {
         let session = self.session.clone();
-        // self.edit_script_in_simple_editor(
-        //     Box::new(EelControlTransformationEngine),
-        //     "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
-        //     |m| m.mode_model.eel_control_transformation().to_owned(),
-        //     move |m, eel| {
-        //         Session::change_mapping_from_ui_simple(
-        //             session.clone(),
-        //             m,
-        //             MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
-        //             None,
-        //         );
-        //     },
-        // );
-        self.edit_script_in_advanced_editor(
-            Box::new(EelControlTransformationEngine),
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation",
-            |m| m.mode_model.eel_control_transformation().to_owned(),
-            move |m, eel| {
-                Session::change_mapping_from_ui_simple(
-                    session.clone(),
-                    m,
-                    MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
-                    None,
-                );
-            },
-        );
+        let engine = Box::new(EelControlTransformationEngine);
+        let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation";
+        let get_value = |m: &MappingModel| m.mode_model.eel_control_transformation().to_owned();
+        let set_value = move |m: &mut MappingModel, eel: String| {
+            Session::change_mapping_from_ui_simple(
+                session.clone(),
+                m,
+                MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
+                None,
+            );
+        };
+        #[cfg(target_os = "macos")]
+        self.edit_script_in_advanced_editor(engine, help_url, get_value, set_value);
+        #[cfg(not(target_os = "macos"))]
+        self.edit_script_in_simple_editor(engine, help_url, get_value, set_value);
     }
 
     fn edit_feedback_transformation_or_text_expression(&self) {
@@ -907,11 +896,10 @@ impl MappingPanel {
         apply: impl Fn(&mut MappingModel, String) + 'static,
     ) {
         let mapping = self.mapping();
-        let engine: Box<dyn ScriptEngine<Script = ()>> =
-            match mapping.borrow().source_model.midi_script_kind() {
-                MidiScriptKind::Eel => Box::new(EelMidiScriptEngine),
-                MidiScriptKind::Lua => Box::new(LuaMidiScriptEngine::new()),
-            };
+        let engine: Box<dyn ScriptEngine> = match mapping.borrow().source_model.midi_script_kind() {
+            MidiScriptKind::Eel => Box::new(EelMidiScriptEngine),
+            MidiScriptKind::Lua => Box::new(LuaMidiScriptEngine::new()),
+        };
         let help_url =
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source";
         self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
@@ -919,7 +907,7 @@ impl MappingPanel {
 
     fn edit_script_in_simple_editor(
         &self,
-        engine: Box<dyn ScriptEngine<Script = ()>>,
+        engine: Box<dyn ScriptEngine>,
         help_url: &'static str,
         get_initial_content: impl Fn(&MappingModel) -> String,
         apply: impl Fn(&mut MappingModel, String) + 'static,
@@ -950,7 +938,7 @@ impl MappingPanel {
 
     fn edit_script_in_advanced_editor(
         &self,
-        engine: Box<dyn ScriptEngine<Script = EelTransformation>>,
+        engine: Box<dyn ScriptEngine>,
         help_url: &'static str,
         get_initial_content: impl Fn(&MappingModel) -> String,
         apply: impl Fn(&mut MappingModel, String) + 'static,

@@ -1,5 +1,5 @@
 use crate::base::eel;
-use helgoboss_learn::{Transformation, TransformationInput, TransformationOutput};
+use helgoboss_learn::{Transformation, TransformationInput, TransformationOutput, UnitValue};
 use std::os::raw::c_void;
 
 use reaper_medium::reaper_str;
@@ -30,6 +30,33 @@ pub enum OutputVariable {
     Y,
 }
 
+pub trait Script {
+    fn uses_time(&self) -> bool;
+
+    fn evaluate(
+        &self,
+        input: TransformationInput<UnitValue>,
+        output_value: UnitValue,
+        additional_input: AdditionalTransformationInput,
+    ) -> Result<TransformationOutput<UnitValue>, &'static str>;
+}
+
+impl Script for () {
+    fn uses_time(&self) -> bool {
+        false
+    }
+
+    fn evaluate(
+        &self,
+        input: TransformationInput<UnitValue>,
+        output_value: UnitValue,
+        additional_input: AdditionalTransformationInput,
+    ) -> Result<TransformationOutput<UnitValue>, &'static str> {
+        let _ = (input, output_value, additional_input);
+        Err("not supported")
+    }
+}
+
 /// Represents a value transformation done via EEL scripting language.
 #[derive(Clone, Debug)]
 pub struct EelTransformation {
@@ -37,6 +64,21 @@ pub struct EelTransformation {
     eel_unit: Arc<EelUnit>,
     output_var: OutputVariable,
     wants_to_be_polled: bool,
+}
+
+impl Script for EelTransformation {
+    fn uses_time(&self) -> bool {
+        self.wants_to_be_polled()
+    }
+
+    fn evaluate(
+        &self,
+        input: TransformationInput<UnitValue>,
+        output_value: UnitValue,
+        additional_input: AdditionalTransformationInput,
+    ) -> Result<TransformationOutput<UnitValue>, &'static str> {
+        self.transform_continuous(input, output_value, additional_input)
+    }
 }
 
 impl EelTransformation {

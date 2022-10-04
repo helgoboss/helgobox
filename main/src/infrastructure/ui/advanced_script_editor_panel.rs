@@ -1,5 +1,4 @@
 use crate::base::blocking_lock;
-use crate::domain::EelTransformation;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::advanced_script_editor;
 use crate::infrastructure::ui::egui_views::advanced_script_editor::Toolbox;
@@ -36,7 +35,7 @@ pub struct AdvancedScriptEditorPanel {
 
 impl AdvancedScriptEditorPanel {
     pub fn new(
-        input: ScriptEditorInput<impl Fn(String) + 'static, EelTransformation>,
+        input: ScriptEditorInput<impl Fn(String) + 'static>,
         script_template_groups: &'static [ScriptTemplateGroup],
     ) -> Self {
         Self {

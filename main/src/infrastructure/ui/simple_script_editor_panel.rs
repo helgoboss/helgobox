@@ -1,14 +1,13 @@
 use crate::domain::{
     AdditionalTransformationInput, EelMidiSourceScript, EelTransformation, LuaMidiSourceScript,
-    SafeLua,
+    SafeLua, Script,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::ID_YAML_HELP_BUTTON;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
-    Transformation, UnitValue,
+    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue, UnitValue,
 };
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -16,9 +15,7 @@ use std::error::Error;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 pub trait ScriptEngine: Send {
-    type Script;
-
-    fn compile(&self, code: &str) -> Result<Self::Script, Box<dyn Error>>;
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>>;
 
     /// Must include the dot!
     fn file_extension(&self) -> &'static str;
@@ -39,10 +36,8 @@ impl LuaMidiScriptEngine {
 pub struct PlainTextEngine;
 
 impl ScriptEngine for PlainTextEngine {
-    type Script = ();
-
-    fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
-        Ok(())
+    fn compile(&self, _: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        Ok(Box::new(()))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -53,12 +48,10 @@ impl ScriptEngine for PlainTextEngine {
 pub struct EelMidiScriptEngine;
 
 impl ScriptEngine for EelMidiScriptEngine {
-    type Script = ();
-
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let script = EelMidiSourceScript::compile(code)?;
         script.execute(create_midi_script_test_feedback_value())?;
-        Ok(())
+        Ok(Box::new(()))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -69,16 +62,14 @@ impl ScriptEngine for EelMidiScriptEngine {
 pub struct EelControlTransformationEngine;
 
 impl ScriptEngine for EelControlTransformationEngine {
-    type Script = EelTransformation;
-
-    fn compile(&self, code: &str) -> Result<EelTransformation, Box<dyn Error>> {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_control(code)?;
-        transformation.transform_continuous(
+        transformation.evaluate(
             Default::default(),
             Default::default(),
             AdditionalTransformationInput::default(),
         )?;
-        Ok(transformation)
+        Ok(Box::new(transformation))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -89,16 +80,14 @@ impl ScriptEngine for EelControlTransformationEngine {
 pub struct EelFeedbackTransformationEngine;
 
 impl ScriptEngine for EelFeedbackTransformationEngine {
-    type Script = ();
-
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_feedback(code)?;
-        transformation.transform_continuous(
+        transformation.evaluate(
             Default::default(),
             Default::default(),
             AdditionalTransformationInput::default(),
         )?;
-        Ok(())
+        Ok(Box::new(()))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -109,10 +98,8 @@ impl ScriptEngine for EelFeedbackTransformationEngine {
 pub struct TextualFeedbackExpressionEngine;
 
 impl ScriptEngine for TextualFeedbackExpressionEngine {
-    type Script = ();
-
-    fn compile(&self, _: &str) -> Result<(), Box<dyn Error>> {
-        Ok(())
+    fn compile(&self, _: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        Ok(Box::new(()))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -128,12 +115,10 @@ fn create_midi_script_test_feedback_value() -> FeedbackValue<'static> {
 }
 
 impl ScriptEngine for LuaMidiScriptEngine {
-    type Script = ();
-
-    fn compile(&self, code: &str) -> Result<(), Box<dyn Error>> {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let script = LuaMidiSourceScript::compile(&self.lua, code)?;
         script.execute(create_midi_script_test_feedback_value())?;
-        Ok(())
+        Ok(Box::new(()))
     }
 
     fn file_extension(&self) -> &'static str {
@@ -141,9 +126,9 @@ impl ScriptEngine for LuaMidiScriptEngine {
     }
 }
 
-pub struct ScriptEditorInput<A, S> {
+pub struct ScriptEditorInput<A> {
     pub initial_content: String,
-    pub engine: Box<dyn ScriptEngine<Script = S>>,
+    pub engine: Box<dyn ScriptEngine>,
     pub help_url: &'static str,
     pub apply: A,
 }
@@ -156,14 +141,14 @@ pub struct SimpleScriptEditorPanel {
     #[derivative(Debug = "ignore")]
     apply: Box<dyn Fn(String)>,
     #[derivative(Debug = "ignore")]
-    engine: Box<dyn ScriptEngine<Script = ()>>,
+    engine: Box<dyn ScriptEngine>,
     help_url: &'static str,
 }
 
 impl SimpleScriptEditorPanel {
     /// If the help URL is empty, the help button will be hidden and the info text (whether
     /// compiled successfully) as well.
-    pub fn new(input: ScriptEditorInput<impl Fn(String) + 'static, ()>) -> Self {
+    pub fn new(input: ScriptEditorInput<impl Fn(String) + 'static>) -> Self {
         Self {
             view: Default::default(),
             content: RefCell::new(input.initial_content),

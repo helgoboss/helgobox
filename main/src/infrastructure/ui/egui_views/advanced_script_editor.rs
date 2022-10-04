@@ -1,13 +1,11 @@
 use crate::base::blocking_lock;
-use crate::domain::{AdditionalTransformationInput, EelTransformation};
+use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use egui::plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui::{CentralPanel, Ui, Visuals};
 use egui::{Context, SidePanel, TextEdit};
-use helgoboss_learn::{
-    Transformation, TransformationInput, TransformationInputMetaData, UnitValue,
-};
+use helgoboss_learn::{TransformationInput, TransformationInputMetaData, UnitValue};
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -92,7 +90,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             // Description
             ui.label(template_in_preview.template.description);
             // Code preview
-            // TODO-high Increase window width
             // TODO-high Make the basics work cross-platform (and check which things work, which
             //  don't)
             // TODO-high Make built-in undo work for German layout
@@ -210,7 +207,7 @@ struct BuildOutcome {
 }
 
 pub struct Toolbox {
-    pub engine: Box<dyn ScriptEngine<Script = EelTransformation>>,
+    pub engine: Box<dyn ScriptEngine>,
     pub help_url: &'static str,
     pub script_template_groups: &'static [ScriptTemplateGroup],
 }
@@ -219,7 +216,7 @@ impl Toolbox {
     fn build(&self, content: &str) -> BuildOutcome {
         let (plot_points, error) = match self.engine.compile(content) {
             Ok(script) => {
-                let uses_time = script.wants_to_be_polled();
+                let uses_time = script.uses_time();
                 let sample_count = if uses_time {
                     // 301 samples from 0 to 10 seconds
                     // TODO-high Check what happens to first invocation. Maybe not in time domain?
@@ -245,7 +242,7 @@ impl Toolbox {
                         );
                         let additional_input = AdditionalTransformationInput { y_last: 0.0 };
                         let output = script
-                            .transform_continuous(input, UnitValue::MIN, additional_input)
+                            .evaluate(input, UnitValue::MIN, additional_input)
                             .ok()?;
                         let plot_x = if uses_time {
                             rel_time_millis as f64 / 10_000.0
