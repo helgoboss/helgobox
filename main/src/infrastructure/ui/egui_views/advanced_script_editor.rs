@@ -196,9 +196,9 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
             plot_ui.ctx().request_repaint();
             let time = plot_ui.ctx().input().time;
             let bar_color = if visuals.dark_mode {
-                Color32::WHITE
+                Color32::LIGHT_GRAY
             } else {
-                Color32::BLACK
+                Color32::DARK_GRAY
             };
             plot_ui.vline(VLine::new(time % x).color(bar_color));
         }
