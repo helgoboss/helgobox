@@ -5,7 +5,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     Dialog {
         id: ids.named_id("ID_EMPTY_PANEL"),
         caption: "Editor",
-        rect: context.rect(0, 0, 500, 250),
+        rect: context.rect(0, 0, 600, 250),
         styles: Styles(vec![
             DS_SETFONT,
             DS_MODALFRAME,
