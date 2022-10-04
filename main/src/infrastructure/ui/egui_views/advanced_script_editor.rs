@@ -2,10 +2,12 @@ use crate::base::blocking_lock;
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
-use egui::plot::{Line, Plot, PlotPoint, PlotPoints};
+use egui::plot::{Line, Plot};
 use egui::{CentralPanel, Ui, Visuals};
 use egui::{Context, SidePanel, TextEdit};
-use helgoboss_learn::{TransformationInput, TransformationInputMetaData, UnitValue};
+use helgoboss_learn::{
+    TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
+};
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -90,8 +92,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             // Description
             ui.label(template_in_preview.template.description);
             // Code preview
-            // TODO-high Make the basics work cross-platform (and check which things work, which
-            //  don't)
             // TODO-high Make built-in undo work for German layout
             // TODO-high Or build a dedicated undo/redo working directly on the content
             // TODO-high Make copy/cut work (somehow the C/X keys are eaten when holding command,
@@ -171,7 +171,6 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         ui.colored_label(ui.visuals().error_fg_color, &build_outcome.error);
         return;
     }
-    let line = Line::new(PlotPoints::Owned(build_outcome.plot_points.clone()));
     Plot::new("transformation_plot")
         .allow_boxed_zoom(false)
         .allow_drag(false)
@@ -185,7 +184,19 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         .include_y(1.0)
         .show_background(false)
         .show(ui, |plot_ui| {
-            plot_ui.line(line);
+            let plot_points: Vec<_> = build_outcome
+                .plot_entries
+                .iter()
+                .filter_map(|e| {
+                    let y = match e.output {
+                        TransformationOutput::Stop | TransformationOutput::None => return None,
+                        TransformationOutput::Control(v)
+                        | TransformationOutput::ControlAndStop(v) => v.get(),
+                    };
+                    Some([e.input, y])
+                })
+                .collect();
+            plot_ui.line(Line::new(plot_points));
         });
 }
 
@@ -203,8 +214,14 @@ struct TemplateInPreview {
 
 #[derive(Default)]
 struct BuildOutcome {
-    plot_points: Vec<PlotPoint>,
+    plot_entries: Vec<PlotEntry>,
+    uses_time: bool,
     error: String,
+}
+
+struct PlotEntry {
+    input: f64,
+    output: TransformationOutput<UnitValue>,
 }
 
 pub struct Toolbox {
@@ -215,7 +232,7 @@ pub struct Toolbox {
 
 impl Toolbox {
     fn build(&self, content: &str) -> BuildOutcome {
-        let (plot_points, error) = match self.engine.compile(content) {
+        match self.engine.compile(content) {
             Ok(script) => {
                 let uses_time = script.uses_time();
                 let sample_count = if uses_time {
@@ -226,7 +243,7 @@ impl Toolbox {
                     // 101 samples from 0.0 to 1.0
                     101
                 };
-                let points = (0..sample_count)
+                let plot_entries = (0..sample_count)
                     .filter_map(|i| {
                         let (x, rel_time_millis) = if uses_time {
                             // TODO-high This is not enough. We must also increase the x axis bounds
@@ -245,20 +262,29 @@ impl Toolbox {
                         let output = script
                             .evaluate(input, UnitValue::MIN, additional_input)
                             .ok()?;
-                        let plot_x = if uses_time {
-                            rel_time_millis as f64 / 10_000.0
-                        } else {
-                            x
+                        let entry = PlotEntry {
+                            input: if uses_time {
+                                rel_time_millis as f64 / 1000.0
+                            } else {
+                                x
+                            },
+                            output,
                         };
-                        let y = output.value()?;
-                        Some(PlotPoint::new(plot_x, y.get()))
+                        Some(entry)
                     })
                     .collect();
-                (points, "".to_string())
+                BuildOutcome {
+                    plot_entries,
+                    uses_time,
+                    error: "".to_string(),
+                }
             }
-            Err(e) => (vec![], e.to_string()),
-        };
-        BuildOutcome { plot_points, error }
+            Err(e) => BuildOutcome {
+                plot_entries: vec![],
+                uses_time: false,
+                error: e.to_string(),
+            },
+        }
     }
 }
 
