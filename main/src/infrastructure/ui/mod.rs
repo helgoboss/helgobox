@@ -62,3 +62,5 @@ mod sound_util;
 pub use sound_util::*;
 
 mod lua_serializer;
+
+mod egui_views;

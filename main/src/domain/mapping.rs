@@ -936,7 +936,7 @@ impl MainMapping {
             &mut self.targets
         };
         self.core.increase_invocation_count();
-        for (target_index, target) in actual_targets.into_iter().enumerate() {
+        for (target_index, target) in actual_targets.iter_mut().enumerate() {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
