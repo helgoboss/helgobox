@@ -52,6 +52,16 @@ where
             if cfg!(target_os = "macos") {
                 // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
                 // Everything else breaks the complete text field, it doesn't receive input anymore.
+                // TODO-high Problem: It seems only "Eat" prevents the key from triggering
+                //  REAPER actions. Everything else seems to make the key be processed by
+                //  REAPER's action accelerator. If there's an action with a keyboard shortcut
+                //  (e.g. Cmd+C), the action eats it and it doesn't arrive at our window.
+                //  Now, we could simulate key presses to our windows here and eat. But it doesn't
+                //  work for some reason. Then pressing keys will not do anything. Maybe because
+                //  enters the key logic again, from outside the window.
+                //  Interesting, macOS always shows the menu of the windows in focus, it seems. And
+                //  when having the mapping panel or a child of it in focus, it shows *REAPER's*
+                //  menu. Maybe the issue is that the mapping panel is a child of the REAPER window.
                 TranslateAccelResult::ProcessEventRaw
             } else {
                 TranslateAccelResult::ForcePassOnToWindow
