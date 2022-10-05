@@ -51,8 +51,8 @@ pub struct ViewManager {
 
 impl ViewManager {
     /// Returns whether the given window is one of ours.
-    pub fn is_our_window(&self, hwnd: raw::HWND) -> bool {
-        self.view_map.contains_key(&hwnd)
+    pub fn is_our_window(&self, window: Window) -> bool {
+        self.view_map.contains_key(&window.raw())
     }
 
     /// Returns the global window manager instance

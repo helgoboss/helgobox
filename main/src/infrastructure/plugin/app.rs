@@ -54,7 +54,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
-use swell_ui::{SharedView, View, ViewManager};
+use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use url::Url;
 
@@ -1791,12 +1791,12 @@ impl RealearnWindowSnitch for RealearnSnitch {
     fn realearn_window_is_focused(&self) -> bool {
         let swell = Swell::get();
         let view_manager = ViewManager::get().borrow();
-        let mut current_window = swell.GetFocus();
-        while !current_window.is_null() {
-            if view_manager.is_our_window(current_window) {
+        let mut current_window = Window::focused();
+        while let Some(w) = current_window {
+            if view_manager.is_our_window(w) {
                 return true;
             }
-            current_window = unsafe { swell.GetParent(current_window) };
+            current_window = w.parent();
         }
         false
     }

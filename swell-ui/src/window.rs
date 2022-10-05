@@ -56,6 +56,10 @@ impl Window {
         Window { raw: hwnd.as_ptr() }
     }
 
+    pub fn focused() -> Option<Window> {
+        Self::new(Swell::get().GetFocus())
+    }
+
     pub fn raw(self) -> raw::HWND {
         self.raw
     }
@@ -148,6 +152,13 @@ impl Window {
             self.set_checked(state);
         } else {
             self.hide();
+        }
+    }
+
+    pub fn send_key(self, down: bool, code: u16, modifiers: u8) {
+        let msg = if down { raw::WM_KEYDOWN } else { raw::WM_KEYUP };
+        unsafe {
+            Swell::get().SendMessage(self.raw, msg, code as _, modifiers as _);
         }
     }
 

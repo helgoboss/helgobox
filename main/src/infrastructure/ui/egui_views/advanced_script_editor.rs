@@ -57,8 +57,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                         };
                                         state.template_in_preview = Some(template_in_preview);
                                     }
-                                    // TODO-high clear template in preview when moving out of
-                                    //  menu button area
                                 }
                                 if response.clicked() {
                                     // Apply template
@@ -99,23 +97,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             //  they don't arrive in baseview)
             // TODO-high Maybe reuse whatever clipboard code is used in ReaLearn in general
             let mut content = template_in_preview.template.content;
-            let output = TextEdit::multiline(&mut content).code_editor().show(ui);
-            let anything_selected = output
-                .cursor_range
-                .map_or(false, |cursor| !cursor.is_empty());
-            output.response.context_menu(|ui| {
-                if ui
-                    .add_enabled(anything_selected, egui::Button::new("Copy"))
-                    .clicked()
-                {
-                    if let Some(text_cursor_range) = output.cursor_range {
-                        use egui::TextBuffer as _;
-                        let selected_chars = text_cursor_range.as_sorted_char_range();
-                        let selected_text = content.char_range(selected_chars);
-                        ctx.output().copied_text = selected_text.to_string();
-                    }
-                }
-            });
+            TextEdit::multiline(&mut content).code_editor().show(ui);
             // Plot preview
             plot_build_outcome(ui, &template_in_preview.build_outcome);
         } else {
