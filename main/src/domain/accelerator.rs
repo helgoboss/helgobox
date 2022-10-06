@@ -8,9 +8,10 @@ use reaper_low::raw;
 use reaper_medium::{
     AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult, VirtKey,
 };
+use swell_ui::Window;
 
 pub trait RealearnWindowSnitch {
-    fn realearn_window_is_focused(&self) -> bool;
+    fn focused_realearn_window(&self) -> Option<Window>;
 }
 
 #[derive(Debug)]
@@ -48,7 +49,7 @@ where
             // for the floating ReaLearn FX window where closing the main panel would not close
             // the surrounding floating window.
             TranslateAccelResult::NotOurWindow
-        } else if self.snitch.realearn_window_is_focused() {
+        } else if let Some(w) = self.snitch.focused_realearn_window() {
             if cfg!(target_os = "macos") {
                 // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
                 // Everything else breaks the complete text field, it doesn't receive input anymore.

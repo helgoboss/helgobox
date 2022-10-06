@@ -1788,16 +1788,17 @@ fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDes
 pub struct RealearnSnitch;
 
 impl RealearnWindowSnitch for RealearnSnitch {
-    fn realearn_window_is_focused(&self) -> bool {
+    fn focused_realearn_window(&self) -> Option<Window> {
         let swell = Swell::get();
         let view_manager = ViewManager::get().borrow();
-        let mut current_window = Window::focused();
+        let focused_window = Window::focused();
+        let mut current_window = focused_window;
         while let Some(w) = current_window {
             if view_manager.is_our_window(w) {
-                return true;
+                return focused_window;
             }
             current_window = w.parent();
         }
-        false
+        None
     }
 }
