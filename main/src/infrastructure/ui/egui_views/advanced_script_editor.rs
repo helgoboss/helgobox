@@ -2,13 +2,12 @@ use crate::base::blocking_lock;
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
-use egui::plot::{Legend, Line, MarkerShape, Plot, PlotPoint, Points, VLine};
+use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, Ui, Visuals};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
 };
-use itertools::Itertools;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -126,7 +125,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         .show_background(false)
         .legend(Legend::default());
     if build_outcome.uses_time {
-        plot = plot.x_axis_formatter(|v, range| format!("{}s", v));
+        plot = plot.x_axis_formatter(|v, _| format!("{}s", v));
     }
     plot.show(ui, |plot_ui| {
         let mut x = 0.0;

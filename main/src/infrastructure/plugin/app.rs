@@ -1789,7 +1789,6 @@ pub struct RealearnSnitch;
 
 impl RealearnWindowSnitch for RealearnSnitch {
     fn focused_realearn_window(&self) -> Option<Window> {
-        let swell = Swell::get();
         let view_manager = ViewManager::get().borrow();
         let focused_window = Window::focused();
         let mut current_window = focused_window;

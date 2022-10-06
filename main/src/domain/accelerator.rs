@@ -49,7 +49,7 @@ where
             // for the floating ReaLearn FX window where closing the main panel would not close
             // the surrounding floating window.
             TranslateAccelResult::NotOurWindow
-        } else if let Some(w) = self.snitch.focused_realearn_window() {
+        } else if self.snitch.focused_realearn_window().is_some() {
             if cfg!(target_os = "macos") {
                 // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
                 // Everything else breaks the complete text field, it doesn't receive input anymore.
