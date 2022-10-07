@@ -20,3 +20,6 @@ mod string_types;
 pub use string_types::*;
 
 pub mod menu_tree;
+
+#[cfg(target_os = "macos")]
+mod macos;

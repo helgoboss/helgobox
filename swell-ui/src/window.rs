@@ -155,10 +155,21 @@ impl Window {
         }
     }
 
-    pub fn send_key(self, down: bool, code: u16, modifiers: u8) {
-        let msg = if down { raw::WM_KEYDOWN } else { raw::WM_KEYUP };
+    /// Lets this window process the current app event if this is not a text field.
+    ///
+    /// Returns whether it was a text field or not.
+    #[cfg(target_os = "macos")]
+    pub fn process_current_app_event_if_no_text_field(self) -> bool {
         unsafe {
-            Swell::get().SendMessage(self.raw, msg, code as _, modifiers as _);
+            let ns_view: &crate::macos::NSView = std::mem::transmute(self.raw);
+            if ns_view.is_text_field() {
+                return false;
+            }
+            let app = crate::macos::NSApp();
+            if let Some(current_event) = app.current_event() {
+                ns_view.send_event(&current_event);
+            }
+            true
         }
     }
 

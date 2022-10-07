@@ -45,12 +45,14 @@ where
         if filter_out_event {
             TranslateAccelResult::Eat
         } else if msg.stroke().accelerator_key() == ESCAPE_KEY {
-            // Don't process escape raw. We want the normal close behavior. Especially important
-            // for the floating ReaLearn FX window where closing the main panel would not close
-            // the surrounding floating window.
+            // Don't process escape in special ways. We want the normal close behavior. Especially
+            // important for the floating ReaLearn FX window where closing the main panel would not
+            // close the surrounding floating window.
             TranslateAccelResult::NotOurWindow
-        } else if self.snitch.focused_realearn_window().is_some() {
+        } else if let Some(w) = self.snitch.focused_realearn_window() {
             if cfg!(target_os = "macos") {
+                // We are in an egui window. In that case, we need to
+
                 // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
                 // Everything else breaks the complete text field, it doesn't receive input anymore.
                 // TODO-high Problem: It seems only "Eat" prevents the key from triggering
@@ -63,7 +65,11 @@ where
                 //  Interesting, macOS always shows the menu of the windows in focus, it seems. And
                 //  when having the mapping panel or a child of it in focus, it shows *REAPER's*
                 //  menu. Maybe the issue is that the mapping panel is a child of the REAPER window.
-                TranslateAccelResult::ProcessEventRaw
+                if w.process_current_app_event_if_no_text_field() {
+                    TranslateAccelResult::Eat
+                } else {
+                    TranslateAccelResult::NotOurWindow
+                }
             } else {
                 TranslateAccelResult::ForcePassOnToWindow
             }
