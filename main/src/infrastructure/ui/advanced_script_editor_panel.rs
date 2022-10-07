@@ -19,7 +19,16 @@ pub struct ScriptTemplate {
     pub name: &'static str,
     pub content: &'static str,
     pub description: &'static str,
+    pub control_styles: &'static [ControlStyle],
     pub min_realearn_version: Option<Version>,
+}
+
+#[derive(Copy, Clone, derive_more::Display)]
+pub enum ControlStyle {
+    #[display(fmt = "knobs, faders, touch strips, wheels")]
+    RangeElement,
+    #[display(fmt = "buttons")]
+    Button,
 }
 
 #[derive(Derivative)]

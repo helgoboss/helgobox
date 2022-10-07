@@ -3,11 +3,12 @@ use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
-use egui::{CentralPanel, Color32, Ui, Visuals};
+use egui::{CentralPanel, Color32, RichText, Ui, Visuals};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
 };
+use itertools::Itertools;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -88,6 +89,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         if let Some(template_in_preview) = &state.template_in_preview {
             // A template is being hovered. Show a preview!
             // Description
+            let control_style_text = template_in_preview
+                .template
+                .control_styles
+                .iter()
+                .join(", ");
+            ui.label(format!("Usable with: {}", control_style_text));
             ui.label(template_in_preview.template.description);
             // Code preview
             // TODO-high Make built-in undo work for German layout

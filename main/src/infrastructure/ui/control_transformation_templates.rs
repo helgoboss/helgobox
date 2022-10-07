@@ -1,3 +1,4 @@
+use crate::infrastructure::ui::ControlStyle::{Button, RangeElement};
 use crate::infrastructure::ui::{ScriptTemplate, ScriptTemplateGroup};
 
 pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
@@ -7,14 +8,15 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
             ScriptTemplate {
                 name: "Reverse",
                 content: "y = 1 - x",
-                description:
-                    "A very simple formula which has the same effect as the 'Reverse' button.",
+                description: "Simple formula which has the same effect as the 'Reverse' checkbox.",
+                control_styles: &[RangeElement, Button],
                 min_realearn_version: None,
             },
             ScriptTemplate {
                 name: "Exponential curve",
                 content: "y = pow(x, 8)",
-                description: "A simple exponential curve.",
+                description: "Simple exponential curve.",
+                control_styles: &[RangeElement],
                 min_realearn_version: None,
             },
         ],
@@ -25,7 +27,8 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
             ScriptTemplate {
                 name: "Sinus LFO",
                 content: "y = (sin(rel_time / 500) + 1) / 2",
-                description: r#"To be used with button press."#,
+                description: r#"TODO"#,
+                control_styles: &[Button],
                 min_realearn_version: None,
             },
             ScriptTemplate {
@@ -36,6 +39,7 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
             mouse target to simulate a mouse drag, but also good with \
             'Track: Set automation touch state' target to implement an auto-touch/release when \
             you don't have a touch-sensitive fader at hand.",
+                control_styles: &[Button],
                 min_realearn_version: None,
             },
         ],
