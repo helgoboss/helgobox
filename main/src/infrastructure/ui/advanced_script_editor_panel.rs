@@ -4,7 +4,7 @@ use crate::infrastructure::ui::egui_views::advanced_script_editor;
 use crate::infrastructure::ui::egui_views::advanced_script_editor::Toolbox;
 use crate::infrastructure::ui::ScriptEditorInput;
 use derivative::Derivative;
-use reaper_low::raw;
+use reaper_low::{firewall, raw};
 use semver::Version;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
@@ -107,10 +107,14 @@ impl View for AdvancedScriptEditorPanel {
             settings,
             state,
             |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, _state: &mut State| {
-                advanced_script_editor::init_ui(ctx, Window::dark_mode_is_enabled());
+                firewall(|| {
+                    advanced_script_editor::init_ui(ctx, Window::dark_mode_is_enabled());
+                });
             },
             |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, state: &mut State| {
-                advanced_script_editor::run_ui(ctx, state);
+                firewall(|| {
+                    advanced_script_editor::run_ui(ctx, state);
+                });
             },
         );
         true
