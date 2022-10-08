@@ -89,19 +89,21 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         if let Some(template_in_preview) = &state.template_in_preview {
             // A template is being hovered. Show a preview!
             // Description
-            let control_style_text = template_in_preview
-                .template
-                .control_styles
-                .iter()
-                .join(", ");
-            ui.label(format!("Usable with: {}", control_style_text));
+            ui.label("Usable with:");
+            for control_style in template_in_preview.template.control_styles {
+                ui.horizontal(|ui| {
+                    ui.label("- ");
+                    ui.label(
+                        RichText::new(control_style.to_string())
+                            .color(ui.visuals().hyperlink_color),
+                    );
+                    ui.label(format!(" ({})", control_style.examples()));
+                });
+            }
             ui.label(template_in_preview.template.description);
             // Code preview
             // TODO-high Make built-in undo work for German layout
             // TODO-high Or build a dedicated undo/redo working directly on the content
-            // TODO-high Make copy/cut work (somehow the C/X keys are eaten when holding command,
-            //  they don't arrive in baseview)
-            // TODO-high Maybe reuse whatever clipboard code is used in ReaLearn in general
             let mut content = template_in_preview.template.content;
             TextEdit::multiline(&mut content).code_editor().show(ui);
             // Plot preview

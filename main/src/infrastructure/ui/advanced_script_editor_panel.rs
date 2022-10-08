@@ -25,10 +25,21 @@ pub struct ScriptTemplate {
 
 #[derive(Copy, Clone, derive_more::Display)]
 pub enum ControlStyle {
-    #[display(fmt = "knobs, faders, touch strips, wheels")]
+    #[display(fmt = "range elements")]
     RangeElement,
     #[display(fmt = "buttons")]
     Button,
+}
+
+impl ControlStyle {
+    pub fn examples(&self) -> &'static str {
+        match self {
+            ControlStyle::RangeElement => {
+                "knobs, faders, touch strips, wheels, aftertouch, velocity"
+            }
+            ControlStyle::Button => "buttons, pads, keys",
+        }
+    }
 }
 
 #[derive(Derivative)]
