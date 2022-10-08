@@ -1,4 +1,6 @@
-use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
+use crate::{
+    macos, menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg,
+};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
@@ -161,11 +163,11 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn process_current_app_event_if_no_text_field(self) -> bool {
         unsafe {
-            let ns_view: &crate::macos::NSView = std::mem::transmute(self.raw);
+            let ns_view = &*(self.raw as *const macos::NSView);
             if ns_view.is_text_field() {
                 return false;
             }
-            let app = crate::macos::NSApp();
+            let app = crate::macos::shared_ns_app();
             if let Some(current_event) = app.current_event() {
                 ns_view.send_event(&current_event);
             }

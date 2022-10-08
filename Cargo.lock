@@ -1244,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "egui-baseview"
 version = "0.1.0"
-source = "git+https://github.com/BillyDM/egui-baseview.git#46e21cc11c57c705fb83611389399ec3d2670a44"
+source = "git+https://github.com/helgoboss/egui-baseview.git?branch=bug/10-keyboard-layout#0d557346fd3c4e96bfc7d1920d831256906ac34b"
 dependencies = [
  "baseview",
  "copypasta",

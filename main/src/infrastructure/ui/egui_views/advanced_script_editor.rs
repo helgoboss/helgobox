@@ -8,7 +8,6 @@ use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
 };
-use itertools::Itertools;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -102,8 +101,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
             ui.label(template_in_preview.template.description);
             // Code preview
-            // TODO-high Make built-in undo work for German layout
-            // TODO-high Or build a dedicated undo/redo working directly on the content
             let mut content = template_in_preview.template.content;
             TextEdit::multiline(&mut content).code_editor().show(ui);
             // Plot preview

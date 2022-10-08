@@ -21,7 +21,7 @@ extern_class!(
     }
 );
 
-pub(crate) fn NSApp() -> Id<NSApplication, Shared> {
+pub(crate) fn shared_ns_app() -> Id<NSApplication, Shared> {
     // TODO: Only allow access from main thread
     NSApplication::shared(unsafe { MainThreadMarker::new_unchecked() })
 }
