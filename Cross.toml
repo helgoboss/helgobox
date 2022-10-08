@@ -1,5 +1,5 @@
 [target.aarch64-unknown-linux-gnu]
-pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install -y libxdo-dev:arm64 libx11-dev:arm64 libxcursor-dev:arm64 libxcb-dri2-0-dev:arm64 libxcb-icccm4-dev:arm64 libx11-xcb-dev:arm64 mesa-common-dev:arm64 libgl1-mesa-dev:arm64 libglu1-mesa-dev:arm64"]
+pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install -y python3 libxdo-dev:arm64 libx11-dev:arm64 libxcursor-dev:arm64 libxcb-dri2-0-dev:arm64 libxcb-icccm4-dev:arm64 libx11-xcb-dev:arm64 mesa-common-dev:arm64 libgl1-mesa-dev:arm64 libglu1-mesa-dev:arm64"]
 
 [target.armv7-unknown-linux-gnueabihf]
-pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install -y libxdo-dev:armhf libx11-dev:armhf libxcursor-dev:armhf libxcb-dri2-0-dev:armhf libxcb-icccm4-dev:armhf libx11-xcb-dev:armhf mesa-common-dev:armhf libgl1-mesa-dev:armhf libglu1-mesa-dev:armhf"]
+pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install -y python3 libxdo-dev:armhf libx11-dev:armhf libxcursor-dev:armhf libxcb-dri2-0-dev:armhf libxcb-icccm4-dev:armhf libx11-xcb-dev:armhf mesa-common-dev:armhf libgl1-mesa-dev:armhf libglu1-mesa-dev:armhf"]
