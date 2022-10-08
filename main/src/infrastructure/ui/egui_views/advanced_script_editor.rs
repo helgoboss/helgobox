@@ -16,18 +16,11 @@ pub type SharedContent = Arc<Mutex<String>>;
 
 pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
     let mut style: egui::Style = (*ctx.style()).clone();
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        style.visuals = if dark_mode_is_enabled {
-            Visuals::dark()
-        } else {
-            Visuals::light()
-        };
-    }
-    #[cfg(target_os = "linux")]
-    {
-        style.visuals = Visuals::light();
-    }
+    style.visuals = if dark_mode_is_enabled {
+        Visuals::dark()
+    } else {
+        Visuals::light()
+    };
     ctx.set_style(style);
 }
 

@@ -3784,7 +3784,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7dd662bf94eaa093d284d0617dc60673d83aa096"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#91fce5b8626ef12a558062b4f066842c68335cbc"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3811,7 +3811,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7dd662bf94eaa093d284d0617dc60673d83aa096"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#91fce5b8626ef12a558062b4f066842c68335cbc"
 dependencies = [
  "c_str_macro",
  "cc 1.0.73 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3825,7 +3825,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7dd662bf94eaa093d284d0617dc60673d83aa096"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#91fce5b8626ef12a558062b4f066842c68335cbc"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.21",
@@ -3835,7 +3835,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7dd662bf94eaa093d284d0617dc60673d83aa096"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#91fce5b8626ef12a558062b4f066842c68335cbc"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3853,7 +3853,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7dd662bf94eaa093d284d0617dc60673d83aa096"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#91fce5b8626ef12a558062b4f066842c68335cbc"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -4532,6 +4532,7 @@ dependencies = [
  "palette",
  "raw-window-handle",
  "reaper-low",
+ "reaper-medium",
  "rx-util",
  "rxrust",
  "scopeguard",

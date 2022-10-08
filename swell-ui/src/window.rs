@@ -1,6 +1,4 @@
-use crate::{
-    macos, menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg,
-};
+use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
@@ -30,7 +28,7 @@ impl Window {
         Point::new(Pixels(point.x as _), Pixels(point.y as _))
     }
 
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    /// On Linux, this always returns `false` at the moment.
     pub fn dark_mode_is_enabled() -> bool {
         #[cfg(target_os = "macos")]
         {
@@ -51,6 +49,10 @@ impl Window {
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
             let luma = rgb.into_luma();
             luma.luma < 0.5
+        }
+        #[cfg(target_os = "linux")]
+        {
+            false
         }
     }
 
@@ -163,7 +165,7 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn process_current_app_event_if_no_text_field(self) -> bool {
         unsafe {
-            let ns_view = &*(self.raw as *const macos::NSView);
+            let ns_view = &*(self.raw as *const crate::macos::NSView);
             if ns_view.is_text_field() {
                 return false;
             }
@@ -674,7 +676,17 @@ unsafe impl HasRawWindowHandle for Window {
         #[cfg(target_os = "linux")]
         {
             let mut handle = raw_window_handle::XlibHandle::empty();
-            // TODO-high CONTINUE Find out what we need to pass here and how we obtain it.
+            // TODO-high-egui This doesn't work yet.
+            // TODO-high-egui Even if it works, SWELL_GetOSWindow is only available in newer
+            //  REAPER versions, so we must take care to not use egui in that case or open the
+            //  egui window without SWELL (maybe unparented ... could be a general Linux solution?)
+            let os_window = unsafe {
+                Swell::get().SWELL_GetOSWindow(
+                    self.raw,
+                    reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
+                )
+            };
+            handle.window = os_window as _;
             RawWindowHandle::Xlib(handle)
         }
     }

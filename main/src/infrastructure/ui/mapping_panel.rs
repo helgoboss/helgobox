@@ -936,6 +936,7 @@ impl MappingPanel {
         editor_clone.open(self.view.require_window());
     }
 
+    #[allow(dead_code)]
     fn edit_script_in_advanced_editor(
         &self,
         engine: Box<dyn ScriptEngine>,

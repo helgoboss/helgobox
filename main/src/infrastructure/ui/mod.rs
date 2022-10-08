@@ -36,9 +36,11 @@ pub use yaml_editor_panel::*;
 mod simple_script_editor_panel;
 pub use simple_script_editor_panel::*;
 
+#[allow(dead_code)]
 mod advanced_script_editor_panel;
 pub use advanced_script_editor_panel::*;
 
+#[allow(dead_code)]
 mod control_transformation_templates;
 pub use control_transformation_templates::*;
 

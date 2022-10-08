@@ -50,9 +50,11 @@ where
             // close the surrounding floating window.
             TranslateAccelResult::NotOurWindow
         } else if let Some(w) = self.snitch.focused_realearn_window() {
-            if cfg!(target_os = "macos") {
-                // We are in an egui window. In that case, we need to
-
+            // A ReaLearn window is focused. We want to get almost all keyboard input! We don't want
+            // REAPER to execute actions or the system to execute menu commands. This is achieved
+            // in different ways depending on the OS.
+            #[cfg(target_os = "macos")]
+            {
                 // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
                 // Everything else breaks the complete text field, it doesn't receive input anymore.
                 // TODO-high Problem: It seems only "Eat" prevents the key from triggering
@@ -70,8 +72,16 @@ where
                 } else {
                     TranslateAccelResult::NotOurWindow
                 }
-            } else {
+            }
+            #[cfg(target_os = "windows")]
+            {
+                let _ = w;
                 TranslateAccelResult::ForcePassOnToWindow
+            }
+            #[cfg(target_os = "linux")]
+            {
+                let _ = w;
+                TranslateAccelResult::NotOurWindow
             }
         } else {
             TranslateAccelResult::NotOurWindow
