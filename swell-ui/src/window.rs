@@ -177,6 +177,13 @@ impl Window {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn process_raw_message(self, msg: raw::MSG) {
+        unsafe {
+            Swell::get().SendMessage(self.raw, msg.message, msg.wParam, msg.lParam);
+        }
+    }
+
     pub fn set_checked(self, is_checked: bool) {
         unsafe {
             Swell::get().SendMessage(

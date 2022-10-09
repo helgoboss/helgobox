@@ -3,10 +3,10 @@ use crate::domain::{
     SharedMainProcessors,
 };
 use helgoboss_learn::AbstractTimestamp;
-use reaper_high::AcceleratorKey;
 use reaper_low::raw;
 use reaper_medium::{
-    AccelMsgKind, TranslateAccel, TranslateAccelArgs, TranslateAccelResult, VirtKey,
+    AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
+    TranslateAccelResult,
 };
 use swell_ui::Window;
 
@@ -34,7 +34,13 @@ where
     EH: DomainEventHandler,
     S: RealearnWindowSnitch,
 {
-    fn process_message(&mut self, msg: KeyMessage) -> TranslateAccelResult {
+    /// Sends the message to all main processors as control events.
+    ///
+    /// Returns `true` if at least one main processor used the message, that is if at least one
+    /// main processor had control input set to "Keyboard" and a mapping matched the given key.
+    ///
+    /// If yes, we should completely "eat" the message and don't do anything else with it.
+    fn process_control(&mut self, msg: KeyMessage) -> bool {
         let evt = ControlEvent::new(msg, ControlEventTimestamp::now());
         let mut filter_out_event = false;
         for proc in &mut *self.main_processors.borrow_mut() {
@@ -42,9 +48,14 @@ where
                 filter_out_event = true;
             }
         }
-        if filter_out_event {
-            TranslateAccelResult::Eat
-        } else if msg.stroke().accelerator_key() == ESCAPE_KEY {
+        filter_out_event
+    }
+
+    /// Decides what to do with the key if no main processor used it.
+    fn process_unmatched(&self, msg: AccelMsg) -> TranslateAccelResult {
+        if msg.behavior().contains(AcceleratorBehavior::VirtKey)
+            && msg.key().get() as u32 == raw::VK_ESCAPE
+        {
             // Don't process escape in special ways. We want the normal close behavior. Especially
             // important for the floating ReaLearn FX window where closing the main panel would not
             // close the surrounding floating window.
@@ -55,35 +66,33 @@ where
             // in different ways depending on the OS.
             #[cfg(target_os = "macos")]
             {
-                // Only ProcessEventRaw seems to work when pressing Return key in an egui text edit.
-                // Everything else breaks the complete text field, it doesn't receive input anymore.
-                // TODO-high Problem: It seems only "Eat" prevents the key from triggering
-                //  REAPER actions. Everything else seems to make the key be processed by
-                //  REAPER's action accelerator. If there's an action with a keyboard shortcut
-                //  (e.g. Cmd+C), the action eats it and it doesn't arrive at our window.
-                //  Now, we could simulate key presses to our windows here and eat. But it doesn't
-                //  work for some reason. Then pressing keys will not do anything. Maybe because
-                //  enters the key logic again, from outside the window.
-                //  Interesting, macOS always shows the menu of the windows in focus, it seems. And
-                //  when having the mapping panel or a child of it in focus, it shows *REAPER's*
-                //  menu. Maybe the issue is that the mapping panel is a child of the REAPER window.
+                // On macOS, we must explicitly send the message to the focused view. If we
+                // let the system take care of it (e.g. via NotOurWindow, PassOnToWindow or
+                // ProcessEventRaw), REAPER's main menu shortcuts have priority, which we don't
+                // want! Especially important for egui text edit because Cmd+C and Cmd+X would not
+                // work in there.
                 if w.process_current_app_event_if_no_text_field() {
                     TranslateAccelResult::Eat
                 } else {
+                    // However, if the focused view is a text field, this would break copy & paste
+                    // in that text field ;) So in this special case, we need the system to do its
+                    // job.
                     TranslateAccelResult::NotOurWindow
                 }
             }
             #[cfg(target_os = "windows")]
             {
-                let _ = w;
-                TranslateAccelResult::ForcePassOnToWindow
+                w.process_raw_message(msg.raw());
+                TranslateAccelResult::Eat
             }
             #[cfg(target_os = "linux")]
             {
+                // On Linux, we didn't really figure it out yet in detail.
                 let _ = w;
                 TranslateAccelResult::NotOurWindow
             }
         } else {
+            // A non-ReaLearn window is focused. Act normally.
             TranslateAccelResult::NotOurWindow
         }
     }
@@ -95,13 +104,19 @@ where
     S: RealearnWindowSnitch,
 {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
-        if args.msg.message == AccelMsgKind::Char {
-            return TranslateAccelResult::NotOurWindow;
+        if args.msg.message() != AccelMsgKind::Char {
+            // If it's not a char message, it could be interesting for main processors.
+            // (Char messages are only sent on Windows and for all relevant control purposes,
+            // they are preceded by a KeyDown event, so we must ignore them).
+            let stroke = Keystroke::new(args.msg.behavior(), args.msg.key());
+            let normalized_stroke = stroke.normalized();
+            let normalized_msg = KeyMessage::new(args.msg.message(), normalized_stroke);
+            let matched = self.process_control(normalized_msg);
+            if matched {
+                return TranslateAccelResult::Eat;
+            }
         }
-        let stroke = Keystroke::new(args.msg.behavior, args.msg.key).normalized();
-        let msg = KeyMessage::new(args.msg.message, stroke);
-        self.process_message(msg)
+        // If we end up here, no main processor was interested in that key.
+        self.process_unmatched(args.msg)
     }
 }
-
-const ESCAPE_KEY: AcceleratorKey = AcceleratorKey::VirtKey(VirtKey::new(raw::VK_ESCAPE as _));

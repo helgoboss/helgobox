@@ -841,9 +841,9 @@ impl MappingPanel {
                 None,
             );
         };
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         self.edit_script_in_advanced_editor(engine, help_url, get_value, set_value);
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
         self.edit_script_in_simple_editor(engine, help_url, get_value, set_value);
     }
 
