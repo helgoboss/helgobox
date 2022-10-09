@@ -52,14 +52,23 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 if response.clicked() {
                                     // Apply template
                                     let mut content = String::new();
-                                    if !template.description.is_empty() {
-                                        for comment_line in template.description.lines() {
-                                            content += "// ";
+                                    content += "// ";
+                                    content += template.name;
+                                    if template.description.is_empty() {
+                                        content += "\n";
+                                    } else {
+                                        content += ": ";
+                                        for (i, comment_line) in
+                                            template.description.lines().enumerate()
+                                        {
+                                            if i > 0 {
+                                                content += "// ";
+                                            }
                                             content += comment_line;
                                             content += "\n";
                                         }
-                                        content += "\n";
                                     };
+                                    content += "\n";
                                     content += template.content;
                                     *blocking_lock(&state.content) = content;
                                     state.invalidate();

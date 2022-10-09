@@ -16,11 +16,11 @@ pub struct ScriptTemplateGroup {
 }
 
 pub struct ScriptTemplate {
+    pub min_realearn_version: Option<Version>,
     pub name: &'static str,
-    pub content: &'static str,
     pub description: &'static str,
     pub control_styles: &'static [ControlStyle],
-    pub min_realearn_version: Option<Version>,
+    pub content: &'static str,
 }
 
 #[derive(Copy, Clone, derive_more::Display)]
