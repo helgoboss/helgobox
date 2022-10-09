@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-09-30 (v2.14.0-pre.5)`
+|Last update of text: |`2022-10-09 (v2.14.0-pre.6)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -3873,14 +3873,12 @@ This mode is sometimes called "Proportional" or "Value scaling" mode. It's like 
 [#control-transformation]
 ===== Control transformation (EEL)
 
-This feature definitely belongs into the "expert" category. It
- allows you to write a formula that transforms incoming control values before they are passed on to
- the target.
+This feature allows you to write a formula that transforms incoming control values.
 
 While very powerful because it allows for arbitrary transformations (velocity curves,
- random values - you name it), it's not everybody's cup of tea to write something like that. The
- formula must be written in the language https://www.cockos.com/EEL2/[EEL2]. Some REAPER power
- users might be familiar with it because REAPER's JSFX uses the same language.
+ random values - you name it), it's not everybody's cup of tea to write something like that. The formula must be written in the language https://www.cockos.com/EEL2/[EEL2]. Some REAPER power users might be familiar with it because REAPER's JSFX uses the same language.
+
+Luckily, ReaLearn has a fancy editor which visualizes the formula and has some predefined templates built-in (available on Windows and macOS only at the moment). Press the "*...*" button to open the editor.
 
 The most simple
  formula is `y = x`, which means there will be no transformation at all. `y = x / 2` means that
