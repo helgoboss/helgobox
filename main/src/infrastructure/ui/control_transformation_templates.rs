@@ -27,7 +27,7 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
             ScriptTemplate {
                 name: "Sinus LFO",
                 content: "y = (sin(rel_time / 500) + 1) / 2",
-                description: r#"TODO"#,
+                description: r#""#,
                 control_styles: &[Button],
                 min_realearn_version: None,
             },

@@ -25,7 +25,7 @@ pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
-        .default_width(ctx.available_rect().width() * 0.5)
+        .default_width(ctx.available_rect().width() * 0.6)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.menu_button("Templates", |ui| {
@@ -51,7 +51,19 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 }
                                 if response.clicked() {
                                     // Apply template
-                                    *blocking_lock(&state.content) = template.content.to_string();
+                                    let mut content = if template.description.is_empty() {
+                                        String::new()
+                                    } else {
+                                        let options = textwrap::Options::new(60)
+                                            .initial_indent("// ")
+                                            .subsequent_indent("// ");
+                                        let mut content =
+                                            textwrap::fill(template.description, options);
+                                        content += "\n\n";
+                                        content
+                                    };
+                                    content += template.content;
+                                    *blocking_lock(&state.content) = content;
                                     state.invalidate();
                                     ui.close_menu();
                                 }
@@ -78,6 +90,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         if let Some(template_in_preview) = &state.template_in_preview {
             // A template is being hovered. Show a preview!
             // Description
+            ui.label(template_in_preview.template.description);
             ui.label("Usable with:");
             for control_style in template_in_preview.template.control_styles {
                 ui.horizontal(|ui| {
@@ -89,10 +102,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     ui.label(format!(" ({})", control_style.examples()));
                 });
             }
-            ui.label(template_in_preview.template.description);
-            // Code preview
-            let mut content = template_in_preview.template.content;
-            TextEdit::multiline(&mut content).code_editor().show(ui);
             // Plot preview
             plot_build_outcome(ui, &template_in_preview.build_outcome);
         } else {
