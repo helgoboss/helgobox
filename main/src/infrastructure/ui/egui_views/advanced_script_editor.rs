@@ -1,6 +1,5 @@
 use crate::base::blocking_lock;
 use crate::domain::AdditionalTransformationInput;
-use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, Ui, Visuals};
@@ -64,9 +63,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     // Menu closed
                     state.template_in_preview = None;
                 }
-                if ui.button("Help").clicked() {
-                    open_in_browser(state.toolbox.help_url);
-                };
+                ui.hyperlink_to("Help", state.toolbox.help_url);
             });
             let response = {
                 let mut content = blocking_lock(&state.content);

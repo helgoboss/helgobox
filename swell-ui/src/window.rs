@@ -180,6 +180,7 @@ impl Window {
     #[cfg(target_os = "windows")]
     pub fn process_raw_message(self, msg: raw::MSG) {
         unsafe {
+            winapi::um::winuser::TranslateMessage(&msg as *const _ as _);
             Swell::get().SendMessage(self.raw, msg.message, msg.wParam, msg.lParam);
         }
     }
