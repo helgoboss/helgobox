@@ -25,7 +25,7 @@ pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
-        .default_width(ctx.available_rect().width() * 0.6)
+        .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.menu_button("Templates", |ui| {
@@ -51,16 +51,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 }
                                 if response.clicked() {
                                     // Apply template
-                                    let mut content = if template.description.is_empty() {
-                                        String::new()
-                                    } else {
-                                        let options = textwrap::Options::new(60)
-                                            .initial_indent("// ")
-                                            .subsequent_indent("// ");
-                                        let mut content =
-                                            textwrap::fill(template.description, options);
-                                        content += "\n\n";
-                                        content
+                                    let mut content = String::new();
+                                    if !template.description.is_empty() {
+                                        for comment_line in template.description.lines() {
+                                            content += "// ";
+                                            content += comment_line;
+                                            content += "\n";
+                                        }
+                                        content += "\n";
                                     };
                                     content += template.content;
                                     *blocking_lock(&state.content) = content;
