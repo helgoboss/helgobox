@@ -377,7 +377,7 @@ impl MappingPanel {
                                                 view.invalidate_mode_encoder_usage_combo_box();
                                             }
                                             P::EelControlTransformation => {
-                                                view.invalidate_mode_eel_control_transformation_edit_control(initiator);
+                                                view.invalidate_mode_controls_internal(initiator);
                                             }
                                             P::EelFeedbackTransformation | P::TextualFeedbackExpression => {
                                                 view.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
@@ -3344,20 +3344,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         mode_parameter: ModeParameter,
     ) -> (Option<&str>, Option<&str>) {
         let base_input = ModeApplicabilityCheckInput {
-            target_is_virtual: self.mapping.target_model.is_virtual(),
-            // TODO-high-discrete Set correctly
-            target_supports_discrete_values: false,
-            is_feedback: false,
-            make_absolute: self.mapping.mode_model.make_absolute(),
-            use_textual_feedback: self.mapping.mode_model.feedback_type().is_textual(),
             source_character,
-            absolute_mode: self.mapping.mode_model.absolute_mode(),
             mode_parameter,
-            target_value_sequence_is_set: !self
-                .mapping
-                .mode_model
-                .target_value_sequence()
-                .is_empty(),
+            ..self.mapping.base_mode_applicability_check_input()
         };
         let control = ModeApplicabilityCheckInput {
             is_feedback: false,
@@ -5481,13 +5470,17 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_controls(&self) {
+        self.invalidate_mode_controls_internal(None);
+    }
+
+    fn invalidate_mode_controls_internal(&self, initiator: Option<u32>) {
         self.fill_mode_type_combo_box();
         self.invalidate_mode_type_combo_box();
         self.invalidate_mode_control_appearance();
-        self.invalidate_mode_source_value_controls(None);
-        self.invalidate_mode_target_value_controls(None);
-        self.invalidate_mode_step_controls(None);
-        self.invalidate_mode_fire_controls(None);
+        self.invalidate_mode_source_value_controls(initiator);
+        self.invalidate_mode_target_value_controls(initiator);
+        self.invalidate_mode_step_controls(initiator);
+        self.invalidate_mode_fire_controls(initiator);
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_feedback_type_combo_box();
@@ -5499,9 +5492,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_button_usage_combo_box();
         self.invalidate_mode_encoder_usage_combo_box();
         self.invalidate_mode_reverse_check_box();
-        self.invalidate_mode_target_value_sequence_edit_control(None);
-        self.invalidate_mode_eel_control_transformation_edit_control(None);
-        self.invalidate_mode_eel_feedback_transformation_edit_control(None);
+        self.invalidate_mode_target_value_sequence_edit_control(initiator);
+        self.invalidate_mode_eel_control_transformation_edit_control(initiator);
+        self.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
     }
 
     fn invalidate_mode_type_combo_box(&self) {

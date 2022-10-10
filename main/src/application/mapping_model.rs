@@ -7,10 +7,10 @@ use crate::application::{
 };
 use crate::domain::{
     ActivationCondition, Compartment, CompoundMappingSource, CompoundMappingTarget,
-    ExtendedProcessorContext, ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping,
-    MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
-    UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
+    EelTransformation, ExtendedProcessorContext, ExtendedSourceCharacter, FeedbackSendBehavior,
+    GroupId, MainMapping, MappingId, MappingKey, Mode, PersistentMappingProcessingState,
+    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, Script, Tag,
+    TargetCharacter, UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, DiscreteIncrement, Interval,
@@ -480,6 +480,12 @@ impl MappingModel {
             target_is_virtual: self.target_model.is_virtual(),
             // TODO-high-discrete Enable (also taking source into consideration!)
             target_supports_discrete_values: false,
+            control_transformation_uses_time: {
+                let transformation = EelTransformation::compile_for_control(
+                    self.mode_model.eel_control_transformation(),
+                );
+                transformation.map(|t| t.uses_time()).unwrap_or(false)
+            },
             is_feedback: false,
             make_absolute: self.mode_model.make_absolute(),
             use_textual_feedback: self.mode_model.feedback_type().is_textual(),
