@@ -7,7 +7,7 @@ use slog::{trace, warn};
 
 use std::error::Error;
 use std::io;
-use std::net::{ToSocketAddrs, UdpSocket};
+use std::net::{SocketAddrV4, UdpSocket};
 
 use core::mem;
 use std::str::FromStr;
@@ -198,6 +198,7 @@ impl OscInputDevice {
 pub struct OscOutputDevice {
     id: OscDeviceId,
     socket: UdpSocket,
+    dest_address: SocketAddrV4,
     logger: slog::Logger,
     can_deal_with_bundles: bool,
 }
@@ -206,14 +207,19 @@ impl OscOutputDevice {
     pub fn connect(
         id: OscDeviceId,
         socket: UdpSocket,
-        dest_addr: impl ToSocketAddrs,
+        dest_address: SocketAddrV4,
         logger: slog::Logger,
         can_deal_with_bundles: bool,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
-        socket.connect(dest_addr)?;
+        // Attention: It's important that we don't use `UdpSocket::connect` here as this breaks
+        // control. No idea why exactly, but it must have something to do with the fact that we
+        // clone the control socket (in order to support "respond to sending port" scenario).
+        // See https://github.com/helgoboss/realearn/issues/706 and
+        // https://github.com/helgoboss/realearn/issues/551.
         let dev = OscOutputDevice {
             id,
             socket,
+            dest_address,
             logger,
             can_deal_with_bundles,
         };
@@ -254,7 +260,7 @@ impl OscOutputDevice {
             &packet
         );
         self.socket
-            .send(&bytes)
+            .send_to(&bytes, self.dest_address)
             .map_err(|_| "error trying to send OSC bundle packet")?;
         Ok(())
     }
@@ -274,7 +280,7 @@ impl OscOutputDevice {
                 &packet
             );
             self.socket
-                .send(&bytes)
+                .send_to(&bytes, self.dest_address)
                 .map_err(|_| "error trying to send OSC message packet")?;
         }
         Ok(())
