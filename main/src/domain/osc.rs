@@ -204,26 +204,25 @@ pub struct OscOutputDevice {
 }
 
 impl OscOutputDevice {
-    pub fn connect(
+    pub fn new(
         id: OscDeviceId,
         socket: UdpSocket,
         dest_address: SocketAddrV4,
         logger: slog::Logger,
         can_deal_with_bundles: bool,
-    ) -> Result<OscOutputDevice, Box<dyn Error>> {
+    ) -> Self {
         // Attention: It's important that we don't use `UdpSocket::connect` here as this breaks
         // control. No idea why exactly, but it must have something to do with the fact that we
         // clone the control socket (in order to support "respond to sending port" scenario).
         // See https://github.com/helgoboss/realearn/issues/706 and
         // https://github.com/helgoboss/realearn/issues/551.
-        let dev = OscOutputDevice {
+        OscOutputDevice {
             id,
             socket,
             dest_address,
             logger,
             can_deal_with_bundles,
-        };
-        Ok(dev)
+        }
     }
 
     pub fn id(&self) -> OscDeviceId {

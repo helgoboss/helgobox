@@ -232,13 +232,14 @@ impl OscDevice {
             self.device_host.ok_or("device host not specified")?,
             self.device_port.ok_or("local port not specified")?,
         );
-        OscOutputDevice::connect(
+        let dev = OscOutputDevice::new(
             self.id,
             socket,
             dest_addr,
             App::logger().new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
             self.can_deal_with_bundles,
-        )
+        );
+        Ok(dev)
     }
 
     pub fn id(&self) -> &OscDeviceId {
