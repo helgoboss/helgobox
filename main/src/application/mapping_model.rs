@@ -17,6 +17,7 @@ use helgoboss_learn::{
     ModeApplicabilityCheckInput, ModeParameter, SourceCharacter, Target, UnitValue,
 };
 
+use realearn_api::persistence::TrackIndexingPolicy;
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
@@ -329,7 +330,10 @@ impl MappingModel {
                         .with_context(context, compartment)
                         .first_effective_track()
                     {
-                        t.index().map(VirtualTrack::ByIndex)
+                        t.index().map(|index| VirtualTrack::ByIndex {
+                            index,
+                            indexing_policy: TrackIndexingPolicy::CountAllTracks,
+                        })
                     } else {
                         None
                     };

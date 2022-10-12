@@ -113,6 +113,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             scroll_mixer: d
                 .scroll_mixer
                 .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER),
+            track_indexing_policy: d.track_indexing_policy.unwrap_or_default(),
             ..init(d.commons)
         },
         Target::Seek(d) => TargetModelData {
@@ -1007,9 +1008,14 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
         Dynamic {
             commons,
             expression,
+            indexing_policy,
         } => (
             TrackPropValues {
-                r#type: VirtualTrackType::Dynamic,
+                r#type: match indexing_policy.unwrap_or_default() {
+                    TrackIndexingPolicy::CountAllTracks => VirtualTrackType::Dynamic,
+                    TrackIndexingPolicy::FollowTcpVisibility => VirtualTrackType::DynamicTcp,
+                    TrackIndexingPolicy::FollowMcpVisibility => VirtualTrackType::DynamicMcp,
+                },
                 expression,
                 ..Default::default()
             },
@@ -1031,9 +1037,17 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 .track_must_be_selected
                 .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
-        ByIndex { commons, index } => (
+        ByIndex {
+            commons,
+            index,
+            indexing_policy,
+        } => (
             TrackPropValues {
-                r#type: VirtualTrackType::ByIndex,
+                r#type: match indexing_policy.unwrap_or_default() {
+                    TrackIndexingPolicy::CountAllTracks => VirtualTrackType::ByIndex,
+                    TrackIndexingPolicy::FollowTcpVisibility => VirtualTrackType::ByIndexTcp,
+                    TrackIndexingPolicy::FollowMcpVisibility => VirtualTrackType::ByIndexMcp,
+                },
                 index,
                 ..Default::default()
             },

@@ -6,7 +6,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
-use realearn_api::persistence::TrackToolAction;
+use realearn_api::persistence::{TrackIndexingPolicy, TrackToolAction};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
 
@@ -97,7 +97,7 @@ impl RealearnTarget for TrackToolTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(get_track_name(self.track.as_ref()?).into())
+        Some(get_track_name(self.track.as_ref()?, TrackIndexingPolicy::CountAllTracks).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
@@ -162,6 +162,7 @@ impl<'a> Target<'a> for TrackToolTarget {
                 let track_index = self.track.as_ref()?.index();
                 let percentage = percentage_for_track_within_project(
                     self.track.as_ref()?.project(),
+                    TrackIndexingPolicy::CountAllTracks,
                     track_index,
                 );
                 Some(percentage)

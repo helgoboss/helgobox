@@ -31,7 +31,7 @@ use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    MouseAction, SeekBehavior, TargetValue, TrackToolAction,
+    MouseAction, SeekBehavior, TargetValue, TrackIndexingPolicy, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -237,6 +237,12 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub automation_mode_override_type: AutomationModeOverrideType,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub track_indexing_policy: TrackIndexingPolicy,
     // FX Open and FX Navigate target
     #[serde(
         default,
@@ -524,6 +530,7 @@ impl TargetModelData {
             track_automation_mode: model.automation_mode(),
             track_monitoring_mode: model.monitoring_mode(),
             automation_mode_override_type: model.automation_mode_override_type(),
+            track_indexing_policy: model.track_indexing_policy(),
             fx_display_type: model.fx_display_type(),
             scroll_arrange_view: model.scroll_arrange_view(),
             scroll_mixer: model.scroll_mixer(),
@@ -673,6 +680,7 @@ impl TargetModelData {
             }
         };
         model.change(C::SetGangBehavior(gang_behavior));
+        model.change(C::SetTrackIndexingPolicy(self.track_indexing_policy));
         model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
@@ -875,6 +883,8 @@ impl TargetModelData {
     }
 }
 
+/// This function is so annoying because of backward compatibility. Once made the bad decision
+/// to not introduce an explicit track type.
 pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnDescriptor>) {
     use VirtualTrackType::*;
     match track.r#type {
@@ -944,8 +954,40 @@ pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnD
             },
             None,
         ),
+        ByIndexTcp => (
+            TrackData {
+                guid: Some("index_tcp".to_string()),
+                index: Some(track.index),
+                ..Default::default()
+            },
+            None,
+        ),
+        ByIndexMcp => (
+            TrackData {
+                guid: Some("index_mcp".to_string()),
+                index: Some(track.index),
+                ..Default::default()
+            },
+            None,
+        ),
         Dynamic => (
             TrackData {
+                expression: Some(track.expression),
+                ..Default::default()
+            },
+            None,
+        ),
+        DynamicTcp => (
+            TrackData {
+                guid: Some("dynamic_tcp".to_string()),
+                expression: Some(track.expression),
+                ..Default::default()
+            },
+            None,
+        ),
+        DynamicMcp => (
+            TrackData {
+                guid: Some("dynamic_mcp".to_string()),
                 expression: Some(track.expression),
                 ..Default::default()
             },
@@ -1118,12 +1160,17 @@ pub fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxParameterData {
-    #[serde(rename = "paramType", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "paramType",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     r#type: Option<VirtualFxParameterType>,
     #[serde(
         rename = "paramIndex",
-        deserialize_with = "f32_as_u32",
         default,
+        deserialize_with = "f32_as_u32",
         skip_serializing_if = "is_default"
     )]
     index: u32,
@@ -1132,6 +1179,7 @@ pub struct FxParameterData {
     #[serde(
         rename = "paramExpression",
         default,
+        deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     expression: Option<String>,
@@ -1143,28 +1191,45 @@ pub struct TrackRouteData {
     #[serde(
         rename = "routeSelectorType",
         default,
+        deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     pub selector_type: Option<TrackRouteSelectorType>,
-    #[serde(rename = "routeType", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "routeType",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub r#type: TrackRouteType,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the send
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
     #[serde(
         rename = "sendIndex",
-        deserialize_with = "none_if_minus_one",
         default,
+        deserialize_with = "none_if_minus_one",
         skip_serializing_if = "is_none_or_some_default"
     )]
     pub index: Option<u32>,
-    #[serde(rename = "routeGuid", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "routeGuid",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub guid: Option<String>,
-    #[serde(rename = "routeName", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "routeName",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub name: Option<String>,
     #[serde(
         rename = "routeExpression",
         default,
+        deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     pub expression: Option<String>,
@@ -1180,23 +1245,38 @@ pub struct FxData {
     //  current JSON. However, we introduced version numbers in 1.12.0-pre18 so this could
     //  negatively effect some prerelease testers. Another way to get rid of the redundant
     //  "fxAnchor" property would be to set this to none if the target type doesn't support FX.
-    #[serde(rename = "fxAnchor", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "fxAnchor",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub anchor: Option<VirtualFxType>,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the FX
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
     #[serde(
         rename = "fxIndex",
-        deserialize_with = "none_if_minus_one",
         default,
+        deserialize_with = "none_if_minus_one",
         skip_serializing_if = "is_none_or_some_default"
     )]
     pub index: Option<u32>,
     /// Since 1.12.0-pre1
-    #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "fxGUID",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub guid: Option<String>,
     /// Since 1.12.0-pre8
-    #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "fxName",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub name: Option<String>,
     // TODO-medium This is actually a property of the track FX chain, not the FX
     #[serde(
@@ -1205,7 +1285,12 @@ pub struct FxData {
         skip_serializing_if = "is_default"
     )]
     pub is_input_fx: bool,
-    #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "fxExpression",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub expression: Option<String>,
 }
 
@@ -1213,26 +1298,44 @@ pub struct FxData {
 #[serde(rename_all = "camelCase")]
 pub struct TrackData {
     // None means "This" track
-    #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
-    guid: Option<String>,
-    #[serde(rename = "trackName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
-    #[serde(rename = "trackIndex", default, skip_serializing_if = "is_default")]
-    index: Option<u32>,
+    #[serde(
+        rename = "trackGUID",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub guid: Option<String>,
+    #[serde(
+        rename = "trackName",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub name: Option<String>,
+    #[serde(
+        rename = "trackIndex",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub index: Option<u32>,
     #[serde(
         rename = "trackExpression",
         default,
+        deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    expression: Option<String>,
+    pub expression: Option<String>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    clip_column_track_context: ClipColumnTrackContext,
+    pub clip_column_track_context: ClipColumnTrackContext,
 }
 
+/// This function is so annoying because of backward compatibility. Once made the bad decision
+/// to not introduce an explicit track type.
 pub fn deserialize_track(
     track_data: &TrackData,
     clip_column: &ClipColumnDescriptor,
@@ -1261,6 +1364,40 @@ pub fn deserialize_track(
                 allow_multiple: true,
             })
         }
+        TrackData {
+            guid: Some(g),
+            index: Some(i),
+            ..
+        } if g == "index_tcp" => TrackPropValues::from_virtual_track(VirtualTrack::ByIndex {
+            index: *i,
+            indexing_policy: TrackIndexingPolicy::FollowTcpVisibility,
+        }),
+        TrackData {
+            guid: Some(g),
+            index: Some(i),
+            ..
+        } if g == "index_mcp" => TrackPropValues::from_virtual_track(VirtualTrack::ByIndex {
+            index: *i,
+            indexing_policy: TrackIndexingPolicy::FollowMcpVisibility,
+        }),
+        TrackData {
+            guid: Some(g),
+            expression: Some(e),
+            ..
+        } if g == "dynamic_tcp" => TrackPropValues {
+            r#type: VirtualTrackType::DynamicTcp,
+            expression: e.clone(),
+            ..Default::default()
+        },
+        TrackData {
+            guid: Some(g),
+            expression: Some(e),
+            ..
+        } if g == "dynamic_mcp" => TrackPropValues {
+            r#type: VirtualTrackType::DynamicMcp,
+            expression: e.clone(),
+            ..Default::default()
+        },
         TrackData {
             guid: Some(g),
             clip_column_track_context,
@@ -1597,13 +1734,24 @@ pub fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkData {
-    #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "bookmarkAnchor",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub anchor: BookmarkAnchorType,
-    #[serde(rename = "bookmarkRef", default, skip_serializing_if = "is_default")]
+    #[serde(
+        rename = "bookmarkRef",
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     pub r#ref: u32,
     #[serde(
         rename = "bookmarkIsRegion",
         default,
+        deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     pub is_region: bool,

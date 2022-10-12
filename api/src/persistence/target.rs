@@ -162,6 +162,8 @@ pub struct CycleThroughTracksTarget {
     pub scroll_arrange_view: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scroll_mixer: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track_indexing_policy: Option<TrackIndexingPolicy>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -1307,6 +1309,8 @@ pub enum TrackDescriptor {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
         expression: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        indexing_policy: Option<TrackIndexingPolicy>,
     },
     ById {
         #[serde(flatten)]
@@ -1318,6 +1322,8 @@ pub enum TrackDescriptor {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
         index: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        indexing_policy: Option<TrackIndexingPolicy>,
     },
     ByName {
         #[serde(flatten)]
@@ -1735,5 +1741,35 @@ pub enum OscDestination {
 impl Default for OscDestination {
     fn default() -> Self {
         Self::FeedbackOutput
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum TrackIndexingPolicy {
+    #[display(fmt = "All tracks")]
+    CountAllTracks,
+    #[display(fmt = "Only tracks visible in TCP")]
+    FollowTcpVisibility,
+    #[display(fmt = "Only tracks visible in MCP")]
+    FollowMcpVisibility,
+}
+
+impl Default for TrackIndexingPolicy {
+    fn default() -> Self {
+        Self::CountAllTracks
     }
 }

@@ -32,13 +32,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
-    TrackDescriptorCommons,
+    TrackDescriptorCommons, TrackIndexingPolicy,
 };
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
-use reaper_medium::{BookmarkId, MasterTrackBehavior};
+use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackArea};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
@@ -289,9 +289,16 @@ impl TrackDescriptor {
             Dynamic {
                 expression,
                 commons,
+                indexing_policy,
             } => {
                 let evaluator = ExpressionEvaluator::compile(&expression)?;
-                (VirtualTrack::Dynamic(Box::new(evaluator)), commons)
+                (
+                    VirtualTrack::Dynamic {
+                        evaluator: Box::new(evaluator),
+                        indexing_policy: indexing_policy.unwrap_or_default(),
+                    },
+                    commons,
+                )
             }
             ById { id, commons } => {
                 let id = id.as_ref().ok_or("no ID given")?;
@@ -300,7 +307,17 @@ impl TrackDescriptor {
                     commons,
                 )
             }
-            ByIndex { index, commons } => (VirtualTrack::ByIndex(index), commons),
+            ByIndex {
+                index,
+                commons,
+                indexing_policy,
+            } => (
+                VirtualTrack::ByIndex {
+                    index,
+                    indexing_policy: indexing_policy.unwrap_or_default(),
+                },
+                commons,
+            ),
             ByName {
                 name,
                 allow_multiple,
@@ -895,7 +912,10 @@ pub enum VirtualTrack {
     /// Currently selected track.
     Selected { allow_multiple: bool },
     /// Position in project based on parameter values.
-    Dynamic(Box<ExpressionEvaluator>),
+    Dynamic {
+        evaluator: Box<ExpressionEvaluator>,
+        indexing_policy: TrackIndexingPolicy,
+    },
     /// Master track.
     Master,
     /// Particular.
@@ -906,7 +926,10 @@ pub enum VirtualTrack {
         allow_multiple: bool,
     },
     /// Particular.
-    ByIndex(u32),
+    ByIndex {
+        index: u32,
+        indexing_policy: TrackIndexingPolicy,
+    },
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
     ByIdOrName(Guid, WildMatch),
@@ -1144,7 +1167,7 @@ impl fmt::Display for VirtualTrack {
             }),
             Master => f.write_str("<Master>"),
             Instance => f.write_str("<Instance>"),
-            Dynamic(_) => f.write_str("<Dynamic>"),
+            Dynamic { .. } => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
             ByName {
@@ -1156,7 +1179,7 @@ impl fmt::Display for VirtualTrack {
                 wild_match,
                 if *allow_multiple { " (all)" } else { "" }
             ),
-            ByIndex(i) => write!(f, "#{}", i + 1),
+            ByIndex { index, .. } => write!(f, "#{}", index + 1),
             FromClipColumn { .. } => f.write_str("From a clip column"),
         }
     }
@@ -1281,9 +1304,13 @@ impl VirtualTrack {
                 .selected_tracks(MasterTrackBehavior::IncludeMasterTrack)
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
-            Dynamic(evaluator) => {
-                let index = Self::evaluate_to_track_index(evaluator, context, compartment)?;
-                let single = resolve_track_by_index(project, index)?;
+            Dynamic {
+                evaluator: expression_evaluator,
+                indexing_policy,
+            } => {
+                let index =
+                    Self::evaluate_to_track_index(expression_evaluator, context, compartment)?;
+                let single = resolve_track_by_index(project, index, *indexing_policy)?;
                 vec![single]
             }
             Master => vec![project
@@ -1331,8 +1358,11 @@ impl VirtualTrack {
             } => find_tracks_by_name(project, wild_match)
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
-            ByIndex(index) => {
-                let single = resolve_track_by_index(project, *index as i32)?;
+            ByIndex {
+                index,
+                indexing_policy,
+            } => {
+                let single = resolve_track_by_index(project, *index as i32, *indexing_policy)?;
                 vec![single]
             }
             FromClipColumn {
@@ -1367,7 +1397,7 @@ impl VirtualTrack {
     #[allow(clippy::match_like_matches_macro)]
     pub fn can_be_affected_by_parameters(&self) -> bool {
         match self {
-            VirtualTrack::Dynamic(_) => true,
+            VirtualTrack::Dynamic { .. } => true,
             VirtualTrack::FromClipColumn {
                 column: VirtualClipColumn::Dynamic(_),
                 ..
@@ -1381,8 +1411,12 @@ impl VirtualTrack {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Option<i32> {
-        if let VirtualTrack::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_track_index(evaluator, context, compartment).ok()?)
+        if let VirtualTrack::Dynamic {
+            evaluator: expression_evaluator,
+            ..
+        } = self
+        {
+            Some(Self::evaluate_to_track_index(expression_evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -1422,7 +1456,7 @@ impl VirtualTrack {
                         .project_or_current_project()
                         .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                         .as_ref()
-                        .map(get_track_index_for_expression);
+                        .map(|t| get_track_index_for_expression(t));
                     Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
                 }
                 "selected_track_indexes" => {
@@ -1463,7 +1497,20 @@ impl VirtualTrack {
     pub fn index(&self) -> Option<u32> {
         use VirtualTrack::*;
         match self {
-            ByIndex(i) => Some(*i),
+            ByIndex { index, .. } => Some(*index),
+            _ => None,
+        }
+    }
+
+    pub fn indexing_policy(&self) -> Option<TrackIndexingPolicy> {
+        use VirtualTrack::*;
+        match self {
+            ByIndex {
+                indexing_policy, ..
+            }
+            | Dynamic {
+                indexing_policy, ..
+            } => Some(*indexing_policy),
             _ => None,
         }
     }
@@ -1867,16 +1914,18 @@ fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxPara
     Ok(param)
 }
 
-fn resolve_track_by_index(project: Project, index: i32) -> Result<Track, TrackResolveError> {
+fn resolve_track_by_index(
+    project: Project,
+    index: i32,
+    policy: TrackIndexingPolicy,
+) -> Result<Track, TrackResolveError> {
     if index >= 0 {
         let i = index as u32;
-        project
-            .track_by_index(i)
-            .ok_or(TrackResolveError::TrackNotFound {
-                guid: None,
-                name: None,
-                index: Some(i),
-            })
+        get_track_by_index(project, i, policy).ok_or(TrackResolveError::TrackNotFound {
+            guid: None,
+            name: None,
+            index: Some(i),
+        })
     } else {
         project
             .master_track()
@@ -2089,4 +2138,32 @@ fn extract_first_arg_as_positive_integer(args: &[f64]) -> Option<u32> {
         return None;
     }
     Some(i.round() as u32)
+}
+
+pub fn get_track_by_index(
+    project: Project,
+    index: u32,
+    policy: TrackIndexingPolicy,
+) -> Option<Track> {
+    use TrackIndexingPolicy::*;
+    match policy {
+        CountAllTracks => project.track_by_index(index),
+        FollowTcpVisibility | FollowMcpVisibility => {
+            let track_area = get_track_area_of_indexing_policy(policy);
+            project
+                .tracks()
+                .filter(|t| t.is_shown(track_area))
+                .enumerate()
+                .find(|(i, _)| *i == index as usize)
+                .map(|(_, t)| t)
+        }
+    }
+}
+
+pub fn get_track_area_of_indexing_policy(policy: TrackIndexingPolicy) -> reaper_medium::TrackArea {
+    if policy == TrackIndexingPolicy::FollowTcpVisibility {
+        TrackArea::Tcp
+    } else {
+        TrackArea::Mcp
+    }
 }

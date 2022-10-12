@@ -347,6 +347,7 @@ fn convert_real_target(
                 data.scroll_mixer,
                 defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER,
             ),
+            track_indexing_policy: style.required_value(data.track_indexing_policy),
         }),
         Seek => T::Seek(SeekTarget {
             commons,
@@ -814,9 +815,10 @@ fn convert_track_descriptor(
                 defaults::TARGET_TRACK_SELECTED_ALLOW_MULTIPLE,
             ),
         },
-        Dynamic => T::Dynamic {
+        Dynamic | DynamicTcp | DynamicMcp => T::Dynamic {
             commons,
             expression: props.expression,
+            indexing_policy: style.optional_value(props.r#type.indexing_policy()),
         },
         Master => T::Master { commons },
         Instance => T::Instance { commons },
@@ -832,9 +834,10 @@ fn convert_track_descriptor(
                 defaults::TARGET_BY_NAME_ALLOW_MULTIPLE,
             ),
         },
-        ByIndex => T::ByIndex {
+        ByIndex | ByIndexTcp | ByIndexMcp => T::ByIndex {
             commons,
             index: props.index,
+            indexing_policy: style.optional_value(props.r#type.indexing_policy()),
         },
         FromClipColumn => T::FromClipColumn {
             commons,

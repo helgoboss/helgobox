@@ -27,7 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior, TrackToolAction,
+    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior,
+    TrackIndexingPolicy, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -434,6 +435,9 @@ impl MappingPanel {
                                                 view.invalidate_window_title();
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
+                                            }
+                                            P::TrackIndexingPolicy => {
+                                                view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingSnapshotTypeForLoad | P::MappingSnapshotTypeForTake | P::MappingSnapshotId => {
                                                 view.invalidate_target_line_2(initiator);
@@ -2772,6 +2776,13 @@ impl<'a> MutableMappingPanel<'a> {
                         dev_id,
                     )));
                 }
+                ReaperTargetType::SelectedTrack => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid track indexing policy");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTrackIndexingPolicy(v),
+                    ));
+                }
                 _ if self.mapping.target_model.supports_track() => {
                     let project = self
                         .session
@@ -3005,7 +3016,7 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 _ if self.mapping.target_model.supports_track() => {
                     match self.mapping.target_model.track_type() {
-                        VirtualTrackType::Dynamic => {
+                        t if t.is_dynamic() => {
                             let expression = control.text().unwrap_or_default();
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetTrackExpression(
@@ -3021,7 +3032,7 @@ impl<'a> MutableMappingPanel<'a> {
                                 Some(edit_control_id),
                             );
                         }
-                        VirtualTrackType::ByIndex => {
+                        t if t.is_by_index() => {
                             let index = parse_position_as_index(control);
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetTrackIndex(index)),
@@ -4152,6 +4163,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::NavigateWithinGroup => Some("Group"),
+                ReaperTargetType::SelectedTrack => Some("Scope"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4363,6 +4375,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
+                ReaperTargetType::SelectedTrack => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackIndexingPolicy::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.track_indexing_policy().into(),
+                        )
+                        .unwrap();
+                }
                 _ if self.target.supports_track() => {
                     if matches!(
                         self.target.track_type(),
@@ -4416,8 +4437,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ if self.target.supports_track() => {
                     control.show();
                     let text = match self.target.track_type() {
-                        VirtualTrackType::Dynamic => self.target.track_expression().to_owned(),
-                        VirtualTrackType::ByIndex => {
+                        t if t.is_dynamic() => self.target.track_expression().to_owned(),
+                        t if t.is_by_index() => {
                             let index = self.target.track_index();
                             (index + 1).to_string()
                         }
@@ -6892,9 +6913,7 @@ fn invalidate_target_line_2_expression_result(
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => {
-            if target.target_type().supports_track()
-                && target.track_type() == VirtualTrackType::Dynamic
-            {
+            if target.target_type().supports_track() && target.track_type().is_dynamic() {
                 target
                     .virtual_track()
                     .and_then(|t| t.calculated_track_index(context, compartment))

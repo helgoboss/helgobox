@@ -1,12 +1,14 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
-    selected_track_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_count_to_step_size, convert_unit_value_to_track_index, get_track_by_index,
+    get_track_name, selected_track_unit_value, track_count, track_index, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
+use realearn_api::persistence::TrackIndexingPolicy;
 use reaper_high::{ChangeEvent, FxChain, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 use std::borrow::Cow;
@@ -15,6 +17,7 @@ use std::borrow::Cow;
 pub struct UnresolvedSelectedTrackTarget {
     pub scroll_arrange_view: bool,
     pub scroll_mixer: bool,
+    pub indexing_policy: TrackIndexingPolicy,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedSelectedTrackTarget {
@@ -27,6 +30,7 @@ impl UnresolvedReaperTargetDef for UnresolvedSelectedTrackTarget {
             project: context.context().project_or_current_project(),
             scroll_arrange_view: self.scroll_arrange_view,
             scroll_mixer: self.scroll_mixer,
+            indexing_policy: self.indexing_policy,
         })])
     }
 }
@@ -36,14 +40,16 @@ pub struct SelectedTrackTarget {
     pub project: Project,
     pub scroll_arrange_view: bool,
     pub scroll_mixer: bool,
+    pub indexing_policy: TrackIndexingPolicy,
 }
 
 impl RealearnTarget for SelectedTrackTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<Master track>" is also a possible value.
+        let count = track_count(self.project, self.indexing_policy) + 1;
         (
             ControlType::AbsoluteDiscrete {
-                atomic_step_size: convert_count_to_step_size(self.project.track_count() + 1),
+                atomic_step_size: convert_count_to_step_size(count),
                 is_retriggerable: false,
             },
             TargetCharacter::Discrete,
@@ -71,14 +77,14 @@ impl RealearnTarget for SelectedTrackTarget {
         input: UnitValue,
         _: ControlContext,
     ) -> Result<u32, &'static str> {
-        let value = convert_unit_value_to_track_index(self.project, input)
+        let value = convert_unit_value_to_track_index(self.project, self.indexing_policy, input)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
-        match convert_unit_value_to_track_index(self.project, value) {
+        match convert_unit_value_to_track_index(self.project, self.indexing_policy, value) {
             None => "<Master track>".to_string(),
             Some(i) => (i + 1).to_string(),
         }
@@ -90,7 +96,9 @@ impl RealearnTarget for SelectedTrackTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let track_index = match value.to_absolute_value()? {
-            AbsoluteValue::Continuous(v) => convert_unit_value_to_track_index(self.project, v),
+            AbsoluteValue::Continuous(v) => {
+                convert_unit_value_to_track_index(self.project, self.indexing_policy, v)
+            }
             AbsoluteValue::Discrete(f) => {
                 if f.actual() == 0 {
                     None
@@ -101,9 +109,7 @@ impl RealearnTarget for SelectedTrackTarget {
         };
         let track = match track_index {
             None => self.project.master_track()?,
-            Some(i) => self
-                .project
-                .track_by_index(i)
+            Some(i) => get_track_by_index(self.project, i, self.indexing_policy)
                 .ok_or("track not available")?,
         };
         track.select_exclusively();
@@ -137,7 +143,10 @@ impl RealearnTarget for SelectedTrackTarget {
             CompoundChangeEvent::Reaper(ChangeEvent::TrackSelectedChanged(e))
                 if e.track.project() == self.project =>
             {
-                (true, Some(self.value_for(e.track.index())))
+                (
+                    true,
+                    Some(self.percentage_for(track_index(&e.track, self.indexing_policy))),
+                )
             }
             _ => (false, None),
         }
@@ -149,15 +158,21 @@ impl RealearnTarget for SelectedTrackTarget {
         _: ControlContext,
     ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
-        Ok(selected_track_unit_value(self.project, index))
+        Ok(selected_track_unit_value(
+            self.project,
+            self.indexing_policy,
+            index,
+        ))
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(get_track_name(&self.selected_track()?).into())
+        let name = get_track_name(&self.selected_track()?, self.indexing_policy);
+        Some(name.into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let index = self.selected_track()?.index()?;
+        let selected_track = self.selected_track()?;
+        let index = track_index(&selected_track, self.indexing_policy)?;
         Some(NumericValue::Discrete(index as i32 + 1))
     }
 
@@ -173,8 +188,8 @@ impl<'a> Target<'a> for SelectedTrackTarget {
         let track_index = self
             .project
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
-            .and_then(|t| t.index());
-        Some(self.value_for(track_index))
+            .and_then(|t| track_index(&t, self.indexing_policy));
+        Some(self.percentage_for(track_index))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -183,8 +198,8 @@ impl<'a> Target<'a> for SelectedTrackTarget {
 }
 
 impl SelectedTrackTarget {
-    fn value_for(&self, track_index: Option<u32>) -> AbsoluteValue {
-        percentage_for_track_within_project(self.project, track_index)
+    fn percentage_for(&self, track_index: Option<u32>) -> AbsoluteValue {
+        percentage_for_track_within_project(self.project, self.indexing_policy, track_index)
     }
 
     fn selected_track(&self) -> Option<Track> {
@@ -195,9 +210,10 @@ impl SelectedTrackTarget {
 
 pub fn percentage_for_track_within_project(
     project: Project,
+    policy: TrackIndexingPolicy,
     track_index: Option<u32>,
 ) -> AbsoluteValue {
-    let track_count = project.track_count();
+    let track_count = track_count(project, policy);
     // Because we count "<Master track>" as a possible value, this is equal.
     let max_value = track_count;
     let actual_value = track_index.map(|i| i + 1).unwrap_or(0);

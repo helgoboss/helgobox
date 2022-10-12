@@ -4,8 +4,8 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, Compartment,
-    DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
+    track_index, AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings,
+    Compartment, DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     QualifiedMappingId, RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope,
@@ -35,6 +35,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
+use realearn_api::persistence::TrackIndexingPolicy;
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
@@ -339,10 +340,11 @@ pub enum CompoundChangeEvent<'a> {
     ClipMatrix(&'a ClipMatrixEvent),
 }
 
-pub fn get_track_name(t: &Track) -> String {
+pub fn get_track_name(t: &Track, indexing_policy: TrackIndexingPolicy) -> String {
     if let Some(n) = t.name() {
         if n.to_str().is_empty() {
-            format!("Track {}", t.index().unwrap_or(0) + 1)
+            let track_index = track_index(t, indexing_policy);
+            format!("Track {}", track_index.unwrap_or(0) + 1)
         } else {
             n.into_string()
         }

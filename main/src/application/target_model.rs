@@ -62,7 +62,7 @@ use realearn_api::persistence::{
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
     MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, SeekBehavior,
-    TrackDescriptorCommons, TrackFxChain, TrackToolAction,
+    TrackDescriptorCommons, TrackFxChain, TrackIndexingPolicy, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -108,6 +108,7 @@ pub enum TargetCommand {
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
     SetGangBehavior(TrackGangBehavior),
+    SetTrackIndexingPolicy(TrackIndexingPolicy),
     SetFxToolAction(FxToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
@@ -203,6 +204,7 @@ pub enum TargetProp {
     TrackExclusivity,
     TrackToolAction,
     GangBehavior,
+    TrackIndexingPolicy,
     FxToolAction,
     TransportAction,
     AnyOnParameter,
@@ -406,6 +408,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetGangBehavior(v) => {
                 self.gang_behavior = v;
                 One(P::GangBehavior)
+            }
+            C::SetTrackIndexingPolicy(v) => {
+                self.track_indexing_policy = v;
+                One(P::TrackIndexingPolicy)
             }
             C::SetFxToolAction(v) => {
                 self.fx_tool_action = v;
@@ -655,6 +661,7 @@ pub struct TargetModel {
     clip_column_track_context: ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
     gang_behavior: TrackGangBehavior,
+    track_indexing_policy: TrackIndexingPolicy,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -851,6 +858,7 @@ impl Default for TargetModel {
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
             gang_behavior: Default::default(),
+            track_indexing_policy: Default::default(),
         }
     }
 }
@@ -934,6 +942,13 @@ impl TargetModel {
 
     pub fn fixed_gang_behavior(&self) -> TrackGangBehavior {
         self.gang_behavior.fixed(self.r#type.definition())
+    }
+
+    /// Attention. This is the track indexing policies for targets that cope with multiple
+    /// tracks, at the moment "Navigate within tracks" only. A track selector (`VirtualTrack`) can
+    /// have its own indexing policy.
+    pub fn track_indexing_policy(&self) -> TrackIndexingPolicy {
+        self.track_indexing_policy
     }
 
     pub fn param_type(&self) -> VirtualFxParameterType {
@@ -1385,7 +1400,7 @@ impl TargetModel {
             ByName | AllByName => {
                 self.track_name = track.name;
             }
-            ByIndex => {
+            ByIndex | ByIndexTcp | ByIndexMcp => {
                 self.track_index = track.index;
             }
             ByIdOrName => {
@@ -1396,7 +1411,7 @@ impl TargetModel {
                 self.clip_column = track.clip_column;
                 self.clip_column_track_context = track.clip_column_track_context;
             }
-            Instance | Selected | AllSelected | Dynamic | Master => {}
+            Instance | Selected | AllSelected | Master | Dynamic | DynamicTcp | DynamicMcp => {}
         }
         Some(Affected::Multiple)
     }
@@ -1708,13 +1723,19 @@ impl TargetModel {
                 wild_match: WildMatch::new(&self.track_name),
                 allow_multiple: true,
             },
-            ByIndex => VirtualTrack::ByIndex(self.track_index),
+            ByIndex | ByIndexTcp | ByIndexMcp => VirtualTrack::ByIndex {
+                index: self.track_index,
+                indexing_policy: self.track_type.indexing_policy().unwrap_or_default(),
+            },
             ByIdOrName => {
                 VirtualTrack::ByIdOrName(self.track_id?, WildMatch::new(&self.track_name))
             }
-            Dynamic => {
+            Dynamic | DynamicTcp | DynamicMcp => {
                 let evaluator = ExpressionEvaluator::compile(&self.track_expression).ok()?;
-                VirtualTrack::Dynamic(Box::new(evaluator))
+                VirtualTrack::Dynamic {
+                    evaluator: Box::new(evaluator),
+                    indexing_policy: self.track_type.indexing_policy().unwrap_or_default(),
+                }
             }
             FromClipColumn => VirtualTrack::FromClipColumn {
                 column: self.virtual_clip_column().ok()?,
@@ -1934,13 +1955,15 @@ impl TargetModel {
                 name: self.track_name.clone(),
                 allow_multiple: Some(true),
             },
-            ByIndex => TrackDescriptor::ByIndex {
+            ByIndex | ByIndexTcp | ByIndexMcp => TrackDescriptor::ByIndex {
                 commons,
                 index: self.track_index,
+                indexing_policy: self.track_type.indexing_policy(),
             },
-            Dynamic => TrackDescriptor::Dynamic {
+            Dynamic | DynamicTcp | DynamicMcp => TrackDescriptor::Dynamic {
                 commons,
                 expression: self.track_expression.clone(),
+                indexing_policy: self.track_type.indexing_policy(),
             },
             FromClipColumn => TrackDescriptor::FromClipColumn {
                 commons,
@@ -2287,6 +2310,7 @@ impl TargetModel {
                         UnresolvedReaperTarget::SelectedTrack(UnresolvedSelectedTrackTarget {
                             scroll_arrange_view: self.scroll_arrange_view,
                             scroll_mixer: self.scroll_mixer,
+                            indexing_policy: self.track_indexing_policy,
                         })
                     }
                     FxNavigate => UnresolvedReaperTarget::FxNavigate(UnresolvedFxNavigateTarget {
@@ -3313,7 +3337,10 @@ fn virtualize_track(
         VirtualTrack::Master
     } else if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
         // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
-        VirtualTrack::ByIndex(track.index().expect("impossible"))
+        VirtualTrack::ByIndex {
+            index: track.index().expect("impossible"),
+            indexing_policy: TrackIndexingPolicy::CountAllTracks,
+        }
     } else {
         VirtualTrack::ById(*track.guid())
     }
@@ -3386,6 +3413,10 @@ pub enum VirtualTrackType {
     AllSelected,
     #[display(fmt = "<Dynamic>")]
     Dynamic,
+    #[display(fmt = "<Dynamic (TCP)>")]
+    DynamicTcp,
+    #[display(fmt = "<Dynamic (MCP)>")]
+    DynamicMcp,
     #[display(fmt = "<Master>")]
     Master,
     #[display(fmt = "<Instance>")]
@@ -3398,6 +3429,10 @@ pub enum VirtualTrackType {
     AllByName,
     #[display(fmt = "By position")]
     ByIndex,
+    #[display(fmt = "By TCP position")]
+    ByIndexTcp,
+    #[display(fmt = "By MCP position")]
+    ByIndexMcp,
     #[display(fmt = "By ID or name")]
     ByIdOrName,
     #[display(fmt = "From clip column")]
@@ -3505,7 +3540,7 @@ impl VirtualTrackType {
                     Self::Selected
                 }
             }
-            Dynamic(_) => Self::Dynamic,
+            Dynamic { .. } => Self::Dynamic,
             Master => Self::Master,
             Instance => Self::Instance,
             ByIdOrName(_, _) => Self::ByIdOrName,
@@ -3517,8 +3552,26 @@ impl VirtualTrackType {
                     Self::ByName
                 }
             }
-            ByIndex(_) => Self::ByIndex,
+            ByIndex { .. } => Self::ByIndex,
             FromClipColumn { .. } => Self::FromClipColumn,
+        }
+    }
+
+    pub fn is_dynamic(&self) -> bool {
+        matches!(self, Self::Dynamic | Self::DynamicTcp | Self::DynamicMcp)
+    }
+
+    pub fn is_by_index(&self) -> bool {
+        matches!(self, Self::ByIndex | Self::ByIndexTcp | Self::ByIndexMcp)
+    }
+
+    pub fn indexing_policy(&self) -> Option<TrackIndexingPolicy> {
+        use VirtualTrackType::*;
+        match self {
+            ByIndex | Dynamic => Some(TrackIndexingPolicy::CountAllTracks),
+            ByIndexTcp | DynamicTcp => Some(TrackIndexingPolicy::FollowTcpVisibility),
+            ByIndexMcp | DynamicMcp => Some(TrackIndexingPolicy::FollowMcpVisibility),
+            _ => None,
         }
     }
 

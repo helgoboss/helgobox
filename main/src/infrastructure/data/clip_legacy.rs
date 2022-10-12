@@ -114,7 +114,7 @@ fn determine_legacy_clip_track(
                         LegacyClipOutput::TrackByName(prop_values.name)
                     },
                     // We didn't have this before.
-                    FromClipColumn => return None
+                    FromClipColumn | ByIndexTcp | ByIndexMcp | DynamicTcp | DynamicMcp=> return None
                 };
                 Some(t)
             } else {

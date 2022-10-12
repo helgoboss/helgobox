@@ -5,6 +5,7 @@ use crate::domain::{
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{PropValue, Target};
+use realearn_api::persistence::TrackIndexingPolicy;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
 use strum_macros::EnumString;
@@ -396,9 +397,11 @@ impl TargetProp for TargetTrackNameProp {
     }
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
-        Some(PropValue::Text(
-            get_track_name(args.object.target.track()?).into(),
-        ))
+        let name = get_track_name(
+            args.object.target.track()?,
+            TrackIndexingPolicy::CountAllTracks,
+        );
+        Some(PropValue::Text(name.into()))
     }
 }
 

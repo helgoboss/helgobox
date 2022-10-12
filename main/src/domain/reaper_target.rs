@@ -23,26 +23,26 @@ use helgoboss_learn::{
 };
 use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior};
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackIndexingPolicy};
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget, Caller,
-    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, EnigoMouseTarget,
-    FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
-    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget,
-    OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
-    RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
-    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TakeMappingSnapshotTarget, TargetTypeDef,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
-    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    get_track_area_of_indexing_policy, handle_exclusivity, ActionTarget, AllTrackFxEnableTarget,
+    AutomationModeOverrideTarget, Caller, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
+    ClipRowTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
+    DummyTarget, EnigoMouseTarget, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
+    FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget,
+    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
+    RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
+    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
@@ -794,8 +794,12 @@ pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u
     convert_unit_to_discrete_value_with_none(value, fx.preset_index_and_count().count)
 }
 
-pub fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Option<u32> {
-    convert_unit_to_discrete_value_with_none(value, project.track_count())
+pub fn convert_unit_value_to_track_index(
+    project: Project,
+    policy: TrackIndexingPolicy,
+    value: UnitValue,
+) -> Option<u32> {
+    convert_unit_to_discrete_value_with_none(value, track_count(project, policy))
 }
 
 pub fn convert_unit_value_to_fx_index(fx_chain: &FxChain, value: UnitValue) -> Option<u32> {
@@ -834,8 +838,44 @@ pub fn convert_discrete_to_unit_value(value: u32, count: u32) -> UnitValue {
     UnitValue::new_clamped(value as f64 / (count - 1) as f64)
 }
 
-pub fn selected_track_unit_value(project: Project, index: Option<u32>) -> UnitValue {
-    convert_discrete_to_unit_value_with_none(index, project.track_count())
+pub fn track_count(project: Project, policy: TrackIndexingPolicy) -> u32 {
+    use TrackIndexingPolicy::*;
+    match policy {
+        CountAllTracks => project.track_count(),
+        FollowTcpVisibility | FollowMcpVisibility => {
+            let track_area = get_track_area_of_indexing_policy(policy);
+            project.tracks().filter(|t| t.is_shown(track_area)).count() as _
+        }
+    }
+}
+
+pub fn track_index(track: &Track, policy: TrackIndexingPolicy) -> Option<u32> {
+    let global_index = track.index()?;
+    use TrackIndexingPolicy::*;
+    match policy {
+        CountAllTracks => Some(global_index),
+        FollowTcpVisibility | FollowMcpVisibility => {
+            let track_area = get_track_area_of_indexing_policy(policy);
+            track
+                .project()
+                .tracks()
+                // Global counting (counts all tracks)
+                .enumerate()
+                .filter(|(_, t)| t.is_shown(track_area))
+                // Local counting (counts only visible tracks)
+                .enumerate()
+                .find(|(_, (global_i, _))| *global_i == global_index as usize)
+                .map(|(local_i, _)| local_i as u32)
+        }
+    }
+}
+
+pub fn selected_track_unit_value(
+    project: Project,
+    policy: TrackIndexingPolicy,
+    index: Option<u32>,
+) -> UnitValue {
+    convert_discrete_to_unit_value_with_none(index, track_count(project, policy))
 }
 
 pub fn shown_fx_unit_value(fx_chain: &FxChain, index: Option<u32>) -> UnitValue {
