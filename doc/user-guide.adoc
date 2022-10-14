@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-10-09 (v2.14.0-pre.6)`
+|Last update of text: |`2022-10-14 (v2.14.0-pre.7)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1274,6 +1274,7 @@ At the bottom you can see:
 - The session ID of this this ReaLearn instance.
 - Tags assigned to this ReaLearn instance.
 - Information about the current instance track and instance FX.
+- Information whether control and/or feedback is currently inactive instance-wide.
 - Information about what version of ReaLearn you have.
 
 ===== Instance data...
@@ -1487,8 +1488,7 @@ This is like <<global-fx-to-preset-links>> but saves the links as part of this R
 
 ==== Mapping row
 
-The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_. A mapping is considered as
-_on_ only if the following is true:
+The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_. A mapping is considered as _on_ only if the following is true:
 
 . The mapping is complete, that is, both source and target are completely specified.
 . The mapping is enabled as a whole.
@@ -2535,17 +2535,22 @@ Please note that it's
  _not possible_ with this setting to create a ReaLearn preset that is reusable among different projects. Because a
  track ID is globally unique, even across projects. That also means it doesn't make sense to use this setting in a ReaLearn monitoring FX instance.
 
+[#by-position]
 ====== By position
 
-This is the most straightforward selector. It lets you refer to a track by its
- position in the track list. This is great if you want to build a preset that you are going to reuse
- among multiple projects.
+This is the most straightforward selector. It lets you refer to a track by its position in the track list. This is great if you want to build a preset that you are going to reuse among multiple projects.
 
-However, this selector has the disadvantage that things fall apart if you reorder, insert
- or delete tracks. This is why it's not the default.
+However, this selector has the disadvantage that things fall apart if you reorder, insert or delete tracks. This is why it's not the default.
 
-Next to the dropdown you will find a text field. Here you should enter the position as
- number, starting with number `1`.
+Next to the dropdown you will find a text field. Here you should enter the position as number, starting with number `1`.
+
+====== By TCP position
+
+Like <<by-position>> but just considers tracks that are visible in the track control panel.
+
+====== By MCP position
+
+Like <<by-position>> but just considers tracks that are visible in the mixer control panel.
 
 ====== By name
 
@@ -2597,6 +2602,12 @@ _Deprecated_: Recent ReaLearn versions offer the `p` array instead. Better use t
 | selected_track_index | Integer >= -1 | Track selectors |
 Resolves to the zero-based index of the first currently selected track within the containing project.
 If no track is selected, this resolves to `none`. If the master track is selected, `-1`.
+
+| selected_track_tcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the track control panel.
+
+| selected_track_mcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the mixer control panel.
 
 | selected_track_indexes | Array of integers >= -1 | Track selectors |
 Lets you access the indexes of multiple selected tracks.
@@ -2653,6 +2664,13 @@ controlling that parameter.
  to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each. "Parameter 2" will select the track
  number within the bank. You see, this is very flexible.
 
+====== Dynamic (TCP)
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
+
+====== Dynamic (MCP)
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
 
 
 ===== Common elements and selectors for track targets
@@ -2961,6 +2979,12 @@ Invokes a transport-related action.
 Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
 
 * *Scroll TCP* and *Scroll mixer*: See <<track-selectunselect,Track: Select/unselect>> target.
+* *Scope:* Decides which tracks are considered and how.
+** *All tracks:* Considers all tracks even those which are hidden.
+** *Only tracks visible in TCP:* Considers only those tracks which are visible in the track control panel.
+** *Only tracks visible in TCP (allow 2 selections):* Like "Only tracks visible in TCP" but makes it possible to have 2 selections. One for the MCP and one for the TCP. These selections can be moved independently. This can make sense if you have a bunch of tracks that you only show in the TCP and another separate bunch of tracks that you only show in the MCP.
+** *Only tracks visible in MCP:* Considers only those tracks which are visible in the mixer control panel.
+** *Only tracks visible in MCP (allow 2 selections):* See above.
 
 [#seek-target]
 ====== Project: Seek
