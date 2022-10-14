@@ -1422,54 +1422,65 @@ impl VirtualTrack {
     ) -> Result<i32, TrackResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
-                "this_track_index" => {
-                    let track = context.context().track()?;
-                    Some(get_track_index_for_expression(track))
-                }
-                "instance_track_index" => {
-                    let index = context
-                        .control_context
-                        .instance_state
-                        // We do this in order to prevent infinite recursion in case the
-                        // instance FX also uses "instance_track_index".
-                        .try_borrow_mut()
-                        .ok()?
-                        .instance_track_descriptor()
-                        .track
-                        .resolve(context, compartment)
-                        .ok()
-                        .and_then(|tracks| tracks.into_iter().next())
-                        .map(|track| get_track_index_for_expression(&track));
-                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
-                }
-                "selected_track_index" => {
-                    let index = context
-                        .context()
-                        .project_or_current_project()
-                        .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-                        .as_ref()
-                        .map(get_track_index_for_expression);
-                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
-                }
-                "selected_track_indexes" => {
-                    let i = extract_first_arg_as_positive_integer(args)?;
-                    let reaper = Reaper::get().medium_reaper();
-                    let project = context.context().project_or_current_project();
-                    let raw_track = reaper.get_selected_track_2(
-                        project.context(),
-                        i,
-                        MasterTrackBehavior::IncludeMasterTrack,
-                    );
-                    match raw_track {
-                        None => Some(EXPRESSION_NONE_VALUE),
-                        Some(raw_track) => {
-                            let t = Track::new(raw_track, Some(project.raw()));
-                            Some(get_track_index_for_expression(&t))
+            .evaluate_with_params_and_vars(compartment_params, |name, args| {
+                match name {
+                    "this_track_index" => {
+                        let track = context.context().track()?;
+                        Some(get_track_index_for_expression(track))
+                    }
+                    "instance_track_index" => {
+                        let index = context
+                            .control_context
+                            .instance_state
+                            // We do this in order to prevent infinite recursion in case the
+                            // instance FX also uses "instance_track_index".
+                            .try_borrow_mut()
+                            .ok()?
+                            .instance_track_descriptor()
+                            .track
+                            .resolve(context, compartment)
+                            .ok()
+                            .and_then(|tracks| tracks.into_iter().next())
+                            .map(|track| get_track_index_for_expression(&track));
+                        Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                    }
+                    "selected_track_index"
+                    | "selected_track_tcp_index"
+                    | "selected_track_mcp_index" => {
+                        let scope = match name {
+                            "selected_track_index" => TrackScope::AllTracks,
+                            "selected_track_tcp_index" => TrackScope::TracksVisibleInTcp,
+                            "selected_track_mcp_index" => TrackScope::TracksVisibleInMcp,
+                            _ => unreachable!(),
+                        };
+                        let project = context.context().project_or_current_project();
+                        let selected_track = first_selected_track_scoped(
+                            project,
+                            scope,
+                            MasterTrackBehavior::IncludeMasterTrack,
+                        );
+                        let index = selected_track.as_ref().map(get_track_index_for_expression);
+                        Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                    }
+                    "selected_track_indexes" => {
+                        let i = extract_first_arg_as_positive_integer(args)?;
+                        let reaper = Reaper::get().medium_reaper();
+                        let project = context.context().project_or_current_project();
+                        let raw_track = reaper.get_selected_track_2(
+                            project.context(),
+                            i,
+                            MasterTrackBehavior::IncludeMasterTrack,
+                        );
+                        match raw_track {
+                            None => Some(EXPRESSION_NONE_VALUE),
+                            Some(raw_track) => {
+                                let t = Track::new(raw_track, Some(project.raw()));
+                                Some(get_track_index_for_expression(&t))
+                            }
                         }
                     }
+                    _ => None,
                 }
-                _ => None,
             })
             .map_err(|_| TrackResolveError::ExpressionFailed)?
             .round() as i32;
@@ -2149,5 +2160,22 @@ pub fn get_reaper_track_area_of_scope(scope: TrackScope) -> reaper_medium::Track
         TrackArea::Tcp
     } else {
         TrackArea::Mcp
+    }
+}
+
+fn first_selected_track_scoped(
+    project: Project,
+    scope: TrackScope,
+    master_track_behavior: MasterTrackBehavior,
+) -> Option<Track> {
+    use TrackScope::*;
+    match scope {
+        AllTracks => project.first_selected_track(master_track_behavior),
+        TracksVisibleInTcp | TracksVisibleInMcp => {
+            let track_area = get_reaper_track_area_of_scope(scope);
+            project
+                .selected_tracks(master_track_behavior)
+                .find(|t| t.is_shown(track_area))
+        }
     }
 }
