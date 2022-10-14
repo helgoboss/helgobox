@@ -30,8 +30,8 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    MouseAction, SeekBehavior, TargetValue, TrackIndexingPolicy, TrackToolAction,
+    CycleThroughTracksMode, FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
+    MonitoringMode, MouseAction, SeekBehavior, TargetValue, TrackScope, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -242,7 +242,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub track_indexing_policy: TrackIndexingPolicy,
+    pub cycle_through_tracks_mode: CycleThroughTracksMode,
     // FX Open and FX Navigate target
     #[serde(
         default,
@@ -530,7 +530,7 @@ impl TargetModelData {
             track_automation_mode: model.automation_mode(),
             track_monitoring_mode: model.monitoring_mode(),
             automation_mode_override_type: model.automation_mode_override_type(),
-            track_indexing_policy: model.track_indexing_policy(),
+            cycle_through_tracks_mode: model.cycle_through_tracks_mode(),
             fx_display_type: model.fx_display_type(),
             scroll_arrange_view: model.scroll_arrange_view(),
             scroll_mixer: model.scroll_mixer(),
@@ -680,7 +680,7 @@ impl TargetModelData {
             }
         };
         model.change(C::SetGangBehavior(gang_behavior));
-        model.change(C::SetTrackIndexingPolicy(self.track_indexing_policy));
+        model.change(C::SetCycleThroughTracksMode(self.cycle_through_tracks_mode));
         model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
@@ -1370,7 +1370,7 @@ pub fn deserialize_track(
             ..
         } if g == "index_tcp" => TrackPropValues::from_virtual_track(VirtualTrack::ByIndex {
             index: *i,
-            indexing_policy: TrackIndexingPolicy::FollowTcpVisibility,
+            scope: TrackScope::TracksVisibleInTcp,
         }),
         TrackData {
             guid: Some(g),
@@ -1378,7 +1378,7 @@ pub fn deserialize_track(
             ..
         } if g == "index_mcp" => TrackPropValues::from_virtual_track(VirtualTrack::ByIndex {
             index: *i,
-            indexing_policy: TrackIndexingPolicy::FollowMcpVisibility,
+            scope: TrackScope::TracksVisibleInMcp,
         }),
         TrackData {
             guid: Some(g),

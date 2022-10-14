@@ -15,14 +15,13 @@ use crate::domain::{
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
-    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget,
+    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget,
+    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -32,7 +31,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipSlotCoordinates;
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
-    TrackDescriptorCommons, TrackIndexingPolicy,
+    TrackDescriptorCommons, TrackScope,
 };
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
@@ -85,7 +84,7 @@ pub enum UnresolvedReaperTarget {
     FxOnline(UnresolvedFxOnlineTarget),
     FxOpen(UnresolvedFxOpenTarget),
     FxPreset(UnresolvedFxPresetTarget),
-    SelectedTrack(UnresolvedSelectedTrackTarget),
+    SelectedTrack(UnresolvededCycleThroughTracksTarget),
     FxNavigate(UnresolvedFxNavigateTarget),
     AllTrackFxEnable(UnresolvedAllTrackFxEnableTarget),
     Transport(UnresolvedTransportTarget),
@@ -289,13 +288,13 @@ impl TrackDescriptor {
             Dynamic {
                 expression,
                 commons,
-                indexing_policy,
+                scope,
             } => {
                 let evaluator = ExpressionEvaluator::compile(&expression)?;
                 (
                     VirtualTrack::Dynamic {
                         evaluator: Box::new(evaluator),
-                        indexing_policy: indexing_policy.unwrap_or_default(),
+                        scope: scope.unwrap_or_default(),
                     },
                     commons,
                 )
@@ -310,11 +309,11 @@ impl TrackDescriptor {
             ByIndex {
                 index,
                 commons,
-                indexing_policy,
+                scope,
             } => (
                 VirtualTrack::ByIndex {
                     index,
-                    indexing_policy: indexing_policy.unwrap_or_default(),
+                    scope: scope.unwrap_or_default(),
                 },
                 commons,
             ),
@@ -914,7 +913,7 @@ pub enum VirtualTrack {
     /// Position in project based on parameter values.
     Dynamic {
         evaluator: Box<ExpressionEvaluator>,
-        indexing_policy: TrackIndexingPolicy,
+        scope: TrackScope,
     },
     /// Master track.
     Master,
@@ -926,10 +925,7 @@ pub enum VirtualTrack {
         allow_multiple: bool,
     },
     /// Particular.
-    ByIndex {
-        index: u32,
-        indexing_policy: TrackIndexingPolicy,
-    },
+    ByIndex { index: u32, scope: TrackScope },
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
     ByIdOrName(Guid, WildMatch),
@@ -1306,11 +1302,11 @@ impl VirtualTrack {
                 .collect(),
             Dynamic {
                 evaluator: expression_evaluator,
-                indexing_policy,
+                scope,
             } => {
                 let index =
                     Self::evaluate_to_track_index(expression_evaluator, context, compartment)?;
-                let single = resolve_track_by_index(project, index, *indexing_policy)?;
+                let single = resolve_track_by_index(project, index, *scope)?;
                 vec![single]
             }
             Master => vec![project
@@ -1358,11 +1354,8 @@ impl VirtualTrack {
             } => find_tracks_by_name(project, wild_match)
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
-            ByIndex {
-                index,
-                indexing_policy,
-            } => {
-                let single = resolve_track_by_index(project, *index as i32, *indexing_policy)?;
+            ByIndex { index, scope } => {
+                let single = resolve_track_by_index(project, *index as i32, *scope)?;
                 vec![single]
             }
             FromClipColumn {
@@ -1456,7 +1449,7 @@ impl VirtualTrack {
                         .project_or_current_project()
                         .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                         .as_ref()
-                        .map(|t| get_track_index_for_expression(t));
+                        .map(get_track_index_for_expression);
                     Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
                 }
                 "selected_track_indexes" => {
@@ -1502,15 +1495,10 @@ impl VirtualTrack {
         }
     }
 
-    pub fn indexing_policy(&self) -> Option<TrackIndexingPolicy> {
+    pub fn scope(&self) -> Option<TrackScope> {
         use VirtualTrack::*;
         match self {
-            ByIndex {
-                indexing_policy, ..
-            }
-            | Dynamic {
-                indexing_policy, ..
-            } => Some(*indexing_policy),
+            ByIndex { scope, .. } | Dynamic { scope, .. } => Some(*scope),
             _ => None,
         }
     }
@@ -1917,11 +1905,11 @@ fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxPara
 fn resolve_track_by_index(
     project: Project,
     index: i32,
-    policy: TrackIndexingPolicy,
+    scope: TrackScope,
 ) -> Result<Track, TrackResolveError> {
     if index >= 0 {
         let i = index as u32;
-        get_track_by_index(project, i, policy).ok_or(TrackResolveError::TrackNotFound {
+        get_track_by_scoped_index(project, i, scope).ok_or(TrackResolveError::TrackNotFound {
             guid: None,
             name: None,
             index: Some(i),
@@ -2140,16 +2128,12 @@ fn extract_first_arg_as_positive_integer(args: &[f64]) -> Option<u32> {
     Some(i.round() as u32)
 }
 
-pub fn get_track_by_index(
-    project: Project,
-    index: u32,
-    policy: TrackIndexingPolicy,
-) -> Option<Track> {
-    use TrackIndexingPolicy::*;
-    match policy {
-        CountAllTracks => project.track_by_index(index),
-        FollowTcpVisibility | FollowMcpVisibility => {
-            let track_area = get_track_area_of_indexing_policy(policy);
+pub fn get_track_by_scoped_index(project: Project, index: u32, scope: TrackScope) -> Option<Track> {
+    use TrackScope::*;
+    match scope {
+        AllTracks => project.track_by_index(index),
+        TracksVisibleInTcp | TracksVisibleInMcp => {
+            let track_area = get_reaper_track_area_of_scope(scope);
             project
                 .tracks()
                 .filter(|t| t.is_shown(track_area))
@@ -2160,8 +2144,8 @@ pub fn get_track_by_index(
     }
 }
 
-pub fn get_track_area_of_indexing_policy(policy: TrackIndexingPolicy) -> reaper_medium::TrackArea {
-    if policy == TrackIndexingPolicy::FollowTcpVisibility {
+pub fn get_reaper_track_area_of_scope(scope: TrackScope) -> reaper_medium::TrackArea {
+    if scope == TrackScope::TracksVisibleInTcp {
         TrackArea::Tcp
     } else {
         TrackArea::Mcp

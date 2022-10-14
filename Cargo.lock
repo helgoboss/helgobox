@@ -82,15 +82,6 @@ dependencies = [
 
 [[package]]
 name = "ansi_term"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
@@ -761,11 +752,11 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.33.3"
+version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
+checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term 0.11.0",
+ "ansi_term",
  "atty",
  "bitflags",
  "strsim 0.8.0",
@@ -3777,7 +3768,7 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
 name = "realearn"
-version = "2.14.0-pre.6"
+version = "2.14.0-pre.7"
 dependencies = [
  "approx",
  "arboard",
@@ -3923,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#fe40e542c95fdb56ba09e5eb801339443ab39197"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3950,7 +3941,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#fe40e542c95fdb56ba09e5eb801339443ab39197"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "c_str_macro",
  "cc 1.0.73 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3964,7 +3955,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#fe40e542c95fdb56ba09e5eb801339443ab39197"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.21",
@@ -3974,7 +3965,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#fe40e542c95fdb56ba09e5eb801339443ab39197"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3992,7 +3983,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#fe40e542c95fdb56ba09e5eb801339443ab39197"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -5130,7 +5121,7 @@ version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e0ab7bdc962035a87fba73f3acca9b8a8d0034c2e6f60b84aeaaddddc155dce"
 dependencies = [
- "ansi_term 0.12.1",
+ "ansi_term",
  "lazy_static",
  "matchers",
  "regex",

@@ -23,26 +23,26 @@ use helgoboss_learn::{
 };
 use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackIndexingPolicy};
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackScope};
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    get_track_area_of_indexing_policy, handle_exclusivity, ActionTarget, AllTrackFxEnableTarget,
+    get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AllTrackFxEnableTarget,
     AutomationModeOverrideTarget, Caller, ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget,
     ClipRowTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
-    DummyTarget, EnigoMouseTarget, FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget,
-    FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget,
-    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    CycleThroughTracksTarget, DummyTarget, EnigoMouseTarget, FxEnableTarget, FxNavigateTarget,
+    FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
     MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget, RealTimeClipColumnTarget,
     RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
     RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
-    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
@@ -121,7 +121,7 @@ pub enum ReaperTarget {
     FxOnline(FxOnlineTarget),
     FxOpen(FxOpenTarget),
     FxPreset(FxPresetTarget),
-    SelectedTrack(SelectedTrackTarget),
+    CycleThroughTracks(CycleThroughTracksTarget),
     FxNavigate(FxNavigateTarget),
     AllTrackFxEnable(AllTrackFxEnableTarget),
     Transport(TransportTarget),
@@ -632,7 +632,7 @@ impl<'a> Target<'a> for ReaperTarget {
             FxPreset(t) => t.current_value(context),
             LoadFxSnapshot(t) => t.current_value(context),
             // Discrete
-            SelectedTrack(t) => t.current_value(context),
+            CycleThroughTracks(t) => t.current_value(context),
             // Discrete
             FxNavigate(t) => t.current_value(context),
             AllTrackFxEnable(t) => t.current_value(context),
@@ -794,19 +794,11 @@ pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u
     convert_unit_to_discrete_value_with_none(value, fx.preset_index_and_count().count)
 }
 
-pub fn convert_unit_value_to_track_index(
-    project: Project,
-    policy: TrackIndexingPolicy,
-    value: UnitValue,
-) -> Option<u32> {
-    convert_unit_to_discrete_value_with_none(value, track_count(project, policy))
-}
-
 pub fn convert_unit_value_to_fx_index(fx_chain: &FxChain, value: UnitValue) -> Option<u32> {
     convert_unit_to_discrete_value_with_none(value, fx_chain.fx_count())
 }
 
-fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Option<u32> {
+pub fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Option<u32> {
     // Example: <no preset> + 4 presets
     if value.is_zero() {
         // 0.00 => <no preset>
@@ -838,24 +830,13 @@ pub fn convert_discrete_to_unit_value(value: u32, count: u32) -> UnitValue {
     UnitValue::new_clamped(value as f64 / (count - 1) as f64)
 }
 
-pub fn track_count(project: Project, policy: TrackIndexingPolicy) -> u32 {
-    use TrackIndexingPolicy::*;
-    match policy {
-        CountAllTracks => project.track_count(),
-        FollowTcpVisibility | FollowMcpVisibility => {
-            let track_area = get_track_area_of_indexing_policy(policy);
-            project.tracks().filter(|t| t.is_shown(track_area)).count() as _
-        }
-    }
-}
-
-pub fn track_index(track: &Track, policy: TrackIndexingPolicy) -> Option<u32> {
+pub fn scoped_track_index(track: &Track, scope: TrackScope) -> Option<u32> {
     let global_index = track.index()?;
-    use TrackIndexingPolicy::*;
-    match policy {
-        CountAllTracks => Some(global_index),
-        FollowTcpVisibility | FollowMcpVisibility => {
-            let track_area = get_track_area_of_indexing_policy(policy);
+    use TrackScope::*;
+    match scope {
+        AllTracks => Some(global_index),
+        TracksVisibleInTcp | TracksVisibleInMcp => {
+            let track_area = get_reaper_track_area_of_scope(scope);
             track
                 .project()
                 .tracks()
@@ -870,14 +851,6 @@ pub fn track_index(track: &Track, policy: TrackIndexingPolicy) -> Option<u32> {
     }
 }
 
-pub fn selected_track_unit_value(
-    project: Project,
-    policy: TrackIndexingPolicy,
-    index: Option<u32>,
-) -> UnitValue {
-    convert_discrete_to_unit_value_with_none(index, track_count(project, policy))
-}
-
 pub fn shown_fx_unit_value(fx_chain: &FxChain, index: Option<u32>) -> UnitValue {
     convert_discrete_to_unit_value_with_none(index, fx_chain.fx_count())
 }
@@ -886,7 +859,7 @@ pub fn fx_preset_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
     convert_discrete_to_unit_value_with_none(index, fx.preset_index_and_count().count)
 }
 
-fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
+pub fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
     // Example: <no preset> + 4 presets
     match value {
         // <no preset> => 0.00

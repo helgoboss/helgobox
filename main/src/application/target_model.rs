@@ -39,16 +39,16 @@ use crate::domain::{
     UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
     UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
     UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
-    UnresolvedSelectedTrackTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
-    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
-    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
-    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
-    VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake,
-    VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget, VirtualChainFx,
+    VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
+    VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -60,9 +60,9 @@ use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, SeekBehavior,
-    TrackDescriptorCommons, TrackFxChain, TrackIndexingPolicy, TrackToolAction,
+    CycleThroughTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    MouseButton, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -108,7 +108,7 @@ pub enum TargetCommand {
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
     SetGangBehavior(TrackGangBehavior),
-    SetTrackIndexingPolicy(TrackIndexingPolicy),
+    SetCycleThroughTracksMode(CycleThroughTracksMode),
     SetFxToolAction(FxToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
@@ -204,7 +204,7 @@ pub enum TargetProp {
     TrackExclusivity,
     TrackToolAction,
     GangBehavior,
-    TrackIndexingPolicy,
+    CycleThroughTracksMode,
     FxToolAction,
     TransportAction,
     AnyOnParameter,
@@ -409,9 +409,9 @@ impl<'a> Change<'a> for TargetModel {
                 self.gang_behavior = v;
                 One(P::GangBehavior)
             }
-            C::SetTrackIndexingPolicy(v) => {
-                self.track_indexing_policy = v;
-                One(P::TrackIndexingPolicy)
+            C::SetCycleThroughTracksMode(v) => {
+                self.cycle_through_tracks_mode = v;
+                One(P::CycleThroughTracksMode)
             }
             C::SetFxToolAction(v) => {
                 self.fx_tool_action = v;
@@ -661,7 +661,7 @@ pub struct TargetModel {
     clip_column_track_context: ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
     gang_behavior: TrackGangBehavior,
-    track_indexing_policy: TrackIndexingPolicy,
+    cycle_through_tracks_mode: CycleThroughTracksMode,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -858,7 +858,7 @@ impl Default for TargetModel {
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
             gang_behavior: Default::default(),
-            track_indexing_policy: Default::default(),
+            cycle_through_tracks_mode: Default::default(),
         }
     }
 }
@@ -944,11 +944,8 @@ impl TargetModel {
         self.gang_behavior.fixed(self.r#type.definition())
     }
 
-    /// Attention. This is the track indexing policies for targets that cope with multiple
-    /// tracks, at the moment "Navigate within tracks" only. A track selector (`VirtualTrack`) can
-    /// have its own indexing policy.
-    pub fn track_indexing_policy(&self) -> TrackIndexingPolicy {
-        self.track_indexing_policy
+    pub fn cycle_through_tracks_mode(&self) -> CycleThroughTracksMode {
+        self.cycle_through_tracks_mode
     }
 
     pub fn param_type(&self) -> VirtualFxParameterType {
@@ -1725,7 +1722,7 @@ impl TargetModel {
             },
             ByIndex | ByIndexTcp | ByIndexMcp => VirtualTrack::ByIndex {
                 index: self.track_index,
-                indexing_policy: self.track_type.indexing_policy().unwrap_or_default(),
+                scope: self.track_type.virtual_track_scope().unwrap_or_default(),
             },
             ByIdOrName => {
                 VirtualTrack::ByIdOrName(self.track_id?, WildMatch::new(&self.track_name))
@@ -1734,7 +1731,7 @@ impl TargetModel {
                 let evaluator = ExpressionEvaluator::compile(&self.track_expression).ok()?;
                 VirtualTrack::Dynamic {
                     evaluator: Box::new(evaluator),
-                    indexing_policy: self.track_type.indexing_policy().unwrap_or_default(),
+                    scope: self.track_type.virtual_track_scope().unwrap_or_default(),
                 }
             }
             FromClipColumn => VirtualTrack::FromClipColumn {
@@ -1958,12 +1955,12 @@ impl TargetModel {
             ByIndex | ByIndexTcp | ByIndexMcp => TrackDescriptor::ByIndex {
                 commons,
                 index: self.track_index,
-                indexing_policy: self.track_type.indexing_policy(),
+                scope: self.track_type.virtual_track_scope(),
             },
             Dynamic | DynamicTcp | DynamicMcp => TrackDescriptor::Dynamic {
                 commons,
                 expression: self.track_expression.clone(),
-                indexing_policy: self.track_type.indexing_policy(),
+                scope: self.track_type.virtual_track_scope(),
             },
             FromClipColumn => TrackDescriptor::FromClipColumn {
                 commons,
@@ -2306,13 +2303,13 @@ impl TargetModel {
                     FxPreset => UnresolvedReaperTarget::FxPreset(UnresolvedFxPresetTarget {
                         fx_descriptor: self.fx_descriptor()?,
                     }),
-                    SelectedTrack => {
-                        UnresolvedReaperTarget::SelectedTrack(UnresolvedSelectedTrackTarget {
+                    CycleThroughTracks => UnresolvedReaperTarget::SelectedTrack(
+                        UnresolvededCycleThroughTracksTarget {
                             scroll_arrange_view: self.scroll_arrange_view,
                             scroll_mixer: self.scroll_mixer,
-                            indexing_policy: self.track_indexing_policy,
-                        })
-                    }
+                            mode: self.cycle_through_tracks_mode,
+                        },
+                    ),
                     FxNavigate => UnresolvedReaperTarget::FxNavigate(UnresolvedFxNavigateTarget {
                         track_descriptor: self.track_descriptor()?,
                         is_input_fx: self.fx_is_input_fx,
@@ -3339,7 +3336,7 @@ fn virtualize_track(
         // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
         VirtualTrack::ByIndex {
             index: track.index().expect("impossible"),
-            indexing_policy: TrackIndexingPolicy::CountAllTracks,
+            scope: TrackScope::AllTracks,
         }
     } else {
         VirtualTrack::ById(*track.guid())
@@ -3565,12 +3562,12 @@ impl VirtualTrackType {
         matches!(self, Self::ByIndex | Self::ByIndexTcp | Self::ByIndexMcp)
     }
 
-    pub fn indexing_policy(&self) -> Option<TrackIndexingPolicy> {
+    pub fn virtual_track_scope(&self) -> Option<TrackScope> {
         use VirtualTrackType::*;
         match self {
-            ByIndex | Dynamic => Some(TrackIndexingPolicy::CountAllTracks),
-            ByIndexTcp | DynamicTcp => Some(TrackIndexingPolicy::FollowTcpVisibility),
-            ByIndexMcp | DynamicMcp => Some(TrackIndexingPolicy::FollowMcpVisibility),
+            ByIndex | Dynamic => Some(TrackScope::AllTracks),
+            ByIndexTcp | DynamicTcp => Some(TrackScope::TracksVisibleInTcp),
+            ByIndexMcp | DynamicMcp => Some(TrackScope::TracksVisibleInMcp),
             _ => None,
         }
     }

@@ -64,8 +64,8 @@ pub use fx_preset_target::*;
 mod load_fx_snapshot_target;
 pub use load_fx_snapshot_target::*;
 
-mod selected_track_target;
-pub use selected_track_target::*;
+mod cycle_through_tracks_target;
+pub use cycle_through_tracks_target::*;
 
 mod fx_navigate_target;
 pub use fx_navigate_target::*;

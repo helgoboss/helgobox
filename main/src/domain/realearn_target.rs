@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    track_index, AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings,
+    scoped_track_index, AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings,
     Compartment, DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
@@ -35,7 +35,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
-use realearn_api::persistence::TrackIndexingPolicy;
+use realearn_api::persistence::TrackScope;
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
@@ -340,10 +340,10 @@ pub enum CompoundChangeEvent<'a> {
     ClipMatrix(&'a ClipMatrixEvent),
 }
 
-pub fn get_track_name(t: &Track, indexing_policy: TrackIndexingPolicy) -> String {
+pub fn get_track_name(t: &Track, scope: TrackScope) -> String {
     if let Some(n) = t.name() {
         if n.to_str().is_empty() {
-            let track_index = track_index(t, indexing_policy);
+            let track_index = scoped_track_index(t, scope);
             format!("Track {}", track_index.unwrap_or(0) + 1)
         } else {
             n.into_string()
@@ -602,7 +602,7 @@ pub enum ReaperTargetType {
     AnyOn = 43,
     Action = 0,
     Transport = 16,
-    SelectedTrack = 14,
+    CycleThroughTracks = 14,
     Seek = 23,
     PlayRate = 11,
     Tempo = 10,
@@ -728,7 +728,7 @@ impl ReaperTargetType {
             AnyOn => &ANY_ON_TARGET,
             Action => &ACTION_TARGET,
             Transport => &TRANSPORT_TARGET,
-            SelectedTrack => &SELECTED_TRACK_TARGET,
+            CycleThroughTracks => &SELECTED_TRACK_TARGET,
             Seek => &SEEK_TARGET,
             PlayRate => &PLAYRATE_TARGET,
             Tempo => &TEMPO_TARGET,

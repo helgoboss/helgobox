@@ -1,12 +1,12 @@
 use crate::domain::{
-    get_fx_name, percentage_for_fx_within_chain, ChangeInstanceFxArgs, Compartment, ControlContext,
-    ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_fx_name, ChangeInstanceFxArgs, Compartment, ControlContext, ExtendedProcessorContext,
+    FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target};
 use realearn_api::persistence::FxToolAction;
-use reaper_high::{Fx, Project, Track};
+use reaper_high::{Fx, FxChain, Project, Track};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -190,3 +190,9 @@ pub const FX_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
     supports_tags: true,
     ..DEFAULT_TARGET
 };
+
+fn percentage_for_fx_within_chain(fx_chain: &FxChain, fx_index: u32) -> Option<AbsoluteValue> {
+    let fx_count = fx_chain.fx_count();
+    let max_value = fx_count.checked_sub(1)?;
+    Some(AbsoluteValue::Discrete(Fraction::new(fx_index, max_value)))
+}

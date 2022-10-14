@@ -106,14 +106,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         },
         Target::CycleThroughTracks(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::SelectedTrack,
+            r#type: ReaperTargetType::CycleThroughTracks,
             scroll_arrange_view: d
                 .scroll_arrange_view
                 .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW),
             scroll_mixer: d
                 .scroll_mixer
                 .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER),
-            track_indexing_policy: d.track_indexing_policy.unwrap_or_default(),
+            cycle_through_tracks_mode: d.mode.unwrap_or_default(),
             ..init(d.commons)
         },
         Target::Seek(d) => TargetModelData {
@@ -1008,13 +1008,13 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
         Dynamic {
             commons,
             expression,
-            indexing_policy,
+            scope,
         } => (
             TrackPropValues {
-                r#type: match indexing_policy.unwrap_or_default() {
-                    TrackIndexingPolicy::CountAllTracks => VirtualTrackType::Dynamic,
-                    TrackIndexingPolicy::FollowTcpVisibility => VirtualTrackType::DynamicTcp,
-                    TrackIndexingPolicy::FollowMcpVisibility => VirtualTrackType::DynamicMcp,
+                r#type: match scope.unwrap_or_default() {
+                    TrackScope::AllTracks => VirtualTrackType::Dynamic,
+                    TrackScope::TracksVisibleInTcp => VirtualTrackType::DynamicTcp,
+                    TrackScope::TracksVisibleInMcp => VirtualTrackType::DynamicMcp,
                 },
                 expression,
                 ..Default::default()
@@ -1040,13 +1040,13 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
         ByIndex {
             commons,
             index,
-            indexing_policy,
+            scope,
         } => (
             TrackPropValues {
-                r#type: match indexing_policy.unwrap_or_default() {
-                    TrackIndexingPolicy::CountAllTracks => VirtualTrackType::ByIndex,
-                    TrackIndexingPolicy::FollowTcpVisibility => VirtualTrackType::ByIndexTcp,
-                    TrackIndexingPolicy::FollowMcpVisibility => VirtualTrackType::ByIndexMcp,
+                r#type: match scope.unwrap_or_default() {
+                    TrackScope::AllTracks => VirtualTrackType::ByIndex,
+                    TrackScope::TracksVisibleInTcp => VirtualTrackType::ByIndexTcp,
+                    TrackScope::TracksVisibleInMcp => VirtualTrackType::ByIndexMcp,
                 },
                 index,
                 ..Default::default()

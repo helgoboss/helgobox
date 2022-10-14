@@ -163,7 +163,7 @@ pub struct CycleThroughTracksTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scroll_mixer: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub track_indexing_policy: Option<TrackIndexingPolicy>,
+    pub mode: Option<CycleThroughTracksMode>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -1310,7 +1310,7 @@ pub enum TrackDescriptor {
         commons: TrackDescriptorCommons,
         expression: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        indexing_policy: Option<TrackIndexingPolicy>,
+        scope: Option<TrackScope>,
     },
     ById {
         #[serde(flatten)]
@@ -1323,7 +1323,7 @@ pub enum TrackDescriptor {
         commons: TrackDescriptorCommons,
         index: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
-        indexing_policy: Option<TrackIndexingPolicy>,
+        scope: Option<TrackScope>,
     },
     ByName {
         #[serde(flatten)]
@@ -1744,6 +1744,20 @@ impl Default for OscDestination {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[repr(usize)]
+pub enum TrackScope {
+    AllTracks,
+    TracksVisibleInTcp,
+    TracksVisibleInMcp,
+}
+
+impl Default for TrackScope {
+    fn default() -> Self {
+        Self::AllTracks
+    }
+}
+
 #[derive(
     Copy,
     Clone,
@@ -1759,17 +1773,36 @@ impl Default for OscDestination {
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
-pub enum TrackIndexingPolicy {
+pub enum CycleThroughTracksMode {
     #[display(fmt = "All tracks")]
-    CountAllTracks,
+    AllTracks,
     #[display(fmt = "Only tracks visible in TCP")]
-    FollowTcpVisibility,
+    TracksVisibleInTcp,
+    #[display(fmt = "Only tracks visible in TCP (allow 2 selections)")]
+    TracksVisibleInTcpAllowTwoSelections,
     #[display(fmt = "Only tracks visible in MCP")]
-    FollowMcpVisibility,
+    TracksVisibleInMcp,
+    #[display(fmt = "Only tracks visible in MCP (allow 2 selections)")]
+    TracksVisibleInMcpAllowTwoSelections,
 }
 
-impl Default for TrackIndexingPolicy {
+impl Default for CycleThroughTracksMode {
     fn default() -> Self {
-        Self::CountAllTracks
+        Self::AllTracks
+    }
+}
+
+impl CycleThroughTracksMode {
+    pub fn scope(&self) -> TrackScope {
+        use CycleThroughTracksMode::*;
+        match self {
+            AllTracks => TrackScope::AllTracks,
+            TracksVisibleInTcp | TracksVisibleInTcpAllowTwoSelections => {
+                TrackScope::TracksVisibleInTcp
+            }
+            TracksVisibleInMcp | TracksVisibleInMcpAllowTwoSelections => {
+                TrackScope::TracksVisibleInMcp
+            }
+        }
     }
 }

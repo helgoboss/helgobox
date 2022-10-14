@@ -337,7 +337,7 @@ fn convert_real_target(
             },
         }),
         Dummy => T::Dummy(DummyTarget { commons }),
-        SelectedTrack => T::CycleThroughTracks(CycleThroughTracksTarget {
+        CycleThroughTracks => T::CycleThroughTracks(CycleThroughTracksTarget {
             commons,
             scroll_arrange_view: style.required_value_with_default(
                 data.scroll_arrange_view,
@@ -347,7 +347,7 @@ fn convert_real_target(
                 data.scroll_mixer,
                 defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER,
             ),
-            track_indexing_policy: style.required_value(data.track_indexing_policy),
+            mode: style.required_value(data.cycle_through_tracks_mode),
         }),
         Seek => T::Seek(SeekTarget {
             commons,
@@ -818,7 +818,7 @@ fn convert_track_descriptor(
         Dynamic | DynamicTcp | DynamicMcp => T::Dynamic {
             commons,
             expression: props.expression,
-            indexing_policy: style.optional_value(props.r#type.indexing_policy()),
+            scope: style.optional_value(props.r#type.virtual_track_scope()),
         },
         Master => T::Master { commons },
         Instance => T::Instance { commons },
@@ -837,7 +837,7 @@ fn convert_track_descriptor(
         ByIndex | ByIndexTcp | ByIndexMcp => T::ByIndex {
             commons,
             index: props.index,
-            indexing_policy: style.optional_value(props.r#type.indexing_policy()),
+            scope: style.optional_value(props.r#type.virtual_track_scope()),
         },
         FromClipColumn => T::FromClipColumn {
             commons,

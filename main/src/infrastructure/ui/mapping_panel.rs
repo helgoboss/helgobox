@@ -27,8 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton, SeekBehavior,
-    TrackIndexingPolicy, TrackToolAction,
+    Axis, CycleThroughTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
+    SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -436,7 +436,7 @@ impl MappingPanel {
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::TrackIndexingPolicy => {
+                                            P::CycleThroughTracksMode => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingSnapshotTypeForLoad | P::MappingSnapshotTypeForTake | P::MappingSnapshotId => {
@@ -2776,11 +2776,11 @@ impl<'a> MutableMappingPanel<'a> {
                         dev_id,
                     )));
                 }
-                ReaperTargetType::SelectedTrack => {
+                ReaperTargetType::CycleThroughTracks => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid track indexing policy");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTrackIndexingPolicy(v),
+                        TargetCommand::SetCycleThroughTracksMode(v),
                     ));
                 }
                 _ if self.mapping.target_model.supports_track() => {
@@ -4163,7 +4163,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::NavigateWithinGroup => Some("Group"),
-                ReaperTargetType::SelectedTrack => Some("Scope"),
+                ReaperTargetType::CycleThroughTracks => Some("Scope"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4375,12 +4375,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
-                ReaperTargetType::SelectedTrack => {
+                ReaperTargetType::CycleThroughTracks => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackIndexingPolicy::into_enum_iter());
+                    combo.fill_combo_box_indexed(CycleThroughTracksMode::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.track_indexing_policy().into(),
+                            self.mapping.target_model.cycle_through_tracks_mode().into(),
                         )
                         .unwrap();
                 }
@@ -5195,7 +5195,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
                 t if t.supports_track_scrolling() => {
-                    Some(("Scroll mixer", self.target.scroll_mixer()))
+                    Some(("Scroll MCP", self.target.scroll_mixer()))
                 }
                 ReaperTargetType::Seek => Some(("Move view", self.target.move_view())),
                 _ => None,

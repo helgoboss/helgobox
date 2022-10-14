@@ -1,12 +1,12 @@
 use crate::domain::{
-    get_effective_tracks, get_track_name, percentage_for_track_within_project,
+    get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project,
     ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
-use realearn_api::persistence::{TrackIndexingPolicy, TrackToolAction};
+use realearn_api::persistence::{TrackScope, TrackToolAction};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
 
@@ -97,7 +97,7 @@ impl RealearnTarget for TrackToolTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        Some(get_track_name(self.track.as_ref()?, TrackIndexingPolicy::CountAllTracks).into())
+        Some(get_track_name(self.track.as_ref()?, TrackScope::AllTracks).into())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
@@ -160,9 +160,9 @@ impl<'a> Target<'a> for TrackToolTarget {
         match self.action {
             TrackToolAction::DoNothing => {
                 let track_index = self.track.as_ref()?.index();
-                let percentage = percentage_for_track_within_project(
+                let percentage = percentage_for_scoped_track_within_project(
                     self.track.as_ref()?.project(),
-                    TrackIndexingPolicy::CountAllTracks,
+                    TrackScope::AllTracks,
                     track_index,
                 );
                 Some(percentage)
