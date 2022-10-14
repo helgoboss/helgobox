@@ -206,6 +206,13 @@ impl MainPanel {
                 );
                 let _ = write!(&mut text, " (on track {:.15})", instance_fx_track_label);
             }
+            let control_and_feedback_state = instance_state.global_control_and_feedback_state();
+            if !control_and_feedback_state.control_active {
+                text.push_str(" | CONTROL off");
+            }
+            if !control_and_feedback_state.feedback_active {
+                text.push_str(" | FEEDBACK off");
+            }
             let label = self.view.require_control(root::ID_MAIN_PANEL_STATUS_2_TEXT);
             label.disable();
             label.set_text(text.as_str());
@@ -256,6 +263,13 @@ impl MainPanel {
             self.when(session.tags.changed().merge(session.id.changed()), |view| {
                 view.invalidate_status_1_text();
             });
+            let instance_state = session.instance_state().borrow();
+            self.when(
+                instance_state.global_control_and_feedback_state_changed(),
+                |view| {
+                    view.invalidate_status_2_text();
+                },
+            );
         });
     }
 

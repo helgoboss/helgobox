@@ -14,6 +14,7 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub enum DomainEvent<'a> {
     CapturedIncomingMessage(MessageCaptureEvent),
+    GlobalControlAndFeedbackStateChanged(GlobalControlAndFeedbackState),
     UpdatedOnMappings(HashSet<QualifiedMappingId>),
     UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
     UpdatedSingleParameterValue {
@@ -31,6 +32,12 @@ pub enum DomainEvent<'a> {
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
     TimeForCelebratingSuccess,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+pub struct GlobalControlAndFeedbackState {
+    pub control_active: bool,
+    pub feedback_active: bool,
 }
 
 #[derive(Clone, Debug)]

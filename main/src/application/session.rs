@@ -2424,6 +2424,13 @@ impl DomainEventHandler for WeakSession {
                     .borrow_mut()
                     .set_on_mappings(on_mappings);
             }
+            GlobalControlAndFeedbackStateChanged(state) => {
+                session
+                    .borrow()
+                    .instance_state
+                    .borrow_mut()
+                    .set_global_control_and_feedback_state(state);
+            }
             UpdatedSingleMappingOnState(event) => {
                 session
                     .borrow()

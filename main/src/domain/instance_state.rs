@@ -8,8 +8,8 @@ use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GroupId,
-    HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
+    BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GlobalControlAndFeedbackState,
+    GroupId, HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
     NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
     VirtualMappingSnapshotIdForLoad,
 };
@@ -59,6 +59,8 @@ pub struct InstanceState {
     /// - Completely derived from mappings, so it's redundant state.
     /// - It's needed by both processing layer and layers above.
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
+    /// Whether control/feedback are globally active.
+    global_control_and_feedback_state: Prop<GlobalControlAndFeedbackState>,
     /// All mapping tags whose mappings have been switched on via tag.
     ///
     /// - Set by target "ReaLearn: Enable/disable mappings".
@@ -177,6 +179,7 @@ impl InstanceState {
             active_mapping_by_group: Default::default(),
             mapping_infos: Default::default(),
             on_mappings: Default::default(),
+            global_control_and_feedback_state: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
             copied_clip: None,
@@ -436,14 +439,28 @@ impl InstanceState {
         self.on_mappings.get_ref().contains(&id)
     }
 
+    pub fn global_control_and_feedback_state(&self) -> GlobalControlAndFeedbackState {
+        self.global_control_and_feedback_state.get()
+    }
+
     pub fn on_mappings_changed(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.on_mappings.changed()
     }
 
+    pub fn global_control_and_feedback_state_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+        self.global_control_and_feedback_state.changed()
+    }
+
     pub fn set_on_mappings(&mut self, on_mappings: HashSet<QualifiedMappingId>) {
         self.on_mappings.set(on_mappings);
+    }
+
+    pub fn set_global_control_and_feedback_state(&mut self, state: GlobalControlAndFeedbackState) {
+        self.global_control_and_feedback_state.set(state);
     }
 
     pub fn set_mapping_on(&mut self, id: QualifiedMappingId, is_on: bool) {

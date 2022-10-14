@@ -6,13 +6,13 @@ use crate::domain::{
     ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
-    FinalRealFeedbackValue, FinalSourceFeedbackValue, GroupId, HitInstructionContext,
-    HitInstructionResponse, InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged,
-    IoUpdatedEvent, KeyMessage, LimitedAsciiString, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
-    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
-    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
+    HitInstructionContext, HitInstructionResponse, InstanceContainer, InstanceOrchestrationEvent,
+    InstanceStateChanged, IoUpdatedEvent, KeyMessage, LimitedAsciiString, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
+    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
+    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
+    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
     QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
     RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
@@ -1232,6 +1232,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             any_main_mapping_is_effectively_on,
             project_options,
         );
+        let event = GlobalControlAndFeedbackState {
+            control_active: self.basics.control_is_globally_enabled,
+            feedback_active: self.basics.feedback_is_globally_enabled,
+        };
+        self.basics
+            .event_handler
+            .handle_event_ignoring_error(DomainEvent::GlobalControlAndFeedbackStateChanged(event));
     }
 
     fn potentially_enable_or_disable_control(
@@ -2051,16 +2058,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn update_on_mappings(&self) {
-        let instance_is_enabled = self.basics.instance_control_is_effectively_enabled()
-            && self.basics.instance_feedback_is_effectively_enabled();
-        let on_mappings = if instance_is_enabled {
-            self.all_mappings()
-                .filter(|m| m.is_effectively_on())
-                .map(MainMapping::qualified_id)
-                .collect()
-        } else {
-            HashSet::new()
-        };
+        let on_mappings = self
+            .all_mappings()
+            .filter(|m| m.is_effectively_on())
+            .map(MainMapping::qualified_id)
+            .collect();
         self.basics
             .event_handler
             .handle_event_ignoring_error(DomainEvent::UpdatedOnMappings(on_mappings));
