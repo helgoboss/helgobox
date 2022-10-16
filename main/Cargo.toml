@@ -137,7 +137,7 @@ assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
-hyper = "= 0.13.9"
+hyper = "= 0.14.16"
 # For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
 enum_dispatch = "0.3.6"
 # For processing mappings in user-defined order
