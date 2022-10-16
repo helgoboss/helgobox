@@ -23,12 +23,13 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
     },
     ScriptTemplateGroup {
         name: "Modulations",
-        templates: &[ScriptTemplate {
-            min_realearn_version: None,
-            name: "Sinus LFO",
-            description: r#"Modulate in sinus shape while button pressed"#,
-            control_styles: &[Button],
-            content: r#"// Parameters
+        templates: &[
+            ScriptTemplate {
+                min_realearn_version: None,
+                name: "Sinus LFO",
+                description: r#"Modulate in sinus shape while button pressed."#,
+                control_styles: &[Button],
+                content: r#"// Parameters
 
 period = 2;
 
@@ -41,14 +42,41 @@ y = x > 0 ? (
 ) : (
     stop
 );"#,
-        }],
+            },
+            ScriptTemplate {
+                min_realearn_version: None,
+                name: "Global sinus LFO",
+                description: r#"Modulate in sinus shape while button pressed, continue when button 
+                pressed again."#,
+                control_styles: &[Button],
+                content: r#"// Parameters
+
+period = 2;
+
+// Code
+
+rel_time == 0 ? (
+    time_offset += prev_rel_time;
+);
+prev_rel_time = rel_time;
+global_time = time_offset + rel_time;
+y = x > 0 ? (
+	secs = rel_time / 1000;
+    scaled = secs * ($pi * 2) / period;
+    (sin(scaled - $pi / 2) + 1) / 2
+) : (
+    stop
+);"#,
+            },
+        ],
     },
     ScriptTemplateGroup {
         name: "Transitions",
         templates: &[ScriptTemplate {
             min_realearn_version: None,
             name: "Linear transition",
-            description: r#"Transition to incoming value (e.g. velocity of button press) within a certain amount of time."#,
+            description: r#"Transition to incoming value (e.g. velocity of button press) within a 
+            certain amount of time."#,
             control_styles: &[Button],
             content: r#"// Parameters
 
