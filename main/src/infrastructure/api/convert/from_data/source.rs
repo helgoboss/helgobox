@@ -244,6 +244,8 @@ pub fn convert_source(
                         parameter_index: data.parameter_index.get(),
                     })
                 }
+                Speech => persistence::Source::Speech(persistence::SpeechSource {
+                }),
             }
         }
         Virtual => {

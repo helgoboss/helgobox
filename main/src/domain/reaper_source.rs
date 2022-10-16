@@ -3,20 +3,64 @@ use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, ControlValue,
-    DetailedSourceCharacter, SourceCharacter, UnitValue,
+    DetailedSourceCharacter, FeedbackValue, SourceCharacter, UnitValue,
 };
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::collections::HashSet;
 use std::convert::TryInto;
+use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use tts::Tts;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum ReaperSource {
     MidiDeviceChanges,
     RealearnInstanceStart,
     Timer(TimerSource),
     RealearnParameter(RealearnParameterSource),
+    Speech(SpeechSource),
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
+pub struct SpeechSource {}
+
+impl SpeechSource {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn speak(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
+        use once_cell::sync::Lazy;
+        static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
+            Lazy::new(|| get_default_tts().map(Mutex::new));
+        let tts = TTS.as_ref()?;
+        // TODO-medium This is only necessary because tts exposes a non-optimal API.
+        let mut tts = tts.lock()?;
+        let value = feedback_value.to_textual();
+        tts.speak(value.text, true)?;
+        Ok(())
+    }
+}
+
+fn get_default_tts() -> Result<Tts, tts::Error> {
+    let mut tts = Tts::default()?;
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, at least with AVFoundation, it's necessary to set a voice first.
+        // Prefer an English voice as default.
+        if let Ok(voices) = tts.voices() {
+            let voice = voices
+                .iter()
+                .find(|v| v.language().language.as_str() == "en")
+                .or_else(|| voices.first());
+            if let Some(v) = voice {
+                tts.set_voice(v)?;
+            }
+        }
+    }
+    Ok(tts)
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -88,6 +132,7 @@ impl ReaperSource {
                 DetailedSourceCharacter::MomentaryOnOffButton,
                 DetailedSourceCharacter::PressOnlyButton,
             ],
+            Speech(_) => vec![DetailedSourceCharacter::RangeControl],
         }
     }
 
@@ -107,6 +152,7 @@ impl ReaperSource {
                 SourceCharacter::MomentaryButton
             }
             RealearnParameter(_) => SourceCharacter::RangeElement,
+            Speech(_) => SourceCharacter::RangeElement,
         }
     }
 
@@ -149,6 +195,16 @@ impl ReaperSource {
             },
         };
         Some(control_value)
+    }
+
+    pub fn feedback(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
+        use ReaperSource::*;
+        match self {
+            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => {
+                Err("not supported".into())
+            }
+            Speech(s) => s.speak(feedback_value),
+        }
     }
 }
 

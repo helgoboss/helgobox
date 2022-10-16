@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.14.0-pre.7"
+version = "2.14.0-pre.8"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
 build = "build.rs"
@@ -169,6 +169,8 @@ device_query = "1.1.1"
 egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "feature/open-links-in-browser" }
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "try-borrow-mut" }
 egui = "0.19.0"
+# For speech source
+tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
@@ -181,7 +183,7 @@ winapi = { version = "0.3", features = ["winuser"] }
 # For making Git commit hash available to code
 built = { version = "0.5.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
-bindgen = "0.52.0"
+bindgen = "0.60.1"
 # For compiling EEL and SWELL dialog resources
 # We use a special version because of "link_lib_modifiers", which allows us to add "+whole-archive"
 # in a convenient way. TODO-low-wait https://github.com/rust-lang/cc-rs/pull/671

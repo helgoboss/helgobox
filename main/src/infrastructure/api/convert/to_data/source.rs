@@ -145,7 +145,7 @@ fn convert_category(s: &Source) -> SourceCategory {
     use Source::*;
     match s {
         NoneSource => SourceCategory::Never,
-        MidiDeviceChanges(_) | RealearnInstanceStart(_) | Timer(_) | RealearnParameter(_) => {
+        MidiDeviceChanges(_) | RealearnInstanceStart(_) | Timer(_) | RealearnParameter(_) | Speech(_) => {
             SourceCategory::Reaper
         }
         MidiNoteVelocity(_)

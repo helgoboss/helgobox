@@ -1764,10 +1764,14 @@ impl CompoundMappingSource {
             Osc(s) => s
                 .feedback(feedback_value.into_owned())
                 .map(PreliminarySourceFeedbackValue::Osc),
+            Reaper(s) => {
+                let _ = s.feedback(&feedback_value);
+                None
+            },
             // This is handled in a special way by consumers.
             Virtual(_) => None,
-            // No feedback for never source.
-            Reaper(_) | Key(_) | Never => None,
+            // No feedback for other sources.
+            Key(_) | Never => None,
         }
     }
 

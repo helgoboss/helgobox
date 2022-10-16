@@ -4,8 +4,8 @@ use crate::application::{
 use crate::domain::{
     BackboneState, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
-    MidiSource, RealearnParameterSource, ReaperSource, TimerSource, VirtualControlElement,
-    VirtualControlElementId, VirtualSource, VirtualTarget,
+    MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
+    VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -400,7 +400,8 @@ impl SourceModel {
         match self.category {
             Midi => self.midi_source_type.supports_control(),
             Osc => self.osc_arg_type_tag.supports_control(),
-            Virtual | Keyboard | Reaper => true,
+            Reaper => self.reaper_source_type.supports_control(),
+            Virtual | Keyboard => true,
             // Main use case: Group interaction (follow-only).
             Never => true,
         }
@@ -411,8 +412,9 @@ impl SourceModel {
         match self.category {
             Midi => self.midi_source_type.supports_feedback(),
             Osc => self.osc_arg_type_tag.supports_feedback(),
+            Reaper => self.reaper_source_type.supports_feedback(),
             Virtual => true,
-            Reaper | Keyboard | Never => false,
+            Keyboard | Never => false,
         }
     }
 
@@ -498,7 +500,7 @@ impl SourceModel {
                     RealearnParameter(p) => {
                         self.parameter_index = p.parameter_index;
                     }
-                    MidiDeviceChanges | RealearnInstanceStart | Timer(_) => {}
+                    MidiDeviceChanges | RealearnInstanceStart | Timer(_) | Speech(_) => {}
                 }
             }
             Never => {
@@ -662,6 +664,7 @@ impl SourceModel {
                     RealearnParameter => {
                         ReaperSource::RealearnParameter(self.create_realearn_parameter_source())
                     }
+                    Speech => ReaperSource::Speech(SpeechSource::new()),
                 };
                 CompoundMappingSource::Reaper(reaper_source)
             }
@@ -1196,6 +1199,9 @@ pub enum ReaperSourceType {
     #[serde(rename = "realearn-parameter")]
     #[display(fmt = "ReaLearn parameter")]
     RealearnParameter,
+    #[serde(rename = "speech")]
+    #[display(fmt = "Speech (feedback only)")]
+    Speech,
 }
 
 impl Default for ReaperSourceType {
@@ -1212,6 +1218,23 @@ impl ReaperSourceType {
             RealearnInstanceStart => Self::RealearnInstanceStart,
             Timer(_) => Self::Timer,
             RealearnParameter(_) => Self::RealearnParameter,
+            Speech(_) => Self::Speech,
+        }
+    }
+
+    pub fn supports_control(self) -> bool {
+        use ReaperSourceType::*;
+        match self {
+            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => true,
+            Speech => false,
+        }
+    }
+
+    pub fn supports_feedback(self) -> bool {
+        use ReaperSourceType::*;
+        match self {
+            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => false,
+            Speech => true,
         }
     }
 }
