@@ -88,7 +88,7 @@ including Rust setup:
 ----
 # Install native dependencies
 sudo apt update
-sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev
+sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev
 
 
 # Install Rust (copied from the official Linux installation instructions)
@@ -120,6 +120,7 @@ Some words about the native dependencies:
  bindings to C).
 * `libxdo-dev` is needed to control the mouse (see target "Global: Mouse")
 * `libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev` are necessary for https://github.com/BillyDM/egui-baseview[egui-baseview] (https://github.com/emilk/egui[egui] is the GUI framework used for ReaLearn's control transformation editor)
+* `libspeechd-dev` is necessary for the speech source
 
 === macOS
 

@@ -45,9 +45,9 @@ impl SpeechSource {
 }
 
 fn get_default_tts() -> Result<Tts, tts::Error> {
-    let mut tts = Tts::default()?;
     #[cfg(target_os = "macos")]
     {
+        let mut tts = Tts::default()?;
         // On macOS, at least with AVFoundation, it's necessary to set a voice first.
         // Prefer an English voice as default.
         if let Ok(voices) = tts.voices() {
@@ -59,8 +59,17 @@ fn get_default_tts() -> Result<Tts, tts::Error> {
                 tts.set_voice(v)?;
             }
         }
+        Ok(tts)
     }
-    Ok(tts)
+    #[cfg(target_os = "windows")]
+    {
+        Tts::default()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Too buggy on Linux at the moment (crashes)
+        Err(tts::Error::UnsupportedFeature)
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

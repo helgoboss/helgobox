@@ -1200,7 +1200,7 @@ pub enum ReaperSourceType {
     #[display(fmt = "ReaLearn parameter")]
     RealearnParameter,
     #[serde(rename = "speech")]
-    #[display(fmt = "Speech (feedback only)")]
+    #[display(fmt = "Speech (feedback only, no Linux)")]
     Speech,
 }
 
