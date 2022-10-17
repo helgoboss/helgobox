@@ -6,7 +6,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
-pub struct UnresolvedDummyTarget {}
+pub struct UnresolvedDummyTarget;
 
 impl UnresolvedReaperTargetDef for UnresolvedDummyTarget {
     fn resolve(

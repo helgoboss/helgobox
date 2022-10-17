@@ -16,14 +16,15 @@ use crate::domain::{
     FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
     FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
     LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
-    NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
-    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
-    ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET,
-    SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
-    TRACK_MONITORING_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET,
-    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
-    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
-    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    NAVIGATE_WITHIN_GROUP_TARGET, NKS_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
+    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
+    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
+    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
+    TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -111,14 +112,14 @@ pub trait RealearnTarget {
     /// Returns an error if this target doesn't report a step size.
     fn convert_unit_value_to_discrete_value(
         &self,
-        input: UnitValue,
+        value: UnitValue,
         context: ControlContext,
     ) -> Result<u32, &'static str> {
         if self.control_type_and_character(context).0.is_relative() {
             // Relative MIDI controllers support a maximum of 63 steps.
-            return Ok((input.get() * 63.0).round() as _);
+            return Ok((value.get() * 63.0).round() as _);
         }
-        let _ = input;
+        let _ = value;
         Err("not supported")
     }
 
@@ -638,6 +639,7 @@ pub enum ReaperTargetType {
     LoadFxSnapshot = 19,
     FxPreset = 13,
     FxOpen = 27,
+    Nks = 58,
 
     // FX parameter targets
     FxParameterTouchState = 47,
@@ -780,6 +782,7 @@ impl ReaperTargetType {
             LoadMappingSnapshot => &LOAD_MAPPING_SNAPSHOT_TARGET,
             TakeMappingSnapshot => &SAVE_MAPPING_SNAPSHOT_TARGET,
             NavigateWithinGroup => &NAVIGATE_WITHIN_GROUP_TARGET,
+            Nks => &NKS_TARGET,
         }
     }
 

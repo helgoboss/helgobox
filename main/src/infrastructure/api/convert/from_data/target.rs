@@ -27,7 +27,7 @@ use realearn_api::persistence::{
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, MouseTarget, PlayRateTarget, ReaperActionTarget,
+    LoadMappingSnapshotTarget, MouseTarget, NksTarget, PlayRateTarget, ReaperActionTarget,
     RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
     RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
     SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
@@ -685,6 +685,7 @@ fn convert_real_target(
             },
             group: style.required_value(data.group_id.into()),
         }),
+        Nks => T::Nks(NksTarget { commons }),
     };
     Ok(target)
 }

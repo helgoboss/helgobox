@@ -171,3 +171,6 @@ pub use last_touched_target::*;
 
 mod fx_parameter_touch_state_target;
 pub use fx_parameter_touch_state_target::*;
+
+mod nks_target;
+pub use nks_target::*;

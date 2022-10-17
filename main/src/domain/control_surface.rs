@@ -117,6 +117,12 @@ pub enum AdditionalFeedbackEvent {
     /// We shouldn't change that because targets such as "Marker/region: Go to" or "Project: Seek"
     /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
     BeatChanged(BeatChangedEvent),
+    NksStateChanged(NksStateChangedEvent),
+}
+
+#[derive(Debug)]
+pub enum NksStateChangedEvent {
+    SoundIndexChanged { index: u32 },
 }
 
 #[derive(Debug)]

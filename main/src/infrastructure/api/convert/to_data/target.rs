@@ -894,6 +894,11 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
+        Target::Nks(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::Nks,
+            ..init(d.commons)
+        },
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
             control_element_type: convert_control_element_type(d.character.unwrap_or_default()),

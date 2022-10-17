@@ -1,7 +1,7 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
-    AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
-    TouchedTrackParameterType,
+    nks, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, NksStateChangedEvent,
+    ParameterAutomationTouchStateChangedEvent, TouchedTrackParameterType,
 };
 use reaper_high::{Fx, Track};
 use reaper_medium::{GangBehavior, MediaTrack};
@@ -15,6 +15,7 @@ pub struct RealearnTargetState {
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
     // For "Touch automation state" target.
     touched_things: HashSet<TouchedThing>,
+    nks_state: nks::State,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -40,7 +41,21 @@ impl RealearnTargetState {
             fx_snapshot_chunk_hash_by_fx: Default::default(),
             additional_feedback_event_sender,
             touched_things: Default::default(),
+            nks_state: Default::default(),
         }
+    }
+
+    pub fn nks_state(&self) -> &nks::State {
+        &self.nks_state
+    }
+
+    pub fn set_sound_index(&mut self, index: u32) {
+        self.nks_state.set_sound_index(index);
+        self.additional_feedback_event_sender.send_complaining(
+            AdditionalFeedbackEvent::NksStateChanged(NksStateChangedEvent::SoundIndexChanged {
+                index,
+            }),
+        );
     }
 
     pub fn current_fx_snapshot_chunk_hash(&self, fx: &Fx) -> Option<u64> {

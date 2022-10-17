@@ -72,6 +72,7 @@ pub enum Target {
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
+    Nks(NksTarget),
     Virtual(VirtualTarget),
 }
 
@@ -1011,6 +1012,13 @@ pub struct CycleThroughGroupMappingsTarget {
     pub exclusivity: Option<GroupMappingExclusivity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NksTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

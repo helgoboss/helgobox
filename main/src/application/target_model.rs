@@ -45,8 +45,8 @@ use crate::domain::{
     UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
     UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
     UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget, VirtualChainFx,
-    VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
+    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget, UnresolvededNksTarget,
+    VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
     VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
@@ -2442,7 +2442,8 @@ impl TargetModel {
                     AnyOn => UnresolvedReaperTarget::AnyOn(UnresolvedAnyOnTarget {
                         parameter: self.any_on_parameter,
                     }),
-                    Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget {}),
+                    Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget),
+                    Nks => UnresolvedReaperTarget::Nks(UnresolvededNksTarget {}),
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
