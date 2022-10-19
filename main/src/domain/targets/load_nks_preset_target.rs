@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use reaper_high::{Fx, Project, Reaper, Track};
+use reaper_high::{Fx, Project, Track};
 
 #[derive(Debug)]
 pub struct UnresolvededLoadNksPresetTarget {
@@ -131,16 +131,15 @@ impl LoadNksPresetTarget {
         if !self.fx.is_available() {
             return Err("FX not available");
         }
-        let vst_file_name = Reaper::get()
-            .find_vst_file_name_by_vst_magic_number(vst_magic_number)
-            .ok_or("plug-in not installed (needs VST2 version)")?;
         let fx_info = self.fx.info()?;
-        if fx_info.file_name != vst_file_name {
+        if fx_info.id != vst_magic_number.to_string() {
             // We don't have the right plug-in type. Remove FX and insert correct one.
             let chain = self.fx.chain();
             let fx_index = self.fx.index();
             chain.remove_fx(&self.fx)?;
-            chain.insert_fx_by_name(fx_index, vst_file_name.to_string_lossy().as_ref());
+            // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
+            // otherwise loading by VST2 magic number doesn't work.
+            chain.insert_fx_by_name(fx_index, format!("i7zh34z<{}", vst_magic_number));
         }
         Ok(())
     }
