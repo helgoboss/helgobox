@@ -35,14 +35,15 @@ use crate::domain::{
     CycleThroughTracksTarget, DummyTarget, EnigoMouseTarget, FxEnableTarget, FxNavigateTarget,
     FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
     FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
-    MappingControlContext, MidiSendTarget, NksTarget, OscSendTarget, PlayrateTarget,
-    RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
-    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
-    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    LoadNksPresetTarget, MappingControlContext, MidiSendTarget, NavigateWithinNksPresetsTarget,
+    OscSendTarget, PlayrateTarget, PreviewNksPresetTarget, RealTimeClipColumnTarget,
+    RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
@@ -145,7 +146,9 @@ pub enum ReaperTarget {
     EnableMappings(EnableMappingsTarget),
     EnableInstances(EnableInstancesTarget),
     NavigateWithinGroup(NavigateWithinGroupTarget),
-    Nks(NksTarget),
+    NavigateWithinNksPresets(NavigateWithinNksPresetsTarget),
+    PreviewNksPreset(PreviewNksPresetTarget),
+    LoadNksPreset(LoadNksPresetTarget),
 }
 
 #[derive(
@@ -654,7 +657,9 @@ impl<'a> Target<'a> for ReaperTarget {
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
             NavigateWithinGroup(t) => t.current_value(context),
-            Nks(t) => t.current_value(context),
+            NavigateWithinNksPresets(t) => t.current_value(context),
+            PreviewNksPreset(t) => t.current_value(context),
+            LoadNksPreset(t) => t.current_value(context),
         }
     }
 

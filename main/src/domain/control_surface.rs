@@ -20,6 +20,7 @@ use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
 use crate::base::metrics_util::measure_time;
+use crate::domain::nks::PresetId;
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
@@ -122,7 +123,7 @@ pub enum AdditionalFeedbackEvent {
 
 #[derive(Debug)]
 pub enum NksStateChangedEvent {
-    SoundIndexChanged { index: u32 },
+    PresetChanged { id: Option<PresetId> },
 }
 
 #[derive(Debug)]

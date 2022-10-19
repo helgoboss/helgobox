@@ -894,11 +894,30 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
-        Target::Nks(d) => TargetModelData {
+        Target::NavigateWithinNksPresets(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::Nks,
+            r#type: ReaperTargetType::NavigateWithinNksPresets,
             ..init(d.commons)
         },
+        Target::PreviewNksPreset(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PreviewNksPreset,
+            ..init(d.commons)
+        },
+        Target::LoadNksPreset(d) => {
+            let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
+            let track_desc = fx_desc.chain_desc.track_desc;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::LoadNksPreset,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                clip_column: track_desc.clip_column.unwrap_or_default(),
+                fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
+                ..init(d.commons)
+            }
+        }
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
             control_element_type: convert_control_element_type(d.character.unwrap_or_default()),

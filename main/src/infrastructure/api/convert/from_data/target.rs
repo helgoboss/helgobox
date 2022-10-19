@@ -27,14 +27,15 @@ use realearn_api::persistence::{
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, MouseTarget, NksTarget, PlayRateTarget, ReaperActionTarget,
-    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
-    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
-    SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
-    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    LoadMappingSnapshotTarget, LoadNksPresetTarget, MouseTarget, NavigateWithinNksPresetsTarget,
+    PlayRateTarget, PreviewNksPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -685,7 +686,14 @@ fn convert_real_target(
             },
             group: style.required_value(data.group_id.into()),
         }),
-        Nks => T::Nks(NksTarget { commons }),
+        NavigateWithinNksPresets => {
+            T::NavigateWithinNksPresets(NavigateWithinNksPresetsTarget { commons })
+        }
+        PreviewNksPreset => T::PreviewNksPreset(PreviewNksPresetTarget { commons }),
+        LoadNksPreset => T::LoadNksPreset(LoadNksPresetTarget {
+            commons,
+            fx: convert_fx_descriptor(data, style),
+        }),
     };
     Ok(target)
 }

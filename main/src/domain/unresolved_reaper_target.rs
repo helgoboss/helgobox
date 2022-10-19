@@ -22,7 +22,8 @@ use crate::domain::{
     UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
     UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
     UnresolvedTrackWidthTarget, UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
-    UnresolvededNksTarget,
+    UnresolvededLoadNksPresetTarget, UnresolvededNavigateWithinNksPresetsTarget,
+    UnresolvededPreviewNksPresetTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -110,7 +111,9 @@ pub enum UnresolvedReaperTarget {
     EnableInstances(UnresolvedEnableInstancesTarget),
     AnyOn(UnresolvedAnyOnTarget),
     LastTouched(UnresolvedLastTouchedTarget),
-    Nks(UnresolvededNksTarget),
+    NavigateWithinNksPresets(UnresolvededNavigateWithinNksPresetsTarget),
+    PreviewNksPreset(UnresolvededPreviewNksPresetTarget),
+    LoadNksPreset(UnresolvededLoadNksPresetTarget),
 }
 
 impl UnresolvedReaperTarget {

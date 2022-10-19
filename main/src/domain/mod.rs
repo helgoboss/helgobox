@@ -142,3 +142,6 @@ mod mouse;
 pub use mouse::*;
 
 pub mod nks;
+
+mod sound;
+pub use sound::*;

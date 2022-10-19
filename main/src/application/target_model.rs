@@ -45,10 +45,12 @@ use crate::domain::{
     UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
     UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
     UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget, UnresolvededNksTarget,
-    VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
-    VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
+    UnresolvededLoadNksPresetTarget, UnresolvededNavigateWithinNksPresetsTarget,
+    UnresolvededPreviewNksPresetTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow,
+    VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
+    VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -2443,7 +2445,17 @@ impl TargetModel {
                         parameter: self.any_on_parameter,
                     }),
                     Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget),
-                    Nks => UnresolvedReaperTarget::Nks(UnresolvededNksTarget {}),
+                    NavigateWithinNksPresets => UnresolvedReaperTarget::NavigateWithinNksPresets(
+                        UnresolvededNavigateWithinNksPresetsTarget {},
+                    ),
+                    PreviewNksPreset => UnresolvedReaperTarget::PreviewNksPreset(
+                        UnresolvededPreviewNksPresetTarget {},
+                    ),
+                    LoadNksPreset => {
+                        UnresolvedReaperTarget::LoadNksPreset(UnresolvededLoadNksPresetTarget {
+                            fx_descriptor: self.fx_descriptor()?,
+                        })
+                    }
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }

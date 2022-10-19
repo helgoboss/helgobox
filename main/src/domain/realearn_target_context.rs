@@ -1,4 +1,5 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread};
+use crate::domain::nks::PresetId;
 use crate::domain::{
     nks, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, NksStateChangedEvent,
     ParameterAutomationTouchStateChangedEvent, TouchedTrackParameterType,
@@ -49,12 +50,10 @@ impl RealearnTargetState {
         &self.nks_state
     }
 
-    pub fn set_sound_index(&mut self, index: u32) {
-        self.nks_state.set_sound_index(index);
+    pub fn set_preset_id(&mut self, id: Option<PresetId>) {
+        self.nks_state.set_preset_id(id);
         self.additional_feedback_event_sender.send_complaining(
-            AdditionalFeedbackEvent::NksStateChanged(NksStateChangedEvent::SoundIndexChanged {
-                index,
-            }),
+            AdditionalFeedbackEvent::NksStateChanged(NksStateChangedEvent::PresetChanged { id }),
         );
     }
 

@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::{
     bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState, Sound,
+    SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
@@ -17,7 +17,7 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
-    RealearnClipMatrix, TargetControlEvent, TargetValueChangedEvent,
+    RealearnClipMatrix, SoundPlayer, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
@@ -63,7 +63,7 @@ struct ActiveData {
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
-    success_sound: Option<Sound>,
+    success_sound_player: Option<SoundPlayer>,
 }
 
 impl ActiveData {
@@ -107,7 +107,15 @@ impl MainPanel {
             )
             .into(),
             panel_manager,
-            success_sound: Sound::from_file("high-click.mp3").ok(),
+            success_sound_player: {
+                let mut sound_player = SoundPlayer::new();
+                let path_to_file = App::realearn_sound_dir_path().join("high-click.mp3");
+                if sound_player.load_file(&path_to_file).is_ok() {
+                    Some(sound_player)
+                } else {
+                    None
+                }
+            },
         };
         self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
@@ -338,7 +346,7 @@ impl MainPanel {
 
     fn celebrate_success(&self) {
         if let Some(data) = self.active_data.borrow() {
-            if let Some(s) = &data.success_sound {
+            if let Some(s) = &data.success_sound_player {
                 let _ = s.play();
             }
         }

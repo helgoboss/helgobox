@@ -15,10 +15,11 @@ use crate::domain::{
     CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
     FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
     FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
-    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
-    NAVIGATE_WITHIN_GROUP_TARGET, NKS_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
-    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
-    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_NKS_PRESET_TARGET,
+    MIDI_SEND_TARGET, MOUSE_TARGET, NAVIGATE_WITHIN_GROUP_TARGET,
+    NAVIGATE_WITHIN_NKS_PRESETS_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    PREVIEW_NKS_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
+    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
     SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
     TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
     TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
@@ -159,14 +160,16 @@ pub trait RealearnTarget {
         value: UnitValue,
         context: ControlContext,
     ) -> String {
-        if self.character(context) == TargetCharacter::Discrete {
-            self.convert_unit_value_to_discrete_value(value, context)
+        match self.character(context) {
+            TargetCharacter::Trigger => self
+                .convert_unit_value_to_discrete_value(value, context)
                 .map(|v| v.to_string())
-                .unwrap_or_default()
-        } else {
-            format_as_percentage_without_unit(value)
+                .unwrap_or_default(),
+            TargetCharacter::Discrete => String::new(),
+            _ => format_as_percentage_without_unit(value),
         }
     }
+
     /// If this returns true, a value will not be printed (e.g. because it's already in the edit
     /// field).
     fn hide_formatted_value(&self, context: ControlContext) -> bool {
@@ -183,10 +186,9 @@ pub trait RealearnTarget {
 
     /// For mapping panel.
     fn value_unit(&self, context: ControlContext) -> &'static str {
-        if self.character(context) == TargetCharacter::Discrete {
-            ""
-        } else {
-            "%"
+        match self.character(context) {
+            TargetCharacter::Trigger | TargetCharacter::Discrete => "",
+            _ => "%",
         }
     }
 
@@ -639,7 +641,11 @@ pub enum ReaperTargetType {
     LoadFxSnapshot = 19,
     FxPreset = 13,
     FxOpen = 27,
-    Nks = 58,
+
+    // NKS targets
+    LoadNksPreset = 60,
+    NavigateWithinNksPresets = 58,
+    PreviewNksPreset = 59,
 
     // FX parameter targets
     FxParameterTouchState = 47,
@@ -782,7 +788,9 @@ impl ReaperTargetType {
             LoadMappingSnapshot => &LOAD_MAPPING_SNAPSHOT_TARGET,
             TakeMappingSnapshot => &SAVE_MAPPING_SNAPSHOT_TARGET,
             NavigateWithinGroup => &NAVIGATE_WITHIN_GROUP_TARGET,
-            Nks => &NKS_TARGET,
+            NavigateWithinNksPresets => &NAVIGATE_WITHIN_NKS_PRESETS_TARGET,
+            PreviewNksPreset => &PREVIEW_NKS_PRESET_TARGET,
+            LoadNksPreset => &LOAD_NKS_PRESET_TARGET,
         }
     }
 

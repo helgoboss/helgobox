@@ -587,7 +587,10 @@ version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba3569f383e8f1598449f1a423e72e99569137b47740b1da11ef19af3d5c3223"
 dependencies = [
+ "lazy_static",
  "memchr",
+ "regex-automata",
+ "serde",
 ]
 
 [[package]]
@@ -1008,6 +1011,28 @@ checksum = "d82cfc11ce7f2c3faef78d8a684447b40d503d9681acebed6cb728d45940c4db"
 dependencies = [
  "cfg-if 1.0.0",
  "lazy_static",
+]
+
+[[package]]
+name = "csv"
+version = "1.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22813a6dc45b335f9bade10bf7271dc477e81113e89eb251a0bc2a8a81c536e1"
+dependencies = [
+ "bstr",
+ "csv-core",
+ "itoa 0.4.8",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2254,9 +2279,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.1"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
 ]
@@ -3907,7 +3932,6 @@ dependencies = [
  "axum",
  "axum-server",
  "backtrace",
- "base64",
  "baseview",
  "bindgen",
  "built",
@@ -3932,6 +3956,7 @@ dependencies = [
  "enum_dispatch",
  "enumflags2",
  "env_logger 0.8.4",
+ "fallible-iterator",
  "fasteval",
  "futures",
  "futures-timer",
@@ -4048,15 +4073,17 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "backtrace",
+ "base64",
  "c_str_macro",
  "crossbeam-channel",
+ "csv",
  "either",
  "enumflags2",
  "futures",
  "helgoboss-midi",
+ "itertools",
  "num_enum 0.4.3",
  "once_cell",
  "pathdiff",
@@ -4075,7 +4102,6 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "c_str_macro",
  "cc 1.0.73 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4089,7 +4115,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.21",
@@ -4099,7 +4124,6 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -4117,7 +4141,6 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#83b34545ff2e37039178a7ca07ff43f7d8b47967"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
