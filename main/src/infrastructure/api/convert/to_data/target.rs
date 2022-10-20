@@ -894,22 +894,22 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
-        Target::NavigateWithinNksPresets(d) => TargetModelData {
+        Target::NavigateWithinPotPresets(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::NavigateWithinNksPresets,
+            r#type: ReaperTargetType::NavigateWithinPotPresets,
             ..init(d.commons)
         },
-        Target::PreviewNksPreset(d) => TargetModelData {
+        Target::PreviewPotPreset(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::PreviewNksPreset,
+            r#type: ReaperTargetType::PreviewPotPreset,
             ..init(d.commons)
         },
-        Target::LoadNksPreset(d) => {
+        Target::LoadPotPreset(d) => {
             let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
             let track_desc = fx_desc.chain_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::LoadNksPreset,
+                r#type: ReaperTargetType::LoadPotPreset,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 clip_column: track_desc.clip_column.unwrap_or_default(),

@@ -46,8 +46,8 @@ use crate::domain::{
     UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
     UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
     UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
-    UnresolvededLoadNksPresetTarget, UnresolvededNavigateWithinNksPresetsTarget,
-    UnresolvededPreviewNksPresetTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow,
+    UnresolvededLoadPotPresetTarget, UnresolvededNavigateWithinPotPresetsTarget,
+    UnresolvededPreviewPotPresetTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow,
     VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
     VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack,
     VirtualTrackRoute,
@@ -2445,14 +2445,14 @@ impl TargetModel {
                         parameter: self.any_on_parameter,
                     }),
                     Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget),
-                    NavigateWithinNksPresets => UnresolvedReaperTarget::NavigateWithinNksPresets(
-                        UnresolvededNavigateWithinNksPresetsTarget {},
+                    NavigateWithinPotPresets => UnresolvedReaperTarget::NavigateWithinPotPresets(
+                        UnresolvededNavigateWithinPotPresetsTarget {},
                     ),
-                    PreviewNksPreset => UnresolvedReaperTarget::PreviewNksPreset(
-                        UnresolvededPreviewNksPresetTarget {},
+                    PreviewPotPreset => UnresolvedReaperTarget::PreviewPotPreset(
+                        UnresolvededPreviewPotPresetTarget {},
                     ),
-                    LoadNksPreset => {
-                        UnresolvedReaperTarget::LoadNksPreset(UnresolvededLoadNksPresetTarget {
+                    LoadPotPreset => {
+                        UnresolvedReaperTarget::LoadPotPreset(UnresolvededLoadPotPresetTarget {
                             fx_descriptor: self.fx_descriptor()?,
                         })
                     }

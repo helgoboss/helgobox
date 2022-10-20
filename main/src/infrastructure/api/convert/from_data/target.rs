@@ -27,8 +27,8 @@ use realearn_api::persistence::{
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, LoadNksPresetTarget, MouseTarget, NavigateWithinNksPresetsTarget,
-    PlayRateTarget, PreviewNksPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    LoadMappingSnapshotTarget, LoadPotPresetTarget, MouseTarget, NavigateWithinPotPresetsTarget,
+    PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
     RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
     RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
     TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
@@ -686,11 +686,11 @@ fn convert_real_target(
             },
             group: style.required_value(data.group_id.into()),
         }),
-        NavigateWithinNksPresets => {
-            T::NavigateWithinNksPresets(NavigateWithinNksPresetsTarget { commons })
+        NavigateWithinPotPresets => {
+            T::NavigateWithinPotPresets(NavigateWithinPotPresetsTarget { commons })
         }
-        PreviewNksPreset => T::PreviewNksPreset(PreviewNksPresetTarget { commons }),
-        LoadNksPreset => T::LoadNksPreset(LoadNksPresetTarget {
+        PreviewPotPreset => T::PreviewPotPreset(PreviewPotPresetTarget { commons }),
+        LoadPotPreset => T::LoadPotPreset(LoadPotPresetTarget {
             commons,
             fx: convert_fx_descriptor(data, style),
         }),

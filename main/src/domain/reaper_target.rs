@@ -35,8 +35,8 @@ use crate::domain::{
     CycleThroughTracksTarget, DummyTarget, EnigoMouseTarget, FxEnableTarget, FxNavigateTarget,
     FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
     FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
-    LoadNksPresetTarget, MappingControlContext, MidiSendTarget, NavigateWithinNksPresetsTarget,
-    OscSendTarget, PlayrateTarget, PreviewNksPresetTarget, RealTimeClipColumnTarget,
+    LoadPotPresetTarget, MappingControlContext, MidiSendTarget, NavigateWithinPotPresetsTarget,
+    OscSendTarget, PlayrateTarget, PreviewPotPresetTarget, RealTimeClipColumnTarget,
     RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
     RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
     RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
@@ -146,9 +146,9 @@ pub enum ReaperTarget {
     EnableMappings(EnableMappingsTarget),
     EnableInstances(EnableInstancesTarget),
     NavigateWithinGroup(NavigateWithinGroupTarget),
-    NavigateWithinNksPresets(NavigateWithinNksPresetsTarget),
-    PreviewNksPreset(PreviewNksPresetTarget),
-    LoadNksPreset(LoadNksPresetTarget),
+    NavigateWithinPotPresets(NavigateWithinPotPresetsTarget),
+    PreviewPotPreset(PreviewPotPresetTarget),
+    LoadPotPreset(LoadPotPresetTarget),
 }
 
 #[derive(
@@ -657,9 +657,9 @@ impl<'a> Target<'a> for ReaperTarget {
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
             NavigateWithinGroup(t) => t.current_value(context),
-            NavigateWithinNksPresets(t) => t.current_value(context),
-            PreviewNksPreset(t) => t.current_value(context),
-            LoadNksPreset(t) => t.current_value(context),
+            NavigateWithinPotPresets(t) => t.current_value(context),
+            PreviewPotPreset(t) => t.current_value(context),
+            LoadPotPreset(t) => t.current_value(context),
         }
     }
 

@@ -1,6 +1,6 @@
-use crate::domain::nks::{preset_db, PresetId};
+use crate::domain::pot::{preset_db, PresetId};
 use crate::domain::{
-    nks::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    pot::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceState, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     SoundPlayer, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -8,16 +8,16 @@ use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
-pub struct UnresolvededPreviewNksPresetTarget {}
+pub struct UnresolvededPreviewPotPresetTarget {}
 
-impl UnresolvedReaperTargetDef for UnresolvededPreviewNksPresetTarget {
+impl UnresolvedReaperTargetDef for UnresolvededPreviewPotPresetTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::PreviewNksPreset(
-            PreviewNksPresetTarget {
+        Ok(vec![ReaperTarget::PreviewPotPreset(
+            PreviewPotPresetTarget {
                 sound_player: SoundPlayer::new(),
             },
         )])
@@ -26,12 +26,12 @@ impl UnresolvedReaperTargetDef for UnresolvededPreviewNksPresetTarget {
 
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Eq, PartialEq)]
-pub struct PreviewNksPresetTarget {
+pub struct PreviewPotPresetTarget {
     #[derivative(PartialEq = "ignore")]
     sound_player: SoundPlayer,
 }
 
-impl RealearnTarget for PreviewNksPresetTarget {
+impl RealearnTarget for PreviewPotPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
@@ -48,7 +48,7 @@ impl RealearnTarget for PreviewNksPresetTarget {
             let instance_state = context.control_context.instance_state.borrow();
             let preset_id = self
                 .current_preset_id(&instance_state)
-                .ok_or("no NKS preset selected")?;
+                .ok_or("no Pot preset selected")?;
             let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
                 .ok_or("couldn't find preset or build preset preview file")?;
             self.sound_player.load_file(&preview_file)?;
@@ -66,7 +66,7 @@ impl RealearnTarget for PreviewNksPresetTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::PreviewNksPreset)
+        Some(ReaperTargetType::PreviewPotPreset)
     }
 
     fn can_report_current_value(&self) -> bool {
@@ -74,7 +74,7 @@ impl RealearnTarget for PreviewNksPresetTarget {
     }
 }
 
-impl<'a> Target<'a> for PreviewNksPresetTarget {
+impl<'a> Target<'a> for PreviewPotPresetTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -86,13 +86,13 @@ impl<'a> Target<'a> for PreviewNksPresetTarget {
     }
 }
 
-impl PreviewNksPresetTarget {
+impl PreviewPotPresetTarget {
     fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
-        instance_state.nks_state().preset_id()
+        instance_state.pot_state().preset_id()
     }
 }
-pub const PREVIEW_NKS_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "NKS: Preview preset",
-    short_name: "Preview NKS preset",
+pub const PREVIEW_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Pot: Preview preset",
+    short_name: "Preview Pot preset",
     ..DEFAULT_TARGET
 };

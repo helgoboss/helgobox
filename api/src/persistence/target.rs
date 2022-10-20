@@ -72,9 +72,9 @@ pub enum Target {
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
-    NavigateWithinNksPresets(NavigateWithinNksPresetsTarget),
-    PreviewNksPreset(PreviewNksPresetTarget),
-    LoadNksPreset(LoadNksPresetTarget),
+    NavigateWithinPotPresets(NavigateWithinPotPresetsTarget),
+    PreviewPotPreset(PreviewPotPresetTarget),
+    LoadPotPreset(LoadPotPresetTarget),
     Virtual(VirtualTarget),
 }
 
@@ -1018,21 +1018,21 @@ pub struct CycleThroughGroupMappingsTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct NavigateWithinNksPresetsTarget {
+pub struct NavigateWithinPotPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PreviewNksPresetTarget {
+pub struct PreviewPotPresetTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct LoadNksPresetTarget {
+pub struct LoadPotPresetTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

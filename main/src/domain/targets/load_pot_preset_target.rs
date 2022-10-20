@@ -1,4 +1,5 @@
-use crate::domain::nks::{preset_db, with_preset_db, NksFile, Preset, PresetId};
+use crate::domain::pot::nks::NksFile;
+use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId};
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, InstanceState, MappingControlContext, RealearnTarget, ReaperTarget,
@@ -11,11 +12,11 @@ use reaper_medium::InsertMediaMode;
 use std::path::Path;
 
 #[derive(Debug)]
-pub struct UnresolvededLoadNksPresetTarget {
+pub struct UnresolvededLoadPotPresetTarget {
     pub fx_descriptor: FxDescriptor,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvededLoadNksPresetTarget {
+impl UnresolvedReaperTargetDef for UnresolvededLoadPotPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
@@ -25,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvededLoadNksPresetTarget {
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
-            .map(|fx| ReaperTarget::LoadNksPreset(LoadNksPresetTarget { fx }))
+            .map(|fx| ReaperTarget::LoadPotPreset(LoadPotPresetTarget { fx }))
             .collect();
         Ok(fxs)
     }
@@ -37,11 +38,11 @@ impl UnresolvedReaperTargetDef for UnresolvededLoadNksPresetTarget {
 
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Eq, PartialEq)]
-pub struct LoadNksPresetTarget {
+pub struct LoadPotPresetTarget {
     pub fx: Fx,
 }
 
-impl RealearnTarget for LoadNksPresetTarget {
+impl RealearnTarget for LoadPotPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
@@ -95,7 +96,7 @@ impl RealearnTarget for LoadNksPresetTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::LoadNksPreset)
+        Some(ReaperTargetType::LoadPotPreset)
     }
 
     fn can_report_current_value(&self) -> bool {
@@ -103,7 +104,7 @@ impl RealearnTarget for LoadNksPresetTarget {
     }
 }
 
-impl<'a> Target<'a> for LoadNksPresetTarget {
+impl<'a> Target<'a> for LoadPotPresetTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -115,9 +116,9 @@ impl<'a> Target<'a> for LoadNksPresetTarget {
     }
 }
 
-impl LoadNksPresetTarget {
+impl LoadPotPresetTarget {
     fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
-        instance_state.nks_state().preset_id()
+        instance_state.pot_state().preset_id()
     }
 
     fn load_nksf(&self, preset: &Preset) -> Result<(), &'static str> {
@@ -176,9 +177,9 @@ impl LoadNksPresetTarget {
     }
 }
 
-pub const LOAD_NKS_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "NKS: Load preset",
-    short_name: "Load NKS preset",
+pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Pot: Load preset",
+    short_name: "Load Pot preset",
     supports_track: true,
     supports_fx: true,
     ..DEFAULT_TARGET

@@ -1,11 +1,10 @@
-use crate::domain::nks::{Preset, PresetId};
+use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, nks::preset_db, nks::with_preset_db, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, InstanceState,
-    InstanceStateChanged, MappingControlContext, NksStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitResponse, InstanceState, InstanceStateChanged,
+    MappingControlContext, PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -13,24 +12,24 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvededNavigateWithinNksPresetsTarget {}
+pub struct UnresolvededNavigateWithinPotPresetsTarget {}
 
-impl UnresolvedReaperTargetDef for UnresolvededNavigateWithinNksPresetsTarget {
+impl UnresolvedReaperTargetDef for UnresolvededNavigateWithinPotPresetsTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::NavigateWithinNksPresets(
-            NavigateWithinNksPresetsTarget {},
+        Ok(vec![ReaperTarget::NavigateWithinPotPresets(
+            NavigateWithinPotPresetsTarget {},
         )])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NavigateWithinNksPresetsTarget {}
+pub struct NavigateWithinPotPresetsTarget {}
 
-impl RealearnTarget for NavigateWithinNksPresetsTarget {
+impl RealearnTarget for NavigateWithinPotPresetsTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteDiscrete {
@@ -84,7 +83,7 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
             }
         };
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state.set_nks_preset_id(preset_id);
+        instance_state.set_pot_preset_id(preset_id);
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -98,8 +97,8 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::NksStateChanged(
-                NksStateChangedEvent::PresetChanged { id },
+            CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetChanged { id },
             )) => (true, Some(self.convert_preset_id_to_absolute_value(*id))),
             _ => (false, None),
         }
@@ -136,11 +135,11 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::NavigateWithinNksPresets)
+        Some(ReaperTargetType::NavigateWithinPotPresets)
     }
 }
 
-impl<'a> Target<'a> for NavigateWithinNksPresetsTarget {
+impl<'a> Target<'a> for NavigateWithinPotPresetsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
@@ -154,7 +153,7 @@ impl<'a> Target<'a> for NavigateWithinNksPresetsTarget {
     }
 }
 
-impl NavigateWithinNksPresetsTarget {
+impl NavigateWithinPotPresetsTarget {
     fn convert_preset_id_to_absolute_value(&self, preset_id: Option<PresetId>) -> AbsoluteValue {
         let preset_index = preset_id.and_then(|id| self.find_index_of_preset(id));
         let actual = match preset_index {
@@ -180,7 +179,7 @@ impl NavigateWithinNksPresetsTarget {
     }
 
     fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
-        instance_state.nks_state().preset_id()
+        instance_state.pot_state().preset_id()
     }
 
     fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
@@ -190,9 +189,9 @@ impl NavigateWithinNksPresetsTarget {
     }
 }
 
-pub const NAVIGATE_WITHIN_NKS_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "NKS: Navigate within presets",
-    short_name: "Navigate within NKS presets",
+pub const NAVIGATE_WITHIN_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Pot: Navigate within presets",
+    short_name: "Navigate within Pot presets",
     ..DEFAULT_TARGET
 };
 

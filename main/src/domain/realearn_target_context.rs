@@ -1,6 +1,6 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
-    nks, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
+    pot, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedTrackParameterType,
 };
 use reaper_high::{Fx, Track};
@@ -20,9 +20,9 @@ pub struct RealearnTargetState {
     /// Memorizes for each FX the hash of its last FX snapshot loaded via "Load FX snapshot" target.
     // TODO-high Restore on load (by looking up snapshot chunk)
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
-    /// Memorizes for each FX some infos about its last loaded NKS preset.
+    /// Memorizes for each FX some infos about its last loaded Pot preset.
     // TODO-high Restore on load (by looking up DB)
-    current_preset_by_fx: HashMap<Fx, nks::CurrentPreset>,
+    current_pot_preset_by_fx: HashMap<Fx, pot::CurrentPreset>,
     /// Memorizes all currently touched track parameters.
     ///
     /// For "Touch automation state" target.
@@ -52,16 +52,16 @@ impl RealearnTargetState {
             additional_feedback_event_sender,
             fx_snapshot_chunk_hash_by_fx: Default::default(),
             touched_things: Default::default(),
-            current_preset_by_fx: Default::default(),
+            current_pot_preset_by_fx: Default::default(),
         }
     }
 
-    pub fn current_fx_preset(&self, fx: &Fx) -> Option<&nks::CurrentPreset> {
-        self.current_preset_by_fx.get(fx)
+    pub fn current_fx_preset(&self, fx: &Fx) -> Option<&pot::CurrentPreset> {
+        self.current_pot_preset_by_fx.get(fx)
     }
 
-    pub fn set_current_fx_preset(&mut self, fx: Fx, current_preset: nks::CurrentPreset) {
-        self.current_preset_by_fx.insert(fx, current_preset);
+    pub fn set_current_fx_preset(&mut self, fx: Fx, current_preset: pot::CurrentPreset) {
+        self.current_pot_preset_by_fx.insert(fx, current_preset);
     }
 
     pub fn current_fx_snapshot_chunk_hash(&self, fx: &Fx) -> Option<u64> {

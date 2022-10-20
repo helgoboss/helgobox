@@ -1,4 +1,5 @@
 use crate::base::blocking_lock;
+use crate::domain::pot::{CurrentPreset, ParamAssignment, Preset};
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashMap;
@@ -6,46 +7,15 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct NavigationState {
-    preset_id: Option<PresetId>,
-}
-
-#[derive(Debug, Default)]
-pub struct CurrentPreset {
-    param_mapping: HashMap<u32, u32>,
-}
-
-impl CurrentPreset {
-    pub fn find_mapped_parameter_index_at(&self, slot_index: u32) -> Option<u32> {
-        self.param_mapping.get(&slot_index).copied()
-    }
-}
-
+// TODO-high It would be best to choose an ID which is a hash of the preset, so it survives DB
+//  rebuilds.
+// TODO-high Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
-
-impl NavigationState {
-    pub fn preset_id(&self) -> Option<PresetId> {
-        self.preset_id
-    }
-
-    pub fn set_preset_id(&mut self, id: Option<PresetId>) {
-        self.preset_id = id;
-    }
-}
 
 pub struct PresetDb {
     connection: Connection,
     index_by_preset_id: HashMap<PresetId, u32>,
-}
-
-#[derive(Debug)]
-pub struct Preset {
-    pub id: PresetId,
-    pub name: String,
-    pub file_name: PathBuf,
-    pub file_ext: String,
 }
 
 pub struct NksFile {
@@ -157,11 +127,6 @@ impl NicaChunkContent {
             })
             .collect()
     }
-}
-
-#[derive(serde::Deserialize)]
-struct ParamAssignment {
-    id: Option<u32>,
 }
 
 impl PresetDb {

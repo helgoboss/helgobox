@@ -7,9 +7,9 @@ use reaper_high::Track;
 use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
-use crate::domain::nks::PresetId;
+use crate::domain::pot::PresetId;
 use crate::domain::{
-    nks, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
+    pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
     MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
     TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
@@ -119,12 +119,11 @@ pub struct InstanceState {
     ///
     /// Persistent.
     mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
-    /// Saves the current state for NKS preset navigation.
+    /// Saves the current state for Pot preset navigation.
     ///
     /// Persistent.
     // TODO-high Persist
-    // TODO-high Introduce "pot" abstraction, make NKS just a part of it (a category)
-    nks_state: nks::NavigationState,
+    pot_state: pot::NavigationState,
 }
 
 #[derive(Debug)]
@@ -229,18 +228,18 @@ impl InstanceState {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
-            nks_state: Default::default(),
+            pot_state: Default::default(),
         }
     }
 
-    pub fn nks_state(&self) -> &nks::NavigationState {
-        &self.nks_state
+    pub fn pot_state(&self) -> &pot::NavigationState {
+        &self.pot_state
     }
 
-    pub fn set_nks_preset_id(&mut self, id: Option<PresetId>) {
-        self.nks_state.set_preset_id(id);
+    pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) {
+        self.pot_state.set_preset_id(id);
         self.instance_feedback_event_sender.send_complaining(
-            InstanceStateChanged::NksStateChanged(NksStateChangedEvent::PresetChanged { id }),
+            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::PresetChanged { id }),
         );
     }
 
@@ -633,10 +632,10 @@ pub enum InstanceStateChanged {
         tag_scope: TagScope,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
-    NksStateChanged(NksStateChangedEvent),
+    PotStateChanged(PotStateChangedEvent),
 }
 
 #[derive(Debug)]
-pub enum NksStateChangedEvent {
+pub enum PotStateChangedEvent {
     PresetChanged { id: Option<PresetId> },
 }

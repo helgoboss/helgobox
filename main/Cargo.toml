@@ -171,15 +171,15 @@ baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "try-bo
 egui = "0.19.0"
 # For speech source
 tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
-# For NKS target
+# For Pot target
 rusqlite = { version = "0.28.0", features = ["bundled"] }
-# For NKS target
+# For Pot target
 fallible-iterator = "0.2"
-# For NKS target
+# For Pot target (NKS)
 riff-io = "0.1.2"
-# For NKS target
+# For Pot target (NKS)
 rmp-serde = "1.1.1"
-# For NKS target
+# For Pot target (NKS)
 dirs = "4.0.0"
 
 [target.'cfg(windows)'.dependencies]
