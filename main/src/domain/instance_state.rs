@@ -122,7 +122,9 @@ pub struct InstanceState {
     /// Saves the current state for NKS preset navigation.
     ///
     /// Persistent.
-    nks_state: nks::State,
+    // TODO-high Persist
+    // TODO-high Introduce "pot" abstraction, make NKS just a part of it (a category)
+    nks_state: nks::NavigationState,
 }
 
 #[derive(Debug)]
@@ -231,7 +233,7 @@ impl InstanceState {
         }
     }
 
-    pub fn nks_state(&self) -> &nks::State {
+    pub fn nks_state(&self) -> &nks::NavigationState {
         &self.nks_state
     }
 

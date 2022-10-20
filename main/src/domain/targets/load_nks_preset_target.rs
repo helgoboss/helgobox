@@ -1,8 +1,8 @@
 use crate::domain::nks::{preset_db, with_preset_db, NksFile, Preset, PresetId};
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
-    InstanceState, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    HitResponse, InstanceState, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -124,7 +124,8 @@ impl LoadNksPresetTarget {
         let nks_file = NksFile::load(&preset.file_name)?;
         let nks_content = nks_file.content()?;
         self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
-        // Set VST chunk (this is beyond ugly)
+        // Set VST chunk (this is beyond ugly) TODO-high Let's do this via Justin's new
+        // mechanism coming in REAPER > v6.69
         let fx = if self.fx.guid().is_some() {
             self.fx.clone()
         } else {
@@ -132,6 +133,9 @@ impl LoadNksPresetTarget {
             self.fx.chain().fx_by_guid_and_index(&guid, self.fx.index())
         };
         fx.set_vst_chunk(nks_content.vst_chunk)?;
+        BackboneState::target_state()
+            .borrow_mut()
+            .set_current_fx_preset(self.fx.clone(), nks_content.current_preset);
         Ok(())
     }
 

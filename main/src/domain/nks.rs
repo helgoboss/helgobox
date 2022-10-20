@@ -7,14 +7,25 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct State {
+pub struct NavigationState {
     preset_id: Option<PresetId>,
+}
+
+#[derive(Debug, Default)]
+pub struct CurrentPreset {
+    param_mapping: HashMap<u32, u32>,
+}
+
+impl CurrentPreset {
+    pub fn find_mapped_parameter_index_at(&self, slot_index: u32) -> Option<u32> {
+        self.param_mapping.get(&slot_index).copied()
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
 
-impl State {
+impl NavigationState {
     pub fn preset_id(&self) -> Option<PresetId> {
         self.preset_id
     }
@@ -45,6 +56,7 @@ pub struct NksFile {
 pub struct NksFileContent<'a> {
     pub vst_magic_number: u32,
     pub vst_chunk: &'a [u8],
+    pub current_preset: CurrentPreset,
 }
 
 impl NksFile {
@@ -62,10 +74,12 @@ impl NksFile {
             .map_err(|_| "couldn't read NKS file entries")?;
         let mut plid_chunk = None;
         let mut pchk_chunk = None;
+        let mut nica_chunk = None;
         for entry in entries {
             if let Entry::Chunk(chunk_meta) = entry {
                 match &chunk_meta.chunk_id {
                     b"PLID" => plid_chunk = Some(chunk_meta),
+                    b"NICA" => nica_chunk = Some(chunk_meta),
                     b"PCHK" => pchk_chunk = Some(chunk_meta),
                     _ => {}
                 }
@@ -82,6 +96,15 @@ impl NksFile {
                 value.vst_magic
             },
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
+            current_preset: CurrentPreset {
+                param_mapping: nica_chunk
+                    .and_then(|nica_chunk| {
+                        let bytes = self.relevant_bytes_of_chunk(&nica_chunk);
+                        let value: NicaChunkContent = rmp_serde::from_slice(bytes).ok()?;
+                        Some(value.extract_param_mapping())
+                    })
+                    .unwrap_or_default(),
+            },
         };
         Ok(content)
     }
@@ -114,6 +137,33 @@ struct PlidChunkContent {
     vst_magic: u32,
 }
 
+#[derive(serde::Deserialize)]
+struct NicaChunkContent {
+    ni8: Vec<Vec<ParamAssignment>>,
+}
+
+impl NicaChunkContent {
+    pub fn extract_param_mapping(&self) -> HashMap<u32, u32> {
+        self.ni8
+            .iter()
+            .enumerate()
+            .flat_map(|(bank_index, bank)| {
+                bank.iter()
+                    .enumerate()
+                    .filter_map(move |(slot_index, slot)| {
+                        let param_id = slot.id?;
+                        Some((bank_index as u32 * 8 + slot_index as u32, param_id))
+                    })
+            })
+            .collect()
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ParamAssignment {
+    id: Option<u32>,
+}
+
 impl PresetDb {
     fn open() -> Result<Mutex<Self>, Box<dyn Error>> {
         let path = path_to_preset_db()?;
@@ -143,9 +193,6 @@ impl PresetDb {
 
     pub fn count_presets(&self) -> u32 {
         self.index_by_preset_id.len() as u32
-        // self.connection
-        //     .query_row("SELECT count(*) FROM k_sound_info", [], |row| row.get(0))
-        //     .unwrap_or(0)
     }
 
     pub fn find_preset_preview_file(&self, id: PresetId) -> Option<PathBuf> {
@@ -163,23 +210,10 @@ impl PresetDb {
 
     pub fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
         self.index_by_preset_id.get(&id).copied()
-        // // TODO-medium This is not cheap. We should probably build an in-memory index instead.
-        // self.connection
-        //     .query_row(
-        //         "SELECT row - 1
-        //          FROM (
-        //              SELECT ROW_NUMBER() OVER(ORDER BY id) as row, id
-        //              FROM k_sound_info
-        //          )
-        //          WHERE id = ?",
-        //         [id.0],
-        //         |row| Ok(row.get(0)?),
-        //     )
-        //     .ok()
     }
 
     pub fn find_preset_id_at_index(&self, index: u32) -> Option<PresetId> {
-        // TODO-high We could optimize this by making the index a bi-map
+        // TODO-medium We could optimize this by making the index a bi-map
         self.connection
             .query_row(
                 "SELECT id FROM k_sound_info ORDER BY id LIMIT 1 OFFSET ?",

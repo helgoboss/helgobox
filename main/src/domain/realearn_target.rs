@@ -642,14 +642,14 @@ pub enum ReaperTargetType {
     FxPreset = 13,
     FxOpen = 27,
 
+    // FX parameter targets
+    FxParameterTouchState = 47,
+    FxParameterValue = 1,
+
     // NKS targets
     LoadNksPreset = 60,
     NavigateWithinNksPresets = 58,
     PreviewNksPreset = 59,
-
-    // FX parameter targets
-    FxParameterTouchState = 47,
-    FxParameterValue = 1,
 
     // Send targets
     RouteTouchState = 48,
