@@ -6,7 +6,9 @@ use crate::domain::{
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use reaper_high::{Fx, Project, Track};
+use reaper_high::{Fx, Project, Reaper, Track};
+use reaper_medium::InsertMediaMode;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct UnresolvededLoadNksPresetTarget {
@@ -59,6 +61,9 @@ impl RealearnTarget for LoadNksPresetTarget {
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
         match preset.file_ext.as_str() {
+            "wav" | "aif" => {
+                self.load_audio(&preset)?;
+            }
             "nksf" => {
                 self.load_nksf(&preset)?;
             }
@@ -127,6 +132,25 @@ impl LoadNksPresetTarget {
         Ok(())
     }
 
+    fn load_audio(&self, preset: &Preset) -> Result<(), &'static str> {
+        const RS5K_VST_ID: u32 = 1920167789;
+        self.make_sure_fx_has_correct_type(RS5K_VST_ID)?;
+        let window_is_open_before = self.fx.window_is_open();
+        if window_is_open_before {
+            if !self.fx.window_has_focus() {
+                self.fx.hide_floating_window();
+                self.fx.show_in_floating_window();
+            }
+        } else {
+            self.fx.show_in_floating_window();
+        }
+        load_media_in_last_focused_rs5k(&preset.file_name)?;
+        if !window_is_open_before {
+            self.fx.hide_floating_window();
+        }
+        Ok(())
+    }
+
     fn make_sure_fx_has_correct_type(&self, vst_magic_number: u32) -> Result<(), &'static str> {
         if !self.fx.is_available() {
             return Err("FX not available");
@@ -152,3 +176,12 @@ pub const LOAD_NKS_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
     supports_fx: true,
     ..DEFAULT_TARGET
 };
+
+fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
+    Reaper::get().medium_reaper().insert_media(
+        path,
+        InsertMediaMode::CurrentReasamplomatic,
+        Default::default(),
+    )?;
+    Ok(())
+}
