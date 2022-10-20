@@ -1,11 +1,11 @@
 use crate::domain::nks::{Preset, PresetId};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, nks::preset_db, nks::with_preset_db,
-    AdditionalFeedbackEvent, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, NksStateChangedEvent,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_unit_to_discrete_value_with_none, nks::preset_db, nks::with_preset_db, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, InstanceState,
+    InstanceStateChanged, MappingControlContext, NksStateChangedEvent, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -72,7 +72,7 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: MappingControlContext,
+        context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let preset_index = self.convert_unit_value_to_preset_index(value.to_unit_value()?);
         let preset_id = match preset_index {
@@ -83,8 +83,8 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
                 Some(id)
             }
         };
-        let mut target_state = BackboneState::target_state().borrow_mut();
-        target_state.set_preset_id(preset_id);
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        instance_state.set_nks_preset_id(preset_id);
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -98,7 +98,7 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::NksStateChanged(
+            CompoundChangeEvent::Instance(InstanceStateChanged::NksStateChanged(
                 NksStateChangedEvent::PresetChanged { id },
             )) => (true, Some(self.convert_preset_id_to_absolute_value(*id))),
             _ => (false, None),
@@ -115,8 +115,9 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
         Ok(uv)
     }
 
-    fn text_value(&self, _: ControlContext) -> Option<Cow<'static, str>> {
-        let preset_id = match self.current_preset_id() {
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        let instance_state = context.instance_state.borrow();
+        let preset_id = match self.current_preset_id(&instance_state) {
             None => return Some("<None>".into()),
             Some(id) => id,
         };
@@ -127,8 +128,9 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
         Some(preset.name.into())
     }
 
-    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let preset_id = self.current_preset_id()?;
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        let instance_state = context.instance_state.borrow();
+        let preset_id = self.current_preset_id(&instance_state)?;
         let preset_index = self.find_index_of_preset(preset_id)?;
         Some(NumericValue::Discrete(preset_index as i32 + 1))
     }
@@ -141,8 +143,9 @@ impl RealearnTarget for NavigateWithinNksPresetsTarget {
 impl<'a> Target<'a> for NavigateWithinNksPresetsTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let preset_id = self.current_preset_id();
+    fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
+        let instance_state = context.instance_state.borrow();
+        let preset_id = self.current_preset_id(&instance_state);
         Some(self.convert_preset_id_to_absolute_value(preset_id))
     }
 
@@ -176,11 +179,8 @@ impl NavigateWithinNksPresetsTarget {
         convert_unit_to_discrete_value_with_none(value, self.preset_count())
     }
 
-    fn current_preset_id(&self) -> Option<PresetId> {
-        BackboneState::target_state()
-            .borrow()
-            .nks_state()
-            .preset_id()
+    fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
+        instance_state.nks_state().preset_id()
     }
 
     fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {

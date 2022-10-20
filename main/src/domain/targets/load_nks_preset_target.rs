@@ -1,7 +1,7 @@
 use crate::domain::nks::{preset_db, with_preset_db, NksFile, Preset, PresetId};
 use crate::domain::{
-    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
+    InstanceState, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
@@ -52,12 +52,15 @@ impl RealearnTarget for LoadNksPresetTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: MappingControlContext,
+        context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if !value.is_on() {
             return Ok(HitResponse::ignored());
         }
-        let preset_id = self.current_preset_id().ok_or("no preset selected")?;
+        let instance_state = context.control_context.instance_state.borrow();
+        let preset_id = self
+            .current_preset_id(&instance_state)
+            .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
         match preset.file_ext.as_str() {
@@ -72,8 +75,11 @@ impl RealearnTarget for LoadNksPresetTarget {
         Ok(HitResponse::processed_with_effect())
     }
 
-    fn is_available(&self, _: ControlContext) -> bool {
-        preset_db().is_ok() && self.current_preset_id().is_some() && self.fx.is_available()
+    fn is_available(&self, context: ControlContext) -> bool {
+        let instance_state = context.instance_state.borrow();
+        preset_db().is_ok()
+            && self.current_preset_id(&instance_state).is_some()
+            && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {
@@ -110,11 +116,8 @@ impl<'a> Target<'a> for LoadNksPresetTarget {
 }
 
 impl LoadNksPresetTarget {
-    fn current_preset_id(&self) -> Option<PresetId> {
-        BackboneState::target_state()
-            .borrow()
-            .nks_state()
-            .preset_id()
+    fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
+        instance_state.nks_state().preset_id()
     }
 
     fn load_nksf(&self, preset: &Preset) -> Result<(), &'static str> {

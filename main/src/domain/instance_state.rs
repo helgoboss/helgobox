@@ -7,11 +7,12 @@ use reaper_high::Track;
 use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::nks::PresetId;
 use crate::domain::{
-    BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GlobalControlAndFeedbackState,
-    GroupId, HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
-    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
-    VirtualMappingSnapshotIdForLoad,
+    nks, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
+    GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
+    MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
+    TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
@@ -25,9 +26,20 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
+///
+/// This also contains ReaLearn-specific target state that is persistent, even if the state is of
+/// more global nature than an instance. Rationale: Otherwise we would need to come up with a
+/// new place to persist state, e.g. the project data. But this makes things more complex and
+/// raises questions like whether to keep the data in the project even the last ReaLearn instance is
+/// gone and what to do if there's no project context - on the monitoring FX chain.
+///
+/// For state of global nature which doesn't need to be persisted, see `RealearnTargetState`.
 #[derive(Debug)]
 pub struct InstanceState {
     instance_id: InstanceId,
+    /// Owned clip matrix or reference to a clip matrix owned by another instance.
+    ///
+    /// Persistent.
     clip_matrix_ref: Option<ClipMatrixRef>,
     instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
@@ -37,6 +49,7 @@ pub struct InstanceState {
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
+    /// - Not persistent
     /// - Used for target "ReaLearn: Navigate within group"
     /// - Automatically filled by main processor on sync
     /// - Completely derived from mappings, so it's redundant state.
@@ -45,35 +58,55 @@ pub struct InstanceState {
     mappings_by_group: EnumMap<Compartment, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
+    /// - Persistent
     /// - Set by target "ReaLearn: Navigate within group".
     /// - Non-redundant state!
     active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
+    /// - Not persistent
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer.
     mapping_infos: HashMap<QualifiedMappingId, MappingInfo>,
     /// The mappings which are on.
     ///
+    /// - Not persistent
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
     /// - Completely derived from mappings, so it's redundant state.
     /// - It's needed by both processing layer and layers above.
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
     /// Whether control/feedback are globally active.
+    ///
+    /// Not persistent.
     global_control_and_feedback_state: Prop<GlobalControlAndFeedbackState>,
     /// All mapping tags whose mappings have been switched on via tag.
     ///
+    /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
     active_mapping_tags: EnumMap<Compartment, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
+    /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
+    /// For clip matrix copy and paste via controller.
+    ///
+    /// Not persistent
     copied_clip: Option<playtime_api::persistence::Clip>,
+    /// For clip matrix copy and paste via controller.
+    ///
+    /// Not persistent
     copied_clips_in_row: Vec<ApiClipWithColumn>,
+    /// Instance track.
+    ///
+    /// The instance track is persistent but it's persisted from the session, not from here.
+    /// This track descriptor is a descriptor suited for runtime, not for persistence.
     instance_track_descriptor: TrackDescriptor,
+    /// Instance FX.
+    ///
+    /// See instance track to learn about persistence.
     // TODO-low It's not so cool that we have the target activation condition as part of the
     //  descriptors (e.g. enable_only_if_track_selected) because we must be sure to set them
     //  to false.
@@ -82,7 +115,14 @@ pub struct InstanceState {
     //  - FxTargetDescriptor contains FxDescriptor contains VirtualFx
     //  ... where TrackTargetDescriptor contains the condition and TrackDescriptor doesn't.
     instance_fx_descriptor: FxDescriptor,
+    /// Mapping snapshots.
+    ///
+    /// Persistent.
     mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
+    /// Saves the current state for NKS preset navigation.
+    ///
+    /// Persistent.
+    nks_state: nks::State,
 }
 
 #[derive(Debug)]
@@ -187,7 +227,19 @@ impl InstanceState {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
+            nks_state: Default::default(),
         }
+    }
+
+    pub fn nks_state(&self) -> &nks::State {
+        &self.nks_state
+    }
+
+    pub fn set_nks_preset_id(&mut self, id: Option<PresetId>) {
+        self.nks_state.set_preset_id(id);
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::NksStateChanged(NksStateChangedEvent::PresetChanged { id }),
+        );
     }
 
     pub fn set_mapping_snapshot_container(
@@ -568,7 +620,9 @@ pub enum InstanceStateChanged {
         mapping_id: Option<MappingId>,
     },
     /// For the "ReaLearn: Enable/disable mappings" target.
-    ActiveMappingTags { compartment: Compartment },
+    ActiveMappingTags {
+        compartment: Compartment,
+    },
     /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
     /// For the "ReaLearn: Load mapping snapshot" target.
@@ -577,4 +631,10 @@ pub enum InstanceStateChanged {
         tag_scope: TagScope,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
+    NksStateChanged(NksStateChangedEvent),
+}
+
+#[derive(Debug)]
+pub enum NksStateChangedEvent {
+    PresetChanged { id: Option<PresetId> },
 }

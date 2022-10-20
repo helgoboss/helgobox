@@ -1,8 +1,7 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread};
-use crate::domain::nks::PresetId;
 use crate::domain::{
-    nks, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, NksStateChangedEvent,
-    ParameterAutomationTouchStateChangedEvent, TouchedTrackParameterType,
+    AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
+    TouchedTrackParameterType,
 };
 use reaper_high::{Fx, Track};
 use reaper_medium::{GangBehavior, MediaTrack};
@@ -10,13 +9,20 @@ use std::collections::{HashMap, HashSet};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
+///
+/// Normally, this state is state that doesn't persist because it's global ... this raises the
+/// question which ReaLearn instances should be responsible for saving it. If you need persistent
+/// state, it should be owned by a particular instance, which is then also responsible for saving
+/// it (see `InstanceState`).
 pub struct RealearnTargetState {
+    /// For notifying ReaLearn about state changes.
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
-    // For "Load FX snapshot" target.
+    /// Saves for each FX the hash of its last FX snapshot loaded via "Load FX snapshot" target.
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
-    // For "Touch automation state" target.
+    /// Saves all currently touched track parameters.
+    ///
+    /// For "Touch automation state" target.
     touched_things: HashSet<TouchedThing>,
-    nks_state: nks::State,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -42,19 +48,7 @@ impl RealearnTargetState {
             fx_snapshot_chunk_hash_by_fx: Default::default(),
             additional_feedback_event_sender,
             touched_things: Default::default(),
-            nks_state: Default::default(),
         }
-    }
-
-    pub fn nks_state(&self) -> &nks::State {
-        &self.nks_state
-    }
-
-    pub fn set_preset_id(&mut self, id: Option<PresetId>) {
-        self.nks_state.set_preset_id(id);
-        self.additional_feedback_event_sender.send_complaining(
-            AdditionalFeedbackEvent::NksStateChanged(NksStateChangedEvent::PresetChanged { id }),
-        );
     }
 
     pub fn current_fx_snapshot_chunk_hash(&self, fx: &Fx) -> Option<u64> {

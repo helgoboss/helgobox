@@ -1,7 +1,7 @@
 use crate::domain::nks::{preset_db, PresetId};
 use crate::domain::{
-    nks::with_preset_db, BackboneState, Compartment, ControlContext, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    nks::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    InstanceState, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     SoundPlayer, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
@@ -42,10 +42,13 @@ impl RealearnTarget for PreviewNksPresetTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: MappingControlContext,
+        context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.is_on() {
-            let preset_id = self.current_preset_id().ok_or("no NKS preset selected")?;
+            let instance_state = context.control_context.instance_state.borrow();
+            let preset_id = self
+                .current_preset_id(&instance_state)
+                .ok_or("no NKS preset selected")?;
             let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
                 .ok_or("couldn't find preset or build preset preview file")?;
             self.sound_player.load_file(&preview_file)?;
@@ -57,8 +60,9 @@ impl RealearnTarget for PreviewNksPresetTarget {
         }
     }
 
-    fn is_available(&self, _: ControlContext) -> bool {
-        preset_db().is_ok() && self.current_preset_id().is_some()
+    fn is_available(&self, context: ControlContext) -> bool {
+        let instance_state = context.instance_state.borrow();
+        preset_db().is_ok() && self.current_preset_id(&instance_state).is_some()
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -83,11 +87,8 @@ impl<'a> Target<'a> for PreviewNksPresetTarget {
 }
 
 impl PreviewNksPresetTarget {
-    fn current_preset_id(&self) -> Option<PresetId> {
-        BackboneState::target_state()
-            .borrow()
-            .nks_state()
-            .preset_id()
+    fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
+        instance_state.nks_state().preset_id()
     }
 }
 pub const PREVIEW_NKS_PRESET_TARGET: TargetTypeDef = TargetTypeDef {

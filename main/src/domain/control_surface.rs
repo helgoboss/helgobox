@@ -20,7 +20,6 @@ use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
 use crate::base::metrics_util::measure_time;
-use crate::domain::nks::PresetId;
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
@@ -118,12 +117,6 @@ pub enum AdditionalFeedbackEvent {
     /// We shouldn't change that because targets such as "Marker/region: Go to" or "Project: Seek"
     /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
     BeatChanged(BeatChangedEvent),
-    NksStateChanged(NksStateChangedEvent),
-}
-
-#[derive(Debug)]
-pub enum NksStateChangedEvent {
-    PresetChanged { id: Option<PresetId> },
 }
 
 #[derive(Debug)]

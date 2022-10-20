@@ -6,12 +6,12 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct State {
     preset_id: Option<PresetId>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
 
 impl State {
