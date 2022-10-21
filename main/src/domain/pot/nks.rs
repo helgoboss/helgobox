@@ -1,5 +1,7 @@
 use crate::base::blocking_lock;
-use crate::domain::pot::{CurrentPreset, ParamAssignment, Preset};
+use crate::domain::pot::{CurrentPreset, FilterItem, ParamAssignment, Preset};
+use enum_map::EnumMap;
+use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashMap;
@@ -8,14 +10,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 // TODO-high It would be best to choose an ID which is a hash of the preset, so it survives DB
-//  rebuilds.
-// TODO-high Introduce target "Pot: Mark preset"
+//  rebuilds. => use UUID! it's stable
+// TODO-medium Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub struct FilterItemId(u32);
 
 pub struct PresetDb {
     connection: Connection,
     index_by_preset_id: HashMap<PresetId, u32>,
+    filter_item_containers: EnumMap<PotFilterItemKind, Vec<FilterItem>>,
 }
 
 pub struct NksFile {
@@ -136,12 +142,14 @@ impl PresetDb {
         let mut db = Self {
             connection,
             index_by_preset_id: Default::default(),
+            filter_item_containers: Default::default(),
         };
-        db.refresh_index()?;
+        db.refresh_filter_items()?;
+        db.refresh_preset_index()?;
         Ok(Mutex::new(db))
     }
 
-    pub fn refresh_index(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn refresh_preset_index(&mut self) -> Result<(), Box<dyn Error>> {
         use fallible_iterator::FallibleIterator;
         let mut statement = self
             .connection
@@ -154,6 +162,18 @@ impl PresetDb {
             .collect();
         self.index_by_preset_id = index?;
         Ok(())
+    }
+
+    pub fn refresh_filter_items(&mut self) -> Result<(), Box<dyn Error>> {
+        use enum_iterator::IntoEnumIterator;
+        for kind in PotFilterItemKind::into_enum_iter() {
+            self.filter_item_containers[kind] = self.query_filter_items(kind).unwrap_or_default();
+        }
+        Ok(())
+    }
+
+    pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
+        self.filter_item_containers[kind].len() as _
     }
 
     pub fn count_presets(&self) -> u32 {
@@ -173,8 +193,25 @@ impl PresetDb {
         }
     }
 
+    pub fn find_index_of_filter_item(
+        &self,
+        kind: PotFilterItemKind,
+        id: FilterItemId,
+    ) -> Option<u32> {
+        Some(self.find_filter_item_and_index_by_id(kind, id)?.0)
+    }
+
     pub fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
         self.index_by_preset_id.get(&id).copied()
+    }
+
+    pub fn find_filter_item_id_at_index(
+        &self,
+        kind: PotFilterItemKind,
+        index: u32,
+    ) -> Option<FilterItemId> {
+        let item = self.filter_item_containers[kind].get(index as usize)?;
+        Some(item.id)
     }
 
     pub fn find_preset_id_at_index(&self, index: u32) -> Option<PresetId> {
@@ -186,6 +223,26 @@ impl PresetDb {
                 |row| Ok(PresetId(row.get(0)?)),
             )
             .ok()
+    }
+
+    pub fn find_filter_item_by_id(
+        &self,
+        kind: PotFilterItemKind,
+        id: FilterItemId,
+    ) -> Option<&FilterItem> {
+        Some(self.find_filter_item_and_index_by_id(kind, id)?.1)
+    }
+
+    fn find_filter_item_and_index_by_id(
+        &self,
+        kind: PotFilterItemKind,
+        id: FilterItemId,
+    ) -> Option<(u32, &FilterItem)> {
+        let (i, item) = self.filter_item_containers[kind]
+            .iter()
+            .enumerate()
+            .find(|(i, item)| item.id == id)?;
+        Some((i as u32, item))
     }
 
     pub fn find_preset_by_id(&self, id: PresetId) -> Option<Preset> {
@@ -207,6 +264,42 @@ impl PresetDb {
                 },
             )
             .ok()
+    }
+
+    fn query_filter_items(&self, kind: PotFilterItemKind) -> Result<Vec<FilterItem>, String> {
+        use PotFilterItemKind::*;
+        match kind {
+            // TODO-high
+            Database => Err("TODO".into()),
+            NksBank => self.select_filter_items("SELECT id, entry1 FROM k_bank_chain ORDER BY entry1"),
+            NksSubBank => self.select_filter_items(
+                "SELECT id, entry2 FROM k_bank_chain WHERE entry2 IS NOT NULL ORDER BY entry2",
+            ),
+            NksCategory => self.select_filter_items("SELECT id, category FROM k_category ORDER BY category"),
+            NksSubCategory => self.select_filter_items("SELECT id, subcategory FROM k_category WHERE subcategory IS NOT NULL ORDER BY subcategory"),
+            NksMode => self.select_filter_items("SELECT id, name FROM k_mode ORDER BY name"),
+            // TODO-high
+            NksFavorite => Err("TODO".into()),
+        }
+    }
+
+    fn select_filter_items(&self, query: &str) -> Result<Vec<FilterItem>, String> {
+        self.select_filter_items_internal(query)
+            .map_err(|e| e.to_string())
+    }
+
+    fn select_filter_items_internal(&self, query: &str) -> rusqlite::Result<Vec<FilterItem>> {
+        use fallible_iterator::FallibleIterator;
+        let mut statement = self.connection.prepare_cached(query)?;
+        let rows = statement.query([])?;
+        rows.map(|row| {
+            let item = FilterItem {
+                id: FilterItemId(row.get(0)?),
+                name: row.get(1)?,
+            };
+            Ok(item)
+        })
+        .collect()
     }
 }
 

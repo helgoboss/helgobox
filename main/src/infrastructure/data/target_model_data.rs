@@ -31,7 +31,8 @@ use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     CycleThroughTracksMode, FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
-    MonitoringMode, MouseAction, SeekBehavior, TargetValue, TrackScope, TrackToolAction,
+    MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior, TargetValue, TrackScope,
+    TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -474,6 +475,13 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
+    /// New since ReaLearn v2.13.0-pre.4
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub pot_filter_item_kind: PotFilterItemKind,
 }
 
 impl TargetModelData {
@@ -578,6 +586,7 @@ impl TargetModelData {
             clip_play_start_timing: model.clip_play_start_timing(),
             clip_play_stop_timing: model.clip_play_stop_timing(),
             mouse_action: model.mouse_action(),
+            pot_filter_item_kind: model.pot_filter_item_kind(),
         }
     }
 
@@ -879,6 +888,7 @@ impl TargetModelData {
             mapping_snapshot_id_for_load.or(mapping_snapshot_id_for_take),
         ));
         model.set_mouse_action_without_notification(self.mouse_action);
+        model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
         Ok(())
     }
 }

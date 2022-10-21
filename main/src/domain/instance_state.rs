@@ -7,6 +7,7 @@ use reaper_high::Track;
 use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::pot::nks::FilterItemId;
 use crate::domain::pot::PresetId;
 use crate::domain::{
     pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
@@ -18,6 +19,7 @@ use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
+use realearn_api::persistence::PotFilterItemKind;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
@@ -234,6 +236,16 @@ impl InstanceState {
 
     pub fn pot_state(&self) -> &pot::NavigationState {
         &self.pot_state
+    }
+
+    pub fn set_pot_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
+        self.pot_state.set_filter_item_id(kind, id);
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::FilterItemChanged {
+                kind,
+                id,
+            }),
+        );
     }
 
     pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) {
@@ -637,5 +649,11 @@ pub enum InstanceStateChanged {
 
 #[derive(Debug)]
 pub enum PotStateChangedEvent {
-    PresetChanged { id: Option<PresetId> },
+    FilterItemChanged {
+        kind: PotFilterItemKind,
+        id: Option<FilterItemId>,
+    },
+    PresetChanged {
+        id: Option<PresetId>,
+    },
 }

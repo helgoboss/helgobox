@@ -12,11 +12,11 @@ use reaper_medium::InsertMediaMode;
 use std::path::Path;
 
 #[derive(Debug)]
-pub struct UnresolvededLoadPotPresetTarget {
+pub struct UnresolvedLoadPotPresetTarget {
     pub fx_descriptor: FxDescriptor,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvededLoadPotPresetTarget {
+impl UnresolvedReaperTargetDef for UnresolvedLoadPotPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,

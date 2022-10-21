@@ -172,6 +172,9 @@ pub use last_touched_target::*;
 mod fx_parameter_touch_state_target;
 pub use fx_parameter_touch_state_target::*;
 
+mod browse_pot_filter_items_target;
+pub use browse_pot_filter_items_target::*;
+
 mod navigate_within_pot_presets_target;
 pub use navigate_within_pot_presets_target::*;
 

@@ -8,9 +8,9 @@ use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
-pub struct UnresolvededPreviewPotPresetTarget {}
+pub struct UnresolvedPreviewPotPresetTarget {}
 
-impl UnresolvedReaperTargetDef for UnresolvededPreviewPotPresetTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPreviewPotPresetTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,

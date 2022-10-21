@@ -15,13 +15,13 @@ use reaper_medium::{CommandId, MasterTrackBehavior};
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvededCycleThroughTracksTarget {
+pub struct UnresolvedCycleThroughTracksTarget {
     pub scroll_arrange_view: bool,
     pub scroll_mixer: bool,
     pub mode: CycleThroughTracksMode,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvededCycleThroughTracksTarget {
+impl UnresolvedReaperTargetDef for UnresolvedCycleThroughTracksTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,

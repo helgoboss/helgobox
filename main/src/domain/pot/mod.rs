@@ -4,6 +4,9 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
+use crate::domain::pot::nks::FilterItemId;
+use enum_map::EnumMap;
+use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -23,6 +26,7 @@ pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct NavigationState {
+    filter_item_ids: EnumMap<PotFilterItemKind, Option<FilterItemId>>,
     preset_id: Option<PresetId>,
 }
 
@@ -45,6 +49,20 @@ impl NavigationState {
     pub fn set_preset_id(&mut self, id: Option<PresetId>) {
         self.preset_id = id;
     }
+
+    pub fn filter_item_id(&self, kind: PotFilterItemKind) -> Option<FilterItemId> {
+        self.filter_item_ids[kind]
+    }
+
+    pub fn set_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
+        self.filter_item_ids[kind] = id;
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FilterItem {
+    pub id: FilterItemId,
+    pub name: String,
 }
 
 #[derive(Debug)]

@@ -21,36 +21,37 @@ use crate::domain::{
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
-    MappingSnapshotId, MouseActionType, OscDeviceId, ProcessorContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
-    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    MappingSnapshotId, MouseActionType, OscDeviceId, PotFilterItemsTargetSettings,
+    ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedCompoundMappingTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedBrowsePotFilterItemsTarget,
+    UnresolvedClipColumnTarget, UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget,
+    UnresolvedClipRowTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget,
+    UnresolvedCycleThroughTracksTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
     UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
     UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
     UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
     UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
-    UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
-    UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
-    UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
-    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
-    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
-    UnresolvededLoadPotPresetTarget, UnresolvededNavigateWithinPotPresetsTarget,
-    UnresolvededPreviewPotPresetTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow,
-    VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
-    VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
+    UnresolvedMouseTarget, UnresolvedNavigateWithinGroupTarget,
+    UnresolvedNavigateWithinPotPresetsTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
+    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
+    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
+    VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualFxParameter, VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake,
+    VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -64,7 +65,8 @@ use realearn_api::persistence::{
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
     CycleThroughTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope,
+    TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -165,6 +167,7 @@ pub enum TargetCommand {
     SetMappingSnapshotTypeForTake(MappingSnapshotTypeForTake),
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
+    SetPotFilterItemKind(PotFilterItemKind),
 }
 
 #[derive(Eq, PartialEq)]
@@ -261,6 +264,7 @@ pub enum TargetProp {
     MappingSnapshotTypeForTake,
     MappingSnapshotId,
     MappingSnapshotDefaultValue,
+    PotFilterItemKind,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -631,6 +635,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.stop_column_if_slot_empty = v;
                 One(P::StopColumnIfSlotEmpty)
             }
+            C::SetPotFilterItemKind(v) => {
+                self.pot_filter_item_kind = v;
+                One(P::PotFilterItemKind)
+            }
         };
         Some(affected)
     }
@@ -763,6 +771,8 @@ pub struct TargetModel {
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
+    // # For Pot targets
+    pot_filter_item_kind: PotFilterItemKind,
 }
 
 impl Default for TargetModel {
@@ -861,6 +871,7 @@ impl Default for TargetModel {
             fx_tool_action: Default::default(),
             gang_behavior: Default::default(),
             cycle_through_tracks_mode: Default::default(),
+            pot_filter_item_kind: Default::default(),
         }
     }
 }
@@ -2305,13 +2316,13 @@ impl TargetModel {
                     FxPreset => UnresolvedReaperTarget::FxPreset(UnresolvedFxPresetTarget {
                         fx_descriptor: self.fx_descriptor()?,
                     }),
-                    CycleThroughTracks => UnresolvedReaperTarget::SelectedTrack(
-                        UnresolvededCycleThroughTracksTarget {
+                    CycleThroughTracks => {
+                        UnresolvedReaperTarget::SelectedTrack(UnresolvedCycleThroughTracksTarget {
                             scroll_arrange_view: self.scroll_arrange_view,
                             scroll_mixer: self.scroll_mixer,
                             mode: self.cycle_through_tracks_mode,
-                        },
-                    ),
+                        })
+                    }
                     FxNavigate => UnresolvedReaperTarget::FxNavigate(UnresolvedFxNavigateTarget {
                         track_descriptor: self.track_descriptor()?,
                         is_input_fx: self.fx_is_input_fx,
@@ -2445,14 +2456,21 @@ impl TargetModel {
                         parameter: self.any_on_parameter,
                     }),
                     Dummy => UnresolvedReaperTarget::Dummy(UnresolvedDummyTarget),
+                    BrowsePotFilterItems => UnresolvedReaperTarget::BrowsePotFilterItems(
+                        UnresolvedBrowsePotFilterItemsTarget {
+                            settings: PotFilterItemsTargetSettings {
+                                kind: self.pot_filter_item_kind,
+                            },
+                        },
+                    ),
                     NavigateWithinPotPresets => UnresolvedReaperTarget::NavigateWithinPotPresets(
-                        UnresolvededNavigateWithinPotPresetsTarget {},
+                        UnresolvedNavigateWithinPotPresetsTarget {},
                     ),
                     PreviewPotPreset => UnresolvedReaperTarget::PreviewPotPreset(
-                        UnresolvededPreviewPotPresetTarget {},
+                        UnresolvedPreviewPotPresetTarget {},
                     ),
                     LoadPotPreset => {
-                        UnresolvedReaperTarget::LoadPotPreset(UnresolvededLoadPotPresetTarget {
+                        UnresolvedReaperTarget::LoadPotPreset(UnresolvedLoadPotPresetTarget {
                             fx_descriptor: self.fx_descriptor()?,
                         })
                     }
@@ -2551,6 +2569,10 @@ impl TargetModel {
                 axis: Some(self.axis),
             },
         }
+    }
+
+    pub fn pot_filter_item_kind(&self) -> PotFilterItemKind {
+        self.pot_filter_item_kind
     }
 
     pub fn set_mouse_action_without_notification(&mut self, mouse_action: MouseAction) {

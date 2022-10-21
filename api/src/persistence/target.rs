@@ -72,6 +72,7 @@ pub enum Target {
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
+    BrowsePotFilterItems(BrowsePotFilterItemsTarget),
     NavigateWithinPotPresets(NavigateWithinPotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
@@ -1018,6 +1019,15 @@ pub struct CycleThroughGroupMappingsTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct BrowsePotFilterItemsTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_kind: Option<PotFilterItemKind>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NavigateWithinPotPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -1037,6 +1047,45 @@ pub struct LoadPotPresetTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx: Option<FxDescriptor>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+    enum_map::Enum,
+)]
+#[repr(usize)]
+pub enum PotFilterItemKind {
+    #[display(fmt = "Database")]
+    Database,
+    #[display(fmt = "NKS instrument")]
+    NksBank,
+    #[display(fmt = "NKS bank")]
+    NksSubBank,
+    #[display(fmt = "NKS type")]
+    NksCategory,
+    #[display(fmt = "NKS sub type")]
+    NksSubCategory,
+    #[display(fmt = "NKS character")]
+    NksMode,
+    #[display(fmt = "NKS favorite")]
+    NksFavorite,
+}
+
+impl Default for PotFilterItemKind {
+    fn default() -> Self {
+        Self::Database
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

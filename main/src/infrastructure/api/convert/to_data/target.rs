@@ -894,6 +894,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
+        Target::BrowsePotFilterItems(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::BrowsePotFilterItems,
+            pot_filter_item_kind: d.item_kind.unwrap_or_default(),
+            ..init(d.commons)
+        },
         Target::NavigateWithinPotPresets(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::NavigateWithinPotPresets,

@@ -28,7 +28,7 @@ use helgoboss_learn::{
 };
 use realearn_api::persistence::{
     Axis, CycleThroughTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
-    SeekBehavior, TrackToolAction,
+    PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -518,6 +518,10 @@ impl MappingPanel {
                                             }
                                             P::MouseActionType => {
                                                 view.invalidate_target_controls(initiator);
+                                            }
+                                            P::PotFilterItemKind => {
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
                                             }
                                             P::Axis => {
                                                 view.invalidate_target_line_3(initiator);
@@ -2783,6 +2787,13 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetCycleThroughTracksMode(v),
                     ));
                 }
+                ReaperTargetType::BrowsePotFilterItems => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid pot filter item kind");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPotFilterItemKind(v),
+                    ));
+                }
                 _ if self.mapping.target_model.supports_track() => {
                     let project = self
                         .session
@@ -4150,6 +4161,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::BrowsePotFilterItems => Some("Kind"),
                 ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
@@ -4381,6 +4393,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.cycle_through_tracks_mode().into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::BrowsePotFilterItems => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PotFilterItemKind::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.pot_filter_item_kind().into(),
                         )
                         .unwrap();
                 }
