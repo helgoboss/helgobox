@@ -401,7 +401,10 @@ impl ReaperTarget {
                     scroll_mixer: false,
                 })
             }
-            FxEnabledChanged(e) => FxEnable(FxEnableTarget { fx: e.fx }),
+            FxEnabledChanged(e) => FxEnable(FxEnableTarget {
+                fx: e.fx,
+                bypass_param_index: None,
+            }),
             FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
                 is_real_time_ready: false,
                 param: e.parameter,
@@ -455,11 +458,13 @@ impl ReaperTarget {
                 })
                 .into()
             }))
-            .merge(
-                csurf_rx
-                    .fx_enabled_changed()
-                    .map(move |fx| FxEnable(FxEnableTarget { fx }).into()),
-            )
+            .merge(csurf_rx.fx_enabled_changed().map(move |fx| {
+                FxEnable(FxEnableTarget {
+                    fx,
+                    bypass_param_index: None,
+                })
+                .into()
+            }))
             .merge(
                 csurf_rx
                     .fx_preset_changed()

@@ -241,7 +241,7 @@ impl PresetDb {
         let (i, item) = self.filter_item_containers[kind]
             .iter()
             .enumerate()
-            .find(|(i, item)| item.id == id)?;
+            .find(|(_, item)| item.id == id)?;
         Some((i as u32, item))
     }
 
