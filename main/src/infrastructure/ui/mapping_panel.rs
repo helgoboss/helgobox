@@ -27,7 +27,7 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, CycleThroughTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
+    Axis, BrowseTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
     PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
@@ -436,7 +436,7 @@ impl MappingPanel {
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::CycleThroughTracksMode => {
+                                            P::BrowseTracksMode => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingSnapshotTypeForLoad | P::MappingSnapshotTypeForTake | P::MappingSnapshotId => {
@@ -2648,7 +2648,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetOscArgIndex(index),
                     ));
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     let exclusivity: SimpleExclusivity = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -2747,7 +2747,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetAnyOnParameter(v),
                     ));
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     let i = combo.selected_combo_box_item_index();
                     let group_id = self
                         .session
@@ -2780,11 +2780,11 @@ impl<'a> MutableMappingPanel<'a> {
                         dev_id,
                     )));
                 }
-                ReaperTargetType::CycleThroughTracks => {
+                ReaperTargetType::BrowseTracks => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid track indexing policy");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetCycleThroughTracksMode(v),
+                        TargetCommand::SetBrowseTracksMode(v),
                     ));
                 }
                 ReaperTargetType::BrowsePotFilterItems => {
@@ -4174,8 +4174,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Output"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
-                ReaperTargetType::NavigateWithinGroup => Some("Group"),
-                ReaperTargetType::CycleThroughTracks => Some("Scope"),
+                ReaperTargetType::BrowseGroup => Some("Group"),
+                ReaperTargetType::BrowseTracks => Some("Scope"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4327,7 +4327,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.bookmark_ref(),
                     );
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     combo.show();
                     let compartment = self.mapping.compartment();
                     // Fill box
@@ -4387,12 +4387,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
-                ReaperTargetType::CycleThroughTracks => {
+                ReaperTargetType::BrowseTracks => {
                     combo.show();
-                    combo.fill_combo_box_indexed(CycleThroughTracksMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(BrowseTracksMode::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.cycle_through_tracks_mode().into(),
+                            self.mapping.target_model.browse_tracks_mode().into(),
                         )
                         .unwrap();
                 }
@@ -4871,7 +4871,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => {
                     invalidate_with_osc_arg_index(combo, self.target.osc_arg_index());
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     combo.show();
                     combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();

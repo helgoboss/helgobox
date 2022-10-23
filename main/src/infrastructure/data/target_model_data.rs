@@ -28,9 +28,9 @@ use crate::infrastructure::plugin::App;
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
-    ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
-    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    CycleThroughTracksMode, FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
+    BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
+    ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
+    ClipTransportAction, FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
     MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior, TargetValue, TrackScope,
     TrackToolAction,
 };
@@ -243,8 +243,9 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub cycle_through_tracks_mode: CycleThroughTracksMode,
-    // FX Open and FX Navigate target
+    #[serde(alias = "cycleThroughTracksMode")]
+    pub browse_tracks_mode: BrowseTracksMode,
+    // FX Open and Browse FXs target
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -538,7 +539,7 @@ impl TargetModelData {
             track_automation_mode: model.automation_mode(),
             track_monitoring_mode: model.monitoring_mode(),
             automation_mode_override_type: model.automation_mode_override_type(),
-            cycle_through_tracks_mode: model.cycle_through_tracks_mode(),
+            browse_tracks_mode: model.browse_tracks_mode(),
             fx_display_type: model.fx_display_type(),
             scroll_arrange_view: model.scroll_arrange_view(),
             scroll_mixer: model.scroll_mixer(),
@@ -689,7 +690,7 @@ impl TargetModelData {
             }
         };
         model.change(C::SetGangBehavior(gang_behavior));
-        model.change(C::SetCycleThroughTracksMode(self.cycle_through_tracks_mode));
+        model.change(C::SetBrowseTracksMode(self.browse_tracks_mode));
         model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(

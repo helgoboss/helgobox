@@ -12,24 +12,24 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedNavigateWithinPotPresetsTarget {}
+pub struct UnresolvedBrowsePotPresetsTarget {}
 
-impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinPotPresetsTarget {
+impl UnresolvedReaperTargetDef for UnresolvedBrowsePotPresetsTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::NavigateWithinPotPresets(
-            NavigateWithinPotPresetsTarget {},
+        Ok(vec![ReaperTarget::BrowsePotPresets(
+            BrowsePotPresetsTarget {},
         )])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NavigateWithinPotPresetsTarget {}
+pub struct BrowsePotPresetsTarget {}
 
-impl RealearnTarget for NavigateWithinPotPresetsTarget {
+impl RealearnTarget for BrowsePotPresetsTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteDiscrete {
@@ -135,11 +135,11 @@ impl RealearnTarget for NavigateWithinPotPresetsTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::NavigateWithinPotPresets)
+        Some(ReaperTargetType::BrowsePotPresets)
     }
 }
 
-impl<'a> Target<'a> for NavigateWithinPotPresetsTarget {
+impl<'a> Target<'a> for BrowsePotPresetsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
@@ -153,7 +153,7 @@ impl<'a> Target<'a> for NavigateWithinPotPresetsTarget {
     }
 }
 
-impl NavigateWithinPotPresetsTarget {
+impl BrowsePotPresetsTarget {
     fn convert_preset_id_to_absolute_value(&self, preset_id: Option<PresetId>) -> AbsoluteValue {
         let preset_index = preset_id.and_then(|id| self.find_index_of_preset(id));
         let actual = match preset_index {
@@ -189,10 +189,9 @@ impl NavigateWithinPotPresetsTarget {
     }
 }
 
-pub const NAVIGATE_WITHIN_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
-    // TODO-high Rename all "Navigate within" targets "Browse"
-    name: "Pot: Navigate within presets",
-    short_name: "Navigate within Pot presets",
+pub const BROWSE_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Pot: Browse presets",
+    short_name: "Browse Pot presets",
     ..DEFAULT_TARGET
 };
 

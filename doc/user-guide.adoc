@@ -638,7 +638,7 @@ tutorial to understand why.
 Now let's assume you don't want 2 buttons where each button should activate one particular bank but you want
 previous/next buttons to switch between the banks. Do everything as in tutorial 1 with the exception of step 5.
 
-TIP: ReaLearn >= 2.11.0 provides an alternative and probably more straightforward way to implement cycling through banks with previous/next buttons: By combining multiple mappings with <<realearn-enable-disable-mappings>> target (for defining the banks) with one <<realearn-navigate-within-group>> targets (for cycling).
+TIP: ReaLearn >= 2.11.0 provides an alternative and probably more straightforward way to implement cycling through banks with previous/next buttons: By combining multiple mappings with <<realearn-enable-disable-mappings>> target (for defining the banks) with one <<realearn-browse-group-mappings>> targets (for cycling).
 
 [discrete]
 ==== Step 5: Map buttons to bank parameter
@@ -1706,7 +1706,7 @@ those mappings into one group which can be activated/deactivated as a whole.
 Switching between different programs via "Previous" and "Next" buttons is just one possibility.
 Here are some other ones:
 
-* *Navigate between banks using a rotary encoder:* Just map the rotary encoder
+* *Browse banks using a rotary encoder:* Just map the rotary encoder
  to the "Bank" parameter and restrict the target range as desired.
 * *Activate each bank with a separate button:* Map each button to the "Bank"
  parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value. E.g. set button
@@ -1720,7 +1720,7 @@ involved using multiple ReaLearn instances:
  a bunch of mappings with <<fx-enabledisable,FX: Enable/disable>> target in order to enable/disable other ReaLearn FX
  instances. Then each of the other ReaLearn instances acts as one mapping bank/group.
 * *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a
- mapping with <<fx-navigate-between-presets,FX: Navigate between presets>> target in order to navigate between presets of
+ mapping with <<fx-browse-presets>> target in order to browse presets of
  another ReaLearn FX instance. Then each preset in the other ReaLearn instance acts as one mapping bank/group. However,
  that method is pretty limited and hard to maintain because presets are something global
  (not saved together with your REAPER project).
@@ -2973,8 +2973,8 @@ Invokes a transport-related action.
 ** *Repeat:* Enables repeat for the containing project if the incoming absolute control value is greater than 0%,
  otherwise disables it.
 
-[#navigate_between_tracks_target]
-====== Project: Navigate between tracks
+[#browse_tracks_target]
+====== Project: Browse tracks
 
 Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
 
@@ -3239,7 +3239,7 @@ Provides the following additional settings:
 Learning this target by pressing the "Solo" button of the _master_ track is currently not possible but
 of course you can just select it manually in the dropdown menu.
 
-====== FX chain: Navigate between FXs
+====== FX chain: Browse FXs
 
 Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
 To be used with endless rotary encoders or previous/next-style "Incremental buttons".
@@ -3280,8 +3280,8 @@ Please note that some plug-ins have _very large_ states. Therefore you should ke
 will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
 can quickly add up and make REAPER/ReaLearn slow!
 
-[#fx-navigate-between-presets]
-====== FX: Navigate between presets
+[#fx-browse-presets]
+====== FX: Browse presets
 
 Steps through FX presets.
 
@@ -3419,7 +3419,7 @@ it will encode the incoming absolute control value as that argument (after it ha
  Check that section for details.
 
 [#realearn-enable-disable-instances]
-====== Realearn: Enable/disable instances
+====== ReaLearn: Enable/disable instances
 
 This target allows you to flexibly enable or disable other ReaLearn instances based on their tags:
 
@@ -3440,14 +3440,14 @@ Please note:
 TIP: This target is great for switching between completely different controller setups!
 
 [#realearn-dummy-target]
-====== Realearn: Dummy target
+====== ReaLearn: Dummy target
 
 This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
 
 It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>. Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message. Or if you want to send some text feedback to a hardware display, if the text is just a constant string or uses a placeholder that doesn't need target context.
 
 [#realearn-enable-disable-mappings]
-====== Realearn: Enable/disable mappings
+====== ReaLearn: Enable/disable mappings
 
 This target allows you to flexibly enable or disable other mappings in this instance based on their tags:
 
@@ -3467,7 +3467,7 @@ Please note:
 TIP: This target is a straightforward alternative to <<conditional-activation>>, especially when it comes to bank switching!
 
 [#realearn-load-mapping-snapshot]
-====== Realearn: Load mapping snapshot
+====== ReaLearn: Load mapping snapshot
 
 Restores target values for all or certain mappings in this ReaLearn instances.
 
@@ -3487,7 +3487,7 @@ Please note:
 * Feedback of this target indicates whether the desired snapshot is the one which has last been loaded (for the given tags).
 
 [#realearn-take-mapping-snapshot]
-====== Realearn: Take mapping snapshot
+====== ReaLearn: Take mapping snapshot
 
 Memorizes target values for all or certain mappings in this ReaLearn instances and saves them in a snapshot of your choice.
 
@@ -3501,14 +3501,14 @@ TIP: Only works if tags are not empty and if all tags have the same last-loaded 
 ** If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
 * *Active mappings only:* By default, even target values of inactive (but control-enabled) mappings end up in the snapshot! If you don't like that, tick this checkbox.
 
-[#realearn-navigate-within-group]
-====== Realearn: Navigate within group
+[#realearn-browse-group-mappings]
+====== ReaLearn: Browse group mappings
 
 This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
 
 "Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its glue section (by default 100%).
 
-* *Group:* The group that you want to cycle through.
+* *Group:* The group that you want to browse.
 * *Exclusivity*
 ** *Non-exclusive:* Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings. In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different. Or if the target itself already takes care of exclusivity.
 ** *Exclusive:* Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%). Be careful with this, you often won't need it.
@@ -3521,9 +3521,9 @@ Please note:
 ====
 Mapping lend themselves perfectly for defining things that should happen _in sequence_. This target allows you to take advantage of that!
 
-- Combine it with <<realearn-enable-disable-mappings>> to cycle through different banks.
-- Combine it with <<realearn-enable-disable-instances>> to cycle through completely different controller setups (or banks).
-- Combine it with targets that don't provide a "Navigate within ..." variant themselves.
+- Combine it with <<realearn-enable-disable-mappings>> to browse different banks.
+- Combine it with <<realearn-enable-disable-instances>> to browse completely different controller setups (or banks).
+- Combine it with targets that don't provide a "Browse ..." variant themselves.
 - Use it as an alternative to <<target-value-sequence,target value sequences>> that allows you to have completely different targets within one sequence.
 ====
 
@@ -3661,7 +3661,7 @@ target.text_value
 |
 Short text representing the current target value, including a possible unit.
 
-If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<navigate_between_tracks_target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<browse_tracks_target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
 
 This is the default value shown if textual feedback is enabled and the textual feedback
 expression is empty.
@@ -4009,7 +4009,7 @@ When you choose a discrete target, the _Step size_ label will change into
 
 Example:
 
-* Let's assume you selected the discrete target <<fx-navigate-between-presets,FX: Navigate between presets>>, which is
+* Let's assume you selected the discrete target <<fx-browse-presets>>, which is
  considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the
  &lt;no preset&gt; option), there's nothing inbetween. And let's also assume that you have a controller like Midi
  Fighter Twister whose rotary encoders don't support built-in acceleration. Now you slightly move an encoder

@@ -13,13 +13,13 @@ use reaper_medium::FxChainVisibility;
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedFxNavigateTarget {
+pub struct UnresolvedBrowseFxsTarget {
     pub track_descriptor: TrackDescriptor,
     pub is_input_fx: bool,
     pub display_type: FxDisplayType,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
+impl UnresolvedReaperTargetDef for UnresolvedBrowseFxsTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
@@ -34,7 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
         let targets = fx_chains
             .into_iter()
             .map(|fx_chain| {
-                ReaperTarget::FxNavigate(FxNavigateTarget {
+                ReaperTarget::BrowseFxs(BrowseFxsTarget {
                     fx_chain,
                     display_type: self.display_type,
                 })
@@ -49,12 +49,12 @@ impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FxNavigateTarget {
+pub struct BrowseFxsTarget {
     pub fx_chain: FxChain,
     pub display_type: FxDisplayType,
 }
 
-impl RealearnTarget for FxNavigateTarget {
+impl RealearnTarget for BrowseFxsTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<No FX>" is also a possible value.
         (
@@ -191,11 +191,11 @@ impl RealearnTarget for FxNavigateTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::FxNavigate)
+        Some(ReaperTargetType::BrowseFxs)
     }
 }
 
-impl FxNavigateTarget {
+impl BrowseFxsTarget {
     fn current_fx(&self) -> Option<Fx> {
         use FxDisplayType::*;
         match self.display_type {
@@ -232,7 +232,7 @@ impl FxNavigateTarget {
     }
 }
 
-impl<'a> Target<'a> for FxNavigateTarget {
+impl<'a> Target<'a> for BrowseFxsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -252,9 +252,9 @@ impl<'a> Target<'a> for FxNavigateTarget {
     }
 }
 
-pub const FX_NAVIGATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX chain: Navigate between FXs",
-    short_name: "Navigate FXs",
+pub const BROWSE_FXS_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX chain: Browse FXs",
+    short_name: "Browse FXs",
     supports_track: true,
     supports_fx_chain: true,
     supports_fx_display_type: true,

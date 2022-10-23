@@ -64,11 +64,11 @@ pub use fx_preset_target::*;
 mod load_fx_snapshot_target;
 pub use load_fx_snapshot_target::*;
 
-mod cycle_through_tracks_target;
-pub use cycle_through_tracks_target::*;
+mod browse_tracks_target;
+pub use browse_tracks_target::*;
 
-mod fx_navigate_target;
-pub use fx_navigate_target::*;
+mod browse_fxs_target;
+pub use browse_fxs_target::*;
 
 mod all_track_fx_enable_target;
 pub use all_track_fx_enable_target::*;
@@ -160,8 +160,8 @@ pub use enable_mappings_target::*;
 mod enable_instances_target;
 pub use enable_instances_target::*;
 
-mod navigate_within_group_target;
-pub use navigate_within_group_target::*;
+mod browse_group_mappings_target;
+pub use browse_group_mappings_target::*;
 
 mod any_on_target;
 pub use any_on_target::*;
@@ -175,8 +175,8 @@ pub use fx_parameter_touch_state_target::*;
 mod browse_pot_filter_items_target;
 pub use browse_pot_filter_items_target::*;
 
-mod navigate_within_pot_presets_target;
-pub use navigate_within_pot_presets_target::*;
+mod browse_pot_presets_target;
+pub use browse_pot_presets_target::*;
 
 mod preview_pot_preset_target;
 pub use preview_pot_preset_target::*;

@@ -21,21 +21,22 @@ use realearn_api::persistence;
 use realearn_api::persistence::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
     BackwardCompatibleMappingSnapshotDescForTake, BookmarkDescriptor, BookmarkRef,
-    BrowsePotFilterItemsTarget, ClipColumnDescriptor, ClipColumnTarget, ClipManagementTarget,
-    ClipMatrixTarget, ClipRowTarget, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
-    CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
-    CycleThroughTracksTarget, DummyTarget, EnableInstancesTarget, EnableMappingsTarget,
-    FxOnOffStateTarget, FxOnlineOfflineStateTarget, FxParameterAutomationTouchStateTarget,
-    FxParameterValueTarget, FxToolTarget, FxVisibilityTarget, GoToBookmarkTarget,
-    LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget,
-    MouseTarget, NavigateWithinPotPresetsTarget, PlayRateTarget, PreviewPotPresetTarget,
-    ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget,
-    RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    SendMidiTarget, SendOscTarget, TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget,
-    TrackAutomationModeTarget, TrackAutomationTouchStateTarget, TrackMonitoringModeTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    BrowseFxChainTarget, BrowseFxPresetsTarget, BrowseGroupMappingsTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, ClipColumnDescriptor,
+    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
+    ClipTransportActionTarget, ClipVolumeTarget, DummyTarget, EnableInstancesTarget,
+    EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
+    FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotTarget, LoadPotPresetTarget, MouseTarget, PlayRateTarget,
+    PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
+    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TakeMappingSnapshotTarget,
+    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
+    TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
+    TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -207,7 +208,7 @@ fn convert_real_target(
                 }
             },
         }),
-        FxNavigate => T::CycleThroughFx(CycleThroughFxTarget {
+        BrowseFxs => T::BrowseFxChain(BrowseFxChainTarget {
             commons,
             display_kind: convert_fx_display_kind(data.fx_display_type, style),
             chain: convert_fx_chain_descriptor(data, style),
@@ -338,7 +339,7 @@ fn convert_real_target(
             },
         }),
         Dummy => T::Dummy(DummyTarget { commons }),
-        CycleThroughTracks => T::CycleThroughTracks(CycleThroughTracksTarget {
+        BrowseTracks => T::BrowseTracks(BrowseTracksTarget {
             commons,
             scroll_arrange_view: style.required_value_with_default(
                 data.scroll_arrange_view,
@@ -348,7 +349,7 @@ fn convert_real_target(
                 data.scroll_mixer,
                 defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER,
             ),
-            mode: style.required_value(data.cycle_through_tracks_mode),
+            mode: style.required_value(data.browse_tracks_mode),
         }),
         Seek => T::Seek(SeekTarget {
             commons,
@@ -605,7 +606,7 @@ fn convert_real_target(
             },
             fx: convert_fx_descriptor(data, style),
         }),
-        FxPreset => T::CycleThroughFxPresets(CycleThroughFxPresetsTarget {
+        FxPreset => T::BrowseFxPresets(BrowseFxPresetsTarget {
             commons,
             fx: convert_fx_descriptor(data, style),
         }),
@@ -674,7 +675,7 @@ fn convert_real_target(
                 .map(BackwardCompatibleMappingSnapshotDescForTake::New)
                 .unwrap_or_default(),
         }),
-        NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {
+        BrowseGroup => T::BrowseGroupMappings(BrowseGroupMappingsTarget {
             commons,
             exclusivity: {
                 use persistence::GroupMappingExclusivity as T;
@@ -690,9 +691,7 @@ fn convert_real_target(
             commons,
             item_kind: style.required_value(data.pot_filter_item_kind),
         }),
-        NavigateWithinPotPresets => {
-            T::NavigateWithinPotPresets(NavigateWithinPotPresetsTarget { commons })
-        }
+        BrowsePotPresets => T::BrowsePotPresets(BrowsePotPresetsTarget { commons }),
         PreviewPotPreset => T::PreviewPotPreset(PreviewPotPresetTarget { commons }),
         LoadPotPreset => T::LoadPotPreset(LoadPotPresetTarget {
             commons,

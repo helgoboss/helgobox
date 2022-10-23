@@ -187,8 +187,8 @@ impl<'a> Target<'a> for FxPresetTarget {
 }
 
 pub const FX_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Navigate between presets",
-    short_name: "Navigate FX presets",
+    name: "FX: Browse presets",
+    short_name: "Browse FX presets",
     hint: "Automatic feedback since REAPER v6.13",
     supports_track: true,
     supports_fx: true,

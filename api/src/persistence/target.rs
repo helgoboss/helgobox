@@ -17,7 +17,8 @@ pub enum Target {
     ReaperAction(ReaperActionTarget),
     TransportAction(TransportActionTarget),
     AnyOn(AnyOnTarget),
-    CycleThroughTracks(CycleThroughTracksTarget),
+    #[serde(alias = "CycleThroughTracks")]
+    BrowseTracks(BrowseTracksTarget),
     Seek(SeekTarget),
     PlayRate(PlayRateTarget),
     Tempo(TempoTarget),
@@ -39,11 +40,13 @@ pub enum Target {
     TrackTool(TrackToolTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),
-    CycleThroughFx(CycleThroughFxTarget),
+    #[serde(alias = "CycleThroughFx")]
+    BrowseFxChain(BrowseFxChainTarget),
     FxOnOffState(FxOnOffStateTarget),
     FxOnlineOfflineState(FxOnlineOfflineStateTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
-    CycleThroughFxPresets(CycleThroughFxPresetsTarget),
+    #[serde(alias = "CycleThroughFxPresets")]
+    BrowseFxPresets(BrowseFxPresetsTarget),
     #[serde(rename = "Fx")]
     FxTool(FxToolTarget),
     FxVisibility(FxVisibilityTarget),
@@ -71,9 +74,11 @@ pub enum Target {
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
-    CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
+    #[serde(alias = "CycleThroughGroupMappings")]
+    BrowseGroupMappings(BrowseGroupMappingsTarget),
     BrowsePotFilterItems(BrowsePotFilterItemsTarget),
-    NavigateWithinPotPresets(NavigateWithinPotPresetsTarget),
+    #[serde(alias = "NavigateWithinPotPresets")]
+    BrowsePotPresets(BrowsePotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
     Virtual(VirtualTarget),
@@ -159,7 +164,7 @@ pub struct AnyOnTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughTracksTarget {
+pub struct BrowseTracksTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -167,7 +172,7 @@ pub struct CycleThroughTracksTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scroll_mixer: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<CycleThroughTracksMode>,
+    pub mode: Option<BrowseTracksMode>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -590,7 +595,7 @@ pub struct TrackSoloStateTarget {
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughFxTarget {
+pub struct BrowseFxChainTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub chain: FxChainDescriptor,
@@ -629,7 +634,7 @@ pub struct LoadFxSnapshotTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughFxPresetsTarget {
+pub struct BrowseFxPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1008,7 +1013,7 @@ impl Default for MappingSnapshotDescForTake {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughGroupMappingsTarget {
+pub struct BrowseGroupMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1028,7 +1033,7 @@ pub struct BrowsePotFilterItemsTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct NavigateWithinPotPresetsTarget {
+pub struct BrowsePotPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
@@ -1848,7 +1853,7 @@ impl Default for TrackScope {
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
-pub enum CycleThroughTracksMode {
+pub enum BrowseTracksMode {
     #[display(fmt = "All tracks")]
     AllTracks,
     #[display(fmt = "Only tracks visible in TCP")]
@@ -1861,15 +1866,15 @@ pub enum CycleThroughTracksMode {
     TracksVisibleInMcpAllowTwoSelections,
 }
 
-impl Default for CycleThroughTracksMode {
+impl Default for BrowseTracksMode {
     fn default() -> Self {
         Self::AllTracks
     }
 }
 
-impl CycleThroughTracksMode {
+impl BrowseTracksMode {
     pub fn scope(&self) -> TrackScope {
-        use CycleThroughTracksMode::*;
+        use BrowseTracksMode::*;
         match self {
             AllTracks => TrackScope::AllTracks,
             TracksVisibleInTcp | TracksVisibleInTcpAllowTwoSelections => {

@@ -52,7 +52,7 @@ pub struct InstanceState {
     /// Which mappings are in which group.
     ///
     /// - Not persistent
-    /// - Used for target "ReaLearn: Navigate within group"
+    /// - Used for target "ReaLearn: Browse group mappings"
     /// - Automatically filled by main processor on sync
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
@@ -61,7 +61,7 @@ pub struct InstanceState {
     /// Which is the active mapping in which group.
     ///
     /// - Persistent
-    /// - Set by target "ReaLearn: Navigate within group".
+    /// - Set by target "ReaLearn: Browse group mappings".
     /// - Non-redundant state!
     active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
@@ -626,7 +626,7 @@ impl Drop for InstanceState {
 #[derive(Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
-    /// For the "ReaLearn: Navigate within group" target.
+    /// For the "ReaLearn: Browse group mappings" target.
     ActiveMappingWithinGroup {
         compartment: Compartment,
         group_id: GroupId,

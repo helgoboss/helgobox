@@ -30,13 +30,13 @@ use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AllTrackFxEnableTarget,
-    AutomationModeOverrideTarget, BrowsePotFilterItemsTarget, Caller, ClipColumnTarget,
-    ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ControlContext, CycleThroughTracksTarget, DummyTarget, EnigoMouseTarget,
-    FxEnableTarget, FxNavigateTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
-    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext,
-    MidiSendTarget, NavigateWithinPotPresetsTarget, OscSendTarget, PlayrateTarget,
+    AutomationModeOverrideTarget, BrowseFxsTarget, BrowsePotFilterItemsTarget,
+    BrowsePotPresetsTarget, BrowseTracksTarget, Caller, ClipColumnTarget, ClipManagementTarget,
+    ClipMatrixTarget, ClipRowTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget,
+    ControlContext, DummyTarget, EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget,
+    FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget,
+    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    LoadPotPresetTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
     PreviewPotPresetTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
     RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
     RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
@@ -46,8 +46,8 @@ use crate::domain::{
     TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
-    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget, HitResponse,
-    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
+    AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
+    EnableMappingsTarget, HitResponse, LoadMappingSnapshotTarget, RealearnTarget, ReaperTargetType,
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
     TrackToolTarget,
 };
@@ -122,8 +122,8 @@ pub enum ReaperTarget {
     FxOnline(FxOnlineTarget),
     FxOpen(FxOpenTarget),
     FxPreset(FxPresetTarget),
-    CycleThroughTracks(CycleThroughTracksTarget),
-    FxNavigate(FxNavigateTarget),
+    BrowseTracks(BrowseTracksTarget),
+    BrowseFxs(BrowseFxsTarget),
     AllTrackFxEnable(AllTrackFxEnableTarget),
     Transport(TransportTarget),
     AnyOn(AnyOnTarget),
@@ -145,9 +145,9 @@ pub enum ReaperTarget {
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
     EnableInstances(EnableInstancesTarget),
-    NavigateWithinGroup(NavigateWithinGroupTarget),
+    BrowseGroupMappings(BrowseGroupMappingsTarget),
     BrowsePotFilterItems(BrowsePotFilterItemsTarget),
-    NavigateWithinPotPresets(NavigateWithinPotPresetsTarget),
+    BrowsePotPresets(BrowsePotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
 }
@@ -637,9 +637,9 @@ impl<'a> Target<'a> for ReaperTarget {
             FxPreset(t) => t.current_value(context),
             LoadFxSnapshot(t) => t.current_value(context),
             // Discrete
-            CycleThroughTracks(t) => t.current_value(context),
+            BrowseTracks(t) => t.current_value(context),
             // Discrete
-            FxNavigate(t) => t.current_value(context),
+            BrowseFxs(t) => t.current_value(context),
             AllTrackFxEnable(t) => t.current_value(context),
             Transport(t) => t.current_value(context),
             AnyOn(t) => t.current_value(context),
@@ -657,9 +657,9 @@ impl<'a> Target<'a> for ReaperTarget {
             TakeMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
-            NavigateWithinGroup(t) => t.current_value(context),
+            BrowseGroupMappings(t) => t.current_value(context),
             BrowsePotFilterItems(t) => t.current_value(context),
-            NavigateWithinPotPresets(t) => t.current_value(context),
+            BrowsePotPresets(t) => t.current_value(context),
             PreviewPotPreset(t) => t.current_value(context),
             LoadPotPreset(t) => t.current_value(context),
         }

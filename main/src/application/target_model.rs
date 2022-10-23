@@ -27,31 +27,31 @@ use crate::domain::{
     TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedBrowsePotFilterItemsTarget,
-    UnresolvedClipColumnTarget, UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget,
-    UnresolvedClipRowTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
-    UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget,
-    UnresolvedCycleThroughTracksTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
-    UnresolvedMouseTarget, UnresolvedNavigateWithinGroupTarget,
-    UnresolvedNavigateWithinPotPresetsTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
-    UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
-    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
-    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
-    UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
-    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
-    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
-    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
-    VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
-    VirtualFxParameter, VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake,
-    VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
+    UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
+    UnresolvedBrowseTracksTarget, UnresolvedClipColumnTarget, UnresolvedClipManagementTarget,
+    UnresolvedClipMatrixTarget, UnresolvedClipRowTarget, UnresolvedClipSeekTarget,
+    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedCompoundMappingTarget,
+    UnresolvedDummyTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
+    UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
+    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
+    UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget,
+    UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
+    UnresolvedOscSendTarget, UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
+    UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
+    UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
+    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
+    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
+    VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -61,9 +61,9 @@ use crate::domain::ui_util::format_tags_as_csv;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::main::ClipTransportOptions;
 use realearn_api::persistence::{
-    Axis, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
-    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
-    CycleThroughTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
+    Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
+    ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
+    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
     MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope,
     TrackToolAction,
@@ -112,7 +112,7 @@ pub enum TargetCommand {
     SetTrackExclusivity(TrackExclusivity),
     SetTrackToolAction(TrackToolAction),
     SetGangBehavior(TrackGangBehavior),
-    SetCycleThroughTracksMode(CycleThroughTracksMode),
+    SetBrowseTracksMode(BrowseTracksMode),
     SetFxToolAction(FxToolAction),
     SetTransportAction(TransportAction),
     SetAnyOnParameter(AnyOnParameter),
@@ -209,7 +209,7 @@ pub enum TargetProp {
     TrackExclusivity,
     TrackToolAction,
     GangBehavior,
-    CycleThroughTracksMode,
+    BrowseTracksMode,
     FxToolAction,
     TransportAction,
     AnyOnParameter,
@@ -415,9 +415,9 @@ impl<'a> Change<'a> for TargetModel {
                 self.gang_behavior = v;
                 One(P::GangBehavior)
             }
-            C::SetCycleThroughTracksMode(v) => {
-                self.cycle_through_tracks_mode = v;
-                One(P::CycleThroughTracksMode)
+            C::SetBrowseTracksMode(v) => {
+                self.browse_tracks_mode = v;
+                One(P::BrowseTracksMode)
             }
             C::SetFxToolAction(v) => {
                 self.fx_tool_action = v;
@@ -671,7 +671,7 @@ pub struct TargetModel {
     clip_column_track_context: ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
     gang_behavior: TrackGangBehavior,
-    cycle_through_tracks_mode: CycleThroughTracksMode,
+    browse_tracks_mode: BrowseTracksMode,
     // # For track FX targets
     fx_type: VirtualFxType,
     fx_is_input_fx: bool,
@@ -730,7 +730,7 @@ pub struct TargetModel {
     monitoring_mode: MonitoringMode,
     // # For automation mode override target
     automation_mode_override_type: AutomationModeOverrideType,
-    // # For FX Open and FX Navigate target
+    // # For FX Open and Browse FXs target
     fx_display_type: FxDisplayType,
     // # For track selection related targets
     scroll_arrange_view: bool,
@@ -870,7 +870,7 @@ impl Default for TargetModel {
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
             gang_behavior: Default::default(),
-            cycle_through_tracks_mode: Default::default(),
+            browse_tracks_mode: Default::default(),
             pot_filter_item_kind: Default::default(),
         }
     }
@@ -957,8 +957,8 @@ impl TargetModel {
         self.gang_behavior.fixed(self.r#type.definition())
     }
 
-    pub fn cycle_through_tracks_mode(&self) -> CycleThroughTracksMode {
-        self.cycle_through_tracks_mode
+    pub fn browse_tracks_mode(&self) -> BrowseTracksMode {
+        self.browse_tracks_mode
     }
 
     pub fn param_type(&self) -> VirtualFxParameterType {
@@ -2316,14 +2316,14 @@ impl TargetModel {
                     FxPreset => UnresolvedReaperTarget::FxPreset(UnresolvedFxPresetTarget {
                         fx_descriptor: self.fx_descriptor()?,
                     }),
-                    CycleThroughTracks => {
-                        UnresolvedReaperTarget::SelectedTrack(UnresolvedCycleThroughTracksTarget {
+                    BrowseTracks => {
+                        UnresolvedReaperTarget::SelectedTrack(UnresolvedBrowseTracksTarget {
                             scroll_arrange_view: self.scroll_arrange_view,
                             scroll_mixer: self.scroll_mixer,
-                            mode: self.cycle_through_tracks_mode,
+                            mode: self.browse_tracks_mode,
                         })
                     }
-                    FxNavigate => UnresolvedReaperTarget::FxNavigate(UnresolvedFxNavigateTarget {
+                    BrowseFxs => UnresolvedReaperTarget::BrowseFxs(UnresolvedBrowseFxsTarget {
                         track_descriptor: self.track_descriptor()?,
                         is_input_fx: self.fx_is_input_fx,
                         display_type: self.fx_display_type,
@@ -2445,13 +2445,13 @@ impl TargetModel {
                             exclusivity: self.exclusivity,
                         })
                     }
-                    NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup(
-                        UnresolvedNavigateWithinGroupTarget {
+                    BrowseGroup => {
+                        UnresolvedReaperTarget::BrowseGroup(UnresolvedBrowseGroupTarget {
                             compartment,
                             group_id: self.group_id,
                             exclusivity: self.exclusivity.into(),
-                        },
-                    ),
+                        })
+                    }
                     AnyOn => UnresolvedReaperTarget::AnyOn(UnresolvedAnyOnTarget {
                         parameter: self.any_on_parameter,
                     }),
@@ -2463,8 +2463,8 @@ impl TargetModel {
                             },
                         },
                     ),
-                    NavigateWithinPotPresets => UnresolvedReaperTarget::NavigateWithinPotPresets(
-                        UnresolvedNavigateWithinPotPresetsTarget {},
+                    BrowsePotPresets => UnresolvedReaperTarget::BrowsePotPresets(
+                        UnresolvedBrowsePotPresetsTarget {},
                     ),
                     PreviewPotPreset => UnresolvedReaperTarget::PreviewPotPreset(
                         UnresolvedPreviewPotPresetTarget {},
@@ -3028,7 +3028,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                     ),
                     TrackTool | TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm
                     | TrackSelection | TrackMute | TrackPhase | TrackSolo | TrackShow
-                    | FxNavigate | AllTrackFxEnable | TrackParentSend => {
+                    | BrowseFxs | AllTrackFxEnable | TrackParentSend => {
                         write!(f, "{}\nTrack {}", tt, self.track_label())
                     }
                     TrackAutomationMode => {

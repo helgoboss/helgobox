@@ -12,20 +12,20 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedNavigateWithinGroupTarget {
+pub struct UnresolvedBrowseGroupTarget {
     pub compartment: Compartment,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
+impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::NavigateWithinGroup(
-            NavigateWithinGroupTarget {
+        Ok(vec![ReaperTarget::BrowseGroupMappings(
+            BrowseGroupMappingsTarget {
                 compartment: self.compartment,
                 group_id: self.group_id,
                 exclusivity: self.exclusivity,
@@ -35,7 +35,7 @@ impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NavigateWithinGroupTarget {
+pub struct BrowseGroupMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// not have any effect when controlling (only when querying the values).
     pub compartment: Compartment,
@@ -43,7 +43,7 @@ pub struct NavigateWithinGroupTarget {
     pub exclusivity: SimpleExclusivity,
 }
 
-impl NavigateWithinGroupTarget {
+impl BrowseGroupMappingsTarget {
     fn count(&self, context: ControlContext) -> u32 {
         context
             .instance_state
@@ -53,7 +53,7 @@ impl NavigateWithinGroupTarget {
     }
 }
 
-impl RealearnTarget for NavigateWithinGroupTarget {
+impl RealearnTarget for BrowseGroupMappingsTarget {
     fn control_type_and_character(
         &self,
         context: ControlContext,
@@ -95,12 +95,12 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             self.group_id,
             desired_mapping_id,
         );
-        struct CycleThroughGroupInstruction {
+        struct BrowseGroupMappingsInstruction {
             group_id: GroupId,
             exclusivity: SimpleExclusivity,
             desired_mapping_id: MappingId,
         }
-        impl HitInstruction for CycleThroughGroupInstruction {
+        impl HitInstruction for BrowseGroupMappingsInstruction {
             fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
@@ -141,7 +141,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                 HitInstructionResponse::CausedEffect(control_results)
             }
         }
-        let instruction = CycleThroughGroupInstruction {
+        let instruction = BrowseGroupMappingsInstruction {
             group_id: self.group_id,
             exclusivity: self.exclusivity,
             desired_mapping_id,
@@ -221,11 +221,11 @@ impl RealearnTarget for NavigateWithinGroupTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::NavigateWithinGroup)
+        Some(ReaperTargetType::BrowseGroup)
     }
 }
 
-impl NavigateWithinGroupTarget {
+impl BrowseGroupMappingsTarget {
     fn current_mapping_with_position(
         &self,
         context: ControlContext,
@@ -248,7 +248,7 @@ impl NavigateWithinGroupTarget {
     }
 }
 
-impl<'a> Target<'a> for NavigateWithinGroupTarget {
+impl<'a> Target<'a> for BrowseGroupMappingsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
@@ -264,9 +264,9 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
     }
 }
 
-pub const NAVIGATE_WITHIN_GROUP_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Navigate within group",
-    short_name: "Navigate within group",
+pub const BROWSE_GROUP_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "ReaLearn: Browse group mappings",
+    short_name: "Browse group mappings",
     supports_exclusivity: true,
     ..DEFAULT_TARGET
 };

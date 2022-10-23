@@ -3971,7 +3971,7 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
 ///
 /// 1. Executing a possible hit instruction (and in a possible second pass all resulting hit
 ///    instructions). A second pass is not just theory, it makes a lot of sense in practice, e.g.
-///    when we control "Enable/disable mappings" via "Navigate within group". However, we should
+///    when we control "Enable/disable mappings" via "Browse group mappings". However, we should
 ///    stop there in order to prevent infinite loops. If we really need more in future, we can add
 ///    a third pass.  
 /// 2. Processing group interaction (if enabled).
