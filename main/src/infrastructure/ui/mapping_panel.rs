@@ -4971,7 +4971,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             }
                         } else {
                             combo.select_only_combo_box_item(
-                                "Use 'By ID' only if track is 'By ID' as well!",
+                                "Use 'Particular' only if track is 'Particular' as well!",
                             );
                         }
                     } else {

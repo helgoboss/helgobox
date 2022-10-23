@@ -3453,19 +3453,19 @@ pub enum VirtualTrackType {
     Master,
     #[display(fmt = "<Instance>")]
     Instance,
-    #[display(fmt = "By ID")]
+    #[display(fmt = "Particular")]
     ById,
-    #[display(fmt = "By name")]
+    #[display(fmt = "Named")]
     ByName,
-    #[display(fmt = "All by name")]
+    #[display(fmt = "All named")]
     AllByName,
-    #[display(fmt = "By position")]
+    #[display(fmt = "At position")]
     ByIndex,
-    #[display(fmt = "By TCP position")]
+    #[display(fmt = "At TCP position")]
     ByIndexTcp,
-    #[display(fmt = "By MCP position")]
+    #[display(fmt = "At MCP position")]
     ByIndexMcp,
-    #[display(fmt = "By ID or name")]
+    #[display(fmt = "By ID or name (legacy)")]
     ByIdOrName,
     #[display(fmt = "From clip column")]
     FromClipColumn,
@@ -3550,7 +3550,7 @@ impl Default for MappingSnapshotTypeForTake {
 pub enum BookmarkAnchorType {
     #[display(fmt = "By ID")]
     Id,
-    #[display(fmt = "By position")]
+    #[display(fmt = "At position")]
     Index,
 }
 
@@ -3650,18 +3650,18 @@ pub enum VirtualFxType {
     #[display(fmt = "<Dynamic>")]
     #[serde(rename = "dynamic")]
     Dynamic,
-    #[display(fmt = "By ID")]
+    #[display(fmt = "Particular")]
     #[serde(rename = "id")]
     ById,
-    #[display(fmt = "By name")]
+    #[display(fmt = "Named")]
     #[serde(rename = "name")]
     ByName,
-    #[display(fmt = "All by name")]
+    #[display(fmt = "All named")]
     AllByName,
-    #[display(fmt = "By position")]
+    #[display(fmt = "At position")]
     #[serde(rename = "index")]
     ByIndex,
-    #[display(fmt = "By ID or pos")]
+    #[display(fmt = "By ID or pos (legacy)")]
     #[serde(rename = "id-or-index")]
     ByIdOrIndex,
 }
@@ -3742,13 +3742,13 @@ pub enum VirtualFxParameterType {
     #[display(fmt = "<Dynamic>")]
     #[serde(rename = "dynamic")]
     Dynamic,
-    #[display(fmt = "By name")]
+    #[display(fmt = "Named")]
     #[serde(rename = "name")]
     ByName,
-    #[display(fmt = "By ID")]
+    #[display(fmt = "Particular")]
     #[serde(rename = "index")]
     ById,
-    #[display(fmt = "By position")]
+    #[display(fmt = "At position")]
     #[serde(rename = "index-manual")]
     ByIndex,
 }
@@ -3794,13 +3794,13 @@ pub enum TrackRouteSelectorType {
     #[display(fmt = "<Dynamic>")]
     #[serde(rename = "dynamic")]
     Dynamic,
-    #[display(fmt = "By ID")]
+    #[display(fmt = "Particular")]
     #[serde(rename = "id")]
     ById,
-    #[display(fmt = "By name")]
+    #[display(fmt = "Named")]
     #[serde(rename = "name")]
     ByName,
-    #[display(fmt = "By position")]
+    #[display(fmt = "At position")]
     #[serde(rename = "index")]
     ByIndex,
 }

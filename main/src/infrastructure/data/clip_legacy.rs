@@ -104,7 +104,7 @@ fn determine_legacy_clip_track(
                     },
                     ByName => LegacyClipOutput::TrackByName(prop_values.name),
                     AllByName => {
-                        warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"All by name\" which is not supported anymore. Falling back to identifying track by name.");
+                        warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"All named\" which is not supported anymore. Falling back to identifying track by name.");
                         LegacyClipOutput::TrackByName(prop_values.name)
                     },
                     ByIndex => LegacyClipOutput::TrackByIndex(prop_values.index),

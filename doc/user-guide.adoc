@@ -1076,8 +1076,8 @@ Attempts to make the sources in the main compartment virtual by matching them wi
 
 Changes the targets of all currently listed mappings to use "sticky" object selectors by attempting to resolve the objects from non-sticky selectors. We call object selectors _sticky_ if they refer to a very particular object (e.g. a track).
 
-* Sticky selectors: `<Master>`, `<This>`, `By ID`
-* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Instance>`, <All selected>`, `By position`, `By name`, `All by name`
+* Sticky selectors: `<Master>`, `<This>`, `Particular`
+* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Instance>`, <All selected>`, `At position`, `Named`, `All named`
 
 
 ====== Move listed mappings to group
@@ -2521,11 +2521,12 @@ Targets that need a track, FX, FX parameter or send/receive have dropdowns that 
 NOTE: The descriptions below are sometimes a bit tailored to _track_ objects but the same applies to all other objects that support it.
 
 [#instance-selector]
-====== Instance
+====== Selector "Instance"
 
 This selector makes the target work on the current <<instance-track>> or current <<instance-fx>> of this particular ReaLearn instance.
 
-====== By ID
+[#by-id]
+====== Selector "Particular"
 
 Lets you pick a specific object (e.g. track) and refer to it by its unique ID. This is the default and
  in most cases what you want. Choose this if you want ReaLearn to always control that very particular track even
@@ -2536,7 +2537,7 @@ Please note that it's
  track ID is globally unique, even across projects. That also means it doesn't make sense to use this setting in a ReaLearn monitoring FX instance.
 
 [#by-position]
-====== By position
+====== Selector "At position"
 
 This is the most straightforward selector. It lets you refer to a track by its position in the track list. This is great if you want to build a preset that you are going to reuse among multiple projects.
 
@@ -2544,15 +2545,8 @@ However, this selector has the disadvantage that things fall apart if you reorde
 
 Next to the dropdown you will find a text field. Here you should enter the position as number, starting with number `1`.
 
-====== By TCP position
-
-Like <<by-position>> but just considers tracks that are visible in the track control panel.
-
-====== By MCP position
-
-Like <<by-position>> but just considers tracks that are visible in the mixer control panel.
-
-====== By name
+[#by-name]
+====== Selector "Named"
 
 Allows you to choose a track depending on its name. In case there are multiple tracks with the same
  name, it will always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects that have similar naming schemes, e.g. as monitoring FX.
@@ -2564,7 +2558,7 @@ In the name field next to the dropdown, you can enter a name. If you don't want 
 * Example: `Violin *` would match `Violin 1` or `Violin 12` but not `12th Violin`.
 
 [#dynamic-selector]
-====== Dynamic
+====== Selector "Dynamic"
 
 This selector allows you to _calculate_ which object (e.g. track) you want to use.
 
@@ -2664,15 +2658,6 @@ controlling that parameter.
  to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each. "Parameter 2" will select the track
  number within the bank. You see, this is very flexible.
 
-====== Dynamic (TCP)
-
-Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
-
-====== Dynamic (MCP)
-
-Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
-
-
 ===== Common elements and selectors for track targets
 
 When choosing a track, the following additional elements and selectors are available:
@@ -2692,24 +2677,24 @@ If checked, track grouping will be taken into account when adjusting the value. 
 
 For volume, pan and width targets, this can only be enabled together with selection ganging.
 
-====== Selector <This>
+====== Selector "<This>"
 
 Track which hosts this ReaLearn instance. If ReaLearn is on the monitoring FX
 chain, this resolves to the master track of the current project.
 
 [#selected-selector]
-====== Selector <Selected>
+====== Selector "<Selected>"
 
 Currently selected track. If multiple tracks are selected, refers only to the first one.
 
-====== Selector <All selected>
+====== Selector "<All selected>"
 
 All currently selected tracks. This makes track targets (not FX target and not send
 targets) do their job on _all_ selected tracks. The feedback value always corresponds to the highest value among all selected tracks.
 
 CAUTION: If you select many tracks, things can become quite slow!
 
-====== Selector <Master>
+====== Selector "<Master>"
 
 Master track of the project which hosts this ReaLearn instance.
 
@@ -2717,12 +2702,28 @@ Master track of the project which hosts this ReaLearn instance.
 * If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX
 chain, this option is the right choice as well. Make sure to enable the "Monitoring FX" checkbox.
 
-====== Selector "All by name"
+====== Selector "All named"
 
-Allows you to use wildcards (see _By name_ selector) to make track targets do their thing on
+Allows you to use wildcards (see <<by-name>>) to make track targets do their thing on
 all matching tracks instead of only the first one.
 
-====== Selector "By ID or name"
+====== Selector "At TCP position"
+
+Like <<by-position>> but just considers tracks that are visible in the track control panel.
+
+====== Selector "At MCP position"
+
+Like <<by-position>> but just considers tracks that are visible in the mixer control panel.
+
+====== Selector "Dynamic (TCP)"
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
+
+====== Selector "Dynamic (MCP)"
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
+
+====== Selector "By ID or name (legacy)"
 
 This lets you refer to a track by its unique ID and name as fallback. This was the default
 behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
@@ -2743,6 +2744,7 @@ By default, this option is set to "No".
 * *Within project (on only):* Variation of _Within project_ that applies exclusivity only when switching the property on for this track. In other words, it never switches the property on for other tracks.
 * *Within folder (on only):* Variation of _Within folder_ that applies exclusivity only when switching the property on for this track. In other words, it never switches the property on for other tracks.
 
+
 ===== Common elements for send targets
 
 Only available for targets that work on a send/receive:
@@ -2751,13 +2753,13 @@ Only available for targets that work on a send/receive:
 
 The kind of send/receive that you want to control.
 
-* *Send:* Send from the track above to another track of your choice. If you choose the _By ID_ selector,
+* *Send:* Send from the track above to another track of your choice. If you choose <<by-id>>,
  ReaLearn will memorize the ID of the destination track. That way you will still control the correct send even
  if you delete another send in that track.
 * *Receive:* Receive from another track of your choice to the track above (opposite direction of send). If you
- choose the _By ID_ selector, ReaLearn will memorize the ID of the source track.
-* *Output:* Send from the track above to a hardware output. Please note that with hardware outputs, _By ID_ is the
- same as _By position_ because hardware outputs don't have unique IDs.
+ choose the <<by-id>> selector, ReaLearn will memorize the ID of the source track.
+* *Output:* Send from the track above to a hardware output. Please note that with hardware outputs, <<by-id>> is the
+ same as <<by-position>> because hardware outputs don't have unique IDs.
 
 ====== Send/Receive/Output
 
@@ -2771,29 +2773,31 @@ The following elements and selectors are available for targets associated with a
 
 The FX instance associated with this target. ReaLearn will search for the FX in the output or input FX chain of the above selected track.
 
-====== Selector <This>
+====== Selector "<This>"
 
 Always points to the own ReaLearn instance. Perfect for changing own parameters, e.g. for
  usage of the conditional activation or `<Dynamic>` features (especially important if you want to create reusable
  presets that make use of these features).
 
-====== Selector <Focused>
+====== Selector "<Focused>"
 
 Currently focused FX. _Track_ and _Input FX_ settings are ignored.
 
-====== Selector "By ID"
+[#fx-by-id]
+====== Selector "Particular"
 
-Lets you pick a specific FX in the FX chain. Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX. Please note that this only makes sense if you address the containing track _By ID_ as well.
+Lets you pick a specific FX in the FX chain. Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX. Please note that this only makes sense if you address the containing track using <<by-id>> as well.
 
-====== Selector "By name"
+[#fx-by-name]
+====== Selector "Named"
 
 Lets you address the FX by its name in the FX chain. Just as with tracks, you can use wildcards to have a blurry search.
 
-====== Selector "All by name"
+====== Selector "All named"
 
-Allows you to use wildcards (see _By name_ selector) to make FX targets do their thing on all matching FX instances instead of only the first one.
+Allows you to use wildcard3s (see <<fx-by-name>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
 
-====== Selector "By ID or position"
+====== Selector "By ID or position (legacy)"
 
 This refers to the FX by its unique ID with its position as fallback. This was the default
  behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
@@ -3313,7 +3317,7 @@ This does the same as <<track-set-automation-touch-state>> but for FX parameter 
 
 Sets the value of a particular track FX parameter.
 
-* *Parameter:* The parameter to be controlled. Please note that both the _By ID_ selector and the _By Position_ selector address the FX by its position in the FX chain. The difference between the two is that _By ID_ shows a dropdown containing the available parameters and _By Position_ lets you enter the position as a number in a text field. Latter is useful if at the time of choosing the position, the FX is not available.
+* *Parameter:* The parameter to be controlled. Please note that both <<fx-by-id>> and <<by-position>> address the FX by its position in the FX chain. The difference between the two is that <<by-id>> shows a dropdown containing the available parameters and <<by-position>> lets you enter the position as a number in a text field. Latter is useful if at the time of choosing the position, the FX is not available.
 
 This target supports the following additional placeholders in textual feedback expressions:
 
