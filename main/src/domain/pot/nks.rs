@@ -261,7 +261,7 @@ impl PresetDb {
         }
         // For "sub" items only: Clear current "sub" item selection if not valid anymore.
         for kind in PotFilterItemKind::enum_iter() {
-            if let Some(parent_kind) = kind.parent_kind() {
+            if kind.has_parent() {
                 // This is a "sub item" kind.
                 if let Some(id) = ids[kind] {
                     // A "sub item" is selected. Check if it's still valid.

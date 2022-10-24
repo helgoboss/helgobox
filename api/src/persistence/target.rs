@@ -1094,13 +1094,9 @@ impl PotFilterItemKind {
         Self::into_enum_iter()
     }
 
-    pub fn parent_kind(&self) -> Option<Self> {
+    pub fn has_parent(&self) -> bool {
         use PotFilterItemKind::*;
-        match self {
-            NksSubBank => Some(NksBank),
-            NksSubCategory => Some(NksCategory),
-            _ => None,
-        }
+        matches!(self, NksSubBank | NksSubCategory)
     }
 }
 
