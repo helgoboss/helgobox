@@ -12,13 +12,13 @@ use crate::domain::{
     MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
     MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
-    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    PluginParamIndex, PluginParams, PotStateChangedEvent, ProcessorContext, ProjectOptions,
+    ProjectionFeedbackValue, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource,
+    RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
+    ReaperConfigChange, ReaperMessage, ReaperTarget, SharedInstanceState, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetControlEvent, TargetValueChangedEvent,
+    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -719,6 +719,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
+            // TODO-high CONTINUE Debounce!
+            if matches!(
+                event,
+                InstanceStateChanged::PotStateChanged(
+                    PotStateChangedEvent::FilterItemChanged { .. }
+                )
+            ) {
+                self.basics
+                    .instance_state
+                    .borrow_mut()
+                    .rebuild_pot_indexes();
+            }
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,

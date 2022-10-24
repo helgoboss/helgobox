@@ -30,10 +30,17 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowsePotPresetsTarget {
 pub struct BrowsePotPresetsTarget {}
 
 impl RealearnTarget for BrowsePotPresetsTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(
+        &self,
+        context: ControlContext,
+    ) -> (ControlType, TargetCharacter) {
+        let instance_state = context.instance_state.borrow();
+        // `+ 1` because "<None>" is also a possible value.
+        let count = self.preset_count(&instance_state) + 1;
+        let atomic_step_size = convert_count_to_step_size(count);
         (
             ControlType::AbsoluteDiscrete {
-                atomic_step_size: self.step_size(),
+                atomic_step_size,
                 is_retriggerable: false,
             },
             TargetCharacter::Discrete,
@@ -59,10 +66,11 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn convert_unit_value_to_discrete_value(
         &self,
         value: UnitValue,
-        _: ControlContext,
+        context: ControlContext,
     ) -> Result<u32, &'static str> {
+        let instance_state = context.instance_state.borrow();
         let value = self
-            .convert_unit_value_to_preset_index(value)
+            .convert_unit_value_to_preset_index(&instance_state, value)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
@@ -73,16 +81,19 @@ impl RealearnTarget for BrowsePotPresetsTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let preset_index = self.convert_unit_value_to_preset_index(value.to_unit_value()?);
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let preset_index =
+            self.convert_unit_value_to_preset_index(&instance_state, value.to_unit_value()?);
         let preset_id = match preset_index {
             None => None,
             Some(i) => {
-                let id = with_preset_db(|db| db.find_preset_id_at_index(i))?
+                let id = instance_state
+                    .pot_state()
+                    .find_preset_id_at_index(i)
                     .ok_or("no preset found for that index")?;
                 Some(id)
             }
         };
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
         instance_state.set_pot_preset_id(preset_id);
         Ok(HitResponse::processed_with_effect())
     }
@@ -94,12 +105,19 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn process_change_event(
         &self,
         evt: CompoundChangeEvent,
-        _: ControlContext,
+        context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::PresetChanged { id },
-            )) => (true, Some(self.convert_preset_id_to_absolute_value(*id))),
+            )) => {
+                let instance_state = context.instance_state.borrow();
+                let value = self.convert_preset_id_to_absolute_value(&instance_state, *id);
+                (true, Some(value))
+            }
+            CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::IndexesRebuilt,
+            )) => (true, None),
             _ => (false, None),
         }
     }
@@ -107,10 +125,12 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn convert_discrete_value_to_unit_value(
         &self,
         value: u32,
-        _: ControlContext,
+        context: ControlContext,
     ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
-        let uv = convert_discrete_to_unit_value_with_none(index, self.preset_count());
+        let instance_state = context.instance_state.borrow();
+        let uv =
+            convert_discrete_to_unit_value_with_none(index, self.preset_count(&instance_state));
         Ok(uv)
     }
 
@@ -130,7 +150,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let instance_state = context.instance_state.borrow();
         let preset_id = self.current_preset_id(&instance_state)?;
-        let preset_index = self.find_index_of_preset(preset_id)?;
+        let preset_index = self.find_index_of_preset(&instance_state, preset_id)?;
         Some(NumericValue::Discrete(preset_index as i32 + 1))
     }
 
@@ -145,7 +165,7 @@ impl<'a> Target<'a> for BrowsePotPresetsTarget {
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let preset_id = self.current_preset_id(&instance_state);
-        Some(self.convert_preset_id_to_absolute_value(preset_id))
+        Some(self.convert_preset_id_to_absolute_value(&instance_state, preset_id))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -154,38 +174,38 @@ impl<'a> Target<'a> for BrowsePotPresetsTarget {
 }
 
 impl BrowsePotPresetsTarget {
-    fn convert_preset_id_to_absolute_value(&self, preset_id: Option<PresetId>) -> AbsoluteValue {
-        let preset_index = preset_id.and_then(|id| self.find_index_of_preset(id));
+    fn convert_preset_id_to_absolute_value(
+        &self,
+        instance_state: &InstanceState,
+        preset_id: Option<PresetId>,
+    ) -> AbsoluteValue {
+        let preset_index = preset_id.and_then(|id| self.find_index_of_preset(instance_state, id));
         let actual = match preset_index {
             None => 0,
             Some(i) => i + 1,
         };
-        let max = self.preset_count();
+        let max = self.preset_count(instance_state);
         AbsoluteValue::Discrete(Fraction::new(actual, max))
     }
 
-    fn preset_count(&self) -> u32 {
-        with_preset_db(|db| db.count_presets()).unwrap_or(0)
+    fn preset_count(&self, instance_state: &InstanceState) -> u32 {
+        instance_state.pot_state().count_presets()
     }
 
-    fn step_size(&self) -> UnitValue {
-        // `+ 1` because "<None>" is also a possible value.
-        let count = self.preset_count() + 1;
-        convert_count_to_step_size(count)
-    }
-
-    fn convert_unit_value_to_preset_index(&self, value: UnitValue) -> Option<u32> {
-        convert_unit_to_discrete_value_with_none(value, self.preset_count())
+    fn convert_unit_value_to_preset_index(
+        &self,
+        instance_state: &InstanceState,
+        value: UnitValue,
+    ) -> Option<u32> {
+        convert_unit_to_discrete_value_with_none(value, self.preset_count(instance_state))
     }
 
     fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
         instance_state.pot_state().preset_id()
     }
 
-    fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
-        with_preset_db(|db| db.find_index_of_preset(id))
-            .ok()
-            .flatten()
+    fn find_index_of_preset(&self, instance_state: &InstanceState, id: PresetId) -> Option<u32> {
+        instance_state.pot_state().find_index_of_preset(id)
     }
 }
 

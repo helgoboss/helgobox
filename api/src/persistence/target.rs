@@ -1087,6 +1087,23 @@ pub enum PotFilterItemKind {
     NksFavorite,
 }
 
+impl PotFilterItemKind {
+    /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
+    /// in IntelliJ Rust doesn't work for that at the time of this writing.
+    pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
+        Self::into_enum_iter()
+    }
+
+    pub fn parent_kind(&self) -> Option<Self> {
+        use PotFilterItemKind::*;
+        match self {
+            NksSubBank => Some(NksBank),
+            NksSubCategory => Some(NksCategory),
+            _ => None,
+        }
+    }
+}
+
 impl Default for PotFilterItemKind {
     fn default() -> Self {
         Self::Database

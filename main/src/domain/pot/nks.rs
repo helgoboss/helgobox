@@ -1,9 +1,12 @@
 use crate::base::blocking_lock;
-use crate::domain::pot::{CurrentPreset, FilterItem, ParamAssignment, Preset};
-use enum_map::EnumMap;
+use crate::domain::pot::{
+    Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterItemIds, ParamAssignment,
+    PersistentNavigationState, Preset, PresetCollection,
+};
+use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, ToSql};
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -15,13 +18,13 @@ use std::sync::Mutex;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
 pub struct FilterItemId(u32);
 
 pub struct PresetDb {
     connection: Connection,
-    index_by_preset_id: HashMap<PresetId, u32>,
-    filter_item_containers: EnumMap<PotFilterItemKind, Vec<FilterItem>>,
 }
 
 pub struct NksFile {
@@ -139,45 +142,7 @@ impl PresetDb {
     fn open() -> Result<Mutex<Self>, Box<dyn Error>> {
         let path = path_to_preset_db()?;
         let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        let mut db = Self {
-            connection,
-            index_by_preset_id: Default::default(),
-            filter_item_containers: Default::default(),
-        };
-        db.refresh_filter_items()?;
-        db.refresh_preset_index()?;
-        Ok(Mutex::new(db))
-    }
-
-    pub fn refresh_preset_index(&mut self) -> Result<(), Box<dyn Error>> {
-        use fallible_iterator::FallibleIterator;
-        let mut statement = self
-            .connection
-            .prepare_cached("SELECT id FROM k_sound_info ORDER BY id")?;
-        let index: Result<_, _> = statement
-            .query([])?
-            .map(|row| Ok(PresetId(row.get(0)?)))
-            .enumerate()
-            .map(|(i, id)| Ok((id, i as u32)))
-            .collect();
-        self.index_by_preset_id = index?;
-        Ok(())
-    }
-
-    pub fn refresh_filter_items(&mut self) -> Result<(), Box<dyn Error>> {
-        use enum_iterator::IntoEnumIterator;
-        for kind in PotFilterItemKind::into_enum_iter() {
-            self.filter_item_containers[kind] = self.query_filter_items(kind).unwrap_or_default();
-        }
-        Ok(())
-    }
-
-    pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
-        self.filter_item_containers[kind].len() as _
-    }
-
-    pub fn count_presets(&self) -> u32 {
-        self.index_by_preset_id.len() as u32
+        Ok(Mutex::new(Self { connection }))
     }
 
     pub fn find_preset_preview_file(&self, id: PresetId) -> Option<PathBuf> {
@@ -191,58 +156,6 @@ impl PresetDb {
                 Some(preview_dir.join(preview_file_name))
             }
         }
-    }
-
-    pub fn find_index_of_filter_item(
-        &self,
-        kind: PotFilterItemKind,
-        id: FilterItemId,
-    ) -> Option<u32> {
-        Some(self.find_filter_item_and_index_by_id(kind, id)?.0)
-    }
-
-    pub fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
-        self.index_by_preset_id.get(&id).copied()
-    }
-
-    pub fn find_filter_item_id_at_index(
-        &self,
-        kind: PotFilterItemKind,
-        index: u32,
-    ) -> Option<FilterItemId> {
-        let item = self.filter_item_containers[kind].get(index as usize)?;
-        Some(item.id)
-    }
-
-    pub fn find_preset_id_at_index(&self, index: u32) -> Option<PresetId> {
-        // TODO-medium We could optimize this by making the index a bi-map
-        self.connection
-            .query_row(
-                "SELECT id FROM k_sound_info ORDER BY id LIMIT 1 OFFSET ?",
-                [index],
-                |row| Ok(PresetId(row.get(0)?)),
-            )
-            .ok()
-    }
-
-    pub fn find_filter_item_by_id(
-        &self,
-        kind: PotFilterItemKind,
-        id: FilterItemId,
-    ) -> Option<&FilterItem> {
-        Some(self.find_filter_item_and_index_by_id(kind, id)?.1)
-    }
-
-    fn find_filter_item_and_index_by_id(
-        &self,
-        kind: PotFilterItemKind,
-        id: FilterItemId,
-    ) -> Option<(u32, &FilterItem)> {
-        let (i, item) = self.filter_item_containers[kind]
-            .iter()
-            .enumerate()
-            .find(|(_, item)| item.id == id)?;
-        Some((i as u32, item))
     }
 
     pub fn find_preset_by_id(&self, id: PresetId) -> Option<Preset> {
@@ -266,32 +179,167 @@ impl PresetDb {
             .ok()
     }
 
-    fn query_filter_items(&self, kind: PotFilterItemKind) -> Result<Vec<FilterItem>, String> {
+    pub fn build_collections(
+        &self,
+        state: &PersistentNavigationState,
+    ) -> Result<(PersistentNavigationState, Collections), Box<dyn Error>> {
+        let (filter_item_ids, filter_item_collections) =
+            self.build_filter_items(state.filter_item_ids)?;
+        let preset_collection = self.build_preset_collection(&state.filter_item_ids)?;
+        let state = PersistentNavigationState {
+            filter_item_ids,
+            preset_id: state.preset_id,
+        };
+        let indexes = Collections {
+            filter_item_collections,
+            preset_collection,
+        };
+        Ok((state, indexes))
+    }
+
+    fn build_preset_collection(
+        &self,
+        filter_item_ids: &FilterItemIds,
+    ) -> Result<PresetCollection, Box<dyn Error>> {
+        let mut from_extras = String::new();
+        let mut where_extras = String::new();
+        let mut params: Vec<&dyn ToSql> = vec![];
+        // Bank and sub bank (= "Instrument" and "Bank")
+        if let Some(sub_bank_id) = &filter_item_ids[PotFilterItemKind::NksSubBank] {
+            where_extras += " AND i.bank_chain_id = ?";
+            params.push(&sub_bank_id.0);
+        } else if let Some(bank_id) = &filter_item_ids[PotFilterItemKind::NksBank] {
+            where_extras += r#"
+                AND i.bank_chain_id IN (
+                    SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
+                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
+                    ) 
+                )"#;
+            params.push(&bank_id.0);
+        }
+        // Category and sub category (= "Type" and "Sub type")
+        if let Some(sub_category_id) = &filter_item_ids[PotFilterItemKind::NksSubCategory] {
+            from_extras += " JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
+            where_extras += " AND ic.category_id = ?";
+            params.push(&sub_category_id.0);
+        } else if let Some(category_id) = &filter_item_ids[PotFilterItemKind::NksCategory] {
+            from_extras += " JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
+            where_extras += r#"
+                AND ic.category_id IN (
+                    SELECT child.id FROM k_category child WHERE child.category = (
+                        SELECT parent.category FROM k_category parent WHERE parent.id = ?
+                    )
+                )"#;
+            params.push(&category_id.0);
+        }
+        // Mode (= "Character")
+        if let Some(mode_id) = &filter_item_ids[PotFilterItemKind::NksMode] {
+            from_extras += " JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
+            where_extras += " AND im.mode_id = ?";
+            params.push(&mode_id.0);
+        }
+        // Put it all together
+        let sql = format!(
+            "SELECT i.id FROM k_sound_info i{} WHERE true{}",
+            from_extras, where_extras
+        );
+        let mut statement = self.connection.prepare_cached(&sql)?;
+        let collection: Result<PresetCollection, _> = statement
+            .query(params.as_slice())?
+            .mapped(|row| Ok(PresetId(row.get(0)?)))
+            .collect();
+        Ok(collection?)
+    }
+
+    fn build_filter_items(
+        &self,
+        mut ids: FilterItemIds,
+    ) -> Result<(FilterItemIds, FilterItemCollections), Box<dyn Error>> {
+        let mut collections = FilterItemCollections::default();
+        for kind in PotFilterItemKind::enum_iter() {
+            collections[kind] = self.query_filter_items(kind, &ids).unwrap_or_default();
+        }
+        // For "sub" items only: Clear current "sub" item selection if not valid anymore.
+        for kind in PotFilterItemKind::enum_iter() {
+            if let Some(parent_kind) = kind.parent_kind() {
+                // This is a "sub item" kind.
+                if let Some(id) = ids[kind] {
+                    // A "sub item" is selected. Check if it's still valid.
+                    if !collections[kind].iter().any(|item| item.id == id) {
+                        ids[kind] = None;
+                    }
+                }
+            }
+        }
+        Ok((ids, collections))
+    }
+
+    fn query_filter_items(
+        &self,
+        kind: PotFilterItemKind,
+        ids: &FilterItemIds,
+    ) -> Result<Vec<FilterItem>, String> {
         use PotFilterItemKind::*;
         match kind {
             // TODO-high
             Database => Err("TODO".into()),
-            NksBank => self.select_filter_items("SELECT id, entry1 FROM k_bank_chain ORDER BY entry1"),
-            NksSubBank => self.select_filter_items(
-                "SELECT id, entry2 FROM k_bank_chain WHERE entry2 IS NOT NULL ORDER BY entry2",
+            NksBank => self.select_nks_filter_items(
+                "SELECT id, entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
+                None,
             ),
-            NksCategory => self.select_filter_items("SELECT id, category FROM k_category ORDER BY category"),
-            NksSubCategory => self.select_filter_items("SELECT id, subcategory FROM k_category WHERE subcategory IS NOT NULL ORDER BY subcategory"),
-            NksMode => self.select_filter_items("SELECT id, name FROM k_mode ORDER BY name"),
+            NksSubBank => {
+                let mut sql =
+                    "SELECT id, entry2 FROM k_bank_chain WHERE entry2 IS NOT NULL".to_string();
+                let parent_bank_id = ids[NksBank];
+                if parent_bank_id.is_some() {
+                    sql += " AND entry1 = (SELECT entry1 FROM k_bank_chain where id = ?)";
+                }
+                sql += " ORDER BY entry2";
+                self.select_nks_filter_items(&sql, parent_bank_id)
+            }
+            NksCategory => self.select_nks_filter_items(
+                "SELECT id, category FROM k_category GROUP BY category ORDER BY category",
+                None,
+            ),
+            NksSubCategory => {
+                let mut sql =
+                    "SELECT id, subcategory FROM k_category WHERE subcategory IS NOT NULL"
+                        .to_string();
+                let parent_category_id = ids[NksCategory];
+                if parent_category_id.is_some() {
+                    sql += " AND category = (SELECT category FROM k_category where id = ?)";
+                }
+                sql += " ORDER BY subcategory";
+                self.select_nks_filter_items(&sql, parent_category_id)
+            }
+            NksMode => {
+                self.select_nks_filter_items("SELECT id, name FROM k_mode ORDER BY name", None)
+            }
             // TODO-high
             NksFavorite => Err("TODO".into()),
         }
     }
 
-    fn select_filter_items(&self, query: &str) -> Result<Vec<FilterItem>, String> {
-        self.select_filter_items_internal(query)
+    fn select_nks_filter_items(
+        &self,
+        query: &str,
+        parent_id: Option<FilterItemId>,
+    ) -> Result<Vec<FilterItem>, String> {
+        self.select_nks_filter_items_internal(query, parent_id)
             .map_err(|e| e.to_string())
     }
 
-    fn select_filter_items_internal(&self, query: &str) -> rusqlite::Result<Vec<FilterItem>> {
-        use fallible_iterator::FallibleIterator;
+    fn select_nks_filter_items_internal(
+        &self,
+        query: &str,
+        parent_id: Option<FilterItemId>,
+    ) -> rusqlite::Result<Vec<FilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
-        let rows = statement.query([])?;
+        let rows = if let Some(parent_id) = parent_id {
+            statement.query([parent_id.0])?
+        } else {
+            statement.query([])?
+        };
         rows.map(|row| {
             let item = FilterItem {
                 id: FilterItemId(row.get(0)?),
