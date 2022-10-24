@@ -124,7 +124,7 @@ pub struct InstanceState {
     /// Saves the current state for Pot preset navigation.
     ///
     /// Persistent.
-    // TODO-high Persist
+    // TODO-high CONTINUE Persist
     pot_state: pot::NavigationState,
 }
 
@@ -232,7 +232,7 @@ impl InstanceState {
             mapping_snapshot_container: Default::default(),
             pot_state: {
                 let mut pot_state = NavigationState::default();
-                // TODO-high We must make sure that as part of the loading or initialization the indexes
+                // TODO-high CONTINUE We must make sure that as part of the loading or initialization the indexes
                 //  of the pot state are created. Doing this lazily without mut access is pretty dirty
                 //  and unpredictable. Better do it explicitly.
                 pot_state.rebuild_indexes().unwrap();

@@ -127,7 +127,7 @@ impl<M: Mouse> MouseTarget<M> {
     }
 
     fn drag_cursor(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {
-        // TODO-high Drag
+        // TODO-high CONTINUE Drag
         self.move_cursor(value)
     }
 

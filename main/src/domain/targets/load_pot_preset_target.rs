@@ -125,7 +125,7 @@ impl LoadPotPresetTarget {
         let nks_file = NksFile::load(&preset.file_name)?;
         let nks_content = nks_file.content()?;
         self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
-        // Set VST chunk (this is beyond ugly) TODO-high Let's do this via Justin's new
+        // Set VST chunk (this is beyond ugly) TODO-high CONTINUE Let's do this via Justin's new
         // mechanism coming in REAPER > v6.69
         let fx = if self.fx.guid().is_some() {
             self.fx.clone()

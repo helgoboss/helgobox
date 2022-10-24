@@ -101,8 +101,6 @@ pub struct MatrixClipRecordSettings {
     pub play_stop_timing: ClipSettingOverrideAfterRecording<ClipPlayStopTiming>,
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
-    // TODO-high Remove play_after alias
-    #[serde(alias = "play_after")]
     pub looped: bool,
     /// If `true`, sets the global tempo to the tempo of this clip right after recording.
     // TODO-clip-implement

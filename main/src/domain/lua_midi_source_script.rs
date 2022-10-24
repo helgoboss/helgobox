@@ -65,7 +65,7 @@ impl From<RgbColor> for ScriptColor {
 
 impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
     fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
-        // TODO-high We don't limit the time of each execution at the moment because not sure
+        // TODO-medium We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
         //  scripts!
         // Build input data

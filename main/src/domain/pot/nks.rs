@@ -12,7 +12,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-// TODO-high It would be best to choose an ID which is a hash of the preset, so it survives DB
+// TODO-high CONTINUE It would be best to choose an ID which is a hash of the preset, so it survives DB
 //  rebuilds. => use UUID! it's stable
 // TODO-medium Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
@@ -282,7 +282,7 @@ impl PresetDb {
     ) -> Result<Vec<FilterItem>, String> {
         use PotFilterItemKind::*;
         match kind {
-            // TODO-high
+            // TODO-high CONTINUE
             Database => Err("TODO".into()),
             NksBank => self.select_nks_filter_items(
                 "SELECT id, entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
@@ -316,7 +316,7 @@ impl PresetDb {
             NksMode => {
                 self.select_nks_filter_items("SELECT id, name FROM k_mode ORDER BY name", None)
             }
-            // TODO-high
+            // TODO-high CONTINUE
             NksFavorite => Err("TODO".into()),
         }
     }

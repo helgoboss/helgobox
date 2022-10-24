@@ -18,10 +18,10 @@ pub struct RealearnTargetState {
     /// For notifying ReaLearn about state changes.
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     /// Memorizes for each FX the hash of its last FX snapshot loaded via "Load FX snapshot" target.
-    // TODO-high Restore on load (by looking up snapshot chunk)
+    // TODO-high CONTINUE Restore on load (by looking up snapshot chunk)
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
     /// Memorizes for each FX some infos about its last loaded Pot preset.
-    // TODO-high Restore on load (by looking up DB)
+    // TODO-high CONTINUE Restore on load (by looking up DB)
     current_pot_preset_by_fx: HashMap<Fx, pot::CurrentPreset>,
     /// Memorizes all currently touched track parameters.
     ///

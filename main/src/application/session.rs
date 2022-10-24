@@ -1173,22 +1173,6 @@ impl Session {
                             }
                             // Mark dirty
                             session.mark_compartment_dirty(*compartment);
-                            // TODO-high Temporarily disabled until we find out if we really
-                            //  still need this. At the moment it competes a bit with
-                            //  the new mode applicability check. If we still want it, we should
-                            //  combine it with that so we don't have 2 rule sets.
-                            // // Auto-correct settings.
-                            // if session.auto_correct_settings.get() {
-                            //     let qualified_mapping_id =
-                            //         QualifiedMappingId::new(*compartment, *mapping_id);
-                            //     session.change(
-                            //         SessionCommand::AdjustMappingModeIfNecessary(
-                            //             qualified_mapping_id,
-                            //         ),
-                            //         None,
-                            //         weak_session,
-                            //     );
-                            // }
                         }
                         _ => {}
                     }

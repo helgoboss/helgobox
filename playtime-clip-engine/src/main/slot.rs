@@ -758,7 +758,7 @@ struct CommonRecordStuff {
     temporary_route: Option<TrackRoute>,
 }
 
-// TODO-high Maybe fix the clippy warning
+// TODO-high-clip-engine Maybe fix the clippy warning
 #[allow(clippy::large_enum_variant)]
 enum ModeSpecificRecordStuff {
     FromScratch(FromScratchRecordStuff),
@@ -902,7 +902,7 @@ pub fn create_midi_overdub_instruction(
     temporary_project: Option<Project>,
 ) -> ClipEngineResult<MidiOverdubInstruction> {
     let quantization_settings = if auto_quantize {
-        // TODO-high Use project quantization settings
+        // TODO-high-clip-engine Use project quantization settings
         Some(QuantizationSettings {})
     } else {
         None

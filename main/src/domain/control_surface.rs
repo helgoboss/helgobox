@@ -685,7 +685,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
         // Reentrancy check (check if we are currently mutably in `run()`)
-        // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
+        // TODO-high-refactoring We should do this in reaper-medium (in a more generic way) as soon as it turns
         //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
         match self.change_event_queue.try_borrow_mut() {
             Ok(mut queue) => self.handle_event_internal(&event, &mut queue),

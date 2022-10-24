@@ -1285,19 +1285,14 @@ impl Default for ClipColumnAction {
     JsonSchema,
 )]
 #[repr(usize)]
-// TODO-high Remove aliases!
 pub enum ClipRowAction {
     #[display(fmt = "Play")]
-    #[serde(alias = "Play")]
     PlayScene,
     #[display(fmt = "Build scene")]
-    #[serde(alias = "CaptureScene")]
     BuildScene,
     #[display(fmt = "Clear")]
-    #[serde(alias = "Clear")]
     ClearScene,
     #[display(fmt = "Copy or paste")]
-    #[serde(alias = "CopyOrPaste")]
     CopyOrPasteScene,
 }
 
