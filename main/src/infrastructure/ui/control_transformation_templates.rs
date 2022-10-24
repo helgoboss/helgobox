@@ -19,6 +19,22 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
                 control_styles: &[RangeElement],
                 min_realearn_version: None,
             },
+            ScriptTemplate {
+                name: "Logarithmic curve",
+                content: r#"// Parameters
+
+min = 0.01;
+max = 1;
+
+// Code
+
+b = log(max / min) / (max - min);
+a = max / exp(b * max);
+y = a * exp(b * x);"#,
+                description: r#"You can use this to gain fine-grained control of very low values in target parameters with logarithmic scales."#,
+                control_styles: &[RangeElement],
+                min_realearn_version: None,
+            },
         ],
     },
     ScriptTemplateGroup {
