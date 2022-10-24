@@ -31,17 +31,23 @@ impl SpeechSource {
         Self::default()
     }
 
-    pub fn speak(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
-        use once_cell::sync::Lazy;
-        static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
-            Lazy::new(|| get_default_tts().map(Mutex::new));
-        let tts = TTS.as_ref()?;
-        // TODO-medium This is only necessary because tts exposes a non-optimal API.
-        let mut tts = tts.lock()?;
-        let value = feedback_value.to_textual();
-        tts.speak(value.text, true)?;
-        Ok(())
+    pub fn feedback(&self, feedback_value: &FeedbackValue) -> SpeechSourceFeedbackValue {
+        SpeechSourceFeedbackValue {
+            text: feedback_value.to_textual().text.to_string(),
+        }
     }
+}
+
+pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Error>> {
+    use once_cell::sync::Lazy;
+    static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
+        Lazy::new(|| get_default_tts().map(Mutex::new));
+    let tts = TTS.as_ref()?;
+    // TODO-medium This is only necessary because tts exposes a non-optimal API.
+    let mut tts = tts.lock()?;
+    // TODO-medium This cloning is totally unnecessary but ... non-optimal API.
+    tts.speak(feedback_value.text, true)?;
+    Ok(())
 }
 
 fn get_default_tts() -> Result<Tts, tts::Error> {
@@ -206,15 +212,25 @@ impl ReaperSource {
         Some(control_value)
     }
 
-    pub fn feedback(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
+    pub fn feedback(&self, feedback_value: &FeedbackValue) -> Option<ReaperSourceFeedbackValue> {
         use ReaperSource::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => {
-                Err("not supported".into())
-            }
-            Speech(s) => s.speak(feedback_value),
+            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => None,
+            Speech(s) => Some(ReaperSourceFeedbackValue::Speech(
+                s.feedback(feedback_value),
+            )),
         }
     }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum ReaperSourceFeedbackValue {
+    Speech(SpeechSourceFeedbackValue),
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct SpeechSourceFeedbackValue {
+    pub text: String,
 }
 
 #[derive(PartialEq, Debug, Display)]

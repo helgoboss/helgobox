@@ -7,9 +7,9 @@ use crate::domain::{
     MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
     PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
     RealTimeTargetUpdate, RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -1562,7 +1562,10 @@ pub enum CompoundMappingSourceAddress {
     Midi(MidiSourceAddress),
     Osc(OscSourceAddress),
     Virtual(VirtualSourceAddress),
+    Reaper(ReaperSourceAddress),
 }
+
+pub type ReaperSourceAddress = ReaperSourceFeedbackValue;
 
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
@@ -1764,10 +1767,9 @@ impl CompoundMappingSource {
             Osc(s) => s
                 .feedback(feedback_value.into_owned())
                 .map(PreliminarySourceFeedbackValue::Osc),
-            Reaper(s) => {
-                let _ = s.feedback(&feedback_value);
-                None
-            },
+            Reaper(s) => s
+                .feedback(&feedback_value)
+                .map(PreliminarySourceFeedbackValue::Reaper),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for other sources.
@@ -1934,12 +1936,14 @@ impl ProjectionFeedbackValue {
 pub enum PreliminarySourceFeedbackValue {
     Midi(PreliminaryMidiSourceFeedbackValue<'static, RawShortMessage>),
     Osc(OscMessage),
+    Reaper(ReaperSourceFeedbackValue),
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum FinalSourceFeedbackValue {
     Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
+    Reaper(ReaperSourceFeedbackValue),
 }
 
 impl FinalSourceFeedbackValue {
@@ -1950,6 +1954,9 @@ impl FinalSourceFeedbackValue {
                 .map(CompoundMappingSourceAddress::Midi),
             FinalSourceFeedbackValue::Osc(v) => {
                 Some(CompoundMappingSourceAddress::Osc(v.addr.clone()))
+            }
+            FinalSourceFeedbackValue::Reaper(v) => {
+                Some(CompoundMappingSourceAddress::Reaper(v.clone()))
             }
         }
     }

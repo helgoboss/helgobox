@@ -266,6 +266,7 @@ impl PresetDb {
                 if let Some(id) = ids[kind] {
                     // A "sub item" is selected. Check if it's still valid.
                     if !collections[kind].iter().any(|item| item.id == id) {
+                        // Not valid anymore. Clear.
                         ids[kind] = None;
                     }
                 }
