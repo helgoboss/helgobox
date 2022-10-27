@@ -3572,7 +3572,11 @@ impl VirtualTrackType {
                     Self::Selected
                 }
             }
-            Dynamic { .. } => Self::Dynamic,
+            Dynamic { scope, .. } => match scope {
+                TrackScope::AllTracks => Self::Dynamic,
+                TrackScope::TracksVisibleInTcp => Self::DynamicTcp,
+                TrackScope::TracksVisibleInMcp => Self::DynamicMcp,
+            },
             Master => Self::Master,
             Instance => Self::Instance,
             ByIdOrName(_, _) => Self::ByIdOrName,
@@ -3584,7 +3588,11 @@ impl VirtualTrackType {
                     Self::ByName
                 }
             }
-            ByIndex { .. } => Self::ByIndex,
+            ByIndex { scope, .. } => match scope {
+                TrackScope::AllTracks => Self::ByIndex,
+                TrackScope::TracksVisibleInTcp => Self::ByIndexTcp,
+                TrackScope::TracksVisibleInMcp => Self::ByIndexMcp,
+            },
             FromClipColumn { .. } => Self::FromClipColumn,
         }
     }
