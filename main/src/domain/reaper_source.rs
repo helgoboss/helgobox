@@ -1,4 +1,7 @@
-use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue};
+use crate::domain::{
+    Compartment, CompartmentParamIndex, CompoundMappingSourceAddress, RawParamValue,
+    ReaperSourceAddress,
+};
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
@@ -122,6 +125,14 @@ impl TimerSource {
 }
 
 impl ReaperSource {
+    pub fn extract_feedback_address(&self) -> Option<ReaperSourceAddress> {
+        use ReaperSource::*;
+        match self {
+            Speech(_) => Some(ReaperSourceAddress::GlobalSpeech),
+            _ => None,
+        }
+    }
+
     #[allow(clippy::single_match)]
     pub fn on_deactivate(&mut self) {
         match self {
@@ -223,12 +234,20 @@ impl ReaperSource {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum ReaperSourceFeedbackValue {
     Speech(SpeechSourceFeedbackValue),
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+impl ReaperSourceFeedbackValue {
+    pub fn extract_feedback_address(&self) -> Option<ReaperSourceAddress> {
+        match self {
+            ReaperSourceFeedbackValue::Speech(_) => Some(ReaperSourceAddress::GlobalSpeech),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct SpeechSourceFeedbackValue {
     pub text: String,
 }

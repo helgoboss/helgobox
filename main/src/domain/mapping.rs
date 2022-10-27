@@ -1565,7 +1565,14 @@ pub enum CompoundMappingSourceAddress {
     Reaper(ReaperSourceAddress),
 }
 
-pub type ReaperSourceAddress = ReaperSourceFeedbackValue;
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum ReaperSourceAddress {
+    /// At the moment, we allow only one speaker speaking at a time.
+    ///
+    /// Our TTS logic is also built in a way that we have only one static TTS instance and saying
+    /// something interrupts whatever is currently said.
+    GlobalSpeech,
+}
 
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
@@ -1632,6 +1639,9 @@ impl CompoundMappingSource {
                 s.feedback_address().clone(),
             )),
             Virtual(s) => Some(CompoundMappingSourceAddress::Virtual(*s.feedback_address())),
+            Reaper(s) => s
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Reaper),
             _ => None,
         }
     }
@@ -1955,9 +1965,9 @@ impl FinalSourceFeedbackValue {
             FinalSourceFeedbackValue::Osc(v) => {
                 Some(CompoundMappingSourceAddress::Osc(v.addr.clone()))
             }
-            FinalSourceFeedbackValue::Reaper(v) => {
-                Some(CompoundMappingSourceAddress::Reaper(v.clone()))
-            }
+            FinalSourceFeedbackValue::Reaper(v) => v
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Reaper),
         }
     }
 }
