@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::rc::{Rc, Weak};
 
 use enum_map::EnumMap;
@@ -8,7 +9,7 @@ use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::pot::nks::FilterItemId;
-use crate::domain::pot::{NavigationState, PresetId};
+use crate::domain::pot::{PotUnit, PresetId, RuntimePotUnit};
 use crate::domain::{
     pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
@@ -124,8 +125,7 @@ pub struct InstanceState {
     /// Saves the current state for Pot preset navigation.
     ///
     /// Persistent.
-    // TODO-high CONTINUE Persist
-    pot_state: pot::NavigationState,
+    pot_unit: PotUnit,
 }
 
 #[derive(Debug)]
@@ -230,43 +230,63 @@ impl InstanceState {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
-            pot_state: {
-                let mut pot_state = NavigationState::default();
-                // TODO-high CONTINUE We must make sure that as part of the loading or initialization the indexes
-                //  of the pot state are created. Doing this lazily without mut access is pretty dirty
-                //  and unpredictable. Better do it explicitly.
-                pot_state.rebuild_indexes().unwrap();
-                pot_state
-            },
+            pot_unit: Default::default(),
         }
     }
 
-    pub fn pot_state(&self) -> &pot::NavigationState {
-        &self.pot_state
+    /// Returns the runtime pot unit associated with this instance.
+    ///
+    /// If the pot unit isn't loaded yet and no load attempt has been done yet, loads it.
+    ///
+    /// Returns an error if the necessary pot database is not available.
+    pub fn pot_unit(&mut self) -> Result<&mut RuntimePotUnit, &'static str> {
+        self.pot_unit.loaded()
     }
 
-    pub fn set_pot_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
-        self.pot_state.set_filter_item_id(kind, id);
+    /// Restores a pot unit state from persistent data.
+    ///
+    /// This doesn't load the pot unit yet. If the ReaLearn instance never accesses the pot unit,
+    /// it simply remains unloaded and its persistent state is kept. The persistent state is also
+    /// kept if loading of the pot unit fails (e.g. if the necessary pot database is not available
+    /// on the user's computer).
+    pub fn restore_pot_unit(&mut self, state: pot::PersistentState) {
+        self.pot_unit = PotUnit::unloaded(state);
+    }
+
+    /// Returns a pot unit state suitable to be saved by the persistence logic.
+    pub fn save_pot_unit(&self) -> pot::PersistentState {
+        self.pot_unit.persistent_state()
+    }
+
+    pub fn set_pot_filter_item_id(
+        &mut self,
+        kind: PotFilterItemKind,
+        id: Option<FilterItemId>,
+    ) -> Result<(), &'static str> {
+        self.pot_unit()?.set_filter_item_id(kind, id);
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::FilterItemChanged {
                 kind,
                 id,
             }),
         );
+        Ok(())
     }
 
-    pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) {
-        self.pot_state.set_preset_id(id);
+    pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) -> Result<(), &'static str> {
+        self.pot_unit()?.set_preset_id(id);
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::PresetChanged { id }),
         );
+        Ok(())
     }
 
-    pub fn rebuild_pot_indexes(&mut self) {
-        self.pot_state.rebuild_indexes().unwrap();
+    pub fn rebuild_pot_indexes(&mut self) -> Result<(), Box<dyn Error>> {
+        self.pot_unit()?.rebuild_collections()?;
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::IndexesRebuilt),
         );
+        Ok(())
     }
 
     pub fn set_mapping_snapshot_container(

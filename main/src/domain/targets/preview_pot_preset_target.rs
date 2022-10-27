@@ -1,8 +1,8 @@
-use crate::domain::pot::{preset_db, PresetId};
+use crate::domain::pot::{preset_db, PresetId, RuntimePotUnit};
 use crate::domain::{
     pot::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    InstanceState, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SoundPlayer, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoundPlayer,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -45,9 +45,10 @@ impl RealearnTarget for PreviewPotPresetTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.is_on() {
-            let instance_state = context.control_context.instance_state.borrow();
+            let mut instance_state = context.control_context.instance_state.borrow_mut();
+            let pot_unit = instance_state.pot_unit()?;
             let preset_id = self
-                .current_preset_id(&instance_state)
+                .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
             let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
                 .ok_or("couldn't find preset or build preset preview file")?;
@@ -61,8 +62,12 @@ impl RealearnTarget for PreviewPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let instance_state = context.instance_state.borrow();
-        preset_db().is_ok() && self.current_preset_id(&instance_state).is_some()
+        let mut instance_state = context.instance_state.borrow_mut();
+        let pot_unit = match instance_state.pot_unit() {
+            Ok(u) => u,
+            Err(_) => return false,
+        };
+        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some()
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -87,8 +92,8 @@ impl<'a> Target<'a> for PreviewPotPresetTarget {
 }
 
 impl PreviewPotPresetTarget {
-    fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
-        instance_state.pot_state().preset_id()
+    fn current_preset_id(&self, pot_unit: &RuntimePotUnit) -> Option<PresetId> {
+        pot_unit.preset_id()
     }
 }
 pub const PREVIEW_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {

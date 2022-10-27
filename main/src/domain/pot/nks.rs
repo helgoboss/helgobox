@@ -1,7 +1,7 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::{
     Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterItemIds, ParamAssignment,
-    PersistentNavigationState, Preset, PresetCollection,
+    Preset, PresetCollection, RuntimeState,
 };
 use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterItemKind;
@@ -12,8 +12,6 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-// TODO-high CONTINUE It would be best to choose an ID which is a hash of the preset, so it survives DB
-//  rebuilds. => use UUID! it's stable
 // TODO-medium Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PresetId(u32);
@@ -158,13 +156,24 @@ impl PresetDb {
         }
     }
 
+    pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<PresetId> {
+        self.connection
+            .query_row(
+                "SELECT id FROM k_sound_info WHERE favorite_id = ?",
+                [favorite_id],
+                |row| Ok(PresetId(row.get(0)?)),
+            )
+            .ok()
+    }
+
     pub fn find_preset_by_id(&self, id: PresetId) -> Option<Preset> {
         self.connection
             .query_row(
-                "SELECT name, file_name, file_ext FROM k_sound_info WHERE id = ?",
+                "SELECT name, file_name, file_ext, favorite_id FROM k_sound_info WHERE id = ?",
                 [id.0],
                 |row| {
                     let preset = Preset {
+                        favorite_id: row.get(3)?,
                         id,
                         name: row.get(0)?,
                         file_name: {
@@ -181,12 +190,12 @@ impl PresetDb {
 
     pub fn build_collections(
         &self,
-        state: &PersistentNavigationState,
-    ) -> Result<(PersistentNavigationState, Collections), Box<dyn Error>> {
+        state: &RuntimeState,
+    ) -> Result<(RuntimeState, Collections), Box<dyn Error>> {
         let (filter_item_ids, filter_item_collections) =
             self.build_filter_items(state.filter_item_ids)?;
         let preset_collection = self.build_preset_collection(&state.filter_item_ids)?;
-        let state = PersistentNavigationState {
+        let state = RuntimeState {
             filter_item_ids,
             preset_id: state.preset_id,
         };
@@ -251,7 +260,7 @@ impl PresetDb {
         Ok(collection?)
     }
 
-    fn build_filter_items(
+    pub fn build_filter_items(
         &self,
         mut ids: FilterItemIds,
     ) -> Result<(FilterItemIds, FilterItemCollections), Box<dyn Error>> {
@@ -342,9 +351,11 @@ impl PresetDb {
             statement.query([])?
         };
         rows.map(|row| {
+            let name: String = row.get(1)?;
             let item = FilterItem {
+                persistent_id: name.clone(),
                 id: FilterItemId(row.get(0)?),
-                name: row.get(1)?,
+                name,
             };
             Ok(item)
         })

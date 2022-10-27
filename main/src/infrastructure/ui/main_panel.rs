@@ -781,7 +781,7 @@ fn get_track_peaks(track: &Track) -> Vec<f64> {
     if channel_count <= 0 {
         return vec![];
     }
-    // TODO-high CONTINUE Apply same fix as in #560 (check I_VUMODE to know whether to query volume or peaks)
+    // TODO-high-clip-engine CONTINUE Apply same fix as in #560 (check I_VUMODE to know whether to query volume or peaks)
     (0..channel_count)
         .map(|ch| {
             let volume = unsafe { reaper.track_get_peak_info(track, ch as u32 + 1024) };

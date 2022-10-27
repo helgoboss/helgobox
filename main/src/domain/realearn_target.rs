@@ -714,18 +714,7 @@ impl ReaperTargetType {
     }
 
     pub fn supports_poll_for_feedback(self) -> bool {
-        use ReaperTargetType::*;
-        matches!(
-            self,
-            FxParameterValue
-                | RouteMute
-                | RoutePhase
-                | RouteMono
-                | RouteAutomationMode
-                | AllTrackFxEnable
-                | TrackShow
-                | TrackPhase
-        )
+        self.definition().supports_poll_for_feedback()
     }
 
     pub const fn definition(self) -> &'static TargetTypeDef {

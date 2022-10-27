@@ -1,9 +1,9 @@
 use crate::domain::pot::nks::NksFile;
-use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId};
+use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId, RuntimePotUnit};
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitResponse, InstanceState, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -58,9 +58,10 @@ impl RealearnTarget for LoadPotPresetTarget {
         if !value.is_on() {
             return Ok(HitResponse::ignored());
         }
-        let instance_state = context.control_context.instance_state.borrow();
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let pot_unit = instance_state.pot_unit()?;
         let preset_id = self
-            .current_preset_id(&instance_state)
+            .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
@@ -77,10 +78,12 @@ impl RealearnTarget for LoadPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let instance_state = context.instance_state.borrow();
-        preset_db().is_ok()
-            && self.current_preset_id(&instance_state).is_some()
-            && self.fx.is_available()
+        let mut instance_state = context.instance_state.borrow_mut();
+        let pot_unit = match instance_state.pot_unit() {
+            Ok(u) => u,
+            Err(_) => return false,
+        };
+        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {
@@ -117,23 +120,15 @@ impl<'a> Target<'a> for LoadPotPresetTarget {
 }
 
 impl LoadPotPresetTarget {
-    fn current_preset_id(&self, instance_state: &InstanceState) -> Option<PresetId> {
-        instance_state.pot_state().preset_id()
+    fn current_preset_id(&self, pot_unit: &RuntimePotUnit) -> Option<PresetId> {
+        pot_unit.preset_id()
     }
 
     fn load_nksf(&self, preset: &Preset) -> Result<(), &'static str> {
         let nks_file = NksFile::load(&preset.file_name)?;
         let nks_content = nks_file.content()?;
-        self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
-        // Set VST chunk (this is beyond ugly) TODO-high CONTINUE Let's do this via Justin's new
-        // mechanism coming in REAPER > v6.69
-        let fx = if self.fx.guid().is_some() {
-            self.fx.clone()
-        } else {
-            let guid = self.fx.get_or_query_guid()?;
-            self.fx.chain().fx_by_guid_and_index(&guid, self.fx.index())
-        };
-        fx.set_vst_chunk(nks_content.vst_chunk)?;
+        // self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
+        self.fx.set_vst_chunk(nks_content.vst_chunk)?;
         BackboneState::target_state()
             .borrow_mut()
             .set_current_fx_preset(self.fx.clone(), nks_content.current_preset);

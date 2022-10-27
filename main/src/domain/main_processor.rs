@@ -731,7 +731,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
-            // TODO-high CONTINUE Debounce!
+            // TODO-medium Debounce!
             if matches!(
                 event,
                 InstanceStateChanged::PotStateChanged(
