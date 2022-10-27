@@ -319,6 +319,11 @@ impl ReaperTarget {
                 | TrackSendCountChanged(_)
                 | HardwareOutputSendCountChanged(_)
                 | TrackSelectedChanged(_)
+                // This is a pretty good indicator when it comes to detecting track visibility
+                // changes. However, if there's only one track, this won't work. Hopefully doesn't
+                // hurt so much.
+                // TODO-high-wait Wait on Justin's answer about adding new EXT notification.
+                | TrackListChanged(_)
         )
     }
 
