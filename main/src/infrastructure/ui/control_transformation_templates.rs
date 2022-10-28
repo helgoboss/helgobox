@@ -20,18 +20,18 @@ pub const CONTROL_TRANSFORMATION_TEMPLATES: &[ScriptTemplateGroup] = &[
                 min_realearn_version: None,
             },
             ScriptTemplate {
-                name: "Logarithmic curve",
+                name: "ReaComp Threshold linearization",
                 content: r#"// Parameters
 
-min = 0.01;
-max = 1;
+min_db = -120;
+max_db = 6;
 
 // Code
 
-b = log(max / min) / (max - min);
-a = max / exp(b * max);
-y = a * exp(b * x);"#,
-                description: r#"You can use this to gain fine-grained control of very low values in target parameters with logarithmic scales."#,
+shift = -min_db;
+compress = max_db - min_db;
+y = (10.0 ^ ((compress * x - shift) / 20)) / 2"#,
+                description: r#"You can use this when controlling the ReaComp Threshold parameter to get a linear dB scale. This essentially inverses the logarithmic curve that ReaComp uses to interpret incoming parameter values. Probably also works with other logarithmic ReaPlug parameters."#,
                 control_styles: &[RangeElement],
                 min_realearn_version: None,
             },
@@ -62,8 +62,7 @@ y = x > 0 ? (
             ScriptTemplate {
                 min_realearn_version: None,
                 name: "Global sinus LFO",
-                description: r#"Modulate in sinus shape while button pressed, continue when button 
-                pressed again."#,
+                description: r#"Modulate in sinus shape while button pressed, continue when button pressed again."#,
                 control_styles: &[Button],
                 content: r#"// Parameters
 
@@ -91,8 +90,7 @@ y = x > 0 ? (
         templates: &[ScriptTemplate {
             min_realearn_version: None,
             name: "Linear transition",
-            description: r#"Transition to incoming value (e.g. velocity of button press) within a 
-            certain amount of time."#,
+            description: r#"Transition to incoming value (e.g. velocity of button press) within a certain amount of time."#,
             control_styles: &[Button],
             content: r#"// Parameters
 
