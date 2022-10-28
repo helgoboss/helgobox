@@ -88,6 +88,7 @@ impl RealearnTargetState {
         chunk_hash: u64,
     ) -> Result<(), &'static str> {
         fx.set_tag_chunk(chunk)?;
+        // fx.set_vst_chunk_encoded(chunk.to_string())?;
         self.fx_snapshot_chunk_hash_by_fx
             .insert(fx.clone(), chunk_hash);
         self.additional_feedback_event_sender.send_complaining(

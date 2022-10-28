@@ -571,7 +571,8 @@ pub struct TrackVisibilityTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Made obsolete in 2.14.0-pre.8.
+    #[serde(skip_serializing)]
     pub poll_for_feedback: Option<bool>,
     pub area: TrackArea,
 }

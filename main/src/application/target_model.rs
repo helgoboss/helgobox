@@ -1264,6 +1264,7 @@ impl TargetModel {
             fx_name: fx_info.effect_name,
             preset_name: fx.preset_name().map(|n| n.into_string()),
             chunk: Rc::new(fx.tag_chunk()?.content().to_owned()),
+            // chunk: Rc::new(fx.vst_chunk_encoded()?.into_string()),
         };
         Ok(fx_snapshot)
     }
@@ -2230,7 +2231,6 @@ impl TargetModel {
                             RealearnTrackArea::Tcp => TrackArea::Tcp,
                             RealearnTrackArea::Mcp => TrackArea::Mcp,
                         },
-                        poll_for_feedback: self.poll_for_feedback,
                     }),
                     TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode(
                         UnresolvedTrackAutomationModeTarget {

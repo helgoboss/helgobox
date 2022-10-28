@@ -231,6 +231,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
+        self.poll_for_more_change_events();
         self.process_change_events();
         self.main_task_middleware.run();
         self.future_middleware.run();
@@ -673,6 +674,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let beat_changed = new_full_beats != *full_beats;
         *full_beats = new_full_beats;
         beat_changed
+    }
+
+    fn poll_for_more_change_events(&mut self) {
+        let mut change_event_queue = self.change_event_queue.borrow_mut();
+        measure_time("poll for more change events", || {
+            self.change_detection_middleware.run(&mut |change_event| {
+                change_event_queue.push(change_event);
+            });
+        });
     }
 }
 

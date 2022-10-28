@@ -96,7 +96,7 @@ pub struct RuntimeState {
 impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
         with_preset_db(|db| {
-            let mut filter_item_ids = {
+            let filter_item_ids = {
                 let mut ids = FilterItemIds::default();
                 if let Ok((_, collections)) = db.build_filter_items(Default::default()) {
                     for kind in PotFilterItemKind::enum_iter() {

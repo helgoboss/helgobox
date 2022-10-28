@@ -197,10 +197,7 @@ fn convert_real_target(
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
-            poll_for_feedback: style.required_value_with_default(
-                data.poll_for_feedback,
-                defaults::TARGET_POLL_FOR_FEEDBACK,
-            ),
+            poll_for_feedback: None,
             area: {
                 match data.track_area {
                     RealearnTrackArea::Tcp => persistence::TrackArea::Tcp,

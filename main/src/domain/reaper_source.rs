@@ -1,7 +1,4 @@
-use crate::domain::{
-    Compartment, CompartmentParamIndex, CompoundMappingSourceAddress, RawParamValue,
-    ReaperSourceAddress,
-};
+use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{

@@ -738,7 +738,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     PotStateChangedEvent::FilterItemChanged { .. }
                 )
             ) {
-                self.basics
+                let _ = self
+                    .basics
                     .instance_state
                     .borrow_mut()
                     .rebuild_pot_indexes();
