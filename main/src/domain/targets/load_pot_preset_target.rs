@@ -69,7 +69,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             "wav" | "aif" => {
                 self.load_audio(&preset)?;
             }
-            "nksf" => {
+            "nksf" | "nksfx" => {
                 self.load_nksf(&preset)?;
             }
             _ => return Err("unsupported preset format"),
@@ -127,7 +127,7 @@ impl LoadPotPresetTarget {
     fn load_nksf(&self, preset: &Preset) -> Result<(), &'static str> {
         let nks_file = NksFile::load(&preset.file_name)?;
         let nks_content = nks_file.content()?;
-        // self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
+        self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
         self.fx.set_vst_chunk(nks_content.vst_chunk)?;
         BackboneState::target_state()
             .borrow_mut()
