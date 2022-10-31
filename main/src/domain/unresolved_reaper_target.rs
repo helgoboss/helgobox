@@ -1009,7 +1009,7 @@ impl VirtualFxParameter {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
-                "preset_parameter_indexes" => {
+                "mapped_fx_parameter_indexes" => {
                     let slot_index = extract_first_arg_as_positive_integer(args)?;
                     let target_state = BackboneState::target_state().borrow();
                     let preset = target_state.current_fx_preset(fx);
