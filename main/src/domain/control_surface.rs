@@ -117,6 +117,7 @@ pub enum AdditionalFeedbackEvent {
     /// We shouldn't change that because targets such as "Marker/region: Go to" or "Project: Seek"
     /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
     BeatChanged(BeatChangedEvent),
+    MappedFxParametersChanged,
 }
 
 #[derive(Debug)]

@@ -1602,6 +1602,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             // Okay, not fired that frequently, we can iterate over all mappings.
+            match event {
+                AdditionalFeedbackEvent::MappedFxParametersChanged => {
+                    // Dynamic FX parameter expression should be re-resolved
+                    self.basics
+                        .channels
+                        .self_normal_sender
+                        .send_complaining(NormalMainTask::NotifyConditionsChanged);
+                }
+                _ => {}
+            }
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,

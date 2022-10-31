@@ -75,6 +75,8 @@ impl RealearnTargetState {
 
     pub fn set_current_fx_preset(&mut self, fx: Fx, current_preset: pot::CurrentPreset) {
         self.current_pot_preset_by_fx.insert(fx, current_preset);
+        self.additional_feedback_event_sender
+            .send_complaining(AdditionalFeedbackEvent::MappedFxParametersChanged);
     }
 
     pub fn current_fx_snapshot_chunk_hash(&self, fx: &Fx) -> Option<u64> {
