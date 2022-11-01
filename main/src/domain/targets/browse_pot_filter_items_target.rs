@@ -162,7 +162,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let item_id = match self.current_item_id(&pot_unit) {
-            None => return Some("<All>".into()),
+            None => return Some("All".into()),
             Some(id) => id,
         };
         let item = match self.find_item_by_id(&pot_unit, item_id) {

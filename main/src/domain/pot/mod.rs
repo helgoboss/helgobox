@@ -4,7 +4,7 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use enum_map::EnumMap;
+use crate::domain::pot::nks::{NksFilterSettings, PersistentNksFilterSettings};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashMap;
@@ -89,36 +89,42 @@ pub struct RuntimePotUnit {
 
 #[derive(Debug, Default)]
 pub struct RuntimeState {
-    filter_item_ids: FilterItemIds,
+    filter_settings: FilterSettings,
     preset_id: Option<PresetId>,
 }
 
 impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
         with_preset_db(|db| {
-            let filter_item_ids = {
-                let mut ids = FilterItemIds::default();
-                if let Ok((_, collections)) = db.build_filter_items(Default::default()) {
-                    for kind in PotFilterItemKind::enum_iter() {
-                        if let Some(persistent_id) = persistent_state.filter_item_ids[kind].as_ref()
-                        {
-                            if let Some(item) = collections[kind]
+            let filter_settings = db
+                .build_filter_items(Default::default())
+                .map(|(_, collections)| {
+                    let find_id = |setting: &Option<String>, items: &[FilterItem]| {
+                        setting.as_ref().and_then(|persistent_id| {
+                            let item = items
                                 .iter()
-                                .find(|item| &item.persistent_id == persistent_id)
-                            {
-                                ids[kind] = Some(item.id);
-                            }
-                        }
+                                .find(|item| &item.persistent_id == persistent_id)?;
+                            Some(item.id)
+                        })
+                    };
+                    let nks = &persistent_state.filter_settings.nks;
+                    FilterSettings {
+                        nks: NksFilterSettings {
+                            bank: find_id(&nks.bank, &collections.banks),
+                            sub_bank: find_id(&nks.sub_bank, &collections.sub_banks),
+                            category: find_id(&nks.category, &collections.categories),
+                            sub_category: find_id(&nks.sub_category, &collections.sub_categories),
+                            mode: find_id(&nks.mode, &collections.modes),
+                        },
                     }
-                };
-                ids
-            };
+                })
+                .unwrap_or_default();
             let preset_id = persistent_state
                 .preset_id
                 .as_ref()
                 .and_then(|persistent_id| db.find_preset_id_by_favorite_id(persistent_id));
             Self {
-                filter_item_ids,
+                filter_settings,
                 preset_id,
             }
         })
@@ -127,14 +133,27 @@ impl RuntimeState {
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistentState {
-    filter_item_ids: PersistentFilterItemIds,
+    filter_settings: PersistentFilterSettings,
     preset_id: Option<String>,
 }
 
-type PersistentFilterItemIds = EnumMap<PotFilterItemKind, Option<String>>;
-type FilterItemIds = EnumMap<PotFilterItemKind, Option<FilterItemId>>;
 type PresetCollection = IndexSet<PresetId>;
-type FilterItemCollections = EnumMap<PotFilterItemKind, Vec<FilterItem>>;
+
+#[derive(Debug, Default)]
+pub struct FilterItemCollections {
+    pub databases: Vec<FilterItem>,
+    pub nks: nks::FilterNksItemCollections,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct PersistentFilterSettings {
+    pub nks: nks::PersistentNksFilterSettings,
+}
+
+#[derive(Debug, Default)]
+pub struct FilterSettings {
+    pub nks: nks::NksFilterSettings,
+}
 
 #[derive(Debug, Default)]
 pub struct Collections {
@@ -165,23 +184,32 @@ impl RuntimePotUnit {
     }
 
     pub fn persistent_state(&self) -> PersistentState {
-        let mut filter_item_ids: PersistentFilterItemIds = Default::default();
-        for (kind, id) in self.runtime_state.filter_item_ids.iter() {
-            let persistent_id = id.and_then(|id| {
-                self.collections.filter_item_collections[kind]
+        let find_id = |setting: Option<FilterItemId>, items: &[FilterItem]| {
+            setting.and_then(|id| {
+                items
                     .iter()
                     .find(|item| item.id == id)
                     .map(|item| item.persistent_id.clone())
-            });
-            filter_item_ids[kind] = persistent_id;
-        }
+            })
+        };
+        let nks_settings = &self.runtime_state.filter_settings.nks;
+        let nks_items = &self.collections.filter_item_collections.nks;
+        let filter_settings = PersistentFilterSettings {
+            nks: PersistentNksFilterSettings {
+                bank: find_id(nks_settings.bank, &nks_items.banks),
+                sub_bank: find_id(nks_settings.sub_bank, &nks_items.sub_banks),
+                category: find_id(nks_settings.category, &nks_items.categories),
+                sub_category: find_id(nks_settings.sub_category, &nks_items.sub_categories),
+                mode: find_id(nks_settings.mode, &nks_items.modes),
+            },
+        };
         let preset_id = self.runtime_state.preset_id.and_then(|id| {
             with_preset_db(|db| Some(db.find_preset_by_id(id)?.favorite_id))
                 .ok()
                 .flatten()
         });
         PersistentState {
-            filter_item_ids,
+            filter_settings,
             preset_id,
         }
     }
@@ -199,11 +227,30 @@ impl RuntimePotUnit {
     }
 
     pub fn filter_item_id(&self, kind: PotFilterItemKind) -> Option<FilterItemId> {
-        self.runtime_state.filter_item_ids[kind]
+        use PotFilterItemKind::*;
+        let settings = &self.runtime_state.filter_settings.nks;
+        match kind {
+            Database => None,
+            NksBank => settings.bank,
+            NksSubBank => settings.sub_bank,
+            NksCategory => settings.category,
+            NksSubCategory => settings.sub_category,
+            NksMode => settings.mode,
+        }
     }
 
     pub fn set_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
-        self.runtime_state.filter_item_ids[kind] = id;
+        use PotFilterItemKind::*;
+        let settings = &mut self.runtime_state.filter_settings.nks;
+        let prop = match kind {
+            NksBank => &mut settings.bank,
+            NksSubBank => &mut settings.sub_bank,
+            NksCategory => &mut settings.category,
+            NksSubCategory => &mut settings.sub_category,
+            NksMode => &mut settings.mode,
+            _ => return,
+        };
+        *prop = id;
     }
 
     pub fn rebuild_collections(&mut self) -> Result<(), Box<dyn Error>> {
@@ -214,7 +261,17 @@ impl RuntimePotUnit {
     }
 
     pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
-        self.collections.filter_item_collections[kind].len() as _
+        use PotFilterItemKind::*;
+        let collections = &self.collections.filter_item_collections;
+        let len = match kind {
+            Database => collections.databases.len(),
+            NksBank => collections.nks.banks.len(),
+            NksSubBank => collections.nks.sub_banks.len(),
+            NksCategory => collections.nks.categories.len(),
+            NksSubCategory => collections.nks.sub_categories.len(),
+            NksMode => collections.nks.modes.len(),
+        };
+        len as _
     }
 
     pub fn count_presets(&self) -> u32 {
@@ -238,8 +295,25 @@ impl RuntimePotUnit {
         kind: PotFilterItemKind,
         index: u32,
     ) -> Option<FilterItemId> {
-        let item = self.collections.filter_item_collections[kind].get(index as usize)?;
-        Some(item.id)
+        Some(self.find_filter_item_at_index(kind, index)?.id)
+    }
+
+    fn find_filter_item_at_index(
+        &self,
+        kind: PotFilterItemKind,
+        index: u32,
+    ) -> Option<&FilterItem> {
+        use PotFilterItemKind::*;
+        let collections = &self.collections.filter_item_collections;
+        let index = index as usize;
+        match kind {
+            Database => collections.databases.get(index),
+            NksBank => collections.nks.banks.get(index),
+            NksSubBank => collections.nks.sub_banks.get(index),
+            NksCategory => collections.nks.categories.get(index),
+            NksSubCategory => collections.nks.sub_categories.get(index),
+            NksMode => collections.nks.modes.get(index),
+        }
     }
 
     pub fn find_index_of_filter_item(
@@ -263,11 +337,20 @@ impl RuntimePotUnit {
         kind: PotFilterItemKind,
         id: FilterItemId,
     ) -> Option<(u32, &FilterItem)> {
-        let (i, item) = self.collections.filter_item_collections[kind]
-            .iter()
-            .enumerate()
-            .find(|(_, item)| item.id == id)?;
-        Some((i as u32, item))
+        use PotFilterItemKind::*;
+        fn find(items: &[FilterItem], id: FilterItemId) -> Option<(u32, &FilterItem)> {
+            let (i, item) = items.iter().enumerate().find(|(_, item)| item.id == id)?;
+            Some((i as u32, item))
+        }
+        let collections = &self.collections.filter_item_collections;
+        match kind {
+            Database => find(&collections.databases, id),
+            NksBank => find(&collections.nks.banks, id),
+            NksSubBank => find(&collections.nks.sub_banks, id),
+            NksCategory => find(&collections.nks.categories, id),
+            NksSubCategory => find(&collections.nks.sub_categories, id),
+            NksMode => find(&collections.nks.modes, id),
+        }
     }
 }
 

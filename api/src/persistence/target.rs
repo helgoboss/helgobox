@@ -1084,8 +1084,6 @@ pub enum PotFilterItemKind {
     NksSubCategory,
     #[display(fmt = "NKS character")]
     NksMode,
-    #[display(fmt = "NKS favorite")]
-    NksFavorite,
 }
 
 impl PotFilterItemKind {
@@ -1093,11 +1091,6 @@ impl PotFilterItemKind {
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
         Self::into_enum_iter()
-    }
-
-    pub fn has_parent(&self) -> bool {
-        use PotFilterItemKind::*;
-        matches!(self, NksSubBank | NksSubCategory)
     }
 }
 
