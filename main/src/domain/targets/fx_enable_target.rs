@@ -6,6 +6,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
+use reaper_medium::ParamId;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -23,7 +24,12 @@ impl UnresolvedReaperTargetDef for UnresolvedFxEnableTarget {
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
-            .map(|fx| ReaperTarget::FxEnable(FxEnableTarget { fx }))
+            .map(|fx| {
+                ReaperTarget::FxEnable(FxEnableTarget {
+                    bypass_param_index: fx.parameter_by_id(ParamId::Bypass).map(|p| p.index()),
+                    fx,
+                })
+            })
             .collect())
     }
 
@@ -35,6 +41,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxEnableTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FxEnableTarget {
     pub fx: Fx,
+    pub bypass_param_index: Option<u32>,
 }
 
 impl RealearnTarget for FxEnableTarget {
@@ -85,6 +92,12 @@ impl RealearnTarget for FxEnableTarget {
                 true,
                 Some(AbsoluteValue::Continuous(fx_enable_unit_value(e.new_value))),
             ),
+            CompoundChangeEvent::Reaper(ChangeEvent::FxParameterValueChanged(e))
+                if Some(e.parameter.index()) == self.bypass_param_index
+                    && e.parameter.fx() == &self.fx =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }

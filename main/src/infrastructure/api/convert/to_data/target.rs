@@ -104,16 +104,16 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             any_on_parameter: convert_any_on_parameter(d.parameter),
             ..init(d.commons)
         },
-        Target::CycleThroughTracks(d) => TargetModelData {
+        Target::BrowseTracks(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::CycleThroughTracks,
+            r#type: ReaperTargetType::BrowseTracks,
             scroll_arrange_view: d
                 .scroll_arrange_view
                 .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW),
             scroll_mixer: d
                 .scroll_mixer
                 .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER),
-            cycle_through_tracks_mode: d.mode.unwrap_or_default(),
+            browse_tracks_mode: d.mode.unwrap_or_default(),
             ..init(d.commons)
         },
         Target::Seek(d) => TargetModelData {
@@ -424,9 +424,6 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
-                poll_for_feedback: d
-                    .poll_for_feedback
-                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 track_area: {
                     match d.area {
                         TrackArea::Tcp => RealearnTrackArea::Tcp,
@@ -466,12 +463,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
-        Target::CycleThroughFx(d) => {
+        Target::BrowseFxChain(d) => {
             let chain_desc = convert_chain_desc(d.chain)?;
             let track_desc = chain_desc.track_desc;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::FxNavigate,
+                r#type: ReaperTargetType::BrowseFxs,
                 fx_display_type: convert_fx_display_kind(d.display_kind.unwrap_or_default()),
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
@@ -549,7 +546,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
-        Target::CycleThroughFxPresets(d) => {
+        Target::BrowseFxPresets(d) => {
             let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
             let track_desc = fx_desc.chain_desc.track_desc;
             TargetModelData {
@@ -880,9 +877,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             },
             ..init(d.commons)
         },
-        Target::CycleThroughGroupMappings(d) => TargetModelData {
+        Target::BrowseGroupMappings(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::NavigateWithinGroup,
+            r#type: ReaperTargetType::BrowseGroup,
             exclusivity: {
                 use Exclusivity as T;
                 use GroupMappingExclusivity::*;
@@ -894,6 +891,36 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
+        Target::BrowsePotFilterItems(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::BrowsePotFilterItems,
+            pot_filter_item_kind: d.item_kind.unwrap_or_default(),
+            ..init(d.commons)
+        },
+        Target::BrowsePotPresets(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::BrowsePotPresets,
+            ..init(d.commons)
+        },
+        Target::PreviewPotPreset(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PreviewPotPreset,
+            ..init(d.commons)
+        },
+        Target::LoadPotPreset(d) => {
+            let fx_desc = convert_fx_desc(d.fx.unwrap_or_default())?;
+            let track_desc = fx_desc.chain_desc.track_desc;
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::LoadPotPreset,
+                track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                clip_column: track_desc.clip_column.unwrap_or_default(),
+                fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
+                ..init(d.commons)
+            }
+        }
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
             control_element_type: convert_control_element_type(d.character.unwrap_or_default()),

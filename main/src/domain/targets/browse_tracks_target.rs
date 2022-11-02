@@ -9,44 +9,42 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
-use realearn_api::persistence::{CycleThroughTracksMode, TrackScope};
+use realearn_api::persistence::{BrowseTracksMode, TrackScope};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvededCycleThroughTracksTarget {
+pub struct UnresolvedBrowseTracksTarget {
     pub scroll_arrange_view: bool,
     pub scroll_mixer: bool,
-    pub mode: CycleThroughTracksMode,
+    pub mode: BrowseTracksMode,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvededCycleThroughTracksTarget {
+impl UnresolvedReaperTargetDef for UnresolvedBrowseTracksTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::CycleThroughTracks(
-            CycleThroughTracksTarget {
-                project: context.context().project_or_current_project(),
-                scroll_arrange_view: self.scroll_arrange_view,
-                scroll_mixer: self.scroll_mixer,
-                mode: self.mode,
-            },
-        )])
+        Ok(vec![ReaperTarget::BrowseTracks(BrowseTracksTarget {
+            project: context.context().project_or_current_project(),
+            scroll_arrange_view: self.scroll_arrange_view,
+            scroll_mixer: self.scroll_mixer,
+            mode: self.mode,
+        })])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CycleThroughTracksTarget {
+pub struct BrowseTracksTarget {
     pub project: Project,
     pub scroll_arrange_view: bool,
     pub scroll_mixer: bool,
-    pub mode: CycleThroughTracksMode,
+    pub mode: BrowseTracksMode,
 }
 
-impl RealearnTarget for CycleThroughTracksTarget {
+impl RealearnTarget for BrowseTracksTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteDiscrete {
@@ -188,11 +186,11 @@ impl RealearnTarget for CycleThroughTracksTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::CycleThroughTracks)
+        Some(ReaperTargetType::BrowseTracks)
     }
 }
 
-impl<'a> Target<'a> for CycleThroughTracksTarget {
+impl<'a> Target<'a> for BrowseTracksTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -219,7 +217,7 @@ impl<'a> Target<'a> for CycleThroughTracksTarget {
     }
 }
 
-impl CycleThroughTracksTarget {
+impl BrowseTracksTarget {
     fn percentage_for(&self, track_index: Option<u32>) -> AbsoluteValue {
         percentage_for_scoped_track_within_project(self.project, self.mode.scope(), track_index)
     }
@@ -246,8 +244,8 @@ enum ScopedTrack {
 }
 
 pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Navigate between tracks",
-    short_name: "Navigate tracks",
+    name: "Project: Browse tracks",
+    short_name: "Browse tracks",
     supports_track_scrolling: true,
     ..DEFAULT_TARGET
 };
@@ -283,8 +281,8 @@ fn convert_unit_value_to_track_index(
     convert_unit_to_discrete_value_with_none(value, scoped_track_count(project, scope))
 }
 
-fn select_track_exclusively_scoped(track: &Track, mode: CycleThroughTracksMode) {
-    use CycleThroughTracksMode::*;
+fn select_track_exclusively_scoped(track: &Track, mode: BrowseTracksMode) {
+    use BrowseTracksMode::*;
     match mode {
         AllTracks | TracksVisibleInTcp | TracksVisibleInMcp => {
             track.select_exclusively();
@@ -303,11 +301,8 @@ fn select_track_exclusively_scoped(track: &Track, mode: CycleThroughTracksMode) 
     }
 }
 
-fn first_selected_track_scoped(
-    project: Project,
-    mode: CycleThroughTracksMode,
-) -> Option<ScopedTrack> {
-    use CycleThroughTracksMode::*;
+fn first_selected_track_scoped(project: Project, mode: BrowseTracksMode) -> Option<ScopedTrack> {
+    use BrowseTracksMode::*;
     let master_track_behavior = MasterTrackBehavior::ExcludeMasterTrack;
     match mode {
         AllTracks => project

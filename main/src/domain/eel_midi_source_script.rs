@@ -48,13 +48,13 @@ impl EelMidiSourceScript {
 impl MidiSourceScript for EelMidiSourceScript {
     fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
         let y_value = match input_value {
-            // TODO-high Find a constant for this which is defined in EEL
+            // TODO-medium Find a constant for this which is defined in EEL
             FeedbackValue::Off => f64::MIN,
             FeedbackValue::Numeric(v) => match v.value {
                 AbsoluteValue::Continuous(v) => v.get(),
                 AbsoluteValue::Discrete(f) => f.actual() as f64,
             },
-            // TODO-high Make this work by using EEL string support.
+            // TODO-medium Make this work by using EEL string support.
             FeedbackValue::Textual(t) => t.text.as_ptr() as isize as f64,
         };
         let (slice, address) = unsafe {

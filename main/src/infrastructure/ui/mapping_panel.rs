@@ -27,8 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, CycleThroughTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
-    SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
+    PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -436,7 +436,7 @@ impl MappingPanel {
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::CycleThroughTracksMode => {
+                                            P::BrowseTracksMode => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingSnapshotTypeForLoad | P::MappingSnapshotTypeForTake | P::MappingSnapshotId => {
@@ -518,6 +518,10 @@ impl MappingPanel {
                                             }
                                             P::MouseActionType => {
                                                 view.invalidate_target_controls(initiator);
+                                            }
+                                            P::PotFilterItemKind => {
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
                                             }
                                             P::Axis => {
                                                 view.invalidate_target_line_3(initiator);
@@ -2644,7 +2648,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetOscArgIndex(index),
                     ));
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     let exclusivity: SimpleExclusivity = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -2743,7 +2747,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetAnyOnParameter(v),
                     ));
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     let i = combo.selected_combo_box_item_index();
                     let group_id = self
                         .session
@@ -2776,11 +2780,18 @@ impl<'a> MutableMappingPanel<'a> {
                         dev_id,
                     )));
                 }
-                ReaperTargetType::CycleThroughTracks => {
+                ReaperTargetType::BrowseTracks => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid track indexing policy");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetCycleThroughTracksMode(v),
+                        TargetCommand::SetBrowseTracksMode(v),
+                    ));
+                }
+                ReaperTargetType::BrowsePotFilterItems => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid pot filter item kind");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPotFilterItemKind(v),
                     ));
                 }
                 _ if self.mapping.target_model.supports_track() => {
@@ -4150,6 +4161,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::BrowsePotFilterItems => Some("Kind"),
                 ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
@@ -4162,8 +4174,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Output"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
-                ReaperTargetType::NavigateWithinGroup => Some("Group"),
-                ReaperTargetType::CycleThroughTracks => Some("Scope"),
+                ReaperTargetType::BrowseGroup => Some("Group"),
+                ReaperTargetType::BrowseTracks => Some("Scope"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4315,7 +4327,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.bookmark_ref(),
                     );
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     combo.show();
                     let compartment = self.mapping.compartment();
                     // Fill box
@@ -4375,12 +4387,21 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
-                ReaperTargetType::CycleThroughTracks => {
+                ReaperTargetType::BrowseTracks => {
                     combo.show();
-                    combo.fill_combo_box_indexed(CycleThroughTracksMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(BrowseTracksMode::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.cycle_through_tracks_mode().into(),
+                            self.mapping.target_model.browse_tracks_mode().into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::BrowsePotFilterItems => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PotFilterItemKind::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.pot_filter_item_kind().into(),
                         )
                         .unwrap();
                 }
@@ -4850,7 +4871,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => {
                     invalidate_with_osc_arg_index(combo, self.target.osc_arg_index());
                 }
-                ReaperTargetType::NavigateWithinGroup => {
+                ReaperTargetType::BrowseGroup => {
                     combo.show();
                     combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
@@ -4950,7 +4971,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             }
                         } else {
                             combo.select_only_combo_box_item(
-                                "Use 'By ID' only if track is 'By ID' as well!",
+                                "Use 'Particular' only if track is 'Particular' as well!",
                             );
                         }
                     } else {

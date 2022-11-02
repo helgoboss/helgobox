@@ -97,8 +97,7 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
     ) -> Result<HitResponse, &'static str> {
         use MouseActionType::*;
         match self.action_type {
-            MoveTo => self.move_cursor(value),
-            MoveBy => self.drag_cursor(value),
+            MoveTo | MoveBy => self.move_cursor(value),
             PressOrRelease => self.click_button(value),
             Scroll => self.scroll_wheel(value),
         }
@@ -124,11 +123,6 @@ impl<M: Mouse> MouseTarget<M> {
 
     fn axis_size(&self) -> u32 {
         self.mouse.axis_size(self.axis)
-    }
-
-    fn drag_cursor(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {
-        // TODO-high Drag
-        self.move_cursor(value)
     }
 
     fn move_cursor(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {

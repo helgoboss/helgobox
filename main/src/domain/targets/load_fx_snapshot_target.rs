@@ -6,7 +6,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(self
+        let targets = self
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
@@ -34,7 +34,8 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
                     chunk_hash: hash_util::calculate_non_crypto_hash(&self.chunk),
                 })
             })
-            .collect())
+            .collect();
+        Ok(targets)
     }
 
     fn fx_descriptor(&self) -> Option<&FxDescriptor> {
@@ -55,10 +56,6 @@ impl RealearnTarget for LoadFxSnapshotTarget {
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         )
-    }
-
-    fn format_value(&self, _: UnitValue, _: ControlContext) -> String {
-        "".to_owned()
     }
 
     fn hit(

@@ -1,5 +1,5 @@
 use crate::domain::{
-    aggregate_target_values, get_project_options, AdditionalFeedbackEvent, BackboneState,
+    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, BackboneState,
     Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
@@ -12,10 +12,11 @@ use crate::domain::{
     MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
     MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
-    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperTarget,
+    PluginParamIndex, PluginParams, PotStateChangedEvent, ProcessorContext, ProjectOptions,
+    ProjectionFeedbackValue, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource,
+    RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
+    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
     SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
     VirtualSourceValue,
@@ -113,6 +114,7 @@ impl FeedbackChecksum {
         match v {
             FinalSourceFeedbackValue::Midi(v) => Self::from_midi(v),
             FinalSourceFeedbackValue::Osc(v) => Self::from_osc(v),
+            FinalSourceFeedbackValue::Reaper(v) => Self::from_reaper(v),
         }
     }
 
@@ -139,6 +141,16 @@ impl FeedbackChecksum {
         v.addr.hash(&mut hasher);
         for arg in &v.args {
             hash_osc_arg(arg, &mut hasher);
+        }
+        FeedbackChecksum::Hashed(hasher.finish())
+    }
+
+    fn from_reaper(v: &ReaperSourceFeedbackValue) -> Self {
+        let mut hasher = twox_hash::XxHash64::default();
+        match v {
+            ReaperSourceFeedbackValue::Speech(s) => {
+                s.text.hash(&mut hasher);
+            }
         }
         FeedbackChecksum::Hashed(hasher.finish())
     }
@@ -719,6 +731,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
+            // TODO-medium Debounce!
+            if matches!(
+                event,
+                InstanceStateChanged::PotStateChanged(
+                    PotStateChangedEvent::FilterItemChanged { .. }
+                )
+            ) {
+                let _ = self
+                    .basics
+                    .instance_state
+                    .borrow_mut()
+                    .rebuild_pot_indexes();
+            }
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
@@ -1577,6 +1602,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             // Okay, not fired that frequently, we can iterate over all mappings.
+            if let AdditionalFeedbackEvent::MappedFxParametersChanged = event {
+                // Dynamic FX parameter expression should be re-resolved
+                self.basics
+                    .channels
+                    .self_normal_sender
+                    .send_complaining(NormalMainTask::NotifyConditionsChanged);
+            }
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
@@ -3655,6 +3687,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         .osc_feedback_task_sender
                         .send_complaining(OscFeedbackTask::new(dev_id, msg));
                 }
+                (FinalSourceFeedbackValue::Reaper(ReaperSourceFeedbackValue::Speech(v)), _) => {
+                    let _ = say(v);
+                }
                 _ => {}
             }
         }
@@ -3971,7 +4006,7 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
 ///
 /// 1. Executing a possible hit instruction (and in a possible second pass all resulting hit
 ///    instructions). A second pass is not just theory, it makes a lot of sense in practice, e.g.
-///    when we control "Enable/disable mappings" via "Navigate within group". However, we should
+///    when we control "Enable/disable mappings" via "Browse group mappings". However, we should
 ///    stop there in order to prevent infinite loops. If we really need more in future, we can add
 ///    a third pass.  
 /// 2. Processing group interaction (if enabled).

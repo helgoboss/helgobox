@@ -146,9 +146,9 @@ impl RealearnTarget for ClipManagementTarget {
         Some(ReaperTargetType::ClipManagement)
     }
 
-    // TODO-high Return clip as result of clip() function for all clip targets (just like track())
+    // TODO-high-clip-engine Return clip as result of clip() function for all clip targets (just like track())
     //  and make this property available in all clip targets.
-    // TODO-high Also add a "Clip" target, just like "Track" target
+    // TODO-high-clip-engine Also add a "Clip" target, just like "Track" target
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         match key {
             "clip.name" => BackboneState::get()

@@ -2,13 +2,12 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Project, Track};
+use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::TrackArea;
 use std::borrow::Cow;
 
@@ -17,7 +16,6 @@ pub struct UnresolvedTrackShowTarget {
     pub track_descriptor: TrackDescriptor,
     pub exclusivity: TrackExclusivity,
     pub area: TrackArea,
-    pub poll_for_feedback: bool,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackShowTarget {
@@ -34,7 +32,6 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackShowTarget {
                         track,
                         exclusivity: self.exclusivity,
                         area: self.area,
-                        poll_for_feedback: self.poll_for_feedback,
                     })
                 })
                 .collect(),
@@ -44,14 +41,6 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackShowTarget {
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {
         Some(&self.track_descriptor)
     }
-
-    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
-        if self.poll_for_feedback {
-            Some(FeedbackResolution::High)
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -59,7 +48,6 @@ pub struct TrackShowTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
     pub area: TrackArea,
-    pub poll_for_feedback: bool,
 }
 
 impl RealearnTarget for TrackShowTarget {
@@ -86,6 +74,27 @@ impl RealearnTarget for TrackShowTarget {
         Ok(HitResponse::processed_with_effect())
     }
 
+    fn process_change_event(
+        &self,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        match evt {
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackVisibilityChanged(e))
+                if e.track == self.track =>
+            {
+                let is_shown = match self.area {
+                    TrackArea::Tcp => e.new_value.tcp,
+                    TrackArea::Mcp => e.new_value.mcp,
+                };
+                let feedback_value =
+                    AbsoluteValue::Continuous(convert_bool_to_unit_value(is_shown));
+                (true, Some(feedback_value))
+            }
+            _ => (false, None),
+        }
+    }
+
     fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
@@ -100,10 +109,6 @@ impl RealearnTarget for TrackShowTarget {
 
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         Some(self.exclusivity)
-    }
-
-    fn supports_automatic_feedback(&self) -> bool {
-        self.poll_for_feedback
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
@@ -132,9 +137,7 @@ impl<'a> Target<'a> for TrackShowTarget {
 pub const TRACK_SHOW_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Show/hide",
     short_name: "Show/hide track",
-    hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_track: true,
     supports_track_exclusivity: true,
-    supports_poll_for_feedback: true,
     ..DEFAULT_TARGET
 };

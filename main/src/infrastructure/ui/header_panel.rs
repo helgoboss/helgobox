@@ -926,7 +926,7 @@ impl HeaderPanel {
         if !self.view.require_window().confirm(
             "ReaLearn",
             format!(
-                "This will change the targets of {} mappings to use sticky track/FX/send selectors such as <Master>, <This> and By ID. Do you really want to continue?",
+                "This will change the targets of {} mappings to use sticky track/FX/send selectors such as <Master>, <This> and Particular. Do you really want to continue?",
                 listed_mappings.len()
             ),
         ) {
@@ -1177,7 +1177,7 @@ impl HeaderPanel {
             );
     }
 
-    // TODO-high As soon as we implement this, we need to fix the clippy error.
+    // TODO-high-clip-matrix As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         let weak_session = self.session.clone();

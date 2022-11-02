@@ -333,7 +333,7 @@ impl Column {
     pub async fn freeze(&mut self, _column_index: usize) -> ClipEngineResult<()> {
         let playback_track = self.playback_track()?.clone();
         for (_, slot) in self.slots.iter_mut().enumerate() {
-            // TODO-high implement
+            // TODO-high-clip-matrix implement
             let _ = slot.freeze(&playback_track).await;
         }
         Ok(())

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::rc::{Rc, Weak};
 
 use enum_map::EnumMap;
@@ -7,16 +8,19 @@ use reaper_high::Track;
 use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::pot::nks::FilterItemId;
+use crate::domain::pot::{PotUnit, PresetId, RuntimePotUnit};
 use crate::domain::{
-    BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask, GlobalControlAndFeedbackState,
-    GroupId, HardwareInputClipRecordTask, InstanceId, MappingId, MappingSnapshotContainer,
-    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
-    VirtualMappingSnapshotIdForLoad,
+    pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
+    GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
+    MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
+    TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use playtime_clip_engine::main::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
+use realearn_api::persistence::PotFilterItemKind;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
@@ -25,9 +29,20 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
+///
+/// This also contains ReaLearn-specific target state that is persistent, even if the state is of
+/// more global nature than an instance. Rationale: Otherwise we would need to come up with a
+/// new place to persist state, e.g. the project data. But this makes things more complex and
+/// raises questions like whether to keep the data in the project even the last ReaLearn instance is
+/// gone and what to do if there's no project context - on the monitoring FX chain.
+///
+/// For state of global nature which doesn't need to be persisted, see `RealearnTargetState`.
 #[derive(Debug)]
 pub struct InstanceState {
     instance_id: InstanceId,
+    /// Owned clip matrix or reference to a clip matrix owned by another instance.
+    ///
+    /// Persistent.
     clip_matrix_ref: Option<ClipMatrixRef>,
     instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
@@ -37,7 +52,8 @@ pub struct InstanceState {
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
-    /// - Used for target "ReaLearn: Navigate within group"
+    /// - Not persistent
+    /// - Used for target "ReaLearn: Browse group mappings"
     /// - Automatically filled by main processor on sync
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
@@ -45,35 +61,55 @@ pub struct InstanceState {
     mappings_by_group: EnumMap<Compartment, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
-    /// - Set by target "ReaLearn: Navigate within group".
+    /// - Persistent
+    /// - Set by target "ReaLearn: Browse group mappings".
     /// - Non-redundant state!
     active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
+    /// - Not persistent
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer.
     mapping_infos: HashMap<QualifiedMappingId, MappingInfo>,
     /// The mappings which are on.
     ///
+    /// - Not persistent
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
     /// - Completely derived from mappings, so it's redundant state.
     /// - It's needed by both processing layer and layers above.
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
     /// Whether control/feedback are globally active.
+    ///
+    /// Not persistent.
     global_control_and_feedback_state: Prop<GlobalControlAndFeedbackState>,
     /// All mapping tags whose mappings have been switched on via tag.
     ///
+    /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
     active_mapping_tags: EnumMap<Compartment, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
+    /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
+    /// For clip matrix copy and paste via controller.
+    ///
+    /// Not persistent
     copied_clip: Option<playtime_api::persistence::Clip>,
+    /// For clip matrix copy and paste via controller.
+    ///
+    /// Not persistent
     copied_clips_in_row: Vec<ApiClipWithColumn>,
+    /// Instance track.
+    ///
+    /// The instance track is persistent but it's persisted from the session, not from here.
+    /// This track descriptor is a descriptor suited for runtime, not for persistence.
     instance_track_descriptor: TrackDescriptor,
+    /// Instance FX.
+    ///
+    /// See instance track to learn about persistence.
     // TODO-low It's not so cool that we have the target activation condition as part of the
     //  descriptors (e.g. enable_only_if_track_selected) because we must be sure to set them
     //  to false.
@@ -82,7 +118,14 @@ pub struct InstanceState {
     //  - FxTargetDescriptor contains FxDescriptor contains VirtualFx
     //  ... where TrackTargetDescriptor contains the condition and TrackDescriptor doesn't.
     instance_fx_descriptor: FxDescriptor,
+    /// Mapping snapshots.
+    ///
+    /// Persistent.
     mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
+    /// Saves the current state for Pot preset navigation.
+    ///
+    /// Persistent.
+    pot_unit: PotUnit,
 }
 
 #[derive(Debug)]
@@ -187,7 +230,63 @@ impl InstanceState {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
+            pot_unit: Default::default(),
         }
+    }
+
+    /// Returns the runtime pot unit associated with this instance.
+    ///
+    /// If the pot unit isn't loaded yet and no load attempt has been done yet, loads it.
+    ///
+    /// Returns an error if the necessary pot database is not available.
+    pub fn pot_unit(&mut self) -> Result<&mut RuntimePotUnit, &'static str> {
+        self.pot_unit.loaded()
+    }
+
+    /// Restores a pot unit state from persistent data.
+    ///
+    /// This doesn't load the pot unit yet. If the ReaLearn instance never accesses the pot unit,
+    /// it simply remains unloaded and its persistent state is kept. The persistent state is also
+    /// kept if loading of the pot unit fails (e.g. if the necessary pot database is not available
+    /// on the user's computer).
+    pub fn restore_pot_unit(&mut self, state: pot::PersistentState) {
+        self.pot_unit = PotUnit::unloaded(state);
+    }
+
+    /// Returns a pot unit state suitable to be saved by the persistence logic.
+    pub fn save_pot_unit(&self) -> pot::PersistentState {
+        self.pot_unit.persistent_state()
+    }
+
+    pub fn set_pot_filter_item_id(
+        &mut self,
+        kind: PotFilterItemKind,
+        id: Option<FilterItemId>,
+    ) -> Result<(), &'static str> {
+        self.pot_unit()?.set_filter_item_id(kind, id);
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::FilterItemChanged {
+                kind,
+                id,
+            }),
+        );
+        Ok(())
+    }
+
+    pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) -> Result<(), &'static str> {
+        self.pot_unit()?.set_preset_id(id);
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::PresetChanged { id }),
+        );
+        Ok(())
+    }
+
+    pub fn rebuild_pot_indexes(&mut self) -> Result<(), Box<dyn Error>> {
+        self.pot_unit()?.rebuild_collections()?;
+        self.instance_feedback_event_sender.send_complaining(
+            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::IndexesRebuilt),
+        );
+        Ok(())
     }
 
     pub fn set_mapping_snapshot_container(
@@ -561,14 +660,16 @@ impl Drop for InstanceState {
 #[derive(Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
-    /// For the "ReaLearn: Navigate within group" target.
+    /// For the "ReaLearn: Browse group mappings" target.
     ActiveMappingWithinGroup {
         compartment: Compartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
     /// For the "ReaLearn: Enable/disable mappings" target.
-    ActiveMappingTags { compartment: Compartment },
+    ActiveMappingTags {
+        compartment: Compartment,
+    },
     /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
     /// For the "ReaLearn: Load mapping snapshot" target.
@@ -577,4 +678,17 @@ pub enum InstanceStateChanged {
         tag_scope: TagScope,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
+    PotStateChanged(PotStateChangedEvent),
+}
+
+#[derive(Debug)]
+pub enum PotStateChangedEvent {
+    FilterItemChanged {
+        kind: PotFilterItemKind,
+        id: Option<FilterItemId>,
+    },
+    PresetChanged {
+        id: Option<PresetId>,
+    },
+    IndexesRebuilt,
 }

@@ -140,3 +140,8 @@ pub use lua_support::*;
 
 mod mouse;
 pub use mouse::*;
+
+pub mod pot;
+
+mod sound;
+pub use sound::*;

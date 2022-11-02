@@ -1,4 +1,4 @@
-use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue};
+use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
@@ -31,17 +31,23 @@ impl SpeechSource {
         Self::default()
     }
 
-    pub fn speak(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
-        use once_cell::sync::Lazy;
-        static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
-            Lazy::new(|| get_default_tts().map(Mutex::new));
-        let tts = TTS.as_ref()?;
-        // TODO-medium This is only necessary because tts exposes a non-optimal API.
-        let mut tts = tts.lock()?;
-        let value = feedback_value.to_textual();
-        tts.speak(value.text, true)?;
-        Ok(())
+    pub fn feedback(&self, feedback_value: &FeedbackValue) -> SpeechSourceFeedbackValue {
+        SpeechSourceFeedbackValue {
+            text: feedback_value.to_textual().text.to_string(),
+        }
     }
+}
+
+pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Error>> {
+    use once_cell::sync::Lazy;
+    static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
+        Lazy::new(|| get_default_tts().map(Mutex::new));
+    let tts = TTS.as_ref()?;
+    // TODO-medium This is only necessary because tts exposes a non-optimal API.
+    let mut tts = tts.lock()?;
+    // TODO-medium This cloning is totally unnecessary but ... non-optimal API.
+    tts.speak(feedback_value.text, true)?;
+    Ok(())
 }
 
 fn get_default_tts() -> Result<Tts, tts::Error> {
@@ -116,6 +122,14 @@ impl TimerSource {
 }
 
 impl ReaperSource {
+    pub fn extract_feedback_address(&self) -> Option<ReaperSourceAddress> {
+        use ReaperSource::*;
+        match self {
+            Speech(_) => Some(ReaperSourceAddress::GlobalSpeech),
+            _ => None,
+        }
+    }
+
     #[allow(clippy::single_match)]
     pub fn on_deactivate(&mut self) {
         match self {
@@ -206,15 +220,33 @@ impl ReaperSource {
         Some(control_value)
     }
 
-    pub fn feedback(&self, feedback_value: &FeedbackValue) -> Result<(), Box<dyn Error>> {
+    pub fn feedback(&self, feedback_value: &FeedbackValue) -> Option<ReaperSourceFeedbackValue> {
         use ReaperSource::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => {
-                Err("not supported".into())
-            }
-            Speech(s) => s.speak(feedback_value),
+            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => None,
+            Speech(s) => Some(ReaperSourceFeedbackValue::Speech(
+                s.feedback(feedback_value),
+            )),
         }
     }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum ReaperSourceFeedbackValue {
+    Speech(SpeechSourceFeedbackValue),
+}
+
+impl ReaperSourceFeedbackValue {
+    pub fn extract_feedback_address(&self) -> Option<ReaperSourceAddress> {
+        match self {
+            ReaperSourceFeedbackValue::Speech(_) => Some(ReaperSourceAddress::GlobalSpeech),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct SpeechSourceFeedbackValue {
+    pub text: String,
 }
 
 #[derive(PartialEq, Debug, Display)]

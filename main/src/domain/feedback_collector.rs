@@ -49,8 +49,10 @@ impl<'a> FeedbackCollector<'a> {
         preliminary_feedback_value: PreliminaryRealFeedbackValue,
     ) -> Option<FinalRealFeedbackValue> {
         match preliminary_feedback_value.source {
-            // Has projection part only.
-            None => FinalRealFeedbackValue::new(preliminary_feedback_value.projection, None),
+            None => {
+                // Has projection part only.
+                FinalRealFeedbackValue::new(preliminary_feedback_value.projection, None)
+            }
             Some(preliminary_source_feedback_value) => match preliminary_source_feedback_value {
                 PreliminarySourceFeedbackValue::Midi(v) => {
                     if let Some(req) = v.x_touch_mackie_lcd_color_request {
@@ -65,6 +67,11 @@ impl<'a> FeedbackCollector<'a> {
                 PreliminarySourceFeedbackValue::Osc(v) => FinalRealFeedbackValue::new(
                     preliminary_feedback_value.projection,
                     Some(FinalSourceFeedbackValue::Osc(v)),
+                ),
+                // Is final REAPER source value already.
+                PreliminarySourceFeedbackValue::Reaper(v) => FinalRealFeedbackValue::new(
+                    preliminary_feedback_value.projection,
+                    Some(FinalSourceFeedbackValue::Reaper(v)),
                 ),
             },
         }

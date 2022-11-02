@@ -17,7 +17,8 @@ pub enum Target {
     ReaperAction(ReaperActionTarget),
     TransportAction(TransportActionTarget),
     AnyOn(AnyOnTarget),
-    CycleThroughTracks(CycleThroughTracksTarget),
+    #[serde(alias = "CycleThroughTracks")]
+    BrowseTracks(BrowseTracksTarget),
     Seek(SeekTarget),
     PlayRate(PlayRateTarget),
     Tempo(TempoTarget),
@@ -39,11 +40,13 @@ pub enum Target {
     TrackTool(TrackToolTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),
-    CycleThroughFx(CycleThroughFxTarget),
+    #[serde(alias = "CycleThroughFx")]
+    BrowseFxChain(BrowseFxChainTarget),
     FxOnOffState(FxOnOffStateTarget),
     FxOnlineOfflineState(FxOnlineOfflineStateTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
-    CycleThroughFxPresets(CycleThroughFxPresetsTarget),
+    #[serde(alias = "CycleThroughFxPresets")]
+    BrowseFxPresets(BrowseFxPresetsTarget),
     #[serde(rename = "Fx")]
     FxTool(FxToolTarget),
     FxVisibility(FxVisibilityTarget),
@@ -71,7 +74,13 @@ pub enum Target {
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
-    CycleThroughGroupMappings(CycleThroughGroupMappingsTarget),
+    #[serde(alias = "CycleThroughGroupMappings")]
+    BrowseGroupMappings(BrowseGroupMappingsTarget),
+    BrowsePotFilterItems(BrowsePotFilterItemsTarget),
+    #[serde(alias = "NavigateWithinPotPresets")]
+    BrowsePotPresets(BrowsePotPresetsTarget),
+    PreviewPotPreset(PreviewPotPresetTarget),
+    LoadPotPreset(LoadPotPresetTarget),
     Virtual(VirtualTarget),
 }
 
@@ -155,7 +164,7 @@ pub struct AnyOnTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughTracksTarget {
+pub struct BrowseTracksTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -163,7 +172,7 @@ pub struct CycleThroughTracksTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scroll_mixer: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<CycleThroughTracksMode>,
+    pub mode: Option<BrowseTracksMode>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -562,7 +571,8 @@ pub struct TrackVisibilityTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Made obsolete in 2.14.0-pre.8.
+    #[serde(skip_serializing)]
     pub poll_for_feedback: Option<bool>,
     pub area: TrackArea,
 }
@@ -586,7 +596,7 @@ pub struct TrackSoloStateTarget {
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughFxTarget {
+pub struct BrowseFxChainTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub chain: FxChainDescriptor,
@@ -625,7 +635,7 @@ pub struct LoadFxSnapshotTarget {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughFxPresetsTarget {
+pub struct BrowseFxPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1004,13 +1014,90 @@ impl Default for MappingSnapshotDescForTake {
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct CycleThroughGroupMappingsTarget {
+pub struct BrowseGroupMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<GroupMappingExclusivity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrowsePotFilterItemsTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_kind: Option<PotFilterItemKind>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrowsePotPresetsTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewPotPresetTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LoadPotPresetTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fx: Option<FxDescriptor>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+    enum_map::Enum,
+)]
+#[repr(usize)]
+pub enum PotFilterItemKind {
+    #[display(fmt = "Database")]
+    Database,
+    #[display(fmt = "NKS instrument")]
+    NksBank,
+    #[display(fmt = "NKS bank")]
+    NksSubBank,
+    #[display(fmt = "NKS type")]
+    NksCategory,
+    #[display(fmt = "NKS sub type")]
+    NksSubCategory,
+    #[display(fmt = "NKS character")]
+    NksMode,
+}
+
+impl PotFilterItemKind {
+    /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
+    /// in IntelliJ Rust doesn't work for that at the time of this writing.
+    pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
+        Self::into_enum_iter()
+    }
+}
+
+impl Default for PotFilterItemKind {
+    fn default() -> Self {
+        Self::Database
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1192,19 +1279,14 @@ impl Default for ClipColumnAction {
     JsonSchema,
 )]
 #[repr(usize)]
-// TODO-high Remove aliases!
 pub enum ClipRowAction {
     #[display(fmt = "Play")]
-    #[serde(alias = "Play")]
     PlayScene,
     #[display(fmt = "Build scene")]
-    #[serde(alias = "CaptureScene")]
     BuildScene,
     #[display(fmt = "Clear")]
-    #[serde(alias = "Clear")]
     ClearScene,
     #[display(fmt = "Copy or paste")]
-    #[serde(alias = "CopyOrPaste")]
     CopyOrPasteScene,
 }
 
@@ -1773,7 +1855,7 @@ impl Default for TrackScope {
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
-pub enum CycleThroughTracksMode {
+pub enum BrowseTracksMode {
     #[display(fmt = "All tracks")]
     AllTracks,
     #[display(fmt = "Only tracks visible in TCP")]
@@ -1786,15 +1868,15 @@ pub enum CycleThroughTracksMode {
     TracksVisibleInMcpAllowTwoSelections,
 }
 
-impl Default for CycleThroughTracksMode {
+impl Default for BrowseTracksMode {
     fn default() -> Self {
         Self::AllTracks
     }
 }
 
-impl CycleThroughTracksMode {
+impl BrowseTracksMode {
     pub fn scope(&self) -> TrackScope {
-        use CycleThroughTracksMode::*;
+        use BrowseTracksMode::*;
         match self {
             AllTracks => TrackScope::AllTracks,
             TracksVisibleInTcp | TracksVisibleInTcpAllowTwoSelections => {

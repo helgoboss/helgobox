@@ -7,9 +7,9 @@ use crate::domain::{
     MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
     PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
     RealTimeTargetUpdate, RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -1562,6 +1562,16 @@ pub enum CompoundMappingSourceAddress {
     Midi(MidiSourceAddress),
     Osc(OscSourceAddress),
     Virtual(VirtualSourceAddress),
+    Reaper(ReaperSourceAddress),
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum ReaperSourceAddress {
+    /// At the moment, we allow only one speaker speaking at a time.
+    ///
+    /// Our TTS logic is also built in a way that we have only one static TTS instance and saying
+    /// something interrupts whatever is currently said.
+    GlobalSpeech,
 }
 
 #[derive(Clone, Debug)]
@@ -1629,6 +1639,9 @@ impl CompoundMappingSource {
                 s.feedback_address().clone(),
             )),
             Virtual(s) => Some(CompoundMappingSourceAddress::Virtual(*s.feedback_address())),
+            Reaper(s) => s
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Reaper),
             _ => None,
         }
     }
@@ -1764,10 +1777,9 @@ impl CompoundMappingSource {
             Osc(s) => s
                 .feedback(feedback_value.into_owned())
                 .map(PreliminarySourceFeedbackValue::Osc),
-            Reaper(s) => {
-                let _ = s.feedback(&feedback_value);
-                None
-            },
+            Reaper(s) => s
+                .feedback(&feedback_value)
+                .map(PreliminarySourceFeedbackValue::Reaper),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for other sources.
@@ -1934,12 +1946,14 @@ impl ProjectionFeedbackValue {
 pub enum PreliminarySourceFeedbackValue {
     Midi(PreliminaryMidiSourceFeedbackValue<'static, RawShortMessage>),
     Osc(OscMessage),
+    Reaper(ReaperSourceFeedbackValue),
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum FinalSourceFeedbackValue {
     Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
+    Reaper(ReaperSourceFeedbackValue),
 }
 
 impl FinalSourceFeedbackValue {
@@ -1951,6 +1965,9 @@ impl FinalSourceFeedbackValue {
             FinalSourceFeedbackValue::Osc(v) => {
                 Some(CompoundMappingSourceAddress::Osc(v.addr.clone()))
             }
+            FinalSourceFeedbackValue::Reaper(v) => v
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Reaper),
         }
     }
 }

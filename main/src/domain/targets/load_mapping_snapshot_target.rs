@@ -21,7 +21,7 @@ pub struct UnresolvedLoadMappingSnapshotTarget {
     /// surprises. It's the same for group interaction. If one wants to use load snapshots for some
     /// mappings but don't control them, one can always use the "None" source.
     //
-    // TODO-high There's one issue though: At the moment, mappings which are completely disabled
+    // TODO-medium There's one issue though: At the moment, mappings which are completely disabled
     //  (upper-left checkbox in the row) are also *always* ignored ... same as in group
     //  interaction! But we wanted to consider "not active due to conditional activation" as
     //  equivalent to "not active due to completely disabled". Maybe this goal is nonsense. After

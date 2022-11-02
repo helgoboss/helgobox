@@ -3,16 +3,18 @@ use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
     BackboneState, Compartment, CompartmentParamIndex, CompartmentParams, ExtendedProcessorContext,
     FeedbackResolution, ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
-    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget, UnresolvedClipColumnTarget,
+    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget,
+    UnresolvedBrowseGroupTarget, UnresolvedBrowsePotFilterItemsTarget,
+    UnresolvedBrowsePotPresetsTarget, UnresolvedBrowseTracksTarget, UnresolvedClipColumnTarget,
     UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
     UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
     UnresolvedDummyTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
-    UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget, UnresolvedFxOnlineTarget,
-    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
-    UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
-    UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
+    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
+    UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget,
+    UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
+    UnresolvedOscSendTarget, UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
     UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget,
@@ -21,7 +23,7 @@ use crate::domain::{
     UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
     UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
     UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, UnresolvededCycleThroughTracksTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -84,8 +86,8 @@ pub enum UnresolvedReaperTarget {
     FxOnline(UnresolvedFxOnlineTarget),
     FxOpen(UnresolvedFxOpenTarget),
     FxPreset(UnresolvedFxPresetTarget),
-    SelectedTrack(UnresolvededCycleThroughTracksTarget),
-    FxNavigate(UnresolvedFxNavigateTarget),
+    SelectedTrack(UnresolvedBrowseTracksTarget),
+    BrowseFxs(UnresolvedBrowseFxsTarget),
     AllTrackFxEnable(UnresolvedAllTrackFxEnableTarget),
     Transport(UnresolvedTransportTarget),
     LoadFxPreset(UnresolvedLoadFxSnapshotTarget),
@@ -105,10 +107,14 @@ pub enum UnresolvedReaperTarget {
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
     TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
     EnableMappings(UnresolvedEnableMappingsTarget),
-    NavigateWithinGroup(UnresolvedNavigateWithinGroupTarget),
+    BrowseGroup(UnresolvedBrowseGroupTarget),
     EnableInstances(UnresolvedEnableInstancesTarget),
     AnyOn(UnresolvedAnyOnTarget),
     LastTouched(UnresolvedLastTouchedTarget),
+    BrowsePotFilterItems(UnresolvedBrowsePotFilterItemsTarget),
+    BrowsePotPresets(UnresolvedBrowsePotPresetsTarget),
+    PreviewPotPreset(UnresolvedPreviewPotPresetTarget),
+    LoadPotPreset(UnresolvedLoadPotPresetTarget),
 }
 
 impl UnresolvedReaperTarget {
@@ -1003,6 +1009,16 @@ impl VirtualFxParameter {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
             .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
+                "mapped_fx_parameter_indexes" => {
+                    let slot_index = extract_first_arg_as_positive_integer(args)?;
+                    let target_state = BackboneState::target_state().borrow();
+                    let preset = target_state.current_fx_preset(fx);
+                    let index = preset
+                        .and_then(|p| p.find_mapped_parameter_index_at(slot_index))
+                        .map(|res| res as f64)
+                        .unwrap_or(EXPRESSION_NONE_VALUE);
+                    Some(index)
+                }
                 "tcp_fx_parameter_indexes" => {
                     let i = extract_first_arg_as_positive_integer(args)?;
                     let project = context.context.project_or_current_project();

@@ -10,20 +10,22 @@ use crate::domain::{
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     QualifiedMappingId, RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope,
     TargetCharacter, TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
-    AUTOMATION_MODE_OVERRIDE_TARGET, CLIP_COLUMN_TARGET, CLIP_MANAGEMENT_TARGET,
-    CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET,
-    CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
-    FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
-    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
-    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
-    NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
-    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
-    ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET,
-    SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
-    TRACK_MONITORING_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET,
-    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
-    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
-    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET,
+    BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET, CLIP_COLUMN_TARGET,
+    CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET,
+    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
+    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
+    FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET,
+    GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
+    LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
+    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
+    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
+    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
+    TRANSPORT_TARGET,
 };
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
@@ -111,14 +113,14 @@ pub trait RealearnTarget {
     /// Returns an error if this target doesn't report a step size.
     fn convert_unit_value_to_discrete_value(
         &self,
-        input: UnitValue,
+        value: UnitValue,
         context: ControlContext,
     ) -> Result<u32, &'static str> {
         if self.control_type_and_character(context).0.is_relative() {
             // Relative MIDI controllers support a maximum of 63 steps.
-            return Ok((input.get() * 63.0).round() as _);
+            return Ok((value.get() * 63.0).round() as _);
         }
-        let _ = input;
+        let _ = value;
         Err("not supported")
     }
 
@@ -158,14 +160,16 @@ pub trait RealearnTarget {
         value: UnitValue,
         context: ControlContext,
     ) -> String {
-        if self.character(context) == TargetCharacter::Discrete {
-            self.convert_unit_value_to_discrete_value(value, context)
+        match self.character(context) {
+            TargetCharacter::Trigger => self
+                .convert_unit_value_to_discrete_value(value, context)
                 .map(|v| v.to_string())
-                .unwrap_or_default()
-        } else {
-            format_as_percentage_without_unit(value)
+                .unwrap_or_default(),
+            TargetCharacter::Discrete => String::new(),
+            _ => format_as_percentage_without_unit(value),
         }
     }
+
     /// If this returns true, a value will not be printed (e.g. because it's already in the edit
     /// field).
     fn hide_formatted_value(&self, context: ControlContext) -> bool {
@@ -182,10 +186,9 @@ pub trait RealearnTarget {
 
     /// For mapping panel.
     fn value_unit(&self, context: ControlContext) -> &'static str {
-        if self.character(context) == TargetCharacter::Discrete {
-            ""
-        } else {
-            "%"
+        match self.character(context) {
+            TargetCharacter::Trigger | TargetCharacter::Discrete => "",
+            _ => "%",
         }
     }
 
@@ -600,9 +603,9 @@ pub enum ReaperTargetType {
 
     // Project targets
     AnyOn = 43,
+    BrowseTracks = 14,
     Action = 0,
     Transport = 16,
-    CycleThroughTracks = 14,
     Seek = 23,
     PlayRate = 11,
     Tempo = 10,
@@ -629,19 +632,25 @@ pub enum ReaperTargetType {
     TrackSolo = 8,
 
     // FX chain targets
-    FxNavigate = 28,
+    BrowseFxs = 28,
 
     // FX targets
     FxTool = 54,
+    FxPreset = 13,
     FxEnable = 12,
     FxOnline = 42,
     LoadFxSnapshot = 19,
-    FxPreset = 13,
     FxOpen = 27,
 
     // FX parameter targets
     FxParameterTouchState = 47,
     FxParameterValue = 1,
+
+    // Pot targets
+    BrowsePotFilterItems = 61,
+    BrowsePotPresets = 58,
+    PreviewPotPreset = 59,
+    LoadPotPreset = 60,
 
     // Send targets
     RouteTouchState = 48,
@@ -677,7 +686,7 @@ pub enum ReaperTargetType {
     EnableMappings = 36,
     LoadMappingSnapshot = 35,
     TakeMappingSnapshot = 55,
-    NavigateWithinGroup = 37,
+    BrowseGroup = 37,
 }
 
 impl Display for ReaperTargetType {
@@ -705,18 +714,7 @@ impl ReaperTargetType {
     }
 
     pub fn supports_poll_for_feedback(self) -> bool {
-        use ReaperTargetType::*;
-        matches!(
-            self,
-            FxParameterValue
-                | RouteMute
-                | RoutePhase
-                | RouteMono
-                | RouteAutomationMode
-                | AllTrackFxEnable
-                | TrackShow
-                | TrackPhase
-        )
+        self.definition().supports_poll_for_feedback()
     }
 
     pub const fn definition(self) -> &'static TargetTypeDef {
@@ -728,7 +726,7 @@ impl ReaperTargetType {
             AnyOn => &ANY_ON_TARGET,
             Action => &ACTION_TARGET,
             Transport => &TRANSPORT_TARGET,
-            CycleThroughTracks => &SELECTED_TRACK_TARGET,
+            BrowseTracks => &SELECTED_TRACK_TARGET,
             Seek => &SEEK_TARGET,
             PlayRate => &PLAYRATE_TARGET,
             Tempo => &TEMPO_TARGET,
@@ -750,7 +748,7 @@ impl ReaperTargetType {
             TrackShow => &TRACK_SHOW_TARGET,
             TrackSolo => &TRACK_SOLO_TARGET,
             FxTool => &FX_TOOL_TARGET,
-            FxNavigate => &FX_NAVIGATE_TARGET,
+            BrowseFxs => &BROWSE_FXS_TARGET,
             FxEnable => &FX_ENABLE_TARGET,
             FxOnline => &FX_ONLINE_TARGET,
             LoadFxSnapshot => &LOAD_FX_SNAPSHOT_TARGET,
@@ -779,7 +777,11 @@ impl ReaperTargetType {
             EnableMappings => &ENABLE_MAPPINGS_TARGET,
             LoadMappingSnapshot => &LOAD_MAPPING_SNAPSHOT_TARGET,
             TakeMappingSnapshot => &SAVE_MAPPING_SNAPSHOT_TARGET,
-            NavigateWithinGroup => &NAVIGATE_WITHIN_GROUP_TARGET,
+            BrowseGroup => &BROWSE_GROUP_MAPPINGS_TARGET,
+            BrowsePotFilterItems => &BROWSE_POT_FILTER_ITEMS_TARGET,
+            BrowsePotPresets => &BROWSE_POT_PRESETS_TARGET,
+            PreviewPotPreset => &PREVIEW_POT_PRESET_TARGET,
+            LoadPotPreset => &LOAD_POT_PRESET_TARGET,
         }
     }
 

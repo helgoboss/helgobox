@@ -117,6 +117,7 @@ pub enum AdditionalFeedbackEvent {
     /// We shouldn't change that because targets such as "Marker/region: Go to" or "Project: Seek"
     /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
     BeatChanged(BeatChangedEvent),
+    MappedFxParametersChanged,
 }
 
 #[derive(Debug)]
@@ -231,6 +232,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
+        self.poll_for_more_change_events();
         self.process_change_events();
         self.main_task_middleware.run();
         self.future_middleware.run();
@@ -674,6 +676,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         *full_beats = new_full_beats;
         beat_changed
     }
+
+    fn poll_for_more_change_events(&mut self) {
+        let mut change_event_queue = self.change_event_queue.borrow_mut();
+        measure_time("poll for more change events", || {
+            self.change_detection_middleware.run(&mut |change_event| {
+                change_event_queue.push(change_event);
+            });
+        });
+    }
 }
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
@@ -685,7 +696,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
         // Reentrancy check (check if we are currently mutably in `run()`)
-        // TODO-high We should do this in reaper-medium (in a more generic way) as soon as it turns
+        // TODO-high-refactoring We should do this in reaper-medium (in a more generic way) as soon as it turns
         //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
         match self.change_event_queue.try_borrow_mut() {
             Ok(mut queue) => self.handle_event_internal(&event, &mut queue),

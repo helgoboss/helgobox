@@ -4,10 +4,11 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
-    compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState, MappingId, MappingKey,
-    MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
-    Param, PluginParamIndex, PluginParams, StayActiveWhenProjectInBackground, Tag,
+    compartment_param_index_iter, pot, BackboneState, ClipMatrixRef, Compartment,
+    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
+    MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput,
+    MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams,
+    StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -263,6 +264,12 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     controller_mapping_snapshots: Vec<MappingSnapshot>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pot_state: pot::PersistentState,
 }
 
 fn focused_fx_descriptor() -> FxDescriptor {
@@ -377,6 +384,7 @@ impl Default for SessionData {
             instance_fx: session_defaults::INSTANCE_FX_DESCRIPTOR,
             mapping_snapshots: vec![],
             controller_mapping_snapshots: vec![],
+            pot_state: Default::default(),
         }
     }
 }
@@ -503,6 +511,7 @@ impl SessionData {
                 &instance_state,
                 Compartment::Controller,
             ),
+            pot_state: instance_state.save_pot_unit(),
         }
     }
 
@@ -806,6 +815,8 @@ impl SessionData {
                 Compartment::Controller,
                 controller_mapping_snapshot_container,
             );
+            // Pot state
+            instance_state.restore_pot_unit(self.pot_state.clone());
         }
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).

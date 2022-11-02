@@ -12,6 +12,7 @@ playtime-api = { path = "../playtime-api" }
 derive_more = "0.99.5"
 enum-iterator = "0.6.0"
 num_enum = "0.5.0"
+enum-map = "2.4.1"
 
 [dev-dependencies]
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
