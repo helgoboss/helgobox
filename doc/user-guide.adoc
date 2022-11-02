@@ -3341,7 +3341,17 @@ Name of the resolved FX parameter.
 [#pot-browse-filter-items]
 ====== Pot: Browse filter items
 
+This target can be used to filter the potentially very large collection of presets in  <<pot-browse-presets>>. The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available filter items, e.g. instruments or banks.
 
+TIP: This target only exposes NKS filter items that already have been scanned via link:https://www.native-instruments.com/en/products/komplete/bundles/komplete-kontrol/[Komplete Kontrol] software!
+
+* *Kind:* Choose the kind of filter items that you want to browse.
+** *Database:* Browse databases. At the moment, only one database is available (NKS).
+** *NKS instrument:* Browse NKS instruments.
+** *NKS bank:* Browse NKS instrument banks. If an NKS instrument is selected, the browsable list will be reduced to banks belonging to that instrument.
+** *NKS type:* Browse NKS types (categories).
+** *NKS sub type:* Browse NKS sub types (sub categories). If an NKS type is selected, the browsable list will be reduced to sub types belonging to that type.
+** *NKS character:* Browse NKS characters.
 
 This target supports the following additional placeholders in textual feedback expressions:
 
@@ -3357,6 +3367,39 @@ target.item.parent.name
 |
 Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
 |===
+
+[#pot-browse-presets]
+====== Pot: Browse presets
+
+Use this target to browse a collection of presets. By default, this is the complete collection of presets available in all supported databases (at the moment NKS only), so potentially thousands of presets. If you want to browse just a subset, see <<pot-browse-filter-items>>.
+
+The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available presets. Once you have selected a preset, you can audition it via <<pot-preview-preset>> (if it's a sound preset) and load it via <<pot-load-preset>>.
+
+TIP: ReaLearn only considers NKS presets that already have been scanned via link:https://www.native-instruments.com/en/products/komplete/bundles/komplete-kontrol/[Komplete Kontrol]!
+
+[#pot-preview-preset]
+====== Pot: Preview preset
+
+Auditions a preset selected via <<pot-browse-presets>>. Only works if it's a sound preset and a sound preview file is available.
+
+[#pot-load-preset]
+====== Pot: Load preset
+
+Loads a preset selected via <<pot-browse-presets>>.
+
+Preset loading is limited at the moment and a work-in-progress. Here's the current state of support for the various types of presets:
+
+- *NKS instrument/effect presets for Native Instruments plug-ins:* Loading not supported
+- *NKS instrument/effect presets for 3rd-party plug-ins:* Loading supported (but not exhaustively tested)
+- *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
+
+TIP: Loading of NKS presets only works if you have the VST2/VST2i version of the corresponding plug-in installed.
+
+Settings:
+
+* *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in.
+
+NOTE: The best idea is to use FX selector <<by-position>>. Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change. Then the target would turn inactive and stop working.
 
 ====== Send: Automation mode
 
@@ -3829,6 +3872,7 @@ Takes and optionally transforms absolute source control values _the normal way_.
 the current target value is irrelevant and the target will just be set to whatever absolute control value is
 coming in (potentially transformed).
 
+[#incremental-button]
 ====== Incremental button
 
 With this you can "go relative" without having encoders, provided your control elements
