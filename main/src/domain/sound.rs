@@ -38,7 +38,7 @@ impl SoundPlayer {
         }
         let source = Reaper::get()
             .medium_reaper()
-            .pcm_source_create_from_file_ex(&path_to_file, MidiImportBehavior::UsePreference)
+            .pcm_source_create_from_file_ex(path_to_file, MidiImportBehavior::UsePreference)
             .map_err(|e| e.message())?;
         let mut preview_register = self.lock_preview_register()?;
         preview_register.set_src(Some(FlexibleOwnedPcmSource::Reaper(source)));

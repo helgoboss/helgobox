@@ -81,7 +81,7 @@ impl RealearnTarget for TrackShowTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::Reaper(ChangeEvent::TrackVisibilityChanged(e))
-                if &e.track == &self.track =>
+                if e.track == self.track =>
             {
                 let is_shown = match self.area {
                     TrackArea::Tcp => e.new_value.tcp,

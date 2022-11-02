@@ -37,11 +37,6 @@ pub struct RealearnTargetState {
     touched_things: HashSet<TouchedThing>,
 }
 
-pub struct AdditionalFxState {
-    snapshot_chunk_hash: Option<u64>,
-    preset_param_mapping: HashMap<u32, u32>,
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 struct TouchedThing {
     track: MediaTrack,

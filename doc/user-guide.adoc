@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-10-14 (v2.14.0-pre.7)`
+|Last update of text: |`2022-11-02 (v2.14.0-pre.8)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -2420,6 +2420,10 @@ One of many ways to use this is to create macro parameters which control multipl
 
 WARNING: At the moment, mappings with this source can't participate in rendering. So it's important to write down automation *before* rendering. This applies *in addition* the things pointed out in <<automation-and-rendering>>.
 
+====== Speech
+
+This source works for feedback only. It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
+
 [#virtual-source]
 ===== Category "Virtual"
 
@@ -3332,6 +3336,26 @@ Zero-based index of the resolved FX parameter.
 target.fx_parameter.name
 |
 Name of the resolved FX parameter.
+|===
+
+[#pot-browse-filter-items]
+====== Pot: Browse filter items
+
+
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+target.item.name
+|
+Name of the filter item.
+
+|
+target.item.parent.name
+|
+Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
 |===
 
 ====== Send: Automation mode

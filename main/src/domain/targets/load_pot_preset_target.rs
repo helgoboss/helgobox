@@ -1,5 +1,7 @@
 use crate::domain::pot::nks::NksFile;
-use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId, RuntimePotUnit};
+use crate::domain::pot::{
+    preset_db, with_preset_db, CurrentPreset, Preset, PresetId, RuntimePotUnit,
+};
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
@@ -61,19 +63,18 @@ impl RealearnTarget for LoadPotPresetTarget {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let preset_id = self
-            .current_preset_id(&pot_unit)
+            .current_preset_id(pot_unit)
             .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
-        match preset.file_ext.as_str() {
-            "wav" | "aif" => {
-                self.load_audio(&preset)?;
-            }
-            "nksf" | "nksfx" => {
-                self.load_nksf(&preset)?;
-            }
+        let current_preset = match preset.file_ext.as_str() {
+            "wav" | "aif" => self.load_audio(&preset)?,
+            "nksf" | "nksfx" => self.load_nksf(&preset)?,
             _ => return Err("unsupported preset format"),
-        }
+        };
+        BackboneState::target_state()
+            .borrow_mut()
+            .set_current_fx_preset(self.fx.clone(), current_preset);
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -83,7 +84,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             Ok(u) => u,
             Err(_) => return false,
         };
-        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
+        preset_db().is_ok() && self.current_preset_id(pot_unit).is_some() && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {
@@ -124,18 +125,15 @@ impl LoadPotPresetTarget {
         pot_unit.preset_id()
     }
 
-    fn load_nksf(&self, preset: &Preset) -> Result<(), &'static str> {
+    fn load_nksf(&self, preset: &Preset) -> Result<CurrentPreset, &'static str> {
         let nks_file = NksFile::load(&preset.file_name)?;
         let nks_content = nks_file.content()?;
         self.make_sure_fx_has_correct_type(nks_content.vst_magic_number)?;
         self.fx.set_vst_chunk(nks_content.vst_chunk)?;
-        BackboneState::target_state()
-            .borrow_mut()
-            .set_current_fx_preset(self.fx.clone(), nks_content.current_preset);
-        Ok(())
+        Ok(nks_content.current_preset)
     }
 
-    fn load_audio(&self, preset: &Preset) -> Result<(), &'static str> {
+    fn load_audio(&self, preset: &Preset) -> Result<CurrentPreset, &'static str> {
         const RS5K_VST_ID: u32 = 1920167789;
         self.make_sure_fx_has_correct_type(RS5K_VST_ID)?;
         let window_is_open_before = self.fx.window_is_open();
@@ -151,7 +149,7 @@ impl LoadPotPresetTarget {
         if !window_is_open_before {
             self.fx.hide_floating_window();
         }
-        Ok(())
+        Ok(CurrentPreset::default())
     }
 
     fn make_sure_fx_has_correct_type(&self, vst_magic_number: u32) -> Result<(), &'static str> {

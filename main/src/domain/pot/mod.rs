@@ -358,6 +358,7 @@ impl RuntimePotUnit {
 pub struct FilterItem {
     pub persistent_id: String,
     pub id: FilterItemId,
+    pub parent_name: String,
     pub name: String,
 }
 

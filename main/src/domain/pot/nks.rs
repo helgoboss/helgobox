@@ -258,6 +258,7 @@ impl PresetDb {
                 databases: vec![FilterItem {
                     persistent_id: "Nks".to_string(),
                     id: Default::default(),
+                    parent_name: Default::default(),
                     name: "NKS".to_string(),
                 }],
                 nks: nks_filter_item_collections,
@@ -326,44 +327,35 @@ impl PresetDb {
         mut settings: NksFilterSettings,
     ) -> Result<(NksFilterSettings, FilterNksItemCollections), Box<dyn Error>> {
         let collections = FilterNksItemCollections {
-            banks: self
-                .select_nks_filter_items(
-                    "SELECT id, entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
-                    None,
-                )
-                .unwrap_or_default(),
+            banks: self.select_nks_filter_items(
+                "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
+                None,
+            ),
             sub_banks: {
                 let mut sql =
-                    "SELECT id, entry2 FROM k_bank_chain WHERE entry2 IS NOT NULL".to_string();
+                    "SELECT id, entry1, entry2 FROM k_bank_chain WHERE entry2".to_string();
                 let parent_bank_id = settings.bank;
                 if parent_bank_id.is_some() {
-                    sql += " AND entry1 = (SELECT entry1 FROM k_bank_chain where id = ?)";
+                    sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain where id = ?)";
                 }
                 sql += " ORDER BY entry2";
                 self.select_nks_filter_items(&sql, parent_bank_id)
-                    .unwrap_or_default()
             },
-            categories: self
-                .select_nks_filter_items(
-                    "SELECT id, category FROM k_category GROUP BY category ORDER BY category",
-                    None,
-                )
-                .unwrap_or_default(),
+            categories: self.select_nks_filter_items(
+                "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
+                None,
+            ),
             sub_categories: {
-                let mut sql =
-                    "SELECT id, subcategory FROM k_category WHERE subcategory IS NOT NULL"
-                        .to_string();
+                let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
                 let parent_category_id = settings.category;
                 if parent_category_id.is_some() {
-                    sql += " AND category = (SELECT category FROM k_category where id = ?)";
+                    sql += " WHERE category = (SELECT category FROM k_category where id = ?)";
                 }
                 sql += " ORDER BY subcategory";
                 self.select_nks_filter_items(&sql, parent_category_id)
-                    .unwrap_or_default()
             },
             modes: self
-                .select_nks_filter_items("SELECT id, name FROM k_mode ORDER BY name", None)
-                .unwrap_or_default(),
+                .select_nks_filter_items("SELECT id, '', name FROM k_mode ORDER BY name", None),
         };
         let clear_setting_if_invalid =
             |setting: &mut Option<FilterItemId>, items: &[FilterItem]| {
@@ -382,9 +374,14 @@ impl PresetDb {
         &self,
         query: &str,
         parent_id: Option<FilterItemId>,
-    ) -> Result<Vec<FilterItem>, String> {
-        self.select_nks_filter_items_internal(query, parent_id)
-            .map_err(|e| e.to_string())
+    ) -> Vec<FilterItem> {
+        match self.select_nks_filter_items_internal(query, parent_id) {
+            Ok(items) => items,
+            Err(e) => {
+                tracing::error!("Error when selecting NKS filter items: {}", e);
+                vec![]
+            }
+        }
     }
 
     fn select_nks_filter_items_internal(
@@ -399,11 +396,12 @@ impl PresetDb {
             statement.query([])?
         };
         rows.map(|row| {
-            let name: String = row.get(1)?;
+            let name: Option<String> = row.get(2)?;
             let item = FilterItem {
-                persistent_id: name.clone(),
+                persistent_id: name.clone().unwrap_or_default(),
                 id: FilterItemId(row.get(0)?),
-                name,
+                parent_name: row.get(1)?,
+                name: name.unwrap_or_else(|| "Default".to_string()),
             };
             Ok(item)
         })

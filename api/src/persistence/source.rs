@@ -367,8 +367,7 @@ mod reaper {
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct SpeechSource {
-    }
+    pub struct SpeechSource {}
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
