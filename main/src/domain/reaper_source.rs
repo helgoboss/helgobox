@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -59,11 +58,11 @@ pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Erro
             }
             #[cfg(target_os = "windows")]
             {
-                Tts::default()
+                tts::Tts::default()
             }
         }
-
         use once_cell::sync::Lazy;
+        use std::sync::Mutex;
         static TTS: Lazy<Result<Mutex<tts::Tts>, tts::Error>> =
             Lazy::new(|| get_default_tts().map(Mutex::new));
         let tts = TTS.as_ref()?;
@@ -76,7 +75,7 @@ pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Erro
     #[cfg(target_os = "linux")]
     {
         let _ = feedback_value;
-        Err("not yet supported on Linux")
+        Err("not yet supported on Linux".into())
     }
 }
 
