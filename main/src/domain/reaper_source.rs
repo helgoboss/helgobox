@@ -12,7 +12,6 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tts::Tts;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum ReaperSource {
@@ -39,42 +38,45 @@ impl SpeechSource {
 }
 
 pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Error>> {
-    use once_cell::sync::Lazy;
-    static TTS: Lazy<Result<Mutex<Tts>, tts::Error>> =
-        Lazy::new(|| get_default_tts().map(Mutex::new));
-    let tts = TTS.as_ref()?;
-    // TODO-medium This is only necessary because tts exposes a non-optimal API.
-    let mut tts = tts.lock()?;
-    // TODO-medium This cloning is totally unnecessary but ... non-optimal API.
-    tts.speak(feedback_value.text, true)?;
-    Ok(())
-}
-
-fn get_default_tts() -> Result<Tts, tts::Error> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
-        let mut tts = Tts::default()?;
-        // On macOS, at least with AVFoundation, it's necessary to set a voice first.
-        // Prefer an English voice as default.
-        if let Ok(voices) = tts.voices() {
-            let voice = voices
-                .iter()
-                .find(|v| v.language().language.as_str() == "en")
-                .or_else(|| voices.first());
-            if let Some(v) = voice {
-                tts.set_voice(v)?;
+        fn get_default_tts() -> Result<tts::Tts, tts::Error> {
+            #[cfg(target_os = "macos")]
+            {
+                let mut tts = tts::Tts::default()?;
+                // On macOS, at least with AVFoundation, it's necessary to set a voice first.
+                // Prefer an English voice as default.
+                if let Ok(voices) = tts.voices() {
+                    let voice = voices
+                        .iter()
+                        .find(|v| v.language().language.as_str() == "en")
+                        .or_else(|| voices.first());
+                    if let Some(v) = voice {
+                        tts.set_voice(v)?;
+                    }
+                }
+                Ok(tts)
+            }
+            #[cfg(target_os = "windows")]
+            {
+                Tts::default()
             }
         }
-        Ok(tts)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Tts::default()
+
+        use once_cell::sync::Lazy;
+        static TTS: Lazy<Result<Mutex<tts::Tts>, tts::Error>> =
+            Lazy::new(|| get_default_tts().map(Mutex::new));
+        let tts = TTS.as_ref()?;
+        // TODO-medium This is only necessary because tts exposes a non-optimal API.
+        let mut tts = tts.lock()?;
+        // TODO-medium This cloning is totally unnecessary but ... non-optimal API.
+        tts.speak(feedback_value.text, true)?;
+        Ok(())
     }
     #[cfg(target_os = "linux")]
     {
-        // Too buggy on Linux at the moment (crashes)
-        Err(tts::Error::UnsupportedFeature)
+        let _ = feedback_value;
+        Err("not yet supported on Linux")
     }
 }
 
