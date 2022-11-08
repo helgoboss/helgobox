@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, fx_online_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, FxDescriptor, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -29,6 +29,10 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
 
     fn fx_descriptor(&self) -> Option<&FxDescriptor> {
         Some(&self.fx_descriptor)
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        Some(FeedbackResolution::High)
     }
 }
 
@@ -70,19 +74,6 @@ impl RealearnTarget for FxOnlineTarget {
 
     fn fx(&self) -> Option<&Fx> {
         Some(&self.fx)
-    }
-
-    fn process_change_event(
-        &self,
-        evt: CompoundChangeEvent,
-        _: ControlContext,
-    ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            CompoundChangeEvent::Reaper(ChangeEvent::FxEnabledChanged(e)) if e.fx == self.fx => {
-                (true, None)
-            }
-            _ => (false, None),
-        }
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
