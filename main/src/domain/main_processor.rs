@@ -3603,16 +3603,23 @@ impl<EH: DomainEventHandler> Basics<EH> {
         {
             return;
         }
-        // Block duplicates.
-        // Extracting a feedback address is not super cheap for OSC and MIDI Raw because it has to
-        // clone the address string. On the other hand, address strings are not large, so what.
+        // Record feedback checksum and block duplicate feedback in some cases.
         if let Some(address) = source_feedback_value.extract_address() {
+            // Extracting a feedback address is not super cheap for OSC and MIDI Raw because it has to
+            // clone the address string. On the other hand, address strings are not large, so what.
             let checksum = FeedbackChecksum::from_value(&source_feedback_value);
             let previous_checksum = self
                 .last_feedback_checksum_by_address
                 .borrow_mut()
                 .insert(address, checksum);
-            if !is_feedback_after_control && Some(checksum) == previous_checksum {
+            // Block duplicates in certain cases. If it's feedback-after-control, we always need to
+            // send because that's sort of the point of this feature. If it's a source-takeover, we
+            // also need to send because we don't know what the other instance sent before that
+            // (https://github.com/helgoboss/realearn/issues/727).
+            if !is_feedback_after_control
+                && feedback_reason != FeedbackReason::TakeOverSource
+                && Some(checksum) == previous_checksum
+            {
                 trace!(
                     self.logger,
                     "Block feedback because duplicate (reason: {:?}): {:?}",
