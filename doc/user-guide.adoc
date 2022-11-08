@@ -3391,15 +3391,13 @@ Preset loading is limited at the moment and a work-in-progress. Here's the curre
 
 - *NKS instrument/effect presets for Native Instruments plug-ins:* Loading not supported
 - *NKS instrument/effect presets for 3rd-party plug-ins:* Loading supported (but not exhaustively tested)
++
+NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
 - *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
-
-TIP: Loading of NKS presets only works if you have the VST2/VST2i version of the corresponding plug-in installed.
 
 Settings:
 
-* *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in.
-
-NOTE: The best idea is to use FX selector <<by-position>>. Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change. Then the target would turn inactive and stop working.
+* *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in. The best idea is to use FX selector <<by-position>>. Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change. Then the target would turn inactive and stop working.
 
 ====== Send: Automation mode
 

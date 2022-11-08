@@ -150,6 +150,7 @@ pub struct Session {
     unresolved_foreign_clip_matrix_session_id: Option<String>,
     instance_track_descriptor: TrackDescriptor,
     instance_fx_descriptor: FxDescriptor,
+    memorized_main_compartment: Option<CompartmentModel>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -303,6 +304,7 @@ impl Session {
             unresolved_foreign_clip_matrix_session_id: None,
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
+            memorized_main_compartment: None,
         };
         session
     }
@@ -429,7 +431,7 @@ impl Session {
 
     pub fn mappings_are_read_only(&self, compartment: Compartment) -> bool {
         self.is_learning_many_mappings()
-            || (compartment == Compartment::Main && self.main_preset_auto_load_is_active())
+            || (compartment == Compartment::Main && self.main_preset_is_auto_loaded())
     }
 
     fn full_sync(&mut self) {
@@ -519,29 +521,25 @@ impl Session {
     }
 
     pub fn activate_main_preset_auto_load_mode(&mut self, mode: MainPresetAutoLoadMode) {
-        if mode != MainPresetAutoLoadMode::Off {
-            self.activate_main_preset(None);
-        }
         self.main_preset_auto_load_mode.set(mode);
     }
 
-    pub fn main_preset_auto_load_is_active(&self) -> bool {
-        self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
+    pub fn main_preset_is_auto_loaded(&self) -> bool {
+        self.main_preset_auto_load_mode.get().is_on() && self.active_main_preset_id.is_some()
     }
 
     /// This returns an early `false` if the desired preset is already active.
     fn auto_load_preset_linked_to_fx_if_not_yet_active(&mut self, fx_id: Option<FxId>) -> bool {
-        let final_preset_id = self.find_preset_linked_to_fx(fx_id);
+        let final_preset_id = fx_id.and_then(|fx_id| self.find_preset_linked_to_fx(fx_id));
         // Activate preset if not active already.
         if self.active_main_preset_id == final_preset_id {
             return false;
         }
-        self.activate_main_preset(final_preset_id);
+        self.activate_main_preset_for_auto_load(final_preset_id);
         true
     }
 
-    fn find_preset_linked_to_fx(&self, fx_id: Option<FxId>) -> Option<String> {
-        let fx_id = fx_id?;
+    fn find_preset_linked_to_fx(&self, fx_id: FxId) -> Option<String> {
         if let Some(preset_id) = self
             .instance_preset_link_config
             .find_preset_linked_to_fx(&fx_id)
@@ -1910,6 +1908,17 @@ impl Session {
         self.compartment_is_dirty[compartment].set(false);
     }
 
+    pub fn memorized_main_compartment(&self) -> Option<&CompartmentModel> {
+        self.memorized_main_compartment.as_ref()
+    }
+
+    pub fn set_memorized_main_compartment_without_notification(
+        &mut self,
+        model: Option<CompartmentModel>,
+    ) {
+        self.memorized_main_compartment = model;
+    }
+
     pub fn activate_main_preset(&mut self, id: Option<String>) {
         let model = if let Some(id) = id.as_ref() {
             self.main_preset_manager
@@ -1918,6 +1927,24 @@ impl Session {
         } else {
             // <None> preset
             None
+        };
+        let compartment = Compartment::Main;
+        self.active_main_preset_id = id;
+        self.replace_compartment(compartment, model);
+        self.compartment_is_dirty[compartment].set(false);
+    }
+
+    fn activate_main_preset_for_auto_load(&mut self, id: Option<String>) {
+        let model = if let Some(id) = id.as_ref() {
+            if self.active_main_preset_id.is_none() {
+                self.memorized_main_compartment =
+                    Some(self.extract_compartment_model(Compartment::Main));
+            }
+            self.main_preset_manager
+                .find_by_id(id)
+                .map(|preset| preset.data().clone())
+        } else {
+            self.memorized_main_compartment.take()
         };
         let compartment = Compartment::Main;
         self.active_main_preset_id = id;

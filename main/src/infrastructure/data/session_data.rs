@@ -12,8 +12,8 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
-    ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
-    ParameterData,
+    ensure_no_duplicate_compartment_data, CompartmentModelData, GroupModelData, MappingModelData,
+    MigrationDescriptor, ParameterData,
 };
 use crate::infrastructure::plugin::App;
 
@@ -270,6 +270,12 @@ pub struct SessionData {
         skip_serializing_if = "is_default"
     )]
     pot_state: pot::PersistentState,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    memorized_main_compartment: Option<CompartmentModelData>,
 }
 
 fn focused_fx_descriptor() -> FxDescriptor {
@@ -385,6 +391,7 @@ impl Default for SessionData {
             mapping_snapshots: vec![],
             controller_mapping_snapshots: vec![],
             pot_state: Default::default(),
+            memorized_main_compartment: None,
         }
     }
 }
@@ -416,6 +423,7 @@ impl SessionData {
             );
             Some(group_model_data)
         };
+        let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
         let instance_state = session.instance_state().borrow();
         SessionData {
             version: Some(App::version().clone()),
@@ -473,7 +481,7 @@ impl SessionData {
             active_main_preset_id: session
                 .active_preset_id(Compartment::Main)
                 .map(|id| id.to_string()),
-            main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
+            main_preset_auto_load_mode,
             parameters: get_parameter_data_map(plugin_params, Compartment::Main),
             controller_parameters: get_parameter_data_map(plugin_params, Compartment::Controller),
             clip_slots: vec![],
@@ -512,6 +520,9 @@ impl SessionData {
                 Compartment::Controller,
             ),
             pot_state: instance_state.save_pot_unit(),
+            memorized_main_compartment: session
+                .memorized_main_compartment()
+                .map(CompartmentModelData::from_model),
         }
     }
 
@@ -741,6 +752,13 @@ impl SessionData {
             self.instance_track.clone(),
         ));
         let _ = session.change(SessionCommand::SetInstanceFx(self.instance_fx.clone()));
+        let memorized_main_compartment =
+            if let Some(data) = self.memorized_main_compartment.as_ref() {
+                Some(data.to_model(self.version.as_ref(), Compartment::Main, Some(session))?)
+            } else {
+                None
+            };
+        session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
             let instance_state = session.instance_state().clone();

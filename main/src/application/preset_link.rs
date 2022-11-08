@@ -222,6 +222,12 @@ impl Default for MainPresetAutoLoadMode {
     }
 }
 
+impl MainPresetAutoLoadMode {
+    pub fn is_on(&self) -> bool {
+        *self != Self::Off
+    }
+}
+
 fn find_match<'a>(
     mut links: impl Iterator<Item = &'a FxPresetLink>,
     fx_id: &FxId,

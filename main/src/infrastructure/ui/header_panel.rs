@@ -1874,29 +1874,12 @@ impl HeaderPanel {
     fn update_preset_auto_load_mode(&self) {
         let compartment = Compartment::Main;
         self.main_state.borrow_mut().stop_filter_learning();
-        let mode = self
+        let mode: MainPresetAutoLoadMode = self
             .view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid preset auto-load mode");
-        let session = self.session();
-        if mode != MainPresetAutoLoadMode::Off {
-            {
-                if session.borrow().compartment_or_preset_is_dirty(compartment)
-                    && !self
-                        .view
-                        .require_window()
-                        .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
-                {
-                    self.invalidate_preset_auto_load_mode_combo_box();
-                    return;
-                }
-            }
-            self.panel_manager()
-                .borrow_mut()
-                .hide_all_with_compartment(compartment);
-        }
         self.session()
             .borrow_mut()
             .activate_main_preset_auto_load_mode(mode);
@@ -1949,7 +1932,7 @@ impl HeaderPanel {
             .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
         button.set_text(learn_button_text);
         let enabled = !(self.active_compartment() == Compartment::Main
-            && self.session().borrow().main_preset_auto_load_is_active());
+            && self.session().borrow().main_preset_is_auto_loaded());
         button.set_enabled(enabled);
     }
 
