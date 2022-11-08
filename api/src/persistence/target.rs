@@ -91,7 +91,6 @@ impl Default for Target {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TargetCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<TargetUnit>,
@@ -110,7 +109,6 @@ impl Default for TargetUnit {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MouseTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -118,14 +116,12 @@ pub struct MouseTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct LastTouchedTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AutomationModeOverrideTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -134,7 +130,6 @@ pub struct AutomationModeOverrideTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ReaperActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -147,7 +142,6 @@ pub struct ReaperActionTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -155,7 +149,6 @@ pub struct TransportActionTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AnyOnTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -163,7 +156,6 @@ pub struct AnyOnTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowseTracksTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -176,7 +168,6 @@ pub struct BrowseTracksTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct SeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -199,21 +190,18 @@ pub struct SeekTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct PlayRateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TempoTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct GoToBookmarkTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -227,7 +215,6 @@ pub struct GoToBookmarkTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackArmStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -242,7 +229,6 @@ pub struct TrackArmStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackParentSendStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -253,7 +239,6 @@ pub struct TrackParentSendStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AllTrackFxOnOffStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -266,7 +251,6 @@ pub struct AllTrackFxOnOffStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackMuteStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -281,7 +265,6 @@ pub struct TrackMuteStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackPeakTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -290,7 +273,6 @@ pub struct TrackPeakTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackPhaseTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -303,7 +285,6 @@ pub struct TrackPhaseTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackSelectionStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -318,7 +299,6 @@ pub struct TrackSelectionStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackAutomationModeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -330,7 +310,6 @@ pub struct TrackAutomationModeTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackMonitoringModeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -344,7 +323,6 @@ pub struct TrackMonitoringModeTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackAutomationTouchStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -356,7 +334,6 @@ pub struct TrackAutomationTouchStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackPanTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -369,7 +346,6 @@ pub struct TrackPanTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackWidthTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -382,7 +358,6 @@ pub struct TrackWidthTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -395,7 +370,6 @@ pub struct TrackVolumeTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackToolTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -563,7 +537,6 @@ impl Default for MouseButton {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackVisibilityTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -578,7 +551,6 @@ pub struct TrackVisibilityTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackSoloStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -595,7 +567,6 @@ pub struct TrackSoloStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowseFxChainTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -605,7 +576,6 @@ pub struct BrowseFxChainTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxOnOffStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -614,7 +584,6 @@ pub struct FxOnOffStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxOnlineOfflineStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -623,7 +592,6 @@ pub struct FxOnlineOfflineStateTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct LoadFxSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -634,7 +602,6 @@ pub struct LoadFxSnapshotTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowseFxPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -643,7 +610,6 @@ pub struct BrowseFxPresetsTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxToolTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -686,7 +652,6 @@ impl Default for FxToolAction {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxVisibilityTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -697,7 +662,6 @@ pub struct FxVisibilityTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxParameterValueTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -709,7 +673,6 @@ pub struct FxParameterValueTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxParameterAutomationTouchStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -717,7 +680,6 @@ pub struct FxParameterAutomationTouchStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteAutomationModeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -728,7 +690,6 @@ pub struct RouteAutomationModeTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteMonoStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -738,7 +699,6 @@ pub struct RouteMonoStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteMuteStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -748,7 +708,6 @@ pub struct RouteMuteStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RoutePhaseTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -758,7 +717,6 @@ pub struct RoutePhaseTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RoutePanTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -766,7 +724,6 @@ pub struct RoutePanTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -774,7 +731,6 @@ pub struct RouteVolumeTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteTouchStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -783,7 +739,6 @@ pub struct RouteTouchStateTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -800,7 +755,6 @@ pub struct ClipTransportActionTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipColumnTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -809,7 +763,6 @@ pub struct ClipColumnTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipRowTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -818,7 +771,6 @@ pub struct ClipRowTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipMatrixTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -826,7 +778,6 @@ pub struct ClipMatrixTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipSeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -836,7 +787,6 @@ pub struct ClipSeekTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -844,7 +794,6 @@ pub struct ClipVolumeTarget {
 }
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipManagementTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -869,13 +818,11 @@ impl Default for ClipManagementAction {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AdjustClipSectionLengthAction {
     pub factor: f64,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct SendMidiTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -886,14 +833,12 @@ pub struct SendMidiTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct DummyTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct SendOscTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -906,7 +851,6 @@ pub struct SendOscTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct EnableInstancesTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -917,7 +861,6 @@ pub struct EnableInstancesTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct EnableMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -928,7 +871,6 @@ pub struct EnableMappingsTarget {
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct LoadMappingSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -943,7 +885,6 @@ pub struct LoadMappingSnapshotTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TakeMappingSnapshotTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -1013,7 +954,6 @@ impl Default for MappingSnapshotDescForTake {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowseGroupMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -1024,7 +964,6 @@ pub struct BrowseGroupMappingsTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowsePotFilterItemsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -1033,21 +972,18 @@ pub struct BrowsePotFilterItemsTarget {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BrowsePotPresetsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct PreviewPotPresetTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct LoadPotPresetTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
@@ -1101,7 +1037,6 @@ impl Default for PotFilterItemKind {
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct VirtualTarget {
     pub id: VirtualControlElementId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1443,7 +1378,6 @@ impl Default for TrackDescriptor {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TrackDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track_must_be_selected: Option<bool>,
@@ -1564,7 +1498,6 @@ pub enum BookmarkRef {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx_must_have_focus: Option<bool>,
@@ -1663,7 +1596,6 @@ impl Default for FxDisplayKind {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FxSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx_kind: Option<String>,
@@ -1706,7 +1638,6 @@ pub enum FxParameterDescriptor {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct RouteDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,

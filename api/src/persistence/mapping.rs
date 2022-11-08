@@ -3,7 +3,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Mapping {
     /// An optional ID that you can assign to this mapping in order to refer
     /// to it from somewhere else.
@@ -79,39 +78,33 @@ pub enum ActivationCondition {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ModifierActivationCondition {
     pub modifiers: Option<Vec<ModifierState>>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ModifierState {
     pub parameter: ParamRef,
     pub on: bool,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BankActivationCondition {
     pub parameter: ParamRef,
     pub bank_index: u32,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct EelActivationCondition {
     pub condition: String,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ExpressionActivationCondition {
     pub condition: String,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TargetValueActivationCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapping: Option<String>,
@@ -145,7 +138,6 @@ impl Default for VirtualControlElementCharacter {
 }
 
 #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct OscArgument {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<u32>,

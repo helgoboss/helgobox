@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Parameter {
     pub index: u32,
     /// An optional ID that you can assign to this parameter in order to refer

@@ -27,7 +27,6 @@ pub struct PlaytimePersistenceRoot {
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Matrix {
     /// All columns from left to right.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -41,7 +40,6 @@ pub struct Matrix {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TempoRange {
     min: Bpm,
     max: Bpm,
@@ -75,7 +73,6 @@ impl Default for TempoRange {
 
 /// Matrix-global settings related to playing clips.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MatrixClipPlaySettings {
     pub start_timing: ClipPlayStartTiming,
     pub stop_timing: ClipPlayStopTiming,
@@ -83,7 +80,6 @@ pub struct MatrixClipPlaySettings {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MatrixClipPlayAudioSettings {
     pub resample_mode: VirtualResampleMode,
     pub time_stretch_mode: AudioTimeStretchMode,
@@ -92,7 +88,6 @@ pub struct MatrixClipPlayAudioSettings {
 
 /// Matrix-global settings related to recording clips.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordSettings {
     pub start_timing: ClipRecordStartTiming,
     pub stop_timing: ClipRecordStopTiming,
@@ -201,7 +196,6 @@ impl Default for MatrixClipRecordSettings {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
     pub record_mode: MidiClipRecordMode,
     /// If `true`, attempts to detect the actual start of the recorded MIDI material and derives
@@ -231,7 +225,6 @@ impl Default for MatrixClipRecordMidiSettings {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
     /// the downbeat position from that.
@@ -446,7 +439,6 @@ impl<T> Default for ClipSettingOverrideAfterRecording<T> {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Override<T> {
     pub value: T,
 }
@@ -455,7 +447,6 @@ pub struct Override<T> {
 ///
 /// Even in the sense of that's it's not swing or dotted.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct EvenQuantization {
     numerator: u32,
     denominator: u32,
@@ -511,7 +502,6 @@ impl EvenQuantization {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Column {
     pub clip_play_settings: ColumnClipPlaySettings,
     pub clip_record_settings: ColumnClipRecordSettings,
@@ -523,7 +513,6 @@ pub struct Column {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ColumnClipPlaySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<ColumnPlayMode>,
@@ -587,7 +576,6 @@ impl ColumnPlayMode {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
     pub origin: RecordOrigin,
     /// By default, Playtime records from the play track but this settings allows to override that.
@@ -596,7 +584,6 @@ pub struct ColumnClipRecordSettings {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ColumnClipPlayAudioSettings {
     /// Overrides the matrix-global resample mode for clips in this column.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -627,7 +614,6 @@ pub struct ColumnClipPlayAudioSettings {
 ///   scenes. Whenever you read "Row", it will affect the complete matrix row, no matter the
 ///   column type.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Row {
     // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -677,13 +663,11 @@ impl Default for VirtualResampleMode {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ReaperResampleMode {
     pub mode: u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TimeStretchMode {
     pub mode: VirtualTimeStretchMode,
 }
@@ -704,7 +688,6 @@ impl Default for VirtualTimeStretchMode {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ReaperPitchShiftMode {
     pub mode: u32,
     pub sub_mode: u32,
@@ -736,7 +719,6 @@ impl Default for SourceOrigin {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ChannelRange {
     pub first_channel_index: u32,
     pub channel_count: u32,
@@ -749,7 +731,6 @@ impl Default for RecordOrigin {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Slot {
     /// Slot index within the column (= row), starting at zero.
     pub row: usize,
@@ -759,7 +740,6 @@ pub struct Slot {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Clip {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -807,7 +787,6 @@ pub struct Clip {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
     /// material.
@@ -862,7 +841,6 @@ impl Default for ClipAudioSettings {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
     pub source_reset_settings: MidiResetMessageRange,
@@ -901,7 +879,6 @@ pub fn preferred_clip_midi_settings() -> ClipMidiSettings {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MidiResetMessageRange {
     /// Which MIDI reset messages to apply at the beginning.
     pub left: MidiResetMessages,
@@ -910,7 +887,6 @@ pub struct MidiResetMessageRange {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MidiResetMessages {
     /// Only supported at "right" position at the moment.
     #[serde(default)]
@@ -932,7 +908,6 @@ impl MidiResetMessages {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Section {
     /// Position in the source from which to start.
     ///
@@ -978,13 +953,11 @@ pub enum ClipColor {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct CustomClipColor {
     pub value: u32,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct PaletteClipColor {
     pub index: u32,
 }
@@ -999,7 +972,6 @@ pub enum Source {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FileSource {
     /// Path to the media file.
     ///
@@ -1008,7 +980,6 @@ pub struct FileSource {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct MidiChunkSource {
     /// MIDI data in the same format that REAPER uses for in-project MIDI.
     pub chunk: String,
@@ -1025,7 +996,6 @@ pub enum ClipTimeBase {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct BeatTimeBase {
     /// The clip's native tempo.
     ///
@@ -1044,7 +1014,6 @@ pub struct BeatTimeBase {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TimeSignature {
     pub numerator: u32,
     pub denominator: u32,

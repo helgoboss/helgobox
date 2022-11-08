@@ -23,7 +23,6 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Envelope<T> {
     #[serde(default)]
     pub version: Option<Version>,

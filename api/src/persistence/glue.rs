@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Glue {
     //region Relevant for control and feedback
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,21 +114,18 @@ impl Default for FireMode {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct NormalFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub press_duration_interval: Option<Interval<u32>>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AfterTimeoutFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct AfterTimeoutKeepFiringFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
@@ -137,14 +133,12 @@ pub struct AfterTimeoutKeepFiringFireMode {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct OnDoublePressFireMode;
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -158,7 +152,6 @@ pub enum VirtualColor {
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct PropColor {
     pub prop: String,
 }
@@ -212,7 +205,6 @@ pub enum Interaction {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct FeedbackCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<VirtualColor>,
@@ -234,7 +226,6 @@ impl Default for Feedback {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct NumericFeedback {
     #[serde(flatten)]
     pub commons: FeedbackCommons,
@@ -243,7 +234,6 @@ pub struct NumericFeedback {
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct TextFeedback {
     #[serde(flatten)]
     pub commons: FeedbackCommons,

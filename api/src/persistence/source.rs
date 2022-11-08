@@ -75,7 +75,6 @@ mod midi {
     use serde::{Deserialize, Serialize};
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiNoteVelocitySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -86,7 +85,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiNoteKeyNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -95,7 +93,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiPolyphonicKeyPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -106,7 +103,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiControlChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -121,7 +117,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiProgramChangeNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -130,7 +125,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiChannelPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -139,7 +133,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiPitchBendChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -148,7 +141,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiParameterNumberValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -165,22 +157,18 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiClockTempoSource;
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiDeviceChangesSource;
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiClockTransportSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub message: Option<MidiClockTransportMessage>,
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiRawSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -191,7 +179,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub kind: Option<MidiScriptKind>,
@@ -263,7 +250,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub extender_index: Option<u8>,
@@ -274,7 +260,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct XTouchMackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub extender_index: Option<u8>,
@@ -285,7 +270,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct SlKeyboardDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub section: Option<u8>,
@@ -294,7 +278,6 @@ mod midi {
     }
 
     #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct MackieSevenSegmentDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub scope: Option<MackieSevenSegmentDisplayScope>,
@@ -318,7 +301,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct SiniConE24DisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cell_index: Option<u8>,
@@ -327,7 +309,6 @@ mod midi {
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct LaunchpadProScrollingTextDisplaySource;
 }
 
@@ -337,7 +318,6 @@ mod osc {
     use serde::{Deserialize, Serialize};
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct OscSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -356,21 +336,17 @@ mod reaper {
     use super::*;
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct RealearnInstanceStartSource;
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct RealearnParameterSource {
         pub parameter_index: u32,
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct SpeechSource {}
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct TimerSource {
         pub duration: u64,
     }
@@ -380,14 +356,12 @@ mod keyboard {
     use super::*;
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct KeySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub keystroke: Option<Keystroke>,
     }
 
     #[derive(Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct Keystroke {
         pub modifiers: u8,
         pub key: u16,
@@ -400,7 +374,6 @@ mod virt {
     use serde::{Deserialize, Serialize};
 
     #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(deny_unknown_fields)]
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
         #[serde(skip_serializing_if = "Option::is_none")]
