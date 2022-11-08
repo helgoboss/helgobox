@@ -837,9 +837,7 @@ impl HeaderPanel {
             .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow(), &compartment_in_session))
             .collect();
-        DataObject::Mappings(Envelope {
-            value: mapping_datas,
-        })
+        DataObject::Mappings(App::create_envelope(mapping_datas))
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -2006,13 +2004,14 @@ impl HeaderPanel {
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
+        App::warn_if_envelope_version_higher(res.value.version());
         use UntaggedDataObject::*;
         match res.value {
             PresetLike(preset_data) => {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.data);
             }
-            Tagged(DataObject::Session(Envelope { value: d})) => {
+            Tagged(DataObject::Session(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
@@ -2020,7 +2019,7 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
-            Tagged(DataObject::ClipMatrix(Envelope { value })) => {
+            Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
@@ -2050,12 +2049,12 @@ impl HeaderPanel {
                     }
                 }
             }
-            Tagged(DataObject::MainCompartment(Envelope {value})) => {
+            Tagged(DataObject::MainCompartment(Envelope {value, ..})) => {
                 let compartment = Compartment::Main;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
             }
-            Tagged(DataObject::ControllerCompartment(Envelope {value})) => {
+            Tagged(DataObject::ControllerCompartment(Envelope {value, ..})) => {
                 let compartment = Compartment::Controller;
                 self.import_compartment(compartment, value);
                 self.update_compartment(compartment);
@@ -2166,9 +2165,7 @@ impl HeaderPanel {
                     .upgrade()
                     .expect("plugin params gone");
                 let session_data = plugin_parameters.create_session_data();
-                let data_object = DataObject::Session(Envelope {
-                    value: Box::new(session_data),
-                });
+                let data_object = DataObject::Session(App::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
@@ -2180,9 +2177,7 @@ impl HeaderPanel {
                     .borrow()
                     .owned_clip_matrix()
                     .map(|matrix| matrix.save());
-                let envelope = Envelope {
-                    value: Box::new(matrix),
-                };
+                let envelope = App::create_envelope(Box::new(matrix));
                 let data_object = DataObject::ClipMatrix(envelope);
                 let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
@@ -2192,9 +2187,7 @@ impl HeaderPanel {
                 let session = session.borrow();
                 let model = session.extract_compartment_model(compartment);
                 let data = CompartmentModelData::from_model(&model);
-                let envelope = Envelope {
-                    value: Box::new(data),
-                };
+                let envelope = App::create_envelope(Box::new(data));
                 let data_object = match compartment {
                     Compartment::Controller => DataObject::ControllerCompartment(envelope),
                     Compartment::Main => DataObject::MainCompartment(envelope),

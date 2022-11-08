@@ -21,12 +21,22 @@ use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 use reaper_high::Reaper;
+use semver::Version;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum UntaggedDataObject {
     Tagged(DataObject),
     PresetLike(CommonPresetData),
+}
+
+impl UntaggedDataObject {
+    pub fn version(&self) -> Option<&Version> {
+        match self {
+            UntaggedDataObject::Tagged(o) => o.version(),
+            UntaggedDataObject::PresetLike(d) => d.version.as_ref(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,6 +61,8 @@ pub enum DataObject {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommonPresetData {
+    #[serde(default)]
+    pub version: Option<Version>,
     pub name: String,
     #[serde(flatten)]
     pub data: Box<CompartmentModelData>,
@@ -63,29 +75,27 @@ impl DataObject {
     ) -> Result<Self, Box<dyn Error>> {
         let data_object = match api_object {
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
-            ApiObject::MainCompartment(Envelope { value: c }) => {
+            ApiObject::MainCompartment(Envelope { value: c, version }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
-                DataObject::MainCompartment(Envelope {
-                    value: Box::new(data_compartment),
-                })
+                DataObject::MainCompartment(Envelope::new(version, Box::new(data_compartment)))
             }
-            ApiObject::ControllerCompartment(Envelope { value: c }) => {
+            ApiObject::ControllerCompartment(Envelope { value: c, version }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
-                DataObject::ControllerCompartment(Envelope {
-                    value: Box::new(data_compartment),
-                })
+                DataObject::ControllerCompartment(Envelope::new(
+                    version,
+                    Box::new(data_compartment),
+                ))
             }
-            ApiObject::Mappings(Envelope { value: mappings }) => {
+            ApiObject::Mappings(Envelope {
+                value: mappings,
+                version,
+            }) => {
                 let data_mappings = Self::try_from_api_mappings(mappings, conversion_context);
-                DataObject::Mappings(Envelope {
-                    value: data_mappings?,
-                })
+                DataObject::Mappings(Envelope::new(version, data_mappings?))
             }
-            ApiObject::Mapping(Envelope { value: m }) => {
+            ApiObject::Mapping(Envelope { value: m, version }) => {
                 let data_mapping = to_data::convert_mapping(*m, conversion_context)?;
-                DataObject::Mapping(Envelope {
-                    value: Box::new(data_mapping),
-                })
+                DataObject::Mapping(Envelope::new(version, Box::new(data_mapping)))
             }
         };
         Ok(data_object)
@@ -105,43 +115,55 @@ impl DataObject {
         self,
         conversion_style: ConversionStyle,
     ) -> Result<ApiObject, Box<dyn Error>> {
-        let api_object =
-            match self {
-                DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
-                DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
-                DataObject::MainCompartment(Envelope { value: c }) => {
-                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
-                    ApiObject::MainCompartment(Envelope {
-                        value: Box::new(api_compartment),
-                    })
-                }
-                DataObject::ControllerCompartment(Envelope { value: c }) => {
-                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
-                    ApiObject::ControllerCompartment(Envelope {
-                        value: Box::new(api_compartment),
-                    })
-                }
-                DataObject::Mappings(Envelope { value: mappings }) => {
-                    let api_mappings: Result<Vec<_>, _> = mappings
-                        .into_iter()
-                        .map(|m| from_data::convert_mapping(m, conversion_style))
-                        .collect();
-                    ApiObject::Mappings(Envelope {
-                        value: api_mappings?,
-                    })
-                }
-                DataObject::Mapping(Envelope { value: m }) => {
-                    let api_mapping = from_data::convert_mapping(*m, conversion_style)?;
-                    ApiObject::Mapping(Envelope {
-                        value: Box::new(api_mapping),
-                    })
-                }
-                _ => return Err(
+        let api_object = match self {
+            DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+            DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
+            DataObject::MainCompartment(Envelope { value: c, version }) => {
+                let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                ApiObject::MainCompartment(Envelope::new(version, Box::new(api_compartment)))
+            }
+            DataObject::ControllerCompartment(Envelope { value: c, version }) => {
+                let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                ApiObject::ControllerCompartment(Envelope::new(version, Box::new(api_compartment)))
+            }
+            DataObject::Mappings(Envelope {
+                value: mappings,
+                version,
+            }) => {
+                let api_mappings: Result<Vec<_>, _> = mappings
+                    .into_iter()
+                    .map(|m| from_data::convert_mapping(m, conversion_style))
+                    .collect();
+                ApiObject::Mappings(Envelope::new(version, api_mappings?))
+            }
+            DataObject::Mapping(Envelope { value: m, version }) => {
+                let api_mapping = from_data::convert_mapping(*m, conversion_style)?;
+                ApiObject::Mapping(Envelope::new(version, Box::new(api_mapping)))
+            }
+            _ => {
+                return Err(
                     "conversion from source/mode/target data object not supported at the moment"
                         .into(),
-                ),
-            };
+                )
+            }
+        };
         Ok(api_object)
+    }
+
+    pub fn version(&self) -> Option<&Version> {
+        use DataObject::*;
+        match self {
+            Session(v) => v.version.as_ref(),
+            ClipMatrix(v) => v.version.as_ref(),
+            MainCompartment(v) => v.version.as_ref(),
+            ControllerCompartment(v) => v.version.as_ref(),
+            Mappings(v) => v.version.as_ref(),
+            Mapping(v) => v.version.as_ref(),
+            Source(v) => v.version.as_ref(),
+            Glue(v) => v.version.as_ref(),
+            Target(v) => v.version.as_ref(),
+            ActivationCondition(v) => v.version.as_ref(),
+        }
     }
 }
 

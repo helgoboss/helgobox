@@ -139,6 +139,7 @@ impl CsiObject {
                     ..Default::default()
                 };
                 ApiObject::ControllerCompartment(Envelope {
+                    version: None,
                     value: Box::new(compartment),
                 })
             }

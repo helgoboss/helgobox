@@ -35,7 +35,9 @@ use crate::infrastructure::server::grpc::{
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
-use realearn_api::persistence::{FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain};
+use realearn_api::persistence::{
+    Envelope, FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain,
+};
 use reaper_high::{
     ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
@@ -198,6 +200,28 @@ impl App {
             Version::parse(crate::infrastructure::plugin::built_info::PKG_VERSION).unwrap()
         });
         &VALUE
+    }
+
+    pub fn create_envelope<T>(value: T) -> Envelope<T> {
+        Envelope {
+            version: Some(Self::version().clone()),
+            value,
+        }
+    }
+
+    pub fn warn_if_envelope_version_higher(envelope_version: Option<&Version>) {
+        if let Some(v) = envelope_version {
+            if Self::version() < v {
+                notification::warn(format!(
+                    "The given snippet was created for ReaLearn {}, which is \
+                         newer than the installed version {}. Things might not work as expected. \
+                         Please consider upgrading your \
+                         ReaLearn installation to the latest version.",
+                    v,
+                    App::version()
+                ));
+            }
+        }
     }
 
     fn new(config: AppConfig) -> App {

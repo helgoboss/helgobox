@@ -540,11 +540,11 @@ impl MappingRowsPanel {
             let compartment = main_state.active_compartment.get();
             let entries = vec![{
                 let desc = match data_object_from_clipboard {
-                    Some(DataObject::Mapping(Envelope { value: m })) => Some((
+                    Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
                         format!("Paste mapping \"{}\" (insert here)", &m.name),
                         vec![*m],
                     )),
-                    Some(DataObject::Mappings(Envelope { value: vec })) => {
+                    Some(DataObject::Mappings(Envelope { value: vec, .. })) => {
                         Some((format!("Paste {} mappings (insert here)", vec.len()), vec))
                     }
                     _ => None,

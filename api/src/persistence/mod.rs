@@ -19,12 +19,21 @@ pub use source::*;
 pub use target::*;
 
 use playtime_api::persistence::Matrix;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Envelope<T> {
+    #[serde(default)]
+    pub version: Option<Version>,
     pub value: T,
+}
+
+impl<T> Envelope<T> {
+    pub fn new(version: Option<Version>, value: T) -> Self {
+        Self { version, value }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,8 +49,11 @@ pub enum ApiObject {
 impl ApiObject {
     pub fn into_mappings(self) -> Option<Vec<Mapping>> {
         match self {
-            ApiObject::Mappings(Envelope { value: mappings }) => Some(mappings),
-            ApiObject::Mapping(Envelope { value: m }) => Some(vec![*m]),
+            ApiObject::Mappings(Envelope {
+                value: mappings,
+                version,
+            }) => Some(mappings),
+            ApiObject::Mapping(Envelope { value: m, version }) => Some(vec![*m]),
             _ => None,
         }
     }

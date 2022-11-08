@@ -11,6 +11,7 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
     ActivationConditionData, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
@@ -564,7 +565,7 @@ impl MappingRowPanel {
 
     fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
         let api_object = deserialize_api_object_from_lua(text)?;
-        if !matches!(api_object, ApiObject::Mapping(Envelope { value: _ })) {
+        if !matches!(api_object, ApiObject::Mapping(Envelope { value: _, .. })) {
             return Err("There's more than one mapping in the clipboard.".into());
         }
         let data_object = {
@@ -648,26 +649,28 @@ impl MappingRowPanel {
                 item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {
                     let desc = match data_object_from_clipboard {
-                        Some(DataObject::Mapping(Envelope { value: m })) => Some((
+                        Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
                             format!("Paste mapping \"{}\" (replace)", &m.name),
-                            DataObject::Mapping(Envelope { value: m }),
+                            DataObject::Mapping(Envelope { value: m, version }),
                         )),
-                        Some(DataObject::Source(Envelope { value: s })) => Some((
+                        Some(DataObject::Source(Envelope { value: s, version })) => Some((
                             format!("Paste source ({})", s.category),
-                            DataObject::Source(Envelope { value: s }),
+                            DataObject::Source(Envelope { value: s, version }),
                         )),
-                        Some(DataObject::Glue(Envelope { value: m })) => Some((
+                        Some(DataObject::Glue(Envelope { value: m, version })) => Some((
                             "Paste glue".to_owned(),
-                            DataObject::Glue(Envelope { value: m }),
+                            DataObject::Glue(Envelope { value: m, version }),
                         )),
-                        Some(DataObject::Target(Envelope { value: t })) => Some((
+                        Some(DataObject::Target(Envelope { value: t, version })) => Some((
                             format!("Paste target ({})", t.category),
-                            DataObject::Target(Envelope { value: t }),
+                            DataObject::Target(Envelope { value: t, version }),
                         )),
-                        Some(DataObject::ActivationCondition(Envelope { value: t })) => Some((
-                            format!("Paste activation condition ({})", t.activation_type),
-                            DataObject::ActivationCondition(Envelope { value: t }),
-                        )),
+                        Some(DataObject::ActivationCondition(Envelope { value: t, version })) => {
+                            Some((
+                                format!("Paste activation condition ({})", t.activation_type),
+                                DataObject::ActivationCondition(Envelope { value: t, version }),
+                            ))
+                        }
                         _ => None,
                     };
                     if let Some((label, obj)) = desc {
@@ -678,11 +681,11 @@ impl MappingRowPanel {
                 },
                 {
                     let desc = match data_object_from_clipboard_clone {
-                        Some(DataObject::Mapping(Envelope { value: m })) => Some((
+                        Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
                             format!("Paste mapping \"{}\" (insert below)", &m.name),
                             vec![*m],
                         )),
-                        Some(DataObject::Mappings(Envelope { value: vec })) => {
+                        Some(DataObject::Mappings(Envelope { value: vec, .. })) => {
                             Some((format!("Paste {} mappings below", vec.len()), vec))
                         }
                         _ => None,
@@ -937,30 +940,25 @@ fn copy_mapping_object(
     let mapping = mapping.borrow();
     let compartment_in_session = session.compartment_in_session(compartment);
     let data_object = match object_type {
-        Mapping => DataObject::Mapping(Envelope {
-            value: Box::new(MappingModelData::from_model(
-                &mapping,
-                &compartment_in_session,
-            )),
-        }),
-        Source => DataObject::Source(Envelope {
-            value: Box::new(SourceModelData::from_model(&mapping.source_model)),
-        }),
-        Glue => DataObject::Glue(Envelope {
-            value: Box::new(ModeModelData::from_model(&mapping.mode_model)),
-        }),
-        Target => DataObject::Target(Envelope {
-            value: Box::new(TargetModelData::from_model(
-                &mapping.target_model,
-                &compartment_in_session,
-            )),
-        }),
-        ActivationCondition => DataObject::ActivationCondition(Envelope {
-            value: Box::new(ActivationConditionData::from_model(
+        Mapping => DataObject::Mapping(App::create_envelope(Box::new(
+            MappingModelData::from_model(&mapping, &compartment_in_session),
+        ))),
+        Source => DataObject::Source(App::create_envelope(Box::new(SourceModelData::from_model(
+            &mapping.source_model,
+        )))),
+        Glue => DataObject::Glue(App::create_envelope(Box::new(ModeModelData::from_model(
+            &mapping.mode_model,
+        )))),
+        Target => DataObject::Target(App::create_envelope(Box::new(TargetModelData::from_model(
+            &mapping.target_model,
+            &compartment_in_session,
+        )))),
+        ActivationCondition => DataObject::ActivationCondition(App::create_envelope(Box::new(
+            ActivationConditionData::from_model(
                 &mapping.activation_condition_model,
                 &compartment_in_session,
-            )),
-        }),
+            ),
+        ))),
     };
     let text = serialize_data_object(data_object, format)?;
     copy_text_to_clipboard(text);
@@ -986,9 +984,10 @@ fn paste_data_object_in_place(
         .ok_or("mapping not found")?
         .1
         .clone();
+    App::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();
     match data_object {
-        DataObject::Mapping(Envelope { value: mut m }) => {
+        DataObject::Mapping(Envelope { value: mut m, .. }) => {
             m.group_id = {
                 if triple.group_id.is_default() {
                     GroupKey::default()
@@ -1009,13 +1008,13 @@ fn paste_data_object_in_place(
                 Some(session.extended_context()),
             )?;
         }
-        DataObject::Source(Envelope { value: s }) => {
+        DataObject::Source(Envelope { value: s, .. }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
         }
-        DataObject::Glue(Envelope { value: m }) => {
+        DataObject::Glue(Envelope { value: m, .. }) => {
             m.apply_to_model(&mut mapping.mode_model);
         }
-        DataObject::Target(Envelope { value: t }) => {
+        DataObject::Target(Envelope { value: t, .. }) => {
             let compartment_in_session = session.compartment_in_session(triple.compartment);
             t.apply_to_model(
                 &mut mapping.target_model,
@@ -1024,7 +1023,7 @@ fn paste_data_object_in_place(
                 &compartment_in_session,
             )?;
         }
-        DataObject::ActivationCondition(Envelope { value: c }) => {
+        DataObject::ActivationCondition(Envelope { value: c, .. }) => {
             let compartment_in_session = session.compartment_in_session(triple.compartment);
             c.apply_to_model(
                 &mut mapping.activation_condition_model,
