@@ -7,11 +7,11 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
-    Reaper, Tempo, Track, TrackRoute, Width,
+    Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter, Pan, PlayRate,
+    Project, Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
-    AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate,
+    AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
     PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
 use rxrust::prelude::*;
@@ -406,12 +406,14 @@ impl ReaperTarget {
                 fx: e.fx,
                 bypass_param_index: None,
             }),
-            FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
-                is_real_time_ready: false,
-                param: e.parameter,
-                poll_for_feedback: true,
-                retrigger: false,
-            }),
+            FxParameterValueChanged(e) if e.touched && !is_bypass_param(&e.parameter) => {
+                FxParameter(FxParameterTarget {
+                    is_real_time_ready: false,
+                    param: e.parameter,
+                    poll_for_feedback: true,
+                    retrigger: false,
+                })
+            }
             FxPresetChanged(e) => FxPreset(FxPresetTarget { fx: e.fx }),
             MasterTempoChanged(e) if e.touched => Tempo(TempoTarget {
                 // TODO-low In future this might come from a certain project
@@ -450,21 +452,24 @@ impl ReaperTarget {
         let csurf_rx = Global::control_surface_rx();
         let action_rx = Global::action_rx();
         observable::empty()
-            .merge(csurf_rx.fx_parameter_touched().map(move |param| {
-                FxParameter(FxParameterTarget {
-                    is_real_time_ready: false,
-                    param,
-                    poll_for_feedback: true,
-                    retrigger: false,
-                })
-                .into()
-            }))
             .merge(csurf_rx.fx_enabled_changed().map(move |fx| {
                 FxEnable(FxEnableTarget {
                     fx,
                     bypass_param_index: None,
                 })
                 .into()
+            }))
+            .merge(csurf_rx.fx_parameter_touched().filter_map(move |param| {
+                if is_bypass_param(&param) {
+                    return None;
+                }
+                let t = FxParameterTarget {
+                    is_real_time_ready: false,
+                    param,
+                    poll_for_feedback: true,
+                    retrigger: false,
+                };
+                Some(FxParameter(t).into())
             }))
             .merge(
                 csurf_rx
@@ -1550,4 +1555,9 @@ pub fn with_gang_behavior(
         SelectionAndGrouping => f(GangBehavior::AllowGang),
     };
     Ok(())
+}
+
+fn is_bypass_param(param: &FxParameter) -> bool {
+    let bypass_param = param.fx().parameter_by_id(ParamId::Bypass);
+    Some(param) == bypass_param.as_ref()
 }
