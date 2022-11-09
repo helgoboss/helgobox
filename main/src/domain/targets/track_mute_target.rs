@@ -68,13 +68,13 @@ impl RealearnTarget for TrackMuteTarget {
             self.track.project(),
             self.gang_behavior,
             &TRACK_MUTE_TARGET,
-            |gang_behavior| {
+            |gang_behavior, grouping_behavior| {
                 change_track_prop(
                     &self.track,
                     self.exclusivity,
                     value,
-                    |t| t.mute(gang_behavior),
-                    |t| t.unmute(gang_behavior),
+                    |t| t.mute(gang_behavior, grouping_behavior),
+                    |t| t.unmute(gang_behavior, grouping_behavior),
                 );
             },
         )?;

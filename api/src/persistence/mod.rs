@@ -49,10 +49,9 @@ impl ApiObject {
     pub fn into_mappings(self) -> Option<Vec<Mapping>> {
         match self {
             ApiObject::Mappings(Envelope {
-                value: mappings,
-                version,
+                value: mappings, ..
             }) => Some(mappings),
-            ApiObject::Mapping(Envelope { value: m, version }) => Some(vec![*m]),
+            ApiObject::Mapping(Envelope { value: m, .. }) => Some(vec![*m]),
             _ => None,
         }
     }

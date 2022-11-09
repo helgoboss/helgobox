@@ -72,14 +72,14 @@ impl RealearnTarget for TrackSoloTarget {
             self.track.project(),
             self.gang_behavior,
             &TRACK_SOLO_TARGET,
-            |gang_behavior| {
+            |gang_behavior, grouping_behavior| {
                 with_solo_behavior(self.behavior, || {
                     change_track_prop(
                         &self.track,
                         self.exclusivity,
                         value,
-                        |t| t.solo(gang_behavior),
-                        |t| t.unsolo(gang_behavior),
+                        |t| t.solo(gang_behavior, grouping_behavior),
+                        |t| t.unsolo(gang_behavior, grouping_behavior),
                     );
                 });
             },

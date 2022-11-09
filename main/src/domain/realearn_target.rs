@@ -4,19 +4,19 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    scoped_track_index, AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings,
-    Compartment, DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceId, InstanceStateChanged, MainMapping,
-    MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
-    QualifiedMappingId, RealTimeReaperTarget, ReaperTarget, SharedInstanceState, Tag, TagScope,
-    TargetCharacter, TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
-    AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET,
-    BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET, CLIP_COLUMN_TARGET,
-    CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET, CLIP_ROW_TARGET, CLIP_SEEK_TARGET,
-    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
-    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
-    FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET,
-    GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
+    new_set_track_ui_functions_are_available, scoped_track_index, AdditionalFeedbackEvent,
+    AdditionalTransformationInput, BasicSettings, Compartment, DomainEventHandler, Exclusivity,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
+    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
+    OrderedMappingMap, OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget,
+    ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity,
+    ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
+    BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET,
+    BROWSE_POT_PRESETS_TARGET, CLIP_COLUMN_TARGET, CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET,
+    CLIP_ROW_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET,
+    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET,
+    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET,
+    FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
     LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
     PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
     ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
@@ -911,8 +911,9 @@ impl TargetTypeDef {
     pub const fn supports_gang_grouping(&self) -> bool {
         self.supports_gang_grouping
     }
-    pub const fn supports_track_grouping_only_gang_behavior(&self) -> bool {
+    pub fn supports_track_grouping_only_gang_behavior(&self) -> bool {
         self.supports_track_grouping_only_gang_behavior
+            || new_set_track_ui_functions_are_available()
     }
     pub const fn supports_track_must_be_selected(&self) -> bool {
         self.supports_track() && self.if_so_supports_track_must_be_selected

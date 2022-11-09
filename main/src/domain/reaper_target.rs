@@ -7,8 +7,8 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter, Pan, PlayRate,
-    Project, Reaper, Tempo, Track, TrackRoute, Width,
+    Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
+    GroupingBehavior, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
     AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
@@ -1234,9 +1234,24 @@ impl TrackGangBehavior {
         unfixed.fixed(target_type_def)
     }
 
+    pub fn gang_and_grouping_behavior(&self) -> (GangBehavior, GroupingBehavior) {
+        match self {
+            TrackGangBehavior::Off => (GangBehavior::DenyGang, GroupingBehavior::PreventGrouping),
+            TrackGangBehavior::SelectionOnly => {
+                (GangBehavior::AllowGang, GroupingBehavior::PreventGrouping)
+            }
+            TrackGangBehavior::GroupingOnly => {
+                (GangBehavior::DenyGang, GroupingBehavior::UseGrouping)
+            }
+            TrackGangBehavior::SelectionAndGrouping => {
+                (GangBehavior::AllowGang, GroupingBehavior::UseGrouping)
+            }
+        }
+    }
+
     pub fn fixed(&self, target_type_def: &TargetTypeDef) -> Self {
         match self {
-            Self::GroupingOnly if !target_type_def.supports_track_grouping_only_gang_behavior => {
+            Self::GroupingOnly if !target_type_def.supports_track_grouping_only_gang_behavior() => {
                 Self::SelectionAndGrouping
             }
             _ => *self,
@@ -1524,12 +1539,27 @@ pub fn with_seek_behavior(behavior: SeekBehavior, f: impl FnOnce()) {
     }
 }
 
+pub fn new_set_track_ui_functions_are_available() -> bool {
+    Reaper::get()
+        .medium_reaper()
+        .low()
+        .pointers()
+        .SetTrackUIPolarity
+        .is_some()
+}
+
 pub fn with_gang_behavior(
     project: Project,
     behavior: TrackGangBehavior,
     target_type_def: &TargetTypeDef,
-    f: impl FnOnce(GangBehavior),
+    f: impl FnOnce(GangBehavior, GroupingBehavior),
 ) -> Result<(), &'static str> {
+    let (gang_behavior, grouping_behavior) = behavior.gang_and_grouping_behavior();
+    if new_set_track_ui_functions_are_available() {
+        // REAPER >= 6.69+dev1027 makes things much easier.
+        f(gang_behavior, grouping_behavior);
+        return Ok(());
+    }
     use TrackGangBehavior::*;
     match behavior {
         Off => {
@@ -1537,22 +1567,22 @@ pub fn with_gang_behavior(
                 // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
                 // track grouping even when passing DenyGang. So we need to switch it off
                 // temporarily.
-                project.with_track_grouping(false, || f(GangBehavior::DenyGang))
+                project.with_track_grouping(false, || f(gang_behavior, grouping_behavior))
             } else {
-                f(GangBehavior::DenyGang)
+                f(gang_behavior, grouping_behavior)
             }
         }
-        SelectionOnly => project.with_track_grouping(false, || f(GangBehavior::AllowGang)),
+        SelectionOnly => project.with_track_grouping(false, || f(gang_behavior, grouping_behavior)),
         GroupingOnly => {
             if target_type_def.supports_track_grouping_only_gang_behavior {
                 // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
                 // track grouping even when passing DenyGang. Perfect.
-                f(GangBehavior::DenyGang)
+                f(gang_behavior, grouping_behavior)
             } else {
                 return Err("grouping-only is not supported for this target");
             }
         }
-        SelectionAndGrouping => f(GangBehavior::AllowGang),
+        SelectionAndGrouping => f(GangBehavior::AllowGang, GroupingBehavior::UseGrouping),
     };
     Ok(())
 }

@@ -83,13 +83,19 @@ impl RealearnTarget for TrackMonitoringModeTarget {
             self.track.project(),
             self.gang_behavior,
             &TRACK_MONITORING_MODE_TARGET,
-            |gang_behavior| {
+            |gang_behavior, grouping_behavior| {
                 change_track_prop(
                     &self.track,
                     self.exclusivity,
                     value,
-                    |t| t.set_input_monitoring_mode(self.mode, gang_behavior),
-                    |t| t.set_input_monitoring_mode(InputMonitoringMode::Off, gang_behavior),
+                    |t| t.set_input_monitoring_mode(self.mode, gang_behavior, grouping_behavior),
+                    |t| {
+                        t.set_input_monitoring_mode(
+                            InputMonitoringMode::Off,
+                            gang_behavior,
+                            grouping_behavior,
+                        )
+                    },
                 );
             },
         )?;
@@ -158,9 +164,12 @@ impl<'a> Target<'a> for TrackMonitoringModeTarget {
 pub const TRACK_MONITORING_MODE_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Set monitoring mode",
     short_name: "Track monitoring mode",
+    hint: "grouping support since REAPER v6.70",
     supports_track: true,
     supports_track_exclusivity: true,
     supports_gang_selected: true,
+    supports_gang_grouping: true,
+    supports_track_grouping_only_gang_behavior: true,
     ..DEFAULT_TARGET
 };
 

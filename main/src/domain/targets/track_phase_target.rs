@@ -4,8 +4,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -15,6 +15,7 @@ use std::borrow::Cow;
 pub struct UnresolvedTrackPhaseTarget {
     pub track_descriptor: TrackDescriptor,
     pub exclusivity: TrackExclusivity,
+    pub gang_behavior: TrackGangBehavior,
     pub poll_for_feedback: bool,
 }
 
@@ -31,6 +32,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPhaseTarget {
                     ReaperTarget::TrackPhase(TrackPhaseTarget {
                         track,
                         exclusivity: self.exclusivity,
+                        gang_behavior: self.gang_behavior,
                         poll_for_feedback: self.poll_for_feedback,
                     })
                 })
@@ -55,6 +57,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPhaseTarget {
 pub struct TrackPhaseTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
+    pub gang_behavior: TrackGangBehavior,
     pub poll_for_feedback: bool,
 }
 
@@ -72,12 +75,13 @@ impl RealearnTarget for TrackPhaseTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
+        let (gang_behavior, grouping_behavior) = self.gang_behavior.gang_and_grouping_behavior();
         change_track_prop(
             &self.track,
             self.exclusivity,
             value.to_unit_value()?,
-            |t| t.set_phase_inverted(true),
-            |t| t.set_phase_inverted(false),
+            |t| t.set_phase_inverted(true, gang_behavior, grouping_behavior),
+            |t| t.set_phase_inverted(false, gang_behavior, grouping_behavior),
         );
         Ok(HitResponse::processed_with_effect())
     }
@@ -127,9 +131,12 @@ impl<'a> Target<'a> for TrackPhaseTarget {
 pub const TRACK_PHASE_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Phase invert/normal",
     short_name: "Track phase",
-    hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
+    hint: "ganging/grouping support since REAPER v6.70",
     supports_track: true,
     supports_track_exclusivity: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
+    supports_track_grouping_only_gang_behavior: true,
     supports_poll_for_feedback: true,
     ..DEFAULT_TARGET
 };

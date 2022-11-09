@@ -86,9 +86,12 @@ impl RealearnTarget for TrackVolumeTarget {
             self.track.project(),
             self.gang_behavior,
             &TRACK_VOLUME_TARGET,
-            |gang_behavior| {
-                self.track
-                    .set_volume(volume.unwrap_or(Volume::MIN), gang_behavior);
+            |gang_behavior, grouping_behavior| {
+                self.track.set_volume(
+                    volume.unwrap_or(Volume::MIN),
+                    gang_behavior,
+                    grouping_behavior,
+                );
             },
         )?;
         Ok(HitResponse::processed_with_effect())

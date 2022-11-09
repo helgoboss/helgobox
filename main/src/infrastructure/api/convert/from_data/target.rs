@@ -460,6 +460,14 @@ fn convert_real_target(
                 style,
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
+            use_track_grouping: style.optional_value_with_default(
+                data.use_track_grouping,
+                defaults::TARGET_USE_TRACK_GROUPING,
+            ),
+            use_selection_ganging: style.optional_value_with_default(
+                data.use_selection_ganging,
+                defaults::TARGET_USE_SELECTION_GANGING,
+            ),
             poll_for_feedback: style.required_value_with_default(
                 data.poll_for_feedback,
                 defaults::TARGET_POLL_FOR_FEEDBACK,

@@ -2222,6 +2222,7 @@ impl TargetModel {
                     TrackPhase => UnresolvedReaperTarget::TrackPhase(UnresolvedTrackPhaseTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity,
+                        gang_behavior: self.gang_behavior,
                         poll_for_feedback: self.poll_for_feedback,
                     }),
                     TrackShow => UnresolvedReaperTarget::TrackShow(UnresolvedTrackShowTarget {

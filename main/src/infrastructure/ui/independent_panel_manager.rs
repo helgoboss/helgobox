@@ -123,16 +123,6 @@ impl IndependentPanelManager {
         self.mapping_panels.clear();
     }
 
-    pub fn hide_all_with_compartment(&mut self, compartment: Compartment) {
-        for p in &self.mapping_panels {
-            if let Some(m) = p.displayed_mapping() {
-                if m.borrow().compartment() == compartment {
-                    p.hide();
-                }
-            }
-        }
-    }
-
     fn request_panel(&mut self) -> SharedView<MappingPanel> {
         self.find_free_panel()
             .or_else(|| self.create_new_panel_if_not_exhausted())

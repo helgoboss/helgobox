@@ -7,7 +7,7 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{ChangeEvent, Project};
+use reaper_high::{ChangeEvent, GroupingBehavior, Project};
 use reaper_medium::GangBehavior;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -62,9 +62,13 @@ impl RealearnTarget for AnyOnTarget {
         for t in self.project.tracks() {
             use AnyOnParameter::*;
             match self.parameter {
-                TrackSolo => t.unsolo(GangBehavior::DenyGang),
-                TrackMute => t.unmute(GangBehavior::DenyGang),
-                TrackArm => t.disarm(false, GangBehavior::DenyGang),
+                TrackSolo => t.unsolo(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping),
+                TrackMute => t.unmute(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping),
+                TrackArm => t.disarm(
+                    false,
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                ),
                 TrackSelection => t.unselect(),
             }
         }

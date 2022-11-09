@@ -68,13 +68,13 @@ impl RealearnTarget for TrackArmTarget {
             self.track.project(),
             self.gang_behavior,
             &TRACK_ARM_TARGET,
-            |gang_behavior| {
+            |gang_behavior, grouping_behavior| {
                 change_track_prop(
                     &self.track,
                     self.exclusivity,
                     value,
-                    |t| t.arm(false, gang_behavior),
-                    |t| t.disarm(false, gang_behavior),
+                    |t| t.arm(false, gang_behavior, grouping_behavior),
+                    |t| t.disarm(false, gang_behavior, grouping_behavior),
                 );
             },
         )?;

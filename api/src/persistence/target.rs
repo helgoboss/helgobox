@@ -282,6 +282,10 @@ pub struct TrackPhaseTarget {
     pub exclusivity: Option<TrackExclusivity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub poll_for_feedback: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

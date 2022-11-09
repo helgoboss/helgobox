@@ -3,7 +3,7 @@ use crate::domain::{
     pot, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedTrackParameterType,
 };
-use reaper_high::{Fx, Track};
+use reaper_high::{Fx, GroupingBehavior, Track};
 use reaper_medium::{GangBehavior, MediaTrack};
 use std::collections::{HashMap, HashSet};
 
@@ -134,13 +134,25 @@ impl RealearnTargetState {
     fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedTrackParameterType) {
         match parameter_type {
             TouchedTrackParameterType::Volume => {
-                track.set_volume(track.volume(), GangBehavior::DenyGang);
+                track.set_volume(
+                    track.volume(),
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
             }
             TouchedTrackParameterType::Pan => {
-                track.set_pan(track.pan(), GangBehavior::DenyGang);
+                track.set_pan(
+                    track.pan(),
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
             }
             TouchedTrackParameterType::Width => {
-                track.set_width(track.width(), GangBehavior::DenyGang);
+                track.set_width(
+                    track.width(),
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
             }
         }
     }

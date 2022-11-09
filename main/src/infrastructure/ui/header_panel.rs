@@ -1870,7 +1870,6 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
-        let compartment = Compartment::Main;
         self.main_state.borrow_mut().stop_filter_learning();
         let mode: MainPresetAutoLoadMode = self
             .view
