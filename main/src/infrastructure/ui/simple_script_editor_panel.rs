@@ -59,6 +59,18 @@ impl ScriptEngine for EelMidiScriptEngine {
     }
 }
 
+pub struct OscFeedbackArgumentsEngine;
+
+impl ScriptEngine for OscFeedbackArgumentsEngine {
+    fn compile(&self, _: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        Ok(Box::new(()))
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".txt"
+    }
+}
+
 pub struct EelControlTransformationEngine;
 
 impl ScriptEngine for EelControlTransformationEngine {

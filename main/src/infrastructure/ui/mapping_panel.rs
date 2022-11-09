@@ -75,8 +75,8 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
-    YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
+    OscFeedbackArgumentsEngine, ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel,
+    TextualFeedbackExpressionEngine, YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -821,19 +821,39 @@ impl MappingPanel {
         }
     }
 
-    fn edit_midi_source_script(&self) {
-        let session = self.session.clone();
-        self.edit_midi_source_script_internal(
-            |m| m.source_model.midi_script().to_owned(),
-            move |m, eel| {
-                Session::change_mapping_from_ui_simple(
-                    session.clone(),
-                    m,
-                    MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
-                    None,
+    fn edit_source_script(&self) {
+        match self.mapping().borrow().source_model.category() {
+            SourceCategory::Midi => {
+                let session = self.session.clone();
+                self.edit_midi_source_script_internal(
+                    |m| m.source_model.midi_script().to_owned(),
+                    move |m, eel| {
+                        Session::change_mapping_from_ui_simple(
+                            session.clone(),
+                            m,
+                            MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
+                            None,
+                        );
+                    },
                 );
-            },
-        );
+            }
+            SourceCategory::Osc => {
+                let session = self.session.clone();
+                self.edit_osc_feedback_arguments_internal(
+                    |m| format_osc_feedback_args(m.source_model.osc_feedback_args()),
+                    move |m, text| {
+                        let args = parse_osc_feedback_args(&text);
+                        Session::change_mapping_from_ui_simple(
+                            session.clone(),
+                            m,
+                            MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
+                            None,
+                        );
+                    },
+                );
+            }
+            _ => {}
+        }
     }
 
     fn edit_control_transformation(&self) {
@@ -896,6 +916,17 @@ impl MappingPanel {
                 );
             },
         );
+    }
+
+    fn edit_osc_feedback_arguments_internal(
+        &self,
+        get_initial_value: impl Fn(&MappingModel) -> String,
+        apply: impl Fn(&mut MappingModel, String) + 'static,
+    ) {
+        let engine = Box::new(OscFeedbackArgumentsEngine);
+        let help_url =
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-arguments";
+        self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
     }
 
     fn edit_midi_source_script_internal(
@@ -3853,6 +3884,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let text = match self.source.category() {
             Midi if self.source.is_midi_script() => Some("..."),
+            Osc => Some("..."),
             _ => None,
         };
         self.view
@@ -6418,7 +6450,7 @@ impl View for MappingPanel {
             root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON => {
                 self.edit_control_transformation()
             }
-            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_midi_source_script(),
+            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_source_script(),
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {
