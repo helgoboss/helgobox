@@ -1179,7 +1179,14 @@ impl fmt::Display for VirtualTrack {
             }),
             Master => f.write_str("<Master>"),
             Instance => f.write_str("<Instance>"),
-            Dynamic { .. } => f.write_str("<Dynamic>"),
+            Dynamic { scope, .. } => {
+                let text = match scope {
+                    TrackScope::AllTracks => "<Dynamic>",
+                    TrackScope::TracksVisibleInTcp => "<Dynamic (TCP)>",
+                    TrackScope::TracksVisibleInMcp => "<Dynamic (MCP)>",
+                };
+                f.write_str(text)
+            }
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
             ByName {
@@ -1191,7 +1198,14 @@ impl fmt::Display for VirtualTrack {
                 wild_match,
                 if *allow_multiple { " (all)" } else { "" }
             ),
-            ByIndex { index, .. } => write!(f, "#{}", index + 1),
+            ByIndex { index, scope } => {
+                let suffix = match scope {
+                    TrackScope::AllTracks => "",
+                    TrackScope::TracksVisibleInTcp => " in TCP",
+                    TrackScope::TracksVisibleInMcp => " in MCP",
+                };
+                write!(f, "#{}{}", index + 1, suffix)
+            }
             FromClipColumn { .. } => f.write_str("From a clip column"),
         }
     }
