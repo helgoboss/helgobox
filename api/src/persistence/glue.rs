@@ -171,6 +171,8 @@ impl Default for OutOfRangeBehavior {
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TakeoverMode {
+    Normal,
+    PickUpTolerant,
     PickUp,
     LongTimeNoSee,
     Parallel,

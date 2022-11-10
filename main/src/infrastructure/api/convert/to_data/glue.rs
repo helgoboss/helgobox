@@ -148,6 +148,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             use helgoboss_learn::TakeoverMode as T;
             use TakeoverMode::*;
             match g.takeover_mode.unwrap_or_default() {
+                Normal => T::Normal,
+                PickUpTolerant => T::PickupTolerant,
                 PickUp => T::Pickup,
                 LongTimeNoSee => T::LongTimeNoSee,
                 Parallel => T::Parallel,
