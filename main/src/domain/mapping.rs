@@ -790,7 +790,7 @@ impl MainMapping {
         last_non_performance_target_value: Option<AbsoluteValue>,
         log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
-        self.control_internal(
+        let result = self.control_internal(
             options,
             context,
             logger,
@@ -806,7 +806,17 @@ impl MainMapping {
                     last_non_performance_target_value,
                 )
             },
-        )
+        );
+        if self.core.mode.wants_to_know_final_target_value()
+            && result.at_least_one_target_was_reached
+        {
+            if let Some(final_target_value) = self.current_aggregated_target_value(context) {
+                self.core
+                    .mode
+                    .report_final_target_value_of_last_control(final_target_value);
+            }
+        }
+        result
     }
 
     /// Controls target directly without using mode.
