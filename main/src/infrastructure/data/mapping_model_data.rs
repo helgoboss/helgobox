@@ -8,7 +8,6 @@ use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData, MigrationDescriptor,
     ModeModelData, ModelToDataConversionContext, SourceModelData, TargetModelData,
 };
-use crate::infrastructure::plugin::App;
 use realearn_api::persistence::SuccessAudioFeedback;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -127,11 +126,12 @@ impl MappingModelData {
         compartment: Compartment,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
+        version: Option<&Version>,
     ) -> Result<MappingModel, &'static str> {
         self.to_model_flexible(
             compartment,
             &MigrationDescriptor::default(),
-            Some(App::version()),
+            version,
             conversion_context,
             processor_context,
         )
@@ -194,10 +194,11 @@ impl MappingModelData {
         model: &mut MappingModel,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
+        version: Option<&Version>,
     ) -> Result<(), &'static str> {
         self.apply_to_model_internal(
             &MigrationDescriptor::default(),
-            Some(App::version()),
+            version,
             conversion_context,
             processor_context,
             model,

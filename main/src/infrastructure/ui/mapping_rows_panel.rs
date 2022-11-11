@@ -551,7 +551,13 @@ impl MappingRowsPanel {
                 };
                 if let Some((label, datas)) = desc {
                     item(label, move || {
-                        let _ = paste_mappings(datas, shared_session, compartment, None, group_id);
+                        let _ = paste_mappings(
+                            Envelope::new(None, datas),
+                            shared_session,
+                            compartment,
+                            None,
+                            group_id,
+                        );
                     })
                 } else {
                     disabled_item("Paste")

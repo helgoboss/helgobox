@@ -322,7 +322,9 @@ impl ModeModelData {
             self.min_target_jump.get() > 0.0 || self.max_target_jump.get() < 1.0;
         let (legacy_jump_interval, takeover_mode) = if has_custom_jump_interval {
             // We have a custom jump interval.
-            let interval = if self.takeover_mode == TakeoverMode::Normal {
+            let interval = if self.takeover_mode == TakeoverMode::default()
+                && !migration_descriptor.jump_overhaul_485
+            {
                 // However, we have the new "Normal". So jump interval doesn't make sense at all.
                 // Fix that.
                 None

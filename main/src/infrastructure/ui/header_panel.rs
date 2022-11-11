@@ -54,6 +54,7 @@ use crate::infrastructure::ui::{
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
+use semver::Version;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -303,7 +304,7 @@ impl HeaderPanel {
                     if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
                             format!("Paste {} mappings (replace all in group)", env.value.len()),
-                            move || ContextMenuAction::PasteReplaceAllInGroup(env.value),
+                            move || ContextMenuAction::PasteReplaceAllInGroup(env),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
@@ -1016,15 +1017,15 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
-            DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
+            DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
-        self.paste_replace_all_in_group(data_mappings);
+        self.paste_replace_all_in_group(Envelope::new(api_mappings.version, data_mappings));
         Ok(())
     }
 
     // https://github.com/rust-lang/rust-clippy/issues/6066
     #[allow(clippy::needless_collect)]
-    fn paste_replace_all_in_group(&self, mapping_datas: Vec<MappingModelData>) {
+    fn paste_replace_all_in_group(&self, mapping_datas: Envelope<Vec<MappingModelData>>) {
         let main_state = self.main_state.borrow();
         let group_id = main_state
             .displayed_group_for_active_compartment()
@@ -1041,6 +1042,7 @@ impl HeaderPanel {
             return;
         };
         let mapping_models: Result<Vec<_>, _> = mapping_datas
+            .value
             .into_iter()
             .map(|mut data| {
                 data.id = None;
@@ -1049,6 +1051,7 @@ impl HeaderPanel {
                     compartment,
                     &session.compartment_in_session(compartment),
                     Some(session.extended_context()),
+                    mapping_datas.version.as_ref(),
                 )
             })
             .collect();
@@ -2008,7 +2011,7 @@ impl HeaderPanel {
         match res.value {
             PresetLike(preset_data) => {
                 let compartment = self.active_compartment();
-                self.import_compartment(compartment, preset_data.data);
+                self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
             }
             Tagged(DataObject::Session(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
@@ -2048,14 +2051,14 @@ impl HeaderPanel {
                     }
                 }
             }
-            Tagged(DataObject::MainCompartment(Envelope {value, ..})) => {
+            Tagged(DataObject::MainCompartment(Envelope {value, version })) => {
                 let compartment = Compartment::Main;
-                self.import_compartment(compartment, value);
+                self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
-            Tagged(DataObject::ControllerCompartment(Envelope {value, ..})) => {
+            Tagged(DataObject::ControllerCompartment(Envelope {value, version })) => {
                 let compartment = Compartment::Controller;
-                self.import_compartment(compartment, value);
+                self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::Mappings{..}) => {
@@ -2077,7 +2080,12 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn import_compartment(&self, compartment: Compartment, data: Box<CompartmentModelData>) {
+    fn import_compartment(
+        &self,
+        compartment: Compartment,
+        version: Option<&Version>,
+        data: Box<CompartmentModelData>,
+    ) {
         if self.view.require_window().confirm(
             "ReaLearn",
             format!(
@@ -2087,10 +2095,7 @@ impl HeaderPanel {
         ) {
             let session = self.session();
             let mut session = session.borrow_mut();
-            // For now, let's assume that the imported data is always tailored to the running
-            // ReaLearn version.
-            let version = App::version();
-            match data.to_model(Some(version), compartment, Some(&session)) {
+            match data.to_model(version, compartment, Some(&session)) {
                 Ok(model) => {
                     session.import_compartment(compartment, Some(model));
                 }
@@ -2921,7 +2926,7 @@ enum ContextMenuAction {
     MakeTargetsOfListedMappingsSticky,
     MakeSourcesOfMainMappingsVirtual,
     MoveListedMappingsToGroup(Option<GroupId>),
-    PasteReplaceAllInGroup(Vec<MappingModelData>),
+    PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
     FreezeClipMatrix,

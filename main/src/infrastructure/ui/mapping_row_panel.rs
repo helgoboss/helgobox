@@ -587,11 +587,11 @@ impl MappingRowPanel {
             let session = self.session();
             let session = session.borrow();
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
-            DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
+            DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
         let triple = self.mapping_triple()?;
         paste_mappings(
-            data_mappings,
+            Envelope::new(api_mappings.version, data_mappings),
             self.session(),
             triple.compartment,
             Some(triple.mapping_id),
@@ -615,7 +615,7 @@ impl MappingRowPanel {
         enum MenuAction {
             None,
             PasteObjectInPlace(DataObject),
-            PasteMappings(Vec<MappingModelData>),
+            PasteMappings(Envelope<Vec<MappingModelData>>),
             CopyPart(ObjectType),
             MoveMappingToGroup(Option<GroupId>),
             CopyMappingAsLua(ConversionStyle),
@@ -681,13 +681,17 @@ impl MappingRowPanel {
                 },
                 {
                     let desc = match data_object_from_clipboard_clone {
-                        Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
+                        Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
                             format!("Paste mapping \"{}\" (insert below)", &m.name),
-                            vec![*m],
+                            Envelope::new(version, vec![*m]),
                         )),
-                        Some(DataObject::Mappings(Envelope { value: vec, .. })) => {
-                            Some((format!("Paste {} mappings below", vec.len()), vec))
-                        }
+                        Some(DataObject::Mappings(Envelope {
+                            value: vec,
+                            version,
+                        })) => Some((
+                            format!("Paste {} mappings below", vec.len()),
+                            Envelope::new(version, vec),
+                        )),
                         _ => None,
                     };
                     if let Some((label, datas)) = desc {
@@ -987,7 +991,10 @@ fn paste_data_object_in_place(
     App::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();
     match data_object {
-        DataObject::Mapping(Envelope { value: mut m, .. }) => {
+        DataObject::Mapping(Envelope {
+            value: mut m,
+            version,
+        }) => {
             m.group_id = {
                 if triple.group_id.is_default() {
                     GroupKey::default()
@@ -1006,6 +1013,7 @@ fn paste_data_object_in_place(
                 &mut mapping,
                 &conversion_context,
                 Some(session.extended_context()),
+                version.as_ref(),
             )?;
         }
         DataObject::Source(Envelope { value: s, .. }) => {
@@ -1040,7 +1048,7 @@ fn paste_data_object_in_place(
 // https://github.com/rust-lang/rust-clippy/issues/6066
 #[allow(clippy::needless_collect)]
 pub fn paste_mappings(
-    mapping_datas: Vec<MappingModelData>,
+    mapping_datas: Envelope<Vec<MappingModelData>>,
     session: SharedSession,
     compartment: Compartment,
     below_mapping_id: Option<MappingId>,
@@ -1067,6 +1075,7 @@ pub fn paste_mappings(
         }
     };
     let new_mappings: Result<Vec<_>, _> = mapping_datas
+        .value
         .into_iter()
         .map(|mut data| {
             data.id = None;
@@ -1075,6 +1084,7 @@ pub fn paste_mappings(
                 compartment,
                 &session.compartment_in_session(compartment),
                 Some(session.extended_context()),
+                mapping_datas.version.as_ref(),
             )
         })
         .collect();

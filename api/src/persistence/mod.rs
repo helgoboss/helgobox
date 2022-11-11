@@ -46,12 +46,15 @@ pub enum ApiObject {
 }
 
 impl ApiObject {
-    pub fn into_mappings(self) -> Option<Vec<Mapping>> {
+    pub fn into_mappings(self) -> Option<Envelope<Vec<Mapping>>> {
         match self {
             ApiObject::Mappings(Envelope {
-                value: mappings, ..
-            }) => Some(mappings),
-            ApiObject::Mapping(Envelope { value: m, .. }) => Some(vec![*m]),
+                value: mappings,
+                version,
+            }) => Some(Envelope::new(version, mappings)),
+            ApiObject::Mapping(Envelope { value: m, version }) => {
+                Some(Envelope::new(version, vec![*m]))
+            }
             _ => None,
         }
     }

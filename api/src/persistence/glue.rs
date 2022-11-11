@@ -181,7 +181,7 @@ pub enum TakeoverMode {
 
 impl Default for TakeoverMode {
     fn default() -> Self {
-        Self::PickUp
+        Self::Normal
     }
 }
 
