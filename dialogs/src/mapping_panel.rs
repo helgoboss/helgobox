@@ -492,54 +492,6 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(50, 355, 168, 15),
         ) + WS_TABSTOP,
         ltext(
-            "Jump",
-            ids.named_id("ID_SETTINGS_TARGET_JUMP_LABEL_TEXT"),
-            context.rect(15, 383, 22, 9),
-        ) + NOT_WS_GROUP,
-        groupbox(
-            "Jump",
-            ids.named_id("ID_SETTINGS_TARGET_JUMP_GROUP"),
-            context.rect(56, 371, 75, 15),
-        ) + SkipOnMacOs,
-        ltext(
-            "Min",
-            ids.named_id("ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT"),
-            context.rect(41, 374, 15, 9),
-        ) + NOT_WS_GROUP,
-        slider(
-            ids.named_id("ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL"),
-            context.rect(56, 371, 75, 15),
-        ) + WS_TABSTOP,
-        edittext(
-            ids.named_id("ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL"),
-            context.rect(132, 371, 30, 14),
-        ) + ES_AUTOHSCROLL,
-        ltext(
-            "%  1 ms",
-            ids.named_id("ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT"),
-            context.rect(164, 374, 55, 9),
-        ) + SS_WORDELLIPSIS
-            + NOT_WS_GROUP,
-        ltext(
-            "Max",
-            ids.named_id("ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT"),
-            context.rect(41, 392, 15, 9),
-        ) + NOT_WS_GROUP,
-        slider(
-            ids.named_id("ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL"),
-            context.rect(56, 388, 75, 15),
-        ) + WS_TABSTOP,
-        edittext(
-            ids.named_id("ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL"),
-            context.rect(132, 388, 30, 14),
-        ) + ES_AUTOHSCROLL,
-        ltext(
-            "%  127 ms",
-            ids.named_id("ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT"),
-            context.rect(164, 391, 55, 9),
-        ) + SS_WORDELLIPSIS
-            + NOT_WS_GROUP,
-        ltext(
             "Takeover",
             ids.named_id("ID_MODE_TAKEOVER_LABEL"),
             context.rect(15, 409, 35, 9),

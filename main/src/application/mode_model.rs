@@ -1,10 +1,11 @@
 use crate::domain::{EelTransformation, Mode};
 
 use helgoboss_learn::{
-    check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
-    ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
-    GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
-    OutOfRangeBehavior, TakeoverMode, UnitValue, ValueSequence, VirtualColor,
+    check_mode_applicability, create_unit_value_interval, full_discrete_interval,
+    full_unit_interval, AbsoluteMode, ButtonUsage, DetailedSourceCharacter, DiscreteIncrement,
+    EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval, ModeApplicabilityCheckInput,
+    ModeParameter, ModeSettings, OutOfRangeBehavior, TakeoverMode, UnitValue, ValueSequence,
+    VirtualColor,
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
@@ -24,9 +25,7 @@ pub enum ModeCommand {
     SetMinPressDuration(Duration),
     SetMaxPressDuration(Duration),
     SetTurboRate(Duration),
-    SetJumpInterval(Interval<UnitValue>),
-    SetMinJump(UnitValue),
-    SetMaxJump(UnitValue),
+    SetLegacyJumpInterval(Option<Interval<UnitValue>>),
     SetOutOfRangeBehavior(OutOfRangeBehavior),
     SetFireMode(FireMode),
     SetRoundTargetValue(bool),
@@ -62,7 +61,7 @@ pub enum ModeProp {
     Reverse,
     PressDurationInterval,
     TurboRate,
-    JumpInterval,
+    LegacyJumpInterval,
     OutOfRangeBehavior,
     FireMode,
     RoundTargetValue,
@@ -100,7 +99,12 @@ pub struct ModeModel {
     reverse: bool,
     press_duration_interval: Interval<Duration>,
     turbo_rate: Duration,
-    jump_interval: Interval<UnitValue>,
+    /// Since 2.14.0-pre.10, this should be `None` for all new mappings.
+    ///
+    /// In this case, a dynamic jump interval will be used.
+    ///
+    /// This is only set for old presets in order to not change behavior.
+    legacy_jump_interval: Option<Interval<UnitValue>>,
     out_of_range_behavior: OutOfRangeBehavior,
     fire_mode: FireMode,
     round_target_value: bool,
@@ -148,7 +152,7 @@ impl Default for ModeModel {
                 Duration::from_millis(0),
             ),
             turbo_rate: Duration::from_millis(0),
-            jump_interval: full_unit_interval(),
+            legacy_jump_interval: None,
             out_of_range_behavior: Default::default(),
             fire_mode: Default::default(),
             round_target_value: false,
@@ -235,15 +239,9 @@ impl<'a> Change<'a> for ModeModel {
                 self.turbo_rate = v;
                 One(P::TurboRate)
             }
-            C::SetJumpInterval(v) => {
-                self.jump_interval = v;
-                One(P::JumpInterval)
-            }
-            C::SetMinJump(v) => {
-                return self.change(C::SetJumpInterval(self.jump_interval.with_min(v)))
-            }
-            C::SetMaxJump(v) => {
-                return self.change(C::SetJumpInterval(self.jump_interval.with_max(v)))
+            C::SetLegacyJumpInterval(v) => {
+                self.legacy_jump_interval = v;
+                One(P::LegacyJumpInterval)
             }
             C::SetOutOfRangeBehavior(v) => {
                 self.out_of_range_behavior = v;
@@ -389,8 +387,8 @@ impl ModeModel {
         self.turbo_rate
     }
 
-    pub fn jump_interval(&self) -> Interval<UnitValue> {
-        self.jump_interval
+    pub fn legacy_jump_interval(&self) -> Option<Interval<UnitValue>> {
+        self.legacy_jump_interval
     }
 
     pub fn out_of_range_behavior(&self) -> OutOfRangeBehavior {
@@ -556,7 +554,8 @@ impl ModeModel {
                 },
             ),
             jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
-                self.jump_interval
+                self.legacy_jump_interval
+                    .unwrap_or_else(default_jump_interval)
             } else {
                 full_unit_interval()
             },
@@ -648,4 +647,8 @@ impl ModeModel {
             feedback_background_color: self.feedback_background_color.clone(),
         })
     }
+}
+
+fn default_jump_interval() -> Interval<UnitValue> {
+    create_unit_value_interval(0.0, 0.03)
 }

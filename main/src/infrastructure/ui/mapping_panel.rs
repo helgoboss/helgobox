@@ -124,8 +124,6 @@ struct WindowCache {
     mode_max_step_size: Window,
     mode_fire_line_2: Window,
     mode_fire_line_3: Window,
-    mode_min_jump: Window,
-    mode_max_jump: Window,
     target_value: Window,
 }
 
@@ -358,10 +356,6 @@ impl MappingPanel {
                                             P::PressDurationInterval | P::FireMode | P::TurboRate => {
                                                 view.invalidate_mode_fire_controls(initiator);
                                             }
-                                            P::JumpInterval => {
-                                                view.invalidate_mode_min_jump_controls(initiator);
-                                                view.invalidate_mode_max_jump_controls(initiator);
-                                            }
                                             P::OutOfRangeBehavior => {
                                                 view.invalidate_mode_out_of_range_behavior_combo_box();
                                             }
@@ -408,6 +402,9 @@ impl MappingPanel {
                                             }
                                             P::FeedbackValueTable => {
                                                 // No representation in GUI at the moment.
+                                            }
+                                            P::LegacyJumpInterval => {
+                                                // Not supported in UI anymore since 2.14.0-pre.10
                                             }
                                         }
                                     }
@@ -1271,8 +1268,6 @@ impl MappingPanel {
                 .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
             mode_fire_line_2: view.require_control(root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL),
             mode_fire_line_3: view.require_control(root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL),
-            mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
-            mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
         };
         self.window_cache.replace(Some(sliders));
@@ -1310,12 +1305,6 @@ impl MappingPanel {
             }
             root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_max_target_value_from_edit_control());
-            }
-            root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_jump_from_edit_control());
-            }
-            root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_jump_from_edit_control());
             }
             root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_min_source_value_from_edit_control());
@@ -2028,28 +2017,6 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mode_min_jump_from_edit_control(&mut self) {
-        let control_id = root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL;
-        let value = self
-            .get_step_size_from_target_edit_control(control_id)
-            .unwrap_or(UnitValue::MIN);
-        self.change_mapping_with_initiator(
-            MappingCommand::ChangeMode(ModeCommand::SetMinJump(value)),
-            Some(control_id),
-        );
-    }
-
-    fn update_mode_max_jump_from_edit_control(&mut self) {
-        let control_id = root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL;
-        let value = self
-            .get_step_size_from_target_edit_control(control_id)
-            .unwrap_or(UnitValue::MAX);
-        self.change_mapping_with_initiator(
-            MappingCommand::ChangeMode(ModeCommand::SetMaxJump(value)),
-            Some(control_id),
-        );
-    }
-
     fn update_mode_min_source_value_from_edit_control(&mut self) {
         let control_id = root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL;
         let value = self
@@ -2326,20 +2293,6 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .with_context(self.session.extended_context())
             .uses_step_factors()
-    }
-
-    fn update_mode_min_jump_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::JumpMinMax);
-        self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMinJump(
-            slider.slider_unit_value(),
-        )));
-    }
-
-    fn update_mode_max_jump_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::JumpMinMax);
-        self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMaxJump(
-            slider.slider_unit_value(),
-        )));
     }
 
     fn handle_target_check_box_1_change(&mut self) {
@@ -5694,24 +5647,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         // For knobs/faders and buttons
         {
-            let show_jump =
-                target_can_report_current_value && is_relevant(ModeParameter::JumpMinMax);
-            self.enable_if(
-                show_jump,
-                &[
-                    root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
-                    #[cfg(not(target_os = "macos"))]
-                    root::ID_SETTINGS_TARGET_JUMP_GROUP,
-                    root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-                    root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-                    root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
-                    root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-                    root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-                    root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
-                ],
-            );
             let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
                 && self.target_with_context().is_known_to_be_roundable();
             self.enable_if(
@@ -5742,8 +5677,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ],
             );
             self.enable_if(
-                show_jump
-                    || show_round_controls
+                show_round_controls
                     || show_takeover
                     || show_control_transformation
                     || show_absolute_mode,
@@ -5837,8 +5771,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_target_value_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_min_target_value_controls(initiator);
         self.invalidate_mode_max_target_value_controls(initiator);
-        self.invalidate_mode_min_jump_controls(initiator);
-        self.invalidate_mode_max_jump_controls(initiator);
     }
 
     fn invalidate_mode_min_source_value_controls(&self, initiator: Option<u32>) {
@@ -5926,28 +5858,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             use_step_sizes,
             self.target.unit(),
             self.session.control_context(),
-        );
-    }
-
-    fn invalidate_mode_min_jump_controls(&self, initiator: Option<u32>) {
-        self.invalidate_target_controls_internal(
-            root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-            root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-            root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-            AbsoluteValue::Continuous(self.mode.jump_interval().min_val()),
-            initiator,
-            true,
-        );
-    }
-
-    fn invalidate_mode_max_jump_controls(&self, initiator: Option<u32>) {
-        self.invalidate_target_controls_internal(
-            root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-            root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-            root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-            AbsoluteValue::Continuous(self.mode.jump_interval().max_val()),
-            initiator,
-            true,
         );
     }
 
@@ -6590,12 +6500,6 @@ impl View for MappingPanel {
             }
             s if s == sliders.mode_fire_line_3 => {
                 self.write(|p| p.handle_mode_fire_line_3_slider_change(s));
-            }
-            s if s == sliders.mode_min_jump => {
-                self.write(|p| p.update_mode_min_jump_from_slider(s));
-            }
-            s if s == sliders.mode_max_jump => {
-                self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
                 let _ = self.read(|p| p.hit_target(s.slider_unit_value()));

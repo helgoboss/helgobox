@@ -229,8 +229,14 @@ impl ModeModelData {
             max_source_value: model.source_value_interval().max_val(),
             min_target_value: model.target_value_interval().min_val(),
             max_target_value: model.target_value_interval().max_val(),
-            min_target_jump: model.jump_interval().min_val(),
-            max_target_jump: model.jump_interval().max_val(),
+            min_target_jump: model
+                .legacy_jump_interval()
+                .map(|i| i.min_val())
+                .unwrap_or(UnitValue::MIN),
+            max_target_jump: model
+                .legacy_jump_interval()
+                .map(|i| i.max_val())
+                .unwrap_or(UnitValue::MAX),
             min_step_size: model.step_size_interval().min_val().to_symmetric(),
             max_step_size: model.step_size_interval().max_val().to_symmetric(),
             min_step_factor: Some(model.step_factor_interval().min_val()),
@@ -312,10 +318,51 @@ impl ModeModelData {
             Duration::from_millis(self.max_press_millis),
         )));
         model.change(P::SetTurboRate(Duration::from_millis(self.turbo_rate)));
-        model.change(P::SetJumpInterval(Interval::new(
-            self.min_target_jump,
-            self.max_target_jump,
-        )));
+        let has_custom_jump_interval =
+            self.min_target_jump.get() > 0.0 || self.max_target_jump.get() < 1.0;
+        let (legacy_jump_interval, takeover_mode) = if has_custom_jump_interval {
+            // We have a custom jump interval.
+            let interval = if self.takeover_mode == TakeoverMode::Normal {
+                // However, we have the new "Normal". So jump interval doesn't make sense at all.
+                // Fix that.
+                None
+            } else {
+                // We really have a custom jump interval that could make a difference (not possible
+                // to create in GUI anymore).
+                Some(Interval::new(self.min_target_jump, self.max_target_jump))
+            };
+            let takeover_mode = if migration_descriptor.jump_overhaul_485
+                && self.takeover_mode == TakeoverMode::default()
+            {
+                if self.scale_mode_enabled {
+                    // ReaLearn < 2.8.0-pre3 used this flag instead of the enum.
+                    TakeoverMode::LongTimeNoSee
+                } else {
+                    // In a bit newer ReaLearn versions, pickup was the default takeover mode.
+                    TakeoverMode::Pickup
+                }
+            } else {
+                self.takeover_mode
+            };
+            (interval, takeover_mode)
+        } else {
+            // We don't have a custom jump interval. In older versions, this means there's no
+            // jump prevention at all. In newer versions, it depends on the takeover mode.
+            // In any case, we don't need to set a custom jump interval.
+            let takeover_mode = if migration_descriptor.jump_overhaul_485 {
+                // We have an old preset. In old presets, no takeover mode had any effect when
+                // the jump interval was the default. Make sure it remains that way by choosing
+                // the new "no-op" takeover mode "Normal".
+                TakeoverMode::Normal
+            } else {
+                // We have a new preset. Set whatever takeover mode is stored.
+                // In new versions and if only using the GUI, we should only run into this branch!
+                self.takeover_mode
+            };
+            (None, takeover_mode)
+        };
+        model.change(P::SetLegacyJumpInterval(legacy_jump_interval));
+        model.change(P::SetTakeoverMode(takeover_mode));
         model.change(P::SetEelControlTransformation(
             self.eel_control_transformation.clone(),
         ));
@@ -340,13 +387,6 @@ impl ModeModelData {
         model.change(P::SetFireMode(self.fire_mode));
         model.change(P::SetOutOfRangeBehavior(actual_out_of_range_behavior));
         model.change(P::SetRoundTargetValue(self.round_target_value));
-        let takeover_mode = if self.scale_mode_enabled {
-            // ReaLearn < 2.8.0-pre3 used this flag instead of the enum.
-            TakeoverMode::LongTimeNoSee
-        } else {
-            self.takeover_mode
-        };
-        model.change(P::SetTakeoverMode(takeover_mode));
         model.change(P::SetButtonUsage(self.button_usage));
         model.change(P::SetEncoderUsage(self.encoder_usage));
         model.change(P::SetRotate(self.rotate_is_enabled));

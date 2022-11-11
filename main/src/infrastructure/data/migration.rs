@@ -12,6 +12,8 @@ pub struct MigrationDescriptor {
     ///  
     /// https://github.com/helgoboss/realearn/issues/188
     pub fx_selector_transformation_188: bool,
+    /// https://github.com/helgoboss/realearn/issues/485
+    pub jump_overhaul_485: bool,
 }
 
 impl MigrationDescriptor {
@@ -24,6 +26,12 @@ impl MigrationDescriptor {
                 v < instance_fx_introduction_version
             } else {
                 false
+            },
+            jump_overhaul_485: if let Some(v) = preset_version {
+                let jump_overhaul_version = &Version::parse("2.14.0-pre.10").unwrap();
+                v < jump_overhaul_version
+            } else {
+                true
             },
         }
     }
