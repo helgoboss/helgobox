@@ -8,7 +8,9 @@ use crate::domain::{
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
+};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
 use std::borrow::Cow;
 
@@ -138,6 +140,17 @@ impl RealearnTarget for TrackWidthTarget {
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.width().reaper_value().get()))
+    }
+
+    fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
+        match key {
+            "width.mcu" => {
+                let width = self.width().reaper_value().get();
+                let text = format!("{:>4.0}W", width * 100.0);
+                Some(PropValue::Text(text.into()))
+            }
+            _ => None,
+        }
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
