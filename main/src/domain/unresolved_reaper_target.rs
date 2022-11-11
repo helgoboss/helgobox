@@ -1,24 +1,25 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    BackboneState, Compartment, CompartmentParamIndex, CompartmentParams, ExtendedProcessorContext,
-    FeedbackResolution, ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
-    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget,
-    UnresolvedBrowseGroupTarget, UnresolvedBrowsePotFilterItemsTarget,
-    UnresolvedBrowsePotPresetsTarget, UnresolvedBrowseTracksTarget, UnresolvedClipColumnTarget,
-    UnresolvedClipManagementTarget, UnresolvedClipMatrixTarget, UnresolvedClipRowTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedDummyTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
-    UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
-    UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
-    UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget,
-    UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
-    UnresolvedOscSendTarget, UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
-    UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
-    UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    scoped_track_index, BackboneState, Compartment, CompartmentParamIndex, CompartmentParams,
+    ExtendedProcessorContext, FeedbackResolution, ReaperTarget, UnresolvedActionTarget,
+    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
+    UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
+    UnresolvedBrowseTracksTarget, UnresolvedClipColumnTarget, UnresolvedClipManagementTarget,
+    UnresolvedClipMatrixTarget, UnresolvedClipRowTarget, UnresolvedClipSeekTarget,
+    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedDummyTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
+    UnresolvedMouseTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedPreviewPotPresetTarget, UnresolvedRouteAutomationModeTarget,
+    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
+    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
     UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
     UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
     UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
@@ -1489,8 +1490,18 @@ impl VirtualTrack {
                             scope,
                             MasterTrackBehavior::IncludeMasterTrack,
                         );
-                        let index = selected_track.as_ref().map(get_track_index_for_expression);
-                        Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                        match selected_track {
+                            None => Some(EXPRESSION_NONE_VALUE),
+                            Some(t) => {
+                                if t.is_master_track() {
+                                    Some(-1.0)
+                                } else {
+                                    scoped_track_index(&t, scope)
+                                        .map(|i| i as f64)
+                                        .or(Some(EXPRESSION_NONE_VALUE))
+                                }
+                            }
+                        }
                     }
                     "selected_track_indexes" => {
                         let i = extract_first_arg_as_positive_integer(args)?;
