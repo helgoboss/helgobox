@@ -75,8 +75,9 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    OscFeedbackArgumentsEngine, ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel,
-    TextualFeedbackExpressionEngine, YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
+    MappingRowsPanel, OscFeedbackArgumentsEngine, ScriptEditorInput, ScriptEngine,
+    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -811,11 +812,12 @@ impl MappingPanel {
 
     pub fn force_scroll_to_mapping_in_main_panel(&self) {
         if let Some(id) = self.qualified_mapping_id() {
-            self.main_panel
-                .upgrade()
-                .expect("main view gone")
-                .force_scroll_to_mapping(id.id);
+            self.main_panel().force_scroll_to_mapping(id);
         }
+    }
+
+    fn main_panel(&self) -> SharedView<MainPanel> {
+        self.main_panel.upgrade().expect("main view gone")
     }
 
     fn edit_source_script(&self) {
@@ -1156,6 +1158,34 @@ impl MappingPanel {
         self.mapping_header_panel.clear_item();
     }
 
+    pub fn navigate_in_mappings(
+        self: SharedView<Self>,
+        direction: isize,
+    ) -> Result<(), &'static str> {
+        let current_id = self.qualified_mapping_id().ok_or("no current mapping")?;
+        let session = self.session();
+        let session = session.borrow();
+        let main_panel = self.main_panel();
+        let main_state = main_panel.state();
+        let main_state = main_state.borrow();
+        let mappings: Vec<&SharedMapping> = MappingRowsPanel::filtered_mappings(
+            &session,
+            &main_state,
+            current_id.compartment,
+            false,
+        )
+        .collect();
+        let current_index = mappings
+            .iter()
+            .position(|m| m.borrow().id() == current_id.id)
+            .ok_or("current mapping not found in filtered list")?;
+        let new_index =
+            (current_index as isize + direction).rem_euclid(mappings.len() as isize) as usize;
+        let new_mapping = mappings.get(new_index).ok_or("new mapping not found")?;
+        self.show((**new_mapping).clone());
+        Ok(())
+    }
+
     pub fn show(self: SharedView<Self>, mapping: SharedMapping) {
         self.invoke_programmatically(|| {
             self.stop_party();
@@ -1274,6 +1304,12 @@ impl MappingPanel {
         let indicator = self
             .view
             .require_control(root::IDC_MAPPING_MATCHED_INDICATOR_TEXT);
+        self.view
+            .require_control(root::ID_MAPPING_PANEL_PREVIOUS_BUTTON)
+            .set_text(symbols::arrow_left_symbol());
+        self.view
+            .require_control(root::ID_MAPPING_PANEL_NEXT_BUTTON)
+            .set_text(symbols::arrow_right_symbol());
         indicator.set_text(symbols::indicator_symbol());
         indicator.disable();
     }
@@ -6345,6 +6381,12 @@ impl View for MappingPanel {
             // IDCANCEL is escape button
             root::ID_MAPPING_PANEL_OK | raw::IDCANCEL => {
                 self.hide();
+            }
+            root::ID_MAPPING_PANEL_PREVIOUS_BUTTON => {
+                let _ = self.navigate_in_mappings(-1);
+            }
+            root::ID_MAPPING_PANEL_NEXT_BUTTON => {
+                let _ = self.navigate_in_mappings(1);
             }
             // Source
             root::ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),

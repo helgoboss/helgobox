@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-11-02 (v2.14.0-pre.8)`
+|Last update of text: |`2022-11-11 (v2.14.0-pre.10)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -669,7 +669,7 @@ Before you start, I strongly recommend downloading a ReaLearn controller preset 
 _Reload all presets from disk_ to make a a newly downloaded controller preset appear in the preset list. If there's no
 suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets], build your own.
 
-This step is completely optional but it gives you many advantages, both in the short and long run. Please see
+This step is completely optional, but it gives you many advantages, both in the short and long run. Please see
 section <<controller-compartment,Controller compartment>> for details.
 
 [discrete]
@@ -822,7 +822,7 @@ The following basic setup hints are usually valid, no matter the specific contro
 * Put your controller's buttons into momentary mode, _not_ toggle mode.
 * If you are in the lucky situation of owning a controller with endless rotary encoders, by all
 means, configure them to transmit relative values, not absolute ones!
-** Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting
+** Otherwise, you can't take advantage of ReaLearn's advanced features for sources emitting
 relative values, such as the "Step size" or "Speed" setting.
 ** Also, preventing parameter jumps can never be as effective in absolute mode as in relative mode.
 * If there are issues, consult the <<troubleshooting,Troubleshooting>> section in the first part of this guide.
@@ -893,6 +893,224 @@ Please note that sending MIDI feedback
 * ReaLearn FX is on input FX chain and track is not armed.
 ====
 
+===== Menu
+
+This opens ReaLearn's main menu. It's also accessible via right-click on Windows and Linux and control-click
+on macOS. It provides the following entries.
+
+====== Copy listed mappings
+
+Copies all mappings that are visible in the current mapping list to the clipboard
+(respecting group, search field and filters). You can insert them by opening the context menu in the row panel.
+
+====== Paste mappings (replace all in group)
+
+Replaces all mappings in the current group with the mappings in the
+clipboard.
+
+====== Auto-name listed mappings
+
+Clears the names of all listed mappings so ReaLearn's dynamic auto-naming mechanism can kick in.
+
+====== Name listed mappings after source
+
+Sets the names of each listed mapping to the first line of its source label.
+
+====== Make sources of all main mappings virtual
+
+Attempts to make the sources in the main compartment virtual by matching them with the sources in the controller compartment. This is useful if you already learned a bunch of sources in the main compartment, just to find out later that you would like to have used a controller preset.
+
+====== Make targets of listed mappings sticky
+
+Changes the targets of all currently listed mappings to use "sticky" object selectors by attempting to resolve the objects from non-sticky selectors. We call object selectors _sticky_ if they refer to a very particular object (e.g. a track).
+
+* Sticky selectors: `<Master>`, `<This>`, `Particular`
+* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Instance>`, <All selected>`, `At position`, `Named`, `All named`
+
+
+====== Move listed mappings to group
+
+Lets you move all currently listed mappings to the specified group. Perfect in combination with the textual search!
+
+====== Advanced
+
+Provides access to expert features.
+
+* *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
+* *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
+* *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
+* *Dry-run Lua script from clipboard*: Executes the Lua code in the clipboard and opens the returned data structure in a text editor.
++
+[NOTE]
+====
+The way Lua import works in ReaLearn is:
+
+. ReaLearn executes the Lua script (from clipboard).
+. ReaLearn attempts to interpret the return value as ReaLearn API object.
+. ReaLearn loads the API object
+
+If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
+
+If step 2 fails, ReaLearn shows a validation error message.
+
+The command _Dry-run Lua script from clipboard_ enables you to just execute step 1 and see the "expanded" result. This can help to make sense of a possible validation error message in step 2.
+====
+* *Freeze clip matrix*: Don't use this, this feature is not ready yet!
+
+[#options]
+====== Options
+
+* *Auto-correct settings:* By default, whenever you change something in ReaLearn, it tries to
+figure out if your combination of settings makes sense. If not, it makes an adjustment.
+This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
+is your checkbox.
+* *Send feedback only if track armed:* If MIDI control input is set to _&lt;FX input&gt;_,
+ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable
+control, so disabling feedback is just consequent). However, if MIDI control input is set to a
+MIDI or OSC device, _auto-correct settings_ will take care of unchecking this option in order to allow feedback
+even when unarmed (same reasoning). You can override this behavior with this checkbox. At the moment,
+it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
+naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
+track is unarmed (*this is subject to change in future!*).
+* *Reset feedback when releasing source:* When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switch off, displays are cleared, motor faders are pulled down). You can prevent this ReaLearn instance from doing this by disabling this option. This can be useful e.g. when using REAPER/ReaLearn to control a hardware device (essentially using ReaLearn the other way around, "controlling from target to source").
+* *Make instance superior:* If ticked, this instance is allowed to suspend other instances which share the same
+input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your
+controller control e.g. the currently focused FX but fall back to your usual controls when it's closed. It's intended
+to be used primarily on instances that use <<auto-load>>.
++
+TIP: Since ReaLearn 2.14.0, falling back to normal mappings when the FX loses focus in auto-load mode became much easier! One instance is enough. Your normal mappings will be memorized and reloaded once the FX loses focus. See <<auto-load>>.
++
+** By default, ReaLearn instances are not superior, just normal. This is often okay because ReaLearn instances
+are friendly fellows and like sharing controllers with each other.
+** For example, if 2 instances use the same input or output device and they use different control elements, they
+can peacefully coexist. And even if they share a control element for the _control direction_, they are still
+fine with it. The same control element will control 2 mappings, why not!
+** Things start to get hairy as soon as 2 instances want to send _feedback_ to the same control elements at the
+same time. You should avoid this. You should not even do this within one ReaLearn instance. This can't work.
+** Sometimes you want one instance to suspend/cover/cancel/mute another one! You can do this by making this
+instance _superior_. Then, whenever this instance has at least one active mapping, all non-superior instances
+with the same control and/or feedback device will be disabled for control and/or feedback.
+** You can have multiple superior instances. Make sure they get along with each other :)
+* *Use instance-wide FX-to-preset links only:* By default, instance-specific links are applied _in addition_ to the global links and take precedence over the global ones. This checkbox makes sure that only instance-specific links are used.
+* *Stay active when project in background:* Determines if and under which conditions this ReaLearn instance should stay active when the containing project tab is not the active one. Applies to in-project ReaLearn instances only, not to monitoring FX instances!
+** *Never:* Will only be active when its project tab is active.
+** *Only if background project is running:* Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
+** *Always (more or less):* Attempts to stay active no matter what. Please note that this is technically not always possible when using _<FX input>_ or _<FX output>_ when the background project is not running.
+
+
+====== Server
+
+* *Enabled:* This enables/disables the built-in server for allowing the ReaLearn Companion app to
+connect to ReaLearn.
+* *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
+displays instructions how to do it.
+
+====== Open preset folder
+
+Opens the ReaLearn preset folder in a file manager.
+
+====== Reload all presets from disk
+
+If you made direct changes to preset files or have downloaded presets via ReaPack, you should press this to reflect these changes in the preset lists of all open ReaLearn instances (reloads all preset files).
+
+[NOTE]
+====
+This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
+====
+
+[#osc-devices]
+====== OSC devices
+
+Allows one to display and modify the list of (globally) configured OSC devices.
+
+* *<New>:* Opens a window for adding a new OSC devices.
+** *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
+** *Local port:* Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
+*** *Important:* This port must be reserved exclusively for ReaLearn. If you already use this port
+in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless
+you with an "unable to connect" message in the "Control input" dropdown.
+** *Device host:* Required for feedback only. It's the IP address of the OSC device to which ReaLearn
+should send feedback messages. This address is usually displayed on your OSC device (e.g. as "Local IP address"). When targeting an OSC software that runs on the same computer as REAPER and
+ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
++
+[TIP]
+====
+When you configure your OSC device, you must provide a _host_ as well. There you should enter the IP address of the computer which runs REAPER and ReaLearn.
+
+You can easily find it by pressing the <<Projection>> button in ReaLearn and scrolling down a bit. It's the value next to *Host* and should start with `192.168.`.
+====
+** *Device port:* Required for feedback only. The UDP port on which the OSC device listens for OSC feedback
+messages.
+** All OSC device configurations will be saved in the REAPER resource directory
+(REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) in the JSON file
+`Helgoboss/ReaLearn/osc.json`.
+* *_Some device_*
+** *Edit:* Lets you edit an existing device (see _&lt;New&gt;_).
+** *Remove:* Removes the device. This is a global action. As a consequence, all existing ReaLearn instances
+which use this device will point to a device that doesn't exist anymore.
+** *Enabled for control:* If you disable this, ReaLearn will stop listening to this device. This can save
+resources, so you should do this with each device that is not in use (as an alternative for removing it
+forever).
+** *Enabled for feedback:* If you disable this, ReaLearn won't connect to this device.
+** *Can deal with bundles:* By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
+Some devices (e.g. from Behringer) can't deal with OSC bundles. Untick the checkbox in this case and ReaLearn
+will send single OSC messages.
+
+[#compartment-parameters]
+====== Compartment parameters
+
+This shows all parameters of the current compartment (you know, the ones that can be used
+for conditional activation and _<Dynamic>_ selector expressions) and makes it possible to customize them. This is practical because it's completely up to you how to put these parameters to use.
+
+Perfect for preset authors: Parameter settings are saved together with the compartment preset. Parameter values will be reset whenever you load a preset (just the ones in that compartment).
+
+* *Param _x_ Name:* Changes the name of this parameter.
+* *Value count:* By default, ReaLearn parameter values are continuous in nature: They are arbitrary decimal numbers between 0.0 and 1.0. Although that's very flexible, it's often easier to work with a discrete value range. Entering a value count turns the parameter into a discrete parameter with the given number of integer values. For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
+
+[CAUTION]
+====
+*Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
+
+Reason: You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>. If you do that and later change the value count, these value references will not be valid anymore. They will point to other integers than you intended to. So if you are not sure, better pick a large value count and stick to it!
+====
+
+[#logging]
+====== Logging
+
+* **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+investigating bugs or understanding how this plug-in works.
+* ** Log real control messages:** When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
+** Timestamp in seconds
+** ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
+restart)
+** Message purpose
+*** *Real control:* A message used for controlling targets.
+*** *Real learn:* A message used for learning a source.
+** Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as
+decimal byte sequence and decoded)
+** Match result
+*** *unmatched:* The message didn't match any mappings.
+*** *matched:* The message matched at least one of the mappings.
+*** *consumed:* Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
+there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
+processed. The complete (N)RPN or 14-bit CC message will be.
+* **Log virtual control messages:** When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
+* **Log target control:** When enabled, all target invocations (parameter changes etc.) will be logged.
+* **Log virtual feedback messages:** When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
+* **Log real feedback messages:** When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log entries look similar to the ones described above, with the following notable differences.
+** Message purpose
+*** *Feedback output:* A message sent to your controller as response to target value changes.
+*** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation
+(see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
+*** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
+<<osc-send-message,OSC: Send message>> target.
+
+====== Send feedback now
+
+Usually ReaLearn sends feedback whenever something changed to keep the LEDs
+or motorized faders of your controller in sync with REAPER at all times. There might be situations
+where it doesn't work though. In this case you can send feedback manually using this button.
+
 ===== Export to clipboard
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
@@ -921,6 +1139,11 @@ For the programmers and script junkies out there: It's perfectly possible to pro
 ===== Import from clipboard
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+
+====== "?" (Help)
+
+Provides helpful links to the user guide and other stuff.
+
 
 [#projection]
 ===== Projection
@@ -1044,226 +1267,6 @@ If you want to find out what mappings exist for a particular target,
  list will show all mappings with that target. Unlike _Filter source_, ReaLearn will
  automatically stop learning as soon as a target was touched. Press the *X* button to remove the
  filter and show all mappings again.
-
-===== Context menu
-
-Additionally, the header panel provides a context menu (accessible via right-click on Windows and Linux, control-click
-on macOS) with the following entries:
-
-====== Copy listed mappings
-
-Copies all mappings that are visible in the current mapping list to the clipboard
- (respecting group, search field and filters). You can insert them by opening the context menu in the row panel.
-
-====== Paste mappings (replace all in group)
-
-Replaces all mappings in the current group with the mappings in the
- clipboard.
-
-====== Auto-name listed mappings
-
-Clears the names of all listed mappings so ReaLearn's dynamic auto-naming mechanism can kick in.
-
-====== Name listed mappings after source
-
-Sets the names of each listed mapping to the first line of its source label.
-
-====== Make sources of all main mappings virtual
-
-Attempts to make the sources in the main compartment virtual by matching them with the sources in the controller compartment. This is useful if you already learned a bunch of sources in the main compartment, just to find out later that you would like to have used a controller preset.
-
-====== Make targets of listed mappings sticky
-
-Changes the targets of all currently listed mappings to use "sticky" object selectors by attempting to resolve the objects from non-sticky selectors. We call object selectors _sticky_ if they refer to a very particular object (e.g. a track).
-
-* Sticky selectors: `<Master>`, `<This>`, `Particular`
-* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Instance>`, <All selected>`, `At position`, `Named`, `All named`
-
-
-====== Move listed mappings to group
-
-Lets you move all currently listed mappings to the specified group. Perfect in combination with the textual search!
-
-====== Advanced
-
-Provides access to expert features.
-
-* *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
-* *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
-* *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
-* *Dry-run Lua script from clipboard*: Executes the Lua code in the clipboard and opens the returned data structure in a text editor.
-+
-[NOTE]
-====
-The way Lua import works in ReaLearn is:
-
-. ReaLearn executes the Lua script (from clipboard).
-. ReaLearn attempts to interpret the return value as ReaLearn API object.
-. ReaLearn loads the API object
-
-If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
-
-If step 2 fails, ReaLearn shows a validation error message.
-
-The command _Dry-run Lua script from clipboard_ enables you to just execute step 1 and see the "expanded" result. This can help to make sense of a possible validation error message in step 2.
-====
-* *Freeze clip matrix*: Don't use this, this feature is not ready yet!
-
-[#options]
-====== Options
-
-* *Auto-correct settings:* By default, whenever you change something in ReaLearn, it tries to
- figure out if your combination of settings makes sense. If not, it makes an adjustment.
- This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
- is your checkbox.
-* *Send feedback only if track armed:* If MIDI control input is set to _&lt;FX input&gt;_,
- ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable
- control, so disabling feedback is just consequent). However, if MIDI control input is set to a
- MIDI or OSC device, _auto-correct settings_ will take care of unchecking this option in order to allow feedback
- even when unarmed (same reasoning). You can override this behavior with this checkbox. At the moment,
- it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
- naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
- track is unarmed (*this is subject to change in future!*).
-* *Reset feedback when releasing source:* When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switch off, displays are cleared, motor faders are pulled down). You can prevent this ReaLearn instance from doing this by disabling this option. This can be useful e.g. when using REAPER/ReaLearn to control a hardware device (essentially using ReaLearn the other way around, "controlling from target to source").
-* *Make instance superior:* If ticked, this instance is allowed to suspend other instances which share the same
- input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your
- controller control e.g. the currently focused FX but fall back to your usual controls when it's closed. It's intended
- to be used primarily on instances that use &quot;Auto-load: Based on instance FX&quot;.
-** By default, ReaLearn instances are not superior, just normal. This is often okay because ReaLearn instances
- are friendly fellows and like sharing controllers with each other.
-** For example, if 2 instances use the same input or output device and they use different control elements, they
- can peacefully coexist. And even if they share a control element for the _control direction_, they are still
- fine with it. The same control element will control 2 mappings, why not!
-** Things start to get hairy as soon as 2 instances want to send _feedback_ to the same control elements at the
- same time. You should avoid this. You should not even do this within one ReaLearn instance. This can't work.
-** Sometimes you want one instance to suspend/cover/cancel/mute another one! You can do this by making this
- instance _superior_. Then, whenever this instance has at least one active mapping, all non-superior instances
- with the same control and/or feedback device will be disabled for control and/or feedback.
-** You can have multiple superior instances. Make sure they get along with each other :)
-* *Use instance-wide FX-to-preset links only:* By default, instance-specific links are applied _in addition_ to the global links and take precedence over the global ones. This checkbox makes sure that only instance-specific links are used.
-* *Stay active when project in background:* Determines if and under which conditions this ReaLearn instance should stay active when the containing project tab is not the active one. Applies to in-project ReaLearn instances only, not to monitoring FX instances!
-** *Never:* Will only be active when its project tab is active.
-** *Only if background project is running:* Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
-** *Always (more or less):* Attempts to stay active no matter what. Please note that this is technically not always possible when using _<FX input>_ or _<FX output>_ when the background project is not running.
-
-
-====== Server
-
-* *Enabled:* This enables/disables the built-in server for allowing the ReaLearn Companion app to
- connect to ReaLearn.
-* *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
- displays instructions how to do it.
-
-====== Help
-
-As the name says.
-
-====== Open preset folder
-
-Opens the ReaLearn preset folder in a file manager.
-
-====== Reload all presets from disk
-
-If you made direct changes to preset files or have downloaded presets via ReaPack, you should press this to reflect these changes in the preset lists of all open ReaLearn instances (reloads all preset files).
-
-[NOTE]
-====
-This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
-====
-
-[#osc-devices]
-====== OSC devices
-
-Allows one to display and modify the list of (globally) configured OSC devices.
-
-* *<New>:* Opens a window for adding a new OSC devices.
-** *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
-** *Local port:* Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
-*** *Important:* This port must be reserved exclusively for ReaLearn. If you already use this port
- in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless
- you with an "unable to connect" message in the "Control input" dropdown.
-** *Device host:* Required for feedback only. It's the IP address of the OSC device to which ReaLearn
- should send feedback messages. This address is usually displayed on your OSC device (e.g. as "Local IP address"). When targeting an OSC software that runs on the same computer as REAPER and
- ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
-+
-[TIP]
-====
-When you configure your OSC device, you must provide a _host_ as well. There you should enter the IP address of the computer which runs REAPER and ReaLearn.
-
-You can easily find it by pressing the <<Projection>> button in ReaLearn and scrolling down a bit. It's the value next to *Host* and should start with `192.168.`.
-====
-** *Device port:* Required for feedback only. The UDP port on which the OSC device listens for OSC feedback
- messages.
-** All OSC device configurations will be saved in the REAPER resource directory
- (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) in the JSON file
- `Helgoboss/ReaLearn/osc.json`.
-* *_Some device_*
-** *Edit:* Lets you edit an existing device (see _&lt;New&gt;_).
-** *Remove:* Removes the device. This is a global action. As a consequence, all existing ReaLearn instances
- which use this device will point to a device that doesn't exist anymore.
-** *Enabled for control:* If you disable this, ReaLearn will stop listening to this device. This can save
- resources, so you should do this with each device that is not in use (as an alternative for removing it
- forever).
-** *Enabled for feedback:* If you disable this, ReaLearn won't connect to this device.
-** *Can deal with bundles:* By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
- Some devices (e.g. from Behringer) can't deal with OSC bundles. Untick the checkbox in this case and ReaLearn
- will send single OSC messages.
-
-[#compartment-parameters]
-====== Compartment parameters
-
-This shows all parameters of the current compartment (you know, the ones that can be used
- for conditional activation and _<Dynamic>_ selector expressions) and makes it possible to customize them. This is practical because it's completely up to you how to put these parameters to use.
-
-Perfect for preset authors: Parameter settings are saved together with the compartment preset. Parameter values will be reset whenever you load a preset (just the ones in that compartment).
-
-* *Param _x_ Name:* Changes the name of this parameter.
-* *Value count:* By default, ReaLearn parameter values are continuous in nature: They are arbitrary decimal numbers between 0.0 and 1.0. Although that's very flexible, it's often easier to work with a discrete value range. Entering a value count turns the parameter into a discrete parameter with the given number of integer values. For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
-
-[CAUTION]
-====
-*Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
-
-Reason: You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>. If you do that and later change the value count, these value references will not be valid anymore. They will point to other integers than you intended to. So if you are not sure, better pick a large value count and stick to it!
-====
-
-[#logging]
-====== Logging
-
-* **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
- investigating bugs or understanding how this plug-in works.
-* ** Log real control messages:** When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
-** Timestamp in seconds
-** ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
- restart)
-** Message purpose
-*** *Real control:* A message used for controlling targets.
-*** *Real learn:* A message used for learning a source.
-** Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as
- decimal byte sequence and decoded)
-** Match result
-*** *unmatched:* The message didn't match any mappings.
-*** *matched:* The message matched at least one of the mappings.
-*** *consumed:* Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
- there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
- processed. The complete (N)RPN or 14-bit CC message will be.
-* **Log virtual control messages:** When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
-* **Log target control:** When enabled, all target invocations (parameter changes etc.) will be logged.
-* **Log virtual feedback messages:** When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
-* **Log real feedback messages:** When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log entries look similar to the ones described above, with the following notable differences.
-** Message purpose
-*** *Feedback output:* A message sent to your controller as response to target value changes.
-*** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation
-(see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
-*** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
-<<osc-send-message,OSC: Send message>> target.
-
-====== Send feedback now
-
-Usually ReaLearn sends feedback whenever something changed to keep the LEDs
-or motorized faders of your controller in sync with REAPER at all times. There might be situations
-where it doesn't work though. In this case you can send feedback manually using this button.
-
 
 [#bottom-panel]
 ==== Bottom panel
@@ -1443,11 +1446,11 @@ list].
 
 The header panel for main mappings consists of a few more user interface elements:
 
+[#auto-load]
 ===== Auto-load
 
 If you switch this to _Based on instance FX_, ReaLearn will start to observe the <<instance-fx>> of this ReaLearn instance. By default, the instance FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused. Whenever the instance FX changes, it will check if you have linked a compartment preset
- to it and will automatically load it. Whenever the instance FX switches to an unlinked FX, the mapping
- list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
+ to it and will automatically load it. Whenever the instance FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list defined before activating auto-load. Of course this makes sense only if you actually have linked some
  presets. Read on!
 The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main
 compartment contains the missing piece of the puzzle:
@@ -1613,6 +1616,7 @@ This section provides the following mapping-related settings and functions:
 * *Find in mapping list:* Scrolls the mapping rows panel so that the corresponding mapping row for
  this mapping gets visible.
 * *Beep on success (checkbox on the bottom-left):* Makes the mapping play a sound whenever the target has been invoked successfully. Nice for trigger-like targets such as <<realearn-take-mapping-snapshot>> for which there's no other good way to know if it worked.
+* *Previous/next buttons:* Allows you to jump to the previous or next mapping. Considers only mappings that are currently visible in the mapping rows panel.
 * *Enabled (checkbox on the bottom-right):* Enables or disables the mapping as a whole.
 
 [#conditional-activation]
@@ -2267,7 +2271,7 @@ The second dropdown menu lets you choose the argument type which ReaLearn should
 | String | value.string
 | Color | style.color
 |===
-* If you want more control over what feedback values are sent, use the _Feedback arguments_ field.
+* If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
 
 ====== Range
 
@@ -2679,7 +2683,7 @@ If checked and if the track in question is selected, all other selected tracks w
 
 If checked, track grouping will be taken into account when adjusting the value. This uses REAPER's built-in track grouping feature and therefore should behave exactly like it.
 
-For volume, pan and width targets, this can only be enabled together with selection ganging.
+NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled together with selection ganging when using it on volume, pan or width targets.
 
 ====== Selector "<This>"
 
@@ -3219,6 +3223,13 @@ This target supports the following additional placeholders in textual feedback e
 ====== Track: Set stereo pan width
 
 Sets the track's width value (applicable if the track is in stereo pan mode).
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.width.mcu | Width value tailored to one line on a Mackie Control LCD
+|===
 
 ====== Track: Set volume
 
@@ -3906,7 +3917,6 @@ ReaLearn's own toggle mode has a clear advantage here.
 
 This converts incoming absolute fader/knob movements into relative adjustments of the target value. It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important differences:
 
-- You don't need to provide <<jump-min-max>> (which can be quite tricky to get right).
 - It's guaranteed that a full fader/knob swipe from 0% to 100% always results in a swipe over the full target range (assuming the target was at 0% initially).
 - It doesn't need to know the current target value. Which means it also works for mappings with <<virtual-target,virtual targets>>.
 
@@ -3915,39 +3925,39 @@ This converts incoming absolute fader/knob movements into relative adjustments o
 
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
 
-[#jump-min-max]
-===== Jump Min/Max
-
-If you are not using motorized faders, absolute mode is inherently prone to
- parameter jumps. A parameter jump occurs if you touch a control element (e.g. fader) whose
- position in no way reflects the current target value. This can result in audible jumps because the
- value is changed abruptly instead of continuously. _Jump Min/Max_ settings can be used to control
- jump behavior.
-
-* You can imagine the _Jump Max_ setting as the maximum allowed parameter jump (distance between
-two target values). By default, jumps of up to 100% are allowed, which means things can get very
-jumpy. You can set this to a very low value, e.g. 5%. Then, when you move the fader, ReaLearn
-will do absolutely nothing _until_ the fader comes very close to the current target value. This
-is called _pick up mode_ in some DAWs (what an appropriate name!). Make sure to not set _Jump
-Max_ too low, otherwise your target value might get stuck.
-* The _Jump Min_ setting is more unconventional. If you raise _Jump Min_, this effectively
-enforces parameter jumps. It's like adjusting target values to a relative grid.
-
 [#takeover-mode]
 ===== Takeover mode
 
-ReaLearn provides multiple modes that decide how to proceed in situations when a target parameter
-jump is not allowed. _Important:_ These modes only have an effect if you set _Jump Max_ to a small value
-(= forbid jumps).
+If you are not using motorized faders, absolute mode is inherently prone to
+parameter jumps. A parameter jump occurs if you touch a control element (e.g. fader) whose
+position in no way reflects the current target value. This can result in audible jumps because the
+value is changed abruptly instead of continuously. You can deal with this by setting the right takeover mode.
 
+ReaLearn provides multiple takeover modes that decide how to deal with situations when a target parameter
+jump would occur.
+
+====== Off
+
+The default settings: Jumps allowed.
+
+[#pick-up]
 ====== Pick up
 
-Default mode as described above. This is the same as "Soft takeover" in REAPER's
- built-in MIDI learn.
+This is the same as "Soft takeover" in REAPER's built-in MIDI learn. It prevents jumps by not changing the target value until your control element reaches it.
+
+In certain cases, this mode can cause the target value to get stuck. This happens with faders/knobs that cause jumps themselves when moved very rapidly. If you don't like that, you might want to try <<pick-up-tolerant>>.
+
+[#pick-up-tolerant]
+====== Pick up (tolerant)
+
+This is like <<pick-up>> but makes extra sure that the target value doesn't get stuck.
+
+However, unlike <<pick-up>>, this mode will jump if you cause a jump on your controller! Imagine using a touch strip. This kind of control element allows you to jump to arbitrary values at any time. Tolerant mode will not prevent this kind of jumps!
+
 
 ====== Long time no see
 
-This is similar to "Pick up" with the difference that the current target value
+This is similar to <<pick-up>> with the difference that the current target value
  will gradually "come your way". This results in seamless and fast reunification of control and target
  value but it can feel weird because the target value can temporarily move in the opposite
  direction of the fader movement. In older ReaLearn versions this was called "Slowly approach if jump too big".

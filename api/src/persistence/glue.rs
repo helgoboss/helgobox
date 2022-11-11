@@ -171,7 +171,7 @@ impl Default for OutOfRangeBehavior {
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum TakeoverMode {
-    Normal,
+    Off,
     PickUpTolerant,
     PickUp,
     LongTimeNoSee,
@@ -181,7 +181,7 @@ pub enum TakeoverMode {
 
 impl Default for TakeoverMode {
     fn default() -> Self {
-        Self::Normal
+        Self::Off
     }
 }
 

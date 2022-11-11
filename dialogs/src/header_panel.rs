@@ -6,45 +6,68 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     let text_height = 9;
     let left_label_x = 7;
-    let io_combo_box_x = 68;
-    let io_combo_box_dim = Dimensions(194, 16);
+    let io_label_width = 24;
+    let space = 3;
+    let (io_combo_box_width, io_combo_box_height) = (190, 16);
+    let mut row1 = Adder(left_label_x);
+    let mut row2 = Adder(left_label_x);
     let upper_part_controls = [
         // Input/output
         ltext(
-            "Control input",
+            "Input",
             ids.id(),
-            context.rect(left_label_x, 6, 42, text_height),
+            context.rect(row1.get(), 6, row1.span(io_label_width), text_height),
         ),
         dropdown(
             ids.named_id("ID_CONTROL_DEVICE_COMBO_BOX"),
-            context.rect_flexible(Point(io_combo_box_x, 4).with_dimensions(io_combo_box_dim)),
+            context.rect(
+                row1.space(space),
+                4,
+                row1.span(io_combo_box_width),
+                io_combo_box_height,
+            ),
         ) + WS_VSCROLL
             + WS_TABSTOP,
         ltext(
-            "Feedback output",
+            "Output",
             ids.id(),
-            context.rect(left_label_x, 26, 57, text_height),
+            context.rect(row2.get(), 26, row2.span(io_label_width), text_height),
         ),
         dropdown(
             ids.named_id("ID_FEEDBACK_DEVICE_COMBO_BOX"),
-            context.rect_flexible(Point(io_combo_box_x, 24).with_dimensions(io_combo_box_dim)),
+            context.rect(
+                row2.space(space),
+                24,
+                row2.span(io_combo_box_width),
+                io_combo_box_height,
+            ),
         ) + WS_VSCROLL
             + WS_TABSTOP,
         // Quick actions
         pushbutton(
+            "Menu",
+            ids.named_id("ID_MENU_BUTTON"),
+            context.rect(row1.space(space), 3, row1.span(27), 14),
+        ) + WS_GROUP,
+        pushbutton(
             "Import from clipboard",
             ids.named_id("ID_IMPORT_BUTTON"),
-            context.rect(270, 3, 73, 14),
+            context.rect(row1.space(space), 3, row1.span(73), 14),
         ) + WS_GROUP,
         pushbutton(
             "Export to clipboard",
             ids.named_id("ID_EXPORT_BUTTON"),
-            context.rect(346, 3, 67, 14),
+            context.rect(row1.space(space), 3, row1.span(67), 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
             "Projection",
             ids.named_id("ID_PROJECTION_BUTTON"),
-            context.rect(416, 3, 47, 14),
+            context.rect(row1.space(space), 3, row1.span(42), 14),
+        ) + NOT_WS_TABSTOP,
+        pushbutton(
+            "?",
+            ids.named_id("ID_MAIN_HELP_BUTTON"),
+            context.rect(row1.space(space), 3, row1.span(14), 14),
         ) + NOT_WS_TABSTOP,
         // Event filter
         ltext(

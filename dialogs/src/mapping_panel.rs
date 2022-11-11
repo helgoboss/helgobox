@@ -672,10 +672,20 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("IDC_BEEP_ON_SUCCESS_CHECK_BOX"),
             rect(7, 516, 70, 10),
         ) + WS_TABSTOP,
+        pushbutton(
+            "<=",
+            ids.named_id("ID_MAPPING_PANEL_PREVIOUS_BUTTON"),
+            context.rect(160, 514, 30, 14),
+        ) + NOT_WS_TABSTOP,
         ok_button(
             ids.named_id("ID_MAPPING_PANEL_OK"),
-            context.rect(201, 514, 50, 14),
+            context.rect(200, 514, 50, 14),
         ),
+        pushbutton(
+            "=>",
+            ids.named_id("ID_MAPPING_PANEL_NEXT_BUTTON"),
+            context.rect(260, 514, 30, 14),
+        ) + NOT_WS_TABSTOP,
         context.checkbox(
             "Enabled",
             ids.named_id("IDC_MAPPING_ENABLED_CHECK_BOX"),

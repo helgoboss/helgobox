@@ -545,17 +545,6 @@ impl Display for Font {
 #[derive(Copy, Clone)]
 pub struct Point(pub u32, pub u32);
 
-impl Point {
-    pub fn with_dimensions(&self, dimensions: Dimensions) -> Rect {
-        Rect {
-            x: self.0,
-            y: self.1,
-            width: dimensions.0,
-            height: dimensions.1,
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct Dimensions(pub u32, pub u32);
 
@@ -729,6 +718,30 @@ pub fn fix_text_rect(rect: Rect) -> Rect {
     Rect {
         height: rect.height.max(MIN_EFFECTIVE_TEXT_HEIGHT),
         ..rect
+    }
+}
+
+pub struct Adder(pub u32);
+
+impl Adder {
+    pub fn space(&mut self, units: u32) -> u32 {
+        self.0 += units;
+        self.0
+    }
+
+    pub fn span(&mut self, units: u32) -> u32 {
+        self.0 += units;
+        units
+    }
+
+    pub fn get(&self) -> u32 {
+        self.0
+    }
+}
+
+impl From<Adder> for u32 {
+    fn from(v: Adder) -> Self {
+        v.0
     }
 }
 

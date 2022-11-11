@@ -451,6 +451,10 @@ just make sure you use "Mackie" mode. It provides the best settings out of the b
 * *iCON Platform M+*: Preferred because also provides a controller layout.
 * *Mackie Control*: Also works but doesn't offer a controller layout.
 
+=== iCON Platform X+
+
+Works just like iCON Platform M+. Can be used stand-alone or as extender.
+
 === https://www.korg.com/products/computergear/nanokontrol2/[Korg nanoKONTROL2]
 
 There are https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/korg-nanokontrol2[unofficial presets] contributed by ketstert.

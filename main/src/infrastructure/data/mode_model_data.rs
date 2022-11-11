@@ -355,7 +355,7 @@ impl ModeModelData {
                 // We have an old preset. In old presets, no takeover mode had any effect when
                 // the jump interval was the default. Make sure it remains that way by choosing
                 // the new "no-op" takeover mode "Normal".
-                TakeoverMode::Normal
+                TakeoverMode::Off
             } else {
                 // We have a new preset. Set whatever takeover mode is stored.
                 // In new versions and if only using the GUI, we should only run into this branch!

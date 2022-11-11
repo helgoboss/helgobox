@@ -62,7 +62,7 @@ pub fn convert_glue(
             use persistence::TakeoverMode as T;
             use TakeoverMode::*;
             let v = match data.takeover_mode {
-                Normal => T::Normal,
+                Off => T::Off,
                 PickupTolerant => T::PickUpTolerant,
                 Pickup => T::PickUp,
                 LongTimeNoSee => T::LongTimeNoSee,

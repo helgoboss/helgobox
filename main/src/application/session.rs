@@ -1779,17 +1779,14 @@ impl Session {
         self.all_mappings().any(|m| m.as_ptr() == mapping as _)
     }
 
-    fn index_of_mapping(&self, compartment: Compartment, mapping_id: MappingId) -> Option<usize> {
+    pub fn index_of_mapping(
+        &self,
+        compartment: Compartment,
+        mapping_id: MappingId,
+    ) -> Option<usize> {
         self.mappings[compartment]
             .iter()
             .position(|m| m.borrow().id() == mapping_id)
-    }
-
-    pub fn location_of_mapping(&self, mapping_id: MappingId) -> Option<(Compartment, usize)> {
-        Compartment::enum_iter().find_map(|compartment| {
-            let index = self.index_of_mapping(compartment, mapping_id)?;
-            Some((compartment, index))
-        })
     }
 
     pub fn show_in_floating_window(&self) {

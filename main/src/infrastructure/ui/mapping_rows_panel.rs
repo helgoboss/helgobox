@@ -17,7 +17,7 @@ use std::cmp;
 use crate::application::{
     Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
-use crate::domain::{Compartment, MappingId, MappingMatchedEvent};
+use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -88,10 +88,10 @@ impl MappingRowsPanel {
     /// Also opens main panel, clears filters and switches compartment if necessary.
     ///
     /// Really tries to get mapping on top.
-    pub fn force_scroll_to_mapping(&self, mapping_id: MappingId) {
+    pub fn force_scroll_to_mapping(&self, id: QualifiedMappingId) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let (compartment, index) = match session.location_of_mapping(mapping_id) {
+        let index = match session.index_of_mapping(id.compartment, id.id) {
             None => return,
             Some(i) => i,
         };
@@ -100,7 +100,7 @@ impl MappingRowsPanel {
         }
         {
             let mut main_state = self.main_state.borrow_mut();
-            main_state.active_compartment.set(compartment);
+            main_state.active_compartment.set(id.compartment);
             main_state.clear_all_filters_and_displayed_group();
         }
         self.scroll(index);

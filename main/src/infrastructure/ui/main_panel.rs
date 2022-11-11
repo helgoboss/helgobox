@@ -17,7 +17,8 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
-    RealearnClipMatrix, SoundPlayer, TargetControlEvent, TargetValueChangedEvent,
+    QualifiedMappingId, RealearnClipMatrix, SoundPlayer, TargetControlEvent,
+    TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
@@ -86,6 +87,10 @@ impl MainPanel {
         }
     }
 
+    pub fn state(&self) -> &SharedMainState {
+        &self.state
+    }
+
     pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let panel_manager = IndependentPanelManager::new(session.clone(), Rc::downgrade(&self));
@@ -145,9 +150,9 @@ impl MainPanel {
         self.open(parent_window)
     }
 
-    pub fn force_scroll_to_mapping(&self, mapping_id: MappingId) {
+    pub fn force_scroll_to_mapping(&self, id: QualifiedMappingId) {
         if let Some(data) = self.active_data.borrow() {
-            data.mapping_rows_panel.force_scroll_to_mapping(mapping_id);
+            data.mapping_rows_panel.force_scroll_to_mapping(id);
         }
     }
 

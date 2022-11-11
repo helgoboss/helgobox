@@ -260,7 +260,7 @@ impl HeaderPanel {
         );
     }
 
-    fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+    fn open_main_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
         let app = App::get();
         let pure_menu = {
             use std::iter::once;
@@ -298,34 +298,34 @@ impl HeaderPanel {
             });
             let entries = vec![
                 item("Copy listed mappings", || {
-                    ContextMenuAction::CopyListedMappingsAsJson
+                    MainMenuAction::CopyListedMappingsAsJson
                 }),
                 {
                     if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
                             format!("Paste {} mappings (replace all in group)", env.value.len()),
-                            move || ContextMenuAction::PasteReplaceAllInGroup(env),
+                            move || MainMenuAction::PasteReplaceAllInGroup(env),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
                     }
                 },
                 item("Auto-name listed mappings", || {
-                    ContextMenuAction::AutoNameListedMappings
+                    MainMenuAction::AutoNameListedMappings
                 }),
                 item("Name listed mappings after source", || {
-                    ContextMenuAction::NameListedMappingsAfterSource
+                    MainMenuAction::NameListedMappingsAfterSource
                 }),
                 item("Make sources of all main mappings virtual", || {
-                    ContextMenuAction::MakeSourcesOfMainMappingsVirtual
+                    MainMenuAction::MakeSourcesOfMainMappingsVirtual
                 }),
                 item("Make targets of listed mappings sticky", || {
-                    ContextMenuAction::MakeTargetsOfListedMappingsSticky
+                    MainMenuAction::MakeTargetsOfListedMappingsSticky
                 }),
                 menu(
                     "Move listed mappings to group",
                     iter::once(item("<New group>", || {
-                        ContextMenuAction::MoveListedMappingsToGroup(None)
+                        MainMenuAction::MoveListedMappingsToGroup(None)
                     }))
                     .chain(session.groups_sorted(compartment).map(move |g| {
                         let g = g.borrow();
@@ -336,7 +336,7 @@ impl HeaderPanel {
                                 enabled: group_id != Some(g_id),
                                 checked: false,
                             },
-                            move || ContextMenuAction::MoveListedMappingsToGroup(Some(g_id)),
+                            move || MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
                         )
                     }))
                     .collect(),
@@ -345,12 +345,12 @@ impl HeaderPanel {
                     "Advanced",
                     vec![
                         item("Copy listed mappings as Lua", || {
-                            ContextMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
+                            MainMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
                         }),
                         item(
                             "Copy listed mappings as Lua (include default values)",
                             || {
-                                ContextMenuAction::CopyListedMappingsAsLua(
+                                MainMenuAction::CopyListedMappingsAsLua(
                                     ConversionStyle::IncludeDefaultValues,
                                 )
                             },
@@ -362,9 +362,7 @@ impl HeaderPanel {
                                 checked: false,
                             },
                             move || {
-                                ContextMenuAction::PasteFromLuaReplaceAllInGroup(
-                                    text_from_clipboard,
-                                )
+                                MainMenuAction::PasteFromLuaReplaceAllInGroup(text_from_clipboard)
                             },
                         ),
                         item_with_opts(
@@ -373,7 +371,7 @@ impl HeaderPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || ContextMenuAction::DryRunLuaScript(text_from_clipboard_clone),
+                            move || MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
                         item_with_opts(
                             "Freeze clip matrix",
@@ -381,7 +379,7 @@ impl HeaderPanel {
                                 enabled: has_clip_matrix,
                                 checked: false,
                             },
-                            || ContextMenuAction::FreezeClipMatrix,
+                            || MainMenuAction::FreezeClipMatrix,
                         ),
                     ],
                 ),
@@ -395,7 +393,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.auto_correct_settings.get(),
                             },
-                            || ContextMenuAction::ToggleAutoCorrectSettings,
+                            || MainMenuAction::ToggleAutoCorrectSettings,
                         ),
                         item_with_opts(
                             "Send feedback only if track armed",
@@ -410,7 +408,7 @@ impl HeaderPanel {
                                     checked: session.send_feedback_only_if_armed.get(),
                                 }
                             },
-                            || ContextMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
+                            || MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
                             "Reset feedback when releasing source",
@@ -418,7 +416,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.reset_feedback_when_releasing_source.get(),
                             },
-                            || ContextMenuAction::ToggleResetFeedbackWhenReleasingSource,
+                            || MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
                         ),
                         item_with_opts(
                             "Make instance superior",
@@ -426,7 +424,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
                             },
-                            || ContextMenuAction::ToggleUpperFloorMembership,
+                            || MainMenuAction::ToggleUpperFloorMembership,
                         ),
                         item_with_opts(
                             "Use instance-wide FX-to-preset links only",
@@ -434,7 +432,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.use_instance_preset_links_only(),
                             },
-                            || ContextMenuAction::ToggleUseInstancePresetLinksOnly,
+                            || MainMenuAction::ToggleUseInstancePresetLinksOnly,
                         ),
                         menu(
                             "Stay active when project in background",
@@ -450,7 +448,7 @@ impl HeaderPanel {
                                                 == option,
                                         },
                                         move || {
-                                            ContextMenuAction::SetStayActiveWhenProjectInBackground(
+                                            MainMenuAction::SetStayActiveWhenProjectInBackground(
                                                 option,
                                             )
                                         },
@@ -483,7 +481,7 @@ impl HeaderPanel {
                                             .get_parameter_name(i);
                                         let range = range.clone();
                                         item(format!("{}...", param_name), move || {
-                                            ContextMenuAction::EditCompartmentParameter(
+                                            MainMenuAction::EditCompartmentParameter(
                                                 compartment,
                                                 range,
                                             )
@@ -513,35 +511,31 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: App::get().config().server_is_enabled(),
                             },
-                            || ContextMenuAction::ToggleServer,
+                            || MainMenuAction::ToggleServer,
                         ),
-                        item("Add firewall rule", || ContextMenuAction::AddFirewallRule),
-                        item("Change session ID...", || {
-                            ContextMenuAction::ChangeSessionId
-                        }),
+                        item("Add firewall rule", || MainMenuAction::AddFirewallRule),
+                        item("Change session ID...", || MainMenuAction::ChangeSessionId),
                     ],
                 ),
                 menu(
                     "OSC devices",
-                    once(item("<New>", || ContextMenuAction::EditNewOscDevice))
+                    once(item("<New>", || MainMenuAction::EditNewOscDevice))
                         .chain(dev_manager.devices().map(|dev| {
                             let dev_id = *dev.id();
                             menu(
                                 dev.name(),
                                 vec![
                                     item("Edit...", move || {
-                                        ContextMenuAction::EditExistingOscDevice(dev_id)
+                                        MainMenuAction::EditExistingOscDevice(dev_id)
                                     }),
-                                    item("Remove", move || {
-                                        ContextMenuAction::RemoveOscDevice(dev_id)
-                                    }),
+                                    item("Remove", move || MainMenuAction::RemoveOscDevice(dev_id)),
                                     item_with_opts(
                                         "Enabled for control",
                                         ItemOpts {
                                             enabled: true,
                                             checked: dev.is_enabled_for_control(),
                                         },
-                                        move || ContextMenuAction::ToggleOscDeviceControl(dev_id),
+                                        move || MainMenuAction::ToggleOscDeviceControl(dev_id),
                                     ),
                                     item_with_opts(
                                         "Enabled for feedback",
@@ -549,7 +543,7 @@ impl HeaderPanel {
                                             enabled: true,
                                             checked: dev.is_enabled_for_feedback(),
                                         },
-                                        move || ContextMenuAction::ToggleOscDeviceFeedback(dev_id),
+                                        move || MainMenuAction::ToggleOscDeviceFeedback(dev_id),
                                     ),
                                     item_with_opts(
                                         "Can deal with OSC bundles",
@@ -557,7 +551,7 @@ impl HeaderPanel {
                                             enabled: true,
                                             checked: dev.can_deal_with_bundles(),
                                         },
-                                        move || ContextMenuAction::ToggleOscDeviceBundles(dev_id),
+                                        move || MainMenuAction::ToggleOscDeviceBundles(dev_id),
                                     ),
                                 ],
                             )
@@ -573,40 +567,22 @@ impl HeaderPanel {
                         PresetLinkScope::Global,
                     ),
                 ),
-                menu(
-                    "Help",
-                    vec![
-                        item("User guide for this version (PDF, offline)", || {
-                            ContextMenuAction::OpenOfflineUserGuide
-                        }),
-                        item("User guide for latest version (HTML, online)", || {
-                            ContextMenuAction::OpenOnlineUserGuide
-                        }),
-                        item("List of controllers", || {
-                            ContextMenuAction::OpenControllerList
-                        }),
-                        item("Forum", || ContextMenuAction::OpenForum),
-                        item("Contact developer", || ContextMenuAction::ContactDeveloper),
-                        item("Website", || ContextMenuAction::OpenWebsite),
-                        item("Donate", || ContextMenuAction::Donate),
-                    ],
-                ),
-                item("Open preset folder", || ContextMenuAction::OpenPresetFolder),
+                item("Open preset folder", || MainMenuAction::OpenPresetFolder),
                 item("Reload all presets from disk", || {
-                    ContextMenuAction::ReloadAllPresets
+                    MainMenuAction::ReloadAllPresets
                 }),
                 separator(),
                 menu(
                     "Logging",
                     vec![
-                        item("Log debug info", || ContextMenuAction::LogDebugInfo),
+                        item("Log debug info", || MainMenuAction::LogDebugInfo),
                         item_with_opts(
                             "Log real control messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.real_input_logging_enabled.get(),
                             },
-                            || ContextMenuAction::ToggleRealInputLogging,
+                            || MainMenuAction::ToggleRealInputLogging,
                         ),
                         item_with_opts(
                             "Log virtual control messages",
@@ -614,7 +590,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.virtual_input_logging_enabled.get(),
                             },
-                            || ContextMenuAction::ToggleVirtualInputLogging,
+                            || MainMenuAction::ToggleVirtualInputLogging,
                         ),
                         item_with_opts(
                             "Log target control",
@@ -622,7 +598,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.target_control_logging_enabled.get(),
                             },
-                            || ContextMenuAction::ToggleTargetControlLogging,
+                            || MainMenuAction::ToggleTargetControlLogging,
                         ),
                         item_with_opts(
                             "Log virtual feedback messages",
@@ -630,7 +606,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.virtual_output_logging_enabled.get(),
                             },
-                            || ContextMenuAction::ToggleVirtualOutputLogging,
+                            || MainMenuAction::ToggleVirtualOutputLogging,
                         ),
                         item_with_opts(
                             "Log real feedback messages",
@@ -638,11 +614,11 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.real_output_logging_enabled.get(),
                             },
-                            || ContextMenuAction::ToggleRealOutputLogging,
+                            || MainMenuAction::ToggleRealOutputLogging,
                         ),
                     ],
                 ),
-                item("Send feedback now", || ContextMenuAction::SendFeedbackNow),
+                item("Send feedback now", || MainMenuAction::SendFeedbackNow),
             ];
             root_menu(entries)
         };
@@ -652,72 +628,72 @@ impl HeaderPanel {
             .open_simple_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match result {
-            ContextMenuAction::None => {}
-            ContextMenuAction::CopyListedMappingsAsJson => {
+            MainMenuAction::None => {}
+            MainMenuAction::CopyListedMappingsAsJson => {
                 self.copy_listed_mappings_as_json().unwrap();
             }
-            ContextMenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
-            ContextMenuAction::NameListedMappingsAfterSource => {
+            MainMenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
+            MainMenuAction::NameListedMappingsAfterSource => {
                 self.named_listed_mappings_after_source()
             }
-            ContextMenuAction::MakeSourcesOfMainMappingsVirtual => {
+            MainMenuAction::MakeSourcesOfMainMappingsVirtual => {
                 self.make_sources_of_main_mappings_virtual()
             }
-            ContextMenuAction::MakeTargetsOfListedMappingsSticky => {
+            MainMenuAction::MakeTargetsOfListedMappingsSticky => {
                 self.make_targets_of_listed_mappings_sticky()
             }
-            ContextMenuAction::MoveListedMappingsToGroup(group_id) => {
+            MainMenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
             }
-            ContextMenuAction::PasteReplaceAllInGroup(mapping_datas) => {
+            MainMenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
             }
-            ContextMenuAction::CopyListedMappingsAsLua(style) => {
+            MainMenuAction::CopyListedMappingsAsLua(style) => {
                 self.copy_listed_mappings_as_lua(style).unwrap()
             }
-            ContextMenuAction::PasteFromLuaReplaceAllInGroup(text) => {
+            MainMenuAction::PasteFromLuaReplaceAllInGroup(text) => {
                 self.paste_from_lua_replace_all_in_group(&text);
             }
-            ContextMenuAction::DryRunLuaScript(text) => {
+            MainMenuAction::DryRunLuaScript(text) => {
                 self.dry_run_lua_script(&text);
             }
-            ContextMenuAction::EditNewOscDevice => edit_new_osc_device(),
-            ContextMenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
-            ContextMenuAction::RemoveOscDevice(dev_id) => {
+            MainMenuAction::EditNewOscDevice => edit_new_osc_device(),
+            MainMenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
+            MainMenuAction::RemoveOscDevice(dev_id) => {
                 remove_osc_device(self.view.require_window(), dev_id)
             }
-            ContextMenuAction::ToggleOscDeviceControl(dev_id) => {
+            MainMenuAction::ToggleOscDeviceControl(dev_id) => {
                 App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
             }
-            ContextMenuAction::ToggleOscDeviceFeedback(dev_id) => {
+            MainMenuAction::ToggleOscDeviceFeedback(dev_id) => {
                 App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
             }
-            ContextMenuAction::ToggleOscDeviceBundles(dev_id) => {
+            MainMenuAction::ToggleOscDeviceBundles(dev_id) => {
                 App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
             }
-            ContextMenuAction::EditCompartmentParameter(compartment, range) => {
+            MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
-            ContextMenuAction::FreezeClipMatrix => {
+            MainMenuAction::FreezeClipMatrix => {
                 self.freeze_clip_matrix();
             }
-            ContextMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
-            ContextMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
-            ContextMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
-            ContextMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
-            ContextMenuAction::ToggleVirtualOutputLogging => self.toggle_virtual_output_logging(),
-            ContextMenuAction::ToggleTargetControlLogging => self.toggle_target_control_logging(),
-            ContextMenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
+            MainMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
+            MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
+            MainMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
+            MainMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
+            MainMenuAction::ToggleVirtualOutputLogging => self.toggle_virtual_output_logging(),
+            MainMenuAction::ToggleTargetControlLogging => self.toggle_target_control_logging(),
+            MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
-            ContextMenuAction::ToggleResetFeedbackWhenReleasingSource => {
+            MainMenuAction::ToggleResetFeedbackWhenReleasingSource => {
                 self.toggle_reset_feedback_when_releasing_source()
             }
-            ContextMenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
-            ContextMenuAction::SetStayActiveWhenProjectInBackground(option) => {
+            MainMenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
+            MainMenuAction::SetStayActiveWhenProjectInBackground(option) => {
                 self.set_stay_active_when_project_in_background(option)
             }
-            ContextMenuAction::ToggleServer => {
+            MainMenuAction::ToggleServer => {
                 enum ServerAction {
                     Start,
                     Disable,
@@ -763,10 +739,10 @@ impl HeaderPanel {
                     }
                 }
             }
-            ContextMenuAction::ToggleUseInstancePresetLinksOnly => {
+            MainMenuAction::ToggleUseInstancePresetLinksOnly => {
                 self.toggle_use_instance_preset_links_only()
             }
-            ContextMenuAction::AddFirewallRule => {
+            MainMenuAction::AddFirewallRule => {
                 let (http_port, https_port, grpc_port) = {
                     let server = app.server().borrow();
                     (server.http_port(), server.https_port(), server.grpc_port())
@@ -780,33 +756,61 @@ impl HeaderPanel {
                 };
                 self.view.require_window().alert("ReaLearn", msg);
             }
-            ContextMenuAction::ChangeSessionId => self.change_session_id(),
-            ContextMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
-            ContextMenuAction::OpenOnlineUserGuide => self.open_user_guide_online(),
-            ContextMenuAction::OpenControllerList => self.open_controller_list(),
-            ContextMenuAction::OpenForum => self.open_forum(),
-            ContextMenuAction::ContactDeveloper => self.contact_developer(),
-            ContextMenuAction::OpenWebsite => self.open_website(),
-            ContextMenuAction::Donate => self.donate(),
-            ContextMenuAction::ReloadAllPresets => self.reload_all_presets(),
-            ContextMenuAction::OpenPresetFolder => self.open_preset_folder(),
-            ContextMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
-            ContextMenuAction::LogDebugInfo => self.log_debug_info(),
-            ContextMenuAction::EditPresetLinkFxId(scope, fx_id) => {
+            MainMenuAction::ChangeSessionId => self.change_session_id(),
+            MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
+            MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
+            MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
+            MainMenuAction::LogDebugInfo => self.log_debug_info(),
+            MainMenuAction::EditPresetLinkFxId(scope, fx_id) => {
                 with_scoped_preset_link_mutator(scope, &self.session, |m| {
                     edit_preset_link_fx_id(m, fx_id);
                 });
             }
-            ContextMenuAction::RemovePresetLink(scope, fx_id) => {
+            MainMenuAction::RemovePresetLink(scope, fx_id) => {
                 with_scoped_preset_link_mutator(scope, &self.session, |m| {
                     remove_preset_link(m, fx_id);
                 });
             }
-            ContextMenuAction::LinkToPreset(scope, fx_id, preset_id) => {
+            MainMenuAction::LinkToPreset(scope, fx_id, preset_id) => {
                 with_scoped_preset_link_mutator(scope, &self.session, |m| {
                     link_to_preset(m, fx_id, preset_id);
                 });
             }
+        };
+        Ok(())
+    }
+
+    fn open_help_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        let pure_menu = {
+            use swell_ui::menu_tree::*;
+            let entries = vec![
+                item("User guide for this version (PDF, offline)", || {
+                    HelpMenuAction::OpenOfflineUserGuide
+                }),
+                item("User guide for latest version (HTML, online)", || {
+                    HelpMenuAction::OpenOnlineUserGuide
+                }),
+                item("List of controllers", || HelpMenuAction::OpenControllerList),
+                item("Forum", || HelpMenuAction::OpenForum),
+                item("Contact developer", || HelpMenuAction::ContactDeveloper),
+                item("Website", || HelpMenuAction::OpenWebsite),
+                item("Donate", || HelpMenuAction::Donate),
+            ];
+            root_menu(entries)
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(pure_menu, location)
+            .ok_or("no entry selected")?;
+        match result {
+            HelpMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
+            HelpMenuAction::OpenOnlineUserGuide => self.open_user_guide_online(),
+            HelpMenuAction::OpenControllerList => self.open_controller_list(),
+            HelpMenuAction::OpenForum => self.open_forum(),
+            HelpMenuAction::ContactDeveloper => self.contact_developer(),
+            HelpMenuAction::OpenWebsite => self.open_website(),
+            HelpMenuAction::Donate => self.donate(),
         };
         Ok(())
     }
@@ -2568,6 +2572,12 @@ impl View for HeaderPanel {
             root::ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
             root::ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             root::ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
+            root::ID_MENU_BUTTON => {
+                let _ = self.open_main_menu(Window::cursor_pos());
+            }
+            root::ID_MAIN_HELP_BUTTON => {
+                let _ = self.open_help_menu(Window::cursor_pos());
+            }
             root::ID_IMPORT_BUTTON => {
                 let result = self.import_from_clipboard();
                 self.notify_user_on_error(result);
@@ -2629,7 +2639,7 @@ impl View for HeaderPanel {
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
-        let _ = self.open_context_menu(location);
+        let _ = self.open_main_menu(location);
     }
 }
 
@@ -2917,7 +2927,7 @@ fn get_clip_matrix_label(column_count: usize) -> String {
     format!("clip matrix with {} columns", column_count)
 }
 
-enum ContextMenuAction {
+enum MainMenuAction {
     None,
     CopyListedMappingsAsJson,
     CopyListedMappingsAsLua(ConversionStyle),
@@ -2947,13 +2957,6 @@ enum ContextMenuAction {
     EditPresetLinkFxId(PresetLinkScope, FxId),
     RemovePresetLink(PresetLinkScope, FxId),
     LinkToPreset(PresetLinkScope, FxId, String),
-    OpenOfflineUserGuide,
-    OpenOnlineUserGuide,
-    OpenControllerList,
-    OpenForum,
-    ContactDeveloper,
-    OpenWebsite,
-    Donate,
     ReloadAllPresets,
     OpenPresetFolder,
     EditNewOscDevice,
@@ -2967,7 +2970,17 @@ enum ContextMenuAction {
     LogDebugInfo,
 }
 
-impl Default for ContextMenuAction {
+enum HelpMenuAction {
+    OpenOfflineUserGuide,
+    OpenOnlineUserGuide,
+    OpenControllerList,
+    OpenForum,
+    ContactDeveloper,
+    OpenWebsite,
+    Donate,
+}
+
+impl Default for MainMenuAction {
     fn default() -> Self {
         Self::None
     }
@@ -2984,7 +2997,7 @@ fn generate_fx_to_preset_links_menu_entries(
     main_preset_manager: &FileBasedMainPresetManager,
     config: &FxPresetLinkConfig,
     scope: PresetLinkScope,
-) -> Vec<swell_ui::menu_tree::Entry<ContextMenuAction>> {
+) -> Vec<swell_ui::menu_tree::Entry<MainMenuAction>> {
     use std::iter::once;
     use swell_ui::menu_tree::*;
     let add_link_entry = if let Some(fx_id) = last_focused_fx_id {
@@ -2996,7 +3009,7 @@ fn generate_fx_to_preset_links_menu_entries(
                     let fx_id = fx_id.clone();
                     let preset_id = p.id().to_owned();
                     item(p.name(), move || {
-                        ContextMenuAction::LinkToPreset(scope, fx_id, preset_id)
+                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
                     })
                 })
                 .collect(),
@@ -3012,10 +3025,10 @@ fn generate_fx_to_preset_links_menu_entries(
         menu(
             link.fx_id.to_string(),
             once(item("<Edit FX ID...>", move || {
-                ContextMenuAction::EditPresetLinkFxId(scope, fx_id_0)
+                MainMenuAction::EditPresetLinkFxId(scope, fx_id_0)
             }))
             .chain(once(item("<Remove link>", move || {
-                ContextMenuAction::RemovePresetLink(scope, fx_id_1)
+                MainMenuAction::RemovePresetLink(scope, fx_id_1)
             })))
             .chain(main_preset_manager.preset_iter().map(move |p| {
                 let fx_id = fx_id_2.clone();
@@ -3026,7 +3039,7 @@ fn generate_fx_to_preset_links_menu_entries(
                         enabled: true,
                         checked: p.id() == preset_id_0,
                     },
-                    move || ContextMenuAction::LinkToPreset(scope, fx_id, preset_id),
+                    move || MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
                 )
             }))
             .chain(once(
