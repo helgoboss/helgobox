@@ -40,7 +40,7 @@ The option _Do not send reset messages_ isn't available in older REAPER versions
   * If you want your mappings to be automatically available in each of your projects, open REAPER's global monitoring FX chain (View → Monitoring FX) instead.
   * Then choose "VSTi: ReaLearn (Helgoboss)"
 . Configure the ReaLearn instance
-  * Select your controller's MIDI device as _Control input_ and _Feedback output_ (if you have a controller
+  * Select your controller's MIDI device as _Input_ and _Output_ (if you have a controller
  that supports MIDI feedback).
   * If you have downloaded a controller preset:
     - Switch to _Controller compartment_ and select the desired controller preset below.
@@ -149,7 +149,7 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
  control mappings available globally in all projects (similar to conventional control surface
  stuff).
 * *Unusual settings for experimental stuff:* Create a track volume mapping with only feedback
- turned on. Choose "&lt;FX output&gt;" as MIDI feedback output and play the synthesizer one
+ turned on. Choose "&lt;FX output&gt;" as MIDI output and play the synthesizer one
  position below in the FX chain by moving the track volume slider (whatever that might be good for
  …).
 * *Rotary encoders for avoiding parameter jumps:* How about a refreshingly "normal" use case? Let
@@ -251,7 +251,7 @@ With ReaLearn, you use the same MIDI path for controlling and playing, which is 
 * Make sure your audio hardware is not stuck (playback in REAPER should work).
 * Make sure the track is armed for recording and has the appropriate MIDI device input.
 +
-NOTE: This is necessary only if _Control input_ is set to _<FX input>_, which is the default. If you capture MIDI from a specific device, the track doesn't have to be armed.
+NOTE: This is necessary only if _Input_ is set to _<FX input>_, which is the default. If you capture MIDI from a specific device, the track doesn't have to be armed.
 * Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, MIDI, …).
 ** For this simple test, it's probably the best to make your controller enter a specific MIDI operation mode.
 ** Although MCU and HUI is also just MIDI under the hood, these operation modes are more specialized and therefore need a bit of special attention. ReaLearn conveniently handles these modes when using the _Mackie Control_ controller preset.
@@ -272,7 +272,7 @@ If you think that what we saw until now is not more than what REAPER's built-in 
 offers, I can't blame you. First, don't worry, there's more to come, this was just the beginning.
 Second, there _is_ a difference. For some folks, this is an insignificant difference, for others
 it's a game changer, it depends on the usage scenario. The key to understand this difference is to
-understand the MIDI _routing_: In above example, _Control input_ was set to `&lt;FX input&gt;`. That means
+understand the MIDI _routing_: In above example, _Input_ was set to `&lt;FX input&gt;`. That means
 we used normal track MIDI messages to control a parameter in REAPER - let's call it _track MIDI path_.
 This is different from REAPER's built-in MIDI learn, which uses the totally separate _control MIDI path_.
 
@@ -310,7 +310,7 @@ How to set this up? Often it's just a matter of choosing the correct feedback de
 ====
 The option _Do not send reset messages_ isn't available in some older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
 ====
-. In ReaLearn's header panel, select your controller as _MIDI feedback output_.
+. In ReaLearn's header panel, select your controller as _MIDI output_.
 
 That should be it!
 
@@ -730,7 +730,7 @@ ReaLearn instances on its FX chain.
 . Let's say you have a VST instrument that you want to activate/deactivate for live playing by arming/disarming the
 corresponding track. And now you want to use ReaLearn as a kind of "Insert" effect for controlling parameters of that
 VST instrument (or other track-local parameters such as the track volume), only when it's active. Then put ReaLearn
-exactly on that track, somewhere _above_ your VST instrument and select MIDI control input `&lt;FX input&gt;`.
+exactly on that track, somewhere _above_ your VST instrument and select MIDI input `&lt;FX input&gt;`.
 ** That way your VST instrument won't receive MIDI that's already processed by ReaLearn, which is cool.
 ** If you want ReaLearn to only receive MIDI messages that originate from live playing and ignore MIDI that
 originates from track MIDI items, put it on the input FX chain of that track.
@@ -865,7 +865,7 @@ The header panel provides the following user interface elements, no matter if th
 _controller_ compartment is shown:
 
 [#control-input]
-===== Control input
+===== Input
 
 By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
  consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
@@ -873,7 +873,7 @@ By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
  from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
 
 [#feedback-output]
-===== Feedback output
+===== Output
 
 Here you can choose if and where ReaLearn should send MIDI/OSC feedback. By
  default it's set to _<None>_ for no feedback. If you want to enable feedback, pick a MIDI or OSC
@@ -964,9 +964,9 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
 figure out if your combination of settings makes sense. If not, it makes an adjustment.
 This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
 is your checkbox.
-* *Send feedback only if track armed:* If MIDI control input is set to _&lt;FX input&gt;_,
+* *Send feedback only if track armed:* If input is set to _&lt;FX input&gt;_,
 ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable
-control, so disabling feedback is just consequent). However, if MIDI control input is set to a
+control, so disabling feedback is just consequent). However, if input is set to a
 MIDI or OSC device, _auto-correct settings_ will take care of unchecking this option in order to allow feedback
 even when unarmed (same reasoning). You can override this behavior with this checkbox. At the moment,
 it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
@@ -1028,7 +1028,7 @@ Allows one to display and modify the list of (globally) configured OSC devices.
 ** *Local port:* Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
 *** *Important:* This port must be reserved exclusively for ReaLearn. If you already use this port
 in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless
-you with an "unable to connect" message in the "Control input" dropdown.
+you with an "unable to connect" message in the "Input" dropdown.
 ** *Device host:* Required for feedback only. It's the IP address of the OSC device to which ReaLearn
 should send feedback messages. This address is usually displayed on your OSC device (e.g. as "Local IP address"). When targeting an OSC software that runs on the same computer as REAPER and
 ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
@@ -1162,17 +1162,17 @@ ReaLearn by default "eats" incoming MIDI events for which there's at least one a
 
 You can change this using these checkboxes. E.g. you can tick *Matched events* if you want to forward even matched events. The exact behavior differs depending on what you choose as <<control-input>>:
 
-* If control input is set to <FX input>
+* If input is set to <FX input>
 ** MIDI events arrive from ReaLearn's FX input. If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX. The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
-* If control input is set to a MIDI hardware device
+* If input is set to a MIDI hardware device
 ** MIDI events arrive directly from the MIDI hardware device. If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn. If they don't get forwarded, it means they get filtered and will never make it to the tracks. ReaLearn completely eats them, globally! That means, ReaLearn can act as global MIDI filter.
-** Please note, with control input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
 ** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
 +
 TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-* If control input is set to a OSC device
+* If input is set to a OSC device
 ** You won't see the checkboxes because they don't make sense for OSC.
-* If control input is set to computer keyboard
+* If input is set to computer keyboard
 ** You can control whether key presses are forwarded to REAPER or not.
 ** For example, unticking both checkboxes makes sure that only keyboard hotkeys defined in ReaLearn have an effect. This can be interesting for live scenarios in which you temporarily want to lower the risk of pressing the wrong key and messing up the performance. Just unlock the keys you absolutely need.
 
@@ -1994,7 +1994,7 @@ Example:
 F0 00 20 6B 7F 42 02 00 10 77 00 F7
 ----
 
-If you enter this and ReaLearn receives this system-exclusive message from the control input, it will fire a 100% value. If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
+If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value. If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
 
 Remarks:
 
@@ -2224,7 +2224,7 @@ This is a feedback-only source used to display text on MIDI-controllable hardwar
 ** *X-Touch Mackie XT LCD:* Like _Mackie LCD XT_ but also supports colors on certain X-Touch devices.
 ** *Mackie 7-segment display:* Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits). There's usually one small assignment display and a larger one for showing the time code.
 ** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
-** *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro. Only seems to work if you set _Feedback output_ to `MIDIOUT2 (Launchpad Pro)`.
+** *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro. Only seems to work if you set _Output_ to `MIDIOUT2 (Launchpad Pro)`.
 ** *Studiologic SL Keyboard display:* Displays text on the display of Studiologic SL keyboards (tested with SL88).
 * *Display:* Choose the particular display or display portion to which you want to send text.
 * *Line:* Choose the line number.
@@ -3463,7 +3463,7 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
 ** *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows
  into the FX below ReaLearn, e.g. a VST instrument.
 +
-** *Feedback output:* Sends the MIDI message to the device which is set as _feedback output_.
+** *Feedback output:* Sends the MIDI message to the device which is set as _output_.
 * *Pattern:* Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation. It also allows you
  to encode the incoming _absolute_ control value as part of the message (after it has been processed by the glue
  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
@@ -3492,7 +3492,7 @@ a capable and convenient MIDI → OSC and OSC → OSC converter. If an argument 
 it will encode the incoming absolute control value as that argument (after it has been processed by the glue section).
 
 * *Output:* Where to send the OSC message.
-** *&lt;Feedback output&gt;:* Sends the OSC message to the device which is set as _Feedback output_. Of course this only
+** *&lt;Feedback output&gt;:* Sends the OSC message to the device which is set as _Output_. Of course this only
  works if it's an OSC device.
 ** *_Specific device:_* Sends the OSC message to a specific device.
 * *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<category-osc,OSC sources>>.
@@ -4339,7 +4339,7 @@ starting with `#`) will be removed automatically.
 [#mapping-lifecycle-actions]
 ===== Mapping lifecycle actions
 
-ReaLearn allows you to define MIDI messages to be sent to the feedback output whenever a mapping turns active or
+ReaLearn allows you to define MIDI messages to be sent to the output whenever a mapping turns active or
 inactive.
 
 Example use cases:
@@ -4373,7 +4373,7 @@ These are the available configuration properties:
 ----
 # Contains stuff to be done whenever this mapping becomes active.
 on_activate:
-  # A list of MIDI messages to be sent to the feedback output when this mapping becomes active.
+  # A list of MIDI messages to be sent to the output when this mapping becomes active.
   #
   # At the moment, only messages of type "raw" are supported. Although this covers all possible types
   # of MIDI messages, it's a bit hard to express e.g. simple NOTE ON or CC messages with this notation.
@@ -4396,7 +4396,7 @@ on_activate:
 
 # Contains stuff to be done whenever this mapping becomes inactive.
 on_deactivate:
-  # A list of MIDI messages to be sent to the feedback output when this mapping becomes inactive.
+  # A list of MIDI messages to be sent to the output when this mapping becomes inactive.
   send_midi_feedback:
     # Supports exactly the same kinds of messages as described above in "on_activate".
     - raw: F0 00 20 6B 7F 42 02 00 10 77 14 F7
@@ -4415,6 +4415,6 @@ on_activate:
 
 ReaLearn will ignore any unknown properties.
 
-TIP: If you use control input `<FX input>` and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see <<options>>)!
+TIP: If you use input `<FX input>` and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see <<options>>)!
 
-WARNING: Disabling the complete ReaLearn instance will cause all mappings to deactivate. However, sending MIDI messages on deactivation in this case will only work if the feedback output is a device! If it is `<FX output>`, it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled. Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
+WARNING: Disabling the complete ReaLearn instance will cause all mappings to deactivate. However, sending MIDI messages on deactivation in this case will only work if the output is a device! If it is `<FX output>`, it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled. Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
