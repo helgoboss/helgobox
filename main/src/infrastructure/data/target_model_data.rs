@@ -657,6 +657,12 @@ impl TargetModelData {
             } else {
                 ActionInvocationType::Absolute14Bit
             }
+        } else if migration_descriptor.action_invocation_swap_761 {
+            match self.invocation_type {
+                ActionInvocationType::Absolute14Bit => ActionInvocationType::Absolute7Bit,
+                ActionInvocationType::Absolute7Bit => ActionInvocationType::Absolute14Bit,
+                x => x,
+            }
         } else {
             self.invocation_type
         };

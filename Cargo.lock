@@ -3915,7 +3915,7 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
 name = "realearn"
-version = "2.14.0-pre.10"
+version = "2.14.0-pre.11"
 dependencies = [
  "approx",
  "arboard",
@@ -4069,7 +4069,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1da6217584d208fe11f6a9648b39fb534a26a05c"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b7878f758721e661531609434a891f2ac540a129"
 dependencies = [
  "backtrace",
  "base64",
@@ -4099,7 +4099,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1da6217584d208fe11f6a9648b39fb534a26a05c"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b7878f758721e661531609434a891f2ac540a129"
 dependencies = [
  "c_str_macro",
  "cc 1.0.73 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4113,7 +4113,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1da6217584d208fe11f6a9648b39fb534a26a05c"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b7878f758721e661531609434a891f2ac540a129"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.21",
@@ -4123,7 +4123,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1da6217584d208fe11f6a9648b39fb534a26a05c"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b7878f758721e661531609434a891f2ac540a129"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -4141,7 +4141,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1da6217584d208fe11f6a9648b39fb534a26a05c"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b7878f758721e661531609434a891f2ac540a129"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
