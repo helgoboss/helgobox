@@ -8,7 +8,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track, Volume};
-use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
+use reaper_medium::{ReaperVolumeValue, SoloMode, TrackAttributeKey};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -61,14 +61,20 @@ impl<'a> Target<'a> for TrackPeakTarget {
 impl TrackPeakTarget {
     fn peak(&self) -> Option<Volume> {
         let reaper = Reaper::get().medium_reaper();
+        if self.track.project().any_solo() && self.track.solo_mode() == SoloMode::Off {
+            // Another track is soloed. In this case, reporting the peak would be misleading.
+            return Some(Volume::MIN);
+        }
         let vu_mode = unsafe {
             reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::VuMode) as i32
         };
         let channel_count = if matches!(vu_mode, 2 | 8) {
+            // These VU modes have multi-channel support.
             unsafe {
                 reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
             }
         } else {
+            // Other VU modes always use stereo.
             2
         };
         if channel_count <= 0 {
