@@ -9,6 +9,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
+use reaper_medium::TrackPolarity;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -80,8 +81,8 @@ impl RealearnTarget for TrackPhaseTarget {
             &self.track,
             self.exclusivity,
             value.to_unit_value()?,
-            |t| t.set_phase_inverted(true, gang_behavior, grouping_behavior),
-            |t| t.set_phase_inverted(false, gang_behavior, grouping_behavior),
+            |t| t.set_phase_inverted(TrackPolarity::Inverted, gang_behavior, grouping_behavior),
+            |t| t.set_phase_inverted(TrackPolarity::Normal, gang_behavior, grouping_behavior),
         );
         Ok(HitResponse::processed_with_effect())
     }
