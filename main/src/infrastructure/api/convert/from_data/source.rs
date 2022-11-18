@@ -86,6 +86,14 @@ pub fn convert_source(
                     };
                     persistence::Source::MidiProgramChangeNumber(s)
                 }
+                SpecificProgramChange => {
+                    let s = persistence::MidiSpecificProgramChangeSource {
+                        feedback_behavior,
+                        channel: convert_channel(data.channel),
+                        program_number: convert_program_number(data.number),
+                    };
+                    persistence::Source::MidiSpecificProgramChange(s)
+                }
                 ParameterNumberValue => {
                     let s = persistence::MidiParameterNumberValueSource {
                         feedback_behavior,
@@ -277,6 +285,10 @@ fn convert_parameter_number(v: Option<U14>) -> Option<u16> {
 }
 
 fn convert_key_number(v: Option<U14>) -> Option<u8> {
+    Some(v?.get() as _)
+}
+
+fn convert_program_number(v: Option<U14>) -> Option<u8> {
     Some(v?.get() as _)
 }
 

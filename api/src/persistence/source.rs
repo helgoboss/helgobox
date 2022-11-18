@@ -25,6 +25,7 @@ pub enum Source {
     MidiPolyphonicKeyPressureAmount(MidiPolyphonicKeyPressureAmountSource),
     MidiControlChangeValue(MidiControlChangeValueSource),
     MidiProgramChangeNumber(MidiProgramChangeNumberSource),
+    MidiSpecificProgramChange(MidiSpecificProgramChangeSource),
     MidiChannelPressureAmount(MidiChannelPressureAmountSource),
     MidiPitchBendChangeValue(MidiPitchBendChangeValueSource),
     MidiParameterNumberValue(MidiParameterNumberValueSource),
@@ -122,6 +123,16 @@ mod midi {
         pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
+    }
+
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    pub struct MidiSpecificProgramChangeSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub program_number: Option<u8>,
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

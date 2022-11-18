@@ -600,6 +600,10 @@ impl SourceModel {
                         }
                     }
                     ProgramChangeNumber => MidiSource::ProgramChangeNumber { channel },
+                    SpecificProgramChange => MidiSource::SpecificProgramChange {
+                        channel,
+                        program_number: self.midi_message_number,
+                    },
                     ChannelPressureAmount => MidiSource::ChannelPressureAmount { channel },
                     PitchBendChangeValue => MidiSource::PitchBendChangeValue { channel },
                     ParameterNumberValue => MidiSource::ParameterNumberValue {
@@ -799,6 +803,13 @@ impl SourceModel {
         }
     }
 
+    fn program_label(&self) -> Cow<str> {
+        match self.midi_message_number {
+            None => "Any program".into(),
+            Some(n) => format!("Program {}", n.get()).into(),
+        }
+    }
+
     pub fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .create_control_element(self.control_element_id)
@@ -839,6 +850,13 @@ impl Display for SourceModel {
                         "Poly after touch".into(),
                         self.channel_label(),
                         self.note_label(),
+                    ]
+                }
+                t @ MidiSourceType::SpecificProgramChange => {
+                    vec![
+                        t.to_string().into(),
+                        self.channel_label(),
+                        self.program_label(),
                     ]
                 }
                 MidiSourceType::ClockTempo => vec!["MIDI clock".into(), "Tempo".into()],
@@ -1004,7 +1022,7 @@ pub enum MidiSourceType {
     PitchBendChangeValue = 3,
     #[display(fmt = "Channel after touch")]
     ChannelPressureAmount = 4,
-    #[display(fmt = "Program change")]
+    #[display(fmt = "Program change number")]
     ProgramChangeNumber = 5,
     #[display(fmt = "(N)RPN value")]
     ParameterNumberValue = 6,
@@ -1020,6 +1038,8 @@ pub enum MidiSourceType {
     Script = 11,
     #[display(fmt = "Display (feedback only)")]
     Display = 12,
+    #[display(fmt = "Specific program change")]
+    SpecificProgramChange = 13,
 }
 
 impl Default for MidiSourceType {
@@ -1037,6 +1057,7 @@ impl MidiSourceType {
             PolyphonicKeyPressureAmount { .. } => MidiSourceType::PolyphonicKeyPressureAmount,
             ControlChangeValue { .. } => MidiSourceType::ControlChangeValue,
             ProgramChangeNumber { .. } => MidiSourceType::ProgramChangeNumber,
+            SpecificProgramChange { .. } => MidiSourceType::SpecificProgramChange,
             ChannelPressureAmount { .. } => MidiSourceType::ChannelPressureAmount,
             PitchBendChangeValue { .. } => MidiSourceType::PitchBendChangeValue,
             ControlChange14BitValue { .. } => MidiSourceType::ControlChangeValue,
@@ -1055,6 +1076,7 @@ impl MidiSourceType {
             ControlChangeValue => "CC number",
             NoteVelocity | PolyphonicKeyPressureAmount => "Note number",
             ParameterNumberValue => "Number",
+            SpecificProgramChange => "Program",
             _ => "",
         }
     }
@@ -1071,6 +1093,7 @@ impl MidiSourceType {
                 | ParameterNumberValue
                 | PitchBendChangeValue
                 | ProgramChangeNumber
+                | SpecificProgramChange
         )
     }
 
@@ -1078,7 +1101,7 @@ impl MidiSourceType {
         use MidiSourceType::*;
         matches!(
             self,
-            ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
+            ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount | SpecificProgramChange
         )
     }
 

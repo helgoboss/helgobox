@@ -155,6 +155,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MidiPolyphonicKeyPressureAmount(_)
         | MidiControlChangeValue(_)
         | MidiProgramChangeNumber(_)
+        | MidiSpecificProgramChange(_)
         | MidiChannelPressureAmount(_)
         | MidiPitchBendChangeValue(_)
         | MidiParameterNumberValue(_)
@@ -182,6 +183,7 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
         MidiPolyphonicKeyPressureAmount(_) => MidiSourceType::PolyphonicKeyPressureAmount,
         MidiControlChangeValue(_) => MidiSourceType::ControlChangeValue,
         MidiProgramChangeNumber(_) => MidiSourceType::ProgramChangeNumber,
+        MidiSpecificProgramChange(_) => MidiSourceType::SpecificProgramChange,
         MidiChannelPressureAmount(_) => MidiSourceType::ChannelPressureAmount,
         MidiPitchBendChangeValue(_) => MidiSourceType::PitchBendChangeValue,
         MidiParameterNumberValue(_) => MidiSourceType::ParameterNumberValue,
@@ -204,6 +206,7 @@ fn convert_midi_channel(s: &Source) -> ConversionResult<Option<Channel>> {
         MidiPolyphonicKeyPressureAmount(s) => s.channel,
         MidiControlChangeValue(s) => s.channel,
         MidiProgramChangeNumber(s) => s.channel,
+        MidiSpecificProgramChange(s) => s.channel,
         MidiChannelPressureAmount(s) => s.channel,
         MidiPitchBendChangeValue(s) => s.channel,
         MidiParameterNumberValue(s) => s.channel,
@@ -223,6 +226,7 @@ fn convert_midi_number(s: &Source) -> ConversionResult<Option<U14>> {
         MidiNoteVelocity(s) => s.key_number.map(|n| n as u16),
         MidiPolyphonicKeyPressureAmount(s) => s.key_number.map(|n| n as u16),
         MidiControlChangeValue(s) => s.controller_number.map(|n| n as u16),
+        MidiSpecificProgramChange(s) => s.program_number.map(|n| n as u16),
         MidiParameterNumberValue(s) => s.number,
         _ => None,
     };
