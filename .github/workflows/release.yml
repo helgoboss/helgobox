@@ -33,67 +33,15 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       - run: rustup component add rustfmt
-      # Install OS dependencies (Linux/macOS only)
-      - name: Install native Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev
       - run: brew install php
-        if: matrix.os == 'macos-latest'
-      # Override SDK root and deployment target (macOS aarch64 only)
-      - name: Set SDKROOT
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
-      - name: Set MACOSX_DEPLOYMENT_TARGET
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
-      # Generate dialogs outside of Docker containers in cross builds because PHP is not available in container
-      - name: cargo test (for generating dialogs with php)
-        if: matrix.use-cross == true
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --profile ${{ matrix.profile }} --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
-      # Strip debug symbols (Linux and macOS)
-      # TODO-medium We could replace this with Cargo's recent built-in strip function
-      - name: Strip debug symbols from Linux binary
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cp target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }} target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
-          ${{ matrix.strip-cmd }} target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-      - name: Strip debug symbols from macOS binary
-        if: matrix.os == 'macos-latest'
-        run: |
-          strip -u -r target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-      # Upload plug-in (all)
       - name: Upload plug-in to artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-      # Upload debug symbols (all)
-      - name: Upload Windows debug symbols to artifact
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/realearn.pdb
-      - name: Upload macOS debug symbols to artifact
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/deps/librealearn.dylib.dSYM/
-      - name: Upload Linux debug symbols to artifact
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
