@@ -1,9 +1,6 @@
-on:
-  create:
-    ref_type: tag
-    ref: 'v*'
+on: push
 
-name: Create release
+name: Experimental test build
 
 jobs:
 
@@ -13,58 +10,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - artifact: windows-x86_64
-            os: windows-latest
-            toolchain-suffix: x86_64-pc-windows-msvc
-            lib-file-name: realearn.dll
-            target: x86_64-pc-windows-msvc
-            use-cross: false
-            profile: release
-          - artifact: windows-i686
-            os: windows-latest
-            toolchain-suffix: i686-pc-windows-msvc
-            lib-file-name: realearn.dll
-            target: i686-pc-windows-msvc
-            use-cross: false
-            profile: release-llvm-out-of-memory-fix
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
             target: x86_64-apple-darwin
             use-cross: false
-            profile: release
-          - artifact: macos-aarch64
-            os: macos-latest
-            toolchain-suffix: x86_64-apple-darwin
-            lib-file-name: librealearn.dylib
-            target: aarch64-apple-darwin
-            use-cross: false
-            profile: release
-          - artifact: linux-x86_64
-            os: ubuntu-latest
-            toolchain-suffix: x86_64-unknown-linux-gnu
-            lib-file-name: librealearn.so
-            target: x86_64-unknown-linux-gnu
-            use-cross: false
-            strip-cmd: strip
-            profile: release
-          - artifact: linux-aarch64
-            os: ubuntu-latest
-            toolchain-suffix: x86_64-unknown-linux-gnu
-            lib-file-name: librealearn.so
-            target: aarch64-unknown-linux-gnu
-            use-cross: true
-            strip-cmd: aarch64-linux-gnu-strip
-            profile: release
-          - artifact: linux-armv7
-            os: ubuntu-latest
-            toolchain-suffix: x86_64-unknown-linux-gnu
-            lib-file-name: librealearn.so
-            target: armv7-unknown-linux-gnueabihf
-            use-cross: true
-            strip-cmd: arm-linux-gnueabihf-strip
-            profile: release
+            profile: debug
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only (and only if not overridden).
     steps:
@@ -145,87 +97,3 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
-
-  create-release:
-    name: Publish release
-    needs: build-release-artifacts
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get tag name
-        id: get_tag_name
-        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
-          release_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
-          draft: true
-          prerelease: ${{ contains(github.ref, 'pre') }}
-      - name: Download artifacts from build job
-        uses: actions/download-artifact@v2
-      - name: Upload windows-x86_64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-x86_64/realearn.dll
-          asset_name: realearn-windows-x86_64.dll
-          asset_content_type: application/octet-stream
-      - name: Upload windows-i686 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-i686/realearn.dll
-          asset_name: realearn-windows-i686.dll
-          asset_content_type: application/octet-stream
-      - name: Upload macos-x86_64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-x86_64/librealearn.dylib
-          asset_name: realearn-macos-x86_64.vst.dylib
-          asset_content_type: application/octet-stream
-      - name: Upload macos-aarch64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-aarch64/librealearn.dylib
-          asset_name: realearn-macos-aarch64.vst.dylib
-          asset_content_type: application/octet-stream
-      - name: Upload linux-x86_64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux-x86_64/librealearn.so
-          asset_name: realearn-linux-x86_64.so
-          asset_content_type: application/octet-stream
-      - name: Upload linux-aarch64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux-aarch64/librealearn.so
-          asset_name: realearn-linux-aarch64.so
-          asset_content_type: application/octet-stream
-      - name: Upload linux-armv7 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux-armv7/librealearn.so
-          asset_name: realearn-linux-armv7.so
-          asset_content_type: application/octet-stream

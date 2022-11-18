@@ -106,6 +106,7 @@ unsafe impl Send for RealearnPlugin {}
 
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
+        println!("RealearnPlugin::new");
         firewall(|| {
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
                 SenderToRealTimeThread::new_channel(
@@ -177,6 +178,7 @@ impl Plugin for RealearnPlugin {
     }
 
     fn get_info(&self) -> Info {
+        println!("RealearnPlugin::get_info");
         firewall(|| {
             Info {
                 name: "ReaLearn".to_string(),
@@ -216,6 +218,7 @@ impl Plugin for RealearnPlugin {
     }
 
     fn init(&mut self) {
+        println!("RealearnPlugin::init");
         firewall(|| {
             self._reaper_guard = Some(self.ensure_reaper_setup());
             self.schedule_session_creation();
