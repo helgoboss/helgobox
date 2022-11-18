@@ -77,7 +77,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.63.0-${{ matrix.toolchain-suffix }}
+          toolchain: 1.65.0-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
       - run: rustup component add rustfmt
