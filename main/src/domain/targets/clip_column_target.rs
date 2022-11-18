@@ -5,7 +5,7 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use realearn_api::persistence::ClipColumnAction;
 use std::borrow::Cow;

@@ -10,7 +10,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangeEvent, InternalClipPlayState, QualifiedClipChangeEvent};
 
 #[derive(Debug)]

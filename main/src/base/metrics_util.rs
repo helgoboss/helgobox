@@ -20,7 +20,7 @@ pub fn init_metrics() {
     thread::Builder::new()
         .name(String::from("ReaLearn metrics"))
         .spawn(move || {
-            keep_recording_metrics((*METRICS_CHANNEL).receiver.clone());
+            keep_recording_metrics(METRICS_CHANNEL.receiver.clone());
         })
         .unwrap();
 }

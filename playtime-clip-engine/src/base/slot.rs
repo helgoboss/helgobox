@@ -1,11 +1,11 @@
-use crate::conversion_util::{
-    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
-    convert_position_in_frames_to_seconds,
-};
-use crate::main::{
+use crate::base::{
     create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+};
+use crate::conversion_util::{
+    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
+    convert_position_in_frames_to_seconds,
 };
 use crate::rt::supplier::{
     ChainEquipment, ClipSource, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,

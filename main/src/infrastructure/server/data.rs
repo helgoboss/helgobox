@@ -217,7 +217,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     // TODO-low In future versions of the Companion app, we should not update the controller
     //  source directly but update a session. This makes more sense because now ReaLearn treats
     //  custom data exactly like mappings - it's saved with the session.
-    let _ = App::get().with_weak_sessions(|sessions| {
+    App::get().with_weak_sessions(|sessions| {
         let sessions = sessions.iter().filter_map(|s| s.upgrade());
         for session in sessions {
             let mut session = session.borrow_mut();

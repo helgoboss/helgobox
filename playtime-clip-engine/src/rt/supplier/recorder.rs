@@ -192,6 +192,8 @@ impl Recording {
     }
 }
 
+// TODO-high-clip-engine The size difference is too high!
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum KindState {
     Audio(RecordingAudioState),

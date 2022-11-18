@@ -309,6 +309,6 @@ impl State {
 
     pub fn invalidate(&mut self) {
         let content = blocking_lock(&self.content);
-        self.last_build_outcome = self.toolbox.build(&*content);
+        self.last_build_outcome = self.toolbox.build(&content);
     }
 }

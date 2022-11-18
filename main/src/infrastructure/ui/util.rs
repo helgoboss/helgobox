@@ -231,7 +231,7 @@ pub fn open_in_text_editor(
     parent_window: Window,
     suffix: &str,
 ) -> Result<String, &'static str> {
-    edit::edit_with_builder(&text, edit::Builder::new().prefix("realearn-").suffix(suffix)).map_err(|e| {
+    edit::edit_with_builder(text, edit::Builder::new().prefix("realearn-").suffix(suffix)).map_err(|e| {
         use std::io::ErrorKind::*;
         let msg = match e.kind() {
             NotFound => "Couldn't find text editor.".to_owned(),

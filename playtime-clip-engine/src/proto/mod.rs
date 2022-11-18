@@ -1,6 +1,6 @@
 mod clip_engine;
 
-use crate::main::ClipSlotCoordinates;
+use crate::base::ClipSlotCoordinates;
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
 use reaper_medium::{InputMonitoringMode, RecordingInput, RgbColor};

@@ -30,7 +30,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use playtime_api::persistence::EvenQuantization;
-use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_slot_update,
     ArrangementPlayState, ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate,

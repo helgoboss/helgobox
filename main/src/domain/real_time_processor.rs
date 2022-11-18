@@ -24,7 +24,7 @@ use slog::{debug, trace};
 use crate::base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::main::{ClipRecordDestination, VirtualClipRecordAudioInput};
+use playtime_clip_engine::base::{ClipRecordDestination, VirtualClipRecordAudioInput};
 use playtime_clip_engine::rt::supplier::WriteAudioRequest;
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakMatrix};
 use std::convert::TryInto;
@@ -1121,7 +1121,7 @@ impl RealTimeProcessor {
                                                 self.log_lifecycle_output(value);
                                             });
                                         }
-                                        mo.send_msg(&**data, SendMidiTime::Instantly);
+                                        mo.send_msg(**data, SendMidiTime::Instantly);
                                     }
                                 }
                             }
@@ -1329,6 +1329,8 @@ pub struct RealTimeMappingUpdate {
 
 /// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
+// TODO-high-performance Might want to fix this.
+#[allow(clippy::large_enum_variant)]
 pub enum FeedbackRealTimeTask {
     /// When it comes to MIDI feedback, the real-time processor is only responsible for FX output
     /// feedback. Direct-device feedback is taken care of by the global audio hook for reasons of
@@ -1638,7 +1640,7 @@ fn real_time_target_send_midi(
         Some(MidiDestination::Device(dev_id)) => {
             MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                 if let Some(mo) = mo {
-                    mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
+                    mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
                     true
                 } else {
                     false

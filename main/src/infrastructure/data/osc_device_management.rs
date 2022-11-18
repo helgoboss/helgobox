@@ -43,7 +43,7 @@ impl OscDeviceManager {
     }
 
     fn save(&mut self) -> Result<(), String> {
-        fs::create_dir_all(&self.osc_device_config_file_path.parent().unwrap())
+        fs::create_dir_all(self.osc_device_config_file_path.parent().unwrap())
             .map_err(|_| "couldn't create OSC device config file parent directory")?;
         let json = serde_json::to_string_pretty(&self.config)
             .map_err(|_| "couldn't serialize OSC device config")?;

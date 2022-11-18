@@ -34,7 +34,7 @@ use helgoboss_learn::{
     SourceContext, TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
 use realearn_api::persistence::TrackScope;

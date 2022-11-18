@@ -107,8 +107,8 @@ impl<'a> FeedbackCollector<'a> {
             Some(c) => c,
         };
         let channels = match req.channel {
-            None => (0..MackieLcdScope::CHANNEL_COUNT),
-            Some(ch) => (ch..ch + 1),
+            None => 0..MackieLcdScope::CHANNEL_COUNT,
+            Some(ch) => ch..ch + 1,
         };
         let mut at_least_one_color_change = false;
         for ch in channels {

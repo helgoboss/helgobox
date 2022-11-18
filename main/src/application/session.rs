@@ -37,7 +37,7 @@ use crate::domain;
 use core::iter;
 use helgoboss_learn::{AbsoluteValue, ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
-use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
 use reaper_medium::RecordingInput;
 use std::error::Error;

@@ -276,7 +276,7 @@ impl HeaderPanel {
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
             } else {
-                deserialize_data_object_from_json(&*text_from_clipboard).ok()
+                deserialize_data_object_from_json(&text_from_clipboard).ok()
             };
             let clipboard_could_contain_lua =
                 !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
@@ -840,7 +840,7 @@ impl HeaderPanel {
         let mapping_datas = self
             .get_listened_mappings(compartment)
             .iter()
-            .map(|m| MappingModelData::from_model(&*m.borrow(), &compartment_in_session))
+            .map(|m| MappingModelData::from_model(&m.borrow(), &compartment_in_session))
             .collect();
         DataObject::Mappings(App::create_envelope(mapping_datas))
     }
@@ -2022,7 +2022,7 @@ impl HeaderPanel {
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
                 ) {
-                    plugin_parameters.apply_session_data(&*d);
+                    plugin_parameters.apply_session_data(&d);
                 }
             }
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {

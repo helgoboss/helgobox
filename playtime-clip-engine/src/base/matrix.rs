@@ -1,6 +1,6 @@
-use crate::main::history::History;
-use crate::main::row::Row;
-use crate::main::{Clip, Column, Slot};
+use crate::base::history::History;
+use crate::base::row::Row;
+use crate::base::{Clip, Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,

@@ -1,11 +1,11 @@
-use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
+use crate::base::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs, ColumnPlayClipOptions,
     ColumnPlayRowArgs, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs,
     RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
-use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
+use crate::{base, clip_timeline, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use playtime_api::persistence::ClipPlayStopTiming;
 use reaper_high::{Project, Reaper};
@@ -41,7 +41,7 @@ const MAX_COLUMN_COUNT_WITHOUT_REALLOCATION: usize = 1000;
 pub struct Matrix {
     column_handles: Vec<ColumnHandle>,
     command_receiver: Receiver<MatrixCommand>,
-    main_command_sender: Sender<main::MatrixCommand>,
+    main_command_sender: Sender<base::MatrixCommand>,
     project: Option<Project>,
     last_project_play_state: PlayState,
     play_position_jump_detector: PlayPositionJumpDetector,
@@ -85,7 +85,7 @@ impl WeakMatrix {
 impl Matrix {
     pub fn new(
         command_receiver: Receiver<MatrixCommand>,
-        command_sender: Sender<main::MatrixCommand>,
+        command_sender: Sender<base::MatrixCommand>,
         project: Option<Project>,
     ) -> Self {
         Self {

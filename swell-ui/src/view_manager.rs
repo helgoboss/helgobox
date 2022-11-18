@@ -250,20 +250,8 @@ unsafe extern "C" fn view_dialog_proc(
                     view.context_menu_wanted(Point::new(Pixels(x as _), Pixels(y as _)));
                     1
                 }
-                raw::WM_PAINT => {
-                    if view.paint() {
-                        1
-                    } else {
-                        0
-                    }
-                }
-                raw::WM_ERASEBKGND => {
-                    if view.erase_background(wparam as raw::HDC) {
-                        1
-                    } else {
-                        0
-                    }
-                }
+                raw::WM_PAINT => isize::from(view.paint()),
+                raw::WM_ERASEBKGND => isize::from(view.erase_background(wparam as raw::HDC)),
                 raw::WM_CTLCOLORSTATIC => {
                     let brush = view.control_color_static(
                         wparam as raw::HDC,

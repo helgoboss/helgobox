@@ -4,7 +4,7 @@ use crate::domain::{
     QualifiedMappingId, RawParamValue, RealearnClipMatrix,
 };
 use helgoboss_learn::AbsoluteValue;
-use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::error::Error;

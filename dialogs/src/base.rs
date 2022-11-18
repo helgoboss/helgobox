@@ -481,8 +481,8 @@ impl Display for Dialog {
 impl Display for Control {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let caption = opt(&self.caption.map(LineBreaksEscaped).map(Quoted));
-        let id = req(&self.id);
-        let rect = req(&self.rect);
+        let id = req(self.id);
+        let rect = req(self.rect);
         let styles = if self.styles.0.is_empty() {
             None
         } else {

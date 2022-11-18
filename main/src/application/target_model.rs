@@ -59,7 +59,7 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-use playtime_clip_engine::main::ClipTransportOptions;
+use playtime_clip_engine::base::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,

@@ -6,7 +6,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
-use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
 use playtime_clip_engine::rt::{ClipChangeEvent, ColumnPlayClipOptions, QualifiedClipChangeEvent};
 use realearn_api::persistence::ClipTransportAction;
 use reaper_high::Project;

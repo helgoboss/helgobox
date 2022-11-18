@@ -1,8 +1,8 @@
+use crate::base::ClipSlotCoordinates;
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
-use crate::main::ClipSlotCoordinates;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
@@ -310,6 +310,8 @@ impl Clip {
         }
     }
 
+    // TODO-high-clip-engine The error type is too large!
+    #[allow(clippy::result_large_err)]
     pub fn midi_overdub(
         &mut self,
         args: MidiOverdubInstruction,
@@ -321,6 +323,8 @@ impl Clip {
         }
     }
 
+    // TODO-high-clip-engine The error type is too large!
+    #[allow(clippy::result_large_err)]
     pub fn record(
         &mut self,
         args: ClipRecordArgs,
@@ -1101,6 +1105,8 @@ impl ReadyState {
         supplier_chain.reset_for_play(self.play_settings.looped);
     }
 
+    // TODO-high-clip-engine The error type is too large!
+    #[allow(clippy::result_large_err)]
     pub fn midi_overdub(
         &mut self,
         args: MidiOverdubInstruction,

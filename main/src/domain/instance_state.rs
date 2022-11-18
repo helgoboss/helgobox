@@ -16,7 +16,7 @@ use crate::domain::{
     MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
     TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
-use playtime_clip_engine::main::{
+use playtime_clip_engine::base::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;

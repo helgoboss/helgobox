@@ -1,4 +1,4 @@
-use crate::main::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
+use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs,

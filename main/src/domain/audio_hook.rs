@@ -7,11 +7,11 @@ use crate::domain::{
 use assert_no_alloc::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::global_steady_timeline_state;
-use playtime_clip_engine::main::{
+use playtime_clip_engine::base::{
     ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
     VirtualClipRecordHardwareMidiInput,
 };
+use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};

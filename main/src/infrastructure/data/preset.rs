@@ -158,7 +158,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
             format!("{}/{}", relative_path_with_slashes, leaf_id)
         };
-        let json = fs::read_to_string(&path)
+        let json = fs::read_to_string(path)
             .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
         let data: PD = serde_json::from_str(&json).map_err(|e| {
             format!(

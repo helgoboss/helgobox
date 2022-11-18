@@ -274,7 +274,7 @@ impl MappingRowsPanel {
         }
         session
             .mappings(self.active_compartment())
-            .filter(|m| Self::mapping_matches_filter(&session, &main_state, *m, false))
+            .filter(|m| Self::mapping_matches_filter(&session, &main_state, m, false))
             .count()
     }
 
@@ -320,7 +320,7 @@ impl MappingRowsPanel {
         let filter_is_active = main_state.filter_and_displayed_group_is_active();
         session.mappings(compartment).filter(move |m| {
             if filter_is_active {
-                Self::mapping_matches_filter(session, main_state, *m, ignore_group)
+                Self::mapping_matches_filter(session, main_state, m, ignore_group)
             } else {
                 true
             }
