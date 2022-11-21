@@ -25,7 +25,9 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
-use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
+use crate::infrastructure::server::{
+    MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
+};
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
@@ -33,7 +35,6 @@ use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
     OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
 };
-use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain,
@@ -253,8 +254,6 @@ impl App {
             normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
         };
-        let prometheus_builder = PrometheusBuilder::new();
-        let prometheus_handle = prometheus_builder.install_recorder().unwrap();
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
             controller_preset_manager: Rc::new(RefCell::new(
@@ -276,7 +275,7 @@ impl App {
                 config.main.server_https_port,
                 config.main.server_grpc_port,
                 App::server_resource_dir_path().join("certificates"),
-                prometheus_handle,
+                MetricsReporter::new(),
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),

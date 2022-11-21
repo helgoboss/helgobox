@@ -7,7 +7,6 @@ use axum::http::Method;
 use axum::routing::{get, patch};
 use axum::Router;
 use axum_server::Handle;
-use metrics_exporter_prometheus::PrometheusHandle;
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -18,6 +17,7 @@ use crate::base::Global;
 use crate::infrastructure::server::data::WebSocketRequest;
 pub use crate::infrastructure::server::http::handlers::*;
 use crate::infrastructure::server::layers::MainThreadLayer;
+use crate::infrastructure::server::MetricsReporter;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn start_http_server(
@@ -27,10 +27,10 @@ pub async fn start_http_server(
     (key, cert): (String, String),
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
-    prometheus_handle: PrometheusHandle,
+    metrics_reporter: MetricsReporter,
 ) -> Result<(), io::Error> {
     // Router
-    let router = create_router(cert.clone(), clients, prometheus_handle);
+    let router = create_router(cert.clone(), clients, metrics_reporter);
     // Binding
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
@@ -76,7 +76,7 @@ pub async fn start_http_server(
 fn create_router(
     cert: String,
     clients: ServerClients,
-    prometheus_handle: PrometheusHandle,
+    metrics_reporter: MetricsReporter,
 ) -> Router {
     let router = Router::new()
         .route("/", get(welcome_handler))
@@ -106,7 +106,7 @@ fn create_router(
         )
         .route(
             "/realearn/metrics",
-            get(move || async move { create_metrics_response(prometheus_handle).await }),
+            get(move || async move { create_metrics_response(metrics_reporter).await }),
         );
     router
         .layer(

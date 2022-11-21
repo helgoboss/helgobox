@@ -6,13 +6,13 @@ use crate::infrastructure::server::data::{
     SessionResponseData, Topics,
 };
 use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
+use crate::infrastructure::server::MetricsReporter;
 use axum::body::{boxed, Body, BoxBody};
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::Path;
 use axum::http::{Response, StatusCode};
 use axum::response::Html;
 use axum::Json;
-use metrics_exporter_prometheus::PrometheusHandle;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -78,10 +78,13 @@ pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<BoxB
         .unwrap()
 }
 
-pub async fn create_metrics_response(prometheus_handle: PrometheusHandle) -> Response<BoxBody> {
-    let text = prometheus_handle.render();
+pub async fn create_metrics_response(metrics_reporter: MetricsReporter) -> Response<BoxBody> {
+    let (status_code, text) = match metrics_reporter.render_as_prometheus() {
+        Ok(t) => (StatusCode::OK, t),
+        Err(e) => (StatusCode::NOT_IMPLEMENTED, e.to_string()),
+    };
     Response::builder()
-        .status(StatusCode::OK)
+        .status(status_code)
         .body(boxed(Body::from(text)))
         .unwrap()
 }

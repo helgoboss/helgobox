@@ -20,7 +20,6 @@ use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
 use derivative::Derivative;
-use metrics_exporter_prometheus::PrometheusHandle;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -31,8 +30,7 @@ pub mod grpc;
 pub mod http;
 mod layers;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct RealearnServer {
     http_port: u16,
     https_port: u16,
@@ -41,8 +39,51 @@ pub struct RealearnServer {
     certs_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
     local_ip: Option<IpAddr>,
+    metrics_reporter: MetricsReporter,
+}
+
+/// Responsible for reporting application metrics.
+///
+/// We don't use `PrometheusHandle` directly because `metrics_exporter_prometheus` depends on
+/// the `quanta` crate which in turn depends on `mach` crate on macOS. `mach` links to the kernel
+/// function [mach_continuous_time](https://developer.apple.com/documentation/kernel/1646199-mach_continuous_time)
+/// which is only available for macOS 10.12+. That means the ReaLearn dylib wouldn't load anymore on
+/// older macOS systems, e.g. El Capitan (10.11). Some old MacBooks (e.g. 2009) can't go any further
+/// than El Capitan. In order to make ReaLearn still work on such old MacBooks, we switch off
+/// metrics reporting for the macOS Intel CPU architectures, so metrics reporting will only work on
+/// the new aarch64 architectures. This is more restrictive than necessary, but it's easier than
+/// using weak linking, which would require changes in the `mach` crate.
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct MetricsReporter {
+    #[cfg(not(all(target_os = "macos", not(target_arch = "aarch64"))))]
     #[derivative(Debug = "ignore")]
-    prometheus_handle: PrometheusHandle,
+    prometheus_handle: metrics_exporter_prometheus::PrometheusHandle,
+}
+impl MetricsReporter {
+    pub fn new() -> Self {
+        #[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+        {
+            Self {}
+        }
+        #[cfg(not(all(target_os = "macos", not(target_arch = "aarch64"))))]
+        {
+            let prometheus_builder = metrics_exporter_prometheus::PrometheusBuilder::new();
+            let prometheus_handle = prometheus_builder.install_recorder().unwrap();
+            Self { prometheus_handle }
+        }
+    }
+
+    pub fn render_as_prometheus(&self) -> Result<String, &'static str> {
+        #[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+        {
+            Err("not supported on Intel Macs")
+        }
+        #[cfg(not(all(target_os = "macos", not(target_arch = "aarch64"))))]
+        {
+            Ok(self.prometheus_handle.render())
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -77,7 +118,7 @@ impl RealearnServer {
         https_port: u16,
         grpc_port: u16,
         certs_dir_path: PathBuf,
-        prometheus_handle: PrometheusHandle,
+        metrics_reporter: MetricsReporter,
     ) -> RealearnServer {
         RealearnServer {
             http_port,
@@ -87,7 +128,7 @@ impl RealearnServer {
             certs_dir_path,
             changed_subject: Default::default(),
             local_ip: get_local_ip(),
-            prometheus_handle,
+            metrics_reporter,
         }
     }
 
@@ -108,7 +149,7 @@ impl RealearnServer {
         let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
         let https_shutdown_receiver = shutdown_sender.subscribe();
         let grpc_shutdown_receiver = shutdown_sender.subscribe();
-        let prometheus_handle = self.prometheus_handle.clone();
+        let metrics_reporter = self.metrics_reporter.clone();
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -125,7 +166,7 @@ impl RealearnServer {
                     http_shutdown_receiver,
                     https_shutdown_receiver,
                     grpc_shutdown_receiver,
-                    prometheus_handle,
+                    metrics_reporter,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })
@@ -277,7 +318,7 @@ async fn start_servers(
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
     grpc_shutdown_receiver: broadcast::Receiver<()>,
-    prometheus_handle: PrometheusHandle,
+    metrics_reporter: MetricsReporter,
 ) {
     let http_server_future = start_http_server(
         http_port,
@@ -286,7 +327,7 @@ async fn start_servers(
         (key, cert),
         http_shutdown_receiver,
         https_shutdown_receiver,
-        prometheus_handle,
+        metrics_reporter,
     );
     let grpc_server_future = start_grpc_server(
         SocketAddr::from(([127, 0, 0, 1], grpc_port)),
