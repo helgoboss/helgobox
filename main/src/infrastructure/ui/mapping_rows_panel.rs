@@ -76,6 +76,12 @@ impl MappingRowsPanel {
         }
     }
 
+    pub fn handle_changed_conditions(&self) {
+        for row in &self.rows {
+            row.handle_changed_conditions();
+        }
+    }
+
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
         if !self.is_open() {
             return;

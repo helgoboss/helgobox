@@ -78,6 +78,12 @@ impl IndependentPanelManager {
         }
     }
 
+    pub fn handle_changed_conditions(&self) {
+        for p in &self.mapping_panels {
+            let _ = p.clone().handle_changed_conditions();
+        }
+    }
+
     pub fn open_message_panel(&self) {
         self.message_panel.clone().open(reaper_main_window());
     }

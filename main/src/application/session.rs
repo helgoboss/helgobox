@@ -49,6 +49,7 @@ pub trait SessionUi {
     fn parameters_changed(&self, session: &Session);
     fn midi_devices_changed(&self);
     fn celebrate_success(&self);
+    fn conditions_changed(&self);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     fn clip_matrix_polled(
         &self,
@@ -2418,6 +2419,10 @@ impl DomainEventHandler for WeakSession {
         let session = self.upgrade().ok_or("session not existing anymore")?;
         use DomainEvent::*;
         match event {
+            ConditionsChanged => {
+                let s = session.try_borrow()?;
+                s.ui.conditions_changed()
+            }
             TimeForCelebratingSuccess => {
                 let s = session.try_borrow()?;
                 s.ui.celebrate_success()

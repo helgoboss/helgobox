@@ -363,6 +363,15 @@ impl MainPanel {
         }
     }
 
+    fn handle_changed_conditions(&self) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager.borrow().handle_changed_conditions();
+            if self.is_open() {
+                data.mapping_rows_panel.handle_changed_conditions();
+            }
+        }
+    }
+
     fn edit_instance_data(&self) -> Result<(), &'static str> {
         let (initial_session_id, initial_tags_as_csv) = self.do_with_session(|session| {
             (
@@ -484,6 +493,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn midi_devices_changed(&self) {
         upgrade_panel(self).handle_changed_midi_devices();
+    }
+
+    fn conditions_changed(&self) {
+        upgrade_panel(self).handle_changed_conditions();
     }
 
     fn celebrate_success(&self) {

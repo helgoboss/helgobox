@@ -32,6 +32,7 @@ pub enum DomainEvent<'a> {
     ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
     TimeForCelebratingSuccess,
+    ConditionsChanged,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]

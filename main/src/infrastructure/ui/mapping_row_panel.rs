@@ -4,7 +4,7 @@ use crate::application::{
     WeakSession,
 };
 use crate::base::when;
-use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId, ReaperTarget};
+use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId};
 
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
@@ -136,6 +136,13 @@ impl MappingRowPanel {
         self.view
             .require_window()
             .set_timer(SOURCE_MATCH_INDICATOR_TIMER_ID, Duration::from_millis(50));
+    }
+
+    pub fn handle_changed_conditions(&self) {
+        self.with_mapping(|p, m| {
+            p.invalidate_name_labels(m);
+            p.invalidate_target_label(m);
+        });
     }
 
     fn source_match_indicator_control(&self) -> Window {
@@ -407,12 +414,6 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(ReaperTarget::potential_static_change_events(), |view| {
-            view.with_mapping(|p, m| {
-                p.invalidate_name_labels(m);
-                p.invalidate_target_label(m);
-            });
-        });
         self.when(session.mapping_which_learns_source_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_source_button);
         });

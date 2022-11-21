@@ -1312,6 +1312,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// such as "Is the window open?" and "What FX is the focused FX?".
     fn notify_conditions_changed(&mut self) {
         debug!(self.basics.logger, "Conditions changed");
+        // Invoke auto-load if necessary
         if self
             .basics
             .event_handler
@@ -1322,6 +1323,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // another preset is being loaded anyway.
             return;
         }
+        // Refresh all targets
         debug!(self.basics.logger, "Refreshing all targets...");
         for compartment in Compartment::enum_iter() {
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
@@ -1356,7 +1358,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 changed_mappings.into_iter(),
             );
         }
+        // Update on mappings
         self.update_on_mappings();
+        // Notify session (for UI purposes)
+        self.basics
+            .event_handler
+            .handle_event_ignoring_error(DomainEvent::ConditionsChanged);
     }
 
     fn update_settings(&mut self, settings: BasicSettings) {

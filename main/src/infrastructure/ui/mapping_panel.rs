@@ -62,15 +62,13 @@ use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, Compartment, CompoundMappingTarget,
     ExtendedProcessorContext, FeedbackResolution, FxDisplayType, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
-    VirtualControlElementId, VirtualFx,
+    RealearnTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType, TrackExclusivity,
+    TrackRouteType, TransportAction, VirtualControlElement, VirtualControlElementId, VirtualFx,
 };
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
-    compartment_parameter_dropdown_contents, open_in_browser, parse_tags_from_csv, symbols,
-    MAPPING_PANEL_SCALING,
+    compartment_parameter_dropdown_contents, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
@@ -1111,6 +1109,22 @@ impl MappingPanel {
                 session.control_context(),
             );
         });
+    }
+
+    pub fn handle_changed_conditions(self: SharedView<Self>) -> Result<(), &'static str> {
+        self.clone().invoke_programmatically(|| {
+            self.read(|view| {
+                // These changes can happen because of removals (e.g. project close, FX deletions,
+                // track deletions etc.). We want to update whatever is possible. But if the own
+                // project is missing, this was a project close and we don't need to do anything
+                // at all.
+                if !view.target_with_context().project().is_available() {
+                    return;
+                }
+                view.invalidate_target_controls(None);
+                view.invalidate_mode_controls();
+            })
+        })
     }
 
     pub fn notify_parameters_changed(
@@ -5513,21 +5527,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.session.mapping_which_learns_target_changed(),
             |view, _| {
                 view.invalidate_target_learn_button();
-            },
-        );
-        self.panel.when(
-            ReaperTarget::potential_static_change_events()
-                .merge(ReaperTarget::potential_dynamic_change_events()),
-            |view, _| {
-                // These changes can happen because of removals (e.g. project close, FX deletions,
-                // track deletions etc.). We want to update whatever is possible. But if the own
-                // project is missing, this was a project close and we don't need to do anything
-                // at all.
-                if !view.target_with_context().project().is_available() {
-                    return;
-                }
-                view.invalidate_target_controls(None);
-                view.invalidate_mode_controls();
             },
         );
     }
