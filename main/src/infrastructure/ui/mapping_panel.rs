@@ -73,8 +73,8 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
     EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    MappingRowsPanel, OscFeedbackArgumentsEngine, ScriptEditorInput, ScriptEngine,
-    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
+    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
     CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
@@ -299,9 +299,11 @@ impl MappingPanel {
                                             P::Line => {
                                                 view.invalidate_source_line_5_combo_box();
                                             }
-                                            P::OscAddressPattern |
-                                            P::RawMidiPattern | P::TimerMillis => {
+                                            P::OscAddressPattern | P::TimerMillis => {
                                                 view.invalidate_source_line_3_edit_control(initiator);
+                                            }
+                                            P::RawMidiPattern  => {
+                                                view.invalidate_source_line_7_edit_control(initiator);
                                             }
                                             P::ParameterIndex => {
                                                 view.invalidate_source_line_3_combo_box_1()
@@ -635,12 +637,35 @@ impl MappingPanel {
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
             ReaperTargetType::SendMidi => {
-                if let Some(preset) =
-                    prompt_for_predefined_raw_midi_pattern(self.view.require_window())
-                {
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetRawMidiPattern(preset),
-                    ));
+                if let Some(action) = open_send_midi_menu(self.view.require_window()) {
+                    match action {
+                        SendMidiMenuAction::Preset(preset) => {
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(preset),
+                            ));
+                        }
+                        SendMidiMenuAction::EditMultiLine => {
+                            let session = self.session.clone();
+                            let engine = Box::new(RawMidiScriptEngine);
+                            let help_url =
+                                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#midi-send-message";
+                            self.edit_script_in_simple_editor(
+                                engine,
+                                help_url,
+                                |m| m.target_model.raw_midi_pattern().to_owned(),
+                                move |m, text| {
+                                    Session::change_mapping_from_ui_simple(
+                                        session.clone(),
+                                        m,
+                                        MappingCommand::ChangeTarget(
+                                            TargetCommand::SetRawMidiPattern(text),
+                                        ),
+                                        None,
+                                    );
+                                },
+                            );
+                        }
+                    }
                 }
             }
             _ => {}
@@ -818,22 +843,48 @@ impl MappingPanel {
         self.main_panel.upgrade().expect("main view gone")
     }
 
-    fn edit_source_script(&self) {
-        match self.mapping().borrow().source_model.category() {
-            SourceCategory::Midi => {
-                let session = self.session.clone();
-                self.edit_midi_source_script_internal(
-                    |m| m.source_model.midi_script().to_owned(),
-                    move |m, eel| {
-                        Session::change_mapping_from_ui_simple(
-                            session.clone(),
-                            m,
-                            MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
-                            None,
-                        );
-                    },
-                );
-            }
+    fn edit_source_pattern_or_script(&self) {
+        let mapping = self.mapping();
+        let mapping = mapping.borrow();
+        match mapping.source_model.category() {
+            SourceCategory::Midi => match mapping.source_model.midi_source_type() {
+                MidiSourceType::Raw => {
+                    let session = self.session.clone();
+                    let engine = Box::new(RawMidiScriptEngine);
+                    let help_url =
+                            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#raw-midi-source";
+                    self.edit_script_in_simple_editor(
+                        engine,
+                        help_url,
+                        |m| m.source_model.raw_midi_pattern().to_owned(),
+                        move |m, text| {
+                            Session::change_mapping_from_ui_simple(
+                                session.clone(),
+                                m,
+                                MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
+                                    text,
+                                )),
+                                None,
+                            );
+                        },
+                    );
+                }
+                MidiSourceType::Script => {
+                    let session = self.session.clone();
+                    self.edit_midi_source_script_internal(
+                        |m| m.source_model.midi_script().to_owned(),
+                        move |m, eel| {
+                            Session::change_mapping_from_ui_simple(
+                                session.clone(),
+                                m,
+                                MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
+                                None,
+                            );
+                        },
+                    );
+                }
+                _ => {}
+            },
             SourceCategory::Osc => {
                 let session = self.session.clone();
                 self.edit_osc_feedback_arguments_internal(
@@ -1810,15 +1861,6 @@ impl<'a> MutableMappingPanel<'a> {
         if let Ok(value) = c.text() {
             use SourceCategory::*;
             match self.mapping.source_model.category() {
-                Midi => match self.mapping.source_model.midi_source_type() {
-                    MidiSourceType::Raw => {
-                        self.change_mapping_with_initiator(
-                            MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(value)),
-                            Some(edit_control_id),
-                        );
-                    }
-                    _ => {}
-                },
                 Osc => {
                     self.change_mapping_with_initiator(
                         MappingCommand::ChangeSource(SourceCommand::SetOscAddressPattern(value)),
@@ -1835,7 +1877,7 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 },
-                Virtual | Never | Keyboard => {}
+                Midi | Virtual | Never | Keyboard => {}
             }
         }
     }
@@ -1848,6 +1890,12 @@ impl<'a> MutableMappingPanel<'a> {
         use SourceCategory::*;
         match self.mapping.source_model.category() {
             Midi => match self.mapping.source_model.midi_source_type() {
+                MidiSourceType::Raw => {
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(value)),
+                        Some(edit_control_id),
+                    );
+                }
                 MidiSourceType::Script => {
                     self.change_mapping_with_initiator(
                         MappingCommand::ChangeSource(SourceCommand::SetMidiScript(value)),
@@ -3590,7 +3638,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let text = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some("Pattern"),
                 MidiSourceType::Script => Some("Kind"),
                 t if t.supports_channel() => Some("Channel"),
                 _ => None,
@@ -3728,7 +3775,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_4_button(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
-            Virtual => Some("Pick"),
+            Virtual => Some("Pick!"),
             _ => None,
         };
         self.view
@@ -3886,7 +3933,13 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_7_button(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
-            Midi if self.source.is_midi_script() => Some("..."),
+            Midi if matches!(
+                self.source.midi_source_type(),
+                MidiSourceType::Raw | MidiSourceType::Script
+            ) =>
+            {
+                Some("...")
+            }
             Osc => Some("..."),
             _ => None,
         };
@@ -3899,6 +3952,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let text = match self.source.category() {
             Midi => match self.source.midi_source_type() {
+                MidiSourceType::Raw => Some("Pattern"),
                 MidiSourceType::Script => Some("Script"),
                 _ => None,
             },
@@ -3918,10 +3972,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         let c = self.view.require_control(control_id);
         use SourceCategory::*;
         let content = match self.source.category() {
-            Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some((self.source.raw_midi_pattern().to_owned(), true)),
-                _ => None,
-            },
             Osc => Some((self.source.osc_address_pattern().to_owned(), true)),
             Reaper => match self.source.reaper_source_type() {
                 ReaperSourceType::Timer => Some((self.source.timer_millis().to_string(), true)),
@@ -3971,11 +4021,15 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let (value_text, read_only) = match self.source.category() {
             Midi => match self.source.midi_source_type() {
+                MidiSourceType::Raw => {
+                    let text = self.source.raw_midi_pattern();
+                    (Some(text.to_owned()), text.chars().count() > 30)
+                }
                 MidiSourceType::Script => {
-                    let midi_script = self.source.midi_script();
+                    let text = self.source.midi_script();
                     (
-                        Some(extract_first_line(midi_script).to_owned()),
-                        has_multiple_lines(midi_script),
+                        Some(extract_first_line(text).to_owned()),
+                        has_multiple_lines(text),
                     )
                 }
                 _ => (None, false),
@@ -4593,7 +4647,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendMidi => Some("Pick!"),
+                ReaperTargetType::SendMidi => Some("..."),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4717,23 +4771,21 @@ impl<'a> ImmutableMappingPanel<'a> {
         if initiator == Some(root::ID_TARGET_LINE_3_EDIT_CONTROL) {
             return;
         }
-        let control = self
+        let c = self
             .view
             .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL);
-        match self.target_category() {
+        let (value_text, read_only) = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => {
-                    control.show();
-                    let text = self.target.raw_midi_pattern();
-                    control.set_text(text);
+                    let text = self.target.raw_midi_pattern().to_owned();
+                    let read_only = text.chars().count() > 30;
+                    (Some(text), read_only)
                 }
                 ReaperTargetType::SendOsc => {
-                    control.show();
-                    let text = self.target.osc_address_pattern();
-                    control.set_text(text);
+                    let text = self.target.osc_address_pattern().to_owned();
+                    (Some(text), false)
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
-                    control.show();
                     let text = self
                         .target
                         .mapping_snapshot_default_value()
@@ -4741,34 +4793,28 @@ impl<'a> ImmutableMappingPanel<'a> {
                             format!("{} %", format_as_percentage_without_unit(v.to_unit_value()))
                         })
                         .unwrap_or_default();
-                    control.set_text(text);
+                    (Some(text), false)
                 }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type() {
-                        VirtualFxType::Dynamic => self.target.fx_expression().to_owned(),
+                        VirtualFxType::Dynamic => Some(self.target.fx_expression().to_owned()),
                         VirtualFxType::ByIndex => {
                             let index = self.target.fx_index();
-                            (index + 1).to_string()
+                            Some((index + 1).to_string())
                         }
                         VirtualFxType::ByName | VirtualFxType::AllByName => {
-                            self.target.fx_name().to_owned()
+                            Some(self.target.fx_name().to_owned())
                         }
-                        _ => {
-                            control.hide();
-                            return;
-                        }
+                        _ => None,
                     };
-                    control.set_text(text);
-                    control.show();
+                    (text, false)
                 }
-                _ => {
-                    control.hide();
-                }
+                _ => (None, false),
             },
-            TargetCategory::Virtual => {
-                control.hide();
-            }
-        }
+            TargetCategory::Virtual => (None, false),
+        };
+        c.set_text_or_hide(value_text);
+        c.set_enabled(!read_only);
     }
 
     fn invalidate_target_line_3_label_1(&self) {
@@ -6401,7 +6447,7 @@ impl View for MappingPanel {
             root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON => {
                 self.edit_control_transformation()
             }
-            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_source_script(),
+            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_source_pattern_or_script(),
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {
@@ -7250,11 +7296,12 @@ fn show_feedback_popup_menu(
     Ok(result)
 }
 
-fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
-    enum MenuAction {
-        Preset(String),
-        Help,
-    }
+enum SendMidiMenuAction {
+    EditMultiLine,
+    Preset(String),
+}
+
+fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
     fn fmt_ch(ch: u8) -> String {
         format!("Channel {}", ch + 1)
     }
@@ -7262,7 +7309,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
         source_type: MidiSourceType,
         msg_type: ShortMessageType,
         label: &str,
-    ) -> swell_ui::menu_tree::Entry<MenuAction> {
+    ) -> swell_ui::menu_tree::Entry<SendMidiMenuAction> {
         use swell_ui::menu_tree::*;
         menu(
             source_type.to_string(),
@@ -7272,7 +7319,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
                     chunked_number_menu(128, 8, false, |i| {
                         item(format!("{} {}", label, i), move || {
                             let status_byte: u8 = msg_type.into();
-                            MenuAction::Preset(format!(
+                            SendMidiMenuAction::Preset(format!(
                                 "{:02X} {:02X} [0gfe dcba]",
                                 status_byte + ch,
                                 i
@@ -7288,14 +7335,14 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
         source_type: MidiSourceType,
         msg_type: ShortMessageType,
         last_byte: u8,
-    ) -> swell_ui::menu_tree::Entry<MenuAction> {
+    ) -> swell_ui::menu_tree::Entry<SendMidiMenuAction> {
         use swell_ui::menu_tree::*;
         menu(
             source_type.to_string(),
             channel_menu(|ch| {
                 item(fmt_ch(ch), move || {
                     let status_byte: u8 = msg_type.into();
-                    MenuAction::Preset(format!(
+                    SendMidiMenuAction::Preset(format!(
                         "{:02X} [0gfe dcba] {:02X}",
                         status_byte + ch,
                         last_byte
@@ -7308,9 +7355,9 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
     let pure_menu = {
         use swell_ui::menu_tree::*;
 
-        use MenuAction::*;
+        use SendMidiMenuAction::*;
         let entries = vec![
-            item("Help", || Help),
+            item("Edit multi-line...", || EditMultiLine),
             double_data_byte_msg_menu(
                 MidiSourceType::ControlChangeValue,
                 ShortMessageType::ControlChange,
@@ -7349,16 +7396,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
         ];
         root_menu(entries)
     };
-    let item = window.open_simple_popup_menu(pure_menu, Window::cursor_pos())?;
-    match item {
-        MenuAction::Preset(preset) => Some(preset),
-        MenuAction::Help => {
-            open_in_browser(
-                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#midi-send-message",
-            );
-            None
-        }
-    }
+    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 fn build_slash_menu_entries(

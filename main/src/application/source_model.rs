@@ -781,10 +781,6 @@ impl SourceModel {
         self.category == SourceCategory::Midi
     }
 
-    pub fn is_midi_script(&self) -> bool {
-        self.category == SourceCategory::Midi && self.midi_source_type == MidiSourceType::Script
-    }
-
     fn channel_label(&self) -> Cow<str> {
         if self.supports_channel() {
             match self.channel {

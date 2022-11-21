@@ -7,7 +7,8 @@ use crate::infrastructure::ui::bindings::root::ID_YAML_HELP_BUTTON;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue, UnitValue,
+    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
+    RawMidiEvent, RawMidiPattern, UnitValue,
 };
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -56,6 +57,26 @@ impl ScriptEngine for EelMidiScriptEngine {
 
     fn file_extension(&self) -> &'static str {
         ".eel"
+    }
+}
+
+pub struct RawMidiScriptEngine;
+
+impl ScriptEngine for RawMidiScriptEngine {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        let raw_midi_pattern: RawMidiPattern = code.parse()?;
+        if raw_midi_pattern.entries().len() > RawMidiEvent::MAX_LENGTH {
+            return Err(format!(
+                "Pattern exceeds maximum allowed MIDI message size of {} bytes",
+                RawMidiEvent::MAX_LENGTH
+            )
+            .into());
+        }
+        Ok(Box::new(()))
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".syx"
     }
 }
 
