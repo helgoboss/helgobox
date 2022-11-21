@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-11-11 (v2.14.0-pre.10)`
+|Last update of text: |`2022-11-21 (v2.14.0-pre.11)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1925,7 +1925,7 @@ the absolute control value.
 
 ====== Program change
 
-This source reacts to incoming MIDI program-change messages. The higher the program number, the
+This source reacts to a range of incoming MIDI program-change messages. The higher the program number, the
 higher the absolute control value.
 
 ====== (N)RPN value
@@ -2233,6 +2233,10 @@ CAUTION: For controllers with multiple displays and lines, ReaLearn allows you t
 
 If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the *Glue* section.
 
+
+====== Specific program change
+
+This source reacts to MIDI program-change messages with a specific program. This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
 
 [#category-osc]
 ===== Category "OSC"
@@ -2624,6 +2628,14 @@ Resolves to the zero-based index of the track on which this ReaLearn instance is
 
 Resolves to the zero-based index of the instance track of this ReaLearn instance.
 
+| instance_track_tcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the track control panel.
+
+| instance_track_mcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the mixer control panel.
+
 | this_fx_index | Integer >= 0 | FX selectors |
 
 Resolves to the zero-based index of this ReaLearn FX instance.
@@ -2922,7 +2934,7 @@ only)" or similar. The resolution of the invocation is 14-bit, no matter what's 
 ** *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution. Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly. In all other circumstances, 14-bit is probably the better default choice.
 ** *Relative:* Invokes the action with the incoming relative control value (absolute ones are
 ignored). Only works for actions that are annotated with ("MIDI CC relative only") or similar.
-* *Pick:* Opens REAPER's action dialog so you can select the desired action.
+* *Pick!:* Opens REAPER's action dialog so you can select the desired action.
 * *With track*: Allows you to choose a track which ReaLearn will select before executing the action. This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
 
 The particular action decides if toggling/feedback works completely, has limitations or is not possible at all. There
@@ -3469,7 +3481,7 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
  used in the <<raw-midi-source,Raw MIDI source>>.
  Please read about it there!
-* *Pick!* Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
+* *...* Primarily provides predefined patterns. Just pick one here, set the destination to "Feedback output" and
  add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
 
 [NOTE]
