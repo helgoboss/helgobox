@@ -332,11 +332,10 @@ impl PresetDb {
                 None,
             ),
             sub_banks: {
-                let mut sql =
-                    "SELECT id, entry1, entry2 FROM k_bank_chain WHERE entry2".to_string();
+                let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
                 let parent_bank_id = settings.bank;
                 if parent_bank_id.is_some() {
-                    sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain where id = ?)";
+                    sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
                 self.select_nks_filter_items(&sql, parent_bank_id)
@@ -349,7 +348,7 @@ impl PresetDb {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
                 let parent_category_id = settings.category;
                 if parent_category_id.is_some() {
-                    sql += " WHERE category = (SELECT category FROM k_category where id = ?)";
+                    sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
                 self.select_nks_filter_items(&sql, parent_category_id)
