@@ -1,6 +1,7 @@
 use objc2::foundation::{MainThreadMarker, NSObject};
 use objc2::rc::{Id, Shared};
-use objc2::{class, extern_class, extern_methods, msg_send, msg_send_id, ClassType};
+use objc2::runtime::Class;
+use objc2::{extern_class, extern_methods, msg_send, msg_send_id, ClassType};
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
@@ -21,8 +22,7 @@ extern_class!(
     }
 );
 
-pub(crate) fn shared_ns_app() -> Id<NSApplication, Shared> {
-    // TODO: Only allow access from main thread
+pub(crate) fn ns_app() -> Id<NSApplication, Shared> {
     NSApplication::shared(unsafe { MainThreadMarker::new_unchecked() })
 }
 
@@ -54,6 +54,23 @@ extern_methods!(
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct NSWindow;
+
+    unsafe impl ClassType for NSWindow {
+        #[inherits(NSObject)]
+        type Super = NSResponder;
+    }
+);
+
+extern_methods!(
+    unsafe impl NSWindow {
+        #[sel(sendEvent:)]
+        pub unsafe fn send_event(&self, event: &NSEvent);
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub(crate) struct NSView;
 
     unsafe impl ClassType for NSView {
@@ -64,12 +81,12 @@ extern_class!(
 
 extern_methods!(
     unsafe impl NSView {
-        #[sel(sendEvent:)]
-        pub unsafe fn send_event(&self, event: &NSEvent);
+        pub fn is_kind_of_class(&self, class: &Class) -> bool {
+            unsafe { msg_send![self, isKindOfClass: class] }
+        }
 
-        pub unsafe fn is_text_field(&self) -> bool {
-            let cls = class!(NSTextField);
-            msg_send![self, isKindOfClass: cls]
+        pub fn window(&self) -> Option<Id<NSWindow, Shared>> {
+            unsafe { msg_send_id![self, window] }
         }
     }
 );

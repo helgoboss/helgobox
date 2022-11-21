@@ -165,13 +165,17 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn process_current_app_event_if_no_text_field(self) -> bool {
         unsafe {
-            let ns_view = &*(self.raw as *const crate::macos::NSView);
-            if ns_view.is_text_field() {
+            let view = &*(self.raw as *const crate::macos::NSView);
+            if view.is_kind_of_class(objc2::class!(NSTextField))
+                || view.is_kind_of_class(objc2::class!(NSTextView))
+            {
                 return false;
             }
-            let app = crate::macos::shared_ns_app();
+            let app = crate::macos::ns_app();
             if let Some(current_event) = app.current_event() {
-                ns_view.send_event(&current_event);
+                if let Some(window) = view.window() {
+                    window.send_event(&current_event);
+                }
             }
             true
         }
