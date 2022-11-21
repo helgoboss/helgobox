@@ -472,8 +472,12 @@ impl FxDescriptor {
             VirtualFx::Focused => {
                 let single = Reaper::get()
                     .focused_fx()
-                    .ok_or("couldn't get (last) focused FX")?;
-                Ok(vec![single])
+                    .ok_or("couldn't get focused FX")?;
+                if single.is_still_focused.unwrap_or(true) {
+                    Ok(vec![single.fx])
+                } else {
+                    Err("FX unfocused")
+                }
             }
             VirtualFx::Instance => {
                 let instance_state = context.control_context.instance_state.borrow();

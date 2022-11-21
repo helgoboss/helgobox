@@ -23,13 +23,15 @@ use crate::base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
-    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, MidiInputDeviceId,
-    MidiOutputDeviceId, PositionInSeconds, ReaProject, ReaperNormalizedFxParamValue,
+    CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
+    MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ReaProject,
+    ReaperNormalizedFxParamValue,
 };
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::mem;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 
@@ -56,6 +58,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     future_middleware: FutureMiddleware,
     counter: u64,
     full_beats: HashMap<ReaProject, u32>,
+    fx_focus_state: Option<GetFocusedFx2Result>,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
@@ -118,6 +121,11 @@ pub enum AdditionalFeedbackEvent {
     /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
     BeatChanged(BeatChangedEvent),
     MappedFxParametersChanged,
+    /// This event is raised whenever an FX window loses focus and a non-FX window gains focus,
+    /// and vice versa.
+    ///
+    /// REAPER itself doesn't fire any change event in this case.
+    FocusSwitchedBetweenMainAndFx,
 }
 
 #[derive(Debug)]
@@ -220,6 +228,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             ),
             counter: 0,
             full_beats: Default::default(),
+            fx_focus_state: Default::default(),
             state: State::Normal,
             osc_input_devices: vec![],
             garbage_receiver,
@@ -241,6 +250,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.process_incoming_additional_feedback();
         self.process_instance_orchestration_events();
         self.detect_reaper_config_changes();
+        self.emit_focus_switch_between_main_and_fx_as_feedback_event();
         self.emit_beats_as_feedback_events();
         self.emit_device_changes_as_reaper_source_messages(timestamp);
         self.process_incoming_osc_messages(timestamp);
@@ -528,6 +538,30 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let changes = self.reaper_config_change_detector.poll_for_changes();
         for p in &*self.main_processors.borrow() {
             p.process_reaper_config_changes(&changes);
+        }
+    }
+
+    fn emit_focus_switch_between_main_and_fx_as_feedback_event(&mut self) {
+        let reaper = Reaper::get().medium_reaper();
+        if reaper.low().pointers().GetFocusedFX2.is_none() {
+            // Detection of unfocusing FX (without focusing a new one) not supported in old REAPER
+            // versions.
+            return;
+        }
+        let new = reaper.get_focused_fx_2();
+        let last = mem::replace(&mut self.fx_focus_state, new);
+        let (Some(last), Some(new)) = (last, new) else {
+            // Changes from non-open FX to open FX and vice versa are already handled
+            // nicely by REAPER's built-in FxFocused change event.
+            return;
+        };
+        if (last.is_still_focused && !new.is_still_focused)
+            || (!last.is_still_focused && new.is_still_focused && last.fx == new.fx)
+        {
+            let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
+            for p in &*self.main_processors.borrow() {
+                p.process_additional_feedback_event(&event);
+            }
         }
     }
 

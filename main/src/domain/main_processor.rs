@@ -1601,14 +1601,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         } else {
-            // Okay, not fired that frequently, we can iterate over all mappings.
-            if let AdditionalFeedbackEvent::MappedFxParametersChanged = event {
-                // Dynamic FX parameter expression should be re-resolved
+            if ReaperTarget::changes_conditions(CompoundChangeEvent::Additional(event)) {
                 self.basics
                     .channels
                     .self_normal_sender
                     .send_complaining(NormalMainTask::NotifyConditionsChanged);
             }
+            // Okay, not fired that frequently, we can iterate over all mappings
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
@@ -1654,8 +1653,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .send_complaining(NormalMainTask::PotentiallyEnableOrDisableControlOrFeedback);
         }
         // Refresh targets if necessary
-        let we_have_a_potential_target_change_event =
-            events.iter().any(ReaperTarget::changes_conditions);
+        let we_have_a_potential_target_change_event = events
+            .iter()
+            .any(|evt| ReaperTarget::changes_conditions(CompoundChangeEvent::Reaper(evt)));
         if we_have_a_potential_target_change_event {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //

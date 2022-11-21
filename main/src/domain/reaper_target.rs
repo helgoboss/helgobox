@@ -29,21 +29,22 @@ use crate::base::default_util::is_default;
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AllTrackFxEnableTarget,
-    AutomationModeOverrideTarget, BrowseFxsTarget, BrowsePotFilterItemsTarget,
-    BrowsePotPresetsTarget, BrowseTracksTarget, Caller, ClipColumnTarget, ClipManagementTarget,
-    ClipMatrixTarget, ClipRowTarget, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget,
-    ControlContext, DummyTarget, EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget,
-    FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget,
-    GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
-    LoadPotPresetTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
-    PreviewPotPresetTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
-    RealTimeClipRowTarget, RealTimeClipTransportTarget, RealTimeControlContext,
-    RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget,
-    TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
-    TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
-    TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
+    AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller,
+    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
+    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, EnigoMouseTarget,
+    FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget,
+    FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
+    LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext, MidiSendTarget,
+    OscSendTarget, PlayrateTarget, PreviewPotPresetTarget, RealTimeClipColumnTarget,
+    RealTimeClipMatrixTarget, RealTimeClipRowTarget, RealTimeClipTransportTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -266,42 +267,15 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
-    /// Notifies about other events which can affect the resulting `ReaperTarget`.
-    ///
-    /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
-    /// It can also change if a track is removed or FX focus changes. We don't include
-    /// those in `changed()` because they are global in nature. If we listen to n targets,
-    /// we don't want to listen to those global events n times. Just 1 time is enough!
-    pub fn potential_static_change_events(
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        let rx = Global::control_surface_rx();
-        rx
-            // Considering fx_focused() as static event is okay as long as we don't have a target
-            // which switches focus between different FX. As soon as we have that, we must treat
-            // fx_focused() as a dynamic event, like track_selection_changed().
-            .fx_focused()
-            .map_to(())
-            .merge(rx.project_switched().map_to(()))
-            .merge(rx.track_added().map_to(()))
-            .merge(rx.track_removed().map_to(()))
-            .merge(rx.tracks_reordered().map_to(()))
-            .merge(rx.track_name_changed().map_to(()))
-            .merge(rx.fx_added().map_to(()))
-            .merge(rx.fx_removed().map_to(()))
-            .merge(rx.fx_reordered().map_to(()))
-            .merge(rx.bookmarks_changed())
-            .merge(rx.receive_count_changed().map_to(()))
-            .merge(rx.track_send_count_changed().map_to(()))
-            .merge(rx.hardware_output_send_count_changed().map_to(()))
-    }
-
     /// Returns `true` if the given change event can be a reason for re-resolving targets or
     /// auto-loading another main preset.
-    pub fn changes_conditions(evt: &ChangeEvent) -> bool {
-        use ChangeEvent::*;
-        matches!(
-            evt,
-            FxFocused(_)
+    pub fn changes_conditions(evt: CompoundChangeEvent) -> bool {
+        match evt {
+            CompoundChangeEvent::Reaper(evt) => {
+                use ChangeEvent::*;
+                matches!(
+                    evt,
+                    FxFocused(_)
                 | FxClosed(_)
                 | FxOpened(_)
                 // For FX-to-preset links that also have preset name as criteria
@@ -320,22 +294,20 @@ impl ReaperTarget {
                 | HardwareOutputSendCountChanged(_)
                 | TrackSelectedChanged(_)
                 | TrackVisibilityChanged(_)
-        )
-    }
-
-    /// This contains all potential target-changing events which could also be fired by targets
-    /// themselves. Be careful with those. Reentrancy very likely.
-    ///
-    /// Previously we always reacted on selection changes. But this naturally causes issues,
-    /// which become most obvious with the "Selected track" target. If we resync all mappings
-    /// whenever another track is selected, this happens very often while turning an encoder
-    /// that navigates between tracks. This in turn renders throttling functionality
-    /// useless (because with a resync all runtime mode state is gone). Plus, reentrancy
-    /// issues will arise.
-    pub fn potential_dynamic_change_events(
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        let rx = Global::control_surface_rx();
-        rx.track_selected_changed().map_to(())
+                )
+            }
+            CompoundChangeEvent::Additional(evt) => {
+                use AdditionalFeedbackEvent::*;
+                matches!(
+                    evt,
+                    // Auto-load should load other preset
+                    FocusSwitchedBetweenMainAndFx
+                    // Dynamic FX parameter expression should be re-resolved
+                    | MappedFxParametersChanged
+                )
+            }
+            CompoundChangeEvent::Instance(_) | CompoundChangeEvent::ClipMatrix(_) => false,
+        }
     }
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
