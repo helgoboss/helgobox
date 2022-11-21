@@ -1463,8 +1463,16 @@ impl VirtualTrack {
                         let track = context.context().track()?;
                         Some(get_track_index_for_expression(track))
                     }
-                    "instance_track_index" => {
-                        let index = context
+                    "instance_track_index"
+                    | "instance_track_tcp_index"
+                    | "instance_track_mcp_index" => {
+                        let scope = match name {
+                            "instance_track_index" => TrackScope::AllTracks,
+                            "instance_track_tcp_index" => TrackScope::TracksVisibleInTcp,
+                            "instance_track_mcp_index" => TrackScope::TracksVisibleInMcp,
+                            _ => unreachable!(),
+                        };
+                        let instance_track = context
                             .control_context
                             .instance_state
                             // We do this in order to prevent infinite recursion in case the
@@ -1475,9 +1483,8 @@ impl VirtualTrack {
                             .track
                             .resolve(context, compartment)
                             .ok()
-                            .and_then(|tracks| tracks.into_iter().next())
-                            .map(|track| get_track_index_for_expression(&track));
-                        Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                            .and_then(|tracks| tracks.into_iter().next());
+                        Some(get_scoped_track_index_for_expression(instance_track, scope))
                     }
                     "selected_track_index"
                     | "selected_track_tcp_index"
@@ -1494,18 +1501,7 @@ impl VirtualTrack {
                             scope,
                             MasterTrackBehavior::IncludeMasterTrack,
                         );
-                        match selected_track {
-                            None => Some(EXPRESSION_NONE_VALUE),
-                            Some(t) => {
-                                if t.is_master_track() {
-                                    Some(-1.0)
-                                } else {
-                                    scoped_track_index(&t, scope)
-                                        .map(|i| i as f64)
-                                        .or(Some(EXPRESSION_NONE_VALUE))
-                                }
-                            }
-                        }
+                        Some(get_scoped_track_index_for_expression(selected_track, scope))
                     }
                     "selected_track_indexes" => {
                         let i = extract_first_arg_as_positive_integer(args)?;
@@ -2171,6 +2167,21 @@ pub trait UnresolvedReaperTargetDef {
 /// Special: Index -1 means master track.
 fn get_track_index_for_expression(track: &Track) -> f64 {
     track.index().map(|i| i as f64).unwrap_or(-1.0)
+}
+
+fn get_scoped_track_index_for_expression(track: Option<Track>, scope: TrackScope) -> f64 {
+    match track {
+        None => EXPRESSION_NONE_VALUE,
+        Some(t) => {
+            if t.is_master_track() {
+                -1.0
+            } else {
+                scoped_track_index(&t, scope)
+                    .map(|i| i as f64)
+                    .unwrap_or(EXPRESSION_NONE_VALUE)
+            }
+        }
+    }
 }
 
 fn extract_first_arg_as_positive_integer(args: &[f64]) -> Option<u32> {
