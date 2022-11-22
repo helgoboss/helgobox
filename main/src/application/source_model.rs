@@ -435,6 +435,9 @@ impl SourceModel {
                     | PolyphonicKeyPressureAmount { key_number, .. } => {
                         self.midi_message_number = key_number.map(Into::into);
                     }
+                    SpecificProgramChange { program_number, .. } => {
+                        self.midi_message_number = *program_number;
+                    }
                     ControlChangeValue {
                         controller_number,
                         custom_character,
