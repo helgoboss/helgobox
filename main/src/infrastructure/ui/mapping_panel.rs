@@ -3578,7 +3578,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_enabled(self.mapping.compartment() != Compartment::Main);
+            .set_visible(self.mapping.compartment() != Compartment::Main);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item_by_index(self.target.category().into())
