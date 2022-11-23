@@ -262,5 +262,6 @@ impl BrowsePotFilterItemsTarget {
 pub const BROWSE_POT_FILTER_ITEMS_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Pot: Browse filter items",
     short_name: "Browse Pot filter items",
+    hint: "Highly experimental!!!",
     ..DEFAULT_TARGET
 };

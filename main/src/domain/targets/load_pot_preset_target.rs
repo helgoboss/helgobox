@@ -173,6 +173,7 @@ impl LoadPotPresetTarget {
 pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Pot: Load preset",
     short_name: "Load Pot preset",
+    hint: "Highly experimental!!!",
     supports_track: true,
     supports_fx: true,
     ..DEFAULT_TARGET

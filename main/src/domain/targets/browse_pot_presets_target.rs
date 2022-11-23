@@ -224,6 +224,7 @@ impl BrowsePotPresetsTarget {
 pub const BROWSE_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Pot: Browse presets",
     short_name: "Browse Pot presets",
+    hint: "Highly experimental!!!",
     ..DEFAULT_TARGET
 };
 
