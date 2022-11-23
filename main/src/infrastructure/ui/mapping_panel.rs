@@ -5052,7 +5052,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             }
                         } else {
                             combo.select_only_combo_box_item(
-                                "Use 'Particular' only if track is 'Particular' as well!",
+                                "Use 'Particular' only if track is particular as well!",
                             );
                         }
                     } else {
@@ -5157,22 +5157,28 @@ impl<'a> ImmutableMappingPanel<'a> {
                     && self.target.param_type() == VirtualFxParameterType::ById =>
                 {
                     combo.show();
-                    let context = self.session.extended_context();
-                    if let Ok(fx) = self
-                        .target
-                        .with_context(context, self.mapping.compartment())
-                        .first_fx()
-                    {
-                        combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
-                        let param_index = self.target.param_index();
-                        combo
-                            .select_combo_box_item_by_index(param_index as _)
-                            .unwrap_or_else(|_| {
-                                let label = get_fx_param_label(None, param_index);
-                                combo.select_new_combo_box_item(label.into_owned());
-                            });
+                    if self.target.fx_type().is_sticky() {
+                        let context = self.session.extended_context();
+                        if let Ok(fx) = self
+                            .target
+                            .with_context(context, self.mapping.compartment())
+                            .first_fx()
+                        {
+                            combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
+                            let param_index = self.target.param_index();
+                            combo
+                                .select_combo_box_item_by_index(param_index as _)
+                                .unwrap_or_else(|_| {
+                                    let label = get_fx_param_label(None, param_index);
+                                    combo.select_new_combo_box_item(label.into_owned());
+                                });
+                        } else {
+                            combo.select_only_combo_box_item("<Requires FX>");
+                        }
                     } else {
-                        combo.select_only_combo_box_item("<Requires FX>");
+                        combo.select_only_combo_box_item(
+                            "Use 'Particular' only if FX is particular as well!",
+                        )
                     }
                 }
                 t if t.supports_track_exclusivity() => {
