@@ -114,13 +114,18 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
     fn supports_automatic_feedback(&self) -> bool {
         false
     }
+
+    fn can_report_current_value(&self) -> bool {
+        use MouseActionType::*;
+        match self.action_type {
+            MoveTo | MoveBy => self.mouse.cursor_position().is_ok(),
+            PressOrRelease => self.mouse.is_pressed(self.button).is_ok(),
+            Scroll => false,
+        }
+    }
 }
 
 impl<M: Mouse> MouseTarget<M> {
-    fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str> {
-        self.mouse.cursor_position()
-    }
-
     fn axis_size(&self) -> u32 {
         self.mouse.axis_size(self.axis)
     }
@@ -146,7 +151,7 @@ impl<M: Mouse> MouseTarget<M> {
         };
         match instruction {
             MoveCursorInstruction::To(pos) => {
-                let current_pos = self.cursor_position()?;
+                let current_pos = self.mouse.cursor_position()?;
                 let new_pos = match self.axis {
                     Axis::X => MouseCursorPosition::new(pos, current_pos.y),
                     Axis::Y => MouseCursorPosition::new(current_pos.x, pos),
@@ -197,7 +202,7 @@ impl<'a, M: Mouse> Target<'a> for MouseTarget<M> {
         match self.action_type {
             MoveTo | MoveBy => {
                 let axis_size = self.axis_size();
-                let pos = self.cursor_position().ok()?;
+                let pos = self.mouse.cursor_position().ok()?;
                 let pos_on_axis = get_pos_on_axis(pos, self.axis);
                 let fraction = Fraction::new(pos_on_axis, axis_size);
                 Some(AbsoluteValue::Discrete(fraction))
