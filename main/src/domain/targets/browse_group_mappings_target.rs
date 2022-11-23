@@ -129,7 +129,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
                         context.control_context,
                         context.logger,
                         context.processor_context,
-                        AbsoluteValue::Continuous(v),
+                        ControlValue::AbsoluteContinuous(v),
                         context.basic_settings.target_control_logger(
                             context.processor_context.control_context.instance_state,
                             ControlLogContext::GroupNavigation,

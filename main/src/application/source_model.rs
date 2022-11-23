@@ -537,13 +537,13 @@ impl SourceModel {
                 VirtualControlElement::Multi(_) => vec![
                     DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
                     DetailedSourceCharacter::MomentaryOnOffButton,
-                    DetailedSourceCharacter::PressOnlyButton,
+                    DetailedSourceCharacter::Trigger,
                     DetailedSourceCharacter::RangeControl,
                     DetailedSourceCharacter::Relative,
                 ],
                 VirtualControlElement::Button(_) => vec![
                     DetailedSourceCharacter::MomentaryOnOffButton,
-                    DetailedSourceCharacter::PressOnlyButton,
+                    DetailedSourceCharacter::Trigger,
                 ],
             },
             CompoundMappingSource::Reaper(s) => s.possible_detailed_characters(),
@@ -551,7 +551,7 @@ impl SourceModel {
             CompoundMappingSource::Never => vec![
                 DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
                 DetailedSourceCharacter::MomentaryOnOffButton,
-                DetailedSourceCharacter::PressOnlyButton,
+                DetailedSourceCharacter::Trigger,
                 DetailedSourceCharacter::RangeControl,
                 DetailedSourceCharacter::Relative,
             ],

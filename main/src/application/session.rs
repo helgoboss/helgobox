@@ -35,7 +35,7 @@ use std::fmt::Debug;
 
 use crate::domain;
 use core::iter;
-use helgoboss_learn::{AbsoluteValue, ControlResult, ControlValue, SourceContext, UnitValue};
+use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
@@ -455,7 +455,7 @@ impl Session {
     /// Instructs the main processor to hit the target directly.
     ///
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.
-    pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
+    pub fn hit_target(&self, id: QualifiedMappingId, value: ControlValue) {
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::HitTarget { id, value });
     }

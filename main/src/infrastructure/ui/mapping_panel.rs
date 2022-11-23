@@ -3318,10 +3318,33 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
+    // For hitting target with on/off or -/+ depending on target character.
+    fn hit_target_special(&self, state: bool) -> Result<(), &'static str> {
+        let target = self
+            .first_resolved_target()
+            .ok_or("couldn't resolve to target")?;
+        let target_is_relative = target
+            .control_type(self.session.control_context())
+            .is_relative();
+        let value = if target_is_relative {
+            let amount = if state { 1 } else { -1 };
+            ControlValue::RelativeDiscrete(DiscreteIncrement::new(amount))
+        } else {
+            let value = if state {
+                UnitValue::MAX
+            } else {
+                UnitValue::MIN
+            };
+            ControlValue::AbsoluteContinuous(value)
+        };
+        self.session.hit_target(self.mapping.qualified_id(), value);
+        Ok(())
+    }
+
     fn hit_target(&self, value: UnitValue) {
         self.session.hit_target(
             self.mapping.qualified_id(),
-            AbsoluteValue::Continuous(value),
+            ControlValue::AbsoluteContinuous(value),
         );
     }
 
@@ -5406,7 +5429,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_value_controls(&self) {
         // TODO-low This might set the value slider to the wrong value because it only takes the
         //  first resolved target into account.
-        let (error_msg, read_enabled, write_enabled, character) =
+        let (error_msg, read_enabled, write_enabled, character, is_relative) =
             if let Some(t) = self.first_resolved_target() {
                 let control_context = self.session.control_context();
                 let (error_msg, read_enabled, write_enabled) = if t.is_virtual() {
@@ -5416,20 +5439,21 @@ impl<'a> ImmutableMappingPanel<'a> {
                 } else if t.can_report_current_value() {
                     let value = t.current_value(control_context).unwrap_or_default();
                     self.invalidate_target_value_controls_with_value(value);
-                    let write_enabled = !t.control_type(control_context).is_relative();
-                    (None, true, write_enabled)
+                    (None, true, true)
                 } else {
                     // Target is real but can't report values (e.g. load mapping snapshot)
                     (None, false, true)
                 };
+                let is_relative = t.control_type(control_context).is_relative();
                 (
                     error_msg,
                     read_enabled,
                     write_enabled,
                     Some(t.character(control_context)),
+                    is_relative,
                 )
             } else {
-                (Some("Target inactive!"), false, false, None)
+                (Some("Target inactive!"), false, false, None, false)
             };
         self.show_if(
             read_enabled,
@@ -5440,36 +5464,45 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         // Slider or buttons
-        let off_button = self.view.require_control(root::ID_TARGET_VALUE_OFF_BUTTON);
-        let on_button = self.view.require_control(root::ID_TARGET_VALUE_ON_BUTTON);
+        let button_1 = self.view.require_control(root::ID_TARGET_VALUE_OFF_BUTTON);
+        let button_2 = self.view.require_control(root::ID_TARGET_VALUE_ON_BUTTON);
         let slider_control = self
             .view
             .require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL);
         if write_enabled {
-            use TargetCharacter::*;
-            match character {
-                Some(Trigger) => {
-                    slider_control.hide();
-                    off_button.hide();
-                    on_button.show();
-                    on_button.set_text("Trigger!");
-                }
-                Some(Switch) => {
-                    slider_control.hide();
-                    off_button.show();
-                    on_button.show();
-                    on_button.set_text("On");
-                }
-                _ => {
-                    off_button.hide();
-                    on_button.hide();
-                    slider_control.show();
+            if is_relative {
+                slider_control.hide();
+                button_1.show();
+                button_2.show();
+                button_1.set_text("-");
+                button_2.set_text("+");
+            } else {
+                use TargetCharacter::*;
+                match character {
+                    Some(Trigger) => {
+                        slider_control.hide();
+                        button_1.hide();
+                        button_2.show();
+                        button_2.set_text("Trigger!");
+                    }
+                    Some(Switch) => {
+                        slider_control.hide();
+                        button_1.show();
+                        button_2.show();
+                        button_1.set_text("Off");
+                        button_2.set_text("On");
+                    }
+                    _ => {
+                        button_1.hide();
+                        button_2.hide();
+                        slider_control.show();
+                    }
                 }
             }
         } else {
             slider_control.hide();
-            off_button.hide();
-            on_button.hide();
+            button_1.hide();
+            button_2.hide();
         }
         // Maybe display grey error message instead of value text
         let value_text = self.view.require_control(root::ID_TARGET_VALUE_TEXT);
@@ -5655,6 +5688,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .as_ref()
             .map(|t| t.can_report_current_value())
             .unwrap_or_default();
+        let target_wants_relative_control = real_target
+            .as_ref()
+            .map(|t| t.control_type(self.session.control_context()).is_relative())
+            .unwrap_or_default();
+        let feedback_is_on = self.mapping.feedback_is_enabled_and_supported();
         // For all source characters
         {
             let show_source_min_max = is_relevant(ModeParameter::SourceMinMax);
@@ -5690,8 +5728,16 @@ impl<'a> ImmutableMappingPanel<'a> {
                     root::ID_MODE_GROUP_INTERACTION_COMBO_BOX,
                 ],
             );
-            let show_target_value_sequence =
-                is_relevant(ModeParameter::TargetValueSequence) && real_target.is_some();
+            let target_controls_make_sense = if target_wants_relative_control
+                && (!feedback_is_on || !target_can_report_current_value)
+            {
+                false
+            } else {
+                true
+            };
+            let show_target_value_sequence = target_controls_make_sense
+                && is_relevant(ModeParameter::TargetValueSequence)
+                && real_target.is_some();
             self.enable_if(
                 show_target_value_sequence,
                 &[
@@ -5699,8 +5745,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL,
                 ],
             );
-            let show_target_min_max =
-                is_relevant(ModeParameter::TargetMinMax) && real_target.is_some();
+            let show_target_min_max = target_controls_make_sense
+                && is_relevant(ModeParameter::TargetMinMax)
+                && real_target.is_some();
             self.enable_if(
                 show_target_min_max,
                 &[
@@ -6486,10 +6533,10 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_4_button_press();
             }
             root::ID_TARGET_VALUE_OFF_BUTTON => {
-                let _ = self.read(|p| p.hit_target(UnitValue::MIN));
+                let _ = self.read(|p| p.hit_target_special(false));
             }
             root::ID_TARGET_VALUE_ON_BUTTON => {
-                let _ = self.read(|p| p.hit_target(UnitValue::MAX));
+                let _ = self.read(|p| p.hit_target_special(true));
             }
             root::ID_TARGET_UNIT_BUTTON => self.write(|p| p.handle_target_unit_button_press()),
             _ => unreachable!(),

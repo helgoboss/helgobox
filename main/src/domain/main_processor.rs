@@ -2646,7 +2646,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         relevant_map.insert(m.id(), m);
     }
 
-    fn hit_target(&mut self, id: QualifiedMappingId, value: AbsoluteValue) {
+    fn hit_target(&mut self, id: QualifiedMappingId, value: ControlValue) {
         let control_result = if let Some(m) =
             self.collections.mappings[id.compartment].get_mut(&id.id)
         {
@@ -2723,7 +2723,7 @@ pub enum NormalMainTask {
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.
     HitTarget {
         id: QualifiedMappingId,
-        value: AbsoluteValue,
+        value: ControlValue,
     },
     /// This should be sent on events such as track list change, FX focus etc.
     ///

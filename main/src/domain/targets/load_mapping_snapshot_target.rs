@@ -225,7 +225,7 @@ impl LoadMappingSnapshotInstruction {
                     context.control_context,
                     context.logger,
                     context.processor_context,
-                    snapshot_value,
+                    ControlValue::from_absolute(snapshot_value),
                     context.basic_settings.target_control_logger(
                         context.processor_context.control_context.instance_state,
                         ControlLogContext::LoadingMappingSnapshot,

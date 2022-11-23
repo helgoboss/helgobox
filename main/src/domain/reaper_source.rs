@@ -149,12 +149,12 @@ impl ReaperSource {
         match self {
             MidiDeviceChanges => vec![DetailedSourceCharacter::MomentaryOnOffButton],
             RealearnInstanceStart => vec![DetailedSourceCharacter::MomentaryOnOffButton],
-            Timer(_) => vec![DetailedSourceCharacter::PressOnlyButton],
+            Timer(_) => vec![DetailedSourceCharacter::Trigger],
             RealearnParameter(_) => vec![
                 DetailedSourceCharacter::RangeControl,
                 DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
                 DetailedSourceCharacter::MomentaryOnOffButton,
-                DetailedSourceCharacter::PressOnlyButton,
+                DetailedSourceCharacter::Trigger,
             ],
             Speech(_) => vec![DetailedSourceCharacter::RangeControl],
         }

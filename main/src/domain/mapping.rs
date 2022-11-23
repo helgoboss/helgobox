@@ -884,7 +884,7 @@ impl MainMapping {
         // TODO-low Strictly spoken, this is not necessary, because control_internal uses this only
         //  if target refresh is enforced, which is not the case here.
         processor_context: ExtendedProcessorContext,
-        value: AbsoluteValue,
+        value: ControlValue,
         log_mode_control_result: impl Fn(ControlLogEntry),
     ) -> MappingControlResult {
         self.control_internal(
@@ -894,11 +894,7 @@ impl MainMapping {
             processor_context,
             false,
             log_mode_control_result,
-            |_, _, _, _| {
-                Some(ModeControlResult::hit_target(ControlValue::from_absolute(
-                    value,
-                )))
-            },
+            |_, _, _, _| Some(ModeControlResult::hit_target(value)),
         )
     }
 

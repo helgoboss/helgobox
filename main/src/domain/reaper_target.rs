@@ -55,19 +55,27 @@ use crate::domain::{
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
+///
+/// This relates more to the character of the target value, actually. Not the way the target wants
+/// to be controlled. That's why introducing a "Relative" character is not a good idea. The value
+/// can still be discrete or continuous, it's orthogonal.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
     /// "Fire-only", so like switch but whenever it only makes sense to send "on", not "off".
     ///
-    /// Rendered as one button.
+    /// Rendered as one trigger button.
     Trigger,
     /// When there are just two states: "on" and "off".
     ///
-    /// Rendered as two buttons.
+    /// Rendered as on/off buttons.
     Switch,
     /// Whenever there's a certain, discrete number of target values (steps).
+    ///
+    /// Rendered as slider or -/+ buttons (if target type is relative).
     Discrete,
     /// Whenever the step size between two target values can get arbitrarily small.
+    ///
+    /// Rendered as slider or -/+ buttons (if target type is relative).
     Continuous,
     /// When the target is a virtual control element that allows for more than 2 states.
     VirtualMulti,
