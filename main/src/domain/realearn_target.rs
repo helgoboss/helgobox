@@ -43,7 +43,6 @@ use reaper_medium::CommandId;
 use serde_repr::*;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::fmt::{Debug, Display, Formatter};
 
 #[enum_dispatch(ReaperTarget)]
@@ -106,8 +105,6 @@ pub trait RealearnTarget {
     /// values of course but a discrete number, by using this function. Should be the reverse of
     /// `convert_discrete_value_to_unit_value()` because latter is used for parsing.
     ///
-    /// In case the target wants increments, this takes 63 as the highest possible value.
-    ///
     /// # Errors
     ///
     /// Returns an error if this target doesn't report a step size.
@@ -116,11 +113,8 @@ pub trait RealearnTarget {
         value: UnitValue,
         context: ControlContext,
     ) -> Result<u32, &'static str> {
-        if self.control_type_and_character(context).0.is_relative() {
-            // Relative MIDI controllers support a maximum of 63 steps.
-            return Ok((value.get() * 63.0).round() as _);
-        }
         let _ = value;
+        let _ = context;
         Err("not supported")
     }
 
@@ -297,10 +291,8 @@ pub trait RealearnTarget {
         value: u32,
         context: ControlContext,
     ) -> Result<UnitValue, &'static str> {
-        if self.control_type_and_character(context).0.is_relative() {
-            return (value as f64 / 63.0).try_into();
-        }
         let _ = value;
+        let _ = context;
         Err("not supported")
     }
 
