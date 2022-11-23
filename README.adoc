@@ -73,14 +73,32 @@ and REAPER for Windows 64-bit because then it's important to use two separate VS
 
 == Usage
 
+=== Quick start
+
+ReaLearn is fired up just like any other VST instrument in REAPER: By adding it to an FX chain.
+
+.Main panel (containing the list of mappings)
+image::doc/images/screenshot-main-panel-annotated.svg[]
+
+.Mapping panel (for editing one particular mapping)
+image::doc/images/screenshot-mapping-panel.png[]
+
+[#videos]
+=== Videos
+
+link:https://www.youtube.com/watch?v=4ySGt9Ejc-M&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=1[The ReaLearn Tutorials] is a fairly new ongoing series of short video tutorials available.
+
+There's also a long https://www.youtube.com/watch?v=dUPyqYaIkYA[introduction video] from 2021. Watch 2 minutes to get a first
+impression and stay tuned if you are interested in the details.
+
 === User guide
 
-The user guide of the latest not-yet-released version is available as
-https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc[HTML (GitHub)] (preferred, best readability).
+ReaLearn features a large and complete user guide.
 
-A complete user guide for the latest release is available as
-https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf[PDF] and
-https://www.helgoboss.org/projects/realearn/user-guide[HTML (website)].
+- https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc[Read it right here on GitHub] (preferred, best readability)
+- https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf[Download user guide as PDF file]
+
+TIP: The main focus of ReaLearn's user guide is being comprehensive, so it's more like a reference manual and can get quite detailed and technical. If you prefer a simple hands-on approach, the <<videos,tutorial videos>> are a better choice.
 
 
 === Supported controllers
@@ -93,23 +111,6 @@ TIP: Keep in mind: Even if your controller is not on the list, you probably can 
 
 - link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[Controller presets]
 - link:https://github.com/helgoboss/realearn/tree/master/resources/main-presets[Main presets]
-
-=== Video
-
-link:https://www.youtube.com/watch?v=4ySGt9Ejc-M&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=1[The ReaLearn Tutorials] is a fairly new ongoing series of short video tutorials available.
-
-There's also a quite long https://www.youtube.com/watch?v=dUPyqYaIkYA[introduction video] from 2021. Watch 2 minutes to get a first
-impression and stay tuned if you are interested in the details.
-
-=== Quick start
-
-ReaLearn is fired up just like any other VST instrument in REAPER: By adding it to an FX chain.
-
-.Main panel (containing the list of mappings)
-image::doc/images/screenshot-main-panel-annotated.svg[]
-
-.Mapping panel (for editing one particular mapping)
-image::doc/images/screenshot-mapping-panel.png[]
 
 == Architecture
 
