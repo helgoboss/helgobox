@@ -1116,19 +1116,23 @@ impl MappingPanel {
                 "Target control error"
             };
             let body = format!("{} ({})", event.log_entry, event.log_context);
-            self.view
-                .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
-                .hide();
-            self.view
-                .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
-                .hide();
-            self.view
-                .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
-                .set_text(title);
-            self.view
-                .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-                .set_text(body);
+            self.set_simple_help_text(title, &body);
         });
+    }
+
+    fn set_simple_help_text(&self, title: &str, body: &str) {
+        self.view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
+            .hide();
+        self.view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
+            .hide();
+        self.view
+            .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+            .set_text(title);
+        self.view
+            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+            .set_text(body);
     }
 
     pub fn handle_changed_target_value(
@@ -3011,7 +3015,8 @@ impl<'a> MutableMappingPanel<'a> {
                     ));
                 }
                 t if t.supports_fx_parameter() => {
-                    if let Ok(fx) = self.target_with_context().first_fx() {
+                    let fx = get_relevant_target_fx(self.mapping, self.session);
+                    if let Some(fx) = fx {
                         let i = combo.selected_combo_box_item_index();
                         let param = fx.parameter_by_index(i as _);
                         self.change_mapping(MappingCommand::ChangeTarget(
@@ -3023,6 +3028,12 @@ impl<'a> MutableMappingPanel<'a> {
                         self.change_mapping(MappingCommand::ChangeTarget(
                             TargetCommand::SetParamName(param_name),
                         ));
+                        if self.mapping.target_model.fx_type() == VirtualFxType::Focused {
+                            self.panel.set_simple_help_text(
+                                "Target warning",
+                                r#"ATTENTION: You just picked a parameter for the last focused FX. This is okay but you should know that as soon as you focus another type of FX, the parameter list will change and your mapping will control a completely different parameter! You probably want to use this in combination with the "Auto-load" feature, which lets you link FX types to mapping presets. See https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#using-auto-load-to-control-whatever-plug-in-is-currently-in-focus."#
+                            );
+                        }
                     }
                 }
                 t if t.supports_track_exclusivity() => {
@@ -5180,28 +5191,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                     && self.target.param_type() == VirtualFxParameterType::ById =>
                 {
                     combo.show();
-                    if self.target.fx_type().is_sticky() {
-                        let context = self.session.extended_context();
-                        if let Ok(fx) = self
-                            .target
-                            .with_context(context, self.mapping.compartment())
-                            .first_fx()
-                        {
-                            combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
-                            let param_index = self.target.param_index();
-                            combo
-                                .select_combo_box_item_by_index(param_index as _)
-                                .unwrap_or_else(|_| {
-                                    let label = get_fx_param_label(None, param_index);
-                                    combo.select_new_combo_box_item(label.into_owned());
-                                });
-                        } else {
-                            combo.select_only_combo_box_item("<Requires FX>");
-                        }
+                    let fx = get_relevant_target_fx(self.mapping, self.session);
+                    if let Some(fx) = fx {
+                        combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
+                        let param_index = self.target.param_index();
+                        combo
+                            .select_combo_box_item_by_index(param_index as _)
+                            .unwrap_or_else(|_| {
+                                let label = get_fx_param_label(None, param_index);
+                                combo.select_new_combo_box_item(label.into_owned());
+                            });
                     } else {
-                        combo.select_only_combo_box_item(
-                            "Use 'Particular' only if FX is particular as well!",
-                        )
+                        combo.select_only_combo_box_item("<Requires FX>");
                     }
                 }
                 t if t.supports_track_exclusivity() => {
@@ -5673,6 +5674,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(step_label);
     }
 
+    #[allow(clippy::needless_bool)]
     fn invalidate_mode_control_visibilities(&self) {
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
         let base_input = self.mapping.base_mode_applicability_check_input();
@@ -7533,4 +7535,23 @@ fn extract_first_line(text: &str) -> &str {
 
 fn has_multiple_lines(text: &str) -> bool {
     text.lines().count() > 1
+}
+
+fn get_relevant_target_fx(mapping: &MappingModel, session: &Session) -> Option<Fx> {
+    if mapping.target_model.fx_type() == VirtualFxType::Focused {
+        // This is a special case. Since ReaLearn 2.14.0-pre.10, an FX is not
+        // considered as focused anymore when clicking somewhere else. So we would
+        // never obtain an FX instance here because user clicks into the mapping
+        // panel, which is not an FX, not even ReaLearn FX as far as REAPER is
+        // concerned! So we need to choose the last focused FX.
+        // See https://github.com/helgoboss/realearn/issues/778.
+        Reaper::get().focused_fx().map(|res| res.fx)
+    } else {
+        // Choose whatever FX the selector currently resolves to
+        mapping
+            .target_model
+            .with_context(session.extended_context(), mapping.compartment())
+            .first_fx()
+            .ok()
+    }
 }

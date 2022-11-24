@@ -93,7 +93,7 @@ pub struct App {
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
-    list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
+    recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
@@ -178,15 +178,26 @@ impl Default for App {
 }
 
 #[derive(Debug, Default)]
-struct ListOfRecentlyFocusedFx {
+struct RecentlyFocusedFxContainer {
     previous: Option<Fx>,
     current: Option<Fx>,
 }
 
-impl ListOfRecentlyFocusedFx {
-    fn feed(&mut self, currently_focused_fx: Option<Fx>) {
+impl RecentlyFocusedFxContainer {
+    fn feed(&mut self, new_fx: Option<Fx>) {
+        // Never clear any memorized FX.
+        let Some(new_fx) = new_fx else {
+            return;
+        };
+        // Don't rotate if current FX has not changed.
+        if let Some(current) = self.current.as_ref() {
+            if &new_fx == current {
+                return;
+            }
+        }
+        // Rotate
         self.previous = self.current.take();
-        self.current = currently_focused_fx;
+        self.current = Some(new_fx);
     }
 }
 
@@ -279,7 +290,7 @@ impl App {
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
-            list_of_recently_focused_fx: Default::default(),
+            recently_focused_fx_container: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
             clip_matrix_event_sender,
@@ -344,7 +355,7 @@ impl App {
         server::http::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
-        let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
+        let list_of_recently_focused_fx = self.recently_focused_fx_container.clone();
         self.osc_device_manager
             .borrow()
             .changed()
@@ -699,7 +710,7 @@ impl App {
     /// last focused one. That's important because when queried from ReaLearn UI, the current one
     /// is mostly ReaLearn itself - which is in most cases not what we want.
     pub fn previously_focused_fx(&self) -> Option<Fx> {
-        self.list_of_recently_focused_fx.borrow().previous.clone()
+        self.recently_focused_fx_container.borrow().previous.clone()
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
