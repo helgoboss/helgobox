@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-11-21 (v2.14.0-pre.11)`
+|Last update of text: |`2022-11-24 (v2.14.0)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -118,8 +118,8 @@ If you want to get a first impression of ReaLearn, a video is surely a good way.
 
 Here's a list of official ReaLearn videos:
 
-* https://youtu.be/dUPyqYaIkYA[Introduction to ReaLearn 2]: An in-depth introduction to ReaLearn 2, the sophisticated
- MIDI-learn plug-in for REAPER.
+* https://www.youtube.com/playlist?list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G[The ReaLearn Tutorials]: A series of ReaLearn tutorials.
+* https://youtu.be/dUPyqYaIkYA[Introduction to ReaLearn 2]: An in-depth introduction to ReaLearn 2, the sophisticated MIDI-learn plug-in for REAPER.
 
 Here's a short, non-complete list of user-made videos. Please note that at the moment all of them relate to older
 ReaLearn versions and therefore might be partially outdated:
