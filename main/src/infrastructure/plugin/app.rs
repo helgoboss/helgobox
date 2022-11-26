@@ -894,6 +894,19 @@ impl App {
         BackboneState::get().with_clip_matrix(instance_state, f)
     }
 
+    pub fn with_clip_matrix_mut<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        let session = self
+            .find_session_by_id(clip_matrix_id)
+            .ok_or("session not found")?;
+        let session = session.borrow();
+        let instance_state = session.instance_state();
+        BackboneState::get().with_clip_matrix_mut(instance_state, f)
+    }
+
     pub fn find_session_by_id_ignoring_borrowed_ones(
         &self,
         session_id: &str,

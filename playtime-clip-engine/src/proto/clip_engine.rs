@@ -1,29 +1,40 @@
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerSlotRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub slot_coordinates: ::core::option::Option<SlotCoordinates>,
+    #[prost(enumeration = "TriggerSlotAction", tag = "3")]
+    pub action: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerSlotReply {}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalTrackUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousColumnUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousSlotUpdatesRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
@@ -38,7 +49,7 @@ pub struct GetOccasionalTrackUpdatesReply {
     #[prost(message, repeated, tag = "1")]
     pub track_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalTrackUpdate>,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesReply {
     #[prost(message, repeated, tag = "1")]
     pub slot_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalSlotUpdate>,
@@ -145,19 +156,19 @@ pub mod occasional_track_update {
         Pan(f64),
     }
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TrackColor {
     #[prost(int32, optional, tag = "1")]
     pub color: ::core::option::Option<i32>,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TrackInput {
     #[prost(oneof = "track_input::Input", tags = "1, 2, 3")]
     pub input: ::core::option::Option<track_input::Input>,
 }
 /// Nested message and enum types in `TrackInput`.
 pub mod track_input {
-    #[derive(Clone, Eq, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Input {
         #[prost(uint32, tag = "1")]
         Mono(u32),
@@ -167,38 +178,38 @@ pub mod track_input {
         Midi(super::TrackMidiInput),
     }
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TrackMidiInput {
     #[prost(uint32, optional, tag = "1")]
     pub device: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag = "2")]
     pub channel: ::core::option::Option<u32>,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MidiInputDevices {
     #[prost(message, repeated, tag = "1")]
     pub devices: ::prost::alloc::vec::Vec<MidiInputDevice>,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MidiInputDevice {
     #[prost(uint32, tag = "1")]
     pub id: u32,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AudioInputChannels {
     #[prost(message, repeated, tag = "1")]
     pub channels: ::prost::alloc::vec::Vec<AudioInputChannel>,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AudioInputChannel {
     #[prost(uint32, tag = "1")]
     pub index: u32,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QualifiedOccasionalSlotUpdate {
     #[prost(message, optional, tag = "1")]
     pub slot_coordinates: ::core::option::Option<SlotCoordinates>,
@@ -207,7 +218,7 @@ pub struct QualifiedOccasionalSlotUpdate {
 }
 /// Nested message and enum types in `QualifiedOccasionalSlotUpdate`.
 pub mod qualified_occasional_slot_update {
-    #[derive(Clone, Eq, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
         #[prost(enumeration = "super::SlotPlayState", tag = "2")]
         PlayState(i32),
@@ -225,12 +236,19 @@ pub struct ContinuousClipUpdate {
     #[prost(double, tag = "2")]
     pub peak: f64,
 }
-#[derive(Clone, Eq, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SlotCoordinates {
     #[prost(uint32, tag = "1")]
     pub column: u32,
     #[prost(uint32, tag = "2")]
     pub row: u32,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TriggerSlotAction {
+    Play = 0,
+    Stop = 1,
+    Record = 2,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -270,13 +288,18 @@ pub mod clip_engine_server {
     #[doc = "Generated trait containing gRPC methods that should be implemented for use with ClipEngineServer."]
     #[async_trait]
     pub trait ClipEngine: Send + Sync + 'static {
+        #[doc = " Commands"]
+        async fn trigger_slot(
+            &self,
+            request: tonic::Request<super::TriggerSlotRequest>,
+        ) -> Result<tonic::Response<super::TriggerSlotReply>, tonic::Status>;
         #[doc = "Server streaming response type for the GetOccasionalMatrixUpdates method."]
         type GetOccasionalMatrixUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetOccasionalMatrixUpdatesReply, tonic::Status>,
             > + Send
             + Sync
             + 'static;
-        #[doc = " Occasional"]
+        #[doc = " Occasional events"]
         async fn get_occasional_matrix_updates(
             &self,
             request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
@@ -306,7 +329,7 @@ pub mod clip_engine_server {
             > + Send
             + Sync
             + 'static;
-        #[doc = " Continuous"]
+        #[doc = " Continuous events"]
         async fn get_continuous_matrix_updates(
             &self,
             request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
@@ -370,6 +393,37 @@ pub mod clip_engine_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
+                "/playtime.clip_engine.ClipEngine/TriggerSlot" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerSlotSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerSlotRequest> for TriggerSlotSvc<T> {
+                        type Response = super::TriggerSlotReply;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerSlotRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).trigger_slot(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerSlotSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/GetOccasionalMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalMatrixUpdatesSvc<T: ClipEngine>(pub Arc<T>);

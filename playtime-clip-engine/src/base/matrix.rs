@@ -130,7 +130,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let project = containing_track.as_ref().map(|t| t.project());
         let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
         Self {
-            rt_matrix: rt::SharedMatrix::new(rt_matrix),
+            rt_matrix: {
+                let m = rt::SharedMatrix::new(rt_matrix);
+                // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,
+                // locking a mutex the first time apparently allocates. If we don't lock the
+                // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
+                // complain in debug builds.
+                drop(m.lock());
+                m
+            },
             settings: Default::default(),
             handler,
             chain_equipment: ChainEquipment {

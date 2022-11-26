@@ -12,6 +12,10 @@ impl SlotCoordinates {
             row: coordinates.row() as _,
         }
     }
+
+    pub fn to_engine(&self) -> ClipSlotCoordinates {
+        ClipSlotCoordinates::new(self.column as _, self.row as _)
+    }
 }
 
 impl SlotPlayState {

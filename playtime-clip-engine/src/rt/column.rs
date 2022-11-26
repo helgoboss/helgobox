@@ -912,7 +912,7 @@ pub struct ColumnPlayRowArgs {
     pub ref_pos: PositionInSeconds,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ColumnPlayClipOptions {
     pub stop_column_if_slot_empty: bool,
     pub start_timing: Option<ClipPlayStartTiming>,

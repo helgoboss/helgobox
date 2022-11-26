@@ -11,8 +11,10 @@ use playtime_clip_engine::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState,
-    TrackColor, TrackInput, TrackInputMonitoring,
+    TrackColor, TrackInput, TrackInputMonitoring, TriggerSlotAction, TriggerSlotReply,
+    TriggerSlotRequest,
 };
+use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{Guid, OrCurrentProject, Track};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -221,6 +223,31 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             |track_updates| GetOccasionalTrackUpdatesReply { track_updates },
             Some(initial_reply).into_iter(),
         )
+    }
+
+    async fn trigger_slot(
+        &self,
+        request: Request<TriggerSlotRequest>,
+    ) -> Result<Response<TriggerSlotReply>, Status> {
+        let req = request.get_ref();
+        let slot_coordinates = req
+            .slot_coordinates
+            .as_ref()
+            .ok_or(Status::invalid_argument("need slot coordinates"))?
+            .to_engine();
+        let action = TriggerSlotAction::from_i32(req.action)
+            .ok_or(Status::invalid_argument("unknown trigger slot action"))?;
+        let result = App::get().with_clip_matrix_mut(&req.clip_matrix_id, |matrix| match action {
+            TriggerSlotAction::Play => {
+                matrix.play_clip(slot_coordinates, ColumnPlayClipOptions::default())
+            }
+            TriggerSlotAction::Stop => matrix.stop_clip(slot_coordinates, None),
+            TriggerSlotAction::Record => matrix.record_clip(slot_coordinates),
+        });
+        result
+            .map_err(Status::not_found)?
+            .map_err(Status::unknown)?;
+        Ok(Response::new(TriggerSlotReply {}))
     }
 }
 
