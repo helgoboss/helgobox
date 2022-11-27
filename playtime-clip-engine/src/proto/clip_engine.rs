@@ -1,4 +1,13 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerMatrixRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "TriggerMatrixAction", tag = "2")]
+    pub action: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerMatrixReply {}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerSlotRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
@@ -245,6 +254,11 @@ pub struct SlotCoordinates {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum TriggerMatrixAction {
+    ArrangementTogglePlayStop = 0,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TriggerSlotAction {
     Play = 0,
     Stop = 1,
@@ -289,6 +303,10 @@ pub mod clip_engine_server {
     #[async_trait]
     pub trait ClipEngine: Send + Sync + 'static {
         #[doc = " Commands"]
+        async fn trigger_matrix(
+            &self,
+            request: tonic::Request<super::TriggerMatrixRequest>,
+        ) -> Result<tonic::Response<super::TriggerMatrixReply>, tonic::Status>;
         async fn trigger_slot(
             &self,
             request: tonic::Request<super::TriggerSlotRequest>,
@@ -393,6 +411,39 @@ pub mod clip_engine_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
+                "/playtime.clip_engine.ClipEngine/TriggerMatrix" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerMatrixSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerMatrixRequest>
+                        for TriggerMatrixSvc<T>
+                    {
+                        type Response = super::TriggerMatrixReply;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerMatrixRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).trigger_matrix(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerMatrixSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/TriggerSlot" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSlotSvc<T: ClipEngine>(pub Arc<T>);

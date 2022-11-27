@@ -11,8 +11,8 @@ use playtime_clip_engine::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState,
-    TrackColor, TrackInput, TrackInputMonitoring, TriggerSlotAction, TriggerSlotReply,
-    TriggerSlotRequest,
+    TrackColor, TrackInput, TrackInputMonitoring, TriggerMatrixAction, TriggerMatrixReply,
+    TriggerMatrixRequest, TriggerSlotAction, TriggerSlotReply, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{Guid, OrCurrentProject, Track};
@@ -248,6 +248,28 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .map_err(Status::not_found)?
             .map_err(Status::unknown)?;
         Ok(Response::new(TriggerSlotReply {}))
+    }
+
+    async fn trigger_matrix(
+        &self,
+        request: Request<TriggerMatrixRequest>,
+    ) -> Result<Response<TriggerMatrixReply>, Status> {
+        let req = request.get_ref();
+        let action = TriggerMatrixAction::from_i32(req.action)
+            .ok_or(Status::invalid_argument("unknown trigger matrix action"))?;
+        App::get()
+            .with_clip_matrix(&req.clip_matrix_id, |matrix| match action {
+                TriggerMatrixAction::ArrangementTogglePlayStop => {
+                    let project = matrix.permanent_project().or_current_project();
+                    if project.is_playing() {
+                        project.stop();
+                    } else {
+                        project.play();
+                    }
+                }
+            })
+            .map_err(Status::not_found)?;
+        Ok(Response::new(TriggerMatrixReply {}))
     }
 }
 
