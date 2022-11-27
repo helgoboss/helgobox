@@ -575,11 +575,7 @@ impl Slot {
         Ok(proportional)
     }
 
-    pub fn position_in_seconds(
-        &self,
-        timeline: &HybridTimeline,
-    ) -> ClipEngineResult<PositionInSeconds> {
-        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> ClipEngineResult<PositionInSeconds> {
         let (runtime_data, tempo_factor) = if let SlotState::Recording(s) = &self.state {
             let tempo_factor = s
                 .runtime_data

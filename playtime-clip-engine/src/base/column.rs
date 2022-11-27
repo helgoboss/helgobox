@@ -5,7 +5,7 @@ use crate::rt::{
     ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, InternalClipPlayState,
     OverridableMatrixSettings, SharedColumn, WeakColumn,
 };
-use crate::{clip_timeline, rt, source_util, ClipEngineResult};
+use crate::{clip_timeline, rt, source_util, ClipEngineResult, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -219,7 +219,7 @@ impl Column {
         self.rt_column.downgrade()
     }
 
-    pub fn poll(&mut self, _timeline_tempo: Bpm) -> Vec<(usize, ClipChangeEvent)> {
+    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, ClipChangeEvent)> {
         // Process source events and generate clip change events
         let mut change_events = vec![];
         while let Ok(evt) = self.event_receiver.try_recv() {
@@ -305,8 +305,10 @@ impl Column {
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
             if slot.clip_play_state().ok()?.is_advancing() {
-                let proportional_pos = slot.proportional_position().unwrap_or(UnitValue::MIN);
-                let event = ClipChangeEvent::ClipPosition(proportional_pos);
+                let event = ClipChangeEvent::ClipPosition {
+                    proportional: slot.proportional_position().unwrap_or_default(),
+                    seconds: slot.position_in_seconds(timeline_tempo).unwrap_or_default(),
+                };
                 Some((row, event))
             } else {
                 None
@@ -489,7 +491,8 @@ impl Column {
     ) -> ClipEngineResult<PositionInSeconds> {
         let slot = self.get_slot(slot_index)?;
         let timeline = clip_timeline(self.project, false);
-        slot.position_in_seconds(&timeline)
+        let tempo = timeline.tempo_at(timeline.cursor_pos());
+        slot.position_in_seconds(tempo)
     }
 
     pub fn slots(&self) -> impl Iterator<Item = &Slot> + '_ {

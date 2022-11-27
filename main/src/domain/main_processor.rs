@@ -804,7 +804,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let is_position_change = matches!(
             event,
             ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                event: ClipChangeEvent::ClipPosition(_),
+                event: ClipChangeEvent::ClipPosition { .. },
                 ..
             })
         );

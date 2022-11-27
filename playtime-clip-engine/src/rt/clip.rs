@@ -1648,7 +1648,10 @@ pub enum ClipChangeEvent {
     PlayState(InternalClipPlayState),
     ClipVolume(Db),
     ClipLooped(bool),
-    ClipPosition(UnitValue),
+    ClipPosition {
+        proportional: UnitValue,
+        seconds: PositionInSeconds,
+    },
     Removed,
     RecordingFinished,
 }

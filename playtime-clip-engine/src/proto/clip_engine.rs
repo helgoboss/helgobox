@@ -240,9 +240,12 @@ pub struct ContinuousSlotUpdate {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinuousClipUpdate {
+    /// Number between 0 and 1, interpretable as percentage.
     #[prost(double, tag = "1")]
-    pub position: f64,
+    pub proportional_position: f64,
     #[prost(double, tag = "2")]
+    pub position_in_seconds: f64,
+    #[prost(double, tag = "3")]
     pub peak: f64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

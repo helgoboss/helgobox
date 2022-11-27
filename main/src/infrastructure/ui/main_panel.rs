@@ -692,14 +692,19 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
         .filter_map(|event| {
             if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
                 slot_coordinates,
-                event: ClipChangeEvent::ClipPosition(pos),
+                event:
+                    ClipChangeEvent::ClipPosition {
+                        proportional,
+                        seconds,
+                    },
             }) = event
             {
                 Some(QualifiedContinuousSlotUpdate {
                     slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
                         clip_updates: vec![ContinuousClipUpdate {
-                            position: pos.get(),
+                            proportional_position: proportional.get(),
+                            position_in_seconds: seconds.get(),
                             peak: 0.0,
                         }],
                     }),

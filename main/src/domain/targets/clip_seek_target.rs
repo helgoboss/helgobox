@@ -98,10 +98,10 @@ impl RealearnTarget for ClipSeekTarget {
             )) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
-                ClipChangeEvent::ClipPosition(new_position)
+                ClipChangeEvent::ClipPosition { proportional, .. }
                     if self.feedback_resolution == FeedbackResolution::High =>
                 {
-                    (true, Some(AbsoluteValue::Continuous(*new_position)))
+                    (true, Some(AbsoluteValue::Continuous(*proportional)))
                 }
                 ClipChangeEvent::PlayState(InternalClipPlayState(ClipPlayState::Stopped)) => {
                     (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
