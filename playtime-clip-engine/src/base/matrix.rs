@@ -285,6 +285,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         coordinates.column < self.columns.len() && coordinates.row < self.row_count()
     }
 
+    pub fn slot(&self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
+        self.columns.get(coordinates.column)?.slot(coordinates.row)
+    }
+
     pub fn clip(&self, coordinates: ClipSlotCoordinates) -> Option<&Clip> {
         self.columns.get(coordinates.column)?.clip(coordinates.row)
     }

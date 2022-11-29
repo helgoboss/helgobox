@@ -166,6 +166,10 @@ impl Column {
         self.rt_command_sender.clear_slots();
     }
 
+    pub fn slot(&self, index: usize) -> Option<&Slot> {
+        self.slots.get(index)
+    }
+
     pub fn clip(&self, index: usize) -> Option<&Clip> {
         self.slots.get(index)?.clip()
     }
@@ -697,7 +701,7 @@ fn fill_slot_internal(
         clip: rt_clip,
     };
     rt_command_sender.fill_slot(Box::new(Some(args)));
-    Ok(ClipChangeEvent::PlayState(ClipPlayState::Stopped.into()))
+    Ok(ClipChangeEvent::RecordingFinished)
 }
 
 fn resolve_recording_track(

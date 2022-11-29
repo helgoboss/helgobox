@@ -7,6 +7,7 @@ mod application;
 mod domain;
 mod infrastructure;
 
-#[cfg(debug_assertions)]
-#[global_allocator]
-static A: assert_no_alloc::AllocDisabler = assert_no_alloc::AllocDisabler;
+// TODO-high CONTINUE Activate again!!!
+// #[cfg(debug_assertions)]
+// #[global_allocator]
+// static A: assert_no_alloc::AllocDisabler = assert_no_alloc::AllocDisabler;

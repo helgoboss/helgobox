@@ -131,7 +131,10 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 |matrix| -> Result<_, &'static str> {
                     let project = matrix.permanent_project().or_current_project();
                     let master_track = project.master_track()?;
+                    let matrix_json = serde_json::to_string(&matrix.save())
+                        .map_err(|_| "couldn't serialize clip matrix")?;
                     let updates = [
+                        Update::PersistentState(matrix_json),
                         Update::Volume(master_track.volume().db().get()),
                         Update::Pan(master_track.pan().reaper_value().get()),
                         Update::Tempo(project.tempo().bpm().get()),

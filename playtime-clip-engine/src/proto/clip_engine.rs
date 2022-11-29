@@ -50,16 +50,19 @@ pub struct GetContinuousSlotUpdatesRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesReply {
+    /// For each updated matrix property
     #[prost(message, repeated, tag = "1")]
     pub matrix_updates: ::prost::alloc::vec::Vec<OccasionalMatrixUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalTrackUpdatesReply {
+    /// For each updated column track
     #[prost(message, repeated, tag = "1")]
     pub track_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalTrackUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesReply {
+    /// For each updated slot AND property
     #[prost(message, repeated, tag = "1")]
     pub slot_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalSlotUpdate>,
 }
@@ -70,11 +73,13 @@ pub struct GetContinuousMatrixUpdatesReply {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousColumnUpdatesReply {
+    /// For each column
     #[prost(message, repeated, tag = "1")]
     pub column_updates: ::prost::alloc::vec::Vec<ContinuousColumnUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousSlotUpdatesReply {
+    /// For each updated slot
     #[prost(message, repeated, tag = "1")]
     pub slot_updates: ::prost::alloc::vec::Vec<QualifiedContinuousSlotUpdate>,
 }
@@ -105,12 +110,16 @@ pub struct QualifiedContinuousSlotUpdate {
 pub struct QualifiedOccasionalTrackUpdate {
     #[prost(string, tag = "1")]
     pub track_id: ::prost::alloc::string::String,
+    /// For each updated track property
     #[prost(message, repeated, tag = "2")]
     pub track_updates: ::prost::alloc::vec::Vec<OccasionalTrackUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalMatrixUpdate {
-    #[prost(oneof = "occasional_matrix_update::Update", tags = "1, 2, 3, 4, 5, 6")]
+    #[prost(
+        oneof = "occasional_matrix_update::Update",
+        tags = "1, 2, 3, 4, 5, 6, 7"
+    )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
 /// Nested message and enum types in `OccasionalMatrixUpdate`.
@@ -129,6 +138,8 @@ pub mod occasional_matrix_update {
         MidiInputDevices(super::MidiInputDevices),
         #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
+        #[prost(string, tag = "7")]
+        PersistentState(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -222,7 +233,7 @@ pub struct AudioInputChannel {
 pub struct QualifiedOccasionalSlotUpdate {
     #[prost(message, optional, tag = "1")]
     pub slot_coordinates: ::core::option::Option<SlotCoordinates>,
-    #[prost(oneof = "qualified_occasional_slot_update::Update", tags = "2")]
+    #[prost(oneof = "qualified_occasional_slot_update::Update", tags = "2, 3")]
     pub update: ::core::option::Option<qualified_occasional_slot_update::Update>,
 }
 /// Nested message and enum types in `QualifiedOccasionalSlotUpdate`.
@@ -231,12 +242,14 @@ pub mod qualified_occasional_slot_update {
     pub enum Update {
         #[prost(enumeration = "super::SlotPlayState", tag = "2")]
         PlayState(i32),
+        #[prost(string, tag = "3")]
+        PersistentState(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinuousSlotUpdate {
-    #[prost(message, repeated, tag = "2")]
-    pub clip_updates: ::prost::alloc::vec::Vec<ContinuousClipUpdate>,
+    #[prost(message, optional, tag = "1")]
+    pub clip_update: ::core::option::Option<ContinuousClipUpdate>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinuousClipUpdate {

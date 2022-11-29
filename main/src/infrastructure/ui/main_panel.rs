@@ -513,7 +513,8 @@ impl SessionUi for Weak<MainPanel> {
         matrix: &RealearnClipMatrix,
         events: &[ClipMatrixEvent],
     ) {
-        send_occasional_slot_updates(session, events);
+        send_occasional_matrix_updates(session, matrix, events);
+        send_occasional_slot_updates(session, matrix, events);
         send_continuous_slot_updates(session, events);
         send_continuous_matrix_updates(session);
         send_continuous_column_updates(session, matrix);
@@ -525,7 +526,7 @@ impl SessionUi for Weak<MainPanel> {
         matrix: &RealearnClipMatrix,
         event: &ChangeEvent,
     ) {
-        send_occasional_track_updates(session, matrix, event);
+        send_occasional_matrix_track_updates(session, matrix, event);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
@@ -558,28 +559,79 @@ impl SessionUi for Weak<MainPanel> {
     }
 }
 
-fn send_occasional_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
+fn send_occasional_matrix_updates(
+    session: &Session,
+    matrix: &RealearnClipMatrix,
+    events: &[ClipMatrixEvent],
+) {
+    let sender = App::get().occasional_matrix_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    // TODO-high-playtime-performance Push persistent matrix state only once (even if many events)
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| {
+            if let ClipMatrixEvent::AllClipsChanged = event {
+                let json = serde_json::to_string(&matrix.save())
+                    .expect("couldn't serialize clip matrix as JSON");
+                Some(OccasionalMatrixUpdate {
+                    update: Some(occasional_matrix_update::Update::PersistentState(json)),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = OccasionalMatrixUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_occasional_slot_updates(
+    session: &Session,
+    matrix: &RealearnClipMatrix,
+    events: &[ClipMatrixEvent],
+) {
     let sender = App::get().occasional_slot_update_sender();
     if sender.receiver_count() == 0 {
         return;
     }
     let updates: Vec<_> = events
         .iter()
-        .filter_map(|event| {
-            if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+        .filter_map(|event| match event {
+            ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
                 slot_coordinates,
-                event: ClipChangeEvent::PlayState(play_state),
-            }) = event
-            {
+                event,
+            }) => {
+                use ClipChangeEvent::*;
+                let update = match event {
+                    PlayState(play_state) => qualified_occasional_slot_update::Update::PlayState(
+                        SlotPlayState::from_engine(play_state.get()).into(),
+                    ),
+                    ClipVolume(_) | ClipLooped(_) | Removed | RecordingFinished => {
+                        let slot = matrix.slot(*slot_coordinates)?;
+                        let api_slot = slot.save(session.processor_context().project()).unwrap_or(
+                            playtime_api::persistence::Slot {
+                                row: slot_coordinates.row(),
+                                clip: None,
+                            },
+                        );
+                        let json = serde_json::to_string(&api_slot).unwrap();
+                        qualified_occasional_slot_update::Update::PersistentState(json)
+                    }
+                    ClipPosition { .. } => return None,
+                };
                 Some(QualifiedOccasionalSlotUpdate {
                     slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
-                    update: Some(qualified_occasional_slot_update::Update::PlayState(
-                        SlotPlayState::from_engine(play_state.get()).into(),
-                    )),
+                    update: Some(update),
                 })
-            } else {
-                None
             }
+            _ => None,
         })
         .collect();
     if !updates.is_empty() {
@@ -591,7 +643,7 @@ fn send_occasional_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
     }
 }
 
-fn send_occasional_track_updates(
+fn send_occasional_matrix_track_updates(
     session: &Session,
     matrix: &RealearnClipMatrix,
     event: &ChangeEvent,
@@ -702,11 +754,11 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
                 Some(QualifiedContinuousSlotUpdate {
                     slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
-                        clip_updates: vec![ContinuousClipUpdate {
+                        clip_update: Some(ContinuousClipUpdate {
                             proportional_position: proportional.get(),
                             position_in_seconds: seconds.get(),
                             peak: 0.0,
-                        }],
+                        }),
                     }),
                 })
             } else {

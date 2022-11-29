@@ -1645,6 +1645,7 @@ impl Default for InternalClipPlayState {
 
 #[derive(Debug)]
 pub enum ClipChangeEvent {
+    // TODO-high This should be a a slot event
     PlayState(InternalClipPlayState),
     ClipVolume(Db),
     ClipLooped(bool),
@@ -1652,7 +1653,10 @@ pub enum ClipChangeEvent {
         proportional: UnitValue,
         seconds: PositionInSeconds,
     },
+    // TODO-high This should be a a slot event and be named ClipsChanged
     Removed,
+    // TODO-high This should be a a slot event and be named ClipsChanged, but it probably has
+    //  another meaning as well?
     RecordingFinished,
 }
 
