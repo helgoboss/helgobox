@@ -405,7 +405,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 continue;
             }
             for other_processor in &*self.main_processors.borrow() {
-                other_processor.process_clip_matrix_events(*processor.instance_id(), &events);
+                other_processor
+                    .process_polled_clip_matrix_events(*processor.instance_id(), &events);
             }
         }
     }
@@ -454,7 +455,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             .take(CLIP_MATRIX_EVENT_BULK_SIZE)
         {
             for p in &mut *self.main_processors.borrow_mut() {
-                p.process_clip_matrix_event(&event);
+                p.process_non_polled_clip_matrix_event(&event);
             }
         }
     }

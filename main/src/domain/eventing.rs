@@ -29,7 +29,12 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
-    ClipMatrixPolled(&'a RealearnClipMatrix, &'a [ClipMatrixEvent]),
+    /// Only emitted for the instance owning the matrix.
+    ClipMatrixChanged {
+        matrix: &'a RealearnClipMatrix,
+        events: &'a [ClipMatrixEvent],
+        is_poll: bool,
+    },
     ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
     TimeForCelebratingSuccess,
     ConditionsChanged,

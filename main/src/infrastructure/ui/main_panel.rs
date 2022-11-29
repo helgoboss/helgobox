@@ -507,17 +507,20 @@ impl SessionUi for Weak<MainPanel> {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 
-    fn clip_matrix_polled(
+    fn clip_matrix_changed(
         &self,
         session: &Session,
         matrix: &RealearnClipMatrix,
         events: &[ClipMatrixEvent],
+        is_poll: bool,
     ) {
         send_occasional_matrix_updates(session, matrix, events);
         send_occasional_slot_updates(session, matrix, events);
         send_continuous_slot_updates(session, events);
-        send_continuous_matrix_updates(session);
-        send_continuous_column_updates(session, matrix);
+        if is_poll {
+            send_continuous_matrix_updates(session);
+            send_continuous_column_updates(session, matrix);
+        }
     }
 
     fn process_control_surface_change_event_for_clip_engine(

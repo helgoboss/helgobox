@@ -349,14 +349,14 @@ impl InstanceState {
         self.instance_id
     }
 
-    pub fn is_interested_in_clip_matrix_events_from(&self, instance_id: InstanceId) -> bool {
-        use ClipMatrixRef::*;
-        let our_instance_id = match self.clip_matrix_ref {
-            None => return false,
-            Some(Own(_)) => self.instance_id,
-            Some(Foreign(id)) => id,
-        };
-        instance_id == our_instance_id
+    pub fn clip_matrix_relevance(&self, instance_id: InstanceId) -> Option<ClipMatrixRelevance> {
+        match self.clip_matrix_ref.as_ref()? {
+            ClipMatrixRef::Own(m) if instance_id == self.instance_id => {
+                Some(ClipMatrixRelevance::Owns(&m))
+            }
+            ClipMatrixRef::Foreign(id) if instance_id == *id => Some(ClipMatrixRelevance::Borrows),
+            _ => None,
+        }
     }
 
     pub fn copy_clip(&mut self, clip: playtime_api::persistence::Clip) {
@@ -691,4 +691,11 @@ pub enum PotStateChangedEvent {
         id: Option<PresetId>,
     },
     IndexesRebuilt,
+}
+
+pub enum ClipMatrixRelevance<'a> {
+    /// This instance owns the clip matrix with the given ID.
+    Owns(&'a RealearnClipMatrix),
+    /// This instance borrows the clip matrix with the given ID.
+    Borrows,
 }

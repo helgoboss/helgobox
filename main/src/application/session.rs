@@ -51,11 +51,12 @@ pub trait SessionUi {
     fn celebrate_success(&self);
     fn conditions_changed(&self);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
-    fn clip_matrix_polled(
+    fn clip_matrix_changed(
         &self,
         session: &Session,
         matrix: &RealearnClipMatrix,
         events: &[ClipMatrixEvent],
+        is_poll: bool,
     );
     fn process_control_surface_change_event_for_clip_engine(
         &self,
@@ -2478,9 +2479,13 @@ impl DomainEventHandler for WeakSession {
                 let s = session.try_borrow()?;
                 s.ui.send_projection_feedback(&s, value);
             }
-            ClipMatrixPolled(matrix, events) => {
+            ClipMatrixChanged {
+                matrix,
+                events,
+                is_poll,
+            } => {
                 let s = session.try_borrow()?;
-                s.ui.clip_matrix_polled(&s, matrix, events);
+                s.ui.clip_matrix_changed(&s, matrix, events, is_poll);
             }
             ControlSurfaceChangeEventForClipEngine(matrix, event) => {
                 let s = session.try_borrow()?;

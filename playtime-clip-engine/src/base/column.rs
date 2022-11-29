@@ -15,7 +15,6 @@ use playtime_api::persistence::{
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
     Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, TimeSignature,
 };
-use playtime_api::runtime::ClipPlayState;
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
