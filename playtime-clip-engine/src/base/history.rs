@@ -15,6 +15,18 @@ impl History {
         self.undo_stack.clear();
     }
 
+    /// Returns the label of the next undoable action if there is one.
+    pub fn next_undo_label(&self) -> Option<&str> {
+        let state = self.undo_stack.last()?;
+        Some(&state.label)
+    }
+
+    /// Returns the label of the next redoable action if there is one.
+    pub fn next_redo_label(&self) -> Option<&str> {
+        let state = self.redo_stack.last()?;
+        Some(&state.label)
+    }
+
     /// Returns if undo is possible.
     pub fn can_undo(&self) -> bool {
         self.undo_stack.len() > 1

@@ -4,7 +4,10 @@ use crate::infrastructure::ui::{
 };
 
 use lazycell::LazyCell;
-use reaper_high::{AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, Reaper, Track};
+use reaper_high::{
+    AvailablePanValue, ChangeEvent, Guid, MasterTempoChangedEvent, OrCurrentProject, Project,
+    Reaper, Track,
+};
 
 use slog::debug;
 use std::cell::{Cell, RefCell};
@@ -34,12 +37,12 @@ use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_slot_update,
     ArrangementPlayState, ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-    ContinuousSlotUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate,
+    ContinuousSlotUpdate, HistoryState, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotCoordinates, SlotPlayState, TrackInput, TrackInputMonitoring,
+    SlotCoordinates, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring,
 };
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
-use playtime_clip_engine::{clip_timeline, Laziness, Timeline};
+use playtime_clip_engine::{clip_timeline, proto, Laziness, Timeline};
 use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
 use std::collections::HashMap;
@@ -514,7 +517,7 @@ impl SessionUi for Weak<MainPanel> {
         events: &[ClipMatrixEvent],
         is_poll: bool,
     ) {
-        send_occasional_matrix_updates(session, matrix, events);
+        send_occasional_matrix_updates_caused_by_matrix(session, matrix, events);
         send_occasional_slot_updates(session, matrix, events);
         send_continuous_slot_updates(session, events);
         if is_poll {
@@ -529,7 +532,7 @@ impl SessionUi for Weak<MainPanel> {
         matrix: &RealearnClipMatrix,
         event: &ChangeEvent,
     ) {
-        send_occasional_matrix_track_updates(session, matrix, event);
+        send_occasional_matrix_updates_caused_by_reaper(session, matrix, event);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
@@ -562,7 +565,7 @@ impl SessionUi for Weak<MainPanel> {
     }
 }
 
-fn send_occasional_matrix_updates(
+fn send_occasional_matrix_updates_caused_by_matrix(
     session: &Session,
     matrix: &RealearnClipMatrix,
     events: &[ClipMatrixEvent],
@@ -574,16 +577,30 @@ fn send_occasional_matrix_updates(
     // TODO-high-playtime-performance Push persistent matrix state only once (even if many events)
     let updates: Vec<_> = events
         .iter()
-        .filter_map(|event| {
-            if let ClipMatrixEvent::AllClipsChanged = event {
+        .filter_map(|event| match event {
+            ClipMatrixEvent::AllClipsChanged => {
                 let json = serde_json::to_string(&matrix.save())
                     .expect("couldn't serialize clip matrix as JSON");
                 Some(OccasionalMatrixUpdate {
                     update: Some(occasional_matrix_update::Update::PersistentState(json)),
                 })
-            } else {
-                None
             }
+            ClipMatrixEvent::HistoryChanged => {
+                let state = HistoryState {
+                    undo_label: matrix
+                        .next_undo_label()
+                        .map(|l| l.to_string())
+                        .unwrap_or_default(),
+                    redo_label: matrix
+                        .next_redo_label()
+                        .map(|l| l.to_string())
+                        .unwrap_or_default(),
+                };
+                Some(OccasionalMatrixUpdate {
+                    update: Some(occasional_matrix_update::Update::HistoryState(state)),
+                })
+            }
+            _ => None,
         })
         .collect();
     if !updates.is_empty() {
@@ -646,7 +663,7 @@ fn send_occasional_slot_updates(
     }
 }
 
-fn send_occasional_matrix_track_updates(
+fn send_occasional_matrix_updates_caused_by_reaper(
     session: &Session,
     matrix: &RealearnClipMatrix,
     event: &ChangeEvent,
@@ -709,9 +726,13 @@ fn send_occasional_matrix_track_updates(
         ChangeEvent::TrackSelectedChanged(e) => {
             track_update(matrix, &e.track, || Update::Selected(e.new_value))
         }
-        ChangeEvent::MasterTempoChanged(e) => Some(R::Matrix(
-            occasional_matrix_update::Update::Tempo(e.new_value.get()),
-        )),
+        ChangeEvent::MasterTempoChanged(e) => {
+            // TODO-high-playtime Also notify correctly about time signature changes. Looks like
+            //  MasterTempoChanged event doesn't fire in that case :(
+            Some(R::Matrix(occasional_matrix_update::Update::Tempo(
+                e.new_value.get(),
+            )))
+        }
         ChangeEvent::PlayStateChanged(e) => Some(R::Matrix(
             occasional_matrix_update::Update::ArrangementPlayState(
                 ArrangementPlayState::from_engine(e.new_value).into(),
@@ -734,6 +755,15 @@ fn send_occasional_matrix_track_updates(
                 });
             }
         }
+    }
+}
+
+pub fn get_proto_time_signature(project: Project) -> TimeSignature {
+    let timeline = clip_timeline(Some(project), true);
+    let time_signature = timeline.time_signature_at(timeline.cursor_pos());
+    proto::TimeSignature {
+        numerator: time_signature.numerator.get(),
+        denominator: time_signature.denominator.get(),
     }
 }
 

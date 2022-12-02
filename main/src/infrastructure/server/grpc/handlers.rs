@@ -1,21 +1,26 @@
+use crate::domain::RealearnClipMatrix;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
+use crate::infrastructure::ui::get_proto_time_signature;
 use futures::{Stream, StreamExt};
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_slot_update, ArrangementPlayState, GetContinuousColumnUpdatesReply,
+    qualified_occasional_slot_update, ArrangementPlayState, Empty, GetContinuousColumnUpdatesReply,
     GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
     GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
     GetContinuousSlotUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotCoordinates, SlotPlayState,
-    TrackColor, TrackInput, TrackInputMonitoring, TriggerMatrixAction, TriggerMatrixReply,
-    TriggerMatrixRequest, TriggerSlotAction, TriggerSlotReply, TriggerSlotRequest,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetMatrixPanRequest,
+    SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotCoordinates, SlotPlayState, TrackColor,
+    TrackInput, TrackInputMonitoring, TriggerColumnAction, TriggerColumnRequest,
+    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
+    TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
-use reaper_high::{Guid, OrCurrentProject, Track};
+use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
+use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, UndoBehavior};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::{future, iter};
@@ -138,6 +143,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                         Update::Volume(master_track.volume().db().get()),
                         Update::Pan(master_track.pan().reaper_value().get()),
                         Update::Tempo(project.tempo().bpm().get()),
+                        Update::TimeSignature(get_proto_time_signature(project)),
                         Update::ArrangementPlayState(
                             ArrangementPlayState::from_engine(project.play_state()).into(),
                         ),
@@ -231,7 +237,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     async fn trigger_slot(
         &self,
         request: Request<TriggerSlotRequest>,
-    ) -> Result<Response<TriggerSlotReply>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.get_ref();
         let slot_coordinates = req
             .slot_coordinates
@@ -240,39 +246,142 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .to_engine();
         let action = TriggerSlotAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger slot action"))?;
-        let result = App::get().with_clip_matrix_mut(&req.clip_matrix_id, |matrix| match action {
+        handle_matrix_command(&req.clip_matrix_id, |matrix| match action {
             TriggerSlotAction::Play => {
                 matrix.play_clip(slot_coordinates, ColumnPlayClipOptions::default())
             }
             TriggerSlotAction::Stop => matrix.stop_clip(slot_coordinates, None),
             TriggerSlotAction::Record => matrix.record_clip(slot_coordinates),
-        });
-        result
-            .map_err(Status::not_found)?
-            .map_err(Status::unknown)?;
-        Ok(Response::new(TriggerSlotReply {}))
+        })
     }
 
     async fn trigger_matrix(
         &self,
         request: Request<TriggerMatrixRequest>,
-    ) -> Result<Response<TriggerMatrixReply>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.get_ref();
-        let action = TriggerMatrixAction::from_i32(req.action)
+        let action: TriggerMatrixAction = TriggerMatrixAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger matrix action"))?;
-        App::get()
-            .with_clip_matrix(&req.clip_matrix_id, |matrix| match action {
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            let project = matrix.permanent_project().or_current_project();
+            match action {
                 TriggerMatrixAction::ArrangementTogglePlayStop => {
-                    let project = matrix.permanent_project().or_current_project();
                     if project.is_playing() {
                         project.stop();
                     } else {
                         project.play();
                     }
+                    Ok(())
                 }
-            })
-            .map_err(Status::not_found)?;
-        Ok(Response::new(TriggerMatrixReply {}))
+                TriggerMatrixAction::StopAllClips => {
+                    matrix.stop();
+                    Ok(())
+                }
+                TriggerMatrixAction::ArrangementPlay => {
+                    project.play();
+                    Ok(())
+                }
+                TriggerMatrixAction::ArrangementStop => {
+                    project.stop();
+                    Ok(())
+                }
+                TriggerMatrixAction::ArrangementPause => {
+                    project.pause();
+                    Ok(())
+                }
+                TriggerMatrixAction::ArrangementStartRecording => {
+                    Reaper::get().enable_record_in_current_project();
+                    Ok(())
+                }
+                TriggerMatrixAction::ArrangementStopRecording => {
+                    Reaper::get().disable_record_in_current_project();
+                    Ok(())
+                }
+                TriggerMatrixAction::Undo => matrix.undo(),
+                TriggerMatrixAction::Redo => matrix.redo(),
+                TriggerMatrixAction::ToggleClick => Reaper::get()
+                    .main_section()
+                    .action_by_command_id(CommandId::new(40364))
+                    .invoke_as_trigger(Some(project))
+                    .map_err(|e| e.message()),
+            }
+        })
+    }
+
+    async fn trigger_column(
+        &self,
+        request: Request<TriggerColumnRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let action = TriggerColumnAction::from_i32(req.action)
+            .ok_or(Status::invalid_argument("unknown trigger column action"))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| match action {
+            TriggerColumnAction::Stop => matrix.stop_column(req.column as _),
+        })
+    }
+
+    async fn trigger_row(
+        &self,
+        request: Request<TriggerRowRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let action = TriggerRowAction::from_i32(req.action)
+            .ok_or(Status::invalid_argument("unknown trigger row action"))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| match action {
+            TriggerRowAction::Play => {
+                matrix.play_row(req.row as _);
+                Ok(())
+            }
+        })
+    }
+
+    async fn set_matrix_tempo(
+        &self,
+        request: Request<SetMatrixTempoRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let bpm = Bpm::try_from(req.bpm).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            let project = matrix.permanent_project().or_current_project();
+            project
+                .set_tempo(Tempo::from_bpm(bpm), UndoBehavior::OmitUndoPoint)
+                .map_err(|e| e.message())
+        })
+    }
+
+    async fn set_matrix_volume(
+        &self,
+        request: Request<SetMatrixVolumeRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            let project = matrix.permanent_project().or_current_project();
+            project.master_track()?.set_volume(
+                Volume::from_db(db),
+                GangBehavior::DenyGang,
+                GroupingBehavior::PreventGrouping,
+            );
+            Ok(())
+        })
+    }
+
+    async fn set_matrix_pan(
+        &self,
+        request: Request<SetMatrixPanRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let pan =
+            ReaperPanValue::try_from(req.pan).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            let project = matrix.permanent_project().or_current_project();
+            project.master_track()?.set_pan(
+                Pan::from_reaper_value(pan),
+                GangBehavior::DenyGang,
+                GroupingBehavior::PreventGrouping,
+            );
+            Ok(())
+        })
     }
 }
 
@@ -307,4 +416,15 @@ where
     Ok(Response::new(Box::pin(
         initial_stream.chain(receiver_stream),
     )))
+}
+
+fn handle_matrix_command(
+    clip_matrix_id: &str,
+    handler: impl FnOnce(&mut RealearnClipMatrix) -> Result<(), &'static str>,
+) -> Result<Response<Empty>, Status> {
+    App::get()
+        .with_clip_matrix_mut(clip_matrix_id, handler)
+        .map_err(Status::unknown)?
+        .map_err(Status::not_found)?;
+    Ok(Response::new(Empty {}))
 }

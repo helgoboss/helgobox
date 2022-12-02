@@ -162,8 +162,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         self.load_internal(api_matrix)?;
-        self.history.clear();
+        self.clear_history();
         Ok(())
+    }
+
+    fn clear_history(&mut self) {
+        self.history.clear();
+        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
     }
 
     // TODO-medium We might be able to improve that to take API matrix by reference. This would
@@ -243,6 +248,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.rt_command_sender.clear_columns();
     }
 
+    pub fn next_undo_label(&self) -> Option<&str> {
+        self.history.next_undo_label()
+    }
+
+    pub fn next_redo_label(&self) -> Option<&str> {
+        self.history.next_redo_label()
+    }
+
     pub fn can_undo(&self) -> bool {
         self.history.can_undo()
     }
@@ -254,12 +267,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn undo(&mut self) -> ClipEngineResult<()> {
         let api_matrix = self.history.undo()?.clone();
         self.load_internal(api_matrix)?;
+        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
         Ok(())
     }
 
     pub fn redo(&mut self) -> ClipEngineResult<()> {
         let api_matrix = self.history.redo()?.clone();
         self.load_internal(api_matrix)?;
+        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
         Ok(())
     }
 
@@ -269,6 +284,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .add(format!("Before {}", owned_label), self.save());
         let result = f(self);
         self.history.add(owned_label, self.save());
+        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
         result
     }
 
@@ -328,13 +344,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
         }
-        self.history
-            .add("Before clearing scene".to_owned(), self.save());
+        self.add_history_entry("Before clearing scene".to_owned());
         // TODO-medium This is not optimal because it will create multiple undo points.
         for column in self.scene_columns() {
             column.clear_slot(row_index);
         }
         Ok(())
+    }
+
+    fn add_history_entry(&mut self, label: String) {
+        self.history.add(label, self.save());
+        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
     }
 
     fn scene_columns(&self) -> impl Iterator<Item = &Column> {
@@ -344,8 +364,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clear_slot(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         // The undo point after clip removal is created later, in response to the upcoming event
         // that indicates that the slot has actually been cleared.
-        self.history
-            .add("Before clip removal".to_owned(), self.save());
+        self.add_history_entry("Before clip removal".to_owned());
         let column = get_column(&self.columns, coordinates.column)?;
         column.clear_slot(coordinates.row);
         Ok(())
@@ -659,7 +678,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             None
         };
         if let Some(l) = undo_point_label {
-            self.history.add(l.into(), self.save());
+            self.add_history_entry(l.into());
         }
         events
     }
@@ -741,8 +760,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if self.is_recording() {
             return Err("recording already");
         }
-        self.history
-            .add("Before clip recording".into(), self.save());
+        self.add_history_entry("Before clip recording".into());
         get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
             &self.settings.clip_record_settings,
@@ -926,6 +944,7 @@ pub enum ClipMatrixEvent {
     AllClipsChanged,
     ClipChanged(QualifiedClipChangeEvent),
     RecordDurationChanged,
+    HistoryChanged,
 }
 
 impl ClipMatrixEvent {

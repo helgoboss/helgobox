@@ -1,4 +1,27 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetMatrixTempoRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(double, tag = "2")]
+    pub bpm: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetMatrixVolumeRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(double, tag = "2")]
+    pub db: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetMatrixPanRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(double, tag = "2")]
+    pub pan: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Empty {}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerMatrixRequest {
     #[prost(string, tag = "1")]
     pub clip_matrix_id: ::prost::alloc::string::String,
@@ -6,7 +29,23 @@ pub struct TriggerMatrixRequest {
     pub action: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TriggerMatrixReply {}
+pub struct TriggerColumnRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub column: u32,
+    #[prost(enumeration = "TriggerColumnAction", tag = "3")]
+    pub action: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerRowRequest {
+    #[prost(string, tag = "1")]
+    pub clip_matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub row: u32,
+    #[prost(enumeration = "TriggerRowAction", tag = "3")]
+    pub action: i32,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerSlotRequest {
     #[prost(string, tag = "1")]
@@ -16,8 +55,6 @@ pub struct TriggerSlotRequest {
     #[prost(enumeration = "TriggerSlotAction", tag = "3")]
     pub action: i32,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TriggerSlotReply {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
@@ -118,7 +155,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -140,7 +177,27 @@ pub mod occasional_matrix_update {
         AudioInputChannels(super::AudioInputChannels),
         #[prost(string, tag = "7")]
         PersistentState(::prost::alloc::string::String),
+        #[prost(message, tag = "8")]
+        HistoryState(super::HistoryState),
+        #[prost(bool, tag = "9")]
+        ClickEnabled(bool),
+        #[prost(message, tag = "10")]
+        TimeSignature(super::TimeSignature),
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HistoryState {
+    #[prost(string, tag = "1")]
+    pub undo_label: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub redo_label: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TimeSignature {
+    #[prost(uint32, tag = "1")]
+    pub numerator: u32,
+    #[prost(uint32, tag = "2")]
+    pub denominator: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalTrackUpdate {
@@ -272,6 +329,25 @@ pub struct SlotCoordinates {
 #[repr(i32)]
 pub enum TriggerMatrixAction {
     ArrangementTogglePlayStop = 0,
+    StopAllClips = 1,
+    ArrangementPlay = 2,
+    ArrangementStop = 3,
+    ArrangementPause = 4,
+    ArrangementStartRecording = 5,
+    ArrangementStopRecording = 6,
+    Undo = 7,
+    Redo = 8,
+    ToggleClick = 9,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TriggerColumnAction {
+    Stop = 0,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TriggerRowAction {
+    Play = 0,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -322,11 +398,31 @@ pub mod clip_engine_server {
         async fn trigger_matrix(
             &self,
             request: tonic::Request<super::TriggerMatrixRequest>,
-        ) -> Result<tonic::Response<super::TriggerMatrixReply>, tonic::Status>;
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn trigger_column(
+            &self,
+            request: tonic::Request<super::TriggerColumnRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn trigger_row(
+            &self,
+            request: tonic::Request<super::TriggerRowRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn trigger_slot(
             &self,
             request: tonic::Request<super::TriggerSlotRequest>,
-        ) -> Result<tonic::Response<super::TriggerSlotReply>, tonic::Status>;
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_matrix_tempo(
+            &self,
+            request: tonic::Request<super::SetMatrixTempoRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_matrix_volume(
+            &self,
+            request: tonic::Request<super::SetMatrixVolumeRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_matrix_pan(
+            &self,
+            request: tonic::Request<super::SetMatrixPanRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         #[doc = "Server streaming response type for the GetOccasionalMatrixUpdates method."]
         type GetOccasionalMatrixUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetOccasionalMatrixUpdatesReply, tonic::Status>,
@@ -433,7 +529,7 @@ pub mod clip_engine_server {
                     impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerMatrixRequest>
                         for TriggerMatrixSvc<T>
                     {
-                        type Response = super::TriggerMatrixReply;
+                        type Response = super::Empty;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
@@ -460,11 +556,75 @@ pub mod clip_engine_server {
                     };
                     Box::pin(fut)
                 }
+                "/playtime.clip_engine.ClipEngine/TriggerColumn" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerColumnSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerColumnRequest>
+                        for TriggerColumnSvc<T>
+                    {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerColumnRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).trigger_column(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerColumnSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/TriggerRow" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerRowSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerRowRequest> for TriggerRowSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerRowRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).trigger_row(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerRowSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/TriggerSlot" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSlotSvc<T: ClipEngine>(pub Arc<T>);
                     impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerSlotRequest> for TriggerSlotSvc<T> {
-                        type Response = super::TriggerSlotReply;
+                        type Response = super::Empty;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
@@ -481,6 +641,103 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerSlotSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetMatrixTempo" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetMatrixTempoSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixTempoRequest>
+                        for SetMatrixTempoSvc<T>
+                    {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetMatrixTempoRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).set_matrix_tempo(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetMatrixTempoSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetMatrixVolume" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetMatrixVolumeSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixVolumeRequest>
+                        for SetMatrixVolumeSvc<T>
+                    {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetMatrixVolumeRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).set_matrix_volume(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetMatrixVolumeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetMatrixPan" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetMatrixPanSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixPanRequest> for SetMatrixPanSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetMatrixPanRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).set_matrix_pan(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetMatrixPanSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
                             accept_compression_encodings,

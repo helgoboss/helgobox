@@ -88,6 +88,8 @@ impl ArrangementPlayState {
             } else {
                 Self::Playing
             }
+        } else if play_state.is_paused {
+            Self::PlayingPaused
         } else {
             Self::Stopped
         }
