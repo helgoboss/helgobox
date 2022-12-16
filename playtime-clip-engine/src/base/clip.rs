@@ -195,6 +195,10 @@ impl Clip {
         self.processing_relevant_settings.volume = volume;
     }
 
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
+    }
+
     pub fn volume(&self) -> Db {
         self.processing_relevant_settings.volume
     }

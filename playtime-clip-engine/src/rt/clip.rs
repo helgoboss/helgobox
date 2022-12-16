@@ -1647,6 +1647,7 @@ impl Default for InternalClipPlayState {
 pub enum ClipChangeEvent {
     // TODO-high This should be a a slot event
     PlayState(InternalClipPlayState),
+    ClipName,
     ClipVolume(Db),
     ClipLooped(bool),
     ClipPosition {

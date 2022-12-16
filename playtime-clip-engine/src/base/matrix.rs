@@ -802,6 +802,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    pub fn set_clip_name(
+        &mut self,
+        coordinates: ClipSlotCoordinates,
+        name: Option<String>,
+    ) -> ClipEngineResult<()> {
+        let event = get_column_mut(&mut self.columns, coordinates.column())?
+            .set_clip_name(coordinates.row(), name)?;
+        self.handler
+            .emit_event(ClipMatrixEvent::clip_changed(coordinates, event));
+        Ok(())
+    }
+
     pub fn proportional_clip_position(
         &self,
         coordinates: ClipSlotCoordinates,

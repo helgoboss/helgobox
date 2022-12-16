@@ -503,6 +503,12 @@ impl Slot {
         Ok(ClipChangeEvent::ClipVolume(volume))
     }
 
+    pub fn set_clip_name(&mut self, name: Option<String>) -> ClipEngineResult<ClipChangeEvent> {
+        let content = get_content_mut(&mut self.content)?;
+        content.clip.set_name(name);
+        Ok(ClipChangeEvent::ClipName)
+    }
+
     pub fn toggle_clip_looped(
         &mut self,
         column_command_sender: &ColumnCommandSender,

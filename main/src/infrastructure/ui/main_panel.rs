@@ -6,7 +6,7 @@ use crate::infrastructure::ui::{
 use lazycell::LazyCell;
 use reaper_high::{
     AvailablePanValue, ChangeEvent, Guid, MasterTempoChangedEvent, OrCurrentProject, Project,
-    Reaper, Track,
+    Reaper, Track, Volume,
 };
 
 use slog::debug;
@@ -633,7 +633,7 @@ fn send_occasional_slot_updates(
                     PlayState(play_state) => qualified_occasional_slot_update::Update::PlayState(
                         SlotPlayState::from_engine(play_state.get()).into(),
                     ),
-                    ClipVolume(_) | ClipLooped(_) | Removed | RecordingFinished => {
+                    ClipVolume(_) | ClipLooped(_) | Removed | RecordingFinished | ClipName => {
                         let slot = matrix.slot(*slot_coordinates)?;
                         let api_slot = slot.save(session.processor_context().project()).unwrap_or(
                             playtime_api::persistence::Slot {
@@ -696,7 +696,14 @@ fn send_occasional_matrix_updates_caused_by_reaper(
     }
     let update: Option<R> = match event {
         ChangeEvent::TrackVolumeChanged(e) => {
-            track_update(matrix, &e.track, || Update::Volume(e.new_value.get()))
+            let db = Volume::from_reaper_value(e.new_value).db();
+            if e.track.is_master_track() {
+                Some(R::Matrix(occasional_matrix_update::Update::Volume(
+                    db.get(),
+                )))
+            } else {
+                track_update(matrix, &e.track, || Update::Volume(db.get()))
+            }
         }
         ChangeEvent::TrackPanChanged(e) => track_update(matrix, &e.track, || {
             let api_value = match e.new_value {
@@ -890,6 +897,7 @@ fn get_track_peaks(track: &Track) -> Vec<f64> {
         return vec![];
     }
     // TODO-high-clip-engine CONTINUE Apply same fix as in #560 (check I_VUMODE to know whether to query volume or peaks)
+    // TODO-high-clip-engine CONTINUE Respect solo (same as a recent ReaLearn issue)
     (0..channel_count)
         .map(|ch| {
             let volume = unsafe { reaper.track_get_peak_info(track, ch as u32 + 1024) };

@@ -3,6 +3,7 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use crate::infrastructure::ui::get_proto_time_signature;
 use futures::{Stream, StreamExt};
+use playtime_clip_engine::base::ClipSlotCoordinates;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
     qualified_occasional_slot_update, ArrangementPlayState, Empty, GetContinuousColumnUpdatesReply,
@@ -12,11 +13,11 @@ use playtime_clip_engine::proto::{
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetMatrixPanRequest,
-    SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotCoordinates, SlotPlayState, TrackColor,
-    TrackInput, TrackInputMonitoring, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSlotAction, TriggerSlotRequest,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipNameRequest,
+    SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
+    SlotCoordinates, SlotPlayState, TrackColor, TrackInput, TrackInputMonitoring,
+    TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest,
+    TriggerRowAction, TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
@@ -239,19 +240,24 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<TriggerSlotRequest>,
     ) -> Result<Response<Empty>, Status> {
         let req = request.get_ref();
-        let slot_coordinates = req
-            .slot_coordinates
-            .as_ref()
-            .ok_or(Status::invalid_argument("need slot coordinates"))?
-            .to_engine();
+        let slot_pos = convert_slot_pos(&req.slot_coordinates)?;
         let action = TriggerSlotAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger slot action"))?;
         handle_matrix_command(&req.clip_matrix_id, |matrix| match action {
-            TriggerSlotAction::Play => {
-                matrix.play_clip(slot_coordinates, ColumnPlayClipOptions::default())
-            }
-            TriggerSlotAction::Stop => matrix.stop_clip(slot_coordinates, None),
-            TriggerSlotAction::Record => matrix.record_clip(slot_coordinates),
+            TriggerSlotAction::Play => matrix.play_clip(slot_pos, ColumnPlayClipOptions::default()),
+            TriggerSlotAction::Stop => matrix.stop_clip(slot_pos, None),
+            TriggerSlotAction::Record => matrix.record_clip(slot_pos),
+        })
+    }
+
+    async fn set_clip_name(
+        &self,
+        request: Request<SetClipNameRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let slot_pos = convert_slot_pos(&req.slot_coordinates)?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            matrix.set_clip_name(slot_pos, req.name)
         })
     }
 
@@ -383,6 +389,32 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             Ok(())
         })
     }
+
+    async fn set_column_volume(
+        &self,
+        request: Request<SetColumnVolumeRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.get_ref();
+        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        handle_matrix_command(&req.clip_matrix_id, |matrix| {
+            let column = matrix.column(req.column_index as _)?;
+            let track = column.playback_track()?;
+            track.set_volume(
+                Volume::from_db(db),
+                GangBehavior::DenyGang,
+                GroupingBehavior::PreventGrouping,
+            );
+            Ok(())
+        })
+    }
+}
+
+fn convert_slot_pos(pos: &Option<SlotCoordinates>) -> Result<ClipSlotCoordinates, Status> {
+    let slot_coordinates = pos
+        .as_ref()
+        .ok_or(Status::invalid_argument("need slot coordinates"))?
+        .to_engine();
+    Ok(slot_coordinates)
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;

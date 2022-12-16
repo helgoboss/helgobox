@@ -483,6 +483,15 @@ impl Column {
         slot.set_clip_volume(volume, &self.rt_command_sender)
     }
 
+    pub fn set_clip_name(
+        &mut self,
+        slot_index: usize,
+        name: Option<String>,
+    ) -> ClipEngineResult<ClipChangeEvent> {
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        slot.set_clip_name(name)
+    }
+
     pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangeEvent> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
         slot.toggle_clip_looped(&self.rt_command_sender)
