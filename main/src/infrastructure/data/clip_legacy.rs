@@ -4,7 +4,6 @@ use crate::base::notification;
 use crate::domain::{ReaperTargetType, TransportAction};
 use crate::infrastructure::data::{deserialize_track, MappingModelData};
 use playtime_api::persistence::SourceOrigin;
-use playtime_clip_engine::base::ClipId;
 use reaper_high::{Guid, Track};
 use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};

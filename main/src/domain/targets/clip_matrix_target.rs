@@ -7,7 +7,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::persistence::{EvenQuantization, RecordLength};
 use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipMatrixAction;
 use std::borrow::Cow;
 
@@ -95,18 +95,18 @@ impl RealearnTarget for ClipMatrixTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match self.action {
             ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                    QualifiedClipChangeEvent { event, .. },
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => (true, None),
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                    QualifiedSlotChangeEvent { event, .. },
                 )) => match event {
-                    ClipChangeEvent::PlayState(_) => (true, None),
-                    ClipChangeEvent::Removed => (true, None),
+                    SlotChangeEvent::PlayState(_) => (true, None),
+                    SlotChangeEvent::ClipsChanged(_) => (true, None),
                     _ => (false, None),
                 },
                 _ => (false, None),
             },
             ClipMatrixAction::Undo | ClipMatrixAction::Redo => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => (true, None),
                 _ => (false, None),
             },
             ClipMatrixAction::SetRecordDurationToOpenEnd

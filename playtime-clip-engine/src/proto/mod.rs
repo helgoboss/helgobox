@@ -1,20 +1,20 @@
 mod clip_engine;
 
-use crate::base::ClipSlotCoordinates;
+use crate::base::ClipSlotPos;
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
 use reaper_medium::{InputMonitoringMode, RecordingInput, RgbColor};
 
-impl SlotCoordinates {
-    pub fn from_engine(coordinates: ClipSlotCoordinates) -> Self {
+impl SlotPos {
+    pub fn from_engine(pos: ClipSlotPos) -> Self {
         Self {
-            column: coordinates.column() as _,
-            row: coordinates.row() as _,
+            column_index: pos.column() as _,
+            row_index: pos.row() as _,
         }
     }
 
-    pub fn to_engine(&self) -> ClipSlotCoordinates {
-        ClipSlotCoordinates::new(self.column as _, self.row as _)
+    pub fn to_engine(&self) -> ClipSlotPos {
+        ClipSlotPos::new(self.column_index as _, self.row_index as _)
     }
 }
 

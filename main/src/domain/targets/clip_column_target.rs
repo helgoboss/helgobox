@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipColumnAction;
 use std::borrow::Cow;
 
@@ -78,15 +78,15 @@ impl RealearnTarget for ClipColumnTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match self.action {
             ClipColumnAction::Stop => match evt {
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                    QualifiedClipChangeEvent {
-                        slot_coordinates: sc,
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => (true, None),
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                    QualifiedSlotChangeEvent {
+                        slot_pos: sc,
                         event,
                     },
                 )) if sc.column() == self.column_index => match event {
-                    ClipChangeEvent::PlayState(_) => (true, None),
-                    ClipChangeEvent::Removed => (true, None),
+                    SlotChangeEvent::PlayState(_) => (true, None),
+                    SlotChangeEvent::ClipsChanged(_) => (true, None),
                     _ => (false, None),
                 },
                 _ => (false, None),

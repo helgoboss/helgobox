@@ -5,8 +5,7 @@ use crate::infrastructure::ui::{
 
 use lazycell::LazyCell;
 use reaper_high::{
-    AvailablePanValue, ChangeEvent, Guid, MasterTempoChangedEvent, OrCurrentProject, Project,
-    Reaper, Track, Volume,
+    AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, Project, Reaper, Track, Volume,
 };
 
 use slog::debug;
@@ -39,9 +38,9 @@ use playtime_clip_engine::proto::{
     ArrangementPlayState, ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate,
     ContinuousSlotUpdate, HistoryState, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotCoordinates, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring,
+    SlotPlayState, SlotPos, TimeSignature, TrackInput, TrackInputMonitoring,
 };
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use playtime_clip_engine::{clip_timeline, proto, Laziness, Timeline};
 use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
@@ -578,7 +577,7 @@ fn send_occasional_matrix_updates_caused_by_matrix(
     let updates: Vec<_> = events
         .iter()
         .filter_map(|event| match event {
-            ClipMatrixEvent::AllClipsChanged => {
+            ClipMatrixEvent::EverythingChanged => {
                 let json = serde_json::to_string(&matrix.save())
                     .expect("couldn't serialize clip matrix as JSON");
                 Some(OccasionalMatrixUpdate {
@@ -624,16 +623,16 @@ fn send_occasional_slot_updates(
     let updates: Vec<_> = events
         .iter()
         .filter_map(|event| match event {
-            ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                slot_coordinates,
+            ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
+                slot_pos: slot_coordinates,
                 event,
             }) => {
-                use ClipChangeEvent::*;
+                use SlotChangeEvent::*;
                 let update = match event {
                     PlayState(play_state) => qualified_occasional_slot_update::Update::PlayState(
                         SlotPlayState::from_engine(play_state.get()).into(),
                     ),
-                    ClipVolume(_) | ClipLooped(_) | Removed | RecordingFinished | ClipName => {
+                    ClipsChanged(_) | ClipVolume(_) | ClipLooped(_) | ClipName => {
                         let slot = matrix.slot(*slot_coordinates)?;
                         let api_slot = slot.save(session.processor_context().project()).unwrap_or(
                             playtime_api::persistence::Slot {
@@ -647,7 +646,7 @@ fn send_occasional_slot_updates(
                     ClipPosition { .. } => return None,
                 };
                 Some(QualifiedOccasionalSlotUpdate {
-                    slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
+                    slot_pos: Some(SlotPos::from_engine(*slot_coordinates)),
                     update: Some(update),
                 })
             }
@@ -782,23 +781,25 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
     let updates: Vec<_> = events
         .iter()
         .filter_map(|event| {
-            if let ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                slot_coordinates,
+            if let ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
+                slot_pos: slot_coordinates,
                 event:
-                    ClipChangeEvent::ClipPosition {
+                    SlotChangeEvent::ClipPosition {
                         proportional,
                         seconds,
                     },
             }) = event
             {
                 Some(QualifiedContinuousSlotUpdate {
-                    slot_coordinates: Some(SlotCoordinates::from_engine(*slot_coordinates)),
+                    slot_pos: Some(SlotPos::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
-                        clip_update: Some(ContinuousClipUpdate {
-                            proportional_position: proportional.get(),
-                            position_in_seconds: seconds.get(),
-                            peak: 0.0,
-                        }),
+                        clip_update: vec![
+                            (ContinuousClipUpdate {
+                                proportional_position: proportional.get(),
+                                position_in_seconds: seconds.get(),
+                                peak: 0.0,
+                            }),
+                        ],
                     }),
                 })
             } else {

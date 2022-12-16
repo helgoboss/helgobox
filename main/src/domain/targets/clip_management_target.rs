@@ -5,7 +5,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use playtime_clip_engine::base::ClipSlotCoordinates;
+use playtime_clip_engine::base::ClipSlotPos;
 use realearn_api::persistence::ClipManagementAction;
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipManagementTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipManagementTarget {
-    pub slot_coordinates: ClipSlotCoordinates,
+    pub slot_coordinates: ClipSlotPos,
     pub action: ClipManagementAction,
 }
 

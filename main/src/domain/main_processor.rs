@@ -40,7 +40,7 @@ use crate::domain::ui_util::{
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -813,8 +813,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_clip_matrix_event_for_feedback(&self, event: &ClipMatrixEvent) {
         let is_position_change = matches!(
             event,
-            ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                event: ClipChangeEvent::ClipPosition { .. },
+            ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
+                event: SlotChangeEvent::ClipPosition { .. },
                 ..
             })
         );

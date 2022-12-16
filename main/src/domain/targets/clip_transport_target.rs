@@ -6,8 +6,8 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotCoordinates, ClipTransportOptions};
-use playtime_clip_engine::rt::{ClipChangeEvent, ColumnPlayClipOptions, QualifiedClipChangeEvent};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotPos, ClipTransportOptions};
+use playtime_clip_engine::rt::{ColumnPlayClipOptions, QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipTransportAction;
 use reaper_high::Project;
 use std::borrow::Cow;
@@ -50,7 +50,7 @@ pub struct ClipTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 struct ClipTransportTargetBasics {
-    pub slot_coordinates: ClipSlotCoordinates,
+    pub slot_coordinates: ClipSlotPos,
     pub action: ClipTransportAction,
     pub options: ClipTransportOptions,
 }
@@ -217,23 +217,23 @@ impl RealearnTarget for ClipTransportTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangeEvent {
-                    slot_coordinates: sc,
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => (true, None),
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                QualifiedSlotChangeEvent {
+                    slot_pos: sc,
                     event,
                 },
             )) if *sc == self.basics.slot_coordinates => {
                 use ClipTransportAction::*;
                 match event {
-                    ClipChangeEvent::PlayState(new_state) => match self.basics.action {
+                    SlotChangeEvent::PlayState(new_state) => match self.basics.action {
                         PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                             let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }
                         _ => (false, None),
                     },
-                    ClipChangeEvent::ClipLooped(new_state) => match self.basics.action {
+                    SlotChangeEvent::ClipLooped(new_state) => match self.basics.action {
                         Looped => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
@@ -242,10 +242,7 @@ impl RealearnTarget for ClipTransportTarget {
                         ),
                         _ => (false, None),
                     },
-                    ClipChangeEvent::Removed => {
-                        tracing_debug!("Reacting to clip-removed event");
-                        (true, None)
-                    }
+                    SlotChangeEvent::ClipsChanged(_) => (true, None),
                     _ => (false, None),
                 }
             }

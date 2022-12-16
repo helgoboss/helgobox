@@ -9,8 +9,8 @@ use crate::domain::{
     VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotCoordinates};
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotPos};
+use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use reaper_high::Volume;
 use reaper_medium::Db;
 use std::borrow::Cow;
@@ -39,7 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipVolumeTarget {
-    pub slot_coordinates: ClipSlotCoordinates,
+    pub slot_coordinates: ClipSlotPos,
 }
 
 impl RealearnTarget for ClipVolumeTarget {
@@ -93,10 +93,10 @@ impl RealearnTarget for ClipVolumeTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangeEvent {
-                    slot_coordinates: si,
-                    event: ClipChangeEvent::ClipVolume(new_value),
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                QualifiedSlotChangeEvent {
+                    slot_pos: si,
+                    event: SlotChangeEvent::ClipVolume(new_value),
                 },
             )) if *si == self.slot_coordinates => (
                 true,

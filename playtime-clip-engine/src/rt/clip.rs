@@ -1,4 +1,4 @@
-use crate::base::ClipSlotCoordinates;
+use crate::base::ClipSlotPos;
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
@@ -1556,7 +1556,7 @@ struct LogNaturalDeviationArgs<T: Timeline> {
     clip_tempo: Bpm,
 }
 
-/// Play state of a clip.
+/// Play state of a slot.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct InternalClipPlayState(pub ClipPlayState);
 
@@ -1644,9 +1644,9 @@ impl Default for InternalClipPlayState {
 }
 
 #[derive(Debug)]
-pub enum ClipChangeEvent {
-    // TODO-high This should be a a slot event
+pub enum SlotChangeEvent {
     PlayState(InternalClipPlayState),
+    ClipsChanged(&'static str),
     ClipName,
     ClipVolume(Db),
     ClipLooped(bool),
@@ -1654,17 +1654,12 @@ pub enum ClipChangeEvent {
         proportional: UnitValue,
         seconds: PositionInSeconds,
     },
-    // TODO-high This should be a a slot event and be named ClipsChanged
-    Removed,
-    // TODO-high This should be a a slot event and be named ClipsChanged, but it probably has
-    //  another meaning as well?
-    RecordingFinished,
 }
 
 #[derive(Debug)]
-pub struct QualifiedClipChangeEvent {
-    pub slot_coordinates: ClipSlotCoordinates,
-    pub event: ClipChangeEvent,
+pub struct QualifiedSlotChangeEvent {
+    pub slot_pos: ClipSlotPos,
+    pub event: SlotChangeEvent,
 }
 
 pub struct PlayOutcome {

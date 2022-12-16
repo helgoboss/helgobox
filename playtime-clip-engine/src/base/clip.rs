@@ -234,6 +234,10 @@ impl Clip {
         self.name = name;
     }
 
+    pub fn id(&self) -> ClipId {
+        self.id
+    }
+
     pub fn volume(&self) -> Db {
         self.processing_relevant_settings.volume
     }

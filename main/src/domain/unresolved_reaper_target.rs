@@ -31,7 +31,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::base::ClipSlotCoordinates;
+use playtime_clip_engine::base::ClipSlotPos;
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     TrackDescriptorCommons, TrackScope,
@@ -759,14 +759,14 @@ impl VirtualClipSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
-    ) -> Result<ClipSlotCoordinates, &'static str> {
+    ) -> Result<ClipSlotPos, &'static str> {
         use VirtualClipSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),
             ByIndex {
                 column_index,
                 row_index,
-            } => ClipSlotCoordinates::new(*column_index, *row_index),
+            } => ClipSlotPos::new(*column_index, *row_index),
             Dynamic {
                 column_evaluator,
                 row_evaluator,
@@ -776,7 +776,7 @@ impl VirtualClipSlot {
                     to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
                 let row_index =
                     to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
-                ClipSlotCoordinates::new(column_index, row_index)
+                ClipSlotPos::new(column_index, row_index)
             }
         };
         // let slot_exists = BackboneState::get()

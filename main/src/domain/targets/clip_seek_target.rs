@@ -10,8 +10,8 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotCoordinates};
-use playtime_clip_engine::rt::{ClipChangeEvent, InternalClipPlayState, QualifiedClipChangeEvent};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotPos};
+use playtime_clip_engine::rt::{InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
@@ -51,7 +51,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipSeekTarget {
-    pub slot_coordinates: ClipSlotCoordinates,
+    pub slot_coordinates: ClipSlotPos,
     pub feedback_resolution: FeedbackResolution,
 }
 
@@ -90,20 +90,20 @@ impl RealearnTarget for ClipSeekTarget {
             {
                 (true, None)
             }
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangeEvent {
-                    slot_coordinates: si,
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                QualifiedSlotChangeEvent {
+                    slot_pos: si,
                     event,
                 },
             )) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
-                ClipChangeEvent::ClipPosition { proportional, .. }
+                SlotChangeEvent::ClipPosition { proportional, .. }
                     if self.feedback_resolution == FeedbackResolution::High =>
                 {
                     (true, Some(AbsoluteValue::Continuous(*proportional)))
                 }
-                ClipChangeEvent::PlayState(InternalClipPlayState(ClipPlayState::Stopped)) => {
+                SlotChangeEvent::PlayState(InternalClipPlayState(ClipPlayState::Stopped)) => {
                     (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
                 }
                 _ => (false, None),

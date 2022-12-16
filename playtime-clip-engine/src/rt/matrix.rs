@@ -1,4 +1,4 @@
-use crate::base::{ClipSlotCoordinates, MainMatrixCommandSender};
+use crate::base::{ClipSlotPos, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs, ColumnPlayClipOptions,
@@ -174,7 +174,7 @@ impl Matrix {
 
     pub fn play_clip(
         &self,
-        coordinates: ClipSlotCoordinates,
+        coordinates: ClipSlotPos,
         options: ColumnPlayClipOptions,
     ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
@@ -196,7 +196,7 @@ impl Matrix {
 
     pub fn stop_clip(
         &self,
-        coordinates: ClipSlotCoordinates,
+        coordinates: ClipSlotPos,
         stop_timing: Option<ClipPlayStopTiming>,
     ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
@@ -258,7 +258,7 @@ impl Matrix {
         clip_timeline(self.project, false)
     }
 
-    pub fn pause_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn pause_clip(&self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
         handle.command_sender.pause_clip(coordinates.row());
         Ok(())
