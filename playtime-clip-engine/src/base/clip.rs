@@ -12,12 +12,17 @@ use playtime_api::persistence as api;
 use playtime_api::persistence::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::Bpm;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
+use ulid::Ulid;
 
 /// Describes a clip.
 ///
 /// Not loaded yet.
 #[derive(Clone, Debug)]
 pub struct Clip {
+    id: ClipId,
     name: Option<String>,
     source: api::Source,
     frozen_source: Option<api::Source>,
@@ -25,10 +30,38 @@ pub struct Clip {
     processing_relevant_settings: ProcessingRelevantClipSettings,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct ClipId(Ulid);
+
+impl ClipId {
+    pub fn random() -> Self {
+        Self(Ulid::new())
+    }
+}
+
+impl Display for ClipId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for ClipId {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ulid = Ulid::from_str(s).map_err(|_| "couldn't decode string as ULID")?;
+        Ok(ClipId(ulid))
+    }
+}
+
 impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
+            id: api_clip
+                .id
+                .and_then(|s| ClipId::from_str(&s).ok())
+                .unwrap_or_else(ClipId::random),
             name: api_clip.name,
             source: api_clip.source,
             frozen_source: api_clip.frozen_source,
@@ -53,6 +86,7 @@ impl Clip {
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
+            id: ClipId::random(),
             name: recording_track.name().map(|n| n.into_string()),
             source: api_source,
             frozen_source: None,
@@ -82,6 +116,7 @@ impl Clip {
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
+            id: Some(self.id.to_string()),
             name: self.name.clone(),
             source: {
                 if let Some(midi_source) = midi_source {

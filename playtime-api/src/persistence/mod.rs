@@ -742,6 +742,8 @@ pub struct Slot {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Clip {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Source of the audio/MIDI material of this clip.
     pub source: Source,

@@ -4,6 +4,7 @@ use crate::base::notification;
 use crate::domain::{ReaperTargetType, TransportAction};
 use crate::infrastructure::data::{deserialize_track, MappingModelData};
 use playtime_api::persistence::SourceOrigin;
+use playtime_clip_engine::base::ClipId;
 use reaper_high::{Guid, Track};
 use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};
@@ -33,6 +34,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                         clip_record_settings: Default::default(),
                         slots: {
                             let api_clip = api::Clip {
+                                id: None,
                                 name: None,
                                 source: match desc.descriptor.content.clone() {
                                     ClipContent::File { file } => {

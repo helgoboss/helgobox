@@ -402,6 +402,7 @@ impl Column {
         let source = source_util::create_api_source_from_item(item, false)
             .map_err(|_| "couldn't create source from item")?;
         let clip = api::Clip {
+            id: None,
             name: None,
             source,
             frozen_source: None,

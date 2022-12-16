@@ -3461,6 +3461,7 @@ dependencies = [
  "tonic",
  "tracing",
  "twox-hash",
+ "ulid",
 ]
 
 [[package]]
@@ -5422,6 +5423,15 @@ name = "ucd-trie"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
+
+[[package]]
+name = "ulid"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a3aaa69b04e5b66cc27309710a569ea23593612387d67daaf102e73aa974fd"
+dependencies = [
+ "rand 0.8.4",
+]
 
 [[package]]
 name = "unic-langid"

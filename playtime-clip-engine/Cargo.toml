@@ -45,3 +45,5 @@ tracing = "0.1.31"
 tonic = "0.5"
 # For gRPC server
 prost = "0.8"
+# For random clip IDs
+ulid = "1.0.0"
