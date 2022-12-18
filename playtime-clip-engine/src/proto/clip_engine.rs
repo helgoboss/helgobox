@@ -1,33 +1,40 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FullColumnId {
+pub struct FullColumnAddress {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
     #[prost(uint32, tag = "2")]
     pub column_index: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FullRowId {
+pub struct FullRowAddress {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
     #[prost(uint32, tag = "2")]
     pub row_index: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FullSlotId {
+pub struct FullSlotAddress {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub slot_pos: ::core::option::Option<SlotPos>,
+    pub slot_address: ::core::option::Option<SlotAddress>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FullClipId {
+pub struct FullClipAddress {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub clip_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub clip_address: ::core::option::Option<ClipAddress>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SlotPos {
+pub struct ClipAddress {
+    #[prost(message, optional, tag = "1")]
+    pub slot_address: ::core::option::Option<SlotAddress>,
+    #[prost(uint32, tag = "2")]
+    pub clip_index: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SlotAddress {
     #[prost(uint32, tag = "1")]
     pub column_index: u32,
     #[prost(uint32, tag = "2")]
@@ -57,7 +64,7 @@ pub struct SetMatrixPanRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetColumnVolumeRequest {
     #[prost(message, optional, tag = "1")]
-    pub column_id: ::core::option::Option<FullColumnId>,
+    pub column_address: ::core::option::Option<FullColumnAddress>,
     #[prost(double, tag = "2")]
     pub db: f64,
 }
@@ -73,28 +80,28 @@ pub struct TriggerMatrixRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerColumnRequest {
     #[prost(message, optional, tag = "1")]
-    pub column_id: ::core::option::Option<FullColumnId>,
+    pub column_address: ::core::option::Option<FullColumnAddress>,
     #[prost(enumeration = "TriggerColumnAction", tag = "2")]
     pub action: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerRowRequest {
     #[prost(message, optional, tag = "1")]
-    pub row_id: ::core::option::Option<FullRowId>,
+    pub row_address: ::core::option::Option<FullRowAddress>,
     #[prost(enumeration = "TriggerRowAction", tag = "2")]
     pub action: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerSlotRequest {
     #[prost(message, optional, tag = "1")]
-    pub slot_id: ::core::option::Option<FullSlotId>,
+    pub slot_address: ::core::option::Option<FullSlotAddress>,
     #[prost(enumeration = "TriggerSlotAction", tag = "2")]
     pub action: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetClipNameRequest {
     #[prost(message, optional, tag = "1")]
-    pub clip_id: ::core::option::Option<FullClipId>,
+    pub clip_address: ::core::option::Option<FullClipAddress>,
     #[prost(string, optional, tag = "3")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
 }
@@ -193,7 +200,7 @@ pub struct ContinuousColumnUpdate {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QualifiedContinuousSlotUpdate {
     #[prost(message, optional, tag = "1")]
-    pub slot_pos: ::core::option::Option<SlotPos>,
+    pub slot_address: ::core::option::Option<SlotAddress>,
     #[prost(message, optional, tag = "2")]
     pub update: ::core::option::Option<ContinuousSlotUpdate>,
 }
@@ -343,7 +350,7 @@ pub struct AudioInputChannel {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QualifiedOccasionalSlotUpdate {
     #[prost(message, optional, tag = "1")]
-    pub slot_pos: ::core::option::Option<SlotPos>,
+    pub slot_address: ::core::option::Option<SlotAddress>,
     #[prost(oneof = "qualified_occasional_slot_update::Update", tags = "2, 3")]
     pub update: ::core::option::Option<qualified_occasional_slot_update::Update>,
 }
@@ -359,8 +366,8 @@ pub mod qualified_occasional_slot_update {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QualifiedOccasionalClipUpdate {
-    #[prost(string, tag = "1")]
-    pub clip_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "1")]
+    pub clip_address: ::core::option::Option<ClipAddress>,
     #[prost(oneof = "qualified_occasional_clip_update::Update", tags = "2")]
     pub update: ::core::option::Option<qualified_occasional_clip_update::Update>,
 }

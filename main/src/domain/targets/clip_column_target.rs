@@ -81,12 +81,12 @@ impl RealearnTarget for ClipColumnTarget {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => (true, None),
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
                     QualifiedSlotChangeEvent {
-                        slot_pos: sc,
+                        slot_address: sc,
                         event,
                     },
                 )) if sc.column() == self.column_index => match event {
                     SlotChangeEvent::PlayState(_) => (true, None),
-                    SlotChangeEvent::ClipsChanged(_) => (true, None),
+                    SlotChangeEvent::Clips(_) => (true, None),
                     _ => (false, None),
                 },
                 _ => (false, None),

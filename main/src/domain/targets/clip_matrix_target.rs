@@ -100,7 +100,7 @@ impl RealearnTarget for ClipMatrixTarget {
                     QualifiedSlotChangeEvent { event, .. },
                 )) => match event {
                     SlotChangeEvent::PlayState(_) => (true, None),
-                    SlotChangeEvent::ClipsChanged(_) => (true, None),
+                    SlotChangeEvent::Clips(_) => (true, None),
                     _ => (false, None),
                 },
                 _ => (false, None),

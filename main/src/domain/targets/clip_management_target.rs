@@ -5,7 +5,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use playtime_clip_engine::base::ClipSlotPos;
+use playtime_clip_engine::base::ClipSlotAddress;
 use realearn_api::persistence::ClipManagementAction;
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipManagementTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipManagementTarget {
-    pub slot_coordinates: ClipSlotPos,
+    pub slot_coordinates: ClipSlotAddress,
     pub action: ClipManagementAction,
 }
 
@@ -90,9 +90,9 @@ impl RealearnTarget for ClipManagementTarget {
             }
             A::EditClip => self.with_matrix(context, |matrix| {
                 if value.is_on() {
-                    matrix.start_editing_clip(self.slot_coordinates)?;
+                    matrix.start_editing_slot(self.slot_coordinates)?;
                 } else {
-                    matrix.stop_editing_clip(self.slot_coordinates)?;
+                    matrix.stop_editing_slot(self.slot_coordinates)?;
                 }
                 Ok(HitResponse::processed_with_effect())
             })?,
@@ -101,7 +101,7 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context, |matrix| {
-                    matrix.adjust_clip_section_length(self.slot_coordinates, a.factor)?;
+                    matrix.adjust_slot_section_length(self.slot_coordinates, a.factor)?;
                     Ok(HitResponse::processed_with_effect())
                 })?
             }
@@ -110,10 +110,13 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(HitResponse::ignored());
                 }
                 let clip_in_slot = self.with_matrix(context, |matrix| {
-                    matrix.clip(self.slot_coordinates).and_then(|clip| {
-                        clip.save(context.control_context.processor_context.project())
-                            .ok()
-                    })
+                    matrix
+                        .find_slot(self.slot_coordinates)?
+                        .clip()
+                        .and_then(|clip| {
+                            clip.save(context.control_context.processor_context.project())
+                                .ok()
+                        })
                 })?;
                 match clip_in_slot {
                     None => {
@@ -153,7 +156,7 @@ impl RealearnTarget for ClipManagementTarget {
         match key {
             "clip.name" => BackboneState::get()
                 .with_clip_matrix_mut(context.instance_state, |matrix| {
-                    let clip = matrix.clip(self.slot_coordinates)?;
+                    let clip = matrix.find_slot(self.slot_coordinates)?.clip()?;
                     let name = clip.name()?;
                     Some(PropValue::Text(name.to_string().into()))
                 })
@@ -179,7 +182,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
             | A::AdjustClipSectionLength(_) => Some(AbsoluteValue::default()),
             A::EditClip => BackboneState::get()
                 .with_clip_matrix(context.instance_state, |matrix| {
-                    let is_editing = matrix.is_editing_clip(self.slot_coordinates);
+                    let is_editing = matrix.is_editing_slot(self.slot_coordinates);
                     let value = convert_bool_to_unit_value(is_editing);
                     Some(AbsoluteValue::Continuous(value))
                 })

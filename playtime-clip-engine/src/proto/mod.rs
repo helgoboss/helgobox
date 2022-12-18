@@ -1,20 +1,42 @@
 mod clip_engine;
 
-use crate::base::ClipSlotPos;
+use crate::base;
+use crate::base::ClipSlotAddress;
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
 use reaper_medium::{InputMonitoringMode, RecordingInput, RgbColor};
 
-impl SlotPos {
-    pub fn from_engine(pos: ClipSlotPos) -> Self {
+impl SlotAddress {
+    pub fn from_engine(address: ClipSlotAddress) -> Self {
         Self {
-            column_index: pos.column() as _,
-            row_index: pos.row() as _,
+            column_index: address.column() as _,
+            row_index: address.row() as _,
         }
     }
 
-    pub fn to_engine(&self) -> ClipSlotPos {
-        ClipSlotPos::new(self.column_index as _, self.row_index as _)
+    pub fn to_engine(&self) -> ClipSlotAddress {
+        ClipSlotAddress::new(self.column_index as _, self.row_index as _)
+    }
+}
+
+impl ClipAddress {
+    pub fn from_engine(address: base::ClipAddress) -> Self {
+        Self {
+            slot_address: Some(SlotAddress::from_engine(address.slot_address)),
+            clip_index: address.clip_index as _,
+        }
+    }
+
+    pub fn to_engine(&self) -> Result<base::ClipAddress, &'static str> {
+        let addr = base::ClipAddress {
+            slot_address: self
+                .slot_address
+                .as_ref()
+                .ok_or("slot address missing")?
+                .to_engine(),
+            clip_index: self.clip_index as usize,
+        };
+        Ok(addr)
     }
 }
 

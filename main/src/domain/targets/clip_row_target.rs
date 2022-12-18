@@ -70,7 +70,7 @@ impl RealearnTarget for ClipRowTarget {
                     return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context.control_context, |matrix| {
-                    matrix.play_row(self.basics.row_index);
+                    matrix.play_scene(self.basics.row_index);
                 })?;
                 Ok(HitResponse::processed_with_effect())
             }

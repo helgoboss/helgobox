@@ -1,6 +1,6 @@
 use crate::base::history::History;
 use crate::base::row::Row;
-use crate::base::{Clip, ClipId, Column, Slot};
+use crate::base::{Clip, Column, Slot, SlotKit};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -8,9 +8,9 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnPlayRowArgs, ColumnStopArgs,
-    ColumnStopClipArgs, InternalClipPlayState, OverridableMatrixSettings, QualifiedSlotChangeEvent,
-    RtMatrixCommandSender, SlotChangeEvent, WeakColumn,
+    ClipChangeEvent, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnPlayRowArgs,
+    ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangeEvent,
+    QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -168,7 +168,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn clear_history(&mut self) {
         self.history.clear();
-        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
+        self.emit(ClipMatrixEvent::HistoryChanged);
     }
 
     // TODO-medium We might be able to improve that to take API matrix by reference. This would
@@ -216,7 +216,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .map(|_| Row {})
             .collect();
         // Emit event
-        self.handler.emit_event(ClipMatrixEvent::EverythingChanged);
+        self.notify_everything_changed();
         Ok(())
     }
 
@@ -240,6 +240,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn permanent_project(&self) -> Option<Project> {
         self.containing_track.as_ref().map(|t| t.project())
+    }
+
+    fn temporary_project(&self) -> Project {
+        self.permanent_project().or_current_project()
     }
 
     fn clear_columns(&mut self) {
@@ -267,14 +271,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn undo(&mut self) -> ClipEngineResult<()> {
         let api_matrix = self.history.undo()?.clone();
         self.load_internal(api_matrix)?;
-        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
+        self.emit(ClipMatrixEvent::HistoryChanged);
         Ok(())
     }
 
     pub fn redo(&mut self) -> ClipEngineResult<()> {
         let api_matrix = self.history.redo()?.clone();
         self.load_internal(api_matrix)?;
-        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
+        self.emit(ClipMatrixEvent::HistoryChanged);
         Ok(())
     }
 
@@ -284,7 +288,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .add(format!("Before {}", owned_label), self.save());
         let result = f(self);
         self.history.add(owned_label, self.save());
-        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
+        self.emit(ClipMatrixEvent::HistoryChanged);
         result
     }
 
@@ -296,19 +300,27 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Takes the current effective matrix dimensions into account, so even if a slot doesn't exist
-    /// yet physically in the column, it returns `true` if it should exist.
-    pub fn slot_exists(&self, coordinates: ClipSlotPos) -> bool {
+    /// yet physically in the column, it returns `true` if it *should* exist.
+    pub fn slot_exists(&self, coordinates: ClipSlotAddress) -> bool {
         coordinates.column < self.columns.len() && coordinates.row < self.row_count()
     }
 
-    pub fn slot(&self, coordinates: ClipSlotPos) -> Option<&Slot> {
-        self.columns.get(coordinates.column)?.slot(coordinates.row)
+    /// Finds the column at the given index.
+    pub fn find_column(&self, index: usize) -> Option<&Column> {
+        self.get_column(index).ok()
     }
 
-    pub fn clip(&self, coordinates: ClipSlotPos) -> Option<&Clip> {
-        self.columns.get(coordinates.column)?.clip(coordinates.row)
+    /// Finds the slot at the given address.
+    pub fn find_slot(&self, address: ClipSlotAddress) -> Option<&Slot> {
+        self.get_slot(address).ok()
     }
 
+    /// Finds the clip at the given address.
+    pub fn find_clip(&self, address: ClipAddress) -> Option<&Clip> {
+        self.get_clip(address).ok()
+    }
+
+    /// Returns an iterator over all slots in each column, including the column indexes.
     pub fn all_slots(&self) -> impl Iterator<Item = SlotWithColumn> + '_ {
         self.columns
             .iter()
@@ -320,10 +332,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             })
     }
 
+    /// Returns an iterator over all columns.
     pub fn all_columns(&self) -> impl Iterator<Item = &Column> + '_ {
         self.columns.iter()
     }
 
+    /// Returns an iterator over all clips in a row whose column is a scene follower.
     pub fn all_clips_in_scene(
         &self,
         row_index: usize,
@@ -340,6 +354,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             })
     }
 
+    /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
@@ -352,51 +367,57 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    /// Adds a history entry and emits the appropriate event.
     fn add_history_entry(&mut self, label: String) {
         self.history.add(label, self.save());
-        self.handler.emit_event(ClipMatrixEvent::HistoryChanged);
+        self.emit(ClipMatrixEvent::HistoryChanged);
     }
 
+    /// Returns an iterator over all scene-following columns.
     fn scene_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.iter().filter(|c| c.follows_scene())
     }
 
-    pub fn clear_slot(&mut self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
+    /// Clears the given slot.
+    pub fn clear_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         // The undo point after clip removal is created later, in response to the upcoming event
         // that indicates that the slot has actually been cleared.
         self.add_history_entry("Before clip removal".to_owned());
-        let column = get_column(&self.columns, coordinates.column)?;
-        column.clear_slot(coordinates.row);
+        self.get_column(address.column)?.clear_slot(address.row);
         Ok(())
     }
 
-    pub fn adjust_clip_section_length(
+    /// Adjusts the section lengths of all clips in the given slot.
+    pub fn adjust_slot_section_length(
         &mut self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
         factor: f64,
     ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
-        column.adjust_clip_section_length(coordinates.row, factor)
+        let kit = self.get_slot_kit(address)?;
+        kit.slot.adjust_section_length(factor, kit.sender)
     }
 
-    pub fn start_editing_clip(&self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
-        let column = get_column(&self.columns, coordinates.column)?;
-        column.start_editing_clip(coordinates.row)
+    /// Opens the editor for the given slot.
+    pub fn start_editing_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        self.get_slot(address)?
+            .start_editing(self.temporary_project())
     }
 
-    pub fn stop_editing_clip(&self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
-        let column = get_column(&self.columns, coordinates.column)?;
-        column.stop_editing_clip(coordinates.row)
+    /// Closes the editor for the given slot.
+    pub fn stop_editing_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        self.get_slot(address)?
+            .stop_editing(self.temporary_project())
     }
 
-    pub fn is_editing_clip(&self, coordinates: ClipSlotPos) -> bool {
-        if let Some(column) = self.columns.get(coordinates.column) {
-            column.is_editing_clip(coordinates.row)
-        } else {
-            false
-        }
+    /// Returns if the editor for the given slot is open.
+    pub fn is_editing_slot(&self, address: ClipSlotAddress) -> bool {
+        let Ok(slot) = self.get_slot(address) else {
+            return false;
+        };
+        slot.is_editing_clip(self.temporary_project())
     }
 
+    /// Fills the given row with the given clips.
     pub fn fill_row_with_clips(
         &mut self,
         row_index: usize,
@@ -416,87 +437,90 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     &matrix.settings,
                 )?;
             }
-            matrix
-                .handler
-                .emit_event(ClipMatrixEvent::EverythingChanged);
+            matrix.notify_everything_changed();
             Ok(())
         })
     }
 
+    /// Fills the given slot with the given clip.
     pub fn fill_slot_with_clip(
         &mut self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
         api_clip: api::Clip,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with clip", |matrix| {
-            let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
+            let column = get_column_mut(&mut matrix.columns, address.column)?;
+            // TODO-high CONTINUE Starting from here, don't let the methods return events anymore!
+            //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
+            //  for all clips). But on the other hand, it doesn't know about batches
+            //  and might therefore build a list of events for nothing!
             let event = column.fill_slot_with_clip(
-                coordinates.row,
+                address.row,
                 api_clip,
                 &matrix.chain_equipment,
                 &matrix.recorder_request_sender,
                 &matrix.settings,
             )?;
-            matrix
-                .handler
-                .emit_event(ClipMatrixEvent::slot_changed(coordinates, event));
+            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
             Ok(())
         })
     }
 
+    /// Fills the given slot with the currently selected REAPER item.
     pub fn fill_slot_with_selected_item(
         &mut self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with selected item", |matrix| {
-            let column = get_column_mut(&mut matrix.columns, coordinates.column)?;
+            let column = get_column_mut(&mut matrix.columns, address.column)?;
             let event = column.fill_slot_with_selected_item(
-                coordinates.row,
+                address.row,
                 &matrix.chain_equipment,
                 &matrix.recorder_request_sender,
                 &matrix.settings,
             )?;
-            matrix
-                .handler
-                .emit_event(ClipMatrixEvent::slot_changed(coordinates, event));
+            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
             Ok(())
         })
     }
 
-    pub fn play_clip(
+    /// Plays the given slot.
+    pub fn play_slot(
         &self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
         options: ColumnPlayClipOptions,
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column(&self.columns, coordinates.column)?;
+        let column = get_column(&self.columns, address.column)?;
         let args = ColumnPlayClipArgs {
-            slot_index: coordinates.row,
+            slot_index: address.row,
             timeline,
             ref_pos: None,
             options,
         };
-        column.play_clip(args);
+        column.play_slot(args);
         Ok(())
     }
 
-    pub fn stop_clip(
+    /// Plays the given slot.
+    pub fn stop_slot(
         &self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
         stop_timing: Option<ClipPlayStopTiming>,
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column(&self.columns, coordinates.column)?;
+        let column = get_column(&self.columns, address.column)?;
         let args = ColumnStopClipArgs {
-            slot_index: coordinates.row,
+            slot_index: address.row,
             timeline,
             ref_pos: None,
             stop_timing,
         };
-        column.stop_clip(args);
+        column.stop_slot(args);
         Ok(())
     }
 
+    /// Stops all slots in all columns.
     pub fn stop(&self) {
         let timeline = self.timeline();
         let args = ColumnStopArgs {
@@ -508,7 +532,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn play_row(&self, index: usize) {
+    /// Plays all slots of scene-following columns in the given row.
+    pub fn play_scene(&self, index: usize) {
         let timeline = self.timeline();
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = ColumnPlayRowArgs {
@@ -517,20 +542,22 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             ref_pos: timeline_cursor_pos,
         };
         for c in &self.columns {
-            c.play_row(args.clone());
+            c.play_scene(args.clone());
         }
     }
 
+    /// Returns the settings of this matrix.
     pub fn settings(&self) -> &MatrixSettings {
         &self.settings
     }
 
+    /// Sets the record duration for new clip recordings.
     pub fn set_record_duration(&mut self, record_length: RecordLength) {
         self.settings.clip_record_settings.duration = record_length;
-        self.handler
-            .emit_event(ClipMatrixEvent::RecordDurationChanged);
+        self.emit(ClipMatrixEvent::RecordDurationChanged);
     }
 
+    /// Builds a scene of all currently playing clips, in the first empty row.
     pub fn build_scene_in_first_empty_row(&mut self) -> ClipEngineResult<()> {
         let empty_row_index = (0usize..)
             .find(|row_index| self.scene_is_empty(*row_index))
@@ -538,6 +565,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.build_scene_internal(empty_row_index)
     }
 
+    /// Builds a scene of all currently playing clips, in the given row.
     pub fn build_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if !self.scene_is_empty(row_index) {
             return Err("row is not empty");
@@ -549,11 +577,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Build scene", |matrix| {
             let playing_clips = matrix.capture_playing_clips()?;
             matrix.distribute_clips_to_scene(playing_clips, row_index)?;
-            matrix
-                .handler
-                .emit_event(ClipMatrixEvent::EverythingChanged);
+            matrix.notify_everything_changed();
             Ok(())
         })
+    }
+
+    fn notify_everything_changed(&self) {
+        self.emit(ClipMatrixEvent::EverythingChanged);
+    }
+
+    fn emit(&self, event: ClipMatrixEvent) {
+        self.handler.emit_event(event);
     }
 
     fn distribute_clips_to_scene(
@@ -606,14 +640,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn slot_is_empty(&self, coordinates: ClipSlotPos) -> bool {
-        let column = match self.columns.get(coordinates.column) {
-            None => return false,
-            Some(c) => c,
+    /// Returns whether the given slot is empty.
+    pub fn slot_is_empty(&self, address: ClipSlotAddress) -> bool {
+        let Some(column) = self.columns.get(address.column) else {
+            return false;
         };
-        column.slot_is_empty(coordinates.row)
+        column.slot_is_empty(address.row)
     }
 
+    /// Returns whether the scene of the given row is empty.
     pub fn scene_is_empty(&self, row_index: usize) -> bool {
         self.scene_columns().all(|c| c.slot_is_empty(row_index))
     }
@@ -632,9 +667,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .collect()
     }
 
+    /// Stops all slots in the given column.
     pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column(&self.columns, index)?;
+        let column = self.get_column(index)?;
         let args = ColumnStopArgs {
             timeline,
             ref_pos: None,
@@ -644,8 +680,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     fn timeline(&self) -> HybridTimeline {
-        let project = self.permanent_project().or_current_project();
-        clip_timeline(Some(project), false)
+        clip_timeline(self.permanent_project(), false)
     }
 
     fn process_commands(&mut self) {
@@ -656,6 +691,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    /// Polls this matrix and returns a list of gathered events.
+    ///
+    /// Polling is absolutely essential, e.g. to detect changes or finish recordings.
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
         self.process_commands();
         let events: Vec<_> = self
@@ -668,7 +706,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     .into_iter()
                     .map(move |(row_index, event)| {
                         ClipMatrixEvent::slot_changed(
-                            ClipSlotPos::new(column_index, row_index),
+                            ClipSlotAddress::new(column_index, row_index),
                             event,
                         )
                     })
@@ -681,28 +719,36 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         events
     }
 
-    pub fn toggle_looped(&mut self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
+    /// Toggles the loop setting of the given slot.
+    pub fn toggle_looped(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         self.undoable("Toggle looped", |matrix| {
-            let event = get_column_mut(&mut matrix.columns, coordinates.column())?
-                .toggle_clip_looped(coordinates.row())?;
-            matrix
-                .handler
-                .emit_event(ClipMatrixEvent::slot_changed(coordinates, event));
+            let kit = matrix.get_slot_kit(address)?;
+            let event = kit.slot.toggle_looped(kit.sender)?;
+            matrix.emit(ClipMatrixEvent::clip_changed(
+                ClipAddress::legacy(address),
+                event,
+            ));
             Ok(())
         })
     }
 
+    /// Returns the play position of the given slot.
     pub fn clip_position_in_seconds(
         &self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
     ) -> ClipEngineResult<PositionInSeconds> {
-        get_column(&self.columns, coordinates.column())?.slot_position_in_seconds(coordinates.row())
+        let slot = self.get_slot(address)?;
+        let timeline = self.timeline();
+        let tempo = timeline.tempo_at(timeline.cursor_pos());
+        slot.position_in_seconds(tempo)
     }
 
+    /// Returns whether some slots in this matrix are currently playing/recording.
     pub fn is_stoppable(&self) -> bool {
         self.columns.iter().any(|c| c.is_stoppable())
     }
 
+    /// Returns whether the given column is currently playing/recording.
     pub fn column_is_stoppable(&self, index: usize) -> bool {
         self.columns
             .get(index)
@@ -710,6 +756,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .unwrap_or(false)
     }
 
+    /// Returns whether the given column is armed for recording.
     pub fn column_is_armed_for_recording(&self, index: usize) -> bool {
         self.columns
             .get(index)
@@ -717,29 +764,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .unwrap_or(false)
     }
 
-    pub fn clip_play_state(
-        &self,
-        coordinates: ClipSlotPos,
-    ) -> ClipEngineResult<InternalClipPlayState> {
-        get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
-    }
-
-    pub fn clip_looped(&self, coordinates: ClipSlotPos) -> ClipEngineResult<bool> {
-        get_column(&self.columns, coordinates.column())?.clip_looped(coordinates.row())
-    }
-
+    /// Returns if the given track is a playback track in one of the matrix columns.
     pub fn uses_playback_track(&self, track: &Track) -> bool {
         self.columns.iter().any(|c| c.playback_track() == Ok(track))
     }
 
+    /// Returns the number of columns in this matrix.
     pub fn column_count(&self) -> usize {
         self.columns.len()
     }
 
-    pub fn column(&self, index: usize) -> ClipEngineResult<&Column> {
-        get_column(&self.columns, index)
-    }
-
+    /// Returns the number of rows in this matrix.
+    ///
+    /// It's possible that the actual number of slots in a column is *higher* than the
+    /// official row count of this matrix. In that case, the higher number is returned.
     pub fn row_count(&self) -> usize {
         let max_slot_count_per_col = self
             .columns
@@ -750,17 +788,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         cmp::max(self.rows.len(), max_slot_count_per_col)
     }
 
-    pub fn clip_volume(&self, coordinates: ClipSlotPos) -> ClipEngineResult<Db> {
-        get_column(&self.columns, coordinates.column())?.clip_volume(coordinates.row())
-    }
-
-    pub fn record_clip(&mut self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
+    /// Starts recording in the given slot.
+    pub fn record_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         if self.is_recording() {
             return Err("recording already");
         }
         self.add_history_entry("Before clip recording".into());
-        get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
-            coordinates.row(),
+        get_column_mut(&mut self.columns, address.column())?.record_slot(
+            address.row(),
             &self.settings.clip_record_settings,
             &self.chain_equipment,
             &self.recorder_request_sender,
@@ -770,62 +805,82 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         )
     }
 
+    /// Returns whether any column in this matrix is recording.
     pub fn is_recording(&self) -> bool {
         self.columns.iter().any(|c| c.is_recording())
     }
 
-    pub fn pause_clip_legacy(&self, coordinates: ClipSlotPos) -> ClipEngineResult<()> {
-        get_column(&self.columns, coordinates.column())?.pause_clip(coordinates.row());
+    /// Pauses the given slot.
+    pub fn pause_clip(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        get_column(&self.columns, address.column())?.pause_slot(address.row());
         Ok(())
     }
 
-    pub fn seek_clip_legacy(
-        &self,
-        coordinates: ClipSlotPos,
-        position: UnitValue,
-    ) -> ClipEngineResult<()> {
-        get_column(&self.columns, coordinates.column())?.seek_clip(coordinates.row(), position);
+    /// Seeks the given slot.
+    pub fn seek_slot(&self, address: ClipSlotAddress, position: UnitValue) -> ClipEngineResult<()> {
+        get_column(&self.columns, address.column())?.seek_clip(address.row(), position);
         Ok(())
     }
 
-    pub fn set_clip_volume(
+    /// Sets the volume of the given slot.
+    pub fn set_slot_volume(
         &mut self,
-        coordinates: ClipSlotPos,
+        address: ClipSlotAddress,
         volume: Db,
     ) -> ClipEngineResult<()> {
-        let event = get_column_mut(&mut self.columns, coordinates.column())?
-            .set_clip_volume(coordinates.row(), volume)?;
-        self.handler
-            .emit_event(ClipMatrixEvent::slot_changed(coordinates, event));
+        let kit = self.get_slot_kit(address)?;
+        let event = kit.slot.set_volume(volume, kit.sender)?;
+        self.emit(ClipMatrixEvent::clip_changed(
+            ClipAddress::legacy(address),
+            event,
+        ));
         Ok(())
     }
 
-    pub fn set_clip_name(&mut self, clip_id: ClipId, name: Option<String>) -> ClipEngineResult<()> {
-        self.get_clip_mut(clip_id)?.set_name(name);
-        // self.handler
-        //     .emit_event(ClipMatrixEvent::slot_changed(coordinates, event));
+    /// Sets the name of the given clip.
+    pub fn set_clip_name(
+        &mut self,
+        address: ClipAddress,
+        name: Option<String>,
+    ) -> ClipEngineResult<()> {
+        let event = self.get_clip_mut(address)?.set_name(name);
+        self.emit(ClipMatrixEvent::clip_changed(address, event));
         Ok(())
     }
 
-    fn get_clip_mut(&mut self, clip_id: ClipId) -> ClipEngineResult<&mut Clip> {
-        for column in &mut self.columns {
-            for slot in column.slots_mut() {
-                if let Some(clip) = slot.clip_mut() {
-                    if clip.id() == clip_id {
-                        return Ok(clip);
-                    }
-                }
-            }
-        }
-        Err("couldn't find clip")
+    /// Returns the clip at the given address.
+    pub fn get_clip(&self, address: ClipAddress) -> ClipEngineResult<&Clip> {
+        self.get_slot(address.slot_address)?
+            .get_clip(address.clip_index)
     }
 
-    pub fn proportional_clip_position(
-        &self,
-        coordinates: ClipSlotPos,
-    ) -> ClipEngineResult<UnitValue> {
-        get_column(&self.columns, coordinates.column())?
-            .proportional_slot_position(coordinates.row())
+    /// Returns the slot at the given address.
+    pub fn get_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<&Slot> {
+        self.get_column(address.column)?.get_slot(address.row)
+    }
+
+    fn get_slot_kit(&mut self, address: ClipSlotAddress) -> ClipEngineResult<SlotKit> {
+        self.get_column_mut(address.column)?
+            .get_slot_kit_mut(address.row)
+    }
+
+    fn get_slot_mut(&mut self, address: ClipSlotAddress) -> ClipEngineResult<&mut Slot> {
+        self.get_column_mut(address.column)?
+            .get_slot_mut(address.row)
+    }
+
+    /// Returns the column at the given index.
+    pub fn get_column(&self, index: usize) -> ClipEngineResult<&Column> {
+        get_column(&self.columns, index)
+    }
+
+    fn get_column_mut(&mut self, index: usize) -> ClipEngineResult<&mut Column> {
+        get_column_mut(&mut self.columns, index)
+    }
+
+    fn get_clip_mut(&mut self, address: ClipAddress) -> ClipEngineResult<&mut Clip> {
+        self.get_slot_mut(address.slot_address)?
+            .get_clip_mut(address.clip_index)
     }
 }
 
@@ -840,12 +895,12 @@ fn get_column_mut(columns: &mut [Column], index: usize) -> ClipEngineResult<&mut
 const NO_SUCH_COLUMN: &str = "no such column";
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
-pub struct ClipSlotPos {
-    column: usize,
-    row: usize,
+pub struct ClipSlotAddress {
+    pub column: usize,
+    pub row: usize,
 }
 
-impl ClipSlotPos {
+impl ClipSlotAddress {
     pub fn new(column: usize, row: usize) -> Self {
         Self { column, row }
     }
@@ -856,6 +911,21 @@ impl ClipSlotPos {
 
     pub fn row(&self) -> usize {
         self.row
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct ClipAddress {
+    pub slot_address: ClipSlotAddress,
+    pub clip_index: usize,
+}
+
+impl ClipAddress {
+    pub fn legacy(slot_address: ClipSlotAddress) -> Self {
+        ClipAddress {
+            slot_address,
+            clip_index: 0,
+        }
     }
 }
 
@@ -963,17 +1033,28 @@ pub enum ClipMatrixEvent {
     RecordDurationChanged,
     HistoryChanged,
     SlotChanged(QualifiedSlotChangeEvent),
+    ClipChanged(QualifiedClipChangeEvent),
 }
 
 impl ClipMatrixEvent {
-    pub fn slot_changed(slot_pos: ClipSlotPos, event: SlotChangeEvent) -> Self {
-        Self::SlotChanged(QualifiedSlotChangeEvent { slot_pos, event })
+    pub fn slot_changed(slot_address: ClipSlotAddress, event: SlotChangeEvent) -> Self {
+        Self::SlotChanged(QualifiedSlotChangeEvent {
+            slot_address,
+            event,
+        })
+    }
+
+    pub fn clip_changed(clip_address: ClipAddress, event: ClipChangeEvent) -> Self {
+        Self::ClipChanged(QualifiedClipChangeEvent {
+            clip_address,
+            event,
+        })
     }
 
     pub fn undo_point_for_polling(&self) -> Option<&'static str> {
         match self {
             ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
-                event: SlotChangeEvent::ClipsChanged(desc),
+                event: SlotChangeEvent::Clips(desc),
                 ..
             }) => Some(desc),
             _ => None,
@@ -1048,7 +1129,7 @@ fn initialize_new_column(
 ) {
     let handle = ColumnHandle {
         pointer: column.rt_column(),
-        command_sender: column.rt_command_sender(),
+        command_sender: column.rt_command_sender().clone(),
     };
     rt_command_sender.insert_column(column_index, handle);
     columns.push(column);

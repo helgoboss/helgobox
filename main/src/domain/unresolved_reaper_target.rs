@@ -31,7 +31,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::base::ClipSlotPos;
+use playtime_clip_engine::base::ClipSlotAddress;
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     TrackDescriptorCommons, TrackScope,
@@ -759,14 +759,14 @@ impl VirtualClipSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
-    ) -> Result<ClipSlotPos, &'static str> {
+    ) -> Result<ClipSlotAddress, &'static str> {
         use VirtualClipSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),
             ByIndex {
                 column_index,
                 row_index,
-            } => ClipSlotPos::new(*column_index, *row_index),
+            } => ClipSlotAddress::new(*column_index, *row_index),
             Dynamic {
                 column_evaluator,
                 row_evaluator,
@@ -776,7 +776,7 @@ impl VirtualClipSlot {
                     to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
                 let row_index =
                     to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
-                ClipSlotPos::new(column_index, row_index)
+                ClipSlotAddress::new(column_index, row_index)
             }
         };
         // let slot_exists = BackboneState::get()
@@ -1408,7 +1408,7 @@ impl VirtualTrack {
                     .map_err(|_| generic_error())?;
                 let track = BackboneState::get()
                     .with_clip_matrix(context.control_context.instance_state, |matrix| {
-                        let column = matrix.column(clip_column_index)?;
+                        let column = matrix.get_column(clip_column_index)?;
                         match track_context {
                             ClipColumnTrackContext::Playback => column.playback_track().cloned(),
                             ClipColumnTrackContext::Recording => column.effective_recording_track(),

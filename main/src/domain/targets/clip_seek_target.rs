@@ -10,7 +10,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotPos};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
 use playtime_clip_engine::rt::{InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent};
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipSeekTarget {
-    pub slot_coordinates: ClipSlotPos,
+    pub slot_coordinates: ClipSlotAddress,
     pub feedback_resolution: FeedbackResolution,
 }
 
@@ -67,7 +67,7 @@ impl RealearnTarget for ClipSeekTarget {
     ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
         BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
-            matrix.seek_clip_legacy(self.slot_coordinates, value)?;
+            matrix.seek_slot(self.slot_coordinates, value)?;
             Ok(HitResponse::processed_with_effect())
         })?
     }
@@ -92,7 +92,7 @@ impl RealearnTarget for ClipSeekTarget {
             }
             CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
                 QualifiedSlotChangeEvent {
-                    slot_pos: si,
+                    slot_address: si,
                     event,
                 },
             )) if *si == self.slot_coordinates => match event {
@@ -148,7 +148,8 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let val = matrix
-                    .proportional_clip_position(self.slot_coordinates)
+                    .find_slot(self.slot_coordinates)?
+                    .proportional_position()
                     .ok()?;
                 Some(AbsoluteValue::Continuous(val))
             })

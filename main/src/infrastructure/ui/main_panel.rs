@@ -25,7 +25,8 @@ use crate::domain::{
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
+    OccasionalClipUpdateBatch, OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch,
+    OccasionalTrackUpdateBatch,
 };
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
@@ -34,13 +35,16 @@ use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
-    occasional_matrix_update, occasional_track_update, qualified_occasional_slot_update,
-    ArrangementPlayState, ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-    ContinuousSlotUpdate, HistoryState, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotPlayState, SlotPos, TimeSignature, TrackInput, TrackInputMonitoring,
+    occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
+    qualified_occasional_slot_update, ArrangementPlayState, ContinuousClipUpdate,
+    ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate, HistoryState,
+    OccasionalMatrixUpdate, OccasionalTrackUpdate, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    SlotAddress, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring,
 };
-use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
+use playtime_clip_engine::rt::{
+    ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
+};
 use playtime_clip_engine::{clip_timeline, proto, Laziness, Timeline};
 use reaper_medium::TrackAttributeKey;
 use rxrust::prelude::*;
@@ -518,6 +522,7 @@ impl SessionUi for Weak<MainPanel> {
     ) {
         send_occasional_matrix_updates_caused_by_matrix(session, matrix, events);
         send_occasional_slot_updates(session, matrix, events);
+        send_occasional_clip_updates(session, matrix, events);
         send_continuous_slot_updates(session, events);
         if is_poll {
             send_continuous_matrix_updates(session);
@@ -624,7 +629,7 @@ fn send_occasional_slot_updates(
         .iter()
         .filter_map(|event| match event {
             ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
-                slot_pos: slot_coordinates,
+                slot_address: slot_coordinates,
                 event,
             }) => {
                 use SlotChangeEvent::*;
@@ -632,8 +637,8 @@ fn send_occasional_slot_updates(
                     PlayState(play_state) => qualified_occasional_slot_update::Update::PlayState(
                         SlotPlayState::from_engine(play_state.get()).into(),
                     ),
-                    ClipsChanged(_) | ClipVolume(_) | ClipLooped(_) | ClipName => {
-                        let slot = matrix.slot(*slot_coordinates)?;
+                    Clips(_) => {
+                        let slot = matrix.find_slot(*slot_coordinates)?;
                         let api_slot = slot.save(session.processor_context().project()).unwrap_or(
                             playtime_api::persistence::Slot {
                                 row: slot_coordinates.row(),
@@ -646,7 +651,7 @@ fn send_occasional_slot_updates(
                     ClipPosition { .. } => return None,
                 };
                 Some(QualifiedOccasionalSlotUpdate {
-                    slot_pos: Some(SlotPos::from_engine(*slot_coordinates)),
+                    slot_address: Some(SlotAddress::from_engine(*slot_coordinates)),
                     update: Some(update),
                 })
             }
@@ -655,6 +660,48 @@ fn send_occasional_slot_updates(
         .collect();
     if !updates.is_empty() {
         let batch_event = OccasionalSlotUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_occasional_clip_updates(
+    session: &Session,
+    matrix: &RealearnClipMatrix,
+    events: &[ClipMatrixEvent],
+) {
+    let sender = App::get().occasional_clip_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                clip_address,
+                event,
+            }) => {
+                use ClipChangeEvent::*;
+                let update = match event {
+                    Everything | Volume(_) | Looped(_) => {
+                        let clip = matrix.find_clip(*clip_address)?;
+                        let api_clip = clip.save(session.processor_context().project()).ok()?;
+                        let json = serde_json::to_string(&api_clip).unwrap();
+                        qualified_occasional_clip_update::Update::PersistentState(json)
+                    }
+                };
+                Some(QualifiedOccasionalClipUpdate {
+                    clip_address: Some(proto::ClipAddress::from_engine(*clip_address)),
+                    update: Some(update),
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = OccasionalClipUpdateBatch {
             session_id: session.id().to_owned(),
             value: updates,
         };
@@ -782,7 +829,7 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
         .iter()
         .filter_map(|event| {
             if let ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
-                slot_pos: slot_coordinates,
+                slot_address: slot_coordinates,
                 event:
                     SlotChangeEvent::ClipPosition {
                         proportional,
@@ -791,7 +838,7 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
             }) = event
             {
                 Some(QualifiedContinuousSlotUpdate {
-                    slot_pos: Some(SlotPos::from_engine(*slot_coordinates)),
+                    slot_address: Some(SlotAddress::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
                         clip_update: vec![
                             (ContinuousClipUpdate {

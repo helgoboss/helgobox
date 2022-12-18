@@ -2,7 +2,7 @@ use crate::rt::supplier::{
     ChainEquipment, ClipSource, KindSpecificRecordingOutcome, RecorderRequest,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{OverridableMatrixSettings, ProcessingRelevantClipSettings};
+use crate::rt::{ClipChangeEvent, OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
 };
@@ -230,8 +230,9 @@ impl Clip {
         self.processing_relevant_settings.volume = volume;
     }
 
-    pub fn set_name(&mut self, name: Option<String>) {
+    pub fn set_name(&mut self, name: Option<String>) -> ClipChangeEvent {
         self.name = name;
+        ClipChangeEvent::Everything
     }
 
     pub fn id(&self) -> ClipId {

@@ -1,4 +1,4 @@
-use crate::base::ClipSlotPos;
+use crate::base::{ClipAddress, ClipSlotAddress};
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
@@ -1646,10 +1646,7 @@ impl Default for InternalClipPlayState {
 #[derive(Debug)]
 pub enum SlotChangeEvent {
     PlayState(InternalClipPlayState),
-    ClipsChanged(&'static str),
-    ClipName,
-    ClipVolume(Db),
-    ClipLooped(bool),
+    Clips(&'static str),
     ClipPosition {
         proportional: UnitValue,
         seconds: PositionInSeconds,
@@ -1657,8 +1654,22 @@ pub enum SlotChangeEvent {
 }
 
 #[derive(Debug)]
+pub struct QualifiedClipChangeEvent {
+    pub clip_address: ClipAddress,
+    pub event: ClipChangeEvent,
+}
+
+#[derive(Debug)]
+pub enum ClipChangeEvent {
+    Everything,
+    // TODO-high Is special handling for volume and looped necessary?
+    Volume(Db),
+    Looped(bool),
+}
+
+#[derive(Debug)]
 pub struct QualifiedSlotChangeEvent {
-    pub slot_pos: ClipSlotPos,
+    pub slot_address: ClipSlotAddress,
     pub event: SlotChangeEvent,
 }
 

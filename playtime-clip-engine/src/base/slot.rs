@@ -12,10 +12,10 @@ use crate::rt::supplier::{
     RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
-    ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs, InternalClipPlayState,
-    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
-    RecordNewClipInstruction, SharedColumn, SlotChangeEvent, SlotRecordInstruction,
-    SlotRuntimeData,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
+    InternalClipPlayState, MidiOverdubInstruction, NormalRecordingOutcome,
+    OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn, SlotChangeEvent,
+    SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
@@ -362,7 +362,7 @@ impl Slot {
         self.content.as_ref().ok_or(SLOT_NOT_FILLED)
     }
 
-    pub fn adjust_clip_section_length(
+    pub fn adjust_section_length(
         &mut self,
         factor: f64,
         column_command_sender: &ColumnCommandSender,
@@ -432,7 +432,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn start_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
+    pub fn start_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
         let is_midi = content.runtime_data.material_info.is_midi();
         let editor_track = find_or_create_editor_track(temporary_project, !is_midi)?;
@@ -446,7 +446,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn stop_editing_clip(&self, temporary_project: Project) -> ClipEngineResult<()> {
+    pub fn stop_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
         let content = self.get_content()?;
         let editor_track = find_editor_track(temporary_project).ok_or("editor track not found")?;
         let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
@@ -480,8 +480,19 @@ impl Slot {
         }
     }
 
+    // TODO-high-multiclips This should return a list of all clips.
     pub fn clip(&self) -> Option<&Clip> {
         Some(&self.content.as_ref()?.clip)
+    }
+
+    pub fn get_clip(&self, index: usize) -> ClipEngineResult<&Clip> {
+        let content = self.content.as_ref().ok_or(CLIP_DOESNT_EXIST)?;
+        Ok(&content.clip)
+    }
+
+    pub(crate) fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut Clip> {
+        let content = self.content.as_mut().ok_or(CLIP_DOESNT_EXIST)?;
+        Ok(&mut content.clip)
     }
 
     pub fn clip_mut(&mut self) -> Option<&mut Clip> {
@@ -496,27 +507,21 @@ impl Slot {
         Ok(self.get_content()?.clip.looped())
     }
 
-    pub fn set_clip_volume(
+    pub fn set_volume(
         &mut self,
         volume: Db,
         column_command_sender: &ColumnCommandSender,
-    ) -> ClipEngineResult<SlotChangeEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let content = get_content_mut(&mut self.content)?;
         content.clip.set_volume(volume);
         column_command_sender.set_clip_volume(self.index, volume);
-        Ok(SlotChangeEvent::ClipVolume(volume))
+        Ok(ClipChangeEvent::Volume(volume))
     }
 
-    pub fn set_clip_name(&mut self, name: Option<String>) -> ClipEngineResult<SlotChangeEvent> {
-        let content = get_content_mut(&mut self.content)?;
-        content.clip.set_name(name);
-        Ok(SlotChangeEvent::ClipName)
-    }
-
-    pub fn toggle_clip_looped(
+    pub fn toggle_looped(
         &mut self,
         column_command_sender: &ColumnCommandSender,
-    ) -> ClipEngineResult<SlotChangeEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let content = get_content_mut(&mut self.content)?;
         let looped = content.clip.toggle_looped();
         let args = ColumnSetClipLoopedArgs {
@@ -524,10 +529,10 @@ impl Slot {
             looped,
         };
         column_command_sender.set_clip_looped(args);
-        Ok(SlotChangeEvent::ClipLooped(looped))
+        Ok(ClipChangeEvent::Looped(looped))
     }
 
-    pub fn clip_play_state(&self) -> ClipEngineResult<InternalClipPlayState> {
+    pub fn play_state(&self) -> ClipEngineResult<InternalClipPlayState> {
         use SlotState::*;
         match &self.state {
             Normal => Ok(self.get_content()?.runtime_data.play_state),
@@ -538,10 +543,10 @@ impl Slot {
         }
     }
 
+    /// Returns whether this slot is playing/recording something at the moment and therefore can be
+    /// stopped.
     pub fn is_stoppable(&self) -> bool {
-        self.clip_play_state()
-            .map(|s| s.is_stoppable())
-            .unwrap_or(false)
+        self.play_state().map(|s| s.is_stoppable()).unwrap_or(false)
     }
 
     fn runtime_data(&self) -> ClipEngineResult<&SlotRuntimeData> {
@@ -669,13 +674,13 @@ impl Slot {
         get_content_mut(&mut self.content)?
             .clip
             .notify_midi_overdub_finished(&mirror_source, temporary_project)?;
-        Ok(SlotChangeEvent::ClipsChanged("MIDI overdub finished"))
+        Ok(SlotChangeEvent::Clips("MIDI overdub finished"))
     }
 
     pub fn slot_cleared(&mut self) -> Option<SlotChangeEvent> {
         self.content
             .take()
-            .map(|_| SlotChangeEvent::ClipsChanged("clip removed"))
+            .map(|_| SlotChangeEvent::Clips("clip removed"))
     }
 
     pub fn notify_normal_recording_finished(
@@ -707,13 +712,13 @@ impl Slot {
                     };
                     self.content = Some(content);
                     self.state = SlotState::Normal;
-                    Ok(SlotChangeEvent::ClipsChanged("clip recording finished"))
+                    Ok(SlotChangeEvent::Clips("clip recording finished"))
                 }
             },
             NormalRecordingOutcome::Canceled => {
                 debug!("Recording canceled");
                 self.state = SlotState::Normal;
-                Ok(SlotChangeEvent::ClipsChanged("recording canceled"))
+                Ok(SlotChangeEvent::Clips("recording canceled"))
             }
         }
     }
@@ -1135,3 +1140,5 @@ pub struct ClipOnTrackManifestation {
     /// Always set if beat-based.
     tempo: Option<Bpm>,
 }
+
+const CLIP_DOESNT_EXIST: &str = "clip doesn't exist";

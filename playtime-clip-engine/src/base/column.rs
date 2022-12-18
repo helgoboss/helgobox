@@ -1,11 +1,11 @@
 use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPlayRowArgs,
-    ColumnStopArgs, ColumnStopClipArgs, InternalClipPlayState, OverridableMatrixSettings,
-    SharedColumn, SlotChangeEvent, WeakColumn,
+    ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    ColumnPlayRowArgs, ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings, SharedColumn,
+    SlotChangeEvent, WeakColumn,
 };
-use crate::{clip_timeline, rt, source_util, ClipEngineResult, Timeline};
+use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -19,7 +19,7 @@ use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, HelpMode,
-    MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue,
+    MeasureAlignment, OwnedPreviewRegister, ReaperMutex, ReaperVolumeValue,
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -85,8 +85,9 @@ impl Column {
         duplicate
     }
 
-    pub fn rt_command_sender(&self) -> ColumnCommandSender {
-        self.rt_command_sender.clone()
+    /// Returns the sender for sending commands to the corresponding real-time column.
+    pub fn rt_command_sender(&self) -> &ColumnCommandSender {
+        &self.rt_command_sender
     }
 
     pub fn load(
@@ -150,9 +151,9 @@ impl Column {
     }
 
     /// Returns all clips that are currently playing (along with slot index) .
-    pub fn playing_clips(&self) -> impl Iterator<Item = (usize, &Clip)> + '_ {
+    pub(crate) fn playing_clips(&self) -> impl Iterator<Item = (usize, &Clip)> + '_ {
         self.slots.iter().enumerate().filter_map(|(i, s)| {
-            if s.clip_play_state().ok()?.is_as_good_as_playing() {
+            if s.play_state().ok()?.is_as_good_as_playing() {
                 Some((i, s.clip()?))
             } else {
                 None
@@ -165,15 +166,32 @@ impl Column {
         self.rt_command_sender.clear_slots();
     }
 
-    pub fn slot(&self, index: usize) -> Option<&Slot> {
+    pub fn find_slot(&self, index: usize) -> Option<&Slot> {
         self.slots.get(index)
+    }
+
+    pub fn get_slot(&self, index: usize) -> ClipEngineResult<&Slot> {
+        self.slots.get(index).ok_or(SLOT_DOESNT_EXIST)
+    }
+
+    pub(crate) fn get_slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut Slot> {
+        get_slot_mut(&mut self.slots, index)
+    }
+
+    pub(crate) fn get_slot_kit_mut(&mut self, index: usize) -> ClipEngineResult<SlotKit> {
+        let kit = SlotKit {
+            sender: &self.rt_command_sender,
+            slot: get_slot_mut(&mut self.slots, index)?,
+        };
+        Ok(kit)
     }
 
     pub fn clip(&self, index: usize) -> Option<&Clip> {
         self.slots.get(index)?.clip()
     }
 
-    pub fn slot_is_empty(&self, index: usize) -> bool {
+    /// Returns whether the slot at the given index is empty.
+    pub(crate) fn slot_is_empty(&self, index: usize) -> bool {
         match self.slots.get(index) {
             None => true,
             Some(s) => s.is_empty(),
@@ -307,7 +325,7 @@ impl Column {
         }
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
-            if slot.clip_play_state().ok()?.is_advancing() {
+            if slot.play_state().ok()?.is_advancing() {
                 let event = SlotChangeEvent::ClipPosition {
                     proportional: slot.proportional_position().unwrap_or_default(),
                     seconds: slot.position_in_seconds(timeline_tempo).unwrap_or_default(),
@@ -321,17 +339,9 @@ impl Column {
         change_events
     }
 
+    /// Asynchronously clears the given slot.
     pub fn clear_slot(&self, slot_index: usize) {
         self.rt_command_sender.clear_slot(slot_index);
-    }
-
-    pub fn adjust_clip_section_length(
-        &mut self,
-        slot_index: usize,
-        factor: f64,
-    ) -> ClipEngineResult<()> {
-        let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.adjust_clip_section_length(factor, &self.rt_command_sender)
     }
 
     /// Freezes the complete column.
@@ -344,24 +354,7 @@ impl Column {
         Ok(())
     }
 
-    pub fn start_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
-        let slot = self.get_slot(slot_index)?;
-        slot.start_editing_clip(self.project.or_current_project())
-    }
-
-    pub fn stop_editing_clip(&self, slot_index: usize) -> ClipEngineResult<()> {
-        let slot = self.get_slot(slot_index)?;
-        slot.stop_editing_clip(self.project.or_current_project())
-    }
-
-    pub fn is_editing_clip(&self, slot_index: usize) -> bool {
-        if let Some(slot) = self.slots.get(slot_index) {
-            slot.is_editing_clip(self.project.or_current_project())
-        } else {
-            false
-        }
-    }
-
+    /// Fills the given slot with the given clip.
     pub fn fill_slot_with_clip(
         &mut self,
         slot_index: usize,
@@ -451,27 +444,27 @@ impl Column {
         )
     }
 
-    pub fn play_row(&self, args: ColumnPlayRowArgs) {
+    pub(crate) fn play_scene(&self, args: ColumnPlayRowArgs) {
         self.rt_command_sender.play_row(args);
     }
 
-    pub fn play_clip(&self, args: ColumnPlayClipArgs) {
+    pub(crate) fn play_slot(&self, args: ColumnPlayClipArgs) {
         self.rt_command_sender.play_clip(args);
     }
 
-    pub fn stop_clip(&self, args: ColumnStopClipArgs) {
+    pub(crate) fn stop_slot(&self, args: ColumnStopClipArgs) {
         self.rt_command_sender.stop_clip(args);
     }
 
-    pub fn stop(&self, args: ColumnStopArgs) {
+    pub(crate) fn stop(&self, args: ColumnStopArgs) {
         self.rt_command_sender.stop(args);
     }
 
-    pub fn pause_clip(&self, slot_index: usize) {
+    pub(crate) fn pause_slot(&self, slot_index: usize) {
         self.rt_command_sender.pause_clip(slot_index);
     }
 
-    pub fn seek_clip(&self, slot_index: usize, desired_pos: UnitValue) {
+    pub(crate) fn seek_clip(&self, slot_index: usize, desired_pos: UnitValue) {
         self.rt_command_sender.seek_clip(slot_index, desired_pos);
     }
 
@@ -479,51 +472,20 @@ impl Column {
         &mut self,
         slot_index: usize,
         volume: Db,
-    ) -> ClipEngineResult<SlotChangeEvent> {
+    ) -> ClipEngineResult<ClipChangeEvent> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.set_clip_volume(volume, &self.rt_command_sender)
-    }
-
-    pub fn set_clip_name(
-        &mut self,
-        slot_index: usize,
-        name: Option<String>,
-    ) -> ClipEngineResult<SlotChangeEvent> {
-        let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.set_clip_name(name)
-    }
-
-    pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<SlotChangeEvent> {
-        let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.toggle_clip_looped(&self.rt_command_sender)
-    }
-
-    pub fn slot_position_in_seconds(
-        &self,
-        slot_index: usize,
-    ) -> ClipEngineResult<PositionInSeconds> {
-        let slot = self.get_slot(slot_index)?;
-        let timeline = clip_timeline(self.project, false);
-        let tempo = timeline.tempo_at(timeline.cursor_pos());
-        slot.position_in_seconds(tempo)
+        slot.set_volume(volume, &self.rt_command_sender)
     }
 
     pub fn slots(&self) -> impl Iterator<Item = &Slot> + '_ {
         self.slots.iter()
     }
 
-    pub(crate) fn slots_mut(&mut self) -> &mut [Slot] {
-        self.slots.as_mut_slice()
-    }
-
-    fn get_slot(&self, index: usize) -> ClipEngineResult<&Slot> {
-        self.slots.get(index).ok_or(SLOT_DOESNT_EXIST)
-    }
-
     pub fn clip_volume(&self, slot_index: usize) -> ClipEngineResult<Db> {
         self.get_slot(slot_index)?.clip_volume()
     }
 
+    /// Returns whether some slots in this column are currently playing/recording.
     pub fn is_stoppable(&self) -> bool {
         self.slots.iter().any(|slot| slot.is_stoppable())
     }
@@ -539,6 +501,7 @@ impl Column {
         resolve_recording_track(&self.settings.clip_record_settings, playback_track)
     }
 
+    /// Returns the playback track of this column.
     pub fn playback_track(&self) -> ClipEngineResult<&Track> {
         self.preview_register
             .as_ref()
@@ -546,14 +509,6 @@ impl Column {
             .track
             .as_ref()
             .ok_or("no playback track set")
-    }
-
-    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<InternalClipPlayState> {
-        self.get_slot(slot_index)?.clip_play_state()
-    }
-
-    pub fn clip_looped(&self, slot_index: usize) -> ClipEngineResult<bool> {
-        self.get_slot(slot_index)?.clip_looped()
     }
 
     pub fn proportional_slot_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
@@ -569,7 +524,7 @@ impl Column {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn record_clip<H: ClipMatrixHandler>(
+    pub(crate) fn record_slot<H: ClipMatrixHandler>(
         &mut self,
         slot_index: usize,
         matrix_record_settings: &MatrixClipRecordSettings,
@@ -668,8 +623,8 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot_mut(slots: &mut [Slot], slot_index: usize) -> ClipEngineResult<&mut Slot> {
-    slots.get_mut(slot_index).ok_or(SLOT_DOESNT_EXIST)
+fn get_slot_mut(slots: &mut [Slot], index: usize) -> ClipEngineResult<&mut Slot> {
+    slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
 fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
@@ -714,7 +669,7 @@ fn fill_slot_internal(
         clip: rt_clip,
     };
     rt_command_sender.fill_slot(Box::new(Some(args)));
-    Ok(SlotChangeEvent::ClipsChanged("filled slot"))
+    Ok(SlotChangeEvent::Clips("filled slot"))
 }
 
 fn resolve_recording_track(
@@ -732,4 +687,9 @@ fn resolve_recording_track(
     } else {
         Ok(playback_track.clone())
     }
+}
+
+pub(crate) struct SlotKit<'a> {
+    pub slot: &'a mut Slot,
+    pub sender: &'a ColumnCommandSender,
 }

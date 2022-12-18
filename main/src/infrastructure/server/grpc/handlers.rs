@@ -3,20 +3,22 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use crate::infrastructure::ui::get_proto_time_signature;
 use futures::{Stream, StreamExt};
-use playtime_clip_engine::base::{ClipId, ClipSlotPos};
+use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
+use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_slot_update, ArrangementPlayState, Empty, FullClipId, FullColumnId,
-    FullRowId, FullSlotId, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
-    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    qualified_occasional_slot_update, ArrangementPlayState, Empty, FullClipAddress,
+    FullColumnAddress, FullRowAddress, FullSlotAddress, GetContinuousColumnUpdatesReply,
+    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
+    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
+    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipNameRequest,
     SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
-    SlotPlayState, SlotPos, TrackColor, TrackInput, TrackInputMonitoring, TriggerColumnAction,
+    SlotAddress, SlotPlayState, TrackColor, TrackInput, TrackInputMonitoring, TriggerColumnAction,
     TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
     TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
 };
@@ -25,7 +27,6 @@ use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, 
 use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, UndoBehavior};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::str::FromStr;
 use std::{future, iter};
 use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
@@ -80,14 +81,14 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 matrix
                     .all_slots()
                     .map(|slot| {
-                        let play_state = slot.value().clip_play_state().unwrap_or_default();
+                        let play_state = slot.value().play_state().unwrap_or_default();
                         let proto_play_state = SlotPlayState::from_engine(play_state.get());
-                        let coordinates = SlotPos {
+                        let address = SlotAddress {
                             column_index: slot.column_index() as u32,
                             row_index: slot.value().index() as u32,
                         };
                         QualifiedOccasionalSlotUpdate {
-                            slot_pos: Some(coordinates),
+                            slot_address: Some(address),
                             update: Some(qualified_occasional_slot_update::Update::PlayState(
                                 proto_play_state.into(),
                             )),
@@ -116,7 +117,13 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         &self,
         request: Request<GetOccasionalClipUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalClipUpdatesStream>, Status> {
-        todo!()
+        let receiver = App::get().occasional_clip_update_sender().subscribe();
+        stream_by_session_id(
+            request.into_inner().matrix_id,
+            receiver,
+            |clip_updates| GetOccasionalClipUpdatesReply { clip_updates },
+            iter::empty(),
+        )
     }
 
     type GetContinuousSlotUpdatesStream =
@@ -254,10 +261,12 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let req = request.into_inner();
         let action = TriggerSlotAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger slot action"))?;
-        handle_slot_command(&req.slot_id, |matrix, slot_pos| match action {
-            TriggerSlotAction::Play => matrix.play_clip(slot_pos, ColumnPlayClipOptions::default()),
-            TriggerSlotAction::Stop => matrix.stop_clip(slot_pos, None),
-            TriggerSlotAction::Record => matrix.record_clip(slot_pos),
+        handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
+            TriggerSlotAction::Play => {
+                matrix.play_slot(slot_address, ColumnPlayClipOptions::default())
+            }
+            TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
+            TriggerSlotAction::Record => matrix.record_slot(slot_address),
         })
     }
 
@@ -266,8 +275,8 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<SetClipNameRequest>,
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
-        handle_clip_command(&req.clip_id, |matrix, clip_id| {
-            matrix.set_clip_name(clip_id, req.name)
+        handle_clip_command(&req.clip_address, |matrix, clip_address| {
+            matrix.set_clip_name(clip_address, req.name)
         })
     }
 
@@ -331,7 +340,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let req = request.into_inner();
         let action = TriggerColumnAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger column action"))?;
-        handle_column_command(&req.column_id, |matrix, column_index| match action {
+        handle_column_command(&req.column_address, |matrix, column_index| match action {
             TriggerColumnAction::Stop => matrix.stop_column(column_index),
         })
     }
@@ -343,9 +352,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let req = request.into_inner();
         let action = TriggerRowAction::from_i32(req.action)
             .ok_or(Status::invalid_argument("unknown trigger row action"))?;
-        handle_row_command(&req.row_id, |matrix, row_index| match action {
+        handle_row_command(&req.row_address, |matrix, row_index| match action {
             TriggerRowAction::Play => {
-                matrix.play_row(row_index);
+                matrix.play_scene(row_index);
                 Ok(())
             }
         })
@@ -406,8 +415,8 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
-        handle_column_command(&req.column_id, |matrix, column_index| {
-            let column = matrix.column(column_index)?;
+        handle_column_command(&req.column_address, |matrix, column_index| {
+            let column = matrix.get_column(column_index)?;
             let track = column.playback_track()?;
             track.set_volume(
                 Volume::from_db(db),
@@ -464,12 +473,12 @@ fn handle_matrix_command(
 }
 
 fn handle_column_command(
-    full_column_id: &Option<FullColumnId>,
+    full_column_id: &Option<FullColumnAddress>,
     handler: impl FnOnce(&mut RealearnClipMatrix, usize) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
     let full_column_id = full_column_id
         .as_ref()
-        .ok_or_else(|| Status::invalid_argument("need full column ID"))?;
+        .ok_or_else(|| Status::invalid_argument("need full column address"))?;
     let column_index = full_column_id.column_index as usize;
     handle_matrix_command(&full_column_id.matrix_id, |matrix| {
         handler(matrix, column_index)
@@ -477,42 +486,57 @@ fn handle_column_command(
 }
 
 fn handle_row_command(
-    full_row_id: &Option<FullRowId>,
+    full_row_id: &Option<FullRowAddress>,
     handler: impl FnOnce(&mut RealearnClipMatrix, usize) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
     let full_row_id = full_row_id
         .as_ref()
-        .ok_or_else(|| Status::invalid_argument("need full row ID"))?;
+        .ok_or_else(|| Status::invalid_argument("need full row address"))?;
     let row_index = full_row_id.row_index as usize;
     handle_matrix_command(&full_row_id.matrix_id, |matrix| handler(matrix, row_index))
 }
 
 fn handle_slot_command(
-    full_slot_id: &Option<FullSlotId>,
-    handler: impl FnOnce(&mut RealearnClipMatrix, ClipSlotPos) -> Result<(), &'static str>,
+    full_slot_address: &Option<FullSlotAddress>,
+    handler: impl FnOnce(&mut RealearnClipMatrix, ClipSlotAddress) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
-    let full_slot_id = full_slot_id
+    let full_slot_address = full_slot_address
         .as_ref()
-        .ok_or_else(|| Status::invalid_argument("need full slot ID"))?;
-    let slot_pos = convert_slot_pos_to_engine(&full_slot_id.slot_pos)?;
-    handle_matrix_command(&full_slot_id.matrix_id, |matrix| handler(matrix, slot_pos))
+        .ok_or_else(|| Status::invalid_argument("need full slot address"))?;
+    let slot_addr = convert_slot_address_to_engine(&full_slot_address.slot_address)?;
+    handle_matrix_command(&full_slot_address.matrix_id, |matrix| {
+        handler(matrix, slot_addr)
+    })
 }
 
 fn handle_clip_command(
-    full_clip_id: &Option<FullClipId>,
-    handler: impl FnOnce(&mut RealearnClipMatrix, ClipId) -> Result<(), &'static str>,
+    full_clip_address: &Option<FullClipAddress>,
+    handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
-    let full_clip_id = full_clip_id
+    let full_clip_address = full_clip_address
         .as_ref()
-        .ok_or_else(|| Status::invalid_argument("need full clip ID"))?;
-    let clip_id = ClipId::from_str(&full_clip_id.clip_id).map_err(Status::invalid_argument)?;
-    handle_matrix_command(&full_clip_id.matrix_id, |matrix| handler(matrix, clip_id))
+        .ok_or_else(|| Status::invalid_argument("need full clip address"))?;
+    let clip_addr = convert_clip_address_to_engine(&full_clip_address.clip_address)?;
+    handle_matrix_command(&full_clip_address.matrix_id, |matrix| {
+        handler(matrix, clip_addr)
+    })
 }
 
-fn convert_slot_pos_to_engine(pos: &Option<SlotPos>) -> Result<ClipSlotPos, Status> {
-    let pos = pos
+fn convert_slot_address_to_engine(addr: &Option<SlotAddress>) -> Result<ClipSlotAddress, Status> {
+    let addr = addr
         .as_ref()
-        .ok_or_else(|| Status::invalid_argument("need slot pos"))?
+        .ok_or_else(|| Status::invalid_argument("need slot address"))?
         .to_engine();
-    Ok(pos)
+    Ok(addr)
+}
+
+fn convert_clip_address_to_engine(
+    addr: &Option<proto::ClipAddress>,
+) -> Result<ClipAddress, Status> {
+    let addr = addr
+        .as_ref()
+        .ok_or_else(|| Status::invalid_argument("need clip address"))?
+        .to_engine()
+        .map_err(Status::invalid_argument)?;
+    Ok(addr)
 }

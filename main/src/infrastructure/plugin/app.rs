@@ -33,7 +33,8 @@ use crate::infrastructure::ui::MessagePanel;
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
+    OccasionalClipUpdateBatch, OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch,
+    OccasionalTrackUpdateBatch,
 };
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
@@ -109,6 +110,7 @@ pub struct App {
     occasional_matrix_update_sender: tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch>,
     occasional_track_update_sender: tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch>,
     occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
+    occasional_clip_update_sender: tokio::sync::broadcast::Sender<OccasionalClipUpdateBatch>,
     continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
     continuous_column_update_sender: tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch>,
     continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
@@ -308,6 +310,7 @@ impl App {
             occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_clip_update_sender: tokio::sync::broadcast::channel(100).0,
             continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
             continuous_column_update_sender: tokio::sync::broadcast::channel(500).0,
             continuous_matrix_update_sender: tokio::sync::broadcast::channel(500).0,
@@ -655,6 +658,12 @@ impl App {
         &self,
     ) -> &tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch> {
         &self.occasional_slot_update_sender
+    }
+
+    pub fn occasional_clip_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalClipUpdateBatch> {
+        &self.occasional_clip_update_sender
     }
 
     pub fn continuous_slot_update_sender(
