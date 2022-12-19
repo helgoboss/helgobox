@@ -1,20 +1,23 @@
+use crate::conversion_util::{
+    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
+};
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
-    ColumnProcessTransportChangeArgs, ColumnSettings, HandleSlotEvent, InternalClipPlayState,
-    OverridableMatrixSettings, SharedPos, SlotInstruction, SlotRecordInstruction,
+    Clip, ClipProcessArgs, ClipRecordingPollArgs, ColumnProcessTransportChangeArgs, ColumnSettings,
+    FillClipMode, HandleSlotEvent, InternalClipPlayState, OverridableMatrixSettings, SharedPos,
+    SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
-use playtime_api::persistence as api;
-use playtime_api::persistence::{ClipPlayStopTiming, Db};
+use playtime_api::persistence::ClipPlayStopTiming;
 use playtime_api::runtime::ClipPlayState;
-use reaper_medium::PlayState;
+use reaper_medium::{Bpm, PlayState, PositionInSeconds};
+use std::mem;
 
 #[derive(Debug, Default)]
 pub struct Slot {
-    clip: Option<Clip>,
+    clips: Vec<Clip>,
     runtime_data: InternalRuntimeData,
 }
 
@@ -25,17 +28,36 @@ struct InternalRuntimeData {
 }
 
 impl Slot {
-    pub fn fill(&mut self, clip: Clip) {
+    /// Returns the index at which the clip landed.
+    pub fn fill(&mut self, clip: Clip, mode: FillClipMode) -> usize {
         // TODO-medium Suspend previous clip if playing.
-        self.clip = Some(clip);
+        match mode {
+            FillClipMode::Add => {
+                self.clips.push(clip);
+                self.clips.len() - 1
+            }
+            FillClipMode::Replace => {
+                self.clips.clear();
+                self.clips.push(clip);
+                0
+            }
+        }
     }
 
     pub fn is_filled(&self) -> bool {
-        self.clip.is_some()
+        !self.clips.is_empty()
     }
 
-    pub fn clip(&self) -> ClipEngineResult<&Clip> {
-        self.clip_internal()
+    pub fn find_clip(&self, index: usize) -> Option<&Clip> {
+        self.clips.get(index)
+    }
+
+    pub fn clip_count(&self) -> usize {
+        self.clips.len()
+    }
+
+    pub fn clips(&self) -> &[Clip] {
+        &self.clips
     }
 
     /// See [`Clip::recording_poll`].
@@ -44,30 +66,34 @@ impl Slot {
         args: ClipRecordingPollArgs,
         event_handler: &H,
     ) -> bool {
-        match self.clip_mut_internal() {
+        match self.get_clip_mut(0) {
             Ok(clip) => clip.recording_poll(args, event_handler),
             Err(_) => false,
         }
     }
 
-    pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
-        self.clip_mut_internal()
-    }
-
-    /// Plays the clip if this slot contains one.
-    pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.play(args)?;
+    /// Plays all clips in this slot.
+    pub fn play(&mut self, args: SlotPlayArgs) -> ClipEngineResult<()> {
+        for clip in self.get_clips_mut()? {
+            clip.play(args)?;
+        }
         Ok(())
     }
 
-    /// Stops the clip if this slot contains one.
-    pub fn stop_clip<H: HandleSlotEvent>(
+    /// Stops all clips in this slot.
+    pub fn stop<H: HandleSlotEvent>(
         &mut self,
-        args: ClipStopArgs,
+        args: SlotStopArgs,
         event_handler: &H,
     ) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        let instruction = self.clip_mut_internal()?.stop(args, event_handler)?;
+        let mut instruction = None;
+        for clip in self.get_clips_mut()? {
+            let inst = clip.stop(args, event_handler)?;
+            if let Some(inst) = inst {
+                instruction = Some(inst);
+            }
+        }
         if let Some(instruction) = instruction {
             self.process_instruction(instruction, event_handler);
         }
@@ -88,11 +114,16 @@ impl Slot {
     }
 
     pub fn clear<H: HandleSlotEvent>(&mut self, event_handler: &H) -> ClipEngineResult<()> {
-        let clip = match &mut self.clip {
-            None => return Err("already empty"),
-            Some(c) => c,
-        };
-        if clip.initiate_removal()? {
+        if self.clips.is_empty() {
+            return Err("already empty");
+        }
+        let mut all_clips_removed = true;
+        for clip in &mut self.clips {
+            if !clip.initiate_removal()? {
+                all_clips_removed = false;
+            }
+        }
+        if all_clips_removed {
             self.clear_internal(event_handler);
         }
         Ok(())
@@ -100,18 +131,12 @@ impl Slot {
 
     fn clear_internal<H: HandleSlotEvent>(&mut self, event_handler: &H) {
         debug!("Clearing real-time slot");
-        if let Some(clip) = self.clip.take() {
-            event_handler.slot_cleared(clip);
-        };
+        if self.clips.is_empty() {
+            return;
+        }
+        let old_clips = mem::replace(&mut self.clips, vec![]);
+        event_handler.slot_cleared(old_clips);
         self.runtime_data = InternalRuntimeData::default();
-    }
-
-    pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_looped(repeated)
-    }
-
-    pub fn set_clip_section(&mut self, section: api::Section) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_section(section)
     }
 
     /// # Errors
@@ -130,7 +155,7 @@ impl Slot {
         match instruction {
             NewClip(instruction) => {
                 debug!("Record new clip");
-                if self.clip.is_some() {
+                if !self.clips.is_empty() {
                     return Err(ErrorWithPayload::new(
                         "slot not empty",
                         NewClip(instruction),
@@ -138,12 +163,12 @@ impl Slot {
                 }
                 let clip = Clip::recording(instruction);
                 let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
-                self.clip = Some(clip);
+                self.clips.push(clip);
                 Ok(Some(runtime_data))
             }
             ExistingClip(args) => {
                 debug!("Record with existing clip");
-                let clip = match self.clip.as_mut() {
+                let clip = match self.clips.first_mut() {
                     None => {
                         return Err(ErrorWithPayload::new("slot empty", ExistingClip(args)));
                     }
@@ -159,7 +184,7 @@ impl Slot {
             }
             MidiOverdub(instruction) => {
                 debug!("MIDI overdub");
-                let clip = match self.clip.as_mut() {
+                let clip = match self.clips.first_mut() {
                     None => {
                         return Err(ErrorWithPayload::new(
                             "slot empty",
@@ -176,28 +201,32 @@ impl Slot {
         }
     }
 
-    pub fn pause_clip(&mut self) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.pause();
+    pub fn pause(&mut self) -> ClipEngineResult<()> {
+        for clip in self.get_clips_mut()? {
+            clip.pause();
+        }
         Ok(())
     }
 
-    pub fn seek_clip(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.seek(desired_pos)
+    pub fn seek(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
+        for clip in self.get_clips_mut()? {
+            clip.seek(desired_pos)?;
+        }
+        Ok(())
     }
 
     pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.write_midi(request);
+        self.get_clip_mut(0)?.write_midi(request);
         Ok(())
     }
 
     pub fn write_clip_audio(&mut self, request: impl WriteAudioRequest) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.write_audio(request);
+        self.get_clip_mut(0)?.write_audio(request);
         Ok(())
     }
 
-    pub fn set_clip_volume(&mut self, volume: Db) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_volume(volume);
-        Ok(())
+    pub fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut Clip> {
+        self.clips.get_mut(index).ok_or(CLIP_DOESNT_EXIST)
     }
 
     pub fn process_transport_change<H: HandleSlotEvent>(
@@ -205,38 +234,65 @@ impl Slot {
         args: &SlotProcessTransportChangeArgs,
         event_handler: &H,
     ) -> ClipEngineResult<()> {
-        let instruction = {
-            let clip = match &mut self.clip {
-                None => return Ok(()),
-                Some(c) => c,
-            };
-            match args.column_args.change {
-                TransportChange::PlayState(rel_change) => {
-                    // We have a relevant transport change.
-                    let state = clip.play_state();
-                    use ClipPlayState::*;
-                    use RelevantPlayStateChange::*;
-                    match rel_change {
-                        PlayAfterStop => {
-                            match state.get() {
-                                Stopped
-                                    if self.runtime_data.stop_was_caused_by_transport_change =>
-                                {
-                                    // REAPER transport was started from stopped state. Clip is stopped
-                                    // as well and was put in that state due to a previous transport
-                                    // stop. Play the clip!
-                                    play_clip_by_transport(clip, args)
+        let mut instruction = None;
+        {
+            for clip in &mut self.clips {
+                let inst = match args.column_args.change {
+                    TransportChange::PlayState(rel_change) => {
+                        // We have a relevant transport change.
+                        let state = clip.play_state();
+                        use ClipPlayState::*;
+                        use RelevantPlayStateChange::*;
+                        match rel_change {
+                            PlayAfterStop => {
+                                match state.get() {
+                                    Stopped
+                                        if self
+                                            .runtime_data
+                                            .stop_was_caused_by_transport_change =>
+                                    {
+                                        // REAPER transport was started from stopped state. Clip is stopped
+                                        // as well and was put in that state due to a previous transport
+                                        // stop. Play the clip!
+                                        play_clip_by_transport(clip, args)
+                                    }
+                                    ScheduledForPlayStart | Playing | ScheduledForPlayStop => {
+                                        // Retrigger (timeline switch)
+                                        play_clip_by_transport(clip, args)
+                                    }
+                                    Stopped
+                                    | Paused
+                                    | Recording
+                                    | ScheduledForRecordingStart
+                                    | ScheduledForRecordingStop => {
+                                        // Stop and forget.
+                                        self.runtime_data.stop_clip_by_transport(
+                                            clip,
+                                            args,
+                                            false,
+                                            event_handler,
+                                        )?
+                                    }
                                 }
-                                ScheduledForPlayStart | Playing | ScheduledForPlayStop => {
-                                    // Retrigger (timeline switch)
-                                    play_clip_by_transport(clip, args)
-                                }
-                                Stopped
-                                | Paused
+                            }
+                            StopAfterPlay => match state.get() {
+                                ScheduledForPlayStart
+                                | Playing
+                                | ScheduledForPlayStop
                                 | Recording
                                 | ScheduledForRecordingStart
                                 | ScheduledForRecordingStop => {
-                                    // Stop and forget.
+                                    // Stop and memorize
+                                    self.runtime_data.stop_clip_by_transport(
+                                        clip,
+                                        args,
+                                        true,
+                                        event_handler,
+                                    )?
+                                }
+
+                                Stopped | Paused => {
+                                    // Stop and forget
                                     self.runtime_data.stop_clip_by_transport(
                                         clip,
                                         args,
@@ -244,53 +300,31 @@ impl Slot {
                                         event_handler,
                                     )?
                                 }
-                            }
+                            },
+                            StopAfterPause => self.runtime_data.stop_clip_by_transport(
+                                clip,
+                                args,
+                                false,
+                                event_handler,
+                            )?,
                         }
-                        StopAfterPlay => match state.get() {
-                            ScheduledForPlayStart
-                            | Playing
-                            | ScheduledForPlayStop
-                            | Recording
-                            | ScheduledForRecordingStart
-                            | ScheduledForRecordingStop => {
-                                // Stop and memorize
-                                self.runtime_data.stop_clip_by_transport(
-                                    clip,
-                                    args,
-                                    true,
-                                    event_handler,
-                                )?
-                            }
-
-                            Stopped | Paused => {
-                                // Stop and forget
-                                self.runtime_data.stop_clip_by_transport(
-                                    clip,
-                                    args,
-                                    false,
-                                    event_handler,
-                                )?
-                            }
-                        },
-                        StopAfterPause => self.runtime_data.stop_clip_by_transport(
-                            clip,
-                            args,
-                            false,
-                            event_handler,
-                        )?,
                     }
-                }
-                TransportChange::PlayCursorJump => {
-                    // The play cursor was repositioned.
-                    let play_state = clip.play_state();
-                    use ClipPlayState::*;
-                    if !matches!(
-                        play_state.get(),
-                        ScheduledForPlayStart | Playing | ScheduledForPlayStop
-                    ) {
-                        return Ok(());
+                    TransportChange::PlayCursorJump => {
+                        // The play cursor was repositioned.
+                        let play_state = clip.play_state();
+                        use ClipPlayState::*;
+                        if !matches!(
+                            play_state.get(),
+                            ScheduledForPlayStart | Playing | ScheduledForPlayStop
+                        ) {
+                            return Ok(());
+                        }
+                        play_clip_by_transport(clip, args)
                     }
-                    play_clip_by_transport(clip, args)
+                };
+                if let Some(inst) = inst {
+                    // Right now there's only one instruction we can have, so this is okay.
+                    instruction = Some(inst);
                 }
             }
         };
@@ -306,7 +340,7 @@ impl Slot {
         event_handler: &H,
     ) -> ClipEngineResult<SlotProcessingOutcome> {
         measure_time("slot.process.time", || {
-            let clip = self.clip_mut_internal()?;
+            let clip = self.get_clip_mut(args.clip_index)?;
             let clip_outcome = clip.process(args);
             let changed_play_state = if clip_outcome.clear_slot {
                 self.clear_internal(event_handler);
@@ -331,18 +365,14 @@ impl Slot {
     }
 
     pub fn is_stoppable(&self) -> bool {
-        self.clip
-            .as_ref()
-            .map(|c| c.play_state().is_stoppable())
-            .unwrap_or(false)
+        self.clips.iter().any(|c| c.play_state().is_stoppable())
     }
 
-    fn clip_internal(&self) -> ClipEngineResult<&Clip> {
-        self.clip.as_ref().ok_or(SLOT_NOT_FILLED)
-    }
-
-    fn clip_mut_internal(&mut self) -> ClipEngineResult<&mut Clip> {
-        self.clip.as_mut().ok_or(SLOT_NOT_FILLED)
+    fn get_clips_mut(&mut self) -> ClipEngineResult<&mut [Clip]> {
+        if self.clips.is_empty() {
+            return Err(SLOT_NOT_FILLED);
+        }
+        Ok(&mut self.clips)
     }
 }
 
@@ -355,7 +385,7 @@ impl InternalRuntimeData {
         event_handler: &H,
     ) -> ClipEngineResult<Option<SlotInstruction>> {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
-        let args = ClipStopArgs {
+        let args = SlotStopArgs {
             stop_timing: Some(ClipPlayStopTiming::Immediately),
             timeline: &args.column_args.timeline,
             ref_pos: Some(args.column_args.timeline_cursor_pos),
@@ -376,6 +406,7 @@ pub struct SlotProcessTransportChangeArgs<'a> {
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
+const CLIP_DOESNT_EXIST: &str = "clip doesn't exist";
 
 #[derive(Copy, Clone, Debug)]
 pub enum TransportChange {
@@ -414,7 +445,7 @@ fn play_clip_by_transport(
     clip: &mut Clip,
     args: &SlotProcessTransportChangeArgs,
 ) -> Option<SlotInstruction> {
-    let args = ClipPlayArgs {
+    let args = SlotPlayArgs {
         timeline: &args.column_args.timeline,
         ref_pos: Some(args.column_args.timeline_cursor_pos),
         matrix_settings: args.matrix_settings,
@@ -453,5 +484,35 @@ impl SlotRuntimeData {
         } else {
             0
         }
+    }
+
+    pub fn proportional_position(&self) -> ClipEngineResult<UnitValue> {
+        let pos = self.pos.get();
+        if pos < 0 {
+            return Err("count-in phase");
+        }
+        let frame_count = self.material_info.frame_count();
+        if frame_count == 0 {
+            return Err("frame count is zero");
+        }
+        let mod_pos = pos as usize % frame_count;
+        let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
+        Ok(proportional)
+    }
+
+    pub fn position_in_seconds_during_recording(&self, timeline_tempo: Bpm) -> PositionInSeconds {
+        let tempo_factor = self
+            .material_info
+            .tempo_factor_during_recording(timeline_tempo);
+        self.position_in_seconds(tempo_factor)
+    }
+
+    pub fn position_in_seconds(&self, tempo_factor: f64) -> PositionInSeconds {
+        let pos_in_source_frames = self.mod_frame();
+        let pos_in_secs = convert_position_in_frames_to_seconds(
+            pos_in_source_frames,
+            self.material_info.frame_rate(),
+        );
+        adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor)
     }
 }

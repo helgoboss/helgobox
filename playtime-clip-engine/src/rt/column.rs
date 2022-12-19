@@ -1,10 +1,10 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipProcessArgs,
-    ClipRecordingPollArgs, ClipStopArgs, HandleSlotEvent, InternalClipPlayState,
-    NormalRecordingOutcome, OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
-    SlotRecordInstruction, SlotRuntimeData, TransportChange,
+    AudioBufMut, BasicAudioRequestProps, Clip, ClipProcessArgs, ClipRecordingPollArgs,
+    HandleSlotEvent, InternalClipPlayState, NormalRecordingOutcome, OwnedAudioBuffer, Slot,
+    SlotPlayArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData,
+    SlotStopArgs, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -98,7 +98,7 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::UpdateMatrixSettings(settings));
     }
 
-    pub fn fill_slot(&self, args: Box<Option<ColumnFillSlotArgs>>) {
+    pub fn fill_slot_with_clip(&self, args: Box<Option<ColumnFillSlotArgs>>) {
         self.send_task(ColumnCommand::FillSlot(args));
     }
 
@@ -110,16 +110,16 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::ClearSlot(slot_index));
     }
 
-    pub fn play_clip(&self, args: ColumnPlayClipArgs) {
-        self.send_task(ColumnCommand::PlayClip(args));
+    pub fn play_slot(&self, args: ColumnPlaySlotArgs) {
+        self.send_task(ColumnCommand::PlaySlot(args));
     }
 
     pub fn play_row(&self, args: ColumnPlayRowArgs) {
         self.send_task(ColumnCommand::PlayRow(args));
     }
 
-    pub fn stop_clip(&self, args: ColumnStopClipArgs) {
-        self.send_task(ColumnCommand::StopClip(args));
+    pub fn stop_slot(&self, args: ColumnStopSlotArgs) {
+        self.send_task(ColumnCommand::StopSlot(args));
     }
 
     pub fn stop(&self, args: ColumnStopArgs) {
@@ -130,24 +130,29 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::SetClipLooped(args));
     }
 
-    pub fn pause_clip(&self, index: usize) {
-        let args = ColumnPauseClipArgs { index };
-        self.send_task(ColumnCommand::PauseClip(args));
+    pub fn pause_slot(&self, index: usize) {
+        let args = ColumnPauseSlotArgs { index };
+        self.send_task(ColumnCommand::PauseSlot(args));
     }
 
-    pub fn seek_clip(&self, index: usize, desired_pos: UnitValue) {
-        let args = ColumnSeekClipArgs { index, desired_pos };
-        self.send_task(ColumnCommand::SeekClip(args));
+    pub fn seek_slot(&self, index: usize, desired_pos: UnitValue) {
+        let args = ColumnSeekSlotArgs { index, desired_pos };
+        self.send_task(ColumnCommand::SeekSlot(args));
     }
 
-    pub fn set_clip_volume(&self, slot_index: usize, volume: Db) {
-        let args = ColumnSetClipVolumeArgs { slot_index, volume };
+    pub fn set_clip_volume(&self, slot_index: usize, clip_index: usize, volume: Db) {
+        let args = ColumnSetClipVolumeArgs {
+            slot_index,
+            clip_index,
+            volume,
+        };
         self.send_task(ColumnCommand::SetClipVolume(args));
     }
 
-    pub fn set_clip_section(&self, slot_index: usize, section: api::Section) {
+    pub fn set_clip_section(&self, slot_index: usize, clip_index: usize, section: api::Section) {
         let args = ColumnSetClipSectionArgs {
             slot_index,
+            clip_index,
             section,
         };
         self.send_task(ColumnCommand::SetClipSection(args));
@@ -175,12 +180,12 @@ pub enum ColumnCommand {
     // Boxed because comparatively large.
     FillSlot(Box<Option<ColumnFillSlotArgs>>),
     ProcessTransportChange(ColumnProcessTransportChangeArgs),
-    PlayClip(ColumnPlayClipArgs),
+    PlaySlot(ColumnPlaySlotArgs),
     PlayRow(ColumnPlayRowArgs),
-    StopClip(ColumnStopClipArgs),
+    StopSlot(ColumnStopSlotArgs),
     Stop(ColumnStopArgs),
-    PauseClip(ColumnPauseClipArgs),
-    SeekClip(ColumnSeekClipArgs),
+    PauseSlot(ColumnPauseSlotArgs),
+    SeekSlot(ColumnSeekSlotArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipLooped(ColumnSetClipLoopedArgs),
     SetClipSection(ColumnSetClipSectionArgs),
@@ -188,11 +193,16 @@ pub enum ColumnCommand {
 }
 
 pub trait ColumnEventSender {
-    fn clip_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState);
+    fn slot_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState);
 
-    fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
+    fn clip_material_info_changed(
+        &self,
+        slot_index: usize,
+        clip_index: usize,
+        material_info: MaterialInfo,
+    );
 
-    fn slot_cleared(&self, slot_index: usize, clip: Clip);
+    fn slot_cleared(&self, slot_index: usize, clips: Vec<Clip>);
 
     fn record_request_acknowledged(
         &self,
@@ -212,24 +222,30 @@ pub trait ColumnEventSender {
 }
 
 impl ColumnEventSender for Sender<ColumnEvent> {
-    fn clip_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState) {
-        let event = ColumnEvent::ClipPlayStateChanged {
+    fn slot_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState) {
+        let event = ColumnEvent::SlotPlayStateChanged {
             slot_index,
             play_state,
         };
         self.send_event(event);
     }
 
-    fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo) {
+    fn clip_material_info_changed(
+        &self,
+        slot_index: usize,
+        clip_index: usize,
+        material_info: MaterialInfo,
+    ) {
         let event = ColumnEvent::ClipMaterialInfoChanged {
             slot_index,
+            clip_index,
             material_info,
         };
         self.send_event(event);
     }
 
-    fn slot_cleared(&self, slot_index: usize, clip: Clip) {
-        let event = ColumnEvent::SlotCleared { slot_index, clip };
+    fn slot_cleared(&self, slot_index: usize, clips: Vec<Clip>) {
+        let event = ColumnEvent::SlotCleared { slot_index, clips };
         self.send_event(event);
     }
 
@@ -320,9 +336,10 @@ impl Column {
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
         let material_info = args.clip.material_info().unwrap();
-        get_slot_mut_insert(&mut self.slots, args.slot_index).fill(args.clip);
+        let clip_index =
+            get_slot_mut_insert(&mut self.slots, args.slot_index).fill(args.clip, args.mode);
         self.event_sender
-            .clip_material_info_changed(args.slot_index, material_info);
+            .clip_material_info_changed(args.slot_index, clip_index, material_info);
     }
 
     pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
@@ -336,13 +353,13 @@ impl Column {
     /// # Errors
     ///
     /// Returns an error if the slot doesn't exist, doesn't have any clip or is currently recording.
-    pub fn play_clip(
+    pub fn play_slot(
         &mut self,
-        args: ColumnPlayClipArgs,
+        args: ColumnPlaySlotArgs,
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<()> {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-        let clip_args = ClipPlayArgs {
+        let slot_args = SlotPlayArgs {
             timeline: &args.timeline,
             ref_pos: Some(ref_pos),
             matrix_settings: &self.matrix_settings,
@@ -351,7 +368,7 @@ impl Column {
         };
         let slot = get_slot_mut_insert(&mut self.slots, args.slot_index);
         if slot.is_filled() {
-            slot.play_clip(clip_args)?;
+            slot.play(slot_args)?;
             if self.settings.play_mode.is_exclusive() {
                 self.stop_all_clips(
                     audio_request_props,
@@ -391,7 +408,7 @@ impl Column {
                 Some(args.slot_index),
             );
         }
-        let play_args = ColumnPlayClipArgs {
+        let play_args = ColumnPlaySlotArgs {
             slot_index: args.slot_index,
             timeline: args.timeline,
             ref_pos: Some(args.ref_pos),
@@ -400,7 +417,7 @@ impl Column {
                 start_timing: None,
             },
         };
-        self.play_clip(play_args, audio_request_props)
+        self.play_slot(play_args, audio_request_props)
     }
 
     pub fn stop(&mut self, args: ColumnStopArgs, audio_request_props: BasicAudioRequestProps) {
@@ -421,7 +438,7 @@ impl Column {
             .enumerate()
             .filter(|(i, _)| except.map(|e| e != *i).unwrap_or(true))
         {
-            let stop_args = ClipStopArgs {
+            let stop_args = SlotStopArgs {
                 stop_timing: None,
                 timeline,
                 ref_pos: Some(ref_pos),
@@ -431,19 +448,19 @@ impl Column {
                 audio_request_props,
             };
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
-            let _ = slot.stop_clip(stop_args, &event_handler);
+            let _ = slot.stop(stop_args, &event_handler);
         }
     }
 
     /// # Errors
     ///
     /// Returns an error if the slot doesn't exist or doesn't have any clip.
-    pub fn stop_clip(
+    pub fn stop_slot(
         &mut self,
-        args: ColumnStopClipArgs,
+        args: ColumnStopSlotArgs,
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<()> {
-        let clip_args = ClipStopArgs {
+        let clip_args = SlotStopArgs {
             stop_timing: args.stop_timing,
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
@@ -454,19 +471,19 @@ impl Column {
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
-        slot.stop_clip(clip_args, &event_handler)
+        slot.stop(clip_args, &event_handler)
     }
 
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_looped(args.looped)
+        get_slot_mut_insert(&mut self.slots, args.slot_index)
+            .get_clip_mut(args.clip_index)?
+            .set_looped(args.looped)
     }
 
     pub fn set_clip_section(&mut self, args: ColumnSetClipSectionArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_section(args.section)
-    }
-
-    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<InternalClipPlayState> {
-        Ok(get_slot(&self.slots, slot_index)?.clip()?.play_state())
+        get_slot_mut_insert(&mut self.slots, args.slot_index)
+            .get_clip_mut(args.clip_index)?
+            .set_section(args.section)
     }
 
     /// See [`Clip::recording_poll`].
@@ -517,12 +534,12 @@ impl Column {
         self.slots.iter().any(|slot| slot.is_stoppable())
     }
 
-    pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, index).pause_clip()
+    pub fn pause_slot(&mut self, args: ColumnPauseSlotArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, args.index).pause()
     }
 
-    fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, index).seek_clip(desired_pos)
+    fn seek_clip(&mut self, args: ColumnSeekSlotArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, args.index).seek(args.desired_pos)
     }
 
     pub fn write_clip_midi(
@@ -541,8 +558,11 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, slot_index).write_clip_audio(request)
     }
 
-    fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, slot_index).set_clip_volume(volume)
+    fn set_clip_volume(&mut self, args: ColumnSetClipVolumeArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, args.slot_index)
+            .get_clip_mut(args.clip_index)?
+            .set_volume(args.volume);
+        Ok(())
     }
 
     fn process_transport_change(&mut self, args: ColumnProcessTransportChangeArgs) {
@@ -595,8 +615,8 @@ impl Column {
                     self.event_sender
                         .dispose(ColumnGarbage::FillSlotArgs(boxed_args));
                 }
-                PlayClip(args) => {
-                    let result = self.play_clip(args, audio_request_props);
+                PlaySlot(args) => {
+                    let result = self.play_slot(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
                 }
                 PlayRow(args) => {
@@ -606,21 +626,21 @@ impl Column {
                 ProcessTransportChange(args) => {
                     self.process_transport_change(args);
                 }
-                StopClip(args) => {
-                    let result = self.stop_clip(args, audio_request_props);
+                StopSlot(args) => {
+                    let result = self.stop_slot(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
                 }
                 Stop(args) => {
                     self.stop(args, audio_request_props);
                 }
-                PauseClip(args) => {
-                    self.pause_clip(args.index).unwrap();
+                PauseSlot(args) => {
+                    self.pause_slot(args).unwrap();
                 }
                 SetClipVolume(args) => {
-                    self.set_clip_volume(args.slot_index, args.volume).unwrap();
+                    self.set_clip_volume(args).unwrap();
                 }
-                SeekClip(args) => {
-                    self.seek_clip(args.index, args.desired_pos).unwrap();
+                SeekSlot(args) => {
+                    self.seek_clip(args).unwrap();
                 }
                 SetClipLooped(args) => {
                     self.set_clip_looped(args).unwrap();
@@ -711,58 +731,67 @@ impl Column {
                 // Most samples out there used in typical stereo track setups have no more than 2
                 // channels. And if they do, the user can always down-mix to the desired channel
                 // count up-front.
-                let clip_channel_count = match slot.clip() {
-                    Err(_) => {
-                        // If the slot doesn't have any clip, there's nothing useful it can process.
-                        continue;
-                    }
-                    Ok(clip) => match clip.material_info() {
-                        Ok(info) => info.channel_count(),
-                        // If the clip doesn't have material, it's probably recording. We still
-                        // allow the slot to process because it could propagate some play state
-                        // changes. With a channel count of zero though.
-                        Err(_) => 0,
-                    },
-                };
-                let mut mix_buffer = AudioBufMut::from_slice(
-                    &mut self.mix_buffer_chunk,
-                    clip_channel_count,
-                    output_frame_count,
-                )
-                .unwrap();
-                let mut inner_args = ClipProcessArgs {
-                    dest_buffer: &mut mix_buffer,
-                    dest_sample_rate: args.block.sample_rate(),
-                    midi_event_list: args
-                        .block
-                        .midi_event_list_mut()
-                        .expect("no MIDI event list available"),
-                    timeline: &timeline,
-                    timeline_cursor_pos,
-                    timeline_tempo,
-                    resync,
-                    matrix_settings: &self.matrix_settings,
-                    column_settings: &self.settings,
-                };
-                let event_handler = ClipEventHandler::new(&self.event_sender, row);
-                if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
-                    if outcome.num_audio_frames_written > 0 {
-                        output_buffer
-                            .slice_mut(0..outcome.num_audio_frames_written)
-                            .modify_frames(|sample| {
-                                // TODO-high-performance This is a hot code path. We might want to skip bound checks
-                                //  in sample_value_at().
-                                if sample.index.channel < clip_channel_count {
-                                    sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
-                                } else {
-                                    // Clip doesn't have material on this channel.
-                                    0.0
-                                }
-                            })
-                    }
-                    if let Some(changed_play_state) = outcome.changed_play_state {
-                        self.event_sender
-                            .clip_play_state_changed(row, changed_play_state);
+                let clip_count = slot.clip_count();
+                if clip_count == 0 {
+                    // If the slot doesn't have any clip, there's nothing useful it can process.
+                    continue;
+                }
+                // TODO-high We should move this logic to the slot. It's not just for better
+                //  encapsulation but also for more performance (maybe we can use iterators
+                //  instead of bound checks).
+                for i in 0..clip_count {
+                    let clip_channel_count = {
+                        let clip = slot.find_clip(i).unwrap();
+                        match clip.material_info() {
+                            Ok(info) => info.channel_count(),
+                            // If the clip doesn't have material, it's probably recording. We still
+                            // allow the slot to process because it could propagate some play state
+                            // changes. With a channel count of zero though.
+                            Err(_) => 0,
+                        }
+                    };
+                    let mut mix_buffer = AudioBufMut::from_slice(
+                        &mut self.mix_buffer_chunk,
+                        clip_channel_count,
+                        output_frame_count,
+                    )
+                    .unwrap();
+                    let mut inner_args = ClipProcessArgs {
+                        clip_index: i,
+                        dest_buffer: &mut mix_buffer,
+                        dest_sample_rate: args.block.sample_rate(),
+                        midi_event_list: args
+                            .block
+                            .midi_event_list_mut()
+                            .expect("no MIDI event list available"),
+                        timeline: &timeline,
+                        timeline_cursor_pos,
+                        timeline_tempo,
+                        resync,
+                        matrix_settings: &self.matrix_settings,
+                        column_settings: &self.settings,
+                    };
+                    let event_handler = ClipEventHandler::new(&self.event_sender, row);
+                    if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
+                        if outcome.num_audio_frames_written > 0 {
+                            output_buffer
+                                .slice_mut(0..outcome.num_audio_frames_written)
+                                .modify_frames(|sample| {
+                                    // TODO-high-performance This is a hot code path. We might want to skip bound checks
+                                    //  in sample_value_at().
+                                    if sample.index.channel < clip_channel_count {
+                                        sample.value
+                                            + mix_buffer.sample_value_at(sample.index).unwrap()
+                                    } else {
+                                        // Clip doesn't have material on this channel.
+                                        0.0
+                                    }
+                                })
+                        }
+                        if let Some(changed_play_state) = outcome.changed_play_state {
+                            self.event_sender
+                                .slot_play_state_changed(row, changed_play_state);
+                        }
                     }
                 }
             }
@@ -882,6 +911,13 @@ impl CustomPcmSource for SharedColumn {
 pub struct ColumnFillSlotArgs {
     pub slot_index: usize,
     pub clip: Clip,
+    pub mode: FillClipMode,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum FillClipMode {
+    Add,
+    Replace,
 }
 
 #[derive(Debug)]
@@ -897,7 +933,7 @@ pub struct ColumnSetClipAudioTimeStretchModeArgs {
 }
 
 #[derive(Clone, Debug)]
-pub struct ColumnPlayClipArgs {
+pub struct ColumnPlaySlotArgs {
     pub slot_index: usize,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
@@ -919,7 +955,7 @@ pub struct ColumnPlayClipOptions {
 }
 
 #[derive(Debug)]
-pub struct ColumnStopClipArgs {
+pub struct ColumnStopSlotArgs {
     pub slot_index: usize,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
@@ -935,12 +971,12 @@ pub struct ColumnStopArgs {
 }
 
 #[derive(Debug)]
-pub struct ColumnPauseClipArgs {
+pub struct ColumnPauseSlotArgs {
     pub index: usize,
 }
 
 #[derive(Debug)]
-pub struct ColumnSeekClipArgs {
+pub struct ColumnSeekSlotArgs {
     pub index: usize,
     pub desired_pos: UnitValue,
 }
@@ -948,6 +984,7 @@ pub struct ColumnSeekClipArgs {
 #[derive(Debug)]
 pub struct ColumnSetClipVolumeArgs {
     pub slot_index: usize,
+    pub clip_index: usize,
     pub volume: Db,
 }
 
@@ -960,12 +997,14 @@ pub struct ColumnRecordClipArgs {
 #[derive(Debug)]
 pub struct ColumnSetClipLoopedArgs {
     pub slot_index: usize,
+    pub clip_index: usize,
     pub looped: bool,
 }
 
 #[derive(Debug)]
 pub struct ColumnSetClipSectionArgs {
     pub slot_index: usize,
+    pub clip_index: usize,
     pub section: api::Section,
 }
 
@@ -993,17 +1032,18 @@ fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
 
 #[derive(Debug)]
 pub enum ColumnEvent {
-    ClipPlayStateChanged {
+    SlotPlayStateChanged {
         slot_index: usize,
         play_state: InternalClipPlayState,
     },
     ClipMaterialInfoChanged {
         slot_index: usize,
+        clip_index: usize,
         material_info: MaterialInfo,
     },
     SlotCleared {
         slot_index: usize,
-        clip: Clip,
+        clips: Vec<Clip>,
     },
     RecordRequestAcknowledged {
         slot_index: usize,
@@ -1061,8 +1101,8 @@ impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
             .normal_recording_finished(self.slot_index, outcome);
     }
 
-    fn slot_cleared(&self, clip: Clip) {
-        self.event_sender.slot_cleared(self.slot_index, clip);
+    fn slot_cleared(&self, clips: Vec<Clip>) {
+        self.event_sender.slot_cleared(self.slot_index, clips);
     }
 }
 

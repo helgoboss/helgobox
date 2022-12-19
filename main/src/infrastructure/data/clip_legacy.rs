@@ -61,7 +61,8 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                             let api_slot = api::Slot {
                                 // In the previous clip system, we had only one dimension.
                                 row: 0,
-                                clip: Some(api_clip),
+                                clip_old: None,
+                                clips: Some(vec![api_clip]),
                             };
                             Some(vec![api_slot])
                         },

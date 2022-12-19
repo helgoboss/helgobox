@@ -3442,6 +3442,7 @@ dependencies = [
  "crossbeam-channel",
  "derivative",
  "derive_more",
+ "either",
  "enumflags2",
  "helgoboss-learn",
  "helgoboss-midi",

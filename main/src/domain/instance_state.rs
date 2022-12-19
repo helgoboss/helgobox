@@ -97,7 +97,7 @@ pub struct InstanceState {
     /// For clip matrix copy and paste via controller.
     ///
     /// Not persistent
-    copied_clip: Option<playtime_api::persistence::Clip>,
+    copied_clips_in_slot: Vec<playtime_api::persistence::Clip>,
     /// For clip matrix copy and paste via controller.
     ///
     /// Not persistent
@@ -225,7 +225,7 @@ impl InstanceState {
             global_control_and_feedback_state: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
-            copied_clip: None,
+            copied_clips_in_slot: vec![],
             copied_clips_in_row: vec![],
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
@@ -359,12 +359,12 @@ impl InstanceState {
         }
     }
 
-    pub fn copy_clip(&mut self, clip: playtime_api::persistence::Clip) {
-        self.copied_clip = Some(clip);
+    pub fn copy_clips(&mut self, clips: Vec<playtime_api::persistence::Clip>) {
+        self.copied_clips_in_slot = clips;
     }
 
-    pub fn copied_clip(&self) -> Option<&playtime_api::persistence::Clip> {
-        self.copied_clip.as_ref()
+    pub fn copied_clips(&self) -> &[playtime_api::persistence::Clip] {
+        &self.copied_clips_in_slot
     }
 
     pub fn copy_clips_in_row(&mut self, clips: Vec<ApiClipWithColumn>) {

@@ -326,7 +326,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
                     Looped => {
                         let is_looped = matrix
                             .find_slot(self.basics.slot_coordinates)?
-                            .clip_looped()
+                            .looped()
                             .ok()?;
                         transport_is_enabled_unit_value(is_looped)
                     }
@@ -373,7 +373,7 @@ impl RealTimeClipTransportTarget {
                 if on {
                     matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
-                    matrix.pause_clip(self.basics.slot_coordinates)
+                    matrix.pause_slot(self.basics.slot_coordinates)
                 }
             }
             Stop => {
@@ -388,7 +388,7 @@ impl RealTimeClipTransportTarget {
             }
             Pause => {
                 if on {
-                    matrix.pause_clip(self.basics.slot_coordinates)
+                    matrix.pause_slot(self.basics.slot_coordinates)
                 } else {
                     Ok(())
                 }
@@ -417,15 +417,14 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         // would hurt the usual ReaLearn experience.
         let column = column.lock_allow_blocking();
         let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
-        let clip = match slot.clip() {
-            Ok(c) => c,
-            Err(_) => return interpret_current_clip_slot_value(None),
+        let Some(first_clip) = slot.clips().first() else {
+            return Some(AbsoluteValue::Continuous(UnitValue::MIN));
         };
         let val = match self.basics.action {
             PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
-                clip_play_state_unit_value(self.basics.action, clip.play_state())
+                clip_play_state_unit_value(self.basics.action, first_clip.play_state())
             }
-            Looped => transport_is_enabled_unit_value(clip.looped()),
+            Looped => transport_is_enabled_unit_value(first_clip.looped()),
         };
         Some(AbsoluteValue::Continuous(val))
     }

@@ -84,7 +84,7 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context, |matrix| {
-                    matrix.fill_slot_with_selected_item(self.slot_coordinates)?;
+                    matrix.replace_slot_contents_with_selected_item(self.slot_coordinates)?;
                     Ok(HitResponse::processed_with_effect())
                 })?
             }
@@ -109,37 +109,37 @@ impl RealearnTarget for ClipManagementTarget {
                 if !value.is_on() {
                     return Ok(HitResponse::ignored());
                 }
-                let clip_in_slot = self.with_matrix(context, |matrix| {
-                    matrix
-                        .find_slot(self.slot_coordinates)?
-                        .clip()
-                        .and_then(|clip| {
+                let clips_in_slot: Vec<_> = self.with_matrix(context, |matrix| {
+                    let Some(slot) = matrix.find_slot(self.slot_coordinates) else {
+                        return vec![];
+                    };
+                    slot.clips()
+                        .filter_map(|clip| {
                             clip.save(context.control_context.processor_context.project())
                                 .ok()
                         })
+                        .collect()
                 })?;
-                match clip_in_slot {
-                    None => {
-                        // No clip in that slot. Check if there's something to paste.
-                        let copied_clip = context
-                            .control_context
-                            .instance_state
-                            .borrow()
-                            .copied_clip()
-                            .ok_or("no clip available to paste")?
-                            .clone();
-                        self.with_matrix(context, |matrix| {
-                            matrix.fill_slot_with_clip(self.slot_coordinates, copied_clip)?;
-                            Ok(HitResponse::processed_with_effect())
-                        })?
+                if clips_in_slot.is_empty() {
+                    // No clip in that slot. Check if there's something to paste.
+                    let copied_clips = context
+                        .control_context
+                        .instance_state
+                        .borrow()
+                        .copied_clips()
+                        .to_vec();
+                    if copied_clips.is_empty() {
+                        return Err("no clip available to paste");
                     }
-                    Some(api_clip) => {
-                        // We have a clip in that slot. Copy it.
-                        let mut instance_state =
-                            context.control_context.instance_state.borrow_mut();
-                        instance_state.copy_clip(api_clip);
+                    self.with_matrix(context, |matrix| {
+                        matrix.add_clips_to_slot(self.slot_coordinates, copied_clips)?;
                         Ok(HitResponse::processed_with_effect())
-                    }
+                    })?
+                } else {
+                    // We have clips in that slot. Copy them.
+                    let mut instance_state = context.control_context.instance_state.borrow_mut();
+                    instance_state.copy_clips(clips_in_slot);
+                    Ok(HitResponse::processed_with_effect())
                 }
             }
         }
@@ -156,7 +156,7 @@ impl RealearnTarget for ClipManagementTarget {
         match key {
             "clip.name" => BackboneState::get()
                 .with_clip_matrix_mut(context.instance_state, |matrix| {
-                    let clip = matrix.find_slot(self.slot_coordinates)?.clip()?;
+                    let clip = matrix.find_slot(self.slot_coordinates)?.clips().next()?;
                     let name = clip.name()?;
                     Some(PropValue::Text(name.to_string().into()))
                 })

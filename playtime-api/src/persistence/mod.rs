@@ -736,7 +736,20 @@ pub struct Slot {
     pub row: usize,
     /// Clip which currently lives in this slot.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub clip: Option<Clip>,
+    #[serde(alias = "clip")]
+    pub clip_old: Option<Clip>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clips: Option<Vec<Clip>>,
+}
+
+impl Slot {
+    pub fn into_clips(self) -> Vec<Clip> {
+        // Backward compatibility: In the past, only a single clip was possible.
+        if let Some(clip) = self.clip_old {
+            return vec![clip];
+        }
+        self.clips.unwrap_or_default()
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

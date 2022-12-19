@@ -642,7 +642,8 @@ fn send_occasional_slot_updates(
                         let api_slot = slot.save(session.processor_context().project()).unwrap_or(
                             playtime_api::persistence::Slot {
                                 row: slot_coordinates.row(),
-                                clip: None,
+                                clip_old: None,
+                                clips: None,
                             },
                         );
                         let json = serde_json::to_string(&api_slot).unwrap();

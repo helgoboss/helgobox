@@ -47,3 +47,5 @@ tonic = "0.5"
 prost = "0.8"
 # For random clip IDs
 ulid = "1.0.0"
+# For being able to return iterators of different types
+either = "1.8.0"

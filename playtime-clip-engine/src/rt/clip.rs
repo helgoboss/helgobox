@@ -231,7 +231,7 @@ impl Clip {
     }
 
     /// Plays the clip if it's not recording.
-    pub fn play(&mut self, args: ClipPlayArgs) -> ClipEngineResult<PlayOutcome> {
+    pub fn play(&mut self, args: SlotPlayArgs) -> ClipEngineResult<PlayOutcome> {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => Ok(s.play(args, &mut self.supplier_chain)),
@@ -256,7 +256,7 @@ impl Clip {
     /// Stops the clip playing or recording.
     pub fn stop<H: HandleSlotEvent>(
         &mut self,
-        args: ClipStopArgs,
+        args: SlotStopArgs,
         event_handler: &H,
     ) -> ClipEngineResult<Option<SlotInstruction>> {
         use ClipState::*;
@@ -529,7 +529,7 @@ impl ReadyState {
         supplier_chain.set_section(section.start_pos, section.length);
     }
 
-    pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
+    pub fn play(&mut self, args: SlotPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
         let virtual_pos = self.calculate_virtual_play_pos(&args);
         use ReadySubState::*;
         match self.state {
@@ -596,13 +596,13 @@ impl ReadyState {
         PlayOutcome { virtual_pos }
     }
 
-    fn resolve_stop_timing(&self, stop_args: &ClipStopArgs) -> ConcreteClipPlayStopTiming {
+    fn resolve_stop_timing(&self, stop_args: &SlotStopArgs) -> ConcreteClipPlayStopTiming {
         let start_timing = stop_args.resolve_start_timing(self.play_settings.start_timing);
         let stop_timing = stop_args.resolve_stop_timing(self.play_settings.stop_timing);
         ConcreteClipPlayStopTiming::resolve(start_timing, stop_timing)
     }
 
-    fn calculate_virtual_play_pos(&self, play_args: &ClipPlayArgs) -> VirtualPosition {
+    fn calculate_virtual_play_pos(&self, play_args: &SlotPlayArgs) -> VirtualPosition {
         let start_timing = play_args.resolve_start_timing(self.play_settings.start_timing);
         use ClipPlayStartTiming::*;
         match start_timing {
@@ -625,7 +625,7 @@ impl ReadyState {
     ///
     /// By default, if it's overdubbing, it just stops the overdubbing (a second call will make
     /// it stop playing).
-    pub fn stop(&mut self, args: ClipStopArgs, supplier_chain: &mut SupplierChain) {
+    pub fn stop(&mut self, args: SlotStopArgs, supplier_chain: &mut SupplierChain) {
         use ReadySubState::*;
         match self.state {
             Stopped => {}
@@ -1298,7 +1298,7 @@ impl ReadyState {
 impl RecordingState {
     pub fn stop<H: HandleSlotEvent>(
         &mut self,
-        args: ClipStopArgs,
+        args: SlotStopArgs,
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
     ) -> ClipEngineResult<ClipRecordingStopOutcome> {
@@ -1401,8 +1401,8 @@ enum ClipRecordingStopOutcome {
     ClearSlot,
 }
 
-#[derive(Clone, Debug)]
-pub struct ClipPlayArgs<'a> {
+#[derive(Copy, Clone, Debug)]
+pub struct SlotPlayArgs<'a> {
     pub timeline: &'a HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
@@ -1411,7 +1411,7 @@ pub struct ClipPlayArgs<'a> {
     pub start_timing: Option<ClipPlayStartTiming>,
 }
 
-impl<'a> ClipPlayArgs<'a> {
+impl<'a> SlotPlayArgs<'a> {
     pub fn resolve_start_timing(
         &self,
         clip_start_timing: Option<ClipPlayStartTiming>,
@@ -1423,8 +1423,8 @@ impl<'a> ClipPlayArgs<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct ClipStopArgs<'a> {
+#[derive(Copy, Clone, Debug)]
+pub struct SlotStopArgs<'a> {
     pub stop_timing: Option<ClipPlayStopTiming>,
     pub timeline: &'a HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
@@ -1444,7 +1444,7 @@ pub struct ClipRecordingPollArgs<'a> {
     pub audio_request_props: BasicAudioRequestProps,
 }
 
-impl<'a> ClipStopArgs<'a> {
+impl<'a> SlotStopArgs<'a> {
     pub fn resolve_start_timing(
         &self,
         clip_start_timing: Option<ClipPlayStartTiming>,
@@ -1522,6 +1522,7 @@ pub enum ClipStopBehavior {
 }
 
 pub struct ClipProcessArgs<'a, 'b> {
+    pub clip_index: usize,
     /// The destination buffer dictates the desired output frame count but it doesn't dictate the
     /// channel count! Its channel count should always match the channel count of the clip itself.
     pub dest_buffer: &'a mut AudioBufMut<'b>,
@@ -1729,7 +1730,7 @@ struct FillSamplesOutcome {
 pub trait HandleSlotEvent {
     fn midi_overdub_finished(&self, mirror_source: ClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
-    fn slot_cleared(&self, clip: Clip);
+    fn slot_cleared(&self, clips: Vec<Clip>);
 }
 
 /// Holds the result of a normal (non-overdub) recording.

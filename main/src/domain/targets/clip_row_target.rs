@@ -103,7 +103,8 @@ impl RealearnTarget for ClipRowTarget {
                         return Err("no clips to paste");
                     }
                     self.with_matrix(context.control_context, |matrix| {
-                        matrix.fill_row_with_clips(self.basics.row_index, copied_clips_in_row)?;
+                        matrix
+                            .replace_row_with_clips(self.basics.row_index, copied_clips_in_row)?;
                         Ok(HitResponse::processed_with_effect())
                     })?
                 } else {

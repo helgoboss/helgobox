@@ -125,10 +125,7 @@ impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let db = matrix
-                    .find_slot(self.slot_coordinates)?
-                    .clip_volume()
-                    .ok()?;
+                let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
                 Some(Volume::from_db(Db::new(db.get())))
             })
             .ok()?

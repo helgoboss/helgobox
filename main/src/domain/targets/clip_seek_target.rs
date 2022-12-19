@@ -12,6 +12,7 @@ use crate::domain::{
 };
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
 use playtime_clip_engine::rt::{InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent};
+use playtime_clip_engine::Timeline;
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
@@ -135,7 +136,12 @@ impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                matrix.clip_position_in_seconds(self.slot_coordinates).ok()
+                let slot = matrix.find_slot(self.slot_coordinates)?;
+                let timeline = matrix.timeline();
+                let tempo = timeline.tempo_at(timeline.cursor_pos());
+                slot.relevant_contents()
+                    .primary_position_in_seconds(tempo)
+                    .ok()
             })
             .ok()?
     }
@@ -147,10 +153,8 @@ impl<'a> Target<'a> for ClipSeekTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let val = matrix
-                    .find_slot(self.slot_coordinates)?
-                    .proportional_position()
-                    .ok()?;
+                let relevant_content = matrix.find_slot(self.slot_coordinates)?.relevant_contents();
+                let val = relevant_content.primary_proportional_position().ok()?;
                 Some(AbsoluteValue::Continuous(val))
             })
             .ok()?;

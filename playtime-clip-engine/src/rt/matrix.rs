@@ -1,8 +1,8 @@
 use crate::base::{ClipSlotAddress, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs, ColumnPlayClipOptions,
-    ColumnPlayRowArgs, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopClipArgs,
+    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipOptions, ColumnPlayRowArgs,
+    ColumnPlaySlotArgs, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopSlotArgs,
     RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{base, clip_timeline, ClipEngineResult, HybridTimeline, Timeline};
@@ -178,7 +178,7 @@ impl Matrix {
         options: ColumnPlayClipOptions,
     ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
-        let args = ColumnPlayClipArgs {
+        let args = ColumnPlaySlotArgs {
             slot_index: coordinates.row(),
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
             //  once per block could save some resources. Sample with clip stop.
@@ -190,7 +190,7 @@ impl Matrix {
             ref_pos: None,
             options,
         };
-        handle.command_sender.play_clip(args);
+        handle.command_sender.play_slot(args);
         Ok(())
     }
 
@@ -200,13 +200,13 @@ impl Matrix {
         stop_timing: Option<ClipPlayStopTiming>,
     ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
-        let args = ColumnStopClipArgs {
+        let args = ColumnStopSlotArgs {
             slot_index: coordinates.row(),
             timeline: self.timeline(),
             ref_pos: None,
             stop_timing,
         };
-        handle.command_sender.stop_clip(args);
+        handle.command_sender.stop_slot(args);
         Ok(())
     }
 
@@ -258,9 +258,9 @@ impl Matrix {
         clip_timeline(self.project, false)
     }
 
-    pub fn pause_clip(&self, coordinates: ClipSlotAddress) -> ClipEngineResult<()> {
+    pub fn pause_slot(&self, coordinates: ClipSlotAddress) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
-        handle.command_sender.pause_clip(coordinates.row());
+        handle.command_sender.pause_slot(coordinates.row());
         Ok(())
     }
 

@@ -220,10 +220,8 @@ impl Clip {
         self.processing_relevant_settings.looped
     }
 
-    pub fn toggle_looped(&mut self) -> bool {
-        let looped_new = !self.processing_relevant_settings.looped;
-        self.processing_relevant_settings.looped = looped_new;
-        looped_new
+    pub fn set_looped(&mut self, looped: bool) {
+        self.processing_relevant_settings.looped = looped;
     }
 
     pub fn set_volume(&mut self, volume: Db) {

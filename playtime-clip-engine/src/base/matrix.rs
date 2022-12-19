@@ -8,9 +8,10 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipChangeEvent, ColumnHandle, ColumnPlayClipArgs, ColumnPlayClipOptions, ColumnPlayRowArgs,
-    ColumnStopArgs, ColumnStopClipArgs, OverridableMatrixSettings, QualifiedClipChangeEvent,
-    QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent, WeakColumn,
+    ClipChangeEvent, ColumnHandle, ColumnPlayClipOptions, ColumnPlayRowArgs, ColumnPlaySlotArgs,
+    ColumnStopArgs, ColumnStopSlotArgs, FillClipMode, OverridableMatrixSettings,
+    QualifiedClipChangeEvent, QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent,
+    WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -24,7 +25,7 @@ use playtime_api::persistence::{
     TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
-use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
+use reaper_medium::{Bpm, MidiInputDeviceId};
 use std::thread::JoinHandle;
 use std::{cmp, thread};
 
@@ -347,10 +348,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .iter()
             .enumerate()
             .filter(|(_, c)| c.follows_scene())
-            .filter_map(move |(i, c)| {
-                let clip = c.clip(row_index)?;
-                let api_clip = clip.save(project).ok()?;
-                Some(ApiClipWithColumn::new(i, api_clip))
+            .filter_map(move |(i, c)| Some((i, c.get_slot(row_index).ok()?)))
+            .flat_map(move |(i, s)| {
+                s.clips().filter_map(move |clip| {
+                    let api_clip = clip.save(project).ok()?;
+                    Some(ApiClipWithColumn::new(i, api_clip))
+                })
             })
     }
 
@@ -417,8 +420,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot.is_editing_clip(self.temporary_project())
     }
 
-    /// Fills the given row with the given clips.
-    pub fn fill_row_with_clips(
+    /// Replaces the given row with the given clips.
+    pub fn replace_row_with_clips(
         &mut self,
         row_index: usize,
         clips: Vec<ApiClipWithColumn>,
@@ -435,6 +438,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     &matrix.chain_equipment,
                     &matrix.recorder_request_sender,
                     &matrix.settings,
+                    FillClipMode::Replace,
                 )?;
             }
             matrix.notify_everything_changed();
@@ -442,38 +446,42 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
-    /// Fills the given slot with the given clip.
-    pub fn fill_slot_with_clip(
+    /// Adds the given clips to the given slot.
+    pub fn add_clips_to_slot(
         &mut self,
         address: ClipSlotAddress,
-        api_clip: api::Clip,
+        api_clips: Vec<api::Clip>,
     ) -> ClipEngineResult<()> {
-        self.undoable("Fill slot with clip", |matrix| {
+        self.undoable("Fill slot with clips", |matrix| {
             let column = get_column_mut(&mut matrix.columns, address.column)?;
-            // TODO-high CONTINUE Starting from here, don't let the methods return events anymore!
-            //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
-            //  for all clips). But on the other hand, it doesn't know about batches
-            //  and might therefore build a list of events for nothing!
-            let event = column.fill_slot_with_clip(
-                address.row,
-                api_clip,
-                &matrix.chain_equipment,
-                &matrix.recorder_request_sender,
-                &matrix.settings,
-            )?;
+            for api_clip in api_clips {
+                // TODO-high CONTINUE Starting from here, don't let the methods return events anymore!
+                //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
+                //  for all clips). But on the other hand, it doesn't know about batches
+                //  and might therefore build a list of events for nothing!
+                column.fill_slot_with_clip(
+                    address.row,
+                    api_clip,
+                    &matrix.chain_equipment,
+                    &matrix.recorder_request_sender,
+                    &matrix.settings,
+                    FillClipMode::Add,
+                )?;
+            }
+            let event = SlotChangeEvent::Clips("added clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(address, event));
             Ok(())
         })
     }
 
-    /// Fills the given slot with the currently selected REAPER item.
-    pub fn fill_slot_with_selected_item(
+    /// Replaces the slot contents with the currently selected REAPER item.
+    pub fn replace_slot_contents_with_selected_item(
         &mut self,
         address: ClipSlotAddress,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with selected item", |matrix| {
             let column = get_column_mut(&mut matrix.columns, address.column)?;
-            let event = column.fill_slot_with_selected_item(
+            let event = column.replace_slot_contents_with_selected_item(
                 address.row,
                 &matrix.chain_equipment,
                 &matrix.recorder_request_sender,
@@ -492,7 +500,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, address.column)?;
-        let args = ColumnPlayClipArgs {
+        let args = ColumnPlaySlotArgs {
             slot_index: address.row,
             timeline,
             ref_pos: None,
@@ -510,7 +518,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, address.column)?;
-        let args = ColumnStopClipArgs {
+        let args = ColumnStopSlotArgs {
             slot_index: address.row,
             timeline,
             ref_pos: None,
@@ -635,6 +643,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
+                FillClipMode::Replace,
             )?;
         }
         Ok(())
@@ -679,7 +688,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    fn timeline(&self) -> HybridTimeline {
+    /// Returns a clip timeline for this matrix.
+    pub fn timeline(&self) -> HybridTimeline {
         clip_timeline(self.permanent_project(), false)
     }
 
@@ -730,17 +740,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             ));
             Ok(())
         })
-    }
-
-    /// Returns the play position of the given slot.
-    pub fn clip_position_in_seconds(
-        &self,
-        address: ClipSlotAddress,
-    ) -> ClipEngineResult<PositionInSeconds> {
-        let slot = self.get_slot(address)?;
-        let timeline = self.timeline();
-        let tempo = timeline.tempo_at(timeline.cursor_pos());
-        slot.position_in_seconds(tempo)
     }
 
     /// Returns whether some slots in this matrix are currently playing/recording.
@@ -810,7 +809,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.columns.iter().any(|c| c.is_recording())
     }
 
-    /// Pauses the given slot.
+    /// Pauses all clips in the given slot.
     pub fn pause_clip(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         get_column(&self.columns, address.column())?.pause_slot(address.row());
         Ok(())
@@ -818,7 +817,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Seeks the given slot.
     pub fn seek_slot(&self, address: ClipSlotAddress, position: UnitValue) -> ClipEngineResult<()> {
-        get_column(&self.columns, address.column())?.seek_clip(address.row(), position);
+        get_column(&self.columns, address.column())?.seek_slot(address.row(), position);
         Ok(())
     }
 

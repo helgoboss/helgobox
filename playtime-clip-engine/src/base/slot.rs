@@ -3,16 +3,13 @@ use crate::base::{
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
-use crate::conversion_util::{
-    adjust_duration_in_secs_anti_proportionally, adjust_pos_in_secs_anti_proportionally,
-    convert_position_in_frames_to_seconds,
-};
+use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
     ChainEquipment, ClipSource, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
     RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
-    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs, FillClipMode,
     InternalClipPlayState, MidiOverdubInstruction, NormalRecordingOutcome,
     OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn, SlotChangeEvent,
     SlotRecordInstruction, SlotRuntimeData,
@@ -20,6 +17,7 @@ use crate::rt::{
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
+use either::Either;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
@@ -32,7 +30,7 @@ use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
     TrackArea, UiRefreshBehavior,
 };
-use std::mem;
+use std::{iter, mem};
 
 #[derive(Clone, Debug)]
 pub struct Slot {
@@ -45,7 +43,7 @@ pub struct Slot {
     /// - The clip is active and is currently being MIDI-overdubbed.
     /// - The clip is inactive, which means it's about to be replaced with different clip content
     ///   that's in the process of being recorded right now.
-    content: Option<Content>,
+    contents: Vec<Content>,
     state: SlotState,
     /// Route which was created temporarily for recording.
     temporary_route: Option<TrackRoute>,
@@ -85,20 +83,66 @@ impl Content {
         let is_midi = self.runtime_data.material_info.is_midi();
         self.clip.tempo_factor(timeline_tempo, is_midi)
     }
+
+    pub fn proportional_position(&self) -> ClipEngineResult<UnitValue> {
+        self.runtime_data.proportional_position()
+    }
+
+    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> PositionInSeconds {
+        let tempo_factor = self.tempo_factor(timeline_tempo);
+        self.runtime_data.position_in_seconds(tempo_factor)
+    }
+
+    pub fn is_freezable(&self) -> bool {
+        // At the moment, we only freeze MIDI to audio.
+        self.runtime_data.material_info.is_midi()
+    }
+
+    pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
+        // TODO-high-playtime CONTINUE Get the clip-to-item layout 100% right.
+        // TODO-high-playtime CONTINUE Sync the frozen clips to the real-time thread when finished.
+        // TODO-high-playtime CONTINUE Provide a header panel action to go back to unfrozen version.
+        // TODO-high-playtime CONTINUE Provide a header panel action to go back to frozen version.
+        // TODO-high-playtime CONTINUE Don't freeze tracks whose FX chain contains ReaLearn FX only.
+        // TODO-high-playtime CONTINUE Take relevant FX offline/online when freezing/unfreezing.
+        let project = playback_track.project();
+        let manifestation = manifest_clip_on_track(project, self, playback_track)?;
+        project.select_item_exclusively(manifestation.item);
+        // Item: Apply track/take FX to items
+        let apply_fx_id = CommandId::new(40209);
+        Reaper::get()
+            .main_section()
+            .action_by_command_id(apply_fx_id)
+            .invoke_as_trigger(Some(project))?;
+        let frozen_take = manifestation
+            .item
+            .active_take()
+            .expect("frozen item doesn't have frozen take");
+        let frozen_pcm_source = frozen_take
+            .source()
+            .expect("frozen take doesn't have a source");
+        let file_name = frozen_pcm_source
+            .file_name()
+            .expect("frozen source doesn't have file name");
+        let frozen_api_source = create_file_api_source(Some(project), &file_name);
+        self.clip
+            .activate_frozen_source(frozen_api_source, manifestation.tempo);
+        Ok(())
+    }
 }
 
 impl Slot {
     pub fn new(index: usize) -> Self {
         Self {
             index,
-            content: None,
+            contents: vec![],
             state: Default::default(),
             temporary_route: None,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.content.is_none() && !self.state.is_pretty_much_recording()
+        self.contents.is_empty() && !self.state.is_pretty_much_recording()
     }
 
     pub fn index(&self) -> usize {
@@ -107,30 +151,35 @@ impl Slot {
 
     /// Returns `None` if this slot doesn't need to be saved (because it's empty).
     pub fn save(&self, temporary_project: Option<Project>) -> Option<api::Slot> {
-        let content = self.content.as_ref()?;
-        let is_recording = self.state.is_pretty_much_recording()
-            || self
-                .get_content()
-                .ok()?
-                .runtime_data
-                .play_state
-                .is_somehow_recording();
-        let pooled_midi_source = if is_recording {
-            // When recording, we don't want to interfere with the pooled MIDI that's being
-            // changed at the very moment. Also, we don't want to save "uncommitted" data, so
-            // we save the last known "stable" MIDI contents.
-            None
-        } else {
-            // When not recording, we inspect the pooled MIDI source.
-            content.pooled_midi_source.as_ref()
-        };
-        let clip = content
-            .clip
-            .save_flexible(pooled_midi_source, temporary_project)
-            .ok()?;
+        let slot_is_pretty_much_recording = self.state.is_pretty_much_recording();
+        let clips: Vec<_> = self
+            .contents
+            .iter()
+            .filter_map(|content| {
+                let is_recording = slot_is_pretty_much_recording
+                    || content.runtime_data.play_state.is_somehow_recording();
+                let pooled_midi_source = if is_recording {
+                    // When recording, we don't want to interfere with the pooled MIDI that's being
+                    // changed at the very moment. Also, we don't want to save "uncommitted" data, so
+                    // we save the last known "stable" MIDI contents.
+                    None
+                } else {
+                    // When not recording, we inspect the pooled MIDI source.
+                    content.pooled_midi_source.as_ref()
+                };
+                content
+                    .clip
+                    .save_flexible(pooled_midi_source, temporary_project)
+                    .ok()
+            })
+            .collect();
+        if clips.is_empty() {
+            return None;
+        }
         let api_slot = api::Slot {
             row: self.index,
-            clip: Some(clip),
+            clip_old: None,
+            clips: Some(clips),
         };
         Some(api_slot)
     }
@@ -140,7 +189,7 @@ impl Slot {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn record_clip<H: ClipMatrixHandler>(
+    pub(crate) fn record_clip<H: ClipMatrixHandler>(
         &mut self,
         matrix_record_settings: &MatrixClipRecordSettings,
         column_record_settings: &ColumnClipRecordSettings,
@@ -157,9 +206,12 @@ impl Slot {
         if self.state.is_pretty_much_recording() {
             return Err("recording already");
         }
+        if self.contents.len() > 1 {
+            return Err("recording on slots with multiple clips is not supported");
+        }
         // Check preconditions and prepare stuff.
         let project = recording_track.project();
-        let desired_midi_overdub_instruction = if let Some(content) = &self.content {
+        let desired_midi_overdub_instruction = if let Some(content) = self.contents.first() {
             if content.runtime_data.play_state.is_somehow_recording() {
                 return Err("recording already according to play state");
             }
@@ -237,7 +289,7 @@ impl Slot {
             recording_equipment: specific_stuff.recording_equipment,
             settings: *matrix_record_settings,
         };
-        let instruction = if self.content.is_some() {
+        let instruction = if self.contents.first().is_some() {
             // There's a clip already. That makes it easy because we have the clip struct
             // already, including the complete clip supplier chain, and can reuse it.
             SlotRecordInstruction::ExistingClip(args)
@@ -295,8 +347,8 @@ impl Slot {
         // If we had a file-based source before and now have an in-project source, make a pooled
         // copy of the in-project source.
         let content = self
-            .content
-            .as_mut()
+            .contents
+            .first_mut()
             .expect("content not set although overdubbing");
         let new_pooled_midi_source =
             if let Some(s) = &specific_stuff.instruction.in_project_midi_source {
@@ -358,184 +410,214 @@ impl Slot {
         }
     }
 
-    fn get_content(&self) -> ClipEngineResult<&Content> {
-        self.content.as_ref().ok_or(SLOT_NOT_FILLED)
+    /// Returns the contents of this slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot doesn't contain any clip.
+    fn get_contents(&self) -> ClipEngineResult<&[Content]> {
+        if self.contents.is_empty() {
+            return Err(SLOT_NOT_FILLED);
+        }
+        Ok(&self.contents)
     }
 
+    /// Adjusts the section lenght of all contained clips.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot doesn't contain any clip.
     pub fn adjust_section_length(
         &mut self,
         factor: f64,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<()> {
-        let content = get_content_mut(&mut self.content)?;
-        let current_section = content.clip.section();
-        let current_length = if let Some(current_length) = current_section.length {
-            current_length.get()
-        } else {
-            content.runtime_data.material_info.duration().get()
-        };
-        let new_section = api::Section {
-            start_pos: current_section.start_pos,
-            length: Some(PositiveSecond::new(current_length * factor)?),
-        };
-        content.clip.set_section(new_section);
-        column_command_sender.set_clip_section(self.index, new_section);
+        for (i, content) in get_contents_mut(&mut self.contents)?.iter_mut().enumerate() {
+            let current_section = content.clip.section();
+            let current_length = if let Some(current_length) = current_section.length {
+                current_length.get()
+            } else {
+                content.runtime_data.material_info.duration().get()
+            };
+            let new_section = api::Section {
+                start_pos: current_section.start_pos,
+                length: Some(PositiveSecond::new(current_length * factor)?),
+            };
+            content.clip.set_section(new_section);
+            // TODO-high-multiclips CONTINUE Pass clip index
+            column_command_sender.set_clip_section(self.index, i, new_section);
+        }
         Ok(())
     }
 
+    /// Returns whether this slot contains freezable clips.
     pub fn is_freezeable(&self) -> bool {
-        let content = match self.content.as_ref() {
-            None => return false,
-            Some(c) => c,
-        };
-        if !content.runtime_data.material_info.is_midi() {
-            // At the moment, we only freeze MIDI to audio.
-            return false;
-        }
-        true
+        self.contents.iter().any(|content| content.is_freezable())
     }
 
+    /// Freezes all clips in this slot.
+    ///
+    /// Doesn't error if the slot is empty.
     pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
-        let content = match self.content.as_mut() {
-            None => return Err("no content"),
-            Some(c) => c,
-        };
-        // TODO-high-playtime CONTINUE Get the clip-to-item layout 100% right.
-        // TODO-high-playtime CONTINUE Sync the frozen clips to the real-time thread when finished.
-        // TODO-high-playtime CONTINUE Provide a header panel action to go back to unfrozen version.
-        // TODO-high-playtime CONTINUE Provide a header panel action to go back to frozen version.
-        // TODO-high-playtime CONTINUE Don't freeze tracks whose FX chain contains ReaLearn FX only.
-        // TODO-high-playtime CONTINUE Take relevant FX offline/online when freezing/unfreezing.
-        let project = playback_track.project();
-        let manifestation = manifest_clip_on_track(project, content, playback_track)?;
-        project.select_item_exclusively(manifestation.item);
-        // Item: Apply track/take FX to items
-        let apply_fx_id = CommandId::new(40209);
-        Reaper::get()
-            .main_section()
-            .action_by_command_id(apply_fx_id)
-            .invoke_as_trigger(Some(project))?;
-        let frozen_take = manifestation
-            .item
-            .active_take()
-            .expect("frozen item doesn't have frozen take");
-        let frozen_pcm_source = frozen_take
-            .source()
-            .expect("frozen take doesn't have a source");
-        let file_name = frozen_pcm_source
-            .file_name()
-            .expect("frozen source doesn't have file name");
-        let frozen_api_source = create_file_api_source(Some(project), &file_name);
-        content
-            .clip
-            .activate_frozen_source(frozen_api_source, manifestation.tempo);
+        for content in &mut self.contents {
+            if !content.is_freezable() {
+                continue;
+            }
+            content.freeze(playback_track).await?;
+        }
         Ok(())
     }
 
+    /// Starts editing of all clips contained in this slot.
     pub fn start_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
-        let content = self.get_content()?;
-        let is_midi = content.runtime_data.material_info.is_midi();
-        let editor_track = find_or_create_editor_track(temporary_project, !is_midi)?;
-        let manifestation = manifest_clip_on_track(temporary_project, content, &editor_track)?;
-        if is_midi {
-            // open_midi_editor_via_action(temporary_project, item);
-            open_midi_editor_directly(editor_track, manifestation.take);
-        } else {
-            open_audio_editor(temporary_project, manifestation.item)?;
+        for content in self.get_contents()? {
+            let is_midi = content.runtime_data.material_info.is_midi();
+            let editor_track = find_or_create_editor_track(temporary_project, !is_midi)?;
+            let manifestation = manifest_clip_on_track(temporary_project, content, &editor_track)?;
+            if is_midi {
+                // open_midi_editor_via_action(temporary_project, item);
+                open_midi_editor_directly(editor_track, manifestation.take);
+            } else {
+                open_audio_editor(temporary_project, manifestation.item)?;
+            }
         }
         Ok(())
     }
 
+    /// Stops editing of all clips contained in this slot.
     pub fn stop_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
-        let content = self.get_content()?;
-        let editor_track = find_editor_track(temporary_project).ok_or("editor track not found")?;
-        let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
-        let _ = unsafe {
-            Reaper::get()
-                .medium_reaper()
-                .delete_track_media_item(editor_track.raw(), clip_item.raw())
-        };
-        if editor_track.item_count() == 0 {
-            editor_track.project().remove_track(&editor_track);
-        }
-        if !content.runtime_data.material_info.is_midi() {
-            // Restore previous zoom/scroll
-            Reaper::get()
-                .main_section()
-                .action_by_command_id(CommandId::new(40848))
-                .invoke_as_trigger(Some(temporary_project))?;
+        for content in self.get_contents()? {
+            let editor_track =
+                find_editor_track(temporary_project).ok_or("editor track not found")?;
+            let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
+            let _ = unsafe {
+                Reaper::get()
+                    .medium_reaper()
+                    .delete_track_media_item(editor_track.raw(), clip_item.raw())
+            };
+            if editor_track.item_count() == 0 {
+                editor_track.project().remove_track(&editor_track);
+            }
+            if !content.runtime_data.material_info.is_midi() {
+                // Restore previous zoom/scroll
+                Reaper::get()
+                    .main_section()
+                    .action_by_command_id(CommandId::new(40848))
+                    .invoke_as_trigger(Some(temporary_project))?;
+            }
         }
         Ok(())
     }
 
+    /// Returns true if any of the clips contained in this slot are currently open in the editor.
     pub fn is_editing_clip(&self, temporary_project: Project) -> bool {
-        if let Some(content) = self.content.as_ref() {
+        self.contents.iter().any(|content| {
             if let Some(editor_track) = find_editor_track(temporary_project) {
                 find_clip_item(content, &editor_track).is_some()
             } else {
                 false
             }
-        } else {
-            false
-        }
+        })
     }
 
-    // TODO-high-multiclips This should return a list of all clips.
-    pub fn clip(&self) -> Option<&Clip> {
-        Some(&self.content.as_ref()?.clip)
+    /// Returns all clips in this slot. Can be empty.
+    pub fn clips(&self) -> impl Iterator<Item = &Clip> {
+        self.contents.iter().map(|c| &c.clip)
     }
 
+    /// Returns clip at the given index.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there's no clip at that index.
     pub fn get_clip(&self, index: usize) -> ClipEngineResult<&Clip> {
-        let content = self.content.as_ref().ok_or(CLIP_DOESNT_EXIST)?;
-        Ok(&content.clip)
+        Ok(&self.get_content(index)?.clip)
     }
 
-    pub(crate) fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut Clip> {
-        let content = self.content.as_mut().ok_or(CLIP_DOESNT_EXIST)?;
+    /// Returns the content at the given clip index.
+    fn get_content(&self, index: usize) -> ClipEngineResult<&Content> {
+        self.contents.get(index).ok_or(CLIP_DOESNT_EXIST)
+    }
+
+    /// Returns the content at the given clip index, mutable.
+    fn get_content_mut(&mut self, index: usize) -> ClipEngineResult<&mut Content> {
+        get_content_mut(&mut self.contents, index)
+    }
+
+    /// Returns the clip at the given index, mutable.
+    pub fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut Clip> {
+        let content = get_content_mut(&mut self.contents, index)?;
         Ok(&mut content.clip)
     }
 
-    pub fn clip_mut(&mut self) -> Option<&mut Clip> {
-        Some(&mut self.content.as_mut()?.clip)
+    /// Returns volume of the first clip.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot is empty.
+    pub fn volume(&self) -> ClipEngineResult<Db> {
+        Ok(self.get_content(0)?.clip.volume())
     }
 
-    pub fn clip_volume(&self) -> ClipEngineResult<Db> {
-        Ok(self.get_content()?.clip.volume())
+    /// Returns looped setting of the first clip.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot is empty.
+    pub fn looped(&self) -> ClipEngineResult<bool> {
+        Ok(self.get_content(0)?.clip.looped())
     }
 
-    pub fn clip_looped(&self) -> ClipEngineResult<bool> {
-        Ok(self.get_content()?.clip.looped())
-    }
-
+    /// Sets volume of all clips.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot is empty.
     pub fn set_volume(
         &mut self,
         volume: Db,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<ClipChangeEvent> {
-        let content = get_content_mut(&mut self.content)?;
-        content.clip.set_volume(volume);
-        column_command_sender.set_clip_volume(self.index, volume);
+        for (i, content) in get_contents_mut(&mut self.contents)?.iter_mut().enumerate() {
+            content.clip.set_volume(volume);
+            column_command_sender.set_clip_volume(self.index, i, volume);
+        }
         Ok(ClipChangeEvent::Volume(volume))
     }
 
+    /// Toggles the looped setting of all clips, using the setting of the first one as reference.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot is empty.
     pub fn toggle_looped(
         &mut self,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<ClipChangeEvent> {
-        let content = get_content_mut(&mut self.content)?;
-        let looped = content.clip.toggle_looped();
-        let args = ColumnSetClipLoopedArgs {
-            slot_index: self.index,
-            looped,
-        };
-        column_command_sender.set_clip_looped(args);
-        Ok(ClipChangeEvent::Looped(looped))
+        let new_looped_value = !self.get_content(0)?.clip.looped();
+        for (i, content) in self.contents.iter_mut().enumerate() {
+            content.clip.set_looped(new_looped_value);
+            let args = ColumnSetClipLoopedArgs {
+                slot_index: self.index,
+                clip_index: i,
+                looped: new_looped_value,
+            };
+            column_command_sender.set_clip_looped(args);
+        }
+        Ok(ClipChangeEvent::Looped(new_looped_value))
     }
 
+    /// Returns the play state of the first clip.
+    ///
+    /// This should be representative, so we can consider this as slot play state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this slot is empty.
     pub fn play_state(&self) -> ClipEngineResult<InternalClipPlayState> {
         use SlotState::*;
         match &self.state {
-            Normal => Ok(self.get_content()?.runtime_data.play_state),
+            Normal => Ok(self.get_content(0)?.runtime_data.play_state),
             RequestedOverdubbing | RequestedRecording(_) => {
                 Ok(ClipPlayState::ScheduledForRecordingStart.into())
             }
@@ -549,72 +631,56 @@ impl Slot {
         self.play_state().map(|s| s.is_stoppable()).unwrap_or(false)
     }
 
-    fn runtime_data(&self) -> ClipEngineResult<&SlotRuntimeData> {
+    pub fn update_play_state(&mut self, play_state: InternalClipPlayState) {
+        for runtime_data in self.relevant_runtime_datas_mut() {
+            runtime_data.play_state = play_state;
+        }
+    }
+
+    pub fn update_material_info(
+        &mut self,
+        clip_index: usize,
+        material_info: MaterialInfo,
+    ) -> ClipEngineResult<()> {
+        let content = self.get_content_mut(clip_index)?;
+        content.runtime_data.material_info = material_info;
+        Ok(())
+    }
+
+    /// Returns the currently relevant content.
+    ///
+    /// If the slot is recording, that's the runtime data of the recording. Otherwise, it's
+    /// the content for each clip. Doesn't error if there's no clip.
+    pub fn relevant_contents(
+        &self,
+    ) -> RelevantContent<impl Iterator<Item = &Content> + ExactSizeIterator> {
         if let SlotState::Recording(s) = &self.state {
-            Ok(&s.runtime_data)
+            RelevantContent::Recording(&s.runtime_data)
         } else {
-            Ok(&self.get_content()?.runtime_data)
+            RelevantContent::Normal(self.contents.iter())
         }
     }
 
-    fn runtime_data_mut(&mut self) -> ClipEngineResult<&mut SlotRuntimeData> {
+    /// Returns the currently relevant runtime datas.
+    ///
+    /// If the slot is recording, that's the runtime data of the recording. Otherwise, it's
+    /// the runtime data for each clip. Doesn't error if there's no clip.
+    fn relevant_runtime_datas_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut SlotRuntimeData> + ExactSizeIterator {
         if let SlotState::Recording(s) = &mut self.state {
-            Ok(&mut s.runtime_data)
+            Either::Left(iter::once(&mut s.runtime_data))
         } else {
-            Ok(&mut get_content_mut(&mut self.content)?.runtime_data)
+            Either::Right(self.contents.iter_mut().map(|c| &mut c.runtime_data))
         }
     }
 
-    pub fn update_play_state(&mut self, play_state: InternalClipPlayState) -> ClipEngineResult<()> {
-        self.runtime_data_mut()?.play_state = play_state;
-        Ok(())
-    }
-
-    pub fn update_material_info(&mut self, material_info: MaterialInfo) -> ClipEngineResult<()> {
-        self.runtime_data_mut()?.material_info = material_info;
-        Ok(())
-    }
-
-    pub fn proportional_position(&self) -> ClipEngineResult<UnitValue> {
-        let runtime_data = self.runtime_data()?;
-        let pos = runtime_data.pos.get();
-        if pos < 0 {
-            return Err("count-in phase");
-        }
-        let frame_count = runtime_data.material_info.frame_count();
-        if frame_count == 0 {
-            return Err("frame count is zero");
-        }
-        let mod_pos = pos as usize % frame_count;
-        let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
-        Ok(proportional)
-    }
-
-    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> ClipEngineResult<PositionInSeconds> {
-        let (runtime_data, tempo_factor) = if let SlotState::Recording(s) = &self.state {
-            let tempo_factor = s
-                .runtime_data
-                .material_info
-                .tempo_factor_during_recording(timeline_tempo);
-            (&s.runtime_data, tempo_factor)
-        } else {
-            let content = self.get_content()?;
-            (&content.runtime_data, content.tempo_factor(timeline_tempo))
-        };
-        let pos_in_source_frames = runtime_data.mod_frame();
-        let pos_in_secs = convert_position_in_frames_to_seconds(
-            pos_in_source_frames,
-            runtime_data.material_info.frame_rate(),
-        );
-        let tempo_adjusted_secs = adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor);
-        Ok(tempo_adjusted_secs)
-    }
-
-    pub(crate) fn fill_with(
+    pub(crate) fn fill_with_clip(
         &mut self,
         clip: Clip,
         rt_clip: &rt::Clip,
         pooled_midi_source: Option<ClipSource>,
+        mode: FillClipMode,
     ) {
         let content = Content {
             clip,
@@ -625,7 +691,14 @@ impl Slot {
             },
             pooled_midi_source,
         };
-        self.content = Some(content);
+        match mode {
+            FillClipMode::Add => {
+                self.contents.push(content);
+            }
+            FillClipMode::Replace => {
+                self.contents = vec![content];
+            }
+        }
     }
 
     pub fn notify_recording_request_acknowledged(
@@ -671,16 +744,18 @@ impl Slot {
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<SlotChangeEvent> {
         self.remove_temporary_route();
-        get_content_mut(&mut self.content)?
+        self.get_content_mut(0)?
             .clip
             .notify_midi_overdub_finished(&mirror_source, temporary_project)?;
         Ok(SlotChangeEvent::Clips("MIDI overdub finished"))
     }
 
     pub fn slot_cleared(&mut self) -> Option<SlotChangeEvent> {
-        self.content
-            .take()
-            .map(|_| SlotChangeEvent::Clips("clip removed"))
+        if self.is_empty() {
+            return None;
+        }
+        self.contents.clear();
+        Some(SlotChangeEvent::Clips("clip removed"))
     }
 
     pub fn notify_normal_recording_finished(
@@ -704,13 +779,13 @@ impl Slot {
                         recording_track,
                     )?;
                     s.runtime_data.material_info = recording.material_info;
-                    debug!("Fill slot with clip: {:#?}", &clip);
+                    debug!("Record slot with clip: {:#?}", &clip);
                     let content = Content {
                         clip,
                         runtime_data: s.runtime_data,
                         pooled_midi_source: s.pooled_midi_source,
                     };
-                    self.content = Some(content);
+                    self.contents = vec![content];
                     self.state = SlotState::Normal;
                     Ok(SlotChangeEvent::Clips("clip recording finished"))
                 }
@@ -762,8 +837,18 @@ impl Default for SlotState {
     }
 }
 
-fn get_content_mut(content: &mut Option<Content>) -> ClipEngineResult<&mut Content> {
-    content.as_mut().ok_or(SLOT_NOT_FILLED)
+fn get_contents_mut(contents: &mut Vec<Content>) -> ClipEngineResult<&mut [Content]> {
+    if contents.is_empty() {
+        return Err(SLOT_NOT_FILLED);
+    }
+    Ok(contents.as_mut_slice())
+}
+
+fn get_content_mut(
+    contents: &mut Vec<Content>,
+    clip_index: usize,
+) -> ClipEngineResult<&mut Content> {
+    contents.get_mut(clip_index).ok_or(CLIP_DOESNT_EXIST)
 }
 
 struct CommonRecordStuff {
@@ -908,6 +993,7 @@ fn translate_track_input_to_hw_input(
     };
     Ok(hw_input)
 }
+
 pub fn create_midi_overdub_instruction(
     mode: MidiClipRecordMode,
     auto_quantize: bool,
@@ -1142,3 +1228,43 @@ pub struct ClipOnTrackManifestation {
 }
 
 const CLIP_DOESNT_EXIST: &str = "clip doesn't exist";
+
+pub enum RelevantContent<'a, T> {
+    /// Contains one content per clip.
+    Normal(T),
+    /// Contains runtime data of the recording.
+    Recording(&'a SlotRuntimeData),
+}
+
+impl<'a, T: Iterator<Item = &'a Content>> RelevantContent<'a, T> {
+    /// Returns the proportional position of the recording or first clip.
+    pub fn primary_proportional_position(self) -> ClipEngineResult<UnitValue> {
+        match self {
+            RelevantContent::Normal(mut contents) => {
+                // We use the position of the first clip only.
+                contents.next().ok_or("slot empty")?.proportional_position()
+            }
+            RelevantContent::Recording(runtime_data) => runtime_data.proportional_position(),
+        }
+    }
+
+    /// Returns the position of the recording or first clip.
+    pub fn primary_position_in_seconds(
+        self,
+        timeline_tempo: Bpm,
+    ) -> ClipEngineResult<PositionInSeconds> {
+        let res = match self {
+            RelevantContent::Normal(mut contents) => {
+                // We use the position of the first clip only.
+                contents
+                    .next()
+                    .ok_or("slot empty")?
+                    .position_in_seconds(timeline_tempo)
+            }
+            RelevantContent::Recording(runtime_data) => {
+                runtime_data.position_in_seconds_during_recording(timeline_tempo)
+            }
+        };
+        Ok(res)
+    }
+}
