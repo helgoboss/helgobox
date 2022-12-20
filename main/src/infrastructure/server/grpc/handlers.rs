@@ -1,26 +1,24 @@
 use crate::domain::RealearnClipMatrix;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
-use crate::infrastructure::ui::get_proto_time_signature;
 use futures::{Stream, StreamExt};
 use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_slot_update, ArrangementPlayState, Empty, FullClipAddress,
-    FullColumnAddress, FullRowAddress, FullSlotAddress, GetContinuousColumnUpdatesReply,
-    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
-    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
-    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    qualified_occasional_slot_update, Empty, FullClipAddress, FullColumnAddress, FullRowAddress,
+    FullSlotAddress, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipNameRequest,
     SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
-    SlotAddress, SlotPlayState, TrackColor, TrackInput, TrackInputMonitoring, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
-    TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
+    SlotAddress, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
+    TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSlotAction,
+    TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
@@ -82,15 +80,14 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                     .all_slots()
                     .map(|slot| {
                         let play_state = slot.value().play_state().unwrap_or_default();
-                        let proto_play_state = SlotPlayState::from_engine(play_state.get());
                         let address = SlotAddress {
                             column_index: slot.column_index() as u32,
                             row_index: slot.value().index() as u32,
                         };
                         QualifiedOccasionalSlotUpdate {
                             slot_address: Some(address),
-                            update: Some(qualified_occasional_slot_update::Update::PlayState(
-                                proto_play_state.into(),
+                            update: Some(qualified_occasional_slot_update::Update::play_state(
+                                play_state,
                             )),
                         }
                     })
@@ -156,17 +153,17 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 |matrix| -> Result<_, &'static str> {
                     let project = matrix.permanent_project().or_current_project();
                     let master_track = project.master_track()?;
-                    let matrix_json = serde_json::to_string(&matrix.save())
-                        .map_err(|_| "couldn't serialize clip matrix")?;
                     let updates = [
-                        Update::PersistentState(matrix_json),
-                        Update::Volume(master_track.volume().db().get()),
-                        Update::Pan(master_track.pan().reaper_value().get()),
-                        Update::Tempo(project.tempo().bpm().get()),
-                        Update::TimeSignature(get_proto_time_signature(project)),
-                        Update::ArrangementPlayState(
-                            ArrangementPlayState::from_engine(project.play_state()).into(),
-                        ),
+                        Update::volume(master_track.volume().db()),
+                        Update::pan(master_track.pan().reaper_value()),
+                        Update::tempo(project.tempo().bpm()),
+                        Update::arrangement_play_state(project.play_state()),
+                        // TODO MIDI input devices
+                        // TODO audio input channels
+                        Update::complete_persistent_data(matrix),
+                        Update::history_state(matrix),
+                        // TODO click enabled
+                        Update::time_signature(project),
                     ];
                     let updates: Vec<_> = updates
                         .into_iter()
@@ -216,21 +213,16 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                         QualifiedOccasionalTrackUpdate {
                             track_id: guid.to_string_without_braces(),
                             track_updates: [
-                                Update::Name(track.name().unwrap_or_default().into_string()),
-                                Update::Color(TrackColor::from_engine(track.custom_color())),
-                                Update::Input(TrackInput::from_engine(track.recording_input())),
-                                Update::Armed(track.is_armed(false)),
-                                Update::InputMonitoring(
-                                    TrackInputMonitoring::from_engine(
-                                        track.input_monitoring_mode(),
-                                    )
-                                    .into(),
-                                ),
-                                Update::Mute(track.is_muted()),
-                                Update::Solo(track.is_solo()),
-                                Update::Selected(track.is_selected()),
-                                Update::Volume(track.volume().db().get()),
-                                Update::Pan(track.pan().reaper_value().get()),
+                                Update::name(&track),
+                                Update::color(&track),
+                                Update::input(track.recording_input()),
+                                Update::armed(track.is_armed(false)),
+                                Update::input_monitoring(track.input_monitoring_mode()),
+                                Update::mute(track.is_muted()),
+                                Update::solo(track.is_solo()),
+                                Update::selected(track.is_selected()),
+                                Update::volume(track.volume().db()),
+                                Update::pan(track.pan().reaper_value()),
                             ]
                             .into_iter()
                             .map(|update| OccasionalTrackUpdate {

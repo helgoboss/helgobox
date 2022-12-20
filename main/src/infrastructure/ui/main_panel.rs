@@ -4,9 +4,7 @@ use crate::infrastructure::ui::{
 };
 
 use lazycell::LazyCell;
-use reaper_high::{
-    AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, Project, Reaper, Track, Volume,
-};
+use reaper_high::{AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, Reaper, Track, Volume};
 
 use slog::debug;
 use std::cell::{Cell, RefCell};
@@ -36,11 +34,10 @@ use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_slot_update, ArrangementPlayState, ContinuousClipUpdate,
-    ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate, HistoryState,
-    OccasionalMatrixUpdate, OccasionalTrackUpdate, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotAddress, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring,
+    qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousColumnUpdate,
+    ContinuousMatrixUpdate, ContinuousSlotUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use playtime_clip_engine::rt::{
     ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
@@ -582,28 +579,14 @@ fn send_occasional_matrix_updates_caused_by_matrix(
     let updates: Vec<_> = events
         .iter()
         .filter_map(|event| match event {
-            ClipMatrixEvent::EverythingChanged => {
-                let json = serde_json::to_string(&matrix.save())
-                    .expect("couldn't serialize clip matrix as JSON");
-                Some(OccasionalMatrixUpdate {
-                    update: Some(occasional_matrix_update::Update::PersistentState(json)),
-                })
-            }
-            ClipMatrixEvent::HistoryChanged => {
-                let state = HistoryState {
-                    undo_label: matrix
-                        .next_undo_label()
-                        .map(|l| l.to_string())
-                        .unwrap_or_default(),
-                    redo_label: matrix
-                        .next_redo_label()
-                        .map(|l| l.to_string())
-                        .unwrap_or_default(),
-                };
-                Some(OccasionalMatrixUpdate {
-                    update: Some(occasional_matrix_update::Update::HistoryState(state)),
-                })
-            }
+            ClipMatrixEvent::EverythingChanged => Some(OccasionalMatrixUpdate {
+                update: Some(occasional_matrix_update::Update::complete_persistent_data(
+                    matrix,
+                )),
+            }),
+            ClipMatrixEvent::HistoryChanged => Some(OccasionalMatrixUpdate {
+                update: Some(occasional_matrix_update::Update::history_state(matrix)),
+            }),
             _ => None,
         })
         .collect();
@@ -634,20 +617,14 @@ fn send_occasional_slot_updates(
             }) => {
                 use SlotChangeEvent::*;
                 let update = match event {
-                    PlayState(play_state) => qualified_occasional_slot_update::Update::PlayState(
-                        SlotPlayState::from_engine(play_state.get()).into(),
-                    ),
+                    PlayState(play_state) => {
+                        qualified_occasional_slot_update::Update::play_state(*play_state)
+                    }
                     Clips(_) => {
                         let slot = matrix.find_slot(*slot_coordinates)?;
-                        let api_slot = slot.save(session.processor_context().project()).unwrap_or(
-                            playtime_api::persistence::Slot {
-                                row: slot_coordinates.row(),
-                                clip_old: None,
-                                clips: None,
-                            },
-                        );
-                        let json = serde_json::to_string(&api_slot).unwrap();
-                        qualified_occasional_slot_update::Update::PersistentState(json)
+                        qualified_occasional_slot_update::Update::complete_persistent_data(
+                            matrix, slot,
+                        )
                     }
                     ClipPosition { .. } => return None,
                 };
@@ -688,9 +665,10 @@ fn send_occasional_clip_updates(
                 let update = match event {
                     Everything | Volume(_) | Looped(_) => {
                         let clip = matrix.find_clip(*clip_address)?;
-                        let api_clip = clip.save(session.processor_context().project()).ok()?;
-                        let json = serde_json::to_string(&api_clip).unwrap();
-                        qualified_occasional_clip_update::Update::PersistentState(json)
+                        qualified_occasional_clip_update::Update::complete_persistent_data(
+                            matrix, clip,
+                        )
+                        .ok()?
                     }
                 };
                 Some(QualifiedOccasionalClipUpdate {
@@ -745,52 +723,52 @@ fn send_occasional_matrix_updates_caused_by_reaper(
         ChangeEvent::TrackVolumeChanged(e) => {
             let db = Volume::from_reaper_value(e.new_value).db();
             if e.track.is_master_track() {
-                Some(R::Matrix(occasional_matrix_update::Update::Volume(
-                    db.get(),
-                )))
+                Some(R::Matrix(occasional_matrix_update::Update::volume(db)))
             } else {
-                track_update(matrix, &e.track, || Update::Volume(db.get()))
+                track_update(matrix, &e.track, || Update::volume(db))
             }
         }
-        ChangeEvent::TrackPanChanged(e) => track_update(matrix, &e.track, || {
-            let api_value = match e.new_value {
-                AvailablePanValue::Complete(v) => v.main_pan().get(),
-                AvailablePanValue::Incomplete(v) => v.get(),
+        ChangeEvent::TrackPanChanged(e) => {
+            let val = match e.new_value {
+                AvailablePanValue::Complete(v) => v.main_pan(),
+                AvailablePanValue::Incomplete(v) => v,
             };
-            Update::Pan(api_value)
-        }),
-        ChangeEvent::TrackNameChanged(e) => track_update(matrix, &e.track, || {
-            Update::Name(e.track.name().unwrap_or_default().into_string())
-        }),
-        ChangeEvent::TrackInputChanged(e) => track_update(matrix, &e.track, || {
-            Update::Input(TrackInput::from_engine(e.new_value))
-        }),
-        ChangeEvent::TrackInputMonitoringChanged(e) => track_update(matrix, &e.track, || {
-            Update::InputMonitoring(TrackInputMonitoring::from_engine(e.new_value).into())
-        }),
+            if e.track.is_master_track() {
+                Some(R::Matrix(occasional_matrix_update::Update::pan(val)))
+            } else {
+                track_update(matrix, &e.track, || Update::pan(val))
+            }
+        }
+        ChangeEvent::TrackNameChanged(e) => {
+            track_update(matrix, &e.track, || Update::name(&e.track))
+        }
+        ChangeEvent::TrackInputChanged(e) => {
+            track_update(matrix, &e.track, || Update::input(e.new_value))
+        }
+        ChangeEvent::TrackInputMonitoringChanged(e) => {
+            track_update(matrix, &e.track, || Update::input_monitoring(e.new_value))
+        }
         ChangeEvent::TrackArmChanged(e) => {
-            track_update(matrix, &e.track, || Update::Armed(e.new_value))
+            track_update(matrix, &e.track, || Update::armed(e.new_value))
         }
         ChangeEvent::TrackMuteChanged(e) => {
-            track_update(matrix, &e.track, || Update::Mute(e.new_value))
+            track_update(matrix, &e.track, || Update::mute(e.new_value))
         }
         ChangeEvent::TrackSoloChanged(e) => {
-            track_update(matrix, &e.track, || Update::Solo(e.new_value))
+            track_update(matrix, &e.track, || Update::solo(e.new_value))
         }
         ChangeEvent::TrackSelectedChanged(e) => {
-            track_update(matrix, &e.track, || Update::Selected(e.new_value))
+            track_update(matrix, &e.track, || Update::selected(e.new_value))
         }
         ChangeEvent::MasterTempoChanged(e) => {
             // TODO-high-playtime Also notify correctly about time signature changes. Looks like
             //  MasterTempoChanged event doesn't fire in that case :(
-            Some(R::Matrix(occasional_matrix_update::Update::Tempo(
-                e.new_value.get(),
+            Some(R::Matrix(occasional_matrix_update::Update::tempo(
+                e.new_value,
             )))
         }
         ChangeEvent::PlayStateChanged(e) => Some(R::Matrix(
-            occasional_matrix_update::Update::ArrangementPlayState(
-                ArrangementPlayState::from_engine(e.new_value).into(),
-            ),
+            occasional_matrix_update::Update::arrangement_play_state(e.new_value),
         )),
         _ => None,
     };
@@ -809,15 +787,6 @@ fn send_occasional_matrix_updates_caused_by_reaper(
                 });
             }
         }
-    }
-}
-
-pub fn get_proto_time_signature(project: Project) -> TimeSignature {
-    let timeline = clip_timeline(Some(project), true);
-    let time_signature = timeline.time_signature_at(timeline.cursor_pos());
-    proto::TimeSignature {
-        numerator: time_signature.numerator.get(),
-        denominator: time_signature.denominator.get(),
     }
 }
 

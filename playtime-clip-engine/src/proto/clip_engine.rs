@@ -224,24 +224,35 @@ pub struct OccasionalMatrixUpdate {
 pub mod occasional_matrix_update {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
+        /// Matrix volume (= REAPER master track volume)
         #[prost(double, tag = "1")]
         Volume(f64),
+        /// Matrix pan (= REAPER master track pan)
         #[prost(double, tag = "2")]
         Pan(f64),
+        /// Matrix tempo (= REAPER master tempo)
         #[prost(double, tag = "3")]
         Tempo(f64),
+        /// Arrangement play state (= REAPER transport play state)
         #[prost(enumeration = "super::ArrangementPlayState", tag = "4")]
         ArrangementPlayState(i32),
+        /// MIDI input devices (= REAPER MIDI input devices)
         #[prost(message, tag = "5")]
         MidiInputDevices(super::MidiInputDevices),
+        /// Audio input channels (= REAPER hardware input channels)
         #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
+        /// Complete persistent data of the matrix has changed, including topology and other settings!
+        /// This contains the complete matrix as JSON.
         #[prost(string, tag = "7")]
-        PersistentState(::prost::alloc::string::String),
+        CompletePersistentData(::prost::alloc::string::String),
+        /// Clip matrix history state
         #[prost(message, tag = "8")]
         HistoryState(super::HistoryState),
+        /// Click on/off (= REAPER metronome state, at the moment)
         #[prost(bool, tag = "9")]
         ClickEnabled(bool),
+        /// Time signature (= REAPER master time signature)
         #[prost(message, tag = "10")]
         TimeSignature(super::TimeSignature),
     }
@@ -272,24 +283,34 @@ pub struct OccasionalTrackUpdate {
 pub mod occasional_track_update {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
+        /// Track name
         #[prost(string, tag = "1")]
         Name(::prost::alloc::string::String),
+        /// Track color
         #[prost(message, tag = "2")]
         Color(super::TrackColor),
+        /// Track recording input
         #[prost(message, tag = "3")]
         Input(super::TrackInput),
+        /// Track record-arm on/off
         #[prost(bool, tag = "4")]
         Armed(bool),
+        /// Track recording input monitoring setting
         #[prost(enumeration = "super::TrackInputMonitoring", tag = "5")]
         InputMonitoring(i32),
+        /// Track mute on/off
         #[prost(bool, tag = "6")]
         Mute(bool),
+        /// Track solo on/off
         #[prost(bool, tag = "7")]
         Solo(bool),
+        /// Track selected or not
         #[prost(bool, tag = "8")]
         Selected(bool),
+        /// Track volume
         #[prost(double, tag = "9")]
         Volume(f64),
+        /// Track pan
         #[prost(double, tag = "10")]
         Pan(f64),
     }
@@ -358,10 +379,13 @@ pub struct QualifiedOccasionalSlotUpdate {
 pub mod qualified_occasional_slot_update {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
+        /// Slot play state
         #[prost(enumeration = "super::SlotPlayState", tag = "2")]
         PlayState(i32),
+        /// The complete persistent data of this slot has changed, that's mainly the
+        /// list of clips and their contents. This contains the complete slot as JSON.
         #[prost(string, tag = "3")]
-        PersistentState(::prost::alloc::string::String),
+        CompletePersistentData(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -375,8 +399,10 @@ pub struct QualifiedOccasionalClipUpdate {
 pub mod qualified_occasional_clip_update {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
+        /// The complete persistent data of this clip has changed, e.g. its name.
+        /// This contains the complete clip as JSON.
         #[prost(string, tag = "2")]
-        PersistentState(::prost::alloc::string::String),
+        CompletePersistentData(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

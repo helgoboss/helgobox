@@ -107,6 +107,41 @@ impl Drop for Worker {
     }
 }
 
+impl<H> Matrix<H> {
+    pub fn save(&self) -> api::Matrix {
+        api::Matrix {
+            columns: Some(self.columns.iter().map(|column| column.save()).collect()),
+            rows: Some(self.rows.iter().map(|row| row.save()).collect()),
+            clip_play_settings: MatrixClipPlaySettings {
+                start_timing: self.settings.overridable.clip_play_start_timing,
+                stop_timing: self.settings.overridable.clip_play_stop_timing,
+                audio_settings: MatrixClipPlayAudioSettings {
+                    resample_mode: self.settings.overridable.audio_resample_mode,
+                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode,
+                    cache_behavior: self.settings.overridable.audio_cache_behavior,
+                },
+            },
+            clip_record_settings: self.settings.clip_record_settings,
+            common_tempo_range: self.settings.common_tempo_range,
+        }
+    }
+
+    pub fn history(&self) -> &History {
+        &self.history
+    }
+
+    /// Returns the project which contains this matrix, unless the matrix is project-less
+    /// (monitoring FX chain).
+    pub fn permanent_project(&self) -> Option<Project> {
+        self.containing_track.as_ref().map(|t| t.project())
+    }
+
+    /// Returns the permanent project. If the matrix is project-less, the current project.
+    pub fn temporary_project(&self) -> Project {
+        self.permanent_project().or_current_project()
+    }
+}
+
 impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn new(handler: H, containing_track: Option<Track>) -> Self {
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
@@ -219,32 +254,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         // Emit event
         self.notify_everything_changed();
         Ok(())
-    }
-
-    pub fn save(&self) -> api::Matrix {
-        api::Matrix {
-            columns: Some(self.columns.iter().map(|column| column.save()).collect()),
-            rows: Some(self.rows.iter().map(|row| row.save()).collect()),
-            clip_play_settings: MatrixClipPlaySettings {
-                start_timing: self.settings.overridable.clip_play_start_timing,
-                stop_timing: self.settings.overridable.clip_play_stop_timing,
-                audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.settings.overridable.audio_resample_mode,
-                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode,
-                    cache_behavior: self.settings.overridable.audio_cache_behavior,
-                },
-            },
-            clip_record_settings: self.settings.clip_record_settings,
-            common_tempo_range: self.settings.common_tempo_range,
-        }
-    }
-
-    pub fn permanent_project(&self) -> Option<Project> {
-        self.containing_track.as_ref().map(|t| t.project())
-    }
-
-    fn temporary_project(&self) -> Project {
-        self.permanent_project().or_current_project()
     }
 
     fn clear_columns(&mut self) {

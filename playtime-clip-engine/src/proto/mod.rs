@@ -1,10 +1,140 @@
 mod clip_engine;
 
-use crate::base;
-use crate::base::ClipSlotAddress;
+use crate::base::{Clip, ClipSlotAddress, History, Matrix, Slot};
+use crate::rt::InternalClipPlayState;
+use crate::{base, clip_timeline, ClipEngineResult, Timeline};
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
-use reaper_medium::{InputMonitoringMode, RecordingInput, RgbColor};
+use reaper_high::{Project, Track};
+use reaper_medium::{
+    Bpm, Db, InputMonitoringMode, PlayState, ReaperPanValue, RecordingInput, RgbColor,
+};
+
+impl occasional_matrix_update::Update {
+    pub fn volume(db: Db) -> Self {
+        Self::Volume(db.get())
+    }
+
+    pub fn pan(pan: ReaperPanValue) -> Self {
+        Self::Pan(pan.get())
+    }
+
+    pub fn tempo(bpm: Bpm) -> Self {
+        Self::Tempo(bpm.get())
+    }
+
+    pub fn arrangement_play_state(play_state: PlayState) -> Self {
+        Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
+    }
+
+    pub fn complete_persistent_data<H>(matrix: &Matrix<H>) -> Self {
+        let matrix_json =
+            serde_json::to_string(&matrix.save()).expect("couldn't represent matrix as JSON");
+        Self::CompletePersistentData(matrix_json)
+    }
+
+    pub fn history_state<H>(matrix: &Matrix<H>) -> Self {
+        Self::HistoryState(HistoryState::from_engine(matrix.history()))
+    }
+
+    pub fn time_signature(project: Project) -> Self {
+        Self::TimeSignature(TimeSignature::from_engine(project))
+    }
+}
+
+impl TimeSignature {
+    pub fn from_engine(project: Project) -> Self {
+        let timeline = clip_timeline(Some(project), true);
+        let time_signature = timeline.time_signature_at(timeline.cursor_pos());
+        TimeSignature {
+            numerator: time_signature.numerator.get(),
+            denominator: time_signature.denominator.get(),
+        }
+    }
+}
+
+impl occasional_track_update::Update {
+    pub fn name(track: &Track) -> Self {
+        Self::Name(track.name().unwrap_or_default().into_string())
+    }
+
+    pub fn color(track: &Track) -> Self {
+        Self::Color(TrackColor::from_engine(track.custom_color()))
+    }
+
+    pub fn input(input: Option<RecordingInput>) -> Self {
+        Self::Input(TrackInput::from_engine(input))
+    }
+
+    pub fn armed(value: bool) -> Self {
+        Self::Armed(value)
+    }
+
+    pub fn input_monitoring(mode: InputMonitoringMode) -> Self {
+        Self::InputMonitoring(TrackInputMonitoring::from_engine(mode).into())
+    }
+
+    pub fn mute(value: bool) -> Self {
+        Self::Mute(value)
+    }
+
+    pub fn solo(value: bool) -> Self {
+        Self::Solo(value)
+    }
+
+    pub fn selected(value: bool) -> Self {
+        Self::Selected(value)
+    }
+
+    pub fn volume(db: Db) -> Self {
+        Self::Volume(db.get())
+    }
+
+    pub fn pan(pan: ReaperPanValue) -> Self {
+        Self::Pan(pan.get())
+    }
+}
+
+impl qualified_occasional_slot_update::Update {
+    pub fn play_state(play_state: InternalClipPlayState) -> Self {
+        Self::PlayState(SlotPlayState::from_engine(play_state.get()).into())
+    }
+
+    pub fn complete_persistent_data<H>(matrix: &Matrix<H>, slot: &Slot) -> Self {
+        let api_slot =
+            slot.save(matrix.permanent_project())
+                .unwrap_or(playtime_api::persistence::Slot {
+                    row: slot.index(),
+                    clip_old: None,
+                    clips: None,
+                });
+        let json = serde_json::to_string(&api_slot).expect("couldn't represent slot as JSON");
+        Self::CompletePersistentData(json)
+    }
+}
+
+impl qualified_occasional_clip_update::Update {
+    pub fn complete_persistent_data<H>(matrix: &Matrix<H>, clip: &Clip) -> ClipEngineResult<Self> {
+        let api_clip = clip.save(Some(matrix.temporary_project()))?;
+        let json = serde_json::to_string(&api_clip).expect("couldn't represent clip as JSON");
+        Ok(Self::CompletePersistentData(json))
+    }
+}
+
+impl HistoryState {
+    pub fn from_engine(history: &History) -> Self {
+        Self {
+            undo_label: history
+                .next_undo_label()
+                .map(|l| l.to_string())
+                .unwrap_or_default(),
+            redo_label: history
+                .next_redo_label()
+                .map(|l| l.to_string())
+                .unwrap_or_default(),
+        }
+    }
+}
 
 impl SlotAddress {
     pub fn from_engine(address: ClipSlotAddress) -> Self {
