@@ -1662,6 +1662,7 @@ pub struct QualifiedClipChangeEvent {
 
 #[derive(Debug)]
 pub enum ClipChangeEvent {
+    /// Everything within the clip has potentially changed.
     Everything,
     // TODO-high Is special handling for volume and looped necessary?
     Volume(Db),

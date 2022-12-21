@@ -14,11 +14,11 @@ use playtime_clip_engine::proto::{
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipNameRequest,
-    SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
-    SlotAddress, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
-    TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSlotAction,
-    TriggerSlotRequest,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
+    SetClipNameRequest, SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest,
+    SetMatrixVolumeRequest, SlotAddress, TriggerColumnAction, TriggerColumnRequest,
+    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
+    TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
@@ -269,6 +269,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let req = request.into_inner();
         handle_clip_command(&req.clip_address, |matrix, clip_address| {
             matrix.set_clip_name(clip_address, req.name)
+        })
+    }
+
+    async fn set_clip_data(
+        &self,
+        request: Request<SetClipDataRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        handle_clip_command(&req.clip_address, |matrix, clip_address| {
+            let clip =
+                serde_json::from_str(&req.data).map_err(|_| "couldn't deserialize clip data")?;
+            matrix.set_clip_data(clip_address, clip)
         })
     }
 

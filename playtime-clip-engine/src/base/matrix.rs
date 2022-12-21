@@ -856,6 +856,22 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
+    /// Sets the complete data of the given clip.
+    pub fn set_clip_data(
+        &mut self,
+        address: ClipAddress,
+        api_clip: api::Clip,
+    ) -> ClipEngineResult<()> {
+        let clip = self.get_clip_mut(address)?;
+        *clip = Clip::load(api_clip);
+        // TODO-high Sync important data to real-time processor
+        self.emit(ClipMatrixEvent::clip_changed(
+            address,
+            ClipChangeEvent::Everything,
+        ));
+        Ok(())
+    }
+
     /// Returns the clip at the given address.
     pub fn get_clip(&self, address: ClipAddress) -> ClipEngineResult<&Clip> {
         self.get_slot(address.slot_address)?
