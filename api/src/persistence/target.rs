@@ -126,7 +126,8 @@ pub struct AutomationModeOverrideTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub r#override: Option<AutomationModeOverride>,
+    #[serde(alias = "override")]
+    pub override_value: Option<AutomationModeOverride>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

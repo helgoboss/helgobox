@@ -38,7 +38,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::AutomationModeOverride(d) => {
             let (t, m): (AutomationModeOverrideType, RealearnAutomationMode) = {
                 use AutomationModeOverrideType as T;
-                match d.r#override {
+                match d.override_value {
                     None => (T::None, Default::default()),
                     Some(o) => match o {
                         AutomationModeOverride::Bypass => (T::Bypass, Default::default()),

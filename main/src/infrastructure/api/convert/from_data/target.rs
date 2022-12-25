@@ -66,7 +66,7 @@ fn convert_real_target(
         AutomationModeOverride => {
             let t = AutomationModeOverrideTarget {
                 commons,
-                r#override: convert_automation_mode_override(
+                override_value: convert_automation_mode_override(
                     data.automation_mode_override_type,
                     data.track_automation_mode,
                 ),
