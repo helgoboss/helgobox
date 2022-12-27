@@ -24,6 +24,7 @@ use std::path::PathBuf;
 #[derive(JsonSchema)]
 pub struct PlaytimePersistenceRoot {
     _matrix: Matrix,
+    _even_quantization: EvenQuantization,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
