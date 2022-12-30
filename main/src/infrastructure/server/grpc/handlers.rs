@@ -259,6 +259,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             }
             TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
+            TriggerSlotAction::StartEditing => matrix.start_editing_slot(slot_address),
         })
     }
 

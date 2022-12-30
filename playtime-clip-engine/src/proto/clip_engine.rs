@@ -459,6 +459,7 @@ pub enum TriggerSlotAction {
     Play = 0,
     Stop = 1,
     Record = 2,
+    StartEditing = 3,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

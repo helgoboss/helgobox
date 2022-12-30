@@ -340,13 +340,16 @@ impl Column {
             if !play_state.is_advancing() {
                 return nothing;
             }
+            let temp_project = self.project.or_current_project();
             let iter = match slot.relevant_contents() {
                 RelevantContent::Normal(contents) => {
                     let iter = contents.map(move |content| {
+                        let seconds = content.position_in_seconds(timeline_tempo);
                         let event = SlotChangeEvent::ClipPosition {
                             proportional: content.proportional_position().unwrap_or_default(),
-                            seconds: content.position_in_seconds(timeline_tempo),
+                            seconds,
                         };
+                        content.notify_pos_changed(temp_project, timeline_tempo, seconds);
                         (row, event)
                     });
                     Either::Left(iter)

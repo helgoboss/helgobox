@@ -30,6 +30,7 @@ use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
     TrackArea, UiRefreshBehavior,
 };
+use std::ptr::null_mut;
 use std::{iter, mem};
 
 #[derive(Clone, Debug)]
@@ -128,6 +129,40 @@ impl Content {
         self.clip
             .activate_frozen_source(frozen_api_source, manifestation.tempo);
         Ok(())
+    }
+
+    fn edited_clip_item(&self, temporary_project: Project) -> Option<Item> {
+        if let Some(editor_track) = find_editor_track(temporary_project) {
+            find_clip_item(self, &editor_track)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn notify_pos_changed(
+        &self,
+        temporary_project: Project,
+        bpm: Bpm,
+        seconds: PositionInSeconds,
+    ) {
+        let Some(source) = self.edited_clip_item(temporary_project).and_then(|i| i.active_take()).and_then(|t| t.source()) else {
+            return;
+        };
+        let bps = bpm.get() / 60.0;
+        let beats = seconds.get() * bps;
+        // TODO-medium Read PPQ from MIDI file (or settings?)
+        let ppq = 960.0;
+        let ticks = beats * ppq;
+        const PCM_SOURCE_EXT_SET_PREVIEW_POS_OVERRIDE: i32 = 0xC0101;
+        // REAPER v6.73+dev1230
+        unsafe {
+            source.as_raw().extended(
+                PCM_SOURCE_EXT_SET_PREVIEW_POS_OVERRIDE,
+                &ticks as *const _ as *mut _,
+                null_mut(),
+                null_mut(),
+            )
+        };
     }
 }
 
@@ -511,13 +546,13 @@ impl Slot {
 
     /// Returns true if any of the clips contained in this slot are currently open in the editor.
     pub fn is_editing_clip(&self, temporary_project: Project) -> bool {
-        self.contents.iter().any(|content| {
-            if let Some(editor_track) = find_editor_track(temporary_project) {
-                find_clip_item(content, &editor_track).is_some()
-            } else {
-                false
-            }
-        })
+        self.edited_clip_item(temporary_project).is_some()
+    }
+
+    fn edited_clip_item(&self, temporary_project: Project) -> Option<Item> {
+        self.contents
+            .iter()
+            .find_map(|content| content.edited_clip_item(temporary_project))
     }
 
     /// Returns all clips in this slot. Can be empty.
