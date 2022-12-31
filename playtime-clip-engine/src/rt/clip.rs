@@ -18,8 +18,10 @@ use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
+use atomic::Atomic;
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
+use helgoboss_midi::ShortMessage;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ClipAudioSettings, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization,
@@ -40,6 +42,7 @@ pub struct Clip {
     state: ClipState,
     project: Option<Project>,
     shared_pos: SharedPos,
+    shared_peak: SharedPeak,
 }
 
 /// Contains only the state that's relevant for playing *and* not kept or not kept sufficiently in
@@ -155,6 +158,30 @@ impl SharedPos {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct SharedPeak(Arc<Atomic<UnitValue>>);
+
+impl SharedPeak {
+    /// Returns the last detected peak value. Plus, if a MIDI note-on was encountered
+    /// (= peak is MAX), resets value to MIN in order to acknowledge receipt of the note-on event.
+    pub fn reset(&self) -> UnitValue {
+        let res = self.0.compare_exchange(
+            UnitValue::MAX,
+            UnitValue::MIN,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        );
+        match res {
+            Ok(v) => v,
+            Err(v) => v,
+        }
+    }
+
+    fn set(&self, peak: UnitValue) {
+        self.0.store(peak, Ordering::Relaxed);
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 enum StateAfterSuspension {
     /// Play was suspended for initiating a retriggering, so the next state will be  
@@ -207,6 +234,7 @@ impl Clip {
             state: ClipState::Ready(ready_state),
             project: permanent_project,
             shared_pos: Default::default(),
+            shared_peak: Default::default(),
         };
         Ok(clip)
     }
@@ -222,6 +250,7 @@ impl Clip {
             state: ClipState::Recording(recording_state),
             project: instruction.project,
             shared_pos: instruction.shared_pos,
+            shared_peak: instruction.shared_peak,
         }
     }
 
@@ -400,6 +429,7 @@ impl Clip {
                     }
                     PleaseContinuePolling { pos } => {
                         self.shared_pos.set(pos);
+                        // TODO-high Set recording peak somewhere
                         true
                     }
                 }
@@ -440,6 +470,10 @@ impl Clip {
         self.shared_pos.clone()
     }
 
+    pub fn shared_peak(&self) -> SharedPeak {
+        self.shared_peak.clone()
+    }
+
     /// Attention: If this returns some info while in the middle of recording, this returns
     /// information about the previous clip's material! Use [`Self::recording_material_info`]
     /// instead if you need to query information about the material that's being recorded.
@@ -470,8 +504,12 @@ impl Clip {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                let (outcome, changed_state) =
-                    s.process(args, &mut self.supplier_chain, &mut self.shared_pos);
+                let (outcome, changed_state) = s.process(
+                    args,
+                    &mut self.supplier_chain,
+                    &mut self.shared_pos,
+                    &mut self.shared_peak,
+                );
                 if let Some(s) = changed_state {
                     debug!("Changing to recording state {:?}", &s);
                     self.state = Recording(s);
@@ -716,16 +754,18 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
         shared_pos: &mut SharedPos,
+        shared_peak: &mut SharedPeak,
     ) -> (ClipProcessingOutcome, Option<RecordingState>) {
         use ReadySubState::*;
         let (outcome, changed_state, pos) = match self.state {
             Stopped | Paused(_) => return (Default::default(), None),
             Playing(s) => {
-                let outcome = self.process_playing(s, args, supplier_chain);
+                let outcome = self.process_playing(s, args, supplier_chain, shared_peak);
                 (outcome, None, s.pos.unwrap_or_default())
             }
             Suspending(s) => {
-                let (outcome, changed_state) = self.process_suspending(s, args, supplier_chain);
+                let (outcome, changed_state) =
+                    self.process_suspending(s, args, supplier_chain, shared_peak);
                 (outcome, changed_state, s.pos)
             }
         };
@@ -738,6 +778,7 @@ impl ReadyState {
         s: PlayingState,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
+        shared_peak: &mut SharedPeak,
     ) -> ClipProcessingOutcome {
         let material_info = match supplier_chain.material_info() {
             Ok(i) => i,
@@ -823,6 +864,7 @@ impl ReadyState {
             go.sample_rate_factor,
             supplier_chain,
             &material_info,
+            shared_peak,
         );
         self.state = if let Some(next_frame) = fill_samples_outcome.next_frame {
             // There's still something to play.
@@ -948,11 +990,22 @@ impl ReadyState {
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
         material_info: &MaterialInfo,
+        shared_peak: &mut SharedPeak,
     ) -> FillSamplesOutcome {
         let dest_sample_rate = Hz::new(args.dest_sample_rate.get() * sample_rate_factor);
         let is_midi = material_info.is_midi();
         let response = if is_midi {
-            self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
+            let resp =
+                self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain);
+            let has_note_on = args
+                .midi_event_list
+                .iter()
+                .any(|evt| evt.message().is_note_on());
+            if has_note_on {
+                // Main thread is responsible for setting it back to MIN (acknowledges reading).
+                shared_peak.set(UnitValue::MAX);
+            }
+            resp
         } else {
             self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
         };
@@ -1047,6 +1100,7 @@ impl ReadyState {
         s: SuspendingState,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
+        shared_peak: &mut SharedPeak,
     ) -> (ClipProcessingOutcome, Option<RecordingState>) {
         let material_info = match supplier_chain.material_info() {
             Ok(i) => i,
@@ -1065,6 +1119,7 @@ impl ReadyState {
             1.0,
             supplier_chain,
             &material_info,
+            shared_peak,
         );
         let (next_state, clear_slot, recording_state) =
             if let Some(next_frame) = fill_samples_outcome.next_frame {
@@ -1495,6 +1550,7 @@ pub struct RecordNewClipInstruction {
     pub supplier_chain: SupplierChain,
     pub project: Option<Project>,
     pub shared_pos: SharedPos,
+    pub shared_peak: SharedPeak,
     pub timeline: HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub settings: MatrixClipRecordSettings,
@@ -1648,9 +1704,10 @@ impl Default for InternalClipPlayState {
 pub enum SlotChangeEvent {
     PlayState(InternalClipPlayState),
     Clips(&'static str),
-    ClipPosition {
+    Continuous {
         proportional: UnitValue,
         seconds: PositionInSeconds,
+        peak: UnitValue,
     },
 }
 

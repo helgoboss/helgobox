@@ -94,6 +94,10 @@ impl Content {
         self.runtime_data.position_in_seconds(tempo_factor)
     }
 
+    pub fn peak(&self) -> UnitValue {
+        self.runtime_data.peak()
+    }
+
     pub fn is_freezable(&self) -> bool {
         // At the moment, we only freeze MIDI to audio.
         self.runtime_data.material_info.is_midi()
@@ -139,6 +143,7 @@ impl Content {
         }
     }
 
+    /// Moves cursor in REAPER's MIDI editor.
     pub(crate) fn notify_pos_changed(
         &self,
         temporary_project: Project,
@@ -349,6 +354,7 @@ impl Slot {
                 supplier_chain,
                 project: Some(project),
                 shared_pos: Default::default(),
+                shared_peak: Default::default(),
                 timeline,
                 timeline_cursor_pos,
                 settings: *matrix_record_settings,
@@ -722,6 +728,7 @@ impl Slot {
             runtime_data: SlotRuntimeData {
                 play_state: Default::default(),
                 pos: rt_clip.shared_pos(),
+                peak: rt_clip.shared_peak(),
                 material_info: rt_clip.material_info().unwrap(),
             },
             pooled_midi_source,

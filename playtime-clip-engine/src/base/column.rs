@@ -332,7 +332,7 @@ impl Column {
             }
         }
         // Add position updates
-        let pos_change_events = self.slots.iter().enumerate().flat_map(|(row, slot)| {
+        let continuous_clip_events = self.slots.iter().enumerate().flat_map(|(row, slot)| {
             let nothing = Either::Right(iter::empty());
             let Ok(play_state) = slot.play_state() else {
                 return nothing;
@@ -345,9 +345,10 @@ impl Column {
                 RelevantContent::Normal(contents) => {
                     let iter = contents.map(move |content| {
                         let seconds = content.position_in_seconds(timeline_tempo);
-                        let event = SlotChangeEvent::ClipPosition {
+                        let event = SlotChangeEvent::Continuous {
                             proportional: content.proportional_position().unwrap_or_default(),
                             seconds,
+                            peak: content.peak(),
                         };
                         content.notify_pos_changed(temp_project, timeline_tempo, seconds);
                         (row, event)
@@ -355,16 +356,17 @@ impl Column {
                     Either::Left(iter)
                 }
                 RelevantContent::Recording(runtime_data) => {
-                    let event = SlotChangeEvent::ClipPosition {
+                    let event = SlotChangeEvent::Continuous {
                         proportional: runtime_data.proportional_position().unwrap_or_default(),
                         seconds: runtime_data.position_in_seconds_during_recording(timeline_tempo),
+                        peak: runtime_data.peak(),
                     };
                     Either::Right(iter::once((row, event)))
                 }
             };
             Either::Left(iter)
         });
-        change_events.extend(pos_change_events);
+        change_events.extend(continuous_clip_events);
         change_events
     }
 

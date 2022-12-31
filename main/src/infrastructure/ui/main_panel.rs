@@ -626,7 +626,7 @@ fn send_occasional_slot_updates(
                             matrix, slot,
                         )
                     }
-                    ClipPosition { .. } => return None,
+                    Continuous { .. } => return None,
                 };
                 Some(QualifiedOccasionalSlotUpdate {
                     slot_address: Some(SlotAddress::from_engine(*slot_coordinates)),
@@ -801,20 +801,22 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
             if let ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
                 slot_address: slot_coordinates,
                 event:
-                    SlotChangeEvent::ClipPosition {
+                    SlotChangeEvent::Continuous {
                         proportional,
                         seconds,
+                        peak,
                     },
             }) = event
             {
                 Some(QualifiedContinuousSlotUpdate {
                     slot_address: Some(SlotAddress::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
+                        // TODO-high-playtime Send for each clip
                         clip_update: vec![
                             (ContinuousClipUpdate {
                                 proportional_position: proportional.get(),
                                 position_in_seconds: seconds.get(),
-                                peak: 0.0,
+                                peak: peak.get(),
                             }),
                         ],
                     }),

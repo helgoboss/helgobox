@@ -5,8 +5,8 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     Clip, ClipProcessArgs, ClipRecordingPollArgs, ColumnProcessTransportChangeArgs, ColumnSettings,
-    FillClipMode, HandleSlotEvent, InternalClipPlayState, OverridableMatrixSettings, SharedPos,
-    SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
+    FillClipMode, HandleSlotEvent, InternalClipPlayState, OverridableMatrixSettings, SharedPeak,
+    SharedPos, SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
@@ -460,6 +460,7 @@ fn play_clip_by_transport(
 pub struct SlotRuntimeData {
     pub play_state: InternalClipPlayState,
     pub pos: SharedPos,
+    pub peak: SharedPeak,
     /// The frame count in this material info is supposed to take the section bounds into account.
     pub material_info: MaterialInfo,
 }
@@ -469,6 +470,7 @@ impl SlotRuntimeData {
         Self {
             play_state: clip.play_state(),
             pos: clip.shared_pos(),
+            peak: clip.shared_peak(),
             material_info: clip
                 .recording_material_info()
                 .expect("recording clip should return recording material info"),
@@ -514,5 +516,9 @@ impl SlotRuntimeData {
             self.material_info.frame_rate(),
         );
         adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor)
+    }
+
+    pub fn peak(&self) -> UnitValue {
+        self.peak.reset()
     }
 }
