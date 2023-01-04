@@ -93,8 +93,8 @@ pub struct MatrixClipRecordSettings {
     pub start_timing: ClipRecordStartTiming,
     pub stop_timing: ClipRecordStopTiming,
     pub duration: RecordLength,
-    pub play_start_timing: ClipSettingOverrideAfterRecording<ClipPlayStartTiming>,
-    pub play_stop_timing: ClipSettingOverrideAfterRecording<ClipPlayStopTiming>,
+    pub play_start_timing: ClipPlayStartTimingOverrideAfterRecording,
+    pub play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
     pub looped: bool,
@@ -119,11 +119,11 @@ impl MatrixClipRecordSettings {
         initial_play_start_timing: ClipPlayStartTiming,
         current_play_start_timing: ClipPlayStartTiming,
     ) -> Option<ClipPlayStartTiming> {
-        use ClipSettingOverrideAfterRecording::*;
+        use ClipPlayStartTimingOverrideAfterRecording as T;
         match self.play_start_timing {
-            Inherit => None,
-            Override(t) => Some(t.value),
-            DeriveFromRecordTiming => self
+            T::Inherit => None,
+            T::Override(t) => Some(t.value),
+            T::DeriveFromRecordTiming => self
                 .start_timing
                 .derive_play_start_timing(initial_play_start_timing, current_play_start_timing),
         }
@@ -134,11 +134,11 @@ impl MatrixClipRecordSettings {
         initial_play_start_timing: ClipPlayStartTiming,
         current_play_start_timing: ClipPlayStartTiming,
     ) -> Option<ClipPlayStopTiming> {
-        use ClipSettingOverrideAfterRecording::*;
+        use ClipPlayStopTimingOverrideAfterRecording as T;
         match self.play_stop_timing {
-            Inherit => None,
-            Override(t) => Some(t.value),
-            DeriveFromRecordTiming => self.stop_timing.derive_play_stop_timing(
+            T::Inherit => None,
+            T::Override(t) => Some(t.value),
+            T::DeriveFromRecordTiming => self.stop_timing.derive_play_stop_timing(
                 self.start_timing,
                 initial_play_start_timing,
                 current_play_start_timing,
@@ -419,13 +419,17 @@ impl Default for ClipPlayStopTiming {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+// TODO-low This was generic before (9265c028). Now it's duplicated instead for easier Dart
+//  conversion. If we need to use generics one day more extensively, there's probably a way to make
+//  it work.
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
-pub enum ClipSettingOverrideAfterRecording<T> {
+pub enum ClipPlayStartTimingOverrideAfterRecording {
     /// Doesn't apply any override.
+    #[default]
     Inherit,
     /// Overrides the setting with the given value.
-    Override(Override<T>),
+    Override(ClipPlayStartTimingOverride),
     /// Derives the setting from the record timing.
     ///
     /// If the record timing is set to the global clip timing, that means it will not apply any
@@ -433,15 +437,29 @@ pub enum ClipSettingOverrideAfterRecording<T> {
     DeriveFromRecordTiming,
 }
 
-impl<T> Default for ClipSettingOverrideAfterRecording<T> {
-    fn default() -> Self {
-        Self::Inherit
-    }
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum ClipPlayStopTimingOverrideAfterRecording {
+    /// Doesn't apply any override.
+    #[default]
+    Inherit,
+    /// Overrides the setting with the given value.
+    Override(ClipPlayStopTimingOverride),
+    /// Derives the setting from the record timing.
+    ///
+    /// If the record timing is set to the global clip timing, that means it will not apply any
+    /// override. If it's set to something specific, it will apply the appropriate override.
+    DeriveFromRecordTiming,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct Override<T> {
-    pub value: T,
+pub struct ClipPlayStartTimingOverride {
+    pub value: ClipPlayStartTiming,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipPlayStopTimingOverride {
+    pub value: ClipPlayStopTiming,
 }
 
 /// An even quantization.
