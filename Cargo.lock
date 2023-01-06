@@ -3429,6 +3429,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 name = "playtime-api"
 version = "0.1.0"
 dependencies = [
+ "realearn-macros",
  "schemars",
  "serde",
 ]
@@ -4068,6 +4069,10 @@ dependencies = [
  "derive_more",
  "indexmap 1.7.0",
 ]
+
+[[package]]
+name = "realearn-macros"
+version = "0.1.0"
 
 [[package]]
 name = "reaper-high"

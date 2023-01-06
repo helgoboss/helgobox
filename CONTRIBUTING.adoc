@@ -30,6 +30,7 @@ See link:ARCHITECTURE.adoc[here].
 |`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
 |`/dialogs` |The single source of truth for ReaLearn's GUI dialogs
 |`/doc` |Documentation
+|`/macros` |Various Rust macros for usage in this project only
 |`/main` |Main crate (`realearn`)
 |`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
 |`/playtime-clip-engine` |Playtime clip engine for playing/recording clips

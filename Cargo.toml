@@ -2,6 +2,7 @@
 members = [
     "api",
     "dialogs",
+    "macros",
     "playtime-clip-engine",
     "playtime-api",
     "csi",
