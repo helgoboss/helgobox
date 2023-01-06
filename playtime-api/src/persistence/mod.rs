@@ -13,7 +13,6 @@
 //! - Only a subset of the possible Rust data structuring possibilities are used. The ones that
 //!   work well with ReaLearn Script (`lua_serializer.rs`).
 
-use realearn_macros::Playtime;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -989,7 +988,7 @@ pub enum ClipColor {
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct CustomClipColor {
-    pub value: u32,
+    pub value: RgbColor,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

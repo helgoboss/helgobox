@@ -278,9 +278,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<SetClipDataRequest>,
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
+        let clip =
+            serde_json::from_str(&req.data).map_err(|e| Status::invalid_argument(e.to_string()))?;
         handle_clip_command(&req.clip_address, |matrix, clip_address| {
-            let clip =
-                serde_json::from_str(&req.data).map_err(|_| "couldn't deserialize clip data")?;
             matrix.set_clip_data(clip_address, clip)
         })
     }

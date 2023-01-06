@@ -24,6 +24,7 @@ use ulid::Ulid;
 pub struct Clip {
     id: ClipId,
     name: Option<String>,
+    color: api::ClipColor,
     source: api::Source,
     frozen_source: Option<api::Source>,
     active_source: SourceOrigin,
@@ -63,6 +64,7 @@ impl Clip {
                 .and_then(|s| ClipId::from_str(&s).ok())
                 .unwrap_or_else(ClipId::random),
             name: api_clip.name,
+            color: api_clip.color,
             source: api_clip.source,
             frozen_source: api_clip.frozen_source,
             active_source: api_clip.active_source,
@@ -88,6 +90,7 @@ impl Clip {
         let clip = Self {
             id: ClipId::random(),
             name: recording_track.name().map(|n| n.into_string()),
+            color: ClipColor::PlayTrackColor,
             source: api_source,
             frozen_source: None,
             active_source: SourceOrigin::Normal,
@@ -132,7 +135,7 @@ impl Clip {
             stop_timing: self.processing_relevant_settings.stop_timing,
             looped: self.processing_relevant_settings.looped,
             volume: self.processing_relevant_settings.volume,
-            color: ClipColor::PlayTrackColor,
+            color: self.color.clone(),
             section: self.processing_relevant_settings.section,
             audio_settings: self.processing_relevant_settings.audio_settings,
             midi_settings: self.processing_relevant_settings.midi_settings,
