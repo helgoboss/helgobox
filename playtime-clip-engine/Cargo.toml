@@ -42,9 +42,9 @@ once_cell = "1.4.0"
 # For logging
 tracing = "0.1.31"
 # For gRPC server
-tonic = "0.5"
+tonic = "0.8.3"
 # For gRPC server
-prost = "0.8"
+prost = "0.11.5"
 # For random clip IDs
 ulid = "1.0.0"
 # For being able to return iterators of different types

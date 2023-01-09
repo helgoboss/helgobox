@@ -74,8 +74,8 @@ axum = { version = "0.3", features = ["ws", "headers"] }
 axum-server = { version = "0.3", features = ["tls-rustls"] }
 tower-http = { version = "0.1", features = ["cors"] }
 # For ReaLearn's gRPC server
-tonic = "0.5"
-prost = "0.8"
+tonic = "0.8.3"
+prost = "0.11.5"
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG

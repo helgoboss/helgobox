@@ -10,6 +10,7 @@ use std::net::SocketAddr;
 use tokio::sync::broadcast;
 use tonic::transport::Server;
 
+// TODO-high-playtime Use https://github.com/faern/triggered instead of channel-based shutdown
 pub async fn start_grpc_server(
     address: SocketAddr,
     mut shutdown_receiver: broadcast::Receiver<()>,
