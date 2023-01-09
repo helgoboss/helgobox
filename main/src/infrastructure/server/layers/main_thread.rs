@@ -2,7 +2,6 @@ use crate::base::Global;
 use axum::http::Response;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
-use hyper::StatusCode;
 use std::task::{Context, Poll};
 use tower::{Layer, Service};
 
@@ -60,7 +59,7 @@ where
         let response_future = async {
             rx.await.unwrap_or_else(|_| {
                 let response = Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
                     .body(ResBody::default())
                     .unwrap();
                 Ok(response)
