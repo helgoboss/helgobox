@@ -770,18 +770,19 @@ impl App {
         self.config.borrow()
     }
 
+    pub fn server_is_running(&self) -> bool {
+        self.server.borrow().is_running()
+    }
+
     pub fn start_server_persistently(&self) -> Result<(), String> {
         self.server.borrow_mut().start()?;
         self.change_config(AppConfig::enable_server);
         Ok(())
     }
 
-    pub fn disable_server_persistently(&self) {
+    pub fn stop_server_persistently(&self) {
         self.change_config(AppConfig::disable_server);
-    }
-
-    pub fn enable_server_persistently(&self) {
-        self.change_config(AppConfig::enable_server);
+        self.server.borrow_mut().stop();
     }
 
     /// Logging debug info is always initiated by a particular session.

@@ -505,11 +505,13 @@ impl HeaderPanel {
                 menu(
                     "Server",
                     vec![
-                        item_with_opts(
-                            "Enabled",
-                            ItemOpts {
-                                enabled: true,
-                                checked: App::get().config().server_is_enabled(),
+                        item(
+                            if App::get().server_is_running() {
+                                "Disable and stop!"
+                            } else if App::get().config().server_is_enabled() {
+                                "Start! (currently enabled but failed to start)"
+                            } else {
+                                "Enable and start!"
                             },
                             || MainMenuAction::ToggleServer,
                         ),
@@ -694,49 +696,23 @@ impl HeaderPanel {
                 self.set_stay_active_when_project_in_background(option)
             }
             MainMenuAction::ToggleServer => {
-                enum ServerAction {
-                    Start,
-                    Disable,
-                    Enable,
-                }
-                let next_server_action = {
-                    let server = app.server().borrow();
-                    if server.is_running() {
-                        if app.config().server_is_enabled() {
-                            ServerAction::Disable
-                        } else {
-                            ServerAction::Enable
+                if app.server_is_running() {
+                    app.stop_server_persistently();
+                    self.view.require_window().alert(
+                        "ReaLearn",
+                        "Stopped projection server and permanently disabled it.",
+                    );
+                } else {
+                    match app.start_server_persistently() {
+                        Ok(_) => {
+                            self.view
+                                .require_window()
+                                .alert("ReaLearn", "Successfully started projection server and permanently enabled it.");
                         }
-                    } else {
-                        ServerAction::Start
-                    }
-                };
-                match next_server_action {
-                    ServerAction::Start => {
-                        match App::start_server_persistently(app) {
-                            Ok(_) => {
-                                self.view
-                                    .require_window()
-                                    .alert("ReaLearn", "Successfully started projection server.");
-                            }
-                            Err(info) => {
-                                warn_about_failed_server_start(info);
-                            }
-                        };
-                    }
-                    ServerAction::Disable => {
-                        app.disable_server_persistently();
-                        self.view.require_window().alert(
-                            "ReaLearn",
-                            "Disabled projection server. This will take effect on the next start of REAPER.",
-                        );
-                    }
-                    ServerAction::Enable => {
-                        app.enable_server_persistently();
-                        self.view
-                            .require_window()
-                            .alert("ReaLearn", "Enabled projection server again.");
-                    }
+                        Err(info) => {
+                            warn_about_failed_server_start(info);
+                        }
+                    };
                 }
             }
             MainMenuAction::ToggleUseInstancePresetLinksOnly => {
