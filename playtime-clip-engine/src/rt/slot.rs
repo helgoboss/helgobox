@@ -134,7 +134,7 @@ impl Slot {
         if self.clips.is_empty() {
             return;
         }
-        let old_clips = mem::replace(&mut self.clips, vec![]);
+        let old_clips = mem::take(&mut self.clips);
         event_handler.slot_cleared(old_clips);
         self.runtime_data = InternalRuntimeData::default();
     }

@@ -982,6 +982,7 @@ impl ReadyState {
     /// Returns the next frame to be queried.
     ///
     /// Returns `None` if end of material.
+    #[allow(clippy::too_many_arguments)]
     fn fill_samples(
         &mut self,
         args: &mut ClipProcessArgs,

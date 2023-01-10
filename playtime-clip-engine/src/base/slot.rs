@@ -886,10 +886,7 @@ fn get_contents_mut(contents: &mut Vec<Content>) -> ClipEngineResult<&mut [Conte
     Ok(contents.as_mut_slice())
 }
 
-fn get_content_mut(
-    contents: &mut Vec<Content>,
-    clip_index: usize,
-) -> ClipEngineResult<&mut Content> {
+fn get_content_mut(contents: &mut [Content], clip_index: usize) -> ClipEngineResult<&mut Content> {
     contents.get_mut(clip_index).ok_or(CLIP_DOESNT_EXIST)
 }
 
