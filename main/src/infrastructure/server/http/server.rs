@@ -6,11 +6,8 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::Method;
 use axum::routing::{get, patch};
 use axum::Router;
-use axum_server::Handle;
 use std::io;
 use std::net::SocketAddr;
-use std::time::Duration;
-use tokio::sync::broadcast;
 use tower_http::cors::{any, CorsLayer};
 
 use crate::base::Global;
@@ -25,8 +22,6 @@ pub async fn start_http_server(
     https_port: u16,
     clients: ServerClients,
     (key, cert): (String, String),
-    mut http_shutdown_receiver: broadcast::Receiver<()>,
-    mut https_shutdown_receiver: broadcast::Receiver<()>,
     metrics_reporter: MetricsReporter,
 ) -> Result<(), io::Error> {
     // Router
@@ -34,15 +29,7 @@ pub async fn start_http_server(
     // Binding
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
-        let handle = Handle::new();
-        let cloned_handle = handle.clone();
-        tokio::spawn(async move {
-            http_shutdown_receiver.recv().await.unwrap();
-            cloned_handle.graceful_shutdown(Some(Duration::ZERO));
-        });
-        axum_server::bind(addr)
-            .handle(handle)
-            .serve(router.clone().into_make_service())
+        axum_server::bind(addr).serve(router.clone().into_make_service())
     };
     let https_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], https_port));
@@ -50,15 +37,7 @@ pub async fn start_http_server(
             axum_server::tls_rustls::RustlsConfig::from_pem(cert.into(), key.into())
                 .await
                 .unwrap();
-        let handle = Handle::new();
-        let cloned_handle = handle.clone();
-        tokio::spawn(async move {
-            https_shutdown_receiver.recv().await.unwrap();
-            cloned_handle.graceful_shutdown(Some(Duration::ZERO));
-        });
-        axum_server::bind_rustls(addr, rustls_config)
-            .handle(handle)
-            .serve(router.into_make_service())
+        axum_server::bind_rustls(addr, rustls_config).serve(router.into_make_service())
     };
     // Notify UI
     Global::task_support()

@@ -37,12 +37,16 @@ debug = 1
 # closed and rustls has updated the dependency, we should remove this!
 webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround/54-alert-decode-error-0.22.0" }
 
-# Yes! Thanks to the use of axum-server we don't need this Hyper patch anymore! axum-server seems to use lower-level
-# Hyper features and implements a proper graceful shutdown feature on it that allows one to specify a timeout. If
-# not all connections are closed until that timeout, it just shuts down forcibly. That's important and exactly what we
-# need. We need the server shutdown happen immediately before ReaLearn is unloaded without having to force the user
-# to wait for open connections to finish. The following was a temporary hack to make this possible.
-# See https://github.com/hyperium/hyper/issues/1885 and https://github.com/helgoboss/realearn/issues.
+# Yes! Thanks to the use of axum-server (instead of warp) we don't need this Hyper patch anymore! axum-server seems to
+# use lower-level Hyper features and implements a proper graceful shutdown feature on it that allows one to specify a
+# timeout. If not all connections are closed until that timeout, it just shuts down forcibly. That's important and
+# exactly what we need. We need the server shutdown happen immediately before ReaLearn is unloaded without having to
+# force the user to wait for open connections to finish. The following was a temporary hack to make this possible.
+# See https://github.com/hyperium/hyper/issues/1885, https://github.com/hyperium/hyper/issues/2386.
+# For a moment, I thought that I need to reintroduce this patch for gRPC, which is driven by tonic. Indeed, when using
+# tonic's serve_with_shutdown() feature, REAPER doesn't quit until Playtime gRPC client has disconnected :/ But
+# fortunately, using the tokio::select! workaround (mentioned in issue 2386) works and *also* closes the ports this
+# time! Turns out the same is actually true for axum, so we use select! there as well.
 #hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }
 
 # TODO-low-wait Wait until https://github.com/RustAudio/vst-rs/issues/184 merged.

@@ -7,22 +7,14 @@ use playtime_clip_engine::proto::{
     QualifiedOccasionalTrackUpdate,
 };
 use std::net::SocketAddr;
-use tokio::sync::broadcast;
 use tonic::transport::Server;
 
-// TODO-high-playtime Use https://github.com/faern/triggered instead of channel-based shutdown
-pub async fn start_grpc_server(
-    address: SocketAddr,
-    mut shutdown_receiver: broadcast::Receiver<()>,
-) -> Result<(), tonic::transport::Error> {
+pub async fn start_grpc_server(address: SocketAddr) -> Result<(), tonic::transport::Error> {
     let clip_engine = RealearnClipEngine::default();
     Server::builder()
         .layer(MainThreadLayer)
         .add_service(ClipEngineServer::new(clip_engine))
-        .serve_with_shutdown(
-            address,
-            async move { shutdown_receiver.recv().await.unwrap() },
-        )
+        .serve(address)
         .await
 }
 

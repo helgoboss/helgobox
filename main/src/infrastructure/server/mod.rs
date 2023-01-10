@@ -146,9 +146,7 @@ impl RealearnServer {
         let https_port = self.https_port;
         let grpc_port = self.grpc_port;
         let key_and_cert = self.key_and_cert();
-        let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
-        let https_shutdown_receiver = shutdown_sender.subscribe();
-        let grpc_shutdown_receiver = shutdown_sender.subscribe();
+        let (shutdown_sender, shutdown_receiver) = broadcast::channel(5);
         let metrics_reporter = self.metrics_reporter.clone();
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
@@ -163,9 +161,7 @@ impl RealearnServer {
                     grpc_port,
                     clients_clone,
                     key_and_cert,
-                    http_shutdown_receiver,
-                    https_shutdown_receiver,
-                    grpc_shutdown_receiver,
+                    shutdown_receiver,
                     metrics_reporter,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
@@ -308,6 +304,7 @@ impl RealearnServer {
     }
 }
 
+// TODO-medium-playtime Use https://github.com/faern/triggered instead of channel-based shutdown
 #[allow(clippy::too_many_arguments)]
 async fn start_servers(
     http_port: u16,
@@ -315,9 +312,7 @@ async fn start_servers(
     grpc_port: u16,
     clients: ServerClients,
     (key, cert): (String, String),
-    http_shutdown_receiver: broadcast::Receiver<()>,
-    https_shutdown_receiver: broadcast::Receiver<()>,
-    grpc_shutdown_receiver: broadcast::Receiver<()>,
+    mut shutdown_receiver: broadcast::Receiver<()>,
     metrics_reporter: MetricsReporter,
 ) {
     let http_server_future = start_http_server(
@@ -325,18 +320,18 @@ async fn start_servers(
         https_port,
         clients,
         (key, cert),
-        http_shutdown_receiver,
-        https_shutdown_receiver,
         metrics_reporter,
     );
-    let grpc_server_future = start_grpc_server(
-        SocketAddr::from(([127, 0, 0, 1], grpc_port)),
-        grpc_shutdown_receiver,
-    );
-    let (http_result, grpc_result) =
-        futures::future::join(http_server_future, grpc_server_future).await;
-    http_result.expect("HTTP server error");
-    grpc_result.expect("gRPC server error");
+    let grpc_server_future = start_grpc_server(SocketAddr::from(([127, 0, 0, 1], grpc_port)));
+    let joined_future = futures::future::join(http_server_future, grpc_server_future);
+    tokio::select! {
+        _ = shutdown_receiver.recv() => {
+        }
+        (http_result, grpc_result) = joined_future => {
+            http_result.expect("HTTP server error");
+            grpc_result.expect("gRPC server error");
+        }
+    }
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
