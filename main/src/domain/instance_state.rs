@@ -352,7 +352,7 @@ impl InstanceState {
     pub fn clip_matrix_relevance(&self, instance_id: InstanceId) -> Option<ClipMatrixRelevance> {
         match self.clip_matrix_ref.as_ref()? {
             ClipMatrixRef::Own(m) if instance_id == self.instance_id => {
-                Some(ClipMatrixRelevance::Owns(&m))
+                Some(ClipMatrixRelevance::Owns(m))
             }
             ClipMatrixRef::Foreign(id) if instance_id == *id => Some(ClipMatrixRelevance::Borrows),
             _ => None,

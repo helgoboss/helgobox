@@ -252,7 +252,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         let action = TriggerSlotAction::from_i32(req.action)
-            .ok_or(Status::invalid_argument("unknown trigger slot action"))?;
+            .ok_or_else(|| Status::invalid_argument("unknown trigger slot action"))?;
         handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
             TriggerSlotAction::Play => {
                 matrix.play_slot(slot_address, ColumnPlayClipOptions::default())
@@ -291,7 +291,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         let action: TriggerMatrixAction = TriggerMatrixAction::from_i32(req.action)
-            .ok_or(Status::invalid_argument("unknown trigger matrix action"))?;
+            .ok_or_else(|| Status::invalid_argument("unknown trigger matrix action"))?;
         handle_matrix_command(&req.matrix_id, |matrix| {
             let project = matrix.permanent_project().or_current_project();
             match action {
@@ -344,7 +344,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         let action = TriggerColumnAction::from_i32(req.action)
-            .ok_or(Status::invalid_argument("unknown trigger column action"))?;
+            .ok_or_else(|| Status::invalid_argument("unknown trigger column action"))?;
         handle_column_command(&req.column_address, |matrix, column_index| match action {
             TriggerColumnAction::Stop => matrix.stop_column(column_index),
         })
@@ -356,7 +356,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         let action = TriggerRowAction::from_i32(req.action)
-            .ok_or(Status::invalid_argument("unknown trigger row action"))?;
+            .ok_or_else(|| Status::invalid_argument("unknown trigger row action"))?;
         handle_row_command(&req.row_address, |matrix, row_index| match action {
             TriggerRowAction::Play => {
                 matrix.play_scene(row_index);
