@@ -72,7 +72,7 @@ tower = "0.4"
 # For ReaLearn's http server (used for projection)
 axum = { version = "0.3", features = ["ws", "headers"] }
 axum-server = { version = "0.3", features = ["tls-rustls"] }
-tower-http = { version = "0.1", features = ["cors"] }
+tower-http = { version = "0.3", features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic = "0.8.3"
 prost = "0.11.5"
