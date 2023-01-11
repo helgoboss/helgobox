@@ -56,7 +56,7 @@ use slog::{debug, Drain, Logger};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
@@ -831,7 +831,23 @@ impl App {
             .join("Data/helgoboss/realearn")
     }
 
-    pub fn realearn_sound_dir_path() -> PathBuf {
+    pub fn realearn_high_click_sound_path() -> Option<&'static Path> {
+        static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
+            // Copy original sound to fix Windows install error when attempting to install a
+            // new ReaLearn version via ReaPack while still having ReaLearn open.
+            // https://github.com/helgoboss/realearn/issues/780
+            let original_path = App::realearn_sound_dir_path().join("high-click.mp3");
+            if !Path::exists(&original_path) {
+                return None;
+            }
+            let copy_path = App::get_temp_dir()?.path().join(original_path.file_name()?);
+            fs::copy(&original_path, &copy_path).ok()?;
+            Some(copy_path)
+        });
+        PATH.as_ref().map(|p| p.as_path())
+    }
+
+    fn realearn_sound_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("sounds")
     }
 

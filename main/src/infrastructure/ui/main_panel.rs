@@ -117,9 +117,12 @@ impl MainPanel {
             panel_manager,
             success_sound_player: {
                 let mut sound_player = SoundPlayer::new();
-                let path_to_file = App::realearn_sound_dir_path().join("high-click.mp3");
-                if sound_player.load_file(&path_to_file).is_ok() {
-                    Some(sound_player)
+                if let Some(path_to_file) = App::realearn_high_click_sound_path() {
+                    if sound_player.load_file(path_to_file).is_ok() {
+                        Some(sound_player)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
