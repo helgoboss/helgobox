@@ -5,9 +5,9 @@ use crate::application::{
 use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
     compartment_param_index_iter, pot, BackboneState, ClipMatrixRef, Compartment,
-    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceState,
-    MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput,
-    MidiDestination, OscDeviceId, Param, PluginParamIndex, PluginParams,
+    CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey,
+    InstanceState, MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId,
+    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParams,
     StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
@@ -549,6 +549,11 @@ impl SessionData {
             &self.groups,
             self.parameters.values().map(|p| &p.setting),
         )?;
+        ensure_no_duplicate_compartment_data(
+            &self.controller_mappings,
+            &self.controller_groups,
+            self.controller_parameters.values().map(|p| &p.setting),
+        )?;
         let control_input = match self.control_device_id.as_ref() {
             None => ControlInput::Midi(MidiControlInput::FxInput),
             Some(dev_id) => {
@@ -871,17 +876,28 @@ impl SessionData {
 
     pub fn create_params(&self) -> PluginParams {
         let mut params = PluginParams::default();
-        for (i, p) in self.parameters.iter() {
-            if let Some(i) = i
-                .parse::<u32>()
-                .ok()
-                .and_then(|i| PluginParamIndex::try_from(i).ok())
-            {
-                let param = Param::new(p.setting.clone(), p.value);
-                *params.at_mut(i) = param;
-            }
-        }
+        fill_compartment_params(
+            &self.parameters,
+            params.compartment_params_mut(Compartment::Main),
+        );
+        fill_compartment_params(
+            &self.controller_parameters,
+            params.compartment_params_mut(Compartment::Controller),
+        );
         params
+    }
+}
+
+fn fill_compartment_params(data: &HashMap<String, ParameterData>, model: &mut CompartmentParams) {
+    for (index_string, p) in data.iter() {
+        let index = index_string
+            .parse::<u32>()
+            .ok()
+            .and_then(|i| CompartmentParamIndex::try_from(i).ok());
+        if let Some(i) = index {
+            let param = Param::new(p.setting.clone(), p.value);
+            *model.at_mut(i) = param;
+        }
     }
 }
 
