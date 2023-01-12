@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2022-11-24 (v2.14.0)`
+|Last update of text: |`2023-01-13 (v2.14.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1000,8 +1000,10 @@ with the same control and/or feedback device will be disabled for control and/or
 
 ====== Server
 
-* *Enabled:* This enables/disables the built-in server for allowing the ReaLearn Companion app to
-connect to ReaLearn.
+ReaLearn features a built-in server which allows the <<companion-app>> (and in future also the Playtime app) to connect to ReaLearn. The server runs globally, not per instance!
+
+* *Enable and start!:* This starts the server and makes sure it will automatically be started next time you use ReaLearn.
+* *Disable and stop!:* This stops the server and makes sure it will not be started next time you use ReaLearn.
 * *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
 displays instructions how to do it.
 
