@@ -523,11 +523,12 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "baseview"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/baseview.git?branch=try-borrow-mut#c0b5bd276e65ac38cdd936f654a0e1b3db148825"
+source = "git+https://github.com/helgoboss/baseview.git?branch=realearn#e2f01f96239525004692a3ac8ed95ad2197c0927"
 dependencies = [
  "cocoa",
  "core-foundation 0.9.1",
  "keyboard-types",
+ "libloading",
  "nix 0.22.3",
  "objc",
  "raw-window-handle 0.4.3",
@@ -1388,7 +1389,7 @@ dependencies = [
 [[package]]
 name = "egui-baseview"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/egui-baseview.git?branch=feature/open-links-in-browser#7255528576742c4b105253072817b24366f9a35d"
+source = "git+https://github.com/helgoboss/egui-baseview.git?branch=realearn#7a38423e963770d335a86485f8884cad90dc8939"
 dependencies = [
  "baseview",
  "copypasta",

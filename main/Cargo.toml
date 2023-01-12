@@ -165,8 +165,8 @@ enigo = "0.0.14"
 # For the mouse target (to query mouse state)
 device_query = "1.1.1"
 # For egui graphics
-egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "feature/open-links-in-browser" }
-baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "try-borrow-mut" }
+egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn" }
+baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
 egui = "0.19.0"
 # For Pot target
 rusqlite = { version = "0.28.0", features = ["bundled"] }
