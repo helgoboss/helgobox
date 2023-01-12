@@ -35,6 +35,11 @@ If you previously installed ReaLearn manually, please uninstall it first!
 . OK or Apply
 . Restart REAPER
 
+**Linux users only:**
+
+- You also need `libxdo` installed, otherwise ReaLearn won't scan.
+- Debian/Ubuntu: `sudo apt-get install -y libxdo-dev`
+
 === Update to the latest stable version
 
 ReaLearn development moves fast. In order to take advantage of new features, improvements and fixes, you should check for updates from time to time.
