@@ -606,7 +606,12 @@ impl Window {
     pub fn dpi(&self) -> u32 {
         #[cfg(target_family = "windows")]
         {
-            unsafe { winapi::um::winuser::GetDpiForWindow(self.raw as _) }
+            let dynamic_win_api = crate::win::DynamicWinApi::load();
+            if let Some(f) = dynamic_win_api.get_dpi_for_window() {
+                f(self.raw as _)
+            } else {
+                96
+            }
         }
         #[cfg(target_family = "unix")]
         96

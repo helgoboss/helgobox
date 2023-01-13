@@ -3804,7 +3804,7 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
 name = "realearn"
-version = "2.14.2"
+version = "2.14.3"
 dependencies = [
  "approx",
  "arboard",
@@ -4755,6 +4755,7 @@ name = "swell-ui"
 version = "0.1.0"
 dependencies = [
  "bindgen",
+ "libloading",
  "objc2",
  "palette",
  "raw-window-handle 0.4.3",
