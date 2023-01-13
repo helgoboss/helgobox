@@ -836,7 +836,7 @@ impl App {
             // Copy original sound to fix Windows install error when attempting to install a
             // new ReaLearn version via ReaPack while still having ReaLearn open.
             // https://github.com/helgoboss/realearn/issues/780
-            let original_path = App::realearn_sound_dir_path().join("high-click.mp3");
+            let original_path = App::realearn_sound_dir_path().join("click-high.mp3");
             if !Path::exists(&original_path) {
                 return None;
             }
