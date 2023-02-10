@@ -2,7 +2,7 @@
 :toc:
 :toclevels: 5
 :sectnums:
-:sectnumlevels: 2
+:sectnumlevels: 4
 
 // Reusable text snippets
 :osc_host_instruction: Enter the IP address of the computer running ReaLearn. You can easily find it by pressing the "Projection" button in ReaLearn and scrolling down a bit. It's the value next to "Host" and should start with "192.168.".
