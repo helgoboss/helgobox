@@ -1566,7 +1566,14 @@ impl Session {
     }
 
     pub fn toggle_learning_source(&mut self, session: &SharedSession, mapping: &SharedMapping) {
-        if self.mapping_which_learns_source.get_ref().is_none() {
+        if let Some(currently_learning_mapping_id) = self.mapping_which_learns_source.get() {
+            let mapping_id = mapping.borrow().qualified_id();
+            if currently_learning_mapping_id == mapping_id {
+                self.stop_learning_source();
+            } else {
+                self.mapping_which_learns_source.set(Some(mapping_id));
+            }
+        } else {
             self.start_learning_source(
                 Rc::downgrade(session),
                 mapping.clone(),
@@ -1574,8 +1581,6 @@ impl Session {
                 vec![],
                 mapping.borrow().compartment() != Compartment::Controller,
             );
-        } else {
-            self.stop_learning_source();
         }
     }
 
@@ -1640,10 +1645,14 @@ impl Session {
         session: &SharedSession,
         mapping_id: QualifiedMappingId,
     ) {
-        if self.mapping_which_learns_target.get_ref().is_none() {
-            self.start_learning_target(Rc::downgrade(session), mapping_id, true);
+        if let Some(currently_learning_mapping_id) = self.mapping_which_learns_target.get() {
+            if currently_learning_mapping_id == mapping_id {
+                self.stop_learning_target();
+            } else {
+                self.mapping_which_learns_target.set(Some(mapping_id));
+            }
         } else {
-            self.stop_learning_target();
+            self.start_learning_target(Rc::downgrade(session), mapping_id, true);
         }
     }
 
