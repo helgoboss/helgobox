@@ -20,10 +20,10 @@ use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, InstanceId,
-    MappingId, MappingSnapshotId, MouseActionType, OscDeviceId, PotFilterItemsTargetSettings,
-    ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
-    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, MappingId,
+    MappingKey, MappingRef, MappingSnapshotId, MouseActionType, OscDeviceId,
+    PotFilterItemsTargetSettings, ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
@@ -169,8 +169,7 @@ pub enum TargetCommand {
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
     SetPotFilterItemKind(PotFilterItemKind),
     SetLearnableFeature(LearnableMappingFeature),
-    SetInstanceId(Option<InstanceId>),
-    SetMappingId(Option<MappingId>),
+    SetMappingRef(MappingRefModel),
 }
 
 #[derive(Eq, PartialEq)]
@@ -269,8 +268,7 @@ pub enum TargetProp {
     MappingSnapshotDefaultValue,
     PotFilterItemKind,
     LearnableFeature,
-    InstanceId,
-    MappingId,
+    MappingRef,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -649,13 +647,9 @@ impl<'a> Change<'a> for TargetModel {
                 self.learnable_feature = f;
                 One(P::LearnableFeature)
             }
-            C::SetInstanceId(id) => {
-                self.instance_id = id;
-                One(P::InstanceId)
-            }
-            C::SetMappingId(id) => {
-                self.mapping_id = id;
-                One(P::MappingId)
+            C::SetMappingRef(mapping_ref) => {
+                self.mapping_ref = mapping_ref;
+                One(P::MappingRef)
             }
         };
         Some(affected)
@@ -790,10 +784,54 @@ pub struct TargetModel {
     group_id: GroupId,
     active_mappings_only: bool,
     learnable_feature: LearnableMappingFeature,
-    instance_id: Option<InstanceId>,
-    mapping_id: Option<MappingId>,
+    mapping_ref: MappingRefModel,
     // # For Pot targets
     pot_filter_item_kind: PotFilterItemKind,
+}
+
+#[derive(Clone, Debug)]
+pub enum MappingRefModel {
+    OwnMapping {
+        mapping_id: Option<MappingId>,
+    },
+    ForeignMapping {
+        session_id: String,
+        mapping_key: Option<MappingKey>,
+    },
+}
+
+impl MappingRefModel {
+    pub fn session_id(&self) -> Option<&str> {
+        if let Self::ForeignMapping { session_id, .. } = self {
+            Some(session_id)
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for MappingRefModel {
+    fn default() -> Self {
+        Self::OwnMapping { mapping_id: None }
+    }
+}
+
+impl MappingRefModel {
+    fn create_mapping_ref(&self) -> Result<MappingRef, &'static str> {
+        let mapping_ref = match self {
+            MappingRefModel::OwnMapping { mapping_id } => MappingRef::OwnMapping {
+                mapping_id: (*mapping_id).ok_or("mapping not specified")?,
+            },
+            MappingRefModel::ForeignMapping {
+                session_id,
+                mapping_key,
+            } => MappingRef::ForeignMapping {
+                session_id: session_id.clone(),
+                mapping_key: mapping_key.clone().ok_or("mapping_not_specified")?,
+            },
+        };
+        Ok(mapping_ref)
+    }
 }
 
 impl Default for TargetModel {
@@ -894,8 +932,7 @@ impl Default for TargetModel {
             browse_tracks_mode: Default::default(),
             pot_filter_item_kind: Default::default(),
             learnable_feature: Default::default(),
-            instance_id: None,
-            mapping_id: None,
+            mapping_ref: Default::default(),
         }
     }
 }
@@ -2466,10 +2503,7 @@ impl TargetModel {
                         UnresolvedReaperTarget::LearnMapping(UnresolvedLearnMappingTarget {
                             compartment,
                             feature: self.learnable_feature,
-                            instance_id: self.instance_id,
-                            mapping_id: self
-                                .mapping_id
-                                .ok_or("mapping to be learned not specified")?,
+                            mapping_ref: self.mapping_ref.create_mapping_ref()?,
                         })
                     }
                     EnableInstances => {
@@ -2614,12 +2648,8 @@ impl TargetModel {
         self.learnable_feature
     }
 
-    pub fn instance_id(&self) -> Option<InstanceId> {
-        self.instance_id
-    }
-
-    pub fn mapping_id(&self) -> Option<MappingId> {
-        self.mapping_id
+    pub fn mapping_ref(&self) -> &MappingRefModel {
+        &self.mapping_ref
     }
 
     pub fn set_mouse_action_without_notification(&mut self, mouse_action: MouseAction) {

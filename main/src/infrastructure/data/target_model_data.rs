@@ -4,10 +4,10 @@ use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
-    FxSnapshot, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, RealearnAutomationMode,
-    RealearnTrackArea, TargetCategory, TargetCommand, TargetModel, TargetUnit, TrackPropValues,
-    TrackRoutePropValues, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    FxSnapshot, MappingRefModel, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake,
+    RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetCommand, TargetModel,
+    TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
@@ -512,6 +512,17 @@ impl TargetModelData {
         conversion_context: &impl ModelToDataConversionContext,
     ) -> Self {
         let (track_data, track_selector_clip_column) = serialize_track(model.track());
+        let (session_id, mapping_key) = match model.mapping_ref() {
+            MappingRefModel::OwnMapping { mapping_id } => {
+                let mapping_key =
+                    mapping_id.and_then(|id| conversion_context.mapping_key_by_id(id));
+                (None, mapping_key)
+            }
+            MappingRefModel::ForeignMapping {
+                session_id,
+                mapping_key,
+            } => (Some(session_id.clone()), mapping_key.clone()),
+        };
         Self {
             category: model.category(),
             unit: model.unit(),
@@ -610,12 +621,8 @@ impl TargetModelData {
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
             learnable_feature: model.learnable_feature(),
-            session_id: model
-                .instance_id()
-                .and_then(|id| conversion_context.session_id_by_instance_id(id)),
-            mapping_key: model
-                .mapping_id()
-                .and_then(|id| conversion_context.mapping_key_by_id(id)),
+            session_id,
+            mapping_key,
         }
     }
 
@@ -925,16 +932,20 @@ impl TargetModelData {
         model.set_mouse_action_without_notification(self.mouse_action);
         model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
         model.change(C::SetLearnableFeature(self.learnable_feature));
-        let instance_id = self
-            .session_id
-            .as_ref()
-            .and_then(|session_id| conversion_context.instance_id_by_session_id(session_id));
-        model.change(C::SetInstanceId(instance_id));
-        let mapping_id = self
-            .mapping_key
-            .as_ref()
-            .and_then(|key| conversion_context.mapping_id_by_key(key));
-        model.change(C::SetMappingId(mapping_id));
+        let mapping_ref = if let Some(session_id) = self.session_id.as_ref() {
+            MappingRefModel::ForeignMapping {
+                session_id: session_id.clone(),
+                mapping_key: self.mapping_key.clone(),
+            }
+        } else {
+            MappingRefModel::OwnMapping {
+                mapping_id: self
+                    .mapping_key
+                    .as_ref()
+                    .and_then(|key| conversion_context.mapping_id_by_key(key)),
+            }
+        };
+        model.change(C::SetMappingRef(mapping_ref));
         Ok(())
     }
 }

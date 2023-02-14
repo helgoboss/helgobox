@@ -1,7 +1,5 @@
 use crate::application::{Session, WeakSession};
-use crate::domain::{
-    compartment_param_index_iter, Compartment, CompartmentParamIndex, InstanceId, MappingId,
-};
+use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
@@ -109,19 +107,18 @@ pub fn menu_containing_mappings(
     root_menu(iter::once(none_item).chain(group_items).collect())
 }
 
-pub fn menu_containing_instances(
+pub fn menu_containing_sessions(
     this_session: &Session,
-    current_value: Option<InstanceId>,
-) -> swell_ui::menu_tree::Menu<Option<InstanceId>> {
+    current_other_session_id: Option<&str>,
+) -> swell_ui::menu_tree::Menu<Option<String>> {
     let this_item = item_with_opts(
         THIS,
         ItemOpts {
             enabled: true,
-            checked: current_value.is_none(),
+            checked: current_other_session_id.is_none(),
         },
         || None,
     );
-    // TODO Exclude sessions in other projects (if in project) / sessions not on monitoring FX chain (if on monitoring FX chain)!
     let items: Vec<_> = App::get().with_weak_sessions(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
             let other_session = session.upgrade()?;
@@ -162,14 +159,14 @@ pub fn menu_containing_instances(
                 _ => return None,
             }
             // Build item
-            let instance_id = *other_session.instance_id();
+            let other_session_id = other_session.id().to_string();
             let item = item_with_opts(
                 other_session.to_string(),
                 ItemOpts {
                     enabled: true,
-                    checked: Some(instance_id) == current_value,
+                    checked: Some(other_session_id.as_str()) == current_other_session_id,
                 },
-                move || Some(instance_id),
+                move || Some(other_session_id),
             );
             Some(item)
         });

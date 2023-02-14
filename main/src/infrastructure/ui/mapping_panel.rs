@@ -39,7 +39,7 @@ use crate::application::{
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MappingSnapshotTypeForLoad,
+    MappingCommand, MappingModel, MappingProp, MappingRefModel, MappingSnapshotTypeForLoad,
     MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
     SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
@@ -54,9 +54,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    InstanceContainer, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType,
-    SendMidiDestination, SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType,
-    TrackGangBehavior, WithControlContext,
+    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
+    SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior,
+    WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -578,11 +578,8 @@ impl MappingPanel {
                                             P::LearnableFeature => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
-                                            P::InstanceId => {
+                                            P::MappingRef => {
                                                 view.invalidate_target_line_3(initiator);
-                                                view.invalidate_target_line_4(initiator);
-                                            }
-                                            P::MappingId => {
                                                 view.invalidate_target_line_4(initiator);
                                             }
                                         }
@@ -651,19 +648,31 @@ impl MappingPanel {
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
             ReaperTargetType::LearnMapping => {
-                let learn_instance_id = mapping.borrow().target_model.instance_id();
                 let menu = {
+                    let mapping = mapping.borrow();
+                    let current_other_session_id = mapping.target_model.mapping_ref().session_id();
                     let session = self.session();
                     let session = session.borrow();
-                    menus::menu_containing_instances(&session, learn_instance_id)
+                    menus::menu_containing_sessions(&session, current_other_session_id)
                 };
-                let result = self
+                let new_other_session_id = self
                     .view
                     .require_window()
                     .open_simple_popup_menu(menu, Window::cursor_pos());
-                if let Some(instance_id) = result {
+                if let Some(new_other_session_id) = new_other_session_id {
+                    // Chosen something in the menu
+                    let new_mapping_ref = if let Some(session_id) = new_other_session_id {
+                        // Chosen another instance
+                        MappingRefModel::ForeignMapping {
+                            session_id,
+                            mapping_key: None,
+                        }
+                    } else {
+                        // Chosen this instance
+                        MappingRefModel::OwnMapping { mapping_id: None }
+                    };
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetInstanceId(instance_id),
+                        TargetCommand::SetMappingRef(new_mapping_ref),
                     ));
                 }
             }
@@ -842,33 +851,64 @@ impl MappingPanel {
                 )));
             }
             ReaperTargetType::LearnMapping => {
-                let (compartment, learn_mapping_id, learn_instance_id) = {
+                let (compartment, current_mapping_ref) = {
                     let mapping = mapping.borrow();
                     (
                         mapping.compartment(),
-                        mapping.target_model.mapping_id(),
-                        mapping.target_model.instance_id(),
+                        mapping.target_model.mapping_ref().clone(),
                     )
                 };
-                let get_menu = move |session: &WeakSession| {
-                    menus::menu_containing_mappings(session, compartment, learn_mapping_id)
+                let new_mapping_ref = match current_mapping_ref {
+                    MappingRefModel::OwnMapping { mapping_id } => {
+                        let menu =
+                            menus::menu_containing_mappings(&self.session, compartment, mapping_id);
+                        let mapping_id = self
+                            .view
+                            .require_window()
+                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                        mapping_id.map(|mapping_id| MappingRefModel::OwnMapping { mapping_id })
+                    }
+                    MappingRefModel::ForeignMapping {
+                        session_id,
+                        mapping_key,
+                    } => {
+                        let session = App::get()
+                            .find_session_by_id(&session_id)
+                            .ok_or("session not found")?;
+                        let mapping_id = {
+                            mapping_key.and_then(|key| {
+                                session.borrow().find_mapping_id_by_key(compartment, &key)
+                            })
+                        };
+                        let menu = menus::menu_containing_mappings(
+                            &Rc::downgrade(&session),
+                            compartment,
+                            mapping_id,
+                        );
+                        let mapping_id = self
+                            .view
+                            .require_window()
+                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                        mapping_id.map(|mapping_id| {
+                            let mapping_key = mapping_id.map(|mapping_id| {
+                                let session = session.borrow();
+                                let (_, mapping) = session
+                                    .find_mapping_and_index_by_id(compartment, mapping_id)
+                                    .expect("currently picked mapping not found");
+                                let mapping = mapping.borrow();
+                                mapping.key().clone()
+                            });
+                            MappingRefModel::ForeignMapping {
+                                session_id,
+                                mapping_key,
+                            }
+                        })
+                    }
                 };
-                let menu = if let Some(learn_instance_id) = learn_instance_id {
-                    let session = App::get()
-                        .find_session_by_instance_id(learn_instance_id)
-                        .ok_or("session not found")?;
-                    get_menu(&session)
-                } else {
-                    get_menu(&self.session)
-                };
-                let result = self
-                    .view
-                    .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
-                if let Some(mapping_id) = result {
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetMappingId(
-                        mapping_id,
-                    )));
+                if let Some(new_mapping_ref) = new_mapping_ref {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMappingRef(new_mapping_ref),
+                    ));
                 }
             }
             _ => {}
@@ -5007,17 +5047,16 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::LearnMapping => {
-                    if let Some(instance_id) = self.target.instance_id() {
-                        if let Some(session) = App::get().find_session_by_instance_id(instance_id) {
-                            Some(session.upgrade().unwrap().borrow().to_string())
+                ReaperTargetType::LearnMapping => match self.target.mapping_ref() {
+                    MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
+                    MappingRefModel::ForeignMapping { session_id, .. } => {
+                        if let Some(session) = App::get().find_session_by_id(session_id) {
+                            Some(session.borrow().to_string())
                         } else {
                             Some("<Session doesn't exist>".to_string())
                         }
-                    } else {
-                        Some("<This>".to_string())
                     }
-                }
+                },
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5040,30 +5079,40 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Some(label)
                 }
                 ReaperTargetType::LearnMapping => {
-                    let label = match self.target.mapping_id() {
-                        None => "<None>".to_string(),
-                        Some(id) => {
-                            let qualified_id =
-                                QualifiedMappingId::new(self.mapping.compartment(), id);
-                            let get_mapping_name = move |session: &Session| match session
-                                .find_mapping_and_index_by_qualified_id(qualified_id)
-                            {
-                                None => "<Mapping doesn't exist>".to_string(),
-                                Some((_, mapping)) => mapping.borrow().effective_name(),
-                            };
-                            if let Some(instance_id) = self.target.instance_id() {
-                                if let Some(other_session) = App::get()
-                                    .find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
+                    const NONE: &str = "<None>";
+                    const MAPPING_DOESNT_EXIST: &str = "<Mapping doesn't exist>";
+                    let compartment = self.mapping.compartment();
+                    let label = match self.target.mapping_ref() {
+                        MappingRefModel::OwnMapping { mapping_id } => match mapping_id {
+                            None => NONE.to_string(),
+                            Some(id) => {
+                                match self.session.find_mapping_and_index_by_id(compartment, *id) {
+                                    None => MAPPING_DOESNT_EXIST.to_string(),
+                                    Some((_, mapping)) => mapping.borrow().effective_name(),
+                                }
+                            }
+                        },
+                        MappingRefModel::ForeignMapping {
+                            session_id,
+                            mapping_key,
+                        } => match mapping_key {
+                            None => NONE.to_string(),
+                            Some(mapping_key) => {
+                                if let Some(other_session) =
+                                    App::get().find_session_by_id_ignoring_borrowed_ones(session_id)
                                 {
                                     let other_session = other_session.borrow();
-                                    get_mapping_name(&other_session)
+                                    match other_session
+                                        .find_mapping_by_key(compartment, mapping_key)
+                                    {
+                                        None => MAPPING_DOESNT_EXIST.to_string(),
+                                        Some(mapping) => mapping.borrow().effective_name(),
+                                    }
                                 } else {
                                     "-".to_string()
                                 }
-                            } else {
-                                get_mapping_name(self.session)
                             }
-                        }
+                        },
                     };
                     Some(label)
                 }

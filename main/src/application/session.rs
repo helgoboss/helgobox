@@ -1,6 +1,6 @@
 use crate::application::{
-    get_track_label, get_virtual_track_label, share_group, share_mapping, Affected, Change,
-    ChangeResult, CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId,
+    get_track_label, share_group, share_mapping, Affected, Change, ChangeResult,
+    CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId,
     FxPresetLinkConfig, GroupCommand, GroupModel, MainPreset, MainPresetAutoLoadMode,
     MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager, PresetManager,
     ProcessingRelevance, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
@@ -1514,6 +1514,19 @@ impl Session {
                 None
             }
         })
+    }
+
+    pub fn find_mapping_by_key(
+        &self,
+        compartment: Compartment,
+        key: &MappingKey,
+    ) -> Option<SharedMapping> {
+        self.mappings(compartment)
+            .find(|m| {
+                let m = m.borrow();
+                m.key() == key
+            })
+            .cloned()
     }
 
     pub fn mappings(&self, compartment: Compartment) -> impl Iterator<Item = &SharedMapping> {

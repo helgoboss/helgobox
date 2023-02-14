@@ -1747,9 +1747,12 @@ impl HookPostCommand2 for App {
 }
 
 impl InstanceContainer for App {
-    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<WeakSession> {
-        let session = App::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
-        Some(Rc::downgrade(&session))
+    fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession> {
+        App::get().find_session_by_id_ignoring_borrowed_ones(session_id)
+    }
+
+    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedSession> {
+        App::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
     }
 
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
