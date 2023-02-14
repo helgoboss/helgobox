@@ -1,12 +1,14 @@
 use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, Session};
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{
-    Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
+    Compartment, CompartmentParamIndex, GroupId, GroupKey, InstanceId, MappingId, MappingKey,
+    ParamSetting,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
     SimpleDataToModelConversionContext,
 };
+use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -66,6 +68,10 @@ impl ModelToDataConversionContext for CompartmentModel {
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey> {
         let mapping = self.mappings.iter().find(|m| m.id() == mapping_id)?;
         Some(mapping.key().clone())
+    }
+
+    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+        App::get().find_session_id_by_instance_id(instance_id)
     }
 }
 

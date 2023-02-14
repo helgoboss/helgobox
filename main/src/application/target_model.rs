@@ -20,8 +20,8 @@ use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
-    MappingSnapshotId, MouseActionType, OscDeviceId, PotFilterItemsTargetSettings,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, InstanceId,
+    MappingId, MappingSnapshotId, MouseActionType, OscDeviceId, PotFilterItemsTargetSettings,
     ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
     SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
@@ -36,22 +36,22 @@ use crate::domain::{
     UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
     UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
     UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget,
-    UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget, UnresolvedMouseTarget,
-    UnresolvedOscSendTarget, UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
-    UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
-    UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
-    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
-    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn, VirtualClipRow, VirtualClipSlot,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter,
-    VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    UnresolvedLearnMappingTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
+    UnresolvedMouseTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
+    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
+    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipColumn,
+    VirtualClipRow, VirtualClipSlot, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualFxParameter, VirtualMappingSnapshotIdForLoad, VirtualMappingSnapshotIdForTake,
+    VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -64,9 +64,9 @@ use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
     ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope,
-    TrackToolAction,
+    LearnableMappingFeature, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
+    MonitoringMode, MouseAction, MouseButton, PotFilterItemKind, SeekBehavior,
+    TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -168,6 +168,9 @@ pub enum TargetCommand {
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
     SetPotFilterItemKind(PotFilterItemKind),
+    SetLearnableFeature(LearnableMappingFeature),
+    SetInstanceId(Option<InstanceId>),
+    SetMappingId(Option<MappingId>),
 }
 
 #[derive(Eq, PartialEq)]
@@ -265,6 +268,9 @@ pub enum TargetProp {
     MappingSnapshotId,
     MappingSnapshotDefaultValue,
     PotFilterItemKind,
+    LearnableFeature,
+    InstanceId,
+    MappingId,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -639,6 +645,18 @@ impl<'a> Change<'a> for TargetModel {
                 self.pot_filter_item_kind = v;
                 One(P::PotFilterItemKind)
             }
+            C::SetLearnableFeature(f) => {
+                self.learnable_feature = f;
+                One(P::LearnableFeature)
+            }
+            C::SetInstanceId(id) => {
+                self.instance_id = id;
+                One(P::InstanceId)
+            }
+            C::SetMappingId(id) => {
+                self.mapping_id = id;
+                One(P::MappingId)
+            }
         };
         Some(affected)
     }
@@ -771,6 +789,9 @@ pub struct TargetModel {
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
+    learnable_feature: LearnableMappingFeature,
+    instance_id: Option<InstanceId>,
+    mapping_id: Option<MappingId>,
     // # For Pot targets
     pot_filter_item_kind: PotFilterItemKind,
 }
@@ -872,6 +893,9 @@ impl Default for TargetModel {
             gang_behavior: Default::default(),
             browse_tracks_mode: Default::default(),
             pot_filter_item_kind: Default::default(),
+            learnable_feature: Default::default(),
+            instance_id: None,
+            mapping_id: None,
         }
     }
 }
@@ -2438,6 +2462,16 @@ impl TargetModel {
                             exclusivity: self.exclusivity,
                         })
                     }
+                    LearnMapping => {
+                        UnresolvedReaperTarget::LearnMapping(UnresolvedLearnMappingTarget {
+                            compartment,
+                            feature: self.learnable_feature,
+                            instance_id: self.instance_id,
+                            mapping_id: self
+                                .mapping_id
+                                .ok_or("mapping to be learned not specified")?,
+                        })
+                    }
                     EnableInstances => {
                         UnresolvedReaperTarget::EnableInstances(UnresolvedEnableInstancesTarget {
                             scope: TagScope {
@@ -2574,6 +2608,18 @@ impl TargetModel {
 
     pub fn pot_filter_item_kind(&self) -> PotFilterItemKind {
         self.pot_filter_item_kind
+    }
+
+    pub fn learnable_feature(&self) -> LearnableMappingFeature {
+        self.learnable_feature
+    }
+
+    pub fn instance_id(&self) -> Option<InstanceId> {
+        self.instance_id
+    }
+
+    pub fn mapping_id(&self) -> Option<MappingId> {
+        self.mapping_id
     }
 
     pub fn set_mouse_action_without_notification(&mut self, mouse_action: MouseAction) {

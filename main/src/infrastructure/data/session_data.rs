@@ -6,7 +6,7 @@ use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_tru
 use crate::domain::{
     compartment_param_index_iter, pot, BackboneState, ClipMatrixRef, Compartment,
     CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey,
-    InstanceState, MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId,
+    InstanceId, InstanceState, MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId,
     MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParams,
     StayActiveWhenProjectInBackground, Tag,
 };
@@ -935,6 +935,10 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
             .find_mapping_and_index_by_id(self.compartment, mapping_id)?;
         Some(mapping.borrow().key().clone())
     }
+
+    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+        App::get().find_session_id_by_instance_id(instance_id)
+    }
 }
 
 impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
@@ -945,6 +949,10 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
 
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId> {
         self.session.find_mapping_id_by_key(self.compartment, key)
+    }
+
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+        App::get().find_instance_id_by_session_id(session_id)
     }
 }
 
@@ -972,6 +980,8 @@ pub trait ModelToDataConversionContext {
     fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey>;
 
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey>;
+
+    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String>;
 }
 
 /// Consists of methods that return a transient technical ID ("ID") for a given persistent
@@ -987,6 +997,8 @@ pub trait DataToModelConversionContext {
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
 
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId>;
+
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId>;
 }
 
 /// Defines a direct translation from keys to IDs.
@@ -1040,6 +1052,10 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
 
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId> {
         self.mapping_id_by_key.get(key).copied()
+    }
+
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+        App::get().find_instance_id_by_session_id(session_id)
     }
 }
 

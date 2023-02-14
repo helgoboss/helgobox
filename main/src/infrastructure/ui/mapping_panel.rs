@@ -27,8 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, MidiScriptKind, MonitoringMode, MouseButton,
-    PotFilterItemKind, SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxToolAction, LearnableMappingFeature, MidiScriptKind, MonitoringMode,
+    MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -71,11 +71,11 @@ use crate::infrastructure::ui::util::{
     compartment_parameter_dropdown_contents, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    AdvancedScriptEditorPanel, EelControlTransformationEngine, EelFeedbackTransformationEngine,
-    EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
-    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
-    CONTROL_TRANSFORMATION_TEMPLATES,
+    menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
+    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel,
+    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
+    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
+    YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -575,6 +575,15 @@ impl MappingPanel {
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();
                                             }
+                                            P::LearnableFeature => {
+                                                view.invalidate_target_line_2(initiator);
+                                            }
+                                            P::InstanceId => {
+                                                view.invalidate_target_line_3(initiator);
+                                            }
+                                            P::MappingId => {
+                                                view.invalidate_target_line_4(initiator);
+                                            }
                                         }
                                     }
                                 }
@@ -593,17 +602,21 @@ impl MappingPanel {
 
     fn toggle_learn_source(&self) {
         let session = self.session();
-        let mapping = self.mapping();
         session
             .borrow_mut()
-            .toggle_learning_source(&session, &mapping);
+            .toggle_learning_source(
+                self.session.clone(),
+                self.qualified_mapping_id().expect("no mapping displayed"),
+            )
+            .expect("mapping must exist");
     }
 
     fn toggle_learn_target(&self) {
         let session = self.session();
-        session
-            .borrow_mut()
-            .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
+        session.borrow_mut().toggle_learning_target(
+            self.session.clone(),
+            self.qualified_mapping_id().expect("no mapping"),
+        );
     }
 
     fn handle_target_line_2_button_press(self: SharedView<Self>) -> Result<(), &'static str> {
@@ -809,6 +822,23 @@ impl MappingPanel {
                 self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetFxSnapshot(
                     Some(fx_snapshot),
                 )));
+            }
+            ReaperTargetType::LearnMapping => {
+                let (compartment, learn_mapping_id) = {
+                    let mapping = mapping.borrow();
+                    (mapping.compartment(), mapping.target_model.mapping_id())
+                };
+                let menu =
+                    menus::menu_containing_mappings(&self.session, compartment, learn_mapping_id);
+                let result = self
+                    .view
+                    .require_window()
+                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                if let Some(mapping_id) = result {
+                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetMappingId(
+                        mapping_id,
+                    )));
+                }
             }
             _ => {}
         }
@@ -2666,6 +2696,13 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetMappingSnapshotTypeForTake(snapshot_type),
                     ));
                 }
+                ReaperTargetType::LearnMapping => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid mapping feature");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetLearnableFeature(v),
+                    ));
+                }
                 t if t.supports_feedback_resolution() => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid feedback resolution");
@@ -4299,6 +4336,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
+                ReaperTargetType::LearnMapping => Some("Feature"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4367,6 +4405,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 .target_model
                                 .mapping_snapshot_type_for_take()
                                 .into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::LearnMapping => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(LearnableMappingFeature::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.learnable_feature().into(),
                         )
                         .unwrap();
                 }
@@ -4696,6 +4743,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some("Pick!"),
                 ReaperTargetType::LoadFxSnapshot => Some("Take!"),
+                ReaperTargetType::LearnMapping => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4903,6 +4951,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
                 ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Act/Tags"),
+                ReaperTargetType::LearnMapping => Some("Mapping"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
@@ -4937,6 +4986,23 @@ impl<'a> ImmutableMappingPanel<'a> {
                         snapshot.to_string()
                     } else {
                         "<Empty>".to_owned()
+                    };
+                    Some(label)
+                }
+                ReaperTargetType::LearnMapping => {
+                    let label = match self.target.mapping_id() {
+                        None => "<Not picked yet>".to_string(),
+                        Some(id) => {
+                            let qualified_id =
+                                QualifiedMappingId::new(self.mapping.compartment(), id);
+                            match self
+                                .session
+                                .find_mapping_and_index_by_qualified_id(qualified_id)
+                            {
+                                None => "<Mapping doesn't exist>".to_string(),
+                                Some((_, mapping)) => mapping.borrow().effective_name(),
+                            }
+                        }
                     };
                     Some(label)
                 }

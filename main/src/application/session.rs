@@ -38,7 +38,7 @@ use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::base::ClipMatrixEvent;
-use realearn_api::persistence::{FxDescriptor, TrackDescriptor};
+use realearn_api::persistence::{FxDescriptor, LearnableMappingFeature, TrackDescriptor};
 use reaper_medium::RecordingInput;
 use std::error::Error;
 use std::rc::{Rc, Weak};
@@ -88,6 +88,7 @@ pub struct Session {
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
+    // TODO-medium We should rename session ID to session key or instance key.
     pub id: Prop<String>,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
@@ -1416,13 +1417,13 @@ impl Session {
                 qualified_mapping_id.id,
                 control_element_type,
             )));
-        self.start_learning_source(
+        self.start_learning_source_internal(
             Rc::downgrade(session),
-            mapping,
+            qualified_mapping_id,
             false,
             ignore_sources,
-            compartment != Compartment::Controller,
-        );
+        )
+        .expect("error during learn many");
         // If this is a main mapping, start learning target as soon as source learned. For
         // controller mappings we don't need to do this because adding the default mapping will
         // automatically increase the virtual target control element index (which is usually what
@@ -1443,7 +1444,7 @@ impl Session {
                         compartment,
                         qualified_mapping_id.id,
                     )));
-                session.start_learning_target(
+                session.start_learning_target_internal(
                     Rc::downgrade(&shared_session),
                     qualified_mapping_id,
                     false,
@@ -1565,36 +1566,49 @@ impl Session {
         self.mapping_which_learns_target.changed()
     }
 
-    pub fn toggle_learning_source(&mut self, session: &SharedSession, mapping: &SharedMapping) {
+    pub fn toggle_learning_source(
+        &mut self,
+        session: WeakSession,
+        mapping_id: QualifiedMappingId,
+    ) -> Result<(), &'static str> {
         if let Some(currently_learning_mapping_id) = self.mapping_which_learns_source.get() {
-            let mapping_id = mapping.borrow().qualified_id();
             if currently_learning_mapping_id == mapping_id {
                 self.stop_learning_source();
-            } else {
-                self.mapping_which_learns_source.set(Some(mapping_id));
+                return Ok(());
             }
-        } else {
-            self.start_learning_source(
-                Rc::downgrade(session),
-                mapping.clone(),
-                true,
-                vec![],
-                mapping.borrow().compartment() != Compartment::Controller,
-            );
         }
+        self.start_learning_source(session, mapping_id)
     }
 
     fn start_learning_source(
         &mut self,
         session: WeakSession,
-        mapping: SharedMapping,
+        mapping_id: QualifiedMappingId,
+    ) -> Result<(), &'static str> {
+        if self.mapping_which_learns_source.get_ref().is_some() {
+            // Learning active already. Simply change the mapping that's going to be learned.
+            self.mapping_which_learns_source.set(Some(mapping_id));
+            Ok(())
+        } else {
+            self.start_learning_source_internal(session, mapping_id, true, vec![])
+        }
+    }
+
+    fn start_learning_source_internal(
+        &mut self,
+        session: WeakSession,
+        mapping_id: QualifiedMappingId,
         reenable_control_after_touched: bool,
         ignore_sources: Vec<CompoundMappingSource>,
-        allow_virtual_sources: bool,
-    ) {
-        let (mapping_id, osc_arg_index_hint) = {
+    ) -> Result<(), &'static str> {
+        let allow_virtual_sources = mapping_id.compartment != Compartment::Controller;
+        let osc_arg_index_hint = {
+            let mapping = self
+                .find_mapping_and_index_by_qualified_id(mapping_id)
+                .ok_or("mapping not found")?
+                .1;
             let m = mapping.borrow();
-            (m.qualified_id(), m.source_model.osc_arg_index())
+            m.source_model.osc_arg_index()
         };
         self.mapping_which_learns_source.set(Some(mapping_id));
         when(
@@ -1634,29 +1648,28 @@ impl Session {
                 }
             }
         });
+        Ok(())
     }
 
     fn stop_learning_source(&mut self) {
         self.mapping_which_learns_source.set(None);
     }
 
-    pub fn toggle_learning_target(
-        &mut self,
-        session: &SharedSession,
-        mapping_id: QualifiedMappingId,
-    ) {
+    pub fn toggle_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
         if let Some(currently_learning_mapping_id) = self.mapping_which_learns_target.get() {
             if currently_learning_mapping_id == mapping_id {
                 self.stop_learning_target();
-            } else {
-                self.mapping_which_learns_target.set(Some(mapping_id));
+                return;
             }
-        } else {
-            self.start_learning_target(Rc::downgrade(session), mapping_id, true);
         }
+        self.start_learning_target(session, mapping_id);
     }
 
-    fn start_learning_target(
+    fn start_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
+        self.start_learning_target_internal(session, mapping_id, true);
+    }
+
+    fn start_learning_target_internal(
         &mut self,
         session: WeakSession,
         mapping_id: QualifiedMappingId,
@@ -2227,7 +2240,8 @@ impl Session {
             }
             Some(m) => m.clone(),
         };
-        self.toggle_learning_source(session, &mapping);
+        self.toggle_learning_source(Rc::downgrade(session), mapping.borrow().qualified_id())
+            .expect("error during toggle learn-source for target");
         mapping
     }
 
@@ -2516,6 +2530,26 @@ impl DomainEventHandler for WeakSession {
                     MappingCommand::SetIsEnabled(event.is_enabled),
                     self.clone(),
                 );
+            }
+            MappingLearnRequested(event) => {
+                let mut s = session.try_borrow_mut()?;
+                let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
+                match event.feature {
+                    LearnableMappingFeature::Source => {
+                        if event.on {
+                            s.start_learning_source(self.clone(), id)?;
+                        } else {
+                            s.stop_learning_source();
+                        }
+                    }
+                    LearnableMappingFeature::Target => {
+                        if event.on {
+                            s.start_learning_target(self.clone(), id);
+                        } else {
+                            s.stop_learning_target();
+                        }
+                    }
+                }
             }
         }
         Ok(())

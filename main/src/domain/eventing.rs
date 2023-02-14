@@ -5,6 +5,7 @@ use crate::domain::{
 };
 use helgoboss_learn::AbsoluteValue;
 use playtime_clip_engine::base::ClipMatrixEvent;
+use realearn_api::persistence::LearnableMappingFeature;
 use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::error::Error;
@@ -29,6 +30,7 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+    MappingLearnRequested(MappingLearnRequestedEvent),
     /// Only emitted for the instance owning the matrix.
     ClipMatrixChanged {
         matrix: &'a RealearnClipMatrix,
@@ -64,6 +66,14 @@ pub struct MappingEnabledChangeRequestedEvent {
     pub compartment: Compartment,
     pub mapping_id: MappingId,
     pub is_enabled: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingLearnRequestedEvent {
+    pub compartment: Compartment,
+    pub mapping_id: MappingId,
+    pub feature: LearnableMappingFeature,
+    pub on: bool,
 }
 
 #[derive(Copy, Clone, Debug)]

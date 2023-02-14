@@ -157,6 +157,9 @@ pub use take_mapping_snapshot_target::*;
 mod enable_mappings_target;
 pub use enable_mappings_target::*;
 
+mod learn_mapping_target;
+pub use learn_mapping_target::*;
+
 mod enable_instances_target;
 pub use enable_instances_target::*;
 

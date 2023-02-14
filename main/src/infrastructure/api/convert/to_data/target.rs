@@ -856,6 +856,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             },
             ..init(d.commons)
         },
+        Target::LearnMapping(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::LearnMapping,
+            learnable_feature: d.feature,
+            session_id: d.session,
+            mapping_key: d.mapping.map(|id| id.into()),
+            ..init(d.commons)
+        },
         Target::LoadMappingSnapshot(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LoadMappingSnapshot,

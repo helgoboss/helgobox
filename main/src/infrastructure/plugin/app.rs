@@ -946,6 +946,18 @@ impl App {
         })
     }
 
+    pub fn find_session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+        let session = self.find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
+        let session = session.borrow();
+        Some(session.id().to_string())
+    }
+
+    pub fn find_instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+        let session = self.find_session_by_id(session_id)?;
+        let session = session.borrow();
+        Some(*session.instance_id())
+    }
+
     pub fn find_session_by_instance_id_ignoring_borrowed_ones(
         &self,
         instance_id: InstanceId,

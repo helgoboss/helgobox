@@ -518,14 +518,15 @@ impl MappingRowPanel {
         let shared_session = self.session();
         shared_session
             .borrow_mut()
-            .toggle_learning_source(&shared_session, self.require_mapping().deref());
+            .toggle_learning_source(self.session.clone(), self.require_qualified_mapping_id())
+            .expect("mapping must exist");
     }
 
     fn toggle_learn_target(&self) {
         let shared_session = self.session();
         shared_session
             .borrow_mut()
-            .toggle_learning_target(&shared_session, self.require_qualified_mapping_id());
+            .toggle_learning_target(self.session.clone(), self.require_qualified_mapping_id());
     }
 
     fn update_is_enabled(&self) {

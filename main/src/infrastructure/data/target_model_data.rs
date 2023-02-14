@@ -15,9 +15,10 @@ use crate::base::default_util::{
 use crate::base::notification;
 use crate::domain::{
     get_fx_chains, ActionInvocationType, AnyOnParameter, Compartment, Exclusivity,
-    ExtendedProcessorContext, FxDisplayType, GroupKey, OscDeviceId, ReaperTargetType, SeekOptions,
-    SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType, TouchedTrackParameterType,
-    TrackExclusivity, TrackGangBehavior, TrackRouteType, TransportAction, VirtualTrack,
+    ExtendedProcessorContext, FxDisplayType, GroupKey, MappingKey, OscDeviceId, ReaperTargetType,
+    SeekOptions, SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackExclusivity, TrackGangBehavior, TrackRouteType,
+    TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::{
@@ -30,9 +31,9 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxToolAction, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
-    MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior, TargetValue, TrackScope,
-    TrackToolAction,
+    ClipTransportAction, FxToolAction, LearnableMappingFeature, MappingSnapshotDescForLoad,
+    MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior,
+    TargetValue, TrackScope, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -483,6 +484,26 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub pot_filter_item_kind: PotFilterItemKind,
+    /// New since ReaLearn v2.15.0-pre.1
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub learnable_feature: LearnableMappingFeature,
+    /// New since ReaLearn v2.15.0-pre.1
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub session_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub mapping_key: Option<MappingKey>,
 }
 
 impl TargetModelData {
@@ -588,6 +609,13 @@ impl TargetModelData {
             clip_play_stop_timing: model.clip_play_stop_timing(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
+            learnable_feature: model.learnable_feature(),
+            session_id: model
+                .instance_id()
+                .and_then(|id| conversion_context.session_id_by_instance_id(id)),
+            mapping_key: model
+                .mapping_id()
+                .and_then(|id| conversion_context.mapping_key_by_id(id)),
         }
     }
 
@@ -896,6 +924,17 @@ impl TargetModelData {
         ));
         model.set_mouse_action_without_notification(self.mouse_action);
         model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
+        model.change(C::SetLearnableFeature(self.learnable_feature));
+        let instance_id = self
+            .session_id
+            .as_ref()
+            .and_then(|session_id| conversion_context.instance_id_by_session_id(session_id));
+        model.change(C::SetInstanceId(instance_id));
+        let mapping_id = self
+            .mapping_key
+            .as_ref()
+            .and_then(|key| conversion_context.mapping_id_by_key(key));
+        model.change(C::SetMappingId(mapping_id));
         Ok(())
     }
 }

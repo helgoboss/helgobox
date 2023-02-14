@@ -71,6 +71,7 @@ pub enum Target {
     Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
+    LearnMapping(LearnMappingTarget),
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
@@ -873,6 +874,41 @@ pub struct EnableMappingsTarget {
     pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<MappingExclusivity>,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct LearnMappingTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub feature: LearnableMappingFeature,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapping: Option<String>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum LearnableMappingFeature {
+    #[display(fmt = "Source")]
+    #[default]
+    Source,
+    #[display(fmt = "Target")]
+    Target,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

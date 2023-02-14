@@ -27,16 +27,16 @@ use realearn_api::persistence::{
     ClipTransportActionTarget, ClipVolumeTarget, DummyTarget, EnableInstancesTarget,
     EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, LoadPotPresetTarget, MouseTarget, PlayRateTarget,
-    PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
-    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TakeMappingSnapshotTarget,
-    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
-    TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
-    TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportActionTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnMappingTarget,
+    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget, MouseTarget,
+    PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
+    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -663,6 +663,12 @@ fn convert_real_target(
                     ExclusiveOnOnly => Some(T::ExclusiveOnOnly),
                 }
             },
+        }),
+        LearnMapping => T::LearnMapping(LearnMappingTarget {
+            commons,
+            feature: data.learnable_feature,
+            session: data.session_id,
+            mapping: data.mapping_key.map(|key| key.into()),
         }),
         LoadMappingSnapshot => T::LoadMappingSnapshot(LoadMappingSnapshotTarget {
             commons,
