@@ -3243,14 +3243,18 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         },
                     );
                 }
-                SameTargetValue | InverseTargetValue | InverseTargetValueOnOnly => {
+                SameTargetValue
+                | InverseTargetValue
+                | InverseTargetValueOnOnly
+                | InverseTargetValueOffOnly => {
                     if !control_was_successful {
                         return;
                     }
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        if m.group_interaction() == InverseTargetValueOnOnly
-                            && !reference_value.is_on()
+                        let is_on = reference_value.is_on();
+                        if (m.group_interaction() == InverseTargetValueOnOnly && !is_on)
+                            || (m.group_interaction() == InverseTargetValueOffOnly && is_on)
                         {
                             return;
                         }

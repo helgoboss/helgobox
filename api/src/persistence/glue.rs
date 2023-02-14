@@ -204,6 +204,7 @@ pub enum Interaction {
     InverseControl,
     InverseTargetValue,
     InverseTargetValueOnOnly,
+    InverseTargetValueOffOnly,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

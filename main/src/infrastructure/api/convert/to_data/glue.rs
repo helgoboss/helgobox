@@ -192,6 +192,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                     InverseControl => T::InverseControl,
                     InverseTargetValue => T::InverseTargetValue,
                     InverseTargetValueOnOnly => T::InverseTargetValueOnOnly,
+                    InverseTargetValueOffOnly => T::InverseTargetValueOffOnly,
                 }
             } else {
                 T::None

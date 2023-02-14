@@ -112,6 +112,7 @@ pub fn convert_glue(
                 InverseControl => Some(T::InverseControl),
                 InverseTargetValue => Some(T::InverseTargetValue),
                 InverseTargetValueOnOnly => Some(T::InverseTargetValueOnOnly),
+                InverseTargetValueOffOnly => Some(T::InverseTargetValueOffOnly),
             }
         },
         target_value_sequence: style.required_value(data.target_value_sequence.to_string()),
