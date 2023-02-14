@@ -155,11 +155,11 @@ pub trait RealearnTarget {
         context: ControlContext,
     ) -> String {
         match self.character(context) {
-            TargetCharacter::Trigger => self
+            TargetCharacter::Discrete => self
                 .convert_unit_value_to_discrete_value(value, context)
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
-            TargetCharacter::Discrete => String::new(),
+            TargetCharacter::Trigger => String::new(),
             _ => format_as_percentage_without_unit(value),
         }
     }
