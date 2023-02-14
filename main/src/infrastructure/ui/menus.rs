@@ -1,6 +1,10 @@
 use crate::application::{Session, WeakSession};
-use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
+use crate::domain::{
+    compartment_param_index_iter, Compartment, CompartmentParamIndex, InstanceId, MappingId,
+};
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::Item;
+use reaper_high::FxChainContext;
 use std::iter;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
 
@@ -105,6 +109,75 @@ pub fn menu_containing_mappings(
     root_menu(iter::once(none_item).chain(group_items).collect())
 }
 
+pub fn menu_containing_instances(
+    this_session: &Session,
+    current_value: Option<InstanceId>,
+) -> swell_ui::menu_tree::Menu<Option<InstanceId>> {
+    let this_item = item_with_opts(
+        THIS,
+        ItemOpts {
+            enabled: true,
+            checked: current_value.is_none(),
+        },
+        || None,
+    );
+    // TODO Exclude sessions in other projects (if in project) / sessions not on monitoring FX chain (if on monitoring FX chain)!
+    let items: Vec<_> = App::get().with_weak_sessions(|sessions| {
+        let instance_items = sessions.iter().filter_map(|session| {
+            let other_session = session.upgrade()?;
+            let other_session = other_session.try_borrow().ok()?;
+            // Exclude certain sessions
+            if other_session.instance_id() == this_session.instance_id() {
+                // Don't include our own session.
+                return None;
+            }
+            let this_chain_context = this_session
+                .processor_context()
+                .containing_fx()
+                .chain()
+                .context();
+            let other_chain_context = other_session
+                .processor_context()
+                .containing_fx()
+                .chain()
+                .context();
+            match (this_chain_context, other_chain_context) {
+                // It's okay if this instance is on the monitoring FX chain and the other one
+                // as well (global => global).
+                (FxChainContext::Monitoring, FxChainContext::Monitoring) => {}
+                // It's okay if this instance is in a specific project and the other one on the
+                // monitoring FX chain (local => global).
+                (FxChainContext::Track { .. }, FxChainContext::Monitoring) => {}
+                // It's okay if this instance is in a specific project and the other one in the same
+                // project.
+                (
+                    FxChainContext::Track {
+                        track: this_track, ..
+                    },
+                    FxChainContext::Track {
+                        track: other_track, ..
+                    },
+                ) if other_track.project() == this_track.project() => {}
+                // All other combinations are not allowed!
+                _ => return None,
+            }
+            // Build item
+            let instance_id = *other_session.instance_id();
+            let item = item_with_opts(
+                other_session.to_string(),
+                ItemOpts {
+                    enabled: true,
+                    checked: Some(instance_id) == current_value,
+                },
+                move || Some(instance_id),
+            );
+            Some(item)
+        });
+        iter::once(this_item).chain(instance_items).collect()
+    });
+    root_menu(items)
+}
+
 pub fn menu_containing_banks(
     session: &WeakSession,
     compartment: Compartment,
@@ -181,3 +254,4 @@ fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<
 }
 
 pub const NONE: &str = "<None>";
+pub const THIS: &str = "<This>";

@@ -1,9 +1,10 @@
 use crate::application::{
-    share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
-    CompartmentModel, CompartmentProp, ControllerPreset, FxId, FxPresetLinkConfig, GroupCommand,
-    GroupModel, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp,
-    Preset, PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping,
-    SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
+    get_track_label, get_virtual_track_label, share_group, share_mapping, Affected, Change,
+    ChangeResult, CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId,
+    FxPresetLinkConfig, GroupCommand, GroupModel, MainPreset, MainPresetAutoLoadMode,
+    MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager, PresetManager,
+    ProcessingRelevance, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
+    TargetProp, VirtualControlElementType, MASTER_TRACK_LABEL,
 };
 use crate::base::{
     prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
@@ -31,7 +32,7 @@ use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
 use core::iter;
@@ -41,6 +42,7 @@ use playtime_clip_engine::base::ClipMatrixEvent;
 use realearn_api::persistence::{FxDescriptor, LearnableMappingFeature, TrackDescriptor};
 use reaper_medium::RecordingInput;
 use std::error::Error;
+use std::fmt;
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
@@ -2435,6 +2437,31 @@ impl Drop for Session {
     fn drop(&mut self) {
         debug!(self.logger(), "Dropping session...");
         self.party_is_over_subject.next(());
+    }
+}
+
+impl Display for Session {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let fx_pos = self.processor_context.containing_fx().index() + 1;
+        let fx_name = self.processor_context.containing_fx().name();
+        let session_id = self.id();
+        if let Some(track) = self.processor_context.track() {
+            if track.is_master_track() {
+                f.write_str(MASTER_TRACK_LABEL)?;
+            } else {
+                let track_label = get_track_label(track);
+                let chain = if self.processor_context.containing_fx().chain().is_input_fx() {
+                    "Input FX"
+                } else {
+                    "Normal FX"
+                };
+                write!(f, "Track \"{track_label}\" / {chain}")?;
+            }
+        } else {
+            write!(f, "Monitoring FX chain")?;
+        };
+        write!(f, " / \"{fx_pos}. {fx_name}\" (ID \"{session_id}\")")?;
+        Ok(())
     }
 }
 

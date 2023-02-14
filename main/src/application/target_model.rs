@@ -4350,9 +4350,9 @@ pub fn get_virtual_fx_label(
     }
 }
 
-fn get_track_label(track: &Track) -> String {
+pub fn get_track_label(track: &Track) -> String {
     match track.location() {
-        TrackLocation::MasterTrack => "<Master track>".into(),
+        TrackLocation::MasterTrack => MASTER_TRACK_LABEL.into(),
         TrackLocation::NormalTrack(i) => {
             let position = i + 1;
             let name = track.name().expect("non-master track must have name");
@@ -4365,6 +4365,8 @@ fn get_track_label(track: &Track) -> String {
         }
     }
 }
+
+pub const MASTER_TRACK_LABEL: &str = "<Master track>";
 
 fn convert_monitoring_mode_to_reaper(monitoring_mode: MonitoringMode) -> InputMonitoringMode {
     match monitoring_mode {

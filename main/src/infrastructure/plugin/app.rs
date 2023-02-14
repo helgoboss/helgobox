@@ -902,7 +902,9 @@ impl App {
 
     pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession> {
         self.find_session(|session| {
-            let session = session.borrow();
+            let Ok(session) = session.try_borrow() else {
+                return false;
+            };
             session.id() == session_id
         })
     }
@@ -1745,6 +1747,11 @@ impl HookPostCommand2 for App {
 }
 
 impl InstanceContainer for App {
+    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<WeakSession> {
+        let session = App::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
+        Some(Rc::downgrade(&session))
+    }
+
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
         let mut activated_inverse_tags = HashSet::new();
         for session in self.sessions.borrow().iter() {

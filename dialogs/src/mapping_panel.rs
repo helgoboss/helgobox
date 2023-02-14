@@ -219,7 +219,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Parameter",
             ids.named_id("ID_TARGET_LINE_3_LABEL_2"),
-            context.rect(282, 138, 127, 9),
+            context.rect(220, 138, 189, 9),
         ) + NOT_WS_GROUP,
         ltext(
             "Hint",

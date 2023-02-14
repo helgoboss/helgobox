@@ -54,9 +54,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
-    SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior,
-    WithControlContext,
+    InstanceContainer, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType,
+    SendMidiDestination, SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType,
+    TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -580,6 +580,7 @@ impl MappingPanel {
                                             }
                                             P::InstanceId => {
                                                 view.invalidate_target_line_3(initiator);
+                                                view.invalidate_target_line_4(initiator);
                                             }
                                             P::MappingId => {
                                                 view.invalidate_target_line_4(initiator);
@@ -649,6 +650,23 @@ impl MappingPanel {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
+            ReaperTargetType::LearnMapping => {
+                let learn_instance_id = mapping.borrow().target_model.instance_id();
+                let menu = {
+                    let session = self.session();
+                    let session = session.borrow();
+                    menus::menu_containing_instances(&session, learn_instance_id)
+                };
+                let result = self
+                    .view
+                    .require_window()
+                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                if let Some(instance_id) = result {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetInstanceId(instance_id),
+                    ));
+                }
+            }
             ReaperTargetType::SendMidi => {
                 if let Some(action) = open_send_midi_menu(self.view.require_window()) {
                     match action {
@@ -824,12 +842,25 @@ impl MappingPanel {
                 )));
             }
             ReaperTargetType::LearnMapping => {
-                let (compartment, learn_mapping_id) = {
+                let (compartment, learn_mapping_id, learn_instance_id) = {
                     let mapping = mapping.borrow();
-                    (mapping.compartment(), mapping.target_model.mapping_id())
+                    (
+                        mapping.compartment(),
+                        mapping.target_model.mapping_id(),
+                        mapping.target_model.instance_id(),
+                    )
                 };
-                let menu =
-                    menus::menu_containing_mappings(&self.session, compartment, learn_mapping_id);
+                let get_menu = move |session: &WeakSession| {
+                    menus::menu_containing_mappings(session, compartment, learn_mapping_id)
+                };
+                let menu = if let Some(learn_instance_id) = learn_instance_id {
+                    let session = App::get()
+                        .find_session_by_instance_id(learn_instance_id)
+                        .ok_or("session not found")?;
+                    get_menu(&session)
+                } else {
+                    get_menu(&self.session)
+                };
                 let result = self
                     .view
                     .require_window()
@@ -4729,6 +4760,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => Some("..."),
+                ReaperTargetType::LearnMapping => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4913,6 +4945,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
+                ReaperTargetType::LearnMapping => Some("Instance"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -4972,9 +5005,26 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_label_2(&self) {
-        let label = self.view.require_control(root::ID_TARGET_LINE_3_LABEL_2);
-        // Not in use at the moment
-        label.hide();
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::LearnMapping => {
+                    if let Some(instance_id) = self.target.instance_id() {
+                        if let Some(session) = App::get().find_session_by_instance_id(instance_id) {
+                            Some(session.upgrade().unwrap().borrow().to_string())
+                        } else {
+                            Some("<Session doesn't exist>".to_string())
+                        }
+                    } else {
+                        Some("<This>".to_string())
+                    }
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_3_LABEL_2)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_4_label_2(&self) {
@@ -4991,16 +5041,27 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::LearnMapping => {
                     let label = match self.target.mapping_id() {
-                        None => "<Not picked yet>".to_string(),
+                        None => "<None>".to_string(),
                         Some(id) => {
                             let qualified_id =
                                 QualifiedMappingId::new(self.mapping.compartment(), id);
-                            match self
-                                .session
+                            let get_mapping_name = move |session: &Session| match session
                                 .find_mapping_and_index_by_qualified_id(qualified_id)
                             {
                                 None => "<Mapping doesn't exist>".to_string(),
                                 Some((_, mapping)) => mapping.borrow().effective_name(),
+                            };
+                            if let Some(instance_id) = self.target.instance_id() {
+                                if let Some(other_session) = App::get()
+                                    .find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
+                                {
+                                    let other_session = other_session.borrow();
+                                    get_mapping_name(&other_session)
+                                } else {
+                                    "-".to_string()
+                                }
+                            } else {
+                                get_mapping_name(self.session)
                             }
                         }
                     };

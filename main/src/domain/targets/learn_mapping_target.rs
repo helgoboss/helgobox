@@ -1,9 +1,10 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
-    ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
-    HitResponse, InstanceId, MappingControlContext, MappingEnabledChangeRequestedEvent, MappingId,
-    MappingLearnRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    DomainEventHandler, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
+    HitInstructionResponse, HitResponse, InstanceId, MappingControlContext,
+    MappingEnabledChangeRequestedEvent, MappingId, MappingLearnRequestedEvent, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use realearn_api::persistence::LearnableMappingFeature;
@@ -62,16 +63,25 @@ impl RealearnTarget for LearnMappingTarget {
         }
         impl HitInstruction for LearnMappingInstruction {
             fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
-                // TODO-high CONTINUE If instance ID is set, use instance container to do the change
-                // context.control_context.instance_container.
-                context.domain_event_handler.handle_event_ignoring_error(
-                    DomainEvent::MappingLearnRequested(MappingLearnRequestedEvent {
-                        compartment: self.compartment,
-                        mapping_id: self.mapping_id,
-                        feature: self.feature,
-                        on: self.on,
-                    }),
-                );
+                let event = DomainEvent::MappingLearnRequested(MappingLearnRequestedEvent {
+                    compartment: self.compartment,
+                    mapping_id: self.mapping_id,
+                    feature: self.feature,
+                    on: self.on,
+                });
+                if let Some(instance_id) = self.instance_id {
+                    if let Some(session) = context
+                        .control_context
+                        .instance_container
+                        .find_session_by_instance_id(instance_id)
+                    {
+                        session.handle_event_ignoring_error(event)
+                    }
+                } else {
+                    context
+                        .domain_event_handler
+                        .handle_event_ignoring_error(event)
+                };
                 HitInstructionResponse::CausedEffect(vec![])
             }
         }
