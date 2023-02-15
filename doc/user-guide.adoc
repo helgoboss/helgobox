@@ -11,6 +11,7 @@
 :caution-caption: pass:[&#8252;]
 
 // Reusable text snippets
+:osc_host_instruction: Enter the IP address of the computer running ReaLearn. You can easily find it by pressing the "Projection" button in ReaLearn and scrolling down a bit. It's the value next to "Host" and should start with "192.168.".
 :osc_port_instruction: Choose a random port number greater than 1024, preferably 7879. This number must not be in use yet by other OSC applications, not even by REAPER's native OSC!
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
@@ -19,9 +20,9 @@
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
-kbd:[<<Back-to-Top>>]
-
 = Quick start
+
+kbd:[<<Back-to-Top>>]
 
 Here's a step-by-step guide to help you get started with ReaLearn and a MIDI controller:
 
@@ -64,9 +65,9 @@ NOTE: To access this manual at any time is using the <<Help>> button on the head
 
 If you want to get the most out of your controller and learn about all of ReaLearn's cool features, please read on.
 
-kbd:[<<Back-to-Top>>]
-
 = Introduction
+
+kbd:[<<Back-to-Top>>]
 
 == What is ReaLearn?
 
@@ -123,9 +124,9 @@ dynamic, more global control surface world.
 
 *Summary:* _ReaLearn is a sort of instrument for controlling REAPER._
 
-kbd:[<<Back-to-Top>>]
-
 == Videos
+
+kbd:[<<Back-to-Top>>]
 
 If you want to get a first impression of ReaLearn, a video is surely a good way.
 
@@ -140,9 +141,9 @@ ReaLearn versions and therefore might be partially outdated:
 * https://www.youtube.com/watch?v=WKF2LmIueY8[How To: ReaLearn and MIDI Controller for Track Sends in REAPER - Tutorial]
 * https://www.youtube.com/watch?v=UrYrAxnB19I[using ReaLearn to assign MIDI controllers to (VST) plugin parameters in Cockos Reaper]
 
-kbd:[<<Back-to-Top>>]
-
 == Usage scenarios
+
+kbd:[<<Back-to-Top>>]
 
 Ultimately, ReaLearn gains whatever purpose you can come up with. Because it is a VSTi plug-in and
 provides many MIDI routing options, it's very flexible in how it can be used. You can "inject" it
@@ -187,10 +188,10 @@ of all sorts, give ReaLearn a try. It might be just what you need. More so if th
 
 *Summary:* _ReaLearn is tailored to usage scenarios typically desired by performers._
 
-kbd:[<<Back-to-Top>>]
-
 [#basics]
 = Basics
+
+kbd:[<<Back-to-Top>>]
 
 == Basic setup items
 
@@ -217,9 +218,9 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 . Right click ReaLearn FX in the FX chain.
 . Enable "Send all keyboard input to plug-in".
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 === Adding a mapping
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 *Let's see how to add and use our first MIDI mapping:*
 
@@ -241,10 +242,10 @@ kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
  _target label_.
 . Now you should be able to control the touched target with your control element.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 [#troubleshooting]
 === Troubleshooting
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 [discrete]
 ==== ReaLearn doesn't appear in the list of plug-ins
@@ -311,9 +312,9 @@ Another thing worth to point out which is different from built-in MIDI learn is 
 the action "Track: Set volume for track 01". Benefit: ReaLearn will let you control the volume of
 the track even if you move that track to another position. The track's position is irrelevant!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 === Feedback
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 In ReaLearn, every mapping has 2 directions: _control_ (controller to REAPER) and _feedback_ (REAPER
 to controller). So far we have talked about the _control_ direction only: When you move a knob on
@@ -378,9 +379,9 @@ If it doesn't work and you have ruled out MIDI connection issues, here are some 
 [TIP]
 Have a look into the section <<tested-controllers,Tested controllers>>. Maybe your controller is listed there along with some tips.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 === Editing a mapping
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 When you press the _Edit_ button of a mapping row, a so-called _mapping panel_ appears, which lets
 you look at the corresponding mapping in detail and modify it:
@@ -408,9 +409,9 @@ panel.
 
 TIP: It is possible to have up to 4 mapping panels open at the same time.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 == Exist controllers setup
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 In order to get the most out of your controller in combination with ReaLearn, you should consider
 the general hints given in the section <<tested-controllers,Tested controllers>>.
@@ -441,10 +442,10 @@ Pseudo automation will only be rendered if you follow some very distinct rules:
 I remember that *Online Render* used to respect all kinds of pseudo automation. However, this must have stopped working at some point (or it works only under particular circumstances or with certain settings, not sure). Anyway, now you need to follow the same rules as with offline rendering to make pseudo automation work.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
-
 [#companion-app]
 == Companion app
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
 
 This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's <<projection>> feature.
 
@@ -666,9 +667,9 @@ take the time and digest this for a while, you will realize that you can do almo
 the "Mapping", "Parameter" and "Activation condition" concepts. This scenario is just one of many. Just see the next
 tutorial to understand why.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
-
 === The same but with previous/next buttons
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
 
 Now let's assume you don't want 2 buttons where each button should activate one particular bank but you want
 previous/next buttons to switch between the banks. Do everything as in tutorial 1 with the exception of step 5.
@@ -688,9 +689,9 @@ The "Previous group" mapping then looks like this:
 
 image:images/tutorial-2-step-5.jpg[Step 5]
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
-
 === Using "Auto-load" to control whatever plug-in is currently in focus
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
 
 This one seems to be a very popular use case: To create a dedicated set of mappings for a specific FX plug-in and load
 these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load"
@@ -746,9 +747,9 @@ Now you just have to set _Auto-load_ to _Based on instance FX_. Since the <<inst
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
-
 == FAQ
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<tutorials>>]
 
 === How many instances and where to put them?
 
@@ -819,10 +820,10 @@ The disadvantage is that it makes simple setups a bit harder to understand than 
 
 As always: Choose the right tool for the job and consider starting off with the easiest tool.
 
-kbd:[<<Back-to-Top>>]
-
 [#tested-controllers]
 == Controller support
+
+kbd:[<<Back-to-Top>>]
 
 === Explanation
 
@@ -855,9 +856,9 @@ activation)
 
 So even ReaLearn is made for any controller, it's still useful to have a list of specific controllers and how they work in combination with ReaLearn. This list is available link:https://github.com/helgoboss/realearn/tree/master/doc/controllers.adoc[here]
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<tested-controllers>>]
-
 === General tips regarding controller setup and usage
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<tested-controllers>>]
 
 The following basic setup hints are usually valid, no matter the specific controller:
 
@@ -885,9 +886,9 @@ Using an existing preset might save you a lot of mapping work (and possibly also
 
 The list of tested controllers is now available as link:https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc[separate document].
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<tested-controllers>>]
-
 == Available presets
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<tested-controllers>>]
 
 The lists of currently available controller and main presets are available here:
 
@@ -946,10 +947,10 @@ Please note that sending MIDI feedback
 * ReaLearn FX is on input FX chain and track is not armed.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#Menu-listing-overview]
 === Menu implementation
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 kbd:[*Menu*] This bottom opens ReaLearn's main menu. It's also accessible via right-click on Windows and Linux and control-click
 on macOS. It provides the following entries.
@@ -995,9 +996,9 @@ Changes the targets of all currently listed mappings to use "sticky" object sele
 
 Lets you move all currently listed mappings to the specified group. Perfect in combination with the textual search!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 ==== Advanced
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 Provides access to expert features.
 [%collapsible]
@@ -1025,15 +1026,16 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
 ====
 * *Freeze clip matrix*: Don't use this, this feature is not ready yet!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 [#options]
 ==== Options
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 [%collapsible]
 ====
 image:images/images 2/Menu-Option.jpg[Option menu]
 ====
+
 * *Auto-correct settings:* By default, whenever you change something in ReaLearn, it tries to
 figure out if your combination of settings makes sense. If not, it makes an adjustment.
 This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
@@ -1071,15 +1073,18 @@ with the same control and/or feedback device will be disabled for control and/or
 ** *Only if background project is running:* Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
 ** *Always (more or less):* Attempts to stay active no matter what. Please note that this is technically not always possible when using _<FX input>_ or _<FX output>_ when the background project is not running.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 ==== Server
 
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
+
 ReaLearn features a built-in server which allows the <<companion-app>> (and in future also the Playtime app) to connect to ReaLearn. The server runs globally, not per instance!
+
 [%collapsible]
 ====
 image:images/images 2/Menu-Server-OSC.jpg[menu server and OSC]
 ====
+
 * *Enable and start!:* This starts the server and makes sure it will automatically be started next time you use ReaLearn.
 * *Disable and stop!:* This stops the server and makes sure it will not be started next time you use ReaLearn.
 * *Add firewall rule:* Attempts to add a firewall rule for making the server accessible from other devices or
@@ -1099,10 +1104,10 @@ If you made direct changes to preset files or have downloaded presets via ReaPac
 This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 [#osc-devices]
 ==== OSC devices
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 Allows one to display and modify the list of (globally) configured OSC devices.
 
@@ -1139,10 +1144,10 @@ forever).
 Some devices (e.g. from Behringer) can't deal with OSC bundles. Untick the checkbox in this case and ReaLearn
 will send single OSC messages.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 [#compartment-parameters]
 ==== Compartment parameters
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 This shows all parameters of the current compartment (you know, the ones that can be used
 for conditional activation and _<Dynamic>_ selector expressions) and makes it possible to customize them. This is practical because it's completely up to you how to put these parameters to use.
@@ -1167,14 +1172,17 @@ image:images/Realearn parameter viewer.jpg[parameter list viewer]
 
 Reason: You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>. If you do that and later change the value count, these value references will not be valid anymore. They will point to other integers than you intended to. So if you are not sure, better pick a large value count and stick to it!
 ====
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 [#logging]
 ==== Logging
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
+
 [%collapsible]
 ====
 image:images/images 2/Menu-Logging.jpg[Logging menu]
 ====
+
 * **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
 investigating bugs or understanding how this plug-in works.
 * ** Log real control messages:** When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
@@ -1209,9 +1217,9 @@ Usually ReaLearn sends feedback whenever something changed to keep the LEDs
 or motorized faders of your controller in sync with REAPER at all times. There might be situations
 where it doesn't work though. In this case you can send feedback manually using this button.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 === Export to clipboard
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 kbd:[*Export to clipboard*] Pressing the button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
 
@@ -1241,19 +1249,19 @@ For the programmers and script junkies out there: It's perfectly possible to pro
 * *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua code (ReaLearn Script). This form of Lua export skips properties that correspond to ReaLearn's default values, resulting in a minimal result. Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
 * *Export main/controller compartment as Lua (include default values):*  This Lua export includes even those properties that correspond to ReaLearn's default values, resulting in more text. This gives you the perfect starting point if you want to extensively modify the current compartment (using the Lua programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 === Import from clipboard
 
 kbd:[*Import from clipboard*] Pressing the button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+
 [%collapsible]
 ====
 image:images/images 2/button-import from clipboard.jpg[import from clipboard & blank error]
 ====
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 [#projection]
 === Projection
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 kbd:[*Projection*] This is a quite unique feature that allows you to project a schematic representation
  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close
@@ -1263,18 +1271,18 @@ kbd:[*Projection*] This is a quite unique feature that allows you to project a s
  and you will see detailed instructions on how to set this up. In order to use this feature, you need the
  _ReaLearn Companion_ app, which has a <<companion-app,dedicated section>> in this user guide.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#Help]
 === Help button kbd:[*?*]
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 Provides helpful links to the user guide and other stuff.
 
 image:images/images 2/button-Help.jpg[Help button menu review]
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 === Let through
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 [%collapsible]
 ====
@@ -1299,9 +1307,10 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 ** You can control whether key presses are forwarded to REAPER or not.
 ** For example, unticking both checkboxes makes sure that only keyboard hotkeys defined in ReaLearn have an effect. This can be interesting for live scenarios in which you temporarily want to lower the risk of pressing the wrong key and messing up the performance. Just unlock the keys you absolutely need.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 === Show
+
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 This lets you choose which mapping compartment is displayed. A compartment is basically a list of mappings
  that can be saved as independent preset. Initially, ReaLearn shows the so-called "Main compartment" which contains
@@ -1346,9 +1355,9 @@ kbd:[*Save as...*] This allows you to save all currently visible mappings as a n
 *** Track targets are changed to refer to a track via its position instead of its ID.
 ** If this is not what you want, you can choose to say no and make modifications yourself.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 === Delete
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 kbd:[*Delete*] This permanently deletes the currently chosen preset. You can also delete built-in presets.
  However, if you use ReaPack for installation, it should restore them on next sync.
@@ -1395,10 +1404,10 @@ kbd:[*Filter target*] If you want to find out what mappings exist for a particul
  automatically stop learning as soon as a target was touched. Press the *X* button to remove the
  filter and show all mappings again.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#bottom-panel]
 == Bottom panel
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 image:images/images 2/Panel-Bottom.jpg[bottom panel]
 
@@ -1446,10 +1455,10 @@ a ReaLearn FX, importing from clipboard - all of that will overwrite the session
 future in favor of a more nuanced approach!
 * *Tags:* Lets you assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#instance-track]
 === Instance track
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 The second line of the bottom panel shows the current track chosen as **Instance track** for this instance of ReaLearn. This can be something like "Track 3" or "The currently selected track". Mappings in this ReaLearn instance can refer to this track by choosing the track selector <<instance-selector>>.
 
@@ -1509,10 +1518,10 @@ the order of execution matters.
  The course needs to be set in advance, at least one step before! Not at the same time as moving the train over the
  switch.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#controller-compartment]
 == Controller compartment
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 By default, ReaLearn shows the list of main mappings. If you switch to the _controller_ compartment, you will see the
 list of controller mappings instead. Each controller mapping represents a control
@@ -1585,9 +1594,9 @@ using _batch learning_:
 You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;]. I will add it to https://github.com/helgoboss/realearn/tree/master/resources/controller-presets[this
 list].
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 == Main compartment
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 The header panel for main mappings consists of a few more user interface elements:
 
@@ -1604,10 +1613,10 @@ kbd:[*Auto-load*] If you switch this to _Based on instance FX_, ReaLearn will st
  presets. Read on!
 By the kbd:[*Menu*] button or header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main compartment are chose contains the missing piece of the puzzle:
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
-
 [#global-fx-to-preset-links]
 === Global FX-to-preset links
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
 
 Manage a global list of links from plug-ins to ReaLearn main compartment presets.
 
@@ -1640,21 +1649,21 @@ and `Pianoteq 7 STAGE.vst3` (VST3).
 ** *_Arbitrary main preset:_* The checkbox tells you to which main preset the FX ID is linked. You can change
  the linked preset by clicking another one.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 === Instance-wide FX-to-preset links
 
-This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn instance. This is useful if you have 2 controllers (= and therefore 2 ReaLearn instances) and want them to auto-load different presets although the instance FX points to the same plug-in.
-[%collapsible]
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
+This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn instance. This is useful if you have 2 controllers (= and therefore 2 ReaLearn instances) and want them to auto-load different presets although the instance FX points to the same plug-in.
+
+[%collapsible]
 ====
 image:images/images 2/Context-Menu instance-wide FX-to-preset lincs.jpg[instance-wide FX-to-preset lincs Menu]
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 [#mapping-row]
 == Mapping row
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_. A mapping is considered as _on_ only if the following is true:
 
@@ -1668,9 +1677,9 @@ The mapping, source and target labels of a mapping row should be greyed out when
 image:images/images 2/Panel-Main Mapping row.jpg[Mapping rows]
 ====
 
-If a mapping is _off_, it doesn't have any effect.
-
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
+
+If a mapping is _off_, it doesn't have any effect.
 
 * *✓:* This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
 * *●:* This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<glue>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
@@ -1707,10 +1716,10 @@ image:images/images 2/Context-Menu.jpg[Context menu]
 ** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Lua code.
 ** *Log debug info:* Logs debug information about this particular mapping.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
-
 [#mapping-panel]
 = Reference (part 2) Mapping panel
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 [%collapsible]
 ====
@@ -1744,10 +1753,10 @@ Feedback (from REAPER to controller) works in a similar fashion but is restricte
 control values. Even if the source is relative (e.g. an encoder), ReaLearn will always emit absolute
 feedback, because relative feedback doesn't make sense.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
-
 [#mapping]
 == General mapping properties
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
 image:images/images 2/Mapping-panel General.jpg[Mapping General]
 
@@ -1807,10 +1816,10 @@ This section provides the following mapping-related settings and functions:
 * *Previous/next buttons:* Allows you to jump to the previous or next mapping. Considers only mappings that are currently visible in the mapping rows panel.
 * *Enabled (checkbox on the bottom-right):* Enables or disables the mapping as a whole.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
-
 [#conditional-activation]
 == Conditional activation
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
 image:images/images 2/Mapping-Activation.jpg[Conditional activation]
 
@@ -2020,10 +2029,10 @@ not pressed and control target B when it's pressed.
 ** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
-
 [#Source]
 == Source
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
 image:images/images 2/Mapping-panel Source.jpg[Source area]
 
@@ -2121,9 +2130,9 @@ out-of-range-behavior will set in that will just ignore all button presses.
  resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
  resolution. This is not so common but sometimes used by controllers with high-precision faders.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 ==== Note velocity
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This source reacts to incoming MIDI note-on and note-off messages. The higher the velocity of the
 incoming note-on message, the higher the absolute control value. Note-off messages are always
@@ -2204,10 +2213,11 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 
 * *Message:* The specific transport message to which this source should react.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#raw-midi-source]
 ==== Raw MIDI / SysEx
+
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This source primarily deals with system-exclusive MIDI messages. Since ReaLearn v2.11.0, it supports both control and feedback direction!
 
@@ -2236,9 +2246,9 @@ Remarks:
 - You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones. If you do this, it will work as expected for the _feedback_ direction. Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
 - If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 *Binary notation*
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 ReaLearn also supports binary notation of a byte. You need to enclose the binary digits of one byte in brackets.
 
@@ -2348,10 +2358,10 @@ E0 [0gfe dcba] [0nml kjih]
 ----
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#script-source]
 ==== MIDI Script
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source. It lets you write an EEL or Lua script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
 
@@ -2454,10 +2464,10 @@ return {
 Please note that this kind of simple mapping from text values to integer numbers doesn't need a script. You can use the `feedback_value_table` <<glue>> property instead, which can only be set via API though. Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#display-source]
 ==== Display
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, etc.).
 
@@ -2483,10 +2493,10 @@ If you want to know how to define which text shall be sent to the displays, plea
 
 This source reacts to MIDI program-change messages with a specific program. This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#category-OSC]
 === Category "OSC"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 OSC sources allow configuration of the following aspects:
 
@@ -2524,9 +2534,9 @@ The second dropdown menu lets you choose the argument type which ReaLearn should
 |===
 * If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 ==== Range
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 Values of argument types _Float_ and _Double_ are by default interpreted as decimal values between 0.0 and 1.0. You can change that by entering a different value range here. Even negative numbers are allowed.
 
@@ -2632,10 +2642,10 @@ Infinity
 Infinity value
 |===
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#category-Keyboard]
 === Category "Keyboard"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This source reacts to pressing or releasing a key on your computer keyboard. It emits a value of 100% when the key is pressed and 0% when released.
 
@@ -2657,10 +2667,10 @@ Usage:
 
 In this field You may to see the key undefined before pickup or got it after Learning action.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#category-REAPER]
 === Category "REAPER"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 ==== MIDI device changes
 
@@ -2689,10 +2699,10 @@ WARNING: At the moment, mappings with this source can't participate in rendering
 
 This source works for feedback only. It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#virtual-source]
 === Category "Virtual"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual
 MIDI/OSC source.
@@ -2743,10 +2753,10 @@ Represents a control element that distinguishes between two possible states only
 Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that
 you are not interested in the velocity sensitivity.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
-
 [#target]
 == Target
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 image:images/images 2/Mapping-panel Target.jpg[target panel]
 
@@ -2796,10 +2806,10 @@ Targets that need a track, FX, FX parameter or send/receive have dropdowns that 
 
 NOTE: The descriptions below are sometimes a bit tailored to _track_ objects but the same applies to all other objects that support it.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#instance-selector]
 ==== Selector "Instance"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 This selector makes the target work on the current <<instance-track>> or current <<instance-fx>> of this particular ReaLearn instance.
 
@@ -2835,10 +2845,10 @@ In the name field next to the dropdown, you can enter a name. If you don't want 
 * `?` for matching exactly one arbitrary character.
 * Example: `Violin *` would match `Violin 1` or `Violin 12` but not `12th Violin`.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#dynamic-selector]
 ==== Selector "Dynamic"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 This selector allows you to _calculate_ which object (e.g. track) you want to use.
 
@@ -2949,9 +2959,9 @@ controlling that parameter.
  number within the bank. You see, this is very flexible.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 === Common elements and selectors for track targets
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 When choosing a track, the following additional elements and selectors are available:
 
@@ -3024,9 +3034,9 @@ behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility r
 
 _Deprecated_: You shouldn't use this selector anymore.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 === Common elements for on/off targets
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Targets which control an on/off-style property of tracks (e.g. <<track-solounsolo,Track: Solo/unsolo>>) additionally provide the following elements.
 
@@ -3064,9 +3074,9 @@ This lets you choose the actual send/receive/output.
 
 The following elements and selectors are available for targets associated with a particular FX instance.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== FX
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 The FX instance associated with this target. ReaLearn will search for the FX in the output or input FX chain of the above selected track.
 
@@ -3101,9 +3111,9 @@ This refers to the FX by its unique ID with its position as fallback. This was t
 
 _Deprecated_: Don't use this selector anymore.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== Input FX
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
  chain. If checked, it will show FX instances in the track's input FX chain.
@@ -3152,9 +3162,9 @@ In the probably rare case that the polling causes performance issues, you can un
 ** If the FX is on the monitoring FX chain.
 ** If you change a preset from within the FX GUI.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 === Category "Real"
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 [%collapsible]
 ====
@@ -3210,10 +3220,10 @@ If the control element is also a button, pressing the button will e.g. unmute al
 
 * *Parameter:* The track parameter in question.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#project-invoke-reaper-action]
 ==== Project: Invoke REAPER action
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Triggers or sets the value of a particular REAPER action in the main section.
 
@@ -3272,9 +3282,9 @@ of actions can roughly be divided into:
 ... When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done
  using absolute MIDI CC/OSC (not relative).
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== Project: Invoke transport action
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Invokes a transport-related action.
 
@@ -3305,10 +3315,10 @@ Steps through tracks. To be used with endless rotary encoders or previous/next-s
 ** *Only tracks visible in MCP:* Considers only those tracks which are visible in the mixer control panel.
 ** *Only tracks visible in MCP (allow 2 selections):* See above.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#seek-target]
 ==== Project: Seek
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project …
 with feedback that indicates the current position!
@@ -3361,10 +3371,9 @@ This target supports the following additional placeholders in textual feedback e
 |target.position.absolute_frames.mcu | Like `target.position.absolute_frames` but tailored to Mackie Control timecode displays
 |===
 
+==== Project: Set playrate
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
-==== Project: Set playrate
 
 Sets REAPER's master playrate.
 
@@ -3422,10 +3431,10 @@ This target supports the following additional placeholders in textual feedback e
 |target.bookmark.name | Name of the bookmark
 |===
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#track-target]
 ==== Track
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/images 2/target-Track.jpg[Track target list]
 
@@ -3478,10 +3487,10 @@ At the moment this target only reports peak volume, not RMS.
 
 Inverts the track phase if the incoming absolute control value is greater than 0%, otherwise switches the track phase back to normal.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#track-selectunselect]
 ==== Track: Select/unselect
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the
 track.
@@ -3573,9 +3582,9 @@ Provides the following additional settings:
 Learning this target by pressing the "Solo" button of the _master_ track is currently not possible but
 of course you can just select it manually in the dropdown menu.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== FX chain: Browse FXs
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/images 2/target-FX.jpg[FX target list]
 
@@ -3644,10 +3653,10 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
 
 This does the same as <<track-set-automation-touch-state>> but for FX parameter value changes.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#fx-set-parameter-value]
 ==== FX parameter: Set value
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Sets the value of a particular track FX parameter.
 
@@ -3700,10 +3709,10 @@ target.item.parent.name
 Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
 |===
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#pot-browse-presets]
 ==== Pot: Browse presets
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Use this target to browse a collection of presets. By default, this is the complete collection of presets available in all supported databases (at the moment NKS only), so potentially thousands of presets. If you want to browse just a subset, see <<pot-browse-filter-items>>.
 
@@ -3733,9 +3742,9 @@ Settings:
 
 * *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in. The best idea is to use FX selector <<by-position>>. Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change. Then the target would turn inactive and stop working.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== Send: Automation mode
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/images 2/target-Send.jpg[Send target list]
 
@@ -3765,9 +3774,9 @@ Sets the track send's pan value.
 
 Sets the track send's volume.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 ==== Clip: Invoke transport action
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/images 2/target-Clip.jpg[Clip target list]
 
@@ -3816,10 +3825,10 @@ However, this also means that the following things won't work when controlling t
 ** It can't participate in <<realearn-load-mapping-snapshot>>.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#osc-send-message]
 ==== OSC: Send message
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/MIDI OSC target.jpg[MIDI OSC target]
 
@@ -3864,10 +3873,10 @@ Please note:
 
 TIP: This target is great for switching between completely different controller setups!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#realearn-enable-disable-mappings]
 ==== ReaLearn: Enable/disable mappings
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 This target allows you to flexibly enable or disable other mappings in this instance based on their tags:
 
@@ -3886,10 +3895,10 @@ Please note:
 
 TIP: This target is a straightforward alternative to <<conditional-activation>>, especially when it comes to bank switching!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#realearn-load-mapping-snapshot]
 ==== ReaLearn: Load mapping snapshot
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 Restores target values for all or certain mappings in this ReaLearn instances.
 
@@ -3956,10 +3965,10 @@ This is exactly the counterpart of the possible <<virtual-source,virtual sources
 placing cables between a control element and all corresponding main mappings that use this
 virtual control element as source.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
-
 [#glue]
 == Glue
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Target>>]
 
 image:images/images 2/Mapping-panel Glue.jpg[Glue panel]
 
@@ -4009,10 +4018,10 @@ the exception of the <<project-invoke-reaper-action,Project: Invoke REAPER actio
 
 These are relevant for the control direction only:
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#target-value-sequence]
 === Value sequence
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 Allows you to define a specific sequence of target values. This is a very powerful feature because
  you not only can enter single values but also ranges with customizable step sizes! Plus, it has support for true
@@ -4034,10 +4043,10 @@ Examples:
  be stepped through in a continuous manner (-5, 8, 10, 20). The benefit as always: No parameter jumps! If you want
  to use non-continuous sequences with encoders or incremental buttons, you can always use _Make absolute_!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#group-interaction]
 === Group interaction
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 Lets you control not just _this_ mapping but also _all other mappings in the same mapping
  group_. Very powerful feature!
@@ -4064,9 +4073,9 @@ TIP: If you want to control _other_ mappings only and not _this_ mapping, just p
  custom groupings - independent of e.g. organization of tracks into folders.
 * *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 === Feedback type
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 Determines whether to send numeric or textual feedback to the source.
 
@@ -4167,10 +4176,10 @@ Name of the first resolved target send/receive/output (if supported).
 +
 For target-specific placeholders, please look up the corresponding <<target>> section.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#feedback-style]
 === Feedback style (... button)
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 The ... button options to change the _feedback style_. At the moment, it's all about setting colors. Expect more style properties to follow in future versions of ReaLearn.
 
@@ -4194,10 +4203,9 @@ Custom color of the resolved marker or region.
 Only works with the <<marker-region-go-to>> target.
 |===
 
+=== Source Min/Max
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
-=== Source Min/Max
 
 The observed range of absolute source control values. By restricting that
  range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only
@@ -4223,10 +4231,9 @@ If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ w
  | *Ignore* | Target value won't be touched. | No feedback will be sent.
 |===
 
+=== Mode ("Absolute mode")
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
-=== Mode ("Absolute mode")
 
 Let's you choose an _absolute mode_, that is, the way incoming absolute source values are handled.
 
@@ -4269,10 +4276,10 @@ toggle function, it's quite likely that it gets out of sync with the actual targ
 ReaLearn's own toggle mode has a clear advantage here.
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#make-relative]
 ==== Make relative
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 This converts incoming absolute fader/knob movements into relative adjustments of the target value. It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important differences:
 
@@ -4333,10 +4340,10 @@ With this mode, the target will simply follow your fader moves, in exactly the s
 This mode is sometimes called "Proportional" or "Value scaling" mode. It's like "Parallel" mode
  but the target value is allowed to move slower than the control value - hence the control can catch up (converge) faster.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#control-transformation]
 === Control transformation (EEL)
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 This feature allows you to write a formula that transforms incoming control values.
 
@@ -4419,9 +4426,9 @@ ReaLearn's control processing order is like this:
 . Apply target interval
 . Apply rounding
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 === Step size Min/Max
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 When you deal with relative adjustments of target values in terms of
  increments/decrements, then you have great flexibility because you can influence the _amount_ of
@@ -4466,10 +4473,10 @@ Example:
 * You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite. It means you need to make your
  encoder send 2 increments in order to move to the next preset. Or -5: You need to make your encoder send 5
  increments to move to the next preset. This is like slowing down the encoder movement.
+ 
+=== Encoder filter (dropdown)
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
-=== Encoder filter (dropdown)
 
 Allows you to react to clockwise or counter-clockwise encoder movements only, e.g. if
  you want to invoke one action on clockwise movement and another one on counter-clockwise movement. Or if you want
@@ -4506,10 +4513,10 @@ By checking this box:
 * You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
 * You can still use some of the relative-only features: Step size and rotate!
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#fire-mode]
 === Fire mode
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
 and by changing the values below it, you can change this behavior. This dropdown provides different fire modes that
@@ -4584,10 +4591,10 @@ This allows you to easily ignore button presses or releases.
  because it will mess with the button LED color or on/off state.
 * *Release only:* Makes ReaLearn ignore the press of the button (just processing its release). Rare, but possible.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
-
 [#Bottom-section]
 == Bottom section
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<glue>>]
 
 image:images/images 2/Mapping-panel Bottom.jpg[images/images 2/[Mapping-panel Bottom]
 
@@ -4612,9 +4619,9 @@ _feedback_ direction (if applicable).
  always contains a list of sources. It only displays relevant kinds of sources. If a source kind is impossible
  according to the current source settings or if it's not supported by the setting, it won't appear in the list.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
-
 = Provided REAPER actions
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
 ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn
 is loaded. It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access
@@ -4640,10 +4647,10 @@ In order to find these actions, open REAPER's _Actions_ menu, choose _Show actio
  mappings. That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but
  there are situations when it might come in handy.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
-
 [#advanced-settings]
 = Advanced settings
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
 This section describes the _Advanced settings_ feature of the mapping panel (see section <<mapping,Mapping>>) in more
 detail.
@@ -4702,9 +4709,9 @@ user interface.
 ** However, this is something that might change in future, depending on how it proves itself in practice.
 ** Once we would start saving the actual text, it would be hard to go back.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<advanced-settings>>]
-
 == Supported configuration properties
+
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<advanced-settings>>]
 
 In this section you will find examples that cover all currently supported configuration properties. You can copy and
 paste the stuff you need to the text editor, remove the parts that you don't need and adjust the rest. Comments (lines
