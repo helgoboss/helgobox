@@ -2664,7 +2664,7 @@ Usage:
 ** This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
 ** You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
 
-TIP:
+[TIP]
 ====
 - This only works if <<control-input>> is set to *Computer keyboard*.
 - If you hold a key, it will not keep firing. This is by design! Use <<fire-after-timeout-keep-firing>> instead.
