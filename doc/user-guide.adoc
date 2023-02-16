@@ -1156,10 +1156,12 @@ This shows all parameters of the current compartment (you know, the ones that ca
 for conditional activation and _<Dynamic>_ selector expressions) and makes it possible to customize them. This is practical because it's completely up to you how to put these parameters to use.
 
 Perfect for preset authors: Parameter settings are saved together with the compartment preset. Parameter values will be reset whenever you load a preset (just the ones in that compartment).
+
 [%collapsible]
 ====
 image:images/images 2/Menu-Compartment parameter.jpg[Compartment parameter menu tree]
 ====
+
 * *Param _x_ Name:* Changes the name of this parameter.
 * *Value count:* By default, ReaLearn parameter values are continuous in nature: They are arbitrary decimal numbers between 0.0 and 1.0. Although that's very flexible, it's often easier to work with a discrete value range. Entering a value count turns the parameter into a discrete parameter with the given number of integer values. For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
 
