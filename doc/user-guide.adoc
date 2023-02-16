@@ -1730,10 +1730,18 @@ image:images/images 2/Context-Menu.jpg[Context menu]
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
-[%collapsible]
-====
-image:images/images 2/Panel-Mapping color area.jpg[Mapping psnel]
-====
+|====
+3+|<<mapping>> .11+|image:images/images 2/Panel-Mapping color area.jpg[Mapping panel]
+| 2+|<<conditional-activation>>
+3+|
+|<<Source>> | |<<target>>
+3+|
+| .3+|
+|<<glue>>  |
+| |<<Bottom-Help>>
+|<<Bottom-section>> |
+| |
+|====
 
 At this point it's important to understand some basics about how ReaLearn processes incoming control
 events. When there's an incoming control event that matches a particular source, one of the first
@@ -4617,6 +4625,7 @@ This shows information about how an incoming control value was handled and possi
 
 NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
 
+[#bottom-Help]
 === Help
 
 Context-sensitive help for the glue section. Whenever you touch a setting in
