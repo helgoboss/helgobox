@@ -2225,7 +2225,6 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 [#raw-midi-source]
 ==== Raw MIDI / SysEx
 
-
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<Source>>]
 
 This source primarily deals with system-exclusive MIDI messages. Since ReaLearn v2.11.0, it supports both control and feedback direction!
