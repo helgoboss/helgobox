@@ -1479,8 +1479,8 @@ The instance FX can be changed via target <<fx-target>>.
 == Common compartment settings
 
 The header panel shows the following user interface elements, no matter if you are in the controller or main
-
 compartment: 
+
 [%collapsible]
 ====
 image:images/images 2/List-Mapping group.jpg[Mapping group]
