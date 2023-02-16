@@ -378,7 +378,7 @@ If it doesn't work and you have ruled out MIDI connection issues, here are some 
  section you'll learn how to do that.
 * Example: Presonus Faderport
 
-[TIP]
+TIP:
 Have a look into the section <<tested-controllers,Tested controllers>>. Maybe your controller is listed there along with some tips.
 
 === Editing a mapping
