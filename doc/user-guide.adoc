@@ -1479,11 +1479,13 @@ The instance FX can be changed via target <<fx-target>>.
 == Common compartment settings
 
 The header panel shows the following user interface elements, no matter if you are in the controller or main
+
 compartment: 
 [%collapsible]
 ====
 image:images/images 2/List-Mapping group.jpg[Mapping group]
 ====
+
 * *Mapping group:* Mapping groups are part of the currently shown compartment and enable you to divide the list of
 mappings into multiple groups.
 ** Groups can be useful …
@@ -1532,10 +1534,12 @@ By default, ReaLearn shows the list of main mappings. If you switch to the _cont
 list of controller mappings instead. Each controller mapping represents a control
 element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
 by adding mappings. Almost everything in ReaLearn is a mapping :)
+
 [%collapsible]
 ====
 image:images/images 2/List-Controller compartment.jpg[Controller list]
 ====
+
 Defining your own controllers can have a bunch of benefits:
 
 * You can use the awesome <<projection>> feature
