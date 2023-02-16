@@ -1002,10 +1002,12 @@ Lets you move all currently listed mappings to the specified group. Perfect in c
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
 
 Provides access to expert features.
+
 [%collapsible]
 ====
 image:images/images 2/Menu-Advance.jpg[Advance menu]
 ====
+
 * *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
 * *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
 * *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
