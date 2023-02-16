@@ -4625,7 +4625,7 @@ This shows information about how an incoming control value was handled and possi
 
 NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
 
-[#bottom-Help]
+[#Bottom-Help]
 === Help
 
 Context-sensitive help for the glue section. Whenever you touch a setting in
