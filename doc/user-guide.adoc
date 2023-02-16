@@ -1168,7 +1168,7 @@ image:images/images 2/Menu-Compartment parameter.jpg[Compartment parameter menu 
 .spoiler
 [%collapsible]
 ====
-image:doc/images/images 2/Realearn parameter viewer.jpg[parameter list viewer]
+image:images/images 2/Realearn parameter viewer.jpg[parameter list viewer]
 ====
 
 [CAUTION]
