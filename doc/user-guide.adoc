@@ -218,6 +218,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 . Right click ReaLearn FX in the FX chain.
 . Enable "Send all keyboard input to plug-in".
 
+[discrete]
 === Adding a mapping
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
@@ -242,6 +243,7 @@ kbd:[<<Back-to-Top>>] <= kbd:[<<basics>>]
  _target label_.
 . Now you should be able to control the touched target with your control element.
 
+[discrete]
 [#troubleshooting]
 === Troubleshooting
 
