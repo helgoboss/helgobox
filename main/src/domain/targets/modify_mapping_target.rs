@@ -2,19 +2,19 @@ use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, InstanceId, MappingControlContext, MappingId, MappingKey,
-    MappingLearnRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    MappingModificationRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use realearn_api::persistence::LearnableMappingFeature;
+use realearn_api::persistence::MappingModification;
 use std::borrow::Cow;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct UnresolvedLearnMappingTarget {
+pub struct UnresolvedModifyMappingTarget {
     pub compartment: Compartment,
-    pub feature: LearnableMappingFeature,
     pub mapping_ref: MappingRef,
+    pub modification: MappingModification,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -37,30 +37,30 @@ pub enum MappingRef {
     },
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedLearnMappingTarget {
+impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
     fn resolve(
         &self,
-        context: ExtendedProcessorContext,
+        _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::LearnMapping(LearnMappingTarget {
+        Ok(vec![ReaperTarget::ModifyMapping(ModifyMappingTarget {
             compartment: self.compartment,
-            feature: self.feature,
+            modification: self.modification,
             mapping_ref: self.mapping_ref.clone(),
         })])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LearnMappingTarget {
+pub struct ModifyMappingTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
     pub compartment: Compartment,
-    pub feature: LearnableMappingFeature,
+    pub modification: MappingModification,
     pub mapping_ref: MappingRef,
 }
 
-impl RealearnTarget for LearnMappingTarget {
+impl RealearnTarget for ModifyMappingTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
     }
@@ -70,22 +70,22 @@ impl RealearnTarget for LearnMappingTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let on = value.is_on();
-        struct LearnMappingInstruction {
+        struct ModifyMappingInstruction {
             compartment: Compartment,
-            feature: LearnableMappingFeature,
             instance_id: Option<InstanceId>,
             mapping_id: MappingId,
-            on: bool,
+            modification: MappingModification,
+            value: ControlValue,
         }
-        impl HitInstruction for LearnMappingInstruction {
+        impl HitInstruction for ModifyMappingInstruction {
             fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
-                let event = DomainEvent::MappingLearnRequested(MappingLearnRequestedEvent {
-                    compartment: self.compartment,
-                    mapping_id: self.mapping_id,
-                    feature: self.feature,
-                    on: self.on,
-                });
+                let event =
+                    DomainEvent::MappingModificationRequested(MappingModificationRequestedEvent {
+                        compartment: self.compartment,
+                        mapping_id: self.mapping_id,
+                        modification: self.modification,
+                        value: self.value,
+                    });
                 if let Some(instance_id) = self.instance_id {
                     if let Some(session) = context
                         .control_context
@@ -121,11 +121,11 @@ impl RealearnTarget for LearnMappingTarget {
                 (Some(*session.instance_id()), mapping_id)
             }
         };
-        let instruction = LearnMappingInstruction {
+        let instruction = ModifyMappingInstruction {
             compartment: self.compartment,
-            feature: self.feature,
+            modification: self.modification,
             instance_id,
-            on,
+            value,
             mapping_id,
         };
         Ok(HitResponse::hit_instruction(Box::new(instruction)))
@@ -156,11 +156,11 @@ impl RealearnTarget for LearnMappingTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::LearnMapping)
+        Some(ReaperTargetType::ModifyMapping)
     }
 }
 
-impl<'a> Target<'a> for LearnMappingTarget {
+impl<'a> Target<'a> for ModifyMappingTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
@@ -179,7 +179,7 @@ impl<'a> Target<'a> for LearnMappingTarget {
 }
 
 pub const LEARN_MAPPING_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Learn mapping",
-    short_name: "Learn mapping",
+    name: "ReaLearn: Modify mapping",
+    short_name: "Modify mapping",
     ..DEFAULT_TARGET
 };

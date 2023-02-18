@@ -27,8 +27,8 @@ use realearn_api::persistence::{
     ClipTransportActionTarget, ClipVolumeTarget, DummyTarget, EnableInstancesTarget,
     EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnMappingTarget,
-    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget, MouseTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotTarget, LoadPotPresetTarget, ModifyMappingTarget, MouseTarget,
     PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
     RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
     RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
@@ -664,9 +664,9 @@ fn convert_real_target(
                 }
             },
         }),
-        LearnMapping => T::LearnMapping(LearnMappingTarget {
+        ModifyMapping => T::ModifyMapping(ModifyMappingTarget {
             commons,
-            feature: data.learnable_feature,
+            modification: data.mapping_modification,
             session: data.session_id,
             mapping: data.mapping_key.map(|key| key.into()),
         }),

@@ -3,9 +3,9 @@ use crate::domain::{
     MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
     QualifiedMappingId, RawParamValue, RealearnClipMatrix,
 };
-use helgoboss_learn::AbsoluteValue;
+use helgoboss_learn::{AbsoluteValue, ControlValue};
 use playtime_clip_engine::base::ClipMatrixEvent;
-use realearn_api::persistence::LearnableMappingFeature;
+use realearn_api::persistence::MappingModification;
 use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::error::Error;
@@ -30,7 +30,7 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
-    MappingLearnRequested(MappingLearnRequestedEvent),
+    MappingModificationRequested(MappingModificationRequestedEvent),
     /// Only emitted for the instance owning the matrix.
     ClipMatrixChanged {
         matrix: &'a RealearnClipMatrix,
@@ -69,11 +69,11 @@ pub struct MappingEnabledChangeRequestedEvent {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct MappingLearnRequestedEvent {
+pub struct MappingModificationRequestedEvent {
     pub compartment: Compartment,
     pub mapping_id: MappingId,
-    pub feature: LearnableMappingFeature,
-    pub on: bool,
+    pub modification: MappingModification,
+    pub value: ControlValue,
 }
 
 #[derive(Copy, Clone, Debug)]

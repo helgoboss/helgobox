@@ -31,7 +31,7 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxToolAction, LearnableMappingFeature, MappingSnapshotDescForLoad,
+    ClipTransportAction, FxToolAction, MappingModification, MappingSnapshotDescForLoad,
     MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior,
     TargetValue, TrackScope, TrackToolAction,
 };
@@ -490,7 +490,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub learnable_feature: LearnableMappingFeature,
+    pub mapping_modification: MappingModification,
     /// New since ReaLearn v2.15.0-pre.1
     #[serde(
         default,
@@ -620,7 +620,7 @@ impl TargetModelData {
             clip_play_stop_timing: model.clip_play_stop_timing(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
-            learnable_feature: model.learnable_feature(),
+            mapping_modification: model.mapping_modification(),
             session_id,
             mapping_key,
         }
@@ -931,7 +931,7 @@ impl TargetModelData {
         ));
         model.set_mouse_action_without_notification(self.mouse_action);
         model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
-        model.change(C::SetLearnableFeature(self.learnable_feature));
+        model.change(C::SetMappingModification(self.mapping_modification));
         let mapping_ref = if let Some(session_id) = self.session_id.as_ref() {
             MappingRefModel::ForeignMapping {
                 session_id: session_id.clone(),

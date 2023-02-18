@@ -39,7 +39,7 @@ use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::base::ClipMatrixEvent;
-use realearn_api::persistence::{FxDescriptor, LearnableMappingFeature, TrackDescriptor};
+use realearn_api::persistence::{FxDescriptor, MappingModification, TrackDescriptor};
 use reaper_medium::RecordingInput;
 use std::error::Error;
 use std::fmt;
@@ -2571,19 +2571,19 @@ impl DomainEventHandler for WeakSession {
                     self.clone(),
                 );
             }
-            MappingLearnRequested(event) => {
+            MappingModificationRequested(event) => {
                 let mut s = session.try_borrow_mut()?;
                 let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
-                match event.feature {
-                    LearnableMappingFeature::Source => {
-                        if event.on {
+                match event.modification {
+                    MappingModification::LearnSource => {
+                        if event.value.is_on() {
                             s.start_learning_source(self.clone(), id)?;
                         } else {
                             s.stop_learning_source();
                         }
                     }
-                    LearnableMappingFeature::Target => {
-                        if event.on {
+                    MappingModification::LearnTarget => {
+                        if event.value.is_on() {
                             s.start_learning_target(self.clone(), id);
                         } else {
                             s.stop_learning_target();

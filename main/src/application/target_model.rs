@@ -36,8 +36,8 @@ use crate::domain::{
     UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget,
     UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget,
     UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLearnMappingTarget, UnresolvedLoadFxSnapshotTarget,
-    UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget,
+    UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget, UnresolvedModifyMappingTarget,
     UnresolvedMouseTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
     UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
@@ -63,10 +63,10 @@ use playtime_clip_engine::base::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
-    LearnableMappingFeature, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
-    MonitoringMode, MouseAction, MouseButton, PotFilterItemKind, SeekBehavior,
-    TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingModification,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope,
+    TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -168,7 +168,7 @@ pub enum TargetCommand {
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
     SetPotFilterItemKind(PotFilterItemKind),
-    SetLearnableFeature(LearnableMappingFeature),
+    SetMappingModification(MappingModification),
     SetMappingRef(MappingRefModel),
 }
 
@@ -267,7 +267,7 @@ pub enum TargetProp {
     MappingSnapshotId,
     MappingSnapshotDefaultValue,
     PotFilterItemKind,
-    LearnableFeature,
+    MappingModification,
     MappingRef,
 }
 
@@ -643,9 +643,9 @@ impl<'a> Change<'a> for TargetModel {
                 self.pot_filter_item_kind = v;
                 One(P::PotFilterItemKind)
             }
-            C::SetLearnableFeature(f) => {
-                self.learnable_feature = f;
-                One(P::LearnableFeature)
+            C::SetMappingModification(f) => {
+                self.mapping_modification = f;
+                One(P::MappingModification)
             }
             C::SetMappingRef(mapping_ref) => {
                 self.mapping_ref = mapping_ref;
@@ -783,7 +783,7 @@ pub struct TargetModel {
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
-    learnable_feature: LearnableMappingFeature,
+    mapping_modification: MappingModification,
     mapping_ref: MappingRefModel,
     // # For Pot targets
     pot_filter_item_kind: PotFilterItemKind,
@@ -931,7 +931,7 @@ impl Default for TargetModel {
             gang_behavior: Default::default(),
             browse_tracks_mode: Default::default(),
             pot_filter_item_kind: Default::default(),
-            learnable_feature: Default::default(),
+            mapping_modification: Default::default(),
             mapping_ref: Default::default(),
         }
     }
@@ -2499,10 +2499,10 @@ impl TargetModel {
                             exclusivity: self.exclusivity,
                         })
                     }
-                    LearnMapping => {
-                        UnresolvedReaperTarget::LearnMapping(UnresolvedLearnMappingTarget {
+                    ModifyMapping => {
+                        UnresolvedReaperTarget::ModifyMapping(UnresolvedModifyMappingTarget {
                             compartment,
-                            feature: self.learnable_feature,
+                            modification: self.mapping_modification,
                             mapping_ref: self.mapping_ref.create_mapping_ref()?,
                         })
                     }
@@ -2644,8 +2644,8 @@ impl TargetModel {
         self.pot_filter_item_kind
     }
 
-    pub fn learnable_feature(&self) -> LearnableMappingFeature {
-        self.learnable_feature
+    pub fn mapping_modification(&self) -> MappingModification {
+        self.mapping_modification
     }
 
     pub fn mapping_ref(&self) -> &MappingRefModel {

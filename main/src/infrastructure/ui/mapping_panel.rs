@@ -27,7 +27,7 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, LearnableMappingFeature, MidiScriptKind, MonitoringMode,
+    Axis, BrowseTracksMode, FxToolAction, MappingModification, MidiScriptKind, MonitoringMode,
     MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
@@ -575,7 +575,7 @@ impl MappingPanel {
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();
                                             }
-                                            P::LearnableFeature => {
+                                            P::MappingModification => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingRef => {
@@ -647,7 +647,7 @@ impl MappingPanel {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
-            ReaperTargetType::LearnMapping => {
+            ReaperTargetType::ModifyMapping => {
                 let menu = {
                     let mapping = mapping.borrow();
                     let current_other_session_id = mapping.target_model.mapping_ref().session_id();
@@ -850,7 +850,7 @@ impl MappingPanel {
                     Some(fx_snapshot),
                 )));
             }
-            ReaperTargetType::LearnMapping => {
+            ReaperTargetType::ModifyMapping => {
                 let (compartment, current_mapping_ref) = {
                     let mapping = mapping.borrow();
                     (
@@ -2767,13 +2767,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetMappingSnapshotTypeForTake(snapshot_type),
                     ));
                 }
-                ReaperTargetType::LearnMapping => {
-                    let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid mapping feature");
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetLearnableFeature(v),
-                    ));
-                }
                 t if t.supports_feedback_resolution() => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid feedback resolution");
@@ -2986,6 +2979,13 @@ impl<'a> MutableMappingPanel<'a> {
                     let v = i.try_into().expect("invalid pot filter item kind");
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetPotFilterItemKind(v),
+                    ));
+                }
+                ReaperTargetType::ModifyMapping => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid mapping feature");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMappingModification(v),
                     ));
                 }
                 _ if self.mapping.target_model.supports_track() => {
@@ -4407,7 +4407,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TakeMappingSnapshot => Some("Snapshot ID"),
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
-                ReaperTargetType::LearnMapping => Some("Feature"),
+                ReaperTargetType::ModifyMapping => Some("Kind"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4476,15 +4476,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 .target_model
                                 .mapping_snapshot_type_for_take()
                                 .into(),
-                        )
-                        .unwrap();
-                }
-                ReaperTargetType::LearnMapping => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(LearnableMappingFeature::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.learnable_feature().into(),
                         )
                         .unwrap();
                 }
@@ -4646,6 +4637,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
+                ReaperTargetType::ModifyMapping => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MappingModification::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.mapping_modification().into(),
+                        )
+                        .unwrap();
+                }
                 _ if self.target.supports_track() => {
                     if matches!(
                         self.target.track_type(),
@@ -4800,7 +4800,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => Some("..."),
-                ReaperTargetType::LearnMapping => Some("Pick!"),
+                ReaperTargetType::ModifyMapping => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4815,7 +4815,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some("Pick!"),
                 ReaperTargetType::LoadFxSnapshot => Some("Take!"),
-                ReaperTargetType::LearnMapping => Some("Pick!"),
+                ReaperTargetType::ModifyMapping => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4985,7 +4985,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
-                ReaperTargetType::LearnMapping => Some("Instance"),
+                ReaperTargetType::ModifyMapping => Some("Instance"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -5024,7 +5024,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
                 ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Act/Tags"),
-                ReaperTargetType::LearnMapping => Some("Mapping"),
+                ReaperTargetType::ModifyMapping => Some("Mapping"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
@@ -5047,7 +5047,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::LearnMapping => match self.target.mapping_ref() {
+                ReaperTargetType::ModifyMapping => match self.target.mapping_ref() {
                     MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
                     MappingRefModel::ForeignMapping { session_id, .. } => {
                         if let Some(session) = App::get().find_session_by_id(session_id) {
@@ -5078,7 +5078,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     };
                     Some(label)
                 }
-                ReaperTargetType::LearnMapping => {
+                ReaperTargetType::ModifyMapping => {
                     const NONE: &str = "<None>";
                     const MAPPING_DOESNT_EXIST: &str = "<Mapping doesn't exist>";
                     let compartment = self.mapping.compartment();

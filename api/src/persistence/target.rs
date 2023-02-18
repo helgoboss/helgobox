@@ -71,7 +71,7 @@ pub enum Target {
     Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
-    LearnMapping(LearnMappingTarget),
+    ModifyMapping(ModifyMappingTarget),
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
@@ -877,14 +877,14 @@ pub struct EnableMappingsTarget {
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct LearnMappingTarget {
+pub struct ModifyMappingTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub feature: LearnableMappingFeature,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapping: Option<String>,
+    pub modification: MappingModification,
 }
 
 #[derive(
@@ -903,12 +903,13 @@ pub struct LearnMappingTarget {
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
-pub enum LearnableMappingFeature {
-    #[display(fmt = "Source")]
+#[serde(tag = "kind")]
+pub enum MappingModification {
+    #[display(fmt = "Learn source")]
     #[default]
-    Source,
-    #[display(fmt = "Target")]
-    Target,
+    LearnSource,
+    #[display(fmt = "Learn target")]
+    LearnTarget,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
