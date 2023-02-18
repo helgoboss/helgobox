@@ -1245,7 +1245,7 @@ Allows you to add and learn many new mappings in a convenient batch mode. Click 
 ===== Search
 
 Enter some text here in order to display just mappings whose name matches the text. The search expression
- also supports wildcards `*` and `?` for doing more blurry searches.
+ also supports wildcards `*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
 
 ===== Filter source
 
@@ -4254,7 +4254,7 @@ Context-sensitive help for the glue section. Whenever you touch a setting in
 the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
-* *If source is a:* It often depends on the kind of source what effect a setting has. Therefore this dropdown
+* *If source is a:* It often depends on the kind of source what effect a setting has. Therefore, this dropdown
  always contains a list of sources. It only displays relevant kinds of sources. If a source kind is impossible
  according to the current source settings or if it's not supported by the setting, it won't appear in the list.
 
