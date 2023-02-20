@@ -732,6 +732,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
             // TODO-medium Debounce!
+            // Rebuild pot indexes if necessary
             if matches!(
                 event,
                 InstanceStateChanged::PotStateChanged(
@@ -744,6 +745,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .borrow_mut()
                     .rebuild_pot_indexes();
             }
+            // Propagate to other instances if necessary
+            if event.is_interesting_for_other_instances() {
+                let global_event = AdditionalFeedbackEvent::Instance {
+                    instance_id: self.basics.instance_id,
+                    instance_event: event.clone(),
+                };
+                self.basics
+                    .channels
+                    .additional_feedback_event_sender
+                    .send_complaining(global_event);
+            }
+            // Process feedback
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,

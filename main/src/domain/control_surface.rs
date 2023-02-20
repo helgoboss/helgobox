@@ -3,11 +3,12 @@ use crate::domain::{
     BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
     DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
     EelTransformation, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, InstanceId,
-    LifecycleMidiData, MainProcessor, MidiCaptureSender, MidiDeviceChangePayload,
-    MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId, OscInputDevice,
-    OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector, ReaperMessage,
-    ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TouchedTrackParameterType,
+    InstanceStateChanged, LifecycleMidiData, MainProcessor, MidiCaptureSender,
+    MidiDeviceChangePayload, MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId,
+    OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
+    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector,
+    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor,
+    TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
@@ -126,6 +127,14 @@ pub enum AdditionalFeedbackEvent {
     ///
     /// REAPER itself doesn't fire any change event in this case.
     FocusSwitchedBetweenMainAndFx,
+    /// Forwarded instance state event
+    ///
+    /// Not all instance state events are forwarded, only those that might matter for other
+    /// instances.
+    Instance {
+        instance_id: InstanceId,
+        instance_event: InstanceStateChanged,
+    },
 }
 
 #[derive(Debug)]

@@ -1,11 +1,11 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, InstanceId, InstanceState, InstanceStateChanged,
-    MappingControlContext, MappingId, MappingKey, MappingModificationRequestedEvent,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
+    ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
+    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceId, InstanceState,
+    InstanceStateChanged, MappingControlContext, MappingId, MappingKey,
+    MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -133,7 +133,7 @@ impl RealearnTarget for ModifyMappingTarget {
         Ok(HitResponse::hit_instruction(Box::new(instruction)))
     }
 
-    fn is_available(&self, c: ControlContext) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -142,12 +142,15 @@ impl RealearnTarget for ModifyMappingTarget {
         evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        // TODO-high CONTINUE Introduce a backbone event firing when learn source/target changes
-        //  in a ReaLearn instance
         match evt {
             CompoundChangeEvent::Instance(
                 InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
-            ) => (true, None),
+            ) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
+                if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }

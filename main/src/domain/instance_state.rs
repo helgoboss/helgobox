@@ -703,7 +703,7 @@ impl Drop for InstanceState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum InstanceStateChanged {
     /// For the "ReaLearn: Browse group mappings" target.
@@ -733,7 +733,16 @@ pub enum InstanceStateChanged {
     },
 }
 
-#[derive(Debug)]
+impl InstanceStateChanged {
+    pub fn is_interesting_for_other_instances(&self) -> bool {
+        matches!(
+            self,
+            InstanceStateChanged::MappingWhichLearnsTargetChanged { .. }
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum PotStateChangedEvent {
     FilterItemChanged {
         kind: PotFilterItemKind,
