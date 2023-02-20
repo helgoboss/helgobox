@@ -719,8 +719,7 @@ impl Session {
         let qualified_id = self
             .instance_state
             .borrow_mut()
-            .mapping_which_learns_target
-            .replace(None);
+            .set_mapping_which_learns_target(None);
         if let Some(qualified_id) = qualified_id {
             if let Some(mapping) = self
                 .find_mapping_and_index_by_qualified_id(qualified_id)
@@ -1372,9 +1371,9 @@ impl Session {
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
-            Compartment::Controller => &instance_state.mapping_which_learns_source,
+            Compartment::Controller => instance_state.mapping_which_learns_source(),
             // For main mappings we want to learn a target before moving on to the next mapping.
-            Compartment::Main => &instance_state.mapping_which_learns_target,
+            Compartment::Main => instance_state.mapping_which_learns_target(),
         };
         when(
             prop_to_observe
@@ -1436,7 +1435,7 @@ impl Session {
             when(
                 self.instance_state()
                     .borrow()
-                    .mapping_which_learns_source
+                    .mapping_which_learns_source()
                     .changed_to(None)
                     .take_until(self.learn_many_state.changed_to(None))
                     .take(1),
@@ -1464,7 +1463,7 @@ impl Session {
         let source_learning_mapping_id = self
             .instance_state
             .borrow()
-            .mapping_which_learns_source
+            .mapping_which_learns_source()
             .get();
         self.stop_mapping_actions();
         self.enable_control();
@@ -1571,7 +1570,7 @@ impl Session {
         if let Some(currently_learning_mapping_id) = self
             .instance_state
             .borrow()
-            .mapping_which_learns_source
+            .mapping_which_learns_source()
             .get()
         {
             if currently_learning_mapping_id == mapping_id {
@@ -1591,15 +1590,14 @@ impl Session {
         if self
             .instance_state
             .borrow()
-            .mapping_which_learns_source
+            .mapping_which_learns_source()
             .get_ref()
             .is_some()
         {
             // Learning active already. Simply change the mapping that's going to be learned.
             self.instance_state
                 .borrow_mut()
-                .mapping_which_learns_source
-                .set(Some(mapping_id));
+                .set_mapping_which_learns_source(Some(mapping_id));
             Ok(())
         } else {
             self.start_learning_source_internal(session, mapping_id, true, ignore_sources)
@@ -1624,8 +1622,7 @@ impl Session {
         };
         self.instance_state
             .borrow_mut()
-            .mapping_which_learns_source
-            .set(Some(mapping_id));
+            .set_mapping_which_learns_source(Some(mapping_id));
         when(
             self.incoming_msg_captured(
                 reenable_control_after_touched,
@@ -1645,7 +1642,7 @@ impl Session {
             .take_until(
                 self.instance_state
                     .borrow()
-                    .mapping_which_learns_source
+                    .mapping_which_learns_source()
                     .changed_to(None),
             )
             // We listen to just one message!
@@ -1657,15 +1654,14 @@ impl Session {
                 .borrow()
                 .instance_state
                 .borrow_mut()
-                .mapping_which_learns_source
-                .set(None)
+                .set_mapping_which_learns_source(None);
         })
         .do_async(|shared_session, event: MessageCaptureEvent| {
             let mut session = shared_session.borrow_mut();
             let qualified_id = session
                 .instance_state
                 .borrow()
-                .mapping_which_learns_source
+                .mapping_which_learns_source()
                 .get();
             if let Some(qualified_id) = qualified_id {
                 if let Some(source) = session.create_compound_source(event) {
@@ -1686,15 +1682,14 @@ impl Session {
     fn stop_learning_source(&self) {
         self.instance_state
             .borrow_mut()
-            .mapping_which_learns_source
-            .set(None);
+            .set_mapping_which_learns_source(None);
     }
 
     pub fn toggle_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
         let currently_learning_mapping_id = self
             .instance_state
             .borrow()
-            .mapping_which_learns_target
+            .mapping_which_learns_target()
             .get();
         if let Some(currently_learning_mapping_id) = currently_learning_mapping_id {
             if currently_learning_mapping_id == mapping_id {
@@ -1713,8 +1708,7 @@ impl Session {
     ) {
         self.instance_state
             .borrow_mut()
-            .mapping_which_learns_target
-            .set(Some(mapping_id));
+            .set_mapping_which_learns_target(Some(mapping_id));
         if handle_control_disabling {
             self.disable_control();
         }
@@ -1726,7 +1720,7 @@ impl Session {
                 .take_until(
                     self.instance_state
                         .borrow()
-                        .mapping_which_learns_target
+                        .mapping_which_learns_target()
                         .changed_to(None),
                 )
                 .take(1),
@@ -1740,8 +1734,7 @@ impl Session {
             session
                 .instance_state
                 .borrow_mut()
-                .mapping_which_learns_target
-                .set(None);
+                .set_mapping_which_learns_target(None);
         })
         .do_async(|session, target| {
             session
@@ -1767,8 +1760,7 @@ impl Session {
     fn stop_learning_target(&self) {
         self.instance_state
             .borrow_mut()
-            .mapping_which_learns_target
-            .set(None);
+            .set_mapping_which_learns_target(None);
     }
 
     fn find_index_of_closest_mapping(

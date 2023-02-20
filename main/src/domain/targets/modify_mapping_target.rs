@@ -2,10 +2,10 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, InstanceId, InstanceState, MappingControlContext,
-    MappingId, MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    HitInstructionResponse, HitResponse, InstanceId, InstanceState, InstanceStateChanged,
+    MappingControlContext, MappingId, MappingKey, MappingModificationRequestedEvent,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -145,10 +145,9 @@ impl RealearnTarget for ModifyMappingTarget {
         // TODO-high CONTINUE Introduce a backbone event firing when learn source/target changes
         //  in a ReaLearn instance
         match evt {
-            // CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingTags {
-            //     compartment,
-            //     ..
-            // }) if *compartment == self.compartment => (true, None),
+            CompoundChangeEvent::Instance(
+                InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
+            ) => (true, None),
             _ => (false, None),
         }
     }

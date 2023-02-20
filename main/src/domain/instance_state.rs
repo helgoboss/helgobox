@@ -126,8 +126,8 @@ pub struct InstanceState {
     ///
     /// Persistent.
     pot_unit: PotUnit,
-    pub mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
-    pub mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
+    mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
+    mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
 }
 
 #[derive(Debug)]
@@ -236,6 +236,34 @@ impl InstanceState {
             mapping_which_learns_source: Default::default(),
             mapping_which_learns_target: Default::default(),
         }
+    }
+
+    pub fn set_mapping_which_learns_source(
+        &mut self,
+        mapping_id: Option<QualifiedMappingId>,
+    ) -> Option<QualifiedMappingId> {
+        let previous_value = self.mapping_which_learns_source.replace(mapping_id);
+        self.instance_feedback_event_sender
+            .send_complaining(InstanceStateChanged::MappingWhichLearnsSourceChanged { mapping_id });
+        previous_value
+    }
+
+    pub fn set_mapping_which_learns_target(
+        &mut self,
+        mapping_id: Option<QualifiedMappingId>,
+    ) -> Option<QualifiedMappingId> {
+        let previous_value = self.mapping_which_learns_target.replace(mapping_id);
+        self.instance_feedback_event_sender
+            .send_complaining(InstanceStateChanged::MappingWhichLearnsTargetChanged { mapping_id });
+        previous_value
+    }
+
+    pub fn mapping_which_learns_source(&self) -> &Prop<Option<QualifiedMappingId>> {
+        &self.mapping_which_learns_source
+    }
+
+    pub fn mapping_which_learns_target(&self) -> &Prop<Option<QualifiedMappingId>> {
+        &self.mapping_which_learns_target
     }
 
     pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {
@@ -697,6 +725,12 @@ pub enum InstanceStateChanged {
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
     PotStateChanged(PotStateChangedEvent),
+    MappingWhichLearnsSourceChanged {
+        mapping_id: Option<QualifiedMappingId>,
+    },
+    MappingWhichLearnsTargetChanged {
+        mapping_id: Option<QualifiedMappingId>,
+    },
 }
 
 #[derive(Debug)]

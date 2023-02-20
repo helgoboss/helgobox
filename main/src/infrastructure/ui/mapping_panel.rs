@@ -5787,7 +5787,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.session
                 .instance_state()
                 .borrow()
-                .mapping_which_learns_source
+                .mapping_which_learns_source()
                 .changed(),
             |view, _| {
                 view.invalidate_source_learn_button();
@@ -5797,7 +5797,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.session
                 .instance_state()
                 .borrow()
-                .mapping_which_learns_target
+                .mapping_which_learns_target()
                 .changed(),
             |view, _| {
                 view.invalidate_target_learn_button();

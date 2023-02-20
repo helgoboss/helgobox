@@ -419,13 +419,13 @@ impl MappingRowPanel {
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
         self.when(
-            instance_state.mapping_which_learns_source.changed(),
+            instance_state.mapping_which_learns_source().changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_source_button);
             },
         );
         self.when(
-            instance_state.mapping_which_learns_target.changed(),
+            instance_state.mapping_which_learns_target().changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
