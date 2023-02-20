@@ -126,6 +126,8 @@ pub struct InstanceState {
     ///
     /// Persistent.
     pot_unit: PotUnit,
+    pub mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
+    pub mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
 }
 
 #[derive(Debug)]
@@ -231,6 +233,22 @@ impl InstanceState {
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
             pot_unit: Default::default(),
+            mapping_which_learns_source: Default::default(),
+            mapping_which_learns_target: Default::default(),
+        }
+    }
+
+    pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {
+        match self.mapping_which_learns_source.get_ref() {
+            None => false,
+            Some(i) => *i == id,
+        }
+    }
+
+    pub fn mapping_is_learning_target(&self, id: QualifiedMappingId) -> bool {
+        match self.mapping_which_learns_target.get_ref() {
+            None => false,
+            Some(i) => *i == id,
         }
     }
 

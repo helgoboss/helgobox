@@ -1,9 +1,11 @@
+use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, InstanceId, MappingControlContext, MappingId, MappingKey,
-    MappingModificationRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionResponse, HitResponse, InstanceId, InstanceState, MappingControlContext,
+    MappingId, MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use realearn_api::persistence::MappingModification;
@@ -160,22 +162,63 @@ impl RealearnTarget for ModifyMappingTarget {
     }
 }
 
+struct GetArgs<'a> {
+    instance_state: &'a InstanceState,
+    id: QualifiedMappingId,
+}
+
+impl ModifyMappingTarget {
+    fn get_current_value(
+        &self,
+        context: ControlContext,
+        get: impl FnOnce(GetArgs) -> Option<AbsoluteValue>,
+    ) -> Option<AbsoluteValue> {
+        match &self.mapping_ref {
+            MappingRef::OwnMapping { mapping_id } => {
+                let args = GetArgs {
+                    instance_state: &context.instance_state.borrow(),
+                    id: QualifiedMappingId::new(self.compartment, *mapping_id),
+                };
+                get(args)
+            }
+            MappingRef::ForeignMapping {
+                session_id,
+                mapping_key,
+            } => {
+                let session = context.instance_container.find_session_by_id(session_id)?;
+                let session = session.borrow();
+                let mapping_id = session.find_mapping_id_by_key(self.compartment, mapping_key)?;
+                let args = GetArgs {
+                    instance_state: &session.instance_state().borrow(),
+                    id: QualifiedMappingId::new(self.compartment, mapping_id),
+                };
+                get(args)
+            }
+        }
+    }
+}
+
 impl<'a> Target<'a> for ModifyMappingTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        let uv = if false {
-            UnitValue::MAX
-        } else {
-            UnitValue::MIN
-        };
-        Some(AbsoluteValue::Continuous(uv))
+        match self.modification {
+            MappingModification::LearnSource => self.get_current_value(context, |args| {
+                bool_to_current_value(args.instance_state.mapping_is_learning_source(args.id))
+            }),
+            MappingModification::LearnTarget => self.get_current_value(context, |args| {
+                bool_to_current_value(args.instance_state.mapping_is_learning_target(args.id))
+            }),
+        }
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
         self.control_type_and_character(context).0
     }
+}
+
+fn bool_to_current_value(on: bool) -> Option<AbsoluteValue> {
+    Some(AbsoluteValue::Continuous(convert_bool_to_unit_value(on)))
 }
 
 pub const LEARN_MAPPING_TARGET: TargetTypeDef = TargetTypeDef {

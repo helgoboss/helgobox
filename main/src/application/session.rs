@@ -113,8 +113,6 @@ pub struct Session {
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
-    mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
-    mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     active_controller_preset_id: Option<String>,
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
@@ -269,8 +267,6 @@ impl Session {
             tags: Default::default(),
             compartment_is_dirty: Default::default(),
             learn_many_state: prop(None),
-            mapping_which_learns_source: prop(None),
-            mapping_which_learns_target: prop(None),
             active_controller_preset_id: None,
             active_main_preset_id: None,
             processor_context: context,
@@ -720,7 +716,12 @@ impl Session {
                 return;
             }
         }
-        if let Some(qualified_id) = self.mapping_which_learns_target.replace(None) {
+        let qualified_id = self
+            .instance_state
+            .borrow_mut()
+            .mapping_which_learns_target
+            .replace(None);
+        if let Some(qualified_id) = qualified_id {
             if let Some(mapping) = self
                 .find_mapping_and_index_by_qualified_id(qualified_id)
                 .map(|(_, m)| m.clone())
@@ -1367,12 +1368,13 @@ impl Session {
             control_element_type,
         );
         // After target learned, add new mapping and start learning its source
+        let instance_state = self.instance_state.borrow();
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
-            Compartment::Controller => &self.mapping_which_learns_source,
+            Compartment::Controller => &instance_state.mapping_which_learns_source,
             // For main mappings we want to learn a target before moving on to the next mapping.
-            Compartment::Main => &self.mapping_which_learns_target,
+            Compartment::Main => &instance_state.mapping_which_learns_target,
         };
         when(
             prop_to_observe
@@ -1432,7 +1434,9 @@ impl Session {
         // one wants when creating a controller mapping).
         if compartment == Compartment::Main {
             when(
-                self.mapping_which_learns_source
+                self.instance_state()
+                    .borrow()
+                    .mapping_which_learns_source
                     .changed_to(None)
                     .take_until(self.learn_many_state.changed_to(None))
                     .take(1),
@@ -1457,7 +1461,11 @@ impl Session {
 
     pub fn stop_learning_many_mappings(&mut self) {
         self.learn_many_state.set(None);
-        let source_learning_mapping_id = self.mapping_which_learns_source.get();
+        let source_learning_mapping_id = self
+            .instance_state
+            .borrow()
+            .mapping_which_learns_source
+            .get();
         self.stop_mapping_actions();
         self.enable_control();
         // Remove last added mapping if source not learned already
@@ -1555,38 +1563,17 @@ impl Session {
         Compartment::enum_iter().flat_map(move |compartment| self.mappings(compartment))
     }
 
-    pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {
-        match self.mapping_which_learns_source.get_ref() {
-            None => false,
-            Some(i) => *i == id,
-        }
-    }
-
-    pub fn mapping_is_learning_target(&self, id: QualifiedMappingId) -> bool {
-        match self.mapping_which_learns_target.get_ref() {
-            None => false,
-            Some(i) => *i == id,
-        }
-    }
-
-    pub fn mapping_which_learns_source_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.mapping_which_learns_source.changed()
-    }
-
-    pub fn mapping_which_learns_target_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.mapping_which_learns_target.changed()
-    }
-
     pub fn toggle_learning_source(
         &mut self,
         session: WeakSession,
         mapping_id: QualifiedMappingId,
     ) -> Result<(), &'static str> {
-        if let Some(currently_learning_mapping_id) = self.mapping_which_learns_source.get() {
+        if let Some(currently_learning_mapping_id) = self
+            .instance_state
+            .borrow()
+            .mapping_which_learns_source
+            .get()
+        {
             if currently_learning_mapping_id == mapping_id {
                 self.stop_learning_source();
                 return Ok(());
@@ -1600,9 +1587,18 @@ impl Session {
         session: WeakSession,
         mapping_id: QualifiedMappingId,
     ) -> Result<(), &'static str> {
-        if self.mapping_which_learns_source.get_ref().is_some() {
+        if self
+            .instance_state
+            .borrow()
+            .mapping_which_learns_source
+            .get_ref()
+            .is_some()
+        {
             // Learning active already. Simply change the mapping that's going to be learned.
-            self.mapping_which_learns_source.set(Some(mapping_id));
+            self.instance_state
+                .borrow_mut()
+                .mapping_which_learns_source
+                .set(Some(mapping_id));
             Ok(())
         } else {
             self.start_learning_source_internal(session, mapping_id, true, vec![])
@@ -1625,7 +1621,10 @@ impl Session {
             let m = mapping.borrow();
             m.source_model.osc_arg_index()
         };
-        self.mapping_which_learns_source.set(Some(mapping_id));
+        self.instance_state
+            .borrow_mut()
+            .mapping_which_learns_source
+            .set(Some(mapping_id));
         when(
             self.incoming_msg_captured(
                 reenable_control_after_touched,
@@ -1642,15 +1641,32 @@ impl Session {
             // events.
             .take_until(self.party_is_over())
             // If the user stops learning manually without ever touching the controller.
-            .take_until(self.mapping_which_learns_source.changed_to(None))
+            .take_until(
+                self.instance_state
+                    .borrow()
+                    .mapping_which_learns_source
+                    .changed_to(None),
+            )
             // We listen to just one message!
             .take(1),
         )
         .with(session)
-        .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+        .finally(|session| {
+            session
+                .borrow()
+                .instance_state
+                .borrow_mut()
+                .mapping_which_learns_source
+                .set(None)
+        })
         .do_async(|shared_session, event: MessageCaptureEvent| {
             let mut session = shared_session.borrow_mut();
-            if let Some(qualified_id) = session.mapping_which_learns_source.get() {
+            let qualified_id = session
+                .instance_state
+                .borrow()
+                .mapping_which_learns_source
+                .get();
+            if let Some(qualified_id) = qualified_id {
                 if let Some(source) = session.create_compound_source(event) {
                     // The learn process should stop when removing a mapping but just in case,
                     // let's react gracefully if the mapping doesn't exist anymore (do nothing).
@@ -1666,21 +1682,25 @@ impl Session {
         Ok(())
     }
 
-    fn stop_learning_source(&mut self) {
-        self.mapping_which_learns_source.set(None);
+    fn stop_learning_source(&self) {
+        self.instance_state
+            .borrow_mut()
+            .mapping_which_learns_source
+            .set(None);
     }
 
     pub fn toggle_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
-        if let Some(currently_learning_mapping_id) = self.mapping_which_learns_target.get() {
+        let currently_learning_mapping_id = self
+            .instance_state
+            .borrow()
+            .mapping_which_learns_target
+            .get();
+        if let Some(currently_learning_mapping_id) = currently_learning_mapping_id {
             if currently_learning_mapping_id == mapping_id {
                 self.stop_learning_target();
                 return;
             }
         }
-        self.start_learning_target(session, mapping_id);
-    }
-
-    fn start_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
         self.start_learning_target_internal(session, mapping_id, true);
     }
 
@@ -1690,7 +1710,10 @@ impl Session {
         mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
     ) {
-        self.mapping_which_learns_target.set(Some(mapping_id));
+        self.instance_state
+            .borrow_mut()
+            .mapping_which_learns_target
+            .set(Some(mapping_id));
         if handle_control_disabling {
             self.disable_control();
         }
@@ -1699,16 +1722,25 @@ impl Session {
                 // We have this explicit stop criteria because we listen to global REAPER
                 // events.
                 .take_until(self.party_is_over())
-                .take_until(self.mapping_which_learns_target.changed_to(None))
+                .take_until(
+                    self.instance_state
+                        .borrow()
+                        .mapping_which_learns_target
+                        .changed_to(None),
+                )
                 .take(1),
         )
         .with(session)
         .finally(move |session| {
-            let mut session = session.borrow_mut();
+            let session = session.borrow();
             if handle_control_disabling {
                 session.enable_control();
             }
-            session.mapping_which_learns_target.set(None);
+            session
+                .instance_state
+                .borrow_mut()
+                .mapping_which_learns_target
+                .set(None);
         })
         .do_async(|session, target| {
             session
@@ -1731,8 +1763,11 @@ impl Session {
             .send_complaining(NormalMainTask::ReturnToControlMode);
     }
 
-    fn stop_learning_target(&mut self) {
-        self.mapping_which_learns_target.set(None);
+    fn stop_learning_target(&self) {
+        self.instance_state
+            .borrow_mut()
+            .mapping_which_learns_target
+            .set(None);
     }
 
     fn find_index_of_closest_mapping(
@@ -2584,7 +2619,7 @@ impl DomainEventHandler for WeakSession {
                     }
                     MappingModification::LearnTarget => {
                         if event.value.is_on() {
-                            s.start_learning_target(self.clone(), id);
+                            s.start_learning_target_internal(self.clone(), id, false);
                         } else {
                             s.stop_learning_target();
                         }

@@ -303,6 +303,8 @@ impl MappingRowPanel {
         let text = if self
             .session()
             .borrow()
+            .instance_state()
+            .borrow()
             .mapping_is_learning_source(mapping.qualified_id())
         {
             "Stop"
@@ -317,6 +319,8 @@ impl MappingRowPanel {
     fn invalidate_learn_target_button(&self, mapping: &MappingModel) {
         let text = if self
             .session()
+            .borrow()
+            .instance_state()
             .borrow()
             .mapping_is_learning_target(mapping.qualified_id())
         {
@@ -414,12 +418,18 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(session.mapping_which_learns_source_changed(), |view| {
-            view.with_mapping(Self::invalidate_learn_source_button);
-        });
-        self.when(session.mapping_which_learns_target_changed(), |view| {
-            view.with_mapping(Self::invalidate_learn_target_button);
-        });
+        self.when(
+            instance_state.mapping_which_learns_source.changed(),
+            |view| {
+                view.with_mapping(Self::invalidate_learn_source_button);
+            },
+        );
+        self.when(
+            instance_state.mapping_which_learns_target.changed(),
+            |view| {
+                view.with_mapping(Self::invalidate_learn_target_button);
+            },
+        );
         self.when(instance_state.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
         });

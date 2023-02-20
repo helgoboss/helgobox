@@ -3751,6 +3751,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
+                .instance_state()
+                .borrow()
                 .mapping_is_learning_source(self.mapping.qualified_id()),
             root::ID_SOURCE_LEARN_BUTTON,
         );
@@ -5738,6 +5740,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
+                .instance_state()
+                .borrow()
                 .mapping_is_learning_target(self.mapping.qualified_id()),
             root::ID_TARGET_LEARN_BUTTON,
         );
@@ -5780,13 +5784,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
         );
         self.panel.when(
-            self.session.mapping_which_learns_source_changed(),
+            self.session
+                .instance_state()
+                .borrow()
+                .mapping_which_learns_source
+                .changed(),
             |view, _| {
                 view.invalidate_source_learn_button();
             },
         );
         self.panel.when(
-            self.session.mapping_which_learns_target_changed(),
+            self.session
+                .instance_state()
+                .borrow()
+                .mapping_which_learns_target
+                .changed(),
             |view, _| {
                 view.invalidate_target_learn_button();
             },
