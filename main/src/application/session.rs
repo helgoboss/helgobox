@@ -1579,13 +1579,14 @@ impl Session {
                 return Ok(());
             }
         }
-        self.start_learning_source(session, mapping_id)
+        self.start_learning_source(session, mapping_id, vec![])
     }
 
     fn start_learning_source(
         &mut self,
         session: WeakSession,
         mapping_id: QualifiedMappingId,
+        ignore_sources: Vec<CompoundMappingSource>,
     ) -> Result<(), &'static str> {
         if self
             .instance_state
@@ -1601,7 +1602,7 @@ impl Session {
                 .set(Some(mapping_id));
             Ok(())
         } else {
-            self.start_learning_source_internal(session, mapping_id, true, vec![])
+            self.start_learning_source_internal(session, mapping_id, true, ignore_sources)
         }
     }
 
@@ -2610,13 +2611,6 @@ impl DomainEventHandler for WeakSession {
                 let mut s = session.try_borrow_mut()?;
                 let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
                 match event.modification {
-                    MappingModification::LearnSource => {
-                        if event.value.is_on() {
-                            s.start_learning_source(self.clone(), id)?;
-                        } else {
-                            s.stop_learning_source();
-                        }
-                    }
                     MappingModification::LearnTarget => {
                         if event.value.is_on() {
                             s.start_learning_target_internal(self.clone(), id, false);

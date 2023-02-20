@@ -7,7 +7,7 @@ use crate::domain::{
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -203,9 +203,6 @@ impl<'a> Target<'a> for ModifyMappingTarget {
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         match self.modification {
-            MappingModification::LearnSource => self.get_current_value(context, |args| {
-                bool_to_current_value(args.instance_state.mapping_is_learning_source(args.id))
-            }),
             MappingModification::LearnTarget => self.get_current_value(context, |args| {
                 bool_to_current_value(args.instance_state.mapping_is_learning_target(args.id))
             }),

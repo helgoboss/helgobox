@@ -905,10 +905,8 @@ pub struct ModifyMappingTarget {
 #[repr(usize)]
 #[serde(tag = "kind")]
 pub enum MappingModification {
-    #[display(fmt = "Learn source")]
-    #[default]
-    LearnSource,
     #[display(fmt = "Learn target")]
+    #[default]
     LearnTarget,
 }
 
