@@ -281,9 +281,8 @@ impl MappingRowPanel {
     fn invalidate_target_label(&self, mapping: &MappingModel) {
         let session = self.session();
         let session = session.borrow();
-        let context = session.extended_context();
-        if !context
-            .context()
+        if !session
+            .processor_context()
             .project_or_current_project()
             .is_available()
         {
@@ -291,7 +290,7 @@ impl MappingRowPanel {
             return;
         }
         let target_model_string =
-            TargetModelFormatMultiLine::new(&mapping.target_model, context, mapping.compartment())
+            TargetModelFormatMultiLine::new(&mapping.target_model, &session, mapping.compartment())
                 .to_string();
         self.view
             .require_window()

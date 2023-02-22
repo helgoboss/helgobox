@@ -14,7 +14,8 @@ use reaper_high::{
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
-    Affected, Change, GetProcessingRelevance, ProcessingRelevance, VirtualControlElementType,
+    Affected, Change, GetProcessingRelevance, ProcessingRelevance, Session,
+    VirtualControlElementType,
 };
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
@@ -22,10 +23,10 @@ use crate::domain::{
     Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, MappingId,
     MappingKey, MappingRef, MappingSnapshotId, MouseActionType, OscDeviceId,
-    PotFilterItemsTargetSettings, ProcessorContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
-    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    PotFilterItemsTargetSettings, ProcessorContext, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
+    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
@@ -2931,18 +2932,16 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
 pub struct TargetModelFormatMultiLine<'a> {
     target: &'a TargetModel,
     context: ExtendedProcessorContext<'a>,
+    session: &'a Session,
     compartment: Compartment,
 }
 
 impl<'a> TargetModelFormatMultiLine<'a> {
-    pub fn new(
-        target: &'a TargetModel,
-        context: ExtendedProcessorContext<'a>,
-        compartment: Compartment,
-    ) -> Self {
+    pub fn new(target: &'a TargetModel, session: &'a Session, compartment: Compartment) -> Self {
         TargetModelFormatMultiLine {
             target,
-            context,
+            context: session.extended_context(),
+            session,
             compartment,
         }
     }
@@ -3076,6 +3075,13 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 }
 
+const INSTANCE_NOT_FOUND_LABEL: &str = "<Instance not found>";
+const MAPPING_NOT_FOUND_LABEL: &str = "<Mapping not found>";
+
+const NONE_LABEL: &str = "<None>";
+
+const MAPPING_LABEL: &str = "Mapping: ";
+
 impl<'a> Display for TargetModelFormatMultiLine<'a> {
     /// Produces a multi-line description of the target.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -3187,6 +3193,56 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         }
                         if self.target.supports_mouse_button() {
                             write!(f, "\n{}", self.target.mouse_button)?;
+                        }
+                        Ok(())
+                    }
+                    ModifyMapping => {
+                        write!(f, "{}\n{}\n", tt, self.target.mapping_modification)?;
+                        match &self.target.mapping_ref {
+                            MappingRefModel::OwnMapping { mapping_id } => {
+                                MAPPING_LABEL.fmt(f)?;
+                                if let Some(id) = mapping_id {
+                                    let qualified_id =
+                                        QualifiedMappingId::new(self.compartment, *id);
+                                    if let Some((_, m)) = self
+                                        .session
+                                        .find_mapping_and_index_by_qualified_id(qualified_id)
+                                    {
+                                        m.borrow().effective_name().fmt(f)?;
+                                    } else {
+                                        MAPPING_NOT_FOUND_LABEL.fmt(f)?;
+                                    }
+                                } else {
+                                    NONE_LABEL.fmt(f)?;
+                                }
+                            }
+                            MappingRefModel::ForeignMapping {
+                                session_id,
+                                mapping_key,
+                            } => {
+                                write!(f, "Instance: {}\n{}", session_id, MAPPING_LABEL)?;
+                                if let Some(mapping_key) = mapping_key {
+                                    let session = self
+                                        .context
+                                        .control_context()
+                                        .instance_container
+                                        .find_session_by_id(session_id);
+                                    if let Some(session) = session {
+                                        let session = session.borrow();
+                                        if let Some(m) = session
+                                            .find_mapping_by_key(self.compartment, mapping_key)
+                                        {
+                                            m.borrow().effective_name().fmt(f)?;
+                                        } else {
+                                            MAPPING_NOT_FOUND_LABEL.fmt(f)?;
+                                        }
+                                    } else {
+                                        INSTANCE_NOT_FOUND_LABEL.fmt(f)?;
+                                    }
+                                } else {
+                                    NONE_LABEL.fmt(f)?;
+                                }
+                            }
                         }
                         Ok(())
                     }
