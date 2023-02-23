@@ -62,7 +62,10 @@ fn convert_real_target(
             commons,
             action: data.mouse_action,
         }),
-        LastTouched => T::LastTouched(LastTouchedTarget { commons }),
+        LastTouched => T::LastTouched(LastTouchedTarget {
+            commons,
+            targets: data.targets,
+        }),
         AutomationModeOverride => {
             let t = AutomationModeOverrideTarget {
                 commons,

@@ -33,6 +33,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LastTouched,
+            targets: d.targets.clone(),
             ..init(d.commons)
         },
         Target::AutomationModeOverride(d) => {

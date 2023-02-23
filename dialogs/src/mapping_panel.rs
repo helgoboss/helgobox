@@ -141,17 +141,17 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "Learn",
             ids.named_id("ID_TARGET_LEARN_BUTTON"),
-            context.rect(181, 77, 46, 14),
+            context.rect(181, 77, 50, 14),
         ) + WS_GROUP,
         pushbutton(
             "Go there",
             ids.named_id("ID_TARGET_OPEN_BUTTON"),
-            context.rect(232, 77, 46, 14),
+            context.rect(236, 77, 42, 14),
         ) + NOT_WS_TABSTOP,
         ltext(
             "Hint",
             ids.named_id("ID_TARGET_HINT"),
-            context.rect(283, 80, 155, 9),
+            context.rect(285, 80, 155, 9),
         ) + WS_TABSTOP,
         ltext("Type", ids.id(), context.rect(181, 98, 35, 9)) + NOT_WS_GROUP,
         dropdown(

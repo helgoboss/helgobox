@@ -27,8 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, MappingModification, MidiScriptKind, MonitoringMode,
-    MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModification, MidiScriptKind,
+    MonitoringMode, MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -72,10 +72,11 @@ use crate::infrastructure::ui::util::{
 };
 use crate::infrastructure::ui::{
     menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
-    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel,
-    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
-    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
-    YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
+    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
+    LearnableTargetKindsPickerPanel, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
+    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
+    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -87,9 +88,7 @@ pub struct MappingPanel {
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
-    yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
-    simple_script_editor: RefCell<Option<SharedView<SimpleScriptEditorPanel>>>,
-    advanced_script_editor: RefCell<Option<SharedView<AdvancedScriptEditorPanel>>>,
+    extra_panel: RefCell<Option<SharedView<dyn View>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -140,9 +139,7 @@ impl MappingPanel {
             )),
             is_invoked_programmatically: false.into(),
             window_cache: None.into(),
-            yaml_editor: Default::default(),
-            simple_script_editor: Default::default(),
-            advanced_script_editor: Default::default(),
+            extra_panel: Default::default(),
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
@@ -582,6 +579,9 @@ impl MappingPanel {
                                                 view.invalidate_target_line_3(initiator);
                                                 view.invalidate_target_line_4(initiator);
                                             }
+                                            P::LearnableTargetKinds => {
+                                                view.invalidate_target_line_2(initiator);
+                                            }
                                         }
                                     }
                                 }
@@ -622,7 +622,32 @@ impl MappingPanel {
         let category = mapping.borrow().target_model.category();
         match category {
             TargetCategory::Reaper => {
-                self.write(|p| p.handle_target_line_2_button_press());
+                let target_type = mapping.borrow().target_model.target_type();
+                match target_type {
+                    ReaperTargetType::LastTouched => {
+                        let value = mapping
+                            .borrow()
+                            .target_model
+                            .learnable_target_kinds()
+                            .clone();
+                        let session = self.session.clone();
+                        let panel = LearnableTargetKindsPickerPanel::new(value, move |value| {
+                            let mut mapping = mapping.borrow_mut();
+                            Session::change_mapping_from_ui_simple(
+                                session.clone(),
+                                &mut mapping,
+                                MappingCommand::ChangeTarget(
+                                    TargetCommand::SetLearnableTargetKinds(value),
+                                ),
+                                None,
+                            );
+                        });
+                        self.open_extra_panel(panel);
+                    }
+                    _ => {
+                        self.write(|p| p.handle_target_line_2_button_press_internal());
+                    }
+                }
             }
             TargetCategory::Virtual => {
                 let control_element_type = mapping.borrow().target_model.control_element_type();
@@ -946,46 +971,49 @@ impl MappingPanel {
 
     fn edit_source_pattern_or_script(&self) {
         let mapping = self.mapping();
-        let mapping = mapping.borrow();
-        match mapping.source_model.category() {
-            SourceCategory::Midi => match mapping.source_model.midi_source_type() {
-                MidiSourceType::Raw => {
-                    let session = self.session.clone();
-                    let engine = Box::new(RawMidiScriptEngine);
-                    let help_url =
+        let category = mapping.borrow().source_model.category();
+        match category {
+            SourceCategory::Midi => {
+                let source_type = mapping.borrow().source_model.midi_source_type();
+                match source_type {
+                    MidiSourceType::Raw => {
+                        let session = self.session.clone();
+                        let engine = Box::new(RawMidiScriptEngine);
+                        let help_url =
                             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#raw-midi-source";
-                    self.edit_script_in_simple_editor(
-                        engine,
-                        help_url,
-                        |m| m.source_model.raw_midi_pattern().to_owned(),
-                        move |m, text| {
-                            Session::change_mapping_from_ui_simple(
-                                session.clone(),
-                                m,
-                                MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
-                                    text,
-                                )),
-                                None,
-                            );
-                        },
-                    );
+                        self.edit_script_in_simple_editor(
+                            engine,
+                            help_url,
+                            |m| m.source_model.raw_midi_pattern().to_owned(),
+                            move |m, text| {
+                                Session::change_mapping_from_ui_simple(
+                                    session.clone(),
+                                    m,
+                                    MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
+                                        text,
+                                    )),
+                                    None,
+                                );
+                            },
+                        );
+                    }
+                    MidiSourceType::Script => {
+                        let session = self.session.clone();
+                        self.edit_midi_source_script_internal(
+                            |m| m.source_model.midi_script().to_owned(),
+                            move |m, eel| {
+                                Session::change_mapping_from_ui_simple(
+                                    session.clone(),
+                                    m,
+                                    MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
+                                    None,
+                                );
+                            },
+                        );
+                    }
+                    _ => {}
                 }
-                MidiSourceType::Script => {
-                    let session = self.session.clone();
-                    self.edit_midi_source_script_internal(
-                        |m| m.source_model.midi_script().to_owned(),
-                        move |m, eel| {
-                            Session::change_mapping_from_ui_simple(
-                                session.clone(),
-                                m,
-                                MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
-                                None,
-                            );
-                        },
-                    );
-                }
-                _ => {}
-            },
+            }
             SourceCategory::Osc => {
                 let session = self.session.clone();
                 self.edit_osc_feedback_arguments_internal(
@@ -1026,8 +1054,8 @@ impl MappingPanel {
 
     fn edit_feedback_transformation_or_text_expression(&self) {
         let mapping = self.mapping();
-        let mapping = mapping.borrow();
-        match mapping.mode_model.feedback_type() {
+        let feedback_type = mapping.borrow().mode_model.feedback_type();
+        match feedback_type {
             FeedbackType::Numerical => self.edit_feedback_transformation(),
             FeedbackType::Textual => self.edit_textual_feedback_expression(),
         }
@@ -1116,12 +1144,7 @@ impl MappingPanel {
             },
         };
         let editor = SimpleScriptEditorPanel::new(input);
-        let editor = SharedView::new(editor);
-        let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.simple_script_editor.replace(Some(editor)) {
-            existing_editor.close();
-        };
-        editor_clone.open(self.view.require_window());
+        self.open_extra_panel(editor);
     }
 
     #[allow(dead_code)]
@@ -1148,12 +1171,16 @@ impl MappingPanel {
             },
         };
         let editor = AdvancedScriptEditorPanel::new(input, CONTROL_TRANSFORMATION_TEMPLATES);
-        let editor = SharedView::new(editor);
-        let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.advanced_script_editor.replace(Some(editor)) {
-            existing_editor.close();
+        self.open_extra_panel(editor);
+    }
+
+    fn open_extra_panel(&self, panel: impl View + 'static) {
+        let panel = SharedView::new(panel);
+        let panel_clone = panel.clone();
+        if let Some(existing_panel) = self.extra_panel.replace(Some(panel)) {
+            existing_panel.close();
         };
-        editor_clone.open(self.view.require_window());
+        panel_clone.open(self.view.require_window());
     }
 
     fn edit_yaml(
@@ -1177,12 +1204,7 @@ impl MappingPanel {
                 ));
             };
         });
-        let editor = SharedView::new(editor);
-        let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.yaml_editor.replace(Some(editor)) {
-            existing_editor.close();
-        };
-        editor_clone.open(self.view.require_window());
+        self.open_extra_panel(editor);
     }
 
     fn edit_advanced_settings(&self) {
@@ -1316,13 +1338,7 @@ impl MappingPanel {
         self.stop_party();
         self.view.require_window().hide();
         self.mapping.replace(None);
-        if let Some(p) = self.yaml_editor.replace(None) {
-            p.close();
-        }
-        if let Some(p) = self.simple_script_editor.replace(None) {
-            p.close();
-        }
-        if let Some(p) = self.advanced_script_editor.replace(None) {
+        if let Some(p) = self.extra_panel.replace(None) {
             p.close();
         }
         self.mapping_header_panel.clear_item();
@@ -1571,7 +1587,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     #[allow(clippy::single_match)]
-    fn handle_target_line_2_button_press(&mut self) {
+    fn handle_target_line_2_button_press_internal(&mut self) {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
@@ -4394,6 +4410,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::LastTouched => Some("Targets"),
                 ReaperTargetType::BrowsePotFilterItems => Some("Kind"),
                 ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
@@ -4422,10 +4439,23 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_2_label_2(&self) {
-        // Currently not in use
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::LastTouched => {
+                    let enabled_count = self.target.learnable_target_kinds().len();
+                    let total_count = LearnableTargetKind::into_enum_iter().count();
+                    Some(format!(
+                        "{} of {} targets enabled",
+                        enabled_count, total_count
+                    ))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
         self.view
             .require_control(root::ID_TARGET_LINE_2_LABEL_2)
-            .hide();
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_2_label_3(&self) {
@@ -4758,6 +4788,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => Some("Now!"),
+                ReaperTargetType::LastTouched => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => Some("Pick!"),

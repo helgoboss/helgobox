@@ -56,6 +56,7 @@ use crate::domain::{
 };
 use serde_repr::*;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
@@ -64,10 +65,10 @@ use playtime_clip_engine::base::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction, MappingModification,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons, TrackFxChain, TrackScope,
-    TrackToolAction,
+    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction, LearnableTargetKind,
+    MappingModification, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
+    MouseAction, MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons,
+    TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -171,6 +172,7 @@ pub enum TargetCommand {
     SetPotFilterItemKind(PotFilterItemKind),
     SetMappingModification(MappingModification),
     SetMappingRef(MappingRefModel),
+    SetLearnableTargetKinds(HashSet<LearnableTargetKind>),
 }
 
 #[derive(Eq, PartialEq)]
@@ -270,6 +272,7 @@ pub enum TargetProp {
     PotFilterItemKind,
     MappingModification,
     MappingRef,
+    LearnableTargetKinds,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -652,6 +655,10 @@ impl<'a> Change<'a> for TargetModel {
                 self.mapping_ref = mapping_ref;
                 One(P::MappingRef)
             }
+            C::SetLearnableTargetKinds(kinds) => {
+                self.learnable_target_kinds = kinds;
+                One(P::LearnableTargetKinds)
+            }
         };
         Some(affected)
     }
@@ -788,6 +795,8 @@ pub struct TargetModel {
     mapping_ref: MappingRefModel,
     // # For Pot targets
     pot_filter_item_kind: PotFilterItemKind,
+    // # For targets that deal with target learning/touching
+    learnable_target_kinds: HashSet<LearnableTargetKind>,
 }
 
 #[derive(Clone, Debug)]
@@ -934,6 +943,7 @@ impl Default for TargetModel {
             pot_filter_item_kind: Default::default(),
             mapping_modification: Default::default(),
             mapping_ref: Default::default(),
+            learnable_target_kinds: Default::default(),
         }
     }
 }
@@ -2643,6 +2653,10 @@ impl TargetModel {
 
     pub fn pot_filter_item_kind(&self) -> PotFilterItemKind {
         self.pot_filter_item_kind
+    }
+
+    pub fn learnable_target_kinds(&self) -> &HashSet<LearnableTargetKind> {
+        &self.learnable_target_kinds
     }
 
     pub fn mapping_modification(&self) -> MappingModification {

@@ -41,6 +41,10 @@ mod advanced_script_editor_panel;
 pub use advanced_script_editor_panel::*;
 
 #[allow(dead_code)]
+mod learnable_target_kinds_picker_panel;
+pub use learnable_target_kinds_picker_panel::*;
+
+#[allow(dead_code)]
 mod control_transformation_templates;
 pub use control_transformation_templates::*;
 

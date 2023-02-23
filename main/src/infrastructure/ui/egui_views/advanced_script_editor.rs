@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
-use egui::{CentralPanel, Color32, RichText, Ui, Visuals};
+use egui::{CentralPanel, Color32, RichText, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
@@ -12,16 +12,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 pub type SharedContent = Arc<Mutex<String>>;
-
-pub fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {
-    let mut style: egui::Style = (*ctx.style()).clone();
-    style.visuals = if dark_mode_is_enabled {
-        Visuals::dark()
-    } else {
-        Visuals::light()
-    };
-    ctx.set_style(style);
-}
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")

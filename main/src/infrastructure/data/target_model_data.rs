@@ -1,6 +1,8 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
+use enum_iterator::IntoEnumIterator;
 use reaper_high::{BookmarkType, Fx, Guid, Reaper};
+use std::collections::HashSet;
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
@@ -31,9 +33,9 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxToolAction, MappingModification, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterItemKind, SeekBehavior,
-    TargetValue, TrackScope, TrackToolAction,
+    ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModification,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    PotFilterItemKind, SeekBehavior, TargetValue, TrackScope, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -498,12 +500,21 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub session_id: Option<String>,
+    /// New since ReaLearn v2.15.0-pre.1
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     pub mapping_key: Option<MappingKey>,
+    /// New since ReaLearn v2.15.0-pre.1
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default",
+        alias = "target_kinds"
+    )]
+    pub targets: Option<HashSet<LearnableTargetKind>>,
 }
 
 impl TargetModelData {
@@ -623,6 +634,7 @@ impl TargetModelData {
             mapping_modification: model.mapping_modification(),
             session_id,
             mapping_key,
+            targets: Some(model.learnable_target_kinds().clone()),
         }
     }
 
@@ -946,6 +958,11 @@ impl TargetModelData {
             }
         };
         model.change(C::SetMappingRef(mapping_ref));
+        let target_kinds = self
+            .targets
+            .clone()
+            .unwrap_or_else(|| LearnableTargetKind::into_enum_iter().collect());
+        model.change(C::SetLearnableTargetKinds(target_kinds));
         Ok(())
     }
 }

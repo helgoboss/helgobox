@@ -1567,13 +1567,13 @@ impl Session {
         session: WeakSession,
         mapping_id: QualifiedMappingId,
     ) -> Result<(), &'static str> {
-        if let Some(currently_learning_mapping_id) = self
+        let currently_learning_mapping_id = self
             .instance_state
             .borrow()
             .mapping_which_learns_source()
-            .get()
-        {
-            if currently_learning_mapping_id == mapping_id {
+            .get();
+        if let Some(id) = currently_learning_mapping_id {
+            if id == mapping_id {
                 self.stop_learning_source();
                 return Ok(());
             }
@@ -1691,8 +1691,8 @@ impl Session {
             .borrow()
             .mapping_which_learns_target()
             .get();
-        if let Some(currently_learning_mapping_id) = currently_learning_mapping_id {
-            if currently_learning_mapping_id == mapping_id {
+        if let Some(id) = currently_learning_mapping_id {
+            if id == mapping_id {
                 self.stop_learning_target();
                 return;
             }

@@ -2,9 +2,9 @@ use crate::base::blocking_lock;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::advanced_script_editor;
 use crate::infrastructure::ui::egui_views::advanced_script_editor::Toolbox;
-use crate::infrastructure::ui::ScriptEditorInput;
+use crate::infrastructure::ui::{egui_views, ScriptEditorInput};
 use derivative::Derivative;
-use reaper_low::{firewall, raw};
+use reaper_low::raw;
 use semver::Version;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
@@ -89,33 +89,13 @@ impl View for AdvancedScriptEditorPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        use advanced_script_editor::State;
-        let window_size = window.size();
-        let dpi_factor = window.dpi_scaling_factor();
-        let window_width = window_size.width.get() as f64 / dpi_factor;
-        let window_height = window_size.height.get() as f64 / dpi_factor;
         let toolbox = self.toolbox.take().expect("toolbox already in use");
-        let state = State::new(self.content.clone(), toolbox);
-        let settings = baseview::WindowOpenOptions {
-            title: "Script editor".into(),
-            size: baseview::Size::new(window_width, window_height),
-            scale: baseview::WindowScalePolicy::SystemScaleFactor,
-            gl_config: Some(Default::default()),
-        };
-        egui_baseview::EguiWindow::open_parented(
-            &self.view.require_window(),
-            settings,
+        let state = advanced_script_editor::State::new(self.content.clone(), toolbox);
+        egui_views::open(
+            window,
+            "Script editor",
             state,
-            |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, _state: &mut State| {
-                firewall(|| {
-                    advanced_script_editor::init_ui(ctx, Window::dark_mode_is_enabled());
-                });
-            },
-            |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, state: &mut State| {
-                firewall(|| {
-                    advanced_script_editor::run_ui(ctx, state);
-                });
-            },
+            advanced_script_editor::run_ui,
         );
         true
     }

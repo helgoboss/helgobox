@@ -7,6 +7,58 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    enum_map::Enum,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum LearnableTargetKind {
+    TrackVolume,
+    TrackPan,
+    RouteVolume,
+    RoutePan,
+    TrackArmState,
+    TrackMuteState,
+    TrackSoloState,
+    TrackSelectionState,
+    FxOnOffState,
+    FxParameterValue,
+    BrowseFxPresets,
+    PlayRate,
+    Tempo,
+    TrackAutomationMode,
+    TrackMonitoringMode,
+    AutomationModeOverride,
+    ReaperAction,
+    TransportAction,
+    // Could be nice to add to the list of learnable targets
+    // Seek,
+    // TrackParentSendState,
+    // AllTrackFxOnOffState,
+    // TrackPhase,
+    // TrackWidth,
+    // TrackVisibility,
+    // FxOnlineOfflineState,
+    // LoadFxSnapshot,
+    // FxVisibility,
+    // RouteAutomationMode,
+    // RouteMonoState,
+    // RouteMuteState,
+    // RoutePhase,
+}
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
@@ -120,6 +172,8 @@ pub struct MouseTarget {
 pub struct LastTouchedTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub targets: Option<HashSet<LearnableTargetKind>>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

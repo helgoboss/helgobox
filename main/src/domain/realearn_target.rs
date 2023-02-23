@@ -38,7 +38,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt;
 use playtime_clip_engine::rt::WeakMatrix;
-use realearn_api::persistence::TrackScope;
+use realearn_api::persistence::{LearnableTargetKind, TrackScope};
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
@@ -702,6 +702,31 @@ impl ReaperTargetType {
         target
             .reaper_target_type()
             .expect("a REAPER target should always return a REAPER target type")
+    }
+
+    pub fn from_learnable_target_kind(kind: LearnableTargetKind) -> ReaperTargetType {
+        use LearnableTargetKind as A;
+        use ReaperTargetType as B;
+        match kind {
+            A::TrackVolume => B::TrackVolume,
+            A::TrackPan => B::TrackPan,
+            A::RouteVolume => B::RouteVolume,
+            A::RoutePan => B::RoutePan,
+            A::TrackArmState => B::TrackArm,
+            A::TrackMuteState => B::TrackMute,
+            A::TrackSoloState => B::TrackSolo,
+            A::TrackSelectionState => B::TrackSelection,
+            A::FxOnOffState => B::FxEnable,
+            A::FxParameterValue => B::FxParameterValue,
+            A::BrowseFxPresets => B::FxPreset,
+            A::PlayRate => B::PlayRate,
+            A::Tempo => B::Tempo,
+            A::TrackAutomationMode => B::TrackAutomationMode,
+            A::TrackMonitoringMode => B::TrackMonitoringMode,
+            A::AutomationModeOverride => B::AutomationModeOverride,
+            A::ReaperAction => B::Action,
+            A::TransportAction => B::Transport,
+        }
     }
 
     pub fn supports_feedback_resolution(self) -> bool {
