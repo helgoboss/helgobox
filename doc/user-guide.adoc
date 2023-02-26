@@ -37,12 +37,11 @@ a|
 . <<mapping-panel>> with sub-parts:
  * <<mapping>>
  * <<conditional-activation>>
- * <<Bottom-section>> & <<Bottom-Help>> info
  * <<Source>> section
  * <<target>> section
  ** <<category-real>> - in a separate part due to the large amount of information
  * <<glue>> section
- * <<Bottom-section>>
+ * <<Bottom-section>> & <<Bottom-Help>> info
 . <<category-real-details>> created the hierarchical structure by group type of target
 . <<provided-reaper-action>>
 . <<advanced-settings-section>> section
