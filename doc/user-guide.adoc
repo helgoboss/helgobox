@@ -1749,7 +1749,7 @@ The mapping, source and target labels of a mapping row should be greyed out when
 image::panel-mapping rows.svg[Mapping rows,600,360]
 ====
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>]
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-row>>]
 
 If a mapping is _off_, it doesn't have any effect.
 
@@ -1790,7 +1790,7 @@ image::menu context.svg[Context menu,650,560]
 ** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Lua code.
 ** *Log debug info:* Logs debug information about this particular mapping.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<Menu-listing-overview>>]
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-row>>]
 
 [#mapping-panel]
 = Reference (part 2) Mapping panel
