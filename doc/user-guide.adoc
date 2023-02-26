@@ -54,7 +54,6 @@ kbd:[<<Back-to-Top>>]
 
 = Quick start
 
-
 Here's a step-by-step guide to help you get started with ReaLearn and a MIDI controller:
 
 . Start REAPER.
@@ -64,7 +63,7 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
  _Enable input for control messages_.
   * For the MIDI output device (feedback), tick both _Enable output to this device_ and _Do not send reset messages_.
 +
-NOTE:
+[NOTE]
 ====
 The option _Do not send reset messages_ isn't available in older REAPER versions. If you don't use any external hardware synths, you can untick the global options _Reset on: Play_ and _Reset on: Stop_ instead!
 ====
