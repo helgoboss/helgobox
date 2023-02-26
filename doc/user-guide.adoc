@@ -1882,10 +1882,11 @@ This dropdown controls so-called conditional activation of mappings. See the <<c
 
 When unticked, this mapping will not show up in the <<companion-app,Projection>>. Useful e.g. for feedback-only mappings or buttons with multiple assignments.
 
+[#advanced-setting]
 === Advanced settings:
 
 This button is for experts. There are some advanced mapping-related settings in ReaLearn that are not adjustable via its graphical user interface but only by writing text-based configuration. Pressing this button should open a small window in which you can write the configuration for this mapping.
-If the button label ends with a number, that number denotes the number of top-level configuration properties set for that mapping. That way you can immediately see if a mapping has advanced settings or not. You can learn more about the available properties in the section <<advanced-settings,Advanced settings>>.
+If the button label ends with a number, that number denotes the number of top-level configuration properties set for that mapping. That way you can immediately see if a mapping has advanced settings or not. You can learn more about the available properties in the section <<advanced-settings-section,Advanced settings>>.
 
 * *Open in text editor:* Opens the settings in the system text editor or whatever program is associated with YAML files. It depends on your system setup if this works or not. If it does and if your text editor is good, this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting). As soon as you save the file and close the editor, the text will automatically appear in the "Advanced settings" text area.
 
@@ -5003,10 +5004,10 @@ In order to find these actions, open REAPER's _Actions_ menu, choose _Show actio
 
 kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>]
 
-[#advanced-settings]
+[#advanced-settings-section]
 = Advanced settings
 
-This section describes the _Advanced settings_ feature of the mapping panel (see section <<mapping,Mapping>>) in more
+This section describes the _Advanced settings_ feature of the mapping panel (see section <<advanced-setting,Advanced settings>>) in more
 detail.
 
 == The YAML language
@@ -5154,4 +5155,4 @@ TIP: If you use input `<FX input>` and find that MIDI lifecycle messages aren't 
 
 WARNING: Disabling the complete ReaLearn instance will cause all mappings to deactivate. However, sending MIDI messages on deactivation in this case will only work if the output is a device! If it is `<FX output>`, it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled. Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
 
-kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<advanced-settings>>]
+kbd:[<<Back-to-Top>>] <= kbd:[<<Back-to-Main-panel>>] <= kbd:[<<mapping-panel>>] <= kbd:[<<advanced-settings-section>>]
