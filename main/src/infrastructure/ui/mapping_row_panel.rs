@@ -258,7 +258,7 @@ impl MappingRowPanel {
                 } else {
                     let first_mapping_name = first_mapping.effective_name();
                     if mappings.len() == 1 {
-                        format!("{}\n({})", plain_label, first_mapping_name)
+                        format!("{plain_label}\n({first_mapping_name})")
                     } else {
                         format!(
                             "{}\n({} + {})",

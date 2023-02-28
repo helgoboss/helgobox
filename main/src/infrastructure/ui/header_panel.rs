@@ -480,7 +480,7 @@ impl HeaderPanel {
                                             .compartment_params(compartment)
                                             .get_parameter_name(i);
                                         let range = range.clone();
-                                        item(format!("{}...", param_name), move || {
+                                        item(format!("{param_name}..."), move || {
                                             MainMenuAction::EditCompartmentParameter(
                                                 compartment,
                                                 range,
@@ -726,8 +726,7 @@ impl HeaderPanel {
                 let msg = match add_firewall_rule(http_port, https_port, grpc_port) {
                     Ok(_) => "Successfully added firewall rule.".to_string(),
                     Err(reason) => format!(
-                        "Couldn't add firewall rule because {}. Please try to do it manually!",
-                        reason
+                        "Couldn't add firewall rule because {reason}. Please try to do it manually!",
                     ),
                 };
                 self.view.require_window().alert("ReaLearn", msg);
@@ -825,8 +824,7 @@ impl HeaderPanel {
         self.named_listed_mappings(
             |count|
                 format!(
-                    "This clears the names of {} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
-                    count
+                    "This clears the names of {count} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
                 )            ,
             |_| String::new(),
         );
@@ -836,8 +834,7 @@ impl HeaderPanel {
         self.named_listed_mappings(
             |count| {
                 format!(
-                    "This modifies the names of {} mappings. Do you really want to continue?",
-                    count
+                    "This modifies the names of {count} mappings. Do you really want to continue?",
                 )
             },
             |m| {
@@ -1394,7 +1391,7 @@ impl HeaderPanel {
                     .find_group_index_by_id_sorted(compartment, id)
                 {
                     None => {
-                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                        combo.select_new_combo_box_item(format!("<Not present> ({id})"));
                         return;
                     }
                     Some(i) => i as isize,
@@ -1503,7 +1500,7 @@ impl HeaderPanel {
             None => -1isize,
             Some(id) => match preset_manager.find_index_by_id(id) {
                 None => {
-                    combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                    combo.select_new_combo_box_item(format!("<Not present> ({id})"));
                     return;
                 }
                 Some(i) => i as isize,
@@ -1572,7 +1569,7 @@ impl HeaderPanel {
                     .find_index_by_id(&osc_device_id)
                 {
                     None => {
-                        b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
+                        b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
                     }
                     Some(i) => b
                         .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
@@ -1649,10 +1646,7 @@ impl HeaderPanel {
                         .find_index_by_id(&osc_device_id)
                     {
                         None => {
-                            b.select_new_combo_box_item(format!(
-                                "<Not present> ({})",
-                                osc_device_id
-                            ));
+                            b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
                         }
                         Some(i) => b
                             .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
@@ -2009,7 +2003,7 @@ impl HeaderPanel {
                             get_clip_matrix_label(m.column_count())
                         }
                         ClipMatrixRef::Foreign(instance_id) => {
-                            format!("clip matrix reference (to instance {})", instance_id)
+                            format!("clip matrix reference (to instance {instance_id})")
                         }
                     },
                 };
@@ -2019,7 +2013,7 @@ impl HeaderPanel {
                 };
                 if self.view.require_window().confirm(
                     "ReaLearn",
-                    format!("Do you want to replace the current {} with the {} in the clipboard?", old_matrix_label, new_matrix_label),
+                    format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
                 ) {
                     let session = self.session();
                     let session = session.borrow();
@@ -2069,8 +2063,7 @@ impl HeaderPanel {
         if self.view.require_window().confirm(
             "ReaLearn",
             format!(
-                "Do you want to continue replacing the {} with the data in the clipboard?",
-                compartment
+                "Do you want to continue replacing the {compartment} with the data in the clipboard?",
             ),
         ) {
             let session = self.session();
@@ -2113,16 +2106,16 @@ impl HeaderPanel {
                         ConversionStyle::Minimal,
                     ))
                 }),
-                item(format!("Export {} as JSON", compartment), || {
+                item(format!("Export {compartment} as JSON"), || {
                     MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
                 }),
-                item(format!("Export {} as Lua", compartment), || {
+                item(format!("Export {compartment} as Lua"), || {
                     MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
                     ))
                 }),
                 item(
-                    format!("Export {} as Lua (include default values)", compartment),
+                    format!("Export {compartment} as Lua (include default values)"),
                     || {
                         MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
                             ConversionStyle::IncludeDefaultValues,
@@ -2900,7 +2893,7 @@ const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes 
 const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
 
 fn get_clip_matrix_label(column_count: usize) -> String {
-    format!("clip matrix with {} columns", column_count)
+    format!("clip matrix with {column_count} columns")
 }
 
 enum MainMenuAction {
@@ -2978,7 +2971,7 @@ fn generate_fx_to_preset_links_menu_entries(
     use swell_ui::menu_tree::*;
     let add_link_entry = if let Some(fx_id) = last_focused_fx_id {
         menu(
-            format!("<Add link from FX \"{}\" to ...>", fx_id),
+            format!("<Add link from FX \"{fx_id}\" to ...>"),
             main_preset_manager
                 .preset_iter()
                 .map(move |p| {

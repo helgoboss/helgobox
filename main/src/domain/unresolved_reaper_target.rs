@@ -670,7 +670,7 @@ impl fmt::Display for VirtualTrackRoute {
         match &self.selector {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
-            ByName(name) => write!(f, "\"{}\"", name),
+            ByName(name) => write!(f, "\"{name}\""),
             ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
@@ -1072,7 +1072,7 @@ impl fmt::Display for VirtualFxParameter {
         use VirtualFxParameter::*;
         match self {
             Dynamic(_) => f.write_str("<Dynamic>"),
-            ByName(name) => write!(f, "\"{}\"", name),
+            ByName(name) => write!(f, "\"{name}\""),
             ByIndex(i) | ById(i) => write!(f, "#{}", i + 1),
         }
     }
@@ -1529,7 +1529,7 @@ impl VirtualTrack {
         if result < -1 {
             return Err(TrackResolveError::OutOfRange);
         }
-        Ok(result as i32)
+        Ok(result)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1908,11 +1908,11 @@ pub enum FxResolveError {
 }
 
 pub fn get_non_present_virtual_track_label(track: &VirtualTrack) -> String {
-    format!("<Not present> ({})", track)
+    format!("<Not present> ({track})")
 }
 
 pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String {
-    format!("<Not present> ({})", route)
+    format!("<Not present> ({route})")
 }
 
 // Returns an error if that param (or FX) doesn't exist.

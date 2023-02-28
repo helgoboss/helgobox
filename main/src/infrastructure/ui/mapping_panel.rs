@@ -1203,8 +1203,7 @@ impl MappingPanel {
             let result = apply(&mut m.borrow_mut(), yaml_mapping);
             if let Err(e) = result {
                 notification::alert(format!(
-                    "Your changes have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{}",
-                    e
+                    "Your changes have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{e}"
                 ));
             };
         });
@@ -3642,7 +3641,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     content.push_str(hint);
                     content.push('\n');
                 }
-                let subject = format!("Help: {}", mode_parameter);
+                let subject = format!("Help: {mode_parameter}");
                 self.view
                     .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
                     .set_text(subject);
@@ -3746,7 +3745,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         } else {
             "".to_owned()
         };
-        let text = format!("Advanced settings {}", suffix);
+        let text = format!("Advanced settings {suffix}");
         cb.set_text(text);
     }
 
@@ -4067,10 +4066,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 let display_count = self.source.display_count() as isize;
                                 b.fill_combo_box_with_data_vec(
                                     iter::once((-1isize, "<All>".to_string()))
-                                        .chain(
-                                            (0..display_count)
-                                                .map(|i| (i as isize, (i + 1).to_string())),
-                                        )
+                                        .chain((0..display_count).map(|i| (i, (i + 1).to_string())))
                                         .collect(),
                                 );
                                 let data = match self.source.mackie_lcd_scope().channel {
@@ -4505,10 +4501,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::LastTouched => {
                     let enabled_count = self.target.included_targets().len();
                     let total_count = LearnableTargetKind::into_enum_iter().count();
-                    Some(format!(
-                        "{} of {} targets enabled",
-                        enabled_count, total_count
-                    ))
+                    Some(format!("{enabled_count} of {total_count} targets enabled"))
                 }
                 _ => None,
             },
@@ -4669,8 +4662,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .find_group_index_by_id_sorted(compartment, group_id)
                     {
                         None => {
-                            combo
-                                .select_new_combo_box_item(format!("<Not present> ({})", group_id));
+                            combo.select_new_combo_box_item(format!("<Not present> ({group_id})"));
                         }
                         Some(i) => {
                             combo.select_combo_box_item_by_data(i as isize).unwrap();
@@ -4701,10 +4693,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                     if let Some(dev_id) = self.mapping.target_model.osc_dev_id() {
                         match osc_device_manager.find_index_by_id(&dev_id) {
                             None => {
-                                combo.select_new_combo_box_item(format!(
-                                    "<Not present> ({})",
-                                    dev_id
-                                ));
+                                combo
+                                    .select_new_combo_box_item(format!("<Not present> ({dev_id})"));
                             }
                             Some(i) => combo.select_combo_box_item_by_data(i as isize).unwrap(),
                         }
@@ -6647,7 +6637,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 false,
             );
             let suffix = if applicable { "" } else { " (NOT APPLICABLE)" };
-            format!("{}{}", m, suffix)
+            format!("{m}{suffix}")
         });
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
@@ -7490,7 +7480,7 @@ fn prompt_for_predefined_control_element_name(
                                 let first_mapping = mappings[0].borrow();
                                 let first_mapping_name = first_mapping.effective_name();
                                 if mappings.len() == 1 {
-                                    format!("{} ({})", pos, first_mapping_name)
+                                    format!("{pos} ({first_mapping_name})")
                                 } else {
                                     format!(
                                         "{} ({} + {})",
@@ -7654,7 +7644,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
                 menu(
                     fmt_ch(ch),
                     chunked_number_menu(128, 8, false, |i| {
-                        item(format!("{} {}", label, i), move || {
+                        item(format!("{label} {i}"), move || {
                             let status_byte: u8 = msg_type.into();
                             SendMidiMenuAction::Preset(format!(
                                 "{:02X} {:02X} [0gfe dcba]",
@@ -7753,7 +7743,7 @@ fn build_slash_menu_entries(
                 let full_name = if prefix.is_empty() {
                     name.to_string()
                 } else {
-                    format!("{}/{}", prefix, name)
+                    format!("{prefix}/{name}")
                 };
                 entries.push(item(*name, move || full_name));
             }
@@ -7763,7 +7753,7 @@ fn build_slash_menu_entries(
             let new_prefix = if prefix.is_empty() {
                 key.to_string()
             } else {
-                format!("{}/{}", prefix, key)
+                format!("{prefix}/{key}")
             };
             let inner_entries = build_slash_menu_entries(&remaining_names, &new_prefix);
             entries.push(menu(key, inner_entries));

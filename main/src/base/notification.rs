@@ -21,7 +21,7 @@ pub fn warn(msg: String) {
     if msg == *prev_msg {
         reaper.show_console_msg("|");
     } else {
-        reaper.show_console_msg(format!("\n\nReaLearn warning: {} ", msg));
+        reaper.show_console_msg(format!("\n\nReaLearn warning: {msg} "));
         *prev_msg = msg;
     }
 }

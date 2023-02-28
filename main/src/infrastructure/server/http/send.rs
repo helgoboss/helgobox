@@ -44,7 +44,7 @@ pub fn send_initial_session(
     } else {
         get_session_updated_event(session_id, None)
     };
-    client.send(&event)
+    client.send(event)
 }
 
 fn send_initial_controller_routing(
@@ -56,7 +56,7 @@ fn send_initial_controller_routing(
     } else {
         get_controller_routing_updated_event(session_id, None)
     };
-    client.send(&event)
+    client.send(event)
 }
 
 fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {

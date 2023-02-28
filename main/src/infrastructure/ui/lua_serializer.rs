@@ -16,7 +16,7 @@ impl Display for Error {
         match self {
             Message(m) => f.write_str(m),
             Unsupported(kind) => {
-                write!(f, "serializing {} is currently not supported", kind)
+                write!(f, "serializing {kind} is currently not supported")
             }
         }
     }
@@ -393,12 +393,11 @@ fn ensure_proper_identifier(v: &str) -> Result<()> {
     let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
     if contains_non_identifier_chars {
         return Err(Error::Message(format!(
-            "can't serialize string {:?} as identifier",
-            v
+            "can't serialize string {v:?} as identifier"
         )));
     }
     if LUA_KEYWORDS.contains(&v) {
-        return Err(Error::Message(format!("{:?} is a Lua identifier", v)));
+        return Err(Error::Message(format!("{v:?} is a Lua identifier")));
     }
     Ok(())
 }

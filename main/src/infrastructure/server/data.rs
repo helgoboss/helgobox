@@ -287,7 +287,7 @@ pub fn get_active_controller_updated_event(
     session: Option<&Session>,
 ) -> Event<Option<ControllerPresetData>> {
     Event::put(
-        format!("/realearn/session/{}/controller", session_id),
+        format!("/realearn/session/{session_id}/controller"),
         session.and_then(get_controller),
     )
 }
@@ -297,7 +297,7 @@ pub fn get_projection_feedback_event(
     feedback_value: ProjectionFeedbackValue,
 ) -> Event<HashMap<Rc<str>, UnitValue>> {
     Event::patch(
-        format!("/realearn/session/{}/feedback", session_id),
+        format!("/realearn/session/{session_id}/feedback"),
         hashmap! {
             feedback_value.mapping_key => feedback_value.value
         },
@@ -308,7 +308,7 @@ pub fn get_session_updated_event(
     session_id: &str,
     session_data: Option<SessionResponseData>,
 ) -> Event<Option<SessionResponseData>> {
-    Event::put(format!("/realearn/session/{}", session_id), session_data)
+    Event::put(format!("/realearn/session/{session_id}"), session_data)
 }
 
 pub fn get_controller_routing_updated_event(
@@ -316,7 +316,7 @@ pub fn get_controller_routing_updated_event(
     session: Option<&Session>,
 ) -> Event<Option<ControllerRouting>> {
     Event::put(
-        format!("/realearn/session/{}/controller-routing", session_id),
+        format!("/realearn/session/{session_id}/controller-routing"),
         session.map(get_controller_routing),
     )
 }

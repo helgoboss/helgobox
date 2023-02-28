@@ -38,7 +38,7 @@ fn generate_gui_dialogs(
     // On macOS and Linux, try to generate SWELL dialogs (needs PHP)
     #[cfg(target_family = "unix")]
     if let Err(e) = generate_dialogs(dialog_rc_file.as_ref()) {
-        println!("cargo:warning={}", e);
+        println!("cargo:warning={e}");
     }
     Ok(())
 }

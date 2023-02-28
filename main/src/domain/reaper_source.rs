@@ -252,9 +252,9 @@ pub struct SpeechSourceFeedbackValue {
 
 #[derive(PartialEq, Debug, Display)]
 pub enum ReaperMessage {
-    #[display(fmt = "MidiDevicesConnected ({})", _0)]
+    #[display(fmt = "MidiDevicesConnected ({_0})")]
     MidiDevicesConnected(MidiDeviceChangePayload),
-    #[display(fmt = "MidiDevicesDisconnected ({})", _0)]
+    #[display(fmt = "MidiDevicesDisconnected ({_0})")]
     MidiDevicesDisconnected(MidiDeviceChangePayload),
     RealearnInstanceStarted,
     RealearnParameterChange(RealearnParameterChangePayload),

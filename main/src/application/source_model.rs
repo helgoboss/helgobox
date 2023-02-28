@@ -254,6 +254,12 @@ pub struct SourceModel {
     control_element_id: VirtualControlElementId,
 }
 
+impl Default for SourceModel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SourceModel {
     pub fn new() -> Self {
         Self {

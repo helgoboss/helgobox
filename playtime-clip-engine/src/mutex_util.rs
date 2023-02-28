@@ -16,7 +16,7 @@ pub fn non_blocking_lock<'a, T>(
         Ok(g) => g,
         Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
         Err(std::sync::TryLockError::WouldBlock) => {
-            panic!("locking mutex would block: {}", description)
+            panic!("locking mutex would block: {description}")
         }
     }
     #[cfg(not(debug_assertions))]

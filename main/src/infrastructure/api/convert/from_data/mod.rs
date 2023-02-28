@@ -139,17 +139,7 @@ impl ConversionStyle {
     ) -> Option<T> {
         use ConversionStyle::*;
         match self {
-            Minimal => {
-                if let Some(v) = value {
-                    if v == default_value {
-                        None
-                    } else {
-                        Some(v)
-                    }
-                } else {
-                    None
-                }
-            }
+            Minimal => value.filter(|v| v != &default_value),
             IncludeDefaultValues => {
                 if value.is_some() {
                     value

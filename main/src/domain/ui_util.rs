@@ -90,7 +90,7 @@ pub fn format_control_input_with_match_result(
     msg: impl Display,
     match_result: MatchOutcome,
 ) -> String {
-    format!("{} ({})", msg, match_result)
+    format!("{msg} ({match_result})")
 }
 
 pub fn log_virtual_control_input(instance_id: &InstanceId, msg: impl Display) {
@@ -121,7 +121,7 @@ pub fn log_real_feedback_output(
     log_output(
         instance_id,
         OutputReason::RealFeedback,
-        format!("{} ({:?})", msg, feedback_reason),
+        format!("{msg} ({feedback_reason:?})"),
     );
 }
 
@@ -156,7 +156,7 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
         Plain(m) => format_short_midi_message(*m),
         ParameterNumber(m) => serde_json::to_string(&m).unwrap(),
         ControlChange14Bit(m) => serde_json::to_string(&m).unwrap(),
-        Tempo(bpm) => format!("{:?}", bpm),
+        Tempo(bpm) => format!("{bpm:?}"),
         Raw { events, .. } => {
             let event_strings: Vec<_> = events
                 .iter()
@@ -187,11 +187,11 @@ pub fn format_raw_midi(bytes: &[u8]) -> String {
 }
 
 pub fn format_osc_packet(packet: &OscPacket) -> String {
-    format!("{:?}", packet)
+    format!("{packet:?}")
 }
 
 pub fn format_osc_message(msg: &OscMessage) -> String {
-    format!("{:?}", msg)
+    format!("{msg:?}")
 }
 
 fn format_short_midi_message(msg: RawShortMessage) -> String {
@@ -204,7 +204,7 @@ fn format_short_midi_message(msg: RawShortMessage) -> String {
         bytes.1.get(),
         bytes.2.get()
     );
-    format!("{} = {} = {}", hex, decimal, structured)
+    format!("{hex} = {decimal} = {structured}")
 }
 
 pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {

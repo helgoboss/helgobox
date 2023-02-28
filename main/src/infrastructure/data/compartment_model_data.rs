@@ -198,12 +198,12 @@ where
     if duplicates.is_empty() {
         Ok(())
     } else {
-        let mut s = format!("Found the following duplicate {}: ", list_label);
+        let mut s = format!("Found the following duplicate {list_label}: ");
         for (i, d) in duplicates.into_iter().enumerate() {
             if i > 0 {
                 s.push_str(", ");
             }
-            let _ = write!(&mut s, "{}", d);
+            let _ = write!(&mut s, "{d}");
         }
         Err(s)
     }

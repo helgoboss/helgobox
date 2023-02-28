@@ -164,7 +164,7 @@ impl LoadPotPresetTarget {
             chain.remove_fx(&self.fx)?;
             // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
             // otherwise loading by VST2 magic number doesn't work.
-            chain.insert_fx_by_name(fx_index, format!("i7zh34z<{}", vst_magic_number));
+            chain.insert_fx_by_name(fx_index, format!("i7zh34z<{vst_magic_number}"));
         }
         Ok(())
     }

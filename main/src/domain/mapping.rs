@@ -2724,7 +2724,7 @@ impl Display for ControlLogEntry {
             self.target_index + 1
         )?;
         if let Some(v) = self.control_value {
-            write!(f, ", control value = {}", v)?;
+            write!(f, ", control value = {v}")?;
         }
         f.write_char(']')?;
         Ok(())

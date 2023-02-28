@@ -800,7 +800,7 @@ impl App {
         ",
             self.state.borrow(),
             self.sessions.borrow().len(),
-            determine_module_base_address().map(|addr| format!("0x{:x}", addr)),
+            determine_module_base_address().map(|addr| format!("0x{addr:x}")),
         );
         Reaper::get().show_console_msg(msg);
         self.server.borrow().log_debug_info(session_id);
@@ -1570,9 +1570,9 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn load() -> Result<AppConfig, String> {
-        let ini_content = fs::read_to_string(&Self::config_file_path())
+        let ini_content = fs::read_to_string(Self::config_file_path())
             .map_err(|_| "couldn't read config file".to_string())?;
-        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{:?}", e))?;
+        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{e:?}"))?;
         Ok(config)
     }
 
@@ -1708,8 +1708,7 @@ fn build_detailed_version() -> String {
 
 pub fn warn_about_failed_server_start(info: String) {
     Reaper::get().show_console_msg(format!(
-        "Couldn't start ReaLearn projection server because {}",
-        info
+        "Couldn't start ReaLearn projection server because {info}"
     ))
 }
 

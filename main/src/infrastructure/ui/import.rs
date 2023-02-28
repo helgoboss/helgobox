@@ -200,12 +200,11 @@ pub fn deserialize_data_object(
     let msg = format!(
         "Clipboard content doesn't look like proper ReaLearn import data:\n\n\
         Invalid JSON: \n\
-        {}\n\n\
+        {json_err}\n\n\
         Invalid Lua: \n\
-        {}\n\n\
+        {lua_err}\n\n\
         Invalid CSI: \n\
-        {}",
-        json_err, lua_err, csi_err
+        {csi_err}"
     );
     Err(msg.into())
 }
@@ -329,7 +328,7 @@ fn execute_lua_import_script<'a>(
         let print = lua.create_function(|_, arg: mlua::Value| {
             let text: String = match arg {
                 Value::String(s) => format!("{}\n", s.to_string_lossy()),
-                arg => format!("{:?}\n", arg),
+                arg => format!("{arg:?}\n"),
             };
             Reaper::get().show_console_msg(text);
             Ok(())

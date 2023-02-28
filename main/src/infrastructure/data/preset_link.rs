@@ -31,10 +31,10 @@ impl FileBasedPresetLinkManager {
     }
 
     fn load_fx_config(&mut self) -> Result<(), String> {
-        let json = fs::read_to_string(&self.fx_config_file_path())
+        let json = fs::read_to_string(self.fx_config_file_path())
             .map_err(|_| "couldn't read FX preset link config file".to_string())?;
         self.config = serde_json::from_str(&json)
-            .map_err(|e| format!("FX preset link config file isn't valid. Details:\n\n{}", e))?;
+            .map_err(|e| format!("FX preset link config file isn't valid. Details:\n\n{e}"))?;
         Ok(())
     }
 

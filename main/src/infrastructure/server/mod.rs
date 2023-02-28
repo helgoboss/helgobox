@@ -357,7 +357,7 @@ fn add_key_and_cert(ip: IpAddr) -> (String, String) {
     // and https://medium.com/collaborne-engineering/self-signed-certificates-in-ios-apps-ff489bf8b96e
     params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     let mut dn = DistinguishedName::new();
-    dn.push(DnType::CommonName, format!("ReaLearn on {}", ip));
+    dn.push(DnType::CommonName, format!("ReaLearn on {ip}"));
     params.distinguished_name = dn;
     let certificate = rcgen::Certificate::from_params(params)
         .expect("couldn't create self-signed server certificate");
@@ -372,15 +372,15 @@ fn add_key_and_cert(ip: IpAddr) -> (String, String) {
 fn find_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> Option<(String, String)> {
     let (key_file_path, cert_file_path) = get_key_and_cert_paths(ip, cert_dir_path);
     Some((
-        fs::read_to_string(&key_file_path).ok()?,
-        fs::read_to_string(&cert_file_path).ok()?,
+        fs::read_to_string(key_file_path).ok()?,
+        fs::read_to_string(cert_file_path).ok()?,
     ))
 }
 
 fn get_key_and_cert_paths(ip: IpAddr, cert_dir_path: &Path) -> (PathBuf, PathBuf) {
     let ip_string = ip.to_string();
-    let key_file_path = cert_dir_path.join(format!("{}.key", ip_string));
-    let cert_file_path = cert_dir_path.join(format!("{}.cer", ip_string));
+    let key_file_path = cert_dir_path.join(format!("{ip_string}.key"));
+    let cert_file_path = cert_dir_path.join(format!("{ip_string}.cer"));
     (key_file_path, cert_file_path)
 }
 

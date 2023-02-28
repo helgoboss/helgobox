@@ -133,7 +133,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn get_preset_file_path(&self, id: &str) -> PathBuf {
-        self.preset_dir_path.join(format!("{}.json", id))
+        self.preset_dir_path.join(format!("{id}.json"))
     }
 
     fn load_preset(&self, path: &Path) -> Result<P, String> {
@@ -156,7 +156,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         } else {
             // Preset is in sub directory
             let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
-            format!("{}/{}", relative_path_with_slashes, leaf_id)
+            format!("{relative_path_with_slashes}/{leaf_id}")
         };
         let json = fs::read_to_string(path)
             .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;

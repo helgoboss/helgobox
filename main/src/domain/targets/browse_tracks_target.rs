@@ -167,7 +167,7 @@ impl RealearnTarget for BrowseTracksTarget {
             }
             ScopedTrack::OutOfScope { floor_track } => {
                 let name = get_track_name(&floor_track, self.mode.scope());
-                Some(format!("After {}", name).into())
+                Some(format!("After {name}").into())
             }
         }
     }

@@ -310,10 +310,7 @@ impl PresetDb {
             params.push(&mode_id.0);
         }
         // Put it all together
-        let sql = format!(
-            "SELECT i.id FROM k_sound_info i{} WHERE true{}",
-            from_extras, where_extras
-        );
+        let sql = format!("SELECT i.id FROM k_sound_info i{from_extras} WHERE true{where_extras}");
         let mut statement = self.connection.prepare_cached(&sql)?;
         let collection: Result<PresetCollection, _> = statement
             .query(params.as_slice())?

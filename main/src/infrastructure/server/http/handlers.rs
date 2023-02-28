@@ -72,7 +72,7 @@ pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<BoxB
         .header("Content-Type", "application/pkix-cert")
         .header(
             "Content-Disposition",
-            format!("attachment; filename=\"{}\"", cert_file_name),
+            format!("attachment; filename=\"{cert_file_name}\""),
         )
         .body(boxed(Body::from(cert)))
         .unwrap()
@@ -101,7 +101,7 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
             .forward(ws_sender_sink)
             .map(|result| {
                 if let Err(e) = result {
-                    eprintln!("error sending websocket msg: {}", e);
+                    eprintln!("error sending websocket msg: {e}");
                 }
             }),
     );
@@ -127,7 +127,7 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
         let _msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                eprintln!("websocket error: {}", e);
+                eprintln!("websocket error: {e}");
                 break;
             }
         };

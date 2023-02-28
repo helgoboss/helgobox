@@ -453,8 +453,8 @@ impl<'a> ControlContext<'a> {
         }
     }
 
-    pub fn instance_container_common_args<'b, 'c>(
-        &'b self,
+    pub fn instance_container_common_args<'c>(
+        &self,
         scope: &'c TagScope,
     ) -> InstanceContainerCommonArgs<'c> {
         InstanceContainerCommonArgs {
@@ -734,7 +734,7 @@ impl ReaperTargetType {
         set: HashSet<LearnableTargetKind>,
     ) -> HashSet<ReaperTargetType> {
         set.into_iter()
-            .map(|kind| ReaperTargetType::from_learnable_target_kind(kind))
+            .map(ReaperTargetType::from_learnable_target_kind)
             .collect()
     }
 

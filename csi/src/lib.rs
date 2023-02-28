@@ -160,7 +160,7 @@ fn convert_widget(widget: Widget, annotator: &mut Annotator) -> CsiResult<Widget
         .capabilities
         .into_iter()
         .flat_map(|c| {
-            annotator.with_context(format!("Capability \"{}\"", c), |annotator| {
+            annotator.with_context(format!("Capability \"{c}\""), |annotator| {
                 convert_capability_to_mappings(&widget_name, &widget_id, c, annotator)
                     .unwrap_or_else(|e| {
                         annotator.info(e.to_string());
@@ -183,8 +183,8 @@ fn convert_capability_to_mappings(
     annotator: &mut Annotator,
 ) -> CsiResult<Vec<Mapping>> {
     let base_mapping = Mapping {
-        id: Some(format!("{}-{}", widget_id, capability)),
-        name: Some(format!("{} - {}", widget_name, capability)),
+        id: Some(format!("{widget_id}-{capability}")),
+        name: Some(format!("{widget_name} - {capability}")),
         ..Default::default()
     };
     let target_character = if capability.is_virtual_button() {
@@ -401,7 +401,7 @@ fn convert_capability_to_mappings(
         Capability::FbMcuVuMeter { index } => {
             let source = Source::MidiRaw(MidiRawSource {
                 feedback_behavior: None,
-                pattern: Some(format!("D0 [{:04b} dcba]", index)),
+                pattern: Some(format!("D0 [{index:04b} dcba]")),
                 character: Some(SourceCharacter::Range),
             });
             let mapping = Mapping {
@@ -441,9 +441,9 @@ fn convert_capability_to_mappings(
 }
 
 fn extended_control_element_id(base: &str, extension: &str) -> CsiResult<String> {
-    let res = format!("{}/{}", base, extension);
+    let res = format!("{base}/{extension}");
     if res.len() > MAX_CONTROL_ELEMENT_ID_LENGTH {
-        return Err(format!("{} is an invalid control element ID because it's too long. Please shorten the corresponding widget name.", res).into());
+        return Err(format!("{res} is an invalid control element ID because it's too long. Please shorten the corresponding widget name.").into());
     }
     Ok(res)
 }
@@ -505,7 +505,7 @@ fn convert_widget_name_to_id(name: &str, annotator: &mut Annotator) -> CsiResult
         .take(MAX_CONTROL_ELEMENT_ID_LENGTH)
         .collect();
     if name.chars().count() > MAX_CONTROL_ELEMENT_ID_LENGTH {
-        annotator.info(format!("ReaLearn doesn't allow for virtual control element IDs longer than 16 characters, therefore the widget name \"{}\" was truncated to the ID \"{}\".", name, id));
+        annotator.info(format!("ReaLearn doesn't allow for virtual control element IDs longer than 16 characters, therefore the widget name \"{name}\" was truncated to the ID \"{id}\"."));
     }
     Ok(id)
 }

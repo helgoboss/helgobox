@@ -37,7 +37,7 @@ impl OscDeviceManager {
         let json = fs::read_to_string(&self.osc_device_config_file_path)
             .map_err(|_| "couldn't read OSC device config file".to_string())?;
         let config: OscDeviceConfig = serde_json::from_str(&json)
-            .map_err(|e| format!("OSC device config file isn't valid. Details:\n\n{}", e))?;
+            .map_err(|e| format!("OSC device config file isn't valid. Details:\n\n{e}"))?;
         self.config = config;
         Ok(())
     }

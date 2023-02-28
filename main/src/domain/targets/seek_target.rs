@@ -167,10 +167,10 @@ impl RealearnTarget for SeekTarget {
                                 let mut comp = text.to_str().split(&[':', '.'][..]);
                                 match (comp.next(), comp.next(), comp.next(), comp.next()) {
                                     (Some(m), Some(ss), Some(fff), None) => {
-                                        format!("{:0>2}{:0>2}{:0>3}", m, ss, fff)
+                                        format!("{m:0>2}{ss:0>2}{fff:0>3}")
                                     }
                                     (Some(h), Some(m), Some(ss), Some(fff)) => {
-                                        format!("{}{:0>2}{:0>2}{:0>3}", h, m, ss, fff)
+                                        format!("{h}{m:0>2}{ss:0>2}{fff:0>3}")
                                     }
                                     _ => String::new(),
                                 }
@@ -186,7 +186,7 @@ impl RealearnTarget for SeekTarget {
                                 if let (Some(m), Some(b), Some(ff)) =
                                     (comp.next(), comp.next(), comp.next())
                                 {
-                                    format!("{}{:>2}   {:0>2}", m, b, ff)
+                                    format!("{m}{b:>2}   {ff:0>2}")
                                 } else {
                                     String::new()
                                 }
@@ -211,7 +211,7 @@ impl RealearnTarget for SeekTarget {
                                 if let (Some(hh), Some(mm), Some(ss), Some(ff)) =
                                     (comp.next(), comp.next(), comp.next(), comp.next())
                                 {
-                                    format!("{}{:0>2}{:0>2} {:0>2}", hh, mm, ss, ff)
+                                    format!("{hh}{mm:0>2}{ss:0>2} {ff:0>2}")
                                 } else {
                                     String::new()
                                 }
@@ -224,7 +224,7 @@ impl RealearnTarget for SeekTarget {
                                 );
                                 text.into_string()
                             }
-                            Unknown(m) => format!("{:?}", m),
+                            Unknown(m) => format!("{m:?}"),
                         };
                         Some(PropValue::Text(text.into()))
                     }

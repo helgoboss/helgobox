@@ -756,7 +756,7 @@ pub fn format_value_as_playback_speed_factor_without_unit(value: UnitValue) -> S
 }
 
 fn format_playback_speed(speed: f64) -> String {
-    format!("{:.4}", speed)
+    format!("{speed:.4}")
 }
 
 pub fn format_step_size_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
@@ -784,7 +784,7 @@ pub fn bpm_span() -> f64 {
 }
 
 fn format_bpm(bpm: f64) -> String {
-    format!("{:.4}", bpm)
+    format!("{bpm:.4}")
 }
 
 pub fn format_value_as_pan(value: UnitValue) -> String {

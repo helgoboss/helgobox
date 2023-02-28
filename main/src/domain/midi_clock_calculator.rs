@@ -30,7 +30,7 @@ impl MidiClockCalculator {
     }
 
     pub fn increase_sample_counter_by(&mut self, sample_count: u64) {
-        self.sample_counter += sample_count as u64;
+        self.sample_counter += sample_count;
     }
 
     pub fn feed(&mut self, offset: SampleOffset) -> Option<Bpm> {

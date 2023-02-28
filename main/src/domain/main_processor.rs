@@ -2416,10 +2416,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             "\n\
             # Main processor\n\
             \n\
-            Mapping with ID {}:\n\
-            {:#?}
-            ",
-            mapping_id, mapping
+            Mapping with ID {mapping_id}:\n\
+            {mapping:#?}
+            "
         );
         Reaper::get().show_console_msg(msg);
     }
@@ -2832,7 +2831,7 @@ impl BasicSettings {
             };
             log_target_control(
                 &instance_state.instance_id(),
-                format!("Mapping {}: {} ({})", mapping_name, entry, context),
+                format!("Mapping {mapping_name}: {entry} ({context})"),
             );
         }
     }

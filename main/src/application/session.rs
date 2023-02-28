@@ -425,7 +425,7 @@ impl Session {
             .count();
         self.notify_everything_has_changed();
         if count > 0 {
-            return Err(format!("Couldn't virtualize {} mappings.", count));
+            return Err(format!("Couldn't virtualize {count} mappings."));
         }
         Ok(())
     }
@@ -721,10 +721,7 @@ impl Session {
             .borrow_mut()
             .set_mapping_which_learns_target(None);
         if let Some(qualified_id) = qualified_id {
-            if let Some(mapping) = self
-                .find_mapping_by_qualified_id(qualified_id)
-                .map(|m| m.clone())
-            {
+            if let Some(mapping) = self.find_mapping_by_qualified_id(qualified_id).cloned() {
                 let mut mapping = mapping.borrow_mut();
                 let compartment = mapping.compartment();
                 self.change_target_with_closure(&mut mapping, None, weak_session, |ctx| {
@@ -1492,7 +1489,7 @@ impl Session {
     }
 
     pub fn find_mapping_by_qualified_id(&self, id: QualifiedMappingId) -> Option<&SharedMapping> {
-        Some(self.find_mapping_by_id(id.compartment, id.id)?)
+        self.find_mapping_by_id(id.compartment, id.id)
     }
 
     pub fn find_mapping_and_index_by_qualified_id(
@@ -2634,7 +2631,7 @@ impl DomainEventHandler for WeakSession {
                             let included_targets = m
                                 .included_targets
                                 .map(ReaperTargetType::from_learnable_target_kinds)
-                                .unwrap_or_else(|| ReaperTargetType::all());
+                                .unwrap_or_else(ReaperTargetType::all);
                             s.start_learning_target_internal(
                                 self.clone(),
                                 id,
@@ -2649,13 +2646,13 @@ impl DomainEventHandler for WeakSession {
                         let included_targets = m
                             .included_targets
                             .map(ReaperTargetType::from_learnable_target_kinds)
-                            .unwrap_or_else(|| ReaperTargetType::all());
+                            .unwrap_or_else(ReaperTargetType::all);
                         let Some(target) =
                             BackboneState::get().find_last_touched_target(&included_targets) else
                         {
                             return Ok(());
                         };
-                        let Some(m) = s.find_mapping_by_qualified_id(id).map(|m| m.clone()) else {
+                        let Some(m) = s.find_mapping_by_qualified_id(id).cloned() else {
                             return Ok(());
                         };
                         let mut m = m.borrow_mut();

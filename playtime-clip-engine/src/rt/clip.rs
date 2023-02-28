@@ -623,7 +623,7 @@ impl ReadyState {
             }
             Paused(s) => {
                 // Resume
-                let pos = s.pos as isize;
+                let pos = s.pos;
                 supplier_chain.install_immediate_start_interaction(pos);
                 self.state = ReadySubState::Playing(PlayingState {
                     pos: Some(pos),
@@ -1954,9 +1954,7 @@ fn log_natural_deviation(
         .pos_of_quantized_pos(QuantizedPosition::bar(end_bar as i64));
     debug_assert!(
         end_bar_timeline_pos > start_bar_timeline_pos,
-        "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",
-        end_bar_timeline_pos,
-        start_bar_timeline_pos
+        "end_bar_timeline_pos {end_bar_timeline_pos} <= start_bar_timeline_pos {start_bar_timeline_pos}",
     );
     // Timeline cycle length
     let timeline_cycle_length_in_secs = (end_bar_timeline_pos - start_bar_timeline_pos).abs();

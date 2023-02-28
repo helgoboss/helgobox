@@ -77,7 +77,7 @@ pub fn create_api_source_from_pcm_source(
             };
             Ok(api_source)
         } else {
-            Err(format!("item source incompatible (type {:?})", pcm_source_type).into())
+            Err(format!("item source incompatible (type {pcm_source_type:?})").into())
         }
     }
 }

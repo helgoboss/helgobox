@@ -168,7 +168,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     // Write rc file
     let rc_file_header = include_str!("rc_file_header.txt");
     let rc_file_footer = include_str!("rc_file_footer.txt");
-    let rc_file_content = format!("{}\n\n{}\n\n{}", rc_file_header, resource, rc_file_footer);
+    let rc_file_content = format!("{rc_file_header}\n\n{resource}\n\n{rc_file_footer}");
     let mut output = Vec::new();
     // Write UTF_16LE BOM
     output.write_all(&[0xFF, 0xFE]).unwrap();

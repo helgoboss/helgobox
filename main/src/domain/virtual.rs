@@ -232,8 +232,8 @@ impl Display for VirtualControlElement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use VirtualControlElement::*;
         match self {
-            Multi(id) => write!(f, "Multi {}", id),
-            Button(id) => write!(f, "Button {}", id),
+            Multi(id) => write!(f, "Multi {id}"),
+            Button(id) => write!(f, "Button {id}"),
         }
     }
 }

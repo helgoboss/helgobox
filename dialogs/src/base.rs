@@ -461,7 +461,7 @@ impl Display for Dialog {
             writeln!(f, "CAPTION {}", Quoted(self.caption))?;
         }
         if let Some(font) = self.font.as_ref() {
-            writeln!(f, "FONT {}", font)?;
+            writeln!(f, "FONT {font}")?;
         }
         f.write_str("BEGIN\n")?;
         if !self.controls.is_empty() {
@@ -470,7 +470,7 @@ impl Display for Dialog {
                 if control.conditions.contains(&Condition::SkipOnMacOs) {
                     continue;
                 }
-                writeln!(f, "    {}", control)?;
+                writeln!(f, "    {control}")?;
             }
         }
         f.write_str("END")?;

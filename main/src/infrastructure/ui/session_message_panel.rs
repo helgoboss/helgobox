@@ -52,12 +52,12 @@ impl SessionMessagePanel {
                             Compartment::Main => "Touch a control element!",
                         };
                         (
-                            format!("Learning source for {}", mapping_label),
+                            format!("Learning source for {mapping_label}"),
                             msg.to_string(),
                         )
                     }
                     LearnManySubState::LearningTarget => (
-                        format!("Learning target for {}", mapping_label),
+                        format!("Learning target for {mapping_label}"),
                         "Now touch the target which you want to control!".to_string(),
                     ),
                 }
@@ -69,7 +69,7 @@ impl SessionMessagePanel {
         };
         self.view
             .require_window()
-            .set_text(format!("ReaLearn - {}", title_addition));
+            .set_text(format!("ReaLearn - {title_addition}"));
         self.view
             .require_control(root::ID_MESSAGE_TEXT)
             .set_text(msg);

@@ -2918,7 +2918,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                         use AutomationModeOverrideType::*;
                         let ovr_type = self.0.automation_mode_override_type;
                         match ovr_type {
-                            None | Bypass => write!(f, "{}", ovr_type),
+                            None | Bypass => write!(f, "{ovr_type}"),
                             Override => write!(f, "{}", self.0.automation_mode),
                         }
                     }
@@ -3061,7 +3061,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
                 if let Ok(p) = self.resolve_first_fx_param() {
                     get_fx_param_label(Some(&p), p.index())
                 } else {
-                    format!("<Not present> ({})", virtual_param).into()
+                    format!("<Not present> ({virtual_param})").into()
                 }
             }
             _ => virtual_param.to_string().into(),
@@ -3132,7 +3132,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type;
                 match tt {
                     ClipTransport | ClipSeek | ClipVolume => {
-                        write!(f, "{}", tt)
+                        write!(f, "{tt}")
                     }
                     Action => write!(
                         f,
@@ -3259,7 +3259,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                                 session_id,
                                 mapping_key,
                             } => {
-                                write!(f, "Instance: {}\n{}", session_id, MAPPING_LABEL)?;
+                                write!(f, "Instance: {session_id}\n{MAPPING_LABEL}")?;
                                 if let Some(mapping_key) = mapping_key {
                                     let session = self
                                         .context
@@ -3285,7 +3285,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         }
                         Ok(())
                     }
-                    _ => write!(f, "{}", tt),
+                    _ => write!(f, "{tt}"),
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
@@ -3296,7 +3296,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
 pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'static, str> {
     let position = index + 1;
     match fx_param {
-        None => format!("{}. <Not present>", position).into(),
+        None => format!("{position}. <Not present>").into(),
         Some(p) => {
             let name = p.name().into_inner();
             // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
@@ -3304,7 +3304,7 @@ pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'st
             if name.is_empty() {
                 position.to_string().into()
             } else {
-                format!("{}. {}", position, name).into()
+                format!("{position}. {name}").into()
             }
         }
     }
@@ -3318,7 +3318,7 @@ pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>)
     match virtual_chain_fx {
         VirtualChainFx::Dynamic(_) => virtual_chain_fx.to_string(),
         _ => match fx {
-            None => format!("<Not present> ({})", virtual_chain_fx),
+            None => format!("<Not present> ({virtual_chain_fx})"),
             Some(fx) => get_fx_label(fx.index(), fx),
         },
     }
@@ -3469,8 +3469,8 @@ pub fn get_non_present_bookmark_label(
     bookmark_ref: u32,
 ) -> String {
     match anchor_type {
-        BookmarkAnchorType::Id => format!("<Not present> (ID {})", bookmark_ref),
-        BookmarkAnchorType::Index => format!("{}. <Not present>", bookmark_ref),
+        BookmarkAnchorType::Id => format!("<Not present> (ID {bookmark_ref})"),
+        BookmarkAnchorType::Index => format!("{bookmark_ref}. <Not present>"),
     }
 }
 
@@ -4485,7 +4485,7 @@ pub fn get_track_label(track: &Track) -> String {
             if name.is_empty() {
                 position.to_string()
             } else {
-                format!("{}. {}", position, name)
+                format!("{position}. {name}")
             }
         }
     }

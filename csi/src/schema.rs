@@ -46,7 +46,7 @@ pub enum Capability {
     FbMcuTimeDisplay,
     #[display(fmt = "FB_MCUVUMeter")]
     FbMcuVuMeter { index: u8 },
-    #[display(fmt = "{}", "_0")]
+    #[display(fmt = "{_0}")]
     Unknown(String),
 }
 

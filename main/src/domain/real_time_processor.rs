@@ -650,10 +650,9 @@ impl RealTimeProcessor {
                 "\n\
             # Real-time processor\n\
             \n\
-            Mapping with ID {}:\n\
-            {:#?}
-            ",
-                mapping_id, mapping
+            Mapping with ID {mapping_id}:\n\
+            {mapping:#?}
+            "
             );
             Global::task_support()
                 .do_in_main_thread_asap(move || {

@@ -5,7 +5,7 @@ use reaper_high::Reaper;
 /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
 /// anything borrowed while calling this unless you want errors due to reentrancy.
 pub fn prompt_for(caption: &str, initial_value: &str) -> Option<String> {
-    let captions_csv = format!("{},separator=|,extrawidth=200", caption);
+    let captions_csv = format!("{caption},separator=|,extrawidth=200");
     Reaper::get()
         .medium_reaper()
         .get_user_inputs("ReaLearn", 1, captions_csv, initial_value, 256)

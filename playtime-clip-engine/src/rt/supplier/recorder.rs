@@ -651,7 +651,7 @@ impl Recorder {
                             //  clip. If there's no old clip, either by making it possible to return
                             //  an instruction to clear the slot or by letting the worker not just
                             //  return an error message but an alternative empty source.
-                            panic!("recording didn't finish successfully: {}", msg)
+                            panic!("recording didn't finish successfully: {msg}")
                         }
                     },
                     s => {

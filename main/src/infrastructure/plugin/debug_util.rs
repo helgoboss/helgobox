@@ -7,7 +7,7 @@ pub fn register_resolve_symbols_action() {
         "[developer] ReaLearn: Resolve symbols from clipboard",
         || {
             if let Err(e) = resolve_symbols_from_clipboard() {
-                Reaper::get().show_console_msg(format!("{}\n", e));
+                Reaper::get().show_console_msg(format!("{e}\n"));
             }
         },
         ActionKind::NotToggleable,

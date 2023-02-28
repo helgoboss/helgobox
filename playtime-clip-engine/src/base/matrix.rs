@@ -295,7 +295,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     fn undoable<R>(&mut self, label: impl Into<String>, f: impl FnOnce(&mut Self) -> R) -> R {
         let owned_label = label.into();
         self.history
-            .add(format!("Before {}", owned_label), self.save());
+            .add(format!("Before {owned_label}"), self.save());
         let result = f(self);
         self.history.add(owned_label, self.save());
         self.emit(ClipMatrixEvent::HistoryChanged);

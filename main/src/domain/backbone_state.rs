@@ -203,8 +203,8 @@ impl BackboneState {
     ///
     /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
     /// to this one.
-    pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a, 'b>(
-        &'b self,
+    pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
+        &self,
         instance_state: &'a mut InstanceState,
     ) -> &'a mut RealearnClipMatrix {
         let instance_id = instance_state.instance_id();

@@ -212,10 +212,8 @@ impl MainPanel {
             let instance_fx = instance_state.instance_fx_descriptor();
             let instance_fx_label =
                 get_virtual_fx_label(instance_fx, compartment, session.extended_context());
-            let mut text = format!(
-                "Track: {:.20} | FX: {:.30}",
-                instance_track_label, instance_fx_label
-            );
+            let mut text =
+                format!("Track: {instance_track_label:.20} | FX: {instance_fx_label:.30}");
             let fx_type = VirtualFxType::from_virtual_fx(&instance_fx.fx);
             if fx_type.requires_fx_chain() {
                 let instance_fx_track_label = get_virtual_track_label(
@@ -223,7 +221,7 @@ impl MainPanel {
                     compartment,
                     session.extended_context(),
                 );
-                let _ = write!(&mut text, " (on track {:.15})", instance_fx_track_label);
+                let _ = write!(&mut text, " (on track {instance_fx_track_label:.15})");
             }
             let control_and_feedback_state = instance_state.global_control_and_feedback_state();
             if !control_and_feedback_state.control_active {
@@ -385,7 +383,7 @@ impl MainPanel {
                 format_tags_as_csv(session.tags.get_ref()),
             )
         })?;
-        let initial_csv = format!("{}|{}", initial_session_id, initial_tags_as_csv);
+        let initial_csv = format!("{initial_session_id}|{initial_tags_as_csv}");
         // Show UI
         let csv_result = Reaper::get().medium_reaper().get_user_inputs(
             "ReaLearn",

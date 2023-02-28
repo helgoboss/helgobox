@@ -13,7 +13,7 @@ pub fn adjust_proportionally_positive(frame_count: f64, factor: f64) -> usize {
 }
 
 pub fn adjust_proportionally(frame_count: f64, factor: f64) -> isize {
-    (frame_count as f64 * factor).round() as isize
+    (frame_count * factor).round() as isize
 }
 
 pub fn adjust_pos_in_secs_anti_proportionally(

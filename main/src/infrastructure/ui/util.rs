@@ -201,7 +201,7 @@ pub mod view {
 pub fn open_in_browser(url: &str) {
     if webbrowser::open(url).is_err() {
         Reaper::get().show_console_msg(
-            format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
+            format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{url}\n\n")
         );
     }
 }
@@ -241,7 +241,7 @@ pub fn open_in_text_editor(
             _ => e.to_string()
         };
         parent_window
-            .alert("ReaLearn", format!("Couldn't obtain text:\n\n{}", msg));
+            .alert("ReaLearn", format!("Couldn't obtain text:\n\n{msg}"));
         "couldn't obtain text"
     })
 }

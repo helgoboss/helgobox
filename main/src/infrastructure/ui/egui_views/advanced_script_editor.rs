@@ -130,7 +130,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         .show_background(false)
         .legend(Legend::default());
     if build_outcome.uses_time {
-        plot = plot.x_axis_formatter(|v, _| format!("{}s", v));
+        plot = plot.x_axis_formatter(|v, _| format!("{v}s"));
     }
     plot.show(ui, |plot_ui| {
         let mut x = 0.0;
