@@ -1,10 +1,12 @@
-use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::{
-    ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
-    InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceState, RealearnTargetState,
-    ReaperTarget, SafeLua, SharedInstanceState, WeakInstanceState,
+    AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
+    FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
+    NormalRealTimeTask, QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceState,
+    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstanceState,
+    WeakInstanceState,
 };
+use enum_iterator::IntoEnumIterator;
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::{Reaper, Track};
 use std::cell::RefCell;
@@ -17,9 +19,10 @@ make_available_globally_in_main_thread_on_demand!(BackboneState);
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
 pub struct BackboneState {
+    additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     source_state: RefCell<RealearnSourceState>,
     target_state: RefCell<RealearnTargetState>,
-    last_touched_target: RefCell<Option<ReaperTarget>>,
+    last_touched_targets_container: RefCell<LastTouchedTargetsContainer>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
     control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<InstanceId>>>,
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
@@ -31,12 +34,56 @@ pub struct BackboneState {
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
 }
 
-impl BackboneState {
-    pub fn new(target_context: RealearnTargetState) -> Self {
+struct LastTouchedTargetsContainer {
+    /// Contains the most recently touched targets at the end!
+    last_touched_targets: Vec<ReaperTarget>,
+}
+
+impl Default for LastTouchedTargetsContainer {
+    fn default() -> Self {
+        let max_count = ReaperTargetType::into_enum_iter().count();
         Self {
+            last_touched_targets: Vec::with_capacity(max_count),
+        }
+    }
+}
+
+impl LastTouchedTargetsContainer {
+    /// Returns `true` if the last touched target has changed.
+    pub fn update(&mut self, touched_target: ReaperTarget) -> bool {
+        // Don't do anything if the given target is the same as the last touched one
+        if let Some(last_touched_target) = self.last_touched_targets.last() {
+            if &touched_target == last_touched_target {
+                return false;
+            }
+        }
+        // Remove all previous entries of that target type
+        let last_touched_target_type = ReaperTargetType::from_target(&touched_target);
+        self.last_touched_targets
+            .retain(|t| ReaperTargetType::from_target(t) != last_touched_target_type);
+        // Push it as last touched target
+        self.last_touched_targets.push(touched_target);
+        true
+    }
+
+    pub fn find(&self, included_target_types: &HashSet<ReaperTargetType>) -> Option<&ReaperTarget> {
+        self.last_touched_targets.iter().rev().find(|t| {
+            let target_type = ReaperTargetType::from_target(t);
+            included_target_types.contains(&target_type)
+        })
+    }
+}
+
+impl BackboneState {
+    pub fn new(
+        additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+        target_context: RealearnTargetState,
+    ) -> Self {
+        Self {
+            additional_feedback_event_sender,
             source_state: Default::default(),
             target_state: RefCell::new(target_context),
-            last_touched_target: Default::default(),
+            last_touched_targets_container: Default::default(),
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
@@ -75,8 +122,21 @@ impl BackboneState {
         &BackboneState::get().target_state
     }
 
-    pub fn last_touched_target(&self) -> Option<ReaperTarget> {
-        self.last_touched_target.borrow().clone()
+    /// Returns the last touched targets (max. one per touchable type, so not much more than a
+    /// dozen). The most recently touched ones are at the end, so it's ascending order!
+    pub fn extract_last_touched_targets(&self) -> Vec<ReaperTarget> {
+        self.last_touched_targets_container
+            .borrow()
+            .last_touched_targets
+            .clone()
+    }
+
+    pub fn find_last_touched_target(
+        &self,
+        included_types: &HashSet<ReaperTargetType>,
+    ) -> Option<ReaperTarget> {
+        let container = self.last_touched_targets_container.borrow();
+        container.find(included_types).cloned()
     }
 
     pub fn lives_on_upper_floor(&self, instance_id: &InstanceId) -> bool {
@@ -355,8 +415,15 @@ impl BackboneState {
         }
     }
 
-    pub(super) fn set_last_touched_target(&self, target: ReaperTarget) {
-        *self.last_touched_target.borrow_mut() = Some(target);
+    pub(super) fn notify_target_touched(&self, target: ReaperTarget) {
+        let has_changed = self
+            .last_touched_targets_container
+            .borrow_mut()
+            .update(target);
+        if has_changed {
+            self.additional_feedback_event_sender
+                .send_complaining(AdditionalFeedbackEvent::LastTouchedTargetChanged)
+        }
     }
 
     fn interaction_is_allowed<D: Eq + Hash>(

@@ -15,8 +15,8 @@ use crate::domain::{
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
     QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, SharedMainProcessors,
-    SharedRealTimeProcessor, Tag,
+    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, ReaperTargetType,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -29,6 +29,7 @@ use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
 use crate::infrastructure::ui::MessagePanel;
+use enum_iterator::IntoEnumIterator;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::grpc::{
@@ -351,9 +352,11 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
-        BackboneState::make_available_globally(BackboneState::new(RealearnTargetState::new(
+        let backbone_state = BackboneState::new(
             self.additional_feedback_event_sender.clone(),
-        )));
+            RealearnTargetState::new(self.additional_feedback_event_sender.clone()),
+        );
+        BackboneState::make_available_globally(backbone_state);
         App::get().register_actions();
         server::http::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
@@ -982,8 +985,8 @@ impl App {
             .find_session_by_instance_id_ignoring_borrowed_ones(initiator_instance_id)
             .ok_or("initiator session not found")?;
         let session = session.borrow();
-        let (_, mapping) = session
-            .find_mapping_and_index_by_id(id.compartment, id.id)
+        let mapping = session
+            .find_mapping_by_id(id.compartment, id.id)
             .ok_or("origin mapping not found")?;
         Ok(mapping.clone())
     }
@@ -1067,7 +1070,8 @@ impl App {
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
-                let target = BackboneState::get().last_touched_target();
+                let included_target_types = ReaperTargetType::into_enum_iter().collect();
+                let target = BackboneState::get().find_last_touched_target(&included_target_types);
                 let target = match target.as_ref() {
                     None => return,
                     Some(t) => t,
@@ -1722,6 +1726,7 @@ impl HookPostCommand for App {
         App::get()
             .additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+                section_context: SectionContext::MainSection,
                 command_id,
             }));
     }
@@ -1741,6 +1746,7 @@ impl HookPostCommand2 for App {
         App::get()
             .additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+                section_context: SectionContext::MainSection,
                 command_id,
             }));
     }

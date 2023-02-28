@@ -47,7 +47,7 @@ impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ModifyMapping(ModifyMappingTarget {
             compartment: self.compartment,
-            modification: self.modification,
+            modification: self.modification.clone(),
             mapping_ref: self.mapping_ref.clone(),
         })])
     }
@@ -64,7 +64,15 @@ pub struct ModifyMappingTarget {
 
 impl RealearnTarget for ModifyMappingTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+        match &self.modification {
+            MappingModification::LearnTarget(_) => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
+            MappingModification::SetTargetToLastTouched(_) => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Trigger,
+            ),
+        }
     }
 
     fn hit(
@@ -125,12 +133,16 @@ impl RealearnTarget for ModifyMappingTarget {
         };
         let instruction = ModifyMappingInstruction {
             compartment: self.compartment,
-            modification: self.modification,
+            modification: self.modification.clone(),
             instance_id,
             value,
             mapping_id,
         };
         Ok(HitResponse::hit_instruction(Box::new(instruction)))
+    }
+
+    fn can_report_current_value(&self) -> bool {
+        matches!(&self.modification, MappingModification::LearnTarget(_))
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -142,21 +154,29 @@ impl RealearnTarget for ModifyMappingTarget {
         evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            CompoundChangeEvent::Instance(
-                InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
-            ) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
-            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
-                if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
-            {
-                (true, None)
-            }
-            _ => (false, None),
+        match &self.modification {
+            MappingModification::LearnTarget(_) => match evt {
+                CompoundChangeEvent::Instance(
+                    InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
+                ) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
+                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
+                    if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
+                {
+                    (true, None)
+                }
+                _ => (false, None),
+            },
+            MappingModification::SetTargetToLastTouched(_) => (false, None),
         }
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
-        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).into())
+        match &self.modification {
+            MappingModification::LearnTarget(_) => {
+                Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).into())
+            }
+            MappingModification::SetTargetToLastTouched(_) => None,
+        }
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -204,10 +224,11 @@ impl<'a> Target<'a> for ModifyMappingTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        match self.modification {
-            MappingModification::LearnTarget => self.get_current_value(context, |args| {
+        match &self.modification {
+            MappingModification::LearnTarget(_) => self.get_current_value(context, |args| {
                 bool_to_current_value(args.instance_state.mapping_is_learning_target(args.id))
             }),
+            MappingModification::SetTargetToLastTouched(_) => None,
         }
     }
 

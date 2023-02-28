@@ -31,8 +31,8 @@ impl SessionMessagePanel {
         let session = self.session();
         let session = session.borrow();
         let (title_addition, msg) = if let Some(state) = session.learn_many_state() {
-            if let Some((_, mapping)) =
-                session.find_mapping_and_index_by_id(state.compartment, state.current_mapping_id)
+            if let Some(mapping) =
+                session.find_mapping_by_id(state.compartment, state.current_mapping_id)
             {
                 let mapping = mapping.borrow();
                 let mapping_label = format!("mapping {}", mapping.effective_name());

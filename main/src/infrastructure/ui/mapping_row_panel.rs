@@ -948,8 +948,8 @@ fn copy_mapping_object(
     format: SerializationFormat,
 ) -> Result<(), Box<dyn Error>> {
     let session = session.borrow();
-    let (_, mapping) = session
-        .find_mapping_and_index_by_id(compartment, mapping_id)
+    let mapping = session
+        .find_mapping_by_id(compartment, mapping_id)
         .ok_or("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
@@ -995,9 +995,8 @@ fn paste_data_object_in_place(
 ) -> Result<(), &'static str> {
     let mut session = shared_session.borrow_mut();
     let mapping = session
-        .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
+        .find_mapping_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?
-        .1
         .clone();
     App::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();

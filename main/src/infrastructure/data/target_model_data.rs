@@ -1,6 +1,5 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use enum_iterator::IntoEnumIterator;
 use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 use std::collections::HashSet;
 
@@ -33,7 +32,7 @@ use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
     BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModification,
+    ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModificationKind,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
     PotFilterItemKind, SeekBehavior, TargetValue, TrackScope, TrackToolAction,
 };
@@ -490,9 +489,11 @@ pub struct TargetModelData {
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
+        skip_serializing_if = "is_default",
+        alias = "mapping_modification",
+        alias = "mappingModification"
     )]
-    pub mapping_modification: MappingModification,
+    pub mapping_modification_kind: MappingModificationKind,
     /// New since ReaLearn v2.15.0-pre.1
     #[serde(
         default,
@@ -512,9 +513,9 @@ pub struct TargetModelData {
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default",
-        alias = "target_kinds"
+        alias = "targets"
     )]
-    pub targets: Option<HashSet<LearnableTargetKind>>,
+    pub included_targets: Option<HashSet<LearnableTargetKind>>,
 }
 
 impl TargetModelData {
@@ -631,10 +632,10 @@ impl TargetModelData {
             clip_play_stop_timing: model.clip_play_stop_timing(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
-            mapping_modification: model.mapping_modification(),
+            mapping_modification_kind: model.mapping_modification_kind(),
             session_id,
             mapping_key,
-            targets: Some(model.learnable_target_kinds().clone()),
+            included_targets: Some(model.included_targets().clone()),
         }
     }
 
@@ -943,7 +944,9 @@ impl TargetModelData {
         ));
         model.set_mouse_action_without_notification(self.mouse_action);
         model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
-        model.change(C::SetMappingModification(self.mapping_modification));
+        model.change(C::SetMappingModificationKind(
+            self.mapping_modification_kind,
+        ));
         let mapping_ref = if let Some(session_id) = self.session_id.as_ref() {
             MappingRefModel::ForeignMapping {
                 session_id: session_id.clone(),
@@ -958,10 +961,32 @@ impl TargetModelData {
             }
         };
         model.change(C::SetMappingRef(mapping_ref));
-        let target_kinds = self
-            .targets
-            .clone()
-            .unwrap_or_else(|| LearnableTargetKind::into_enum_iter().collect());
+        let target_kinds = self.included_targets.clone().unwrap_or_else(|| {
+            // ReaLearn versions < 2.15.0-pre.1 didn't have a way of configuring the
+            // included targets. The following targets were included. Notably, the action
+            // and transport targets were not included because actions weren't picked up at that
+            // time when using target "Global: Last touched"!
+            use LearnableTargetKind::*;
+            let old_kinds = [
+                TrackVolume,
+                TrackPan,
+                RouteVolume,
+                RoutePan,
+                TrackArmState,
+                TrackMuteState,
+                TrackSoloState,
+                TrackSelectionState,
+                FxOnOffState,
+                FxParameterValue,
+                BrowseFxPresets,
+                PlayRate,
+                Tempo,
+                TrackAutomationMode,
+                TrackMonitoringMode,
+                AutomationModeOverride,
+            ];
+            HashSet::from_iter(old_kinds.into_iter())
+        });
         model.change(C::SetLearnableTargetKinds(target_kinds));
         Ok(())
     }

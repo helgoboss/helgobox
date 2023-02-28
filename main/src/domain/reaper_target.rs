@@ -12,7 +12,7 @@ use reaper_high::{
 };
 use reaper_medium::{
     AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
-    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
+    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue, SectionContext,
 };
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -319,12 +319,23 @@ impl ReaperTarget {
         }
     }
 
+    pub fn touched_from_additional_event(evt: &AdditionalFeedbackEvent) -> Option<ReaperTarget> {
+        let target = match evt {
+            AdditionalFeedbackEvent::ActionInvoked(e) => {
+                if e.section_context != SectionContext::MainSection {
+                    return None;
+                }
+                let action = Reaper::get()
+                    .main_section()
+                    .action_by_command_id(e.command_id);
+                determine_target_for_action(action)
+            }
+            _ => return None,
+        };
+        Some(target)
+    }
+
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
-    // TODO-medium Unlike the Rx stuff, this doesn't yet contain "Action touch". At the moment
-    //  this leads to "Last touched target" to not work with actions - which might even desirable
-    //  and should only added as soon as we allow explicitly enabling/disabling target types for
-    //  this. The 2nd effect is that actions are not available for global learning which could be
-    //  improved.
     pub fn touched_from_change_event(evt: ChangeEvent) -> Option<ReaperTarget> {
         use ChangeEvent::*;
         use ReaperTarget::*;

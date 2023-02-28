@@ -65,10 +65,12 @@ use playtime_clip_engine::base::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction, LearnableTargetKind,
-    MappingModification, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    MouseAction, MouseButton, PotFilterItemKind, SeekBehavior, TrackDescriptorCommons,
-    TrackFxChain, TrackScope, TrackToolAction,
+    ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
+    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
+    MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
+    MonitoringMode, MouseAction, MouseButton, PotFilterItemKind, SeekBehavior,
+    SetTargetToLastTouchedMappingModification, TrackDescriptorCommons, TrackFxChain, TrackScope,
+    TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -170,7 +172,7 @@ pub enum TargetCommand {
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
     SetPotFilterItemKind(PotFilterItemKind),
-    SetMappingModification(MappingModification),
+    SetMappingModificationKind(MappingModificationKind),
     SetMappingRef(MappingRefModel),
     SetLearnableTargetKinds(HashSet<LearnableTargetKind>),
 }
@@ -270,7 +272,7 @@ pub enum TargetProp {
     MappingSnapshotId,
     MappingSnapshotDefaultValue,
     PotFilterItemKind,
-    MappingModification,
+    MappingModificationKind,
     MappingRef,
     LearnableTargetKinds,
 }
@@ -647,16 +649,16 @@ impl<'a> Change<'a> for TargetModel {
                 self.pot_filter_item_kind = v;
                 One(P::PotFilterItemKind)
             }
-            C::SetMappingModification(f) => {
-                self.mapping_modification = f;
-                One(P::MappingModification)
+            C::SetMappingModificationKind(k) => {
+                self.mapping_modification_kind = k;
+                One(P::MappingModificationKind)
             }
             C::SetMappingRef(mapping_ref) => {
                 self.mapping_ref = mapping_ref;
                 One(P::MappingRef)
             }
             C::SetLearnableTargetKinds(kinds) => {
-                self.learnable_target_kinds = kinds;
+                self.included_targets = kinds;
                 One(P::LearnableTargetKinds)
             }
         };
@@ -791,12 +793,12 @@ pub struct TargetModel {
     exclusivity: Exclusivity,
     group_id: GroupId,
     active_mappings_only: bool,
-    mapping_modification: MappingModification,
+    mapping_modification_kind: MappingModificationKind,
     mapping_ref: MappingRefModel,
     // # For Pot targets
     pot_filter_item_kind: PotFilterItemKind,
     // # For targets that deal with target learning/touching
-    learnable_target_kinds: HashSet<LearnableTargetKind>,
+    included_targets: HashSet<LearnableTargetKind>,
 }
 
 #[derive(Clone, Debug)]
@@ -941,9 +943,9 @@ impl Default for TargetModel {
             gang_behavior: Default::default(),
             browse_tracks_mode: Default::default(),
             pot_filter_item_kind: Default::default(),
-            mapping_modification: Default::default(),
+            mapping_modification_kind: Default::default(),
             mapping_ref: Default::default(),
-            learnable_target_kinds: Default::default(),
+            included_targets: Default::default(),
         }
     }
 }
@@ -2422,7 +2424,16 @@ impl TargetModel {
                                 .clone(),
                         })
                     }
-                    LastTouched => UnresolvedReaperTarget::LastTouched(UnresolvedLastTouchedTarget),
+                    LastTouched => {
+                        UnresolvedReaperTarget::LastTouched(UnresolvedLastTouchedTarget {
+                            included_targets: self
+                                .included_targets
+                                .iter()
+                                .copied()
+                                .map(ReaperTargetType::from_learnable_target_kind)
+                                .collect(),
+                        })
+                    }
                     TrackTouchState => {
                         UnresolvedReaperTarget::TrackTouchState(UnresolvedTrackTouchStateTarget {
                             track_descriptor: self.track_descriptor()?,
@@ -2513,7 +2524,22 @@ impl TargetModel {
                     ModifyMapping => {
                         UnresolvedReaperTarget::ModifyMapping(UnresolvedModifyMappingTarget {
                             compartment,
-                            modification: self.mapping_modification,
+                            modification: match self.mapping_modification_kind {
+                                MappingModificationKind::LearnTarget => {
+                                    MappingModification::LearnTarget(
+                                        LearnTargetMappingModification {
+                                            included_targets: Some(self.included_targets.clone()),
+                                        },
+                                    )
+                                }
+                                MappingModificationKind::SetTargetToLastTouched => {
+                                    MappingModification::SetTargetToLastTouched(
+                                        SetTargetToLastTouchedMappingModification {
+                                            included_targets: Some(self.included_targets.clone()),
+                                        },
+                                    )
+                                }
+                            },
                             mapping_ref: self.mapping_ref.create_mapping_ref()?,
                         })
                     }
@@ -2655,12 +2681,12 @@ impl TargetModel {
         self.pot_filter_item_kind
     }
 
-    pub fn learnable_target_kinds(&self) -> &HashSet<LearnableTargetKind> {
-        &self.learnable_target_kinds
+    pub fn included_targets(&self) -> &HashSet<LearnableTargetKind> {
+        &self.included_targets
     }
 
-    pub fn mapping_modification(&self) -> MappingModification {
-        self.mapping_modification
+    pub fn mapping_modification_kind(&self) -> MappingModificationKind {
+        self.mapping_modification_kind
     }
 
     pub fn mapping_ref(&self) -> &MappingRefModel {
@@ -3211,16 +3237,15 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         Ok(())
                     }
                     ModifyMapping => {
-                        write!(f, "{}\n{}\n", tt, self.target.mapping_modification)?;
+                        write!(f, "{}\n{}\n", tt, self.target.mapping_modification_kind)?;
                         match &self.target.mapping_ref {
                             MappingRefModel::OwnMapping { mapping_id } => {
                                 MAPPING_LABEL.fmt(f)?;
                                 if let Some(id) = mapping_id {
                                     let qualified_id =
                                         QualifiedMappingId::new(self.compartment, *id);
-                                    if let Some((_, m)) = self
-                                        .session
-                                        .find_mapping_and_index_by_qualified_id(qualified_id)
+                                    if let Some(m) =
+                                        self.session.find_mapping_by_qualified_id(qualified_id)
                                     {
                                         m.borrow().effective_name().fmt(f)?;
                                     } else {

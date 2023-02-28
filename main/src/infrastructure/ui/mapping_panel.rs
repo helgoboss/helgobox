@@ -27,8 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModification, MidiScriptKind,
-    MonitoringMode, MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
+    MidiScriptKind, MonitoringMode, MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -43,9 +43,9 @@ use crate::application::{
     MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
     SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
+    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
@@ -53,10 +53,10 @@ use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTargetType, SendMidiDestination,
-    SimpleExclusivity, TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior,
-    WithControlContext,
+    control_element_domains, AnyOnParameter, BackboneState, ControlContext, Exclusivity,
+    FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, TargetControlEvent,
+    TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -572,7 +572,7 @@ impl MappingPanel {
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();
                                             }
-                                            P::MappingModification => {
+                                            P::MappingModificationKind => {
                                                 view.invalidate_target_line_2(initiator);
                                             }
                                             P::MappingRef => {
@@ -625,24 +625,13 @@ impl MappingPanel {
                 let target_type = mapping.borrow().target_model.target_type();
                 match target_type {
                     ReaperTargetType::LastTouched => {
-                        let value = mapping
-                            .borrow()
-                            .target_model
-                            .learnable_target_kinds()
-                            .clone();
-                        let session = self.session.clone();
-                        let panel = LearnableTargetKindsPickerPanel::new(value, move |value| {
-                            let mut mapping = mapping.borrow_mut();
-                            Session::change_mapping_from_ui_simple(
-                                session.clone(),
-                                &mut mapping,
-                                MappingCommand::ChangeTarget(
-                                    TargetCommand::SetLearnableTargetKinds(value),
-                                ),
-                                None,
-                            );
-                        });
-                        self.open_extra_panel(panel);
+                        self.open_learnable_targets_picker(mapping);
+                    }
+                    ReaperTargetType::ModifyMapping
+                        if mapping.borrow().target_model.mapping_modification_kind()
+                            == MappingModificationKind::LearnTarget =>
+                    {
+                        self.open_learnable_targets_picker(mapping);
                     }
                     _ => {
                         self.write(|p| p.handle_target_line_2_button_press_internal());
@@ -665,6 +654,21 @@ impl MappingPanel {
             }
         };
         Ok(())
+    }
+
+    fn open_learnable_targets_picker(self: SharedView<Self>, mapping: SharedMapping) {
+        let value = mapping.borrow().target_model.included_targets().clone();
+        let session = self.session.clone();
+        let panel = LearnableTargetKindsPickerPanel::new(value, move |value| {
+            let mut mapping = mapping.borrow_mut();
+            Session::change_mapping_from_ui_simple(
+                session.clone(),
+                &mut mapping,
+                MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(value)),
+                None,
+            );
+        });
+        self.open_extra_panel(panel);
     }
 
     #[allow(clippy::single_match)]
@@ -917,8 +921,8 @@ impl MappingPanel {
                         mapping_id.map(|mapping_id| {
                             let mapping_key = mapping_id.map(|mapping_id| {
                                 let session = session.borrow();
-                                let (_, mapping) = session
-                                    .find_mapping_and_index_by_id(compartment, mapping_id)
+                                let mapping = session
+                                    .find_mapping_by_id(compartment, mapping_id)
                                     .expect("currently picked mapping not found");
                                 let mapping = mapping.borrow();
                                 mapping.key().clone()
@@ -1132,10 +1136,10 @@ impl MappingPanel {
         let weak_mapping = Rc::downgrade(&mapping);
         let initial_content = { get_initial_content(&mapping.borrow()) };
         let input = ScriptEditorInput {
-            initial_content,
+            initial_value: initial_content,
             engine,
             help_url,
-            apply: move |edited_script| {
+            set_value: move |edited_script| {
                 let m = match weak_mapping.upgrade() {
                     None => return,
                     Some(m) => m,
@@ -1159,10 +1163,10 @@ impl MappingPanel {
         let weak_mapping = Rc::downgrade(&mapping);
         let initial_content = { get_initial_content(&mapping.borrow()) };
         let input = ScriptEditorInput {
-            initial_content,
+            initial_value: initial_content,
             engine,
             help_url,
-            apply: move |edited_script| {
+            set_value: move |edited_script| {
                 let m = match weak_mapping.upgrade() {
                     None => return,
                     Some(m) => m,
@@ -1574,7 +1578,64 @@ impl<'a> MutableMappingPanel<'a> {
         self.resolved_targets().into_iter().next()
     }
 
-    fn open_target(&self) {
+    fn open_target_menu(&mut self) {
+        enum MenuAction {
+            SetTarget(ReaperTarget),
+            GoToTarget,
+        }
+        let compartment = self.mapping.compartment();
+        let context = self.session.extended_context();
+        let menu = {
+            use swell_ui::menu_tree::*;
+            let recently_touched_items = BackboneState::get()
+                .extract_last_touched_targets()
+                .into_iter()
+                .rev()
+                .map(|t| {
+                    let mut target_model = TargetModel::default_for_compartment(compartment);
+                    let _ = target_model.apply_from_target(&t, context, compartment);
+                    // let target_type_label = ReaperTargetType::from_target(&t);
+                    let target_label = TargetModelFormatVeryShort(&target_model);
+                    // let label = format!("{target_type_label} / {target_label}");
+                    item(target_label.to_string(), move || MenuAction::SetTarget(t))
+                })
+                .collect();
+            root_menu(vec![
+                menu(
+                    "Pick recently touched target (by type)",
+                    recently_touched_items,
+                ),
+                item("Go to target (if supported)", || MenuAction::GoToTarget),
+            ])
+        };
+        let menu_action = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(menu, Window::cursor_pos());
+        let Some(menu_action) = menu_action else {
+            return;
+        };
+        match menu_action {
+            MenuAction::SetTarget(t) => {
+                self.set_mapping_target(&t);
+            }
+            MenuAction::GoToTarget => {
+                self.go_to_target();
+            }
+        }
+    }
+
+    fn set_mapping_target(&mut self, target: &ReaperTarget) {
+        self.change_target_with_closure(None, |ctx| {
+            ctx.mapping.target_model.apply_from_target(
+                target,
+                ctx.extended_context,
+                ctx.mapping.compartment(),
+            )
+        });
+    }
+
+    fn go_to_target(&self) {
         if let Some(t) = self.first_resolved_target() {
             let session = self.panel.session();
             Global::task_support()
@@ -3001,7 +3062,7 @@ impl<'a> MutableMappingPanel<'a> {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid mapping feature");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetMappingModification(v),
+                        TargetCommand::SetMappingModificationKind(v),
                     ));
                 }
                 _ if self.mapping.target_model.supports_track() => {
@@ -3808,7 +3869,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperSourceType::RealearnParameter => Some("Param"),
                 _ => None,
             },
-            Keyboard => Some("Keystroke"),
+            Keyboard => Some("Key"),
             _ => None,
         };
         self.view
@@ -4442,7 +4503,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::LastTouched => {
-                    let enabled_count = self.target.learnable_target_kinds().len();
+                    let enabled_count = self.target.included_targets().len();
                     let total_count = LearnableTargetKind::into_enum_iter().count();
                     Some(format!(
                         "{} of {} targets enabled",
@@ -4671,10 +4732,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::ModifyMapping => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingModification::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingModificationKind::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.mapping_modification().into(),
+                            self.mapping.target_model.mapping_modification_kind().into(),
                         )
                         .unwrap();
                 }
@@ -4789,6 +4850,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => Some("Now!"),
                 ReaperTargetType::LastTouched => Some("Pick!"),
+                ReaperTargetType::ModifyMapping => match self.target.mapping_modification_kind() {
+                    MappingModificationKind::LearnTarget
+                    | MappingModificationKind::SetTargetToLastTouched => Some("..."),
+                },
                 _ => None,
             },
             TargetCategory::Virtual => Some("Pick!"),
@@ -5118,12 +5183,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let label = match self.target.mapping_ref() {
                         MappingRefModel::OwnMapping { mapping_id } => match mapping_id {
                             None => NONE.to_string(),
-                            Some(id) => {
-                                match self.session.find_mapping_and_index_by_id(compartment, *id) {
-                                    None => MAPPING_DOESNT_EXIST.to_string(),
-                                    Some((_, mapping)) => mapping.borrow().effective_name(),
-                                }
-                            }
+                            Some(id) => match self.session.find_mapping_by_id(compartment, *id) {
+                                None => MAPPING_DOESNT_EXIST.to_string(),
+                                Some(mapping) => mapping.borrow().effective_name(),
+                            },
                         },
                         MappingRefModel::ForeignMapping {
                             session_id,
@@ -6743,7 +6806,7 @@ impl View for MappingPanel {
             root::ID_TARGET_CHECK_BOX_5 => self.write(|p| p.handle_target_check_box_5_change()),
             root::ID_TARGET_CHECK_BOX_6 => self.write(|p| p.handle_target_check_box_6_change()),
             root::ID_TARGET_LEARN_BUTTON => self.toggle_learn_target(),
-            root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
+            root::ID_TARGET_MENU_BUTTON => self.write(|p| p.open_target_menu()),
             root::ID_TARGET_LINE_2_BUTTON => {
                 let _ = self.handle_target_line_2_button_press();
             }

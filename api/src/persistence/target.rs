@@ -173,7 +173,7 @@ pub struct LastTouchedTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub targets: Option<HashSet<LearnableTargetKind>>,
+    pub included_targets: Option<HashSet<LearnableTargetKind>>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -957,11 +957,42 @@ pub struct ModifyMappingTarget {
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
-#[serde(tag = "kind")]
-pub enum MappingModification {
+pub enum MappingModificationKind {
     #[display(fmt = "Learn target")]
     #[default]
     LearnTarget,
+    #[display(fmt = "Set target to last touched")]
+    SetTargetToLastTouched,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum MappingModification {
+    LearnTarget(LearnTargetMappingModification),
+    SetTargetToLastTouched(SetTargetToLastTouchedMappingModification),
+}
+
+impl MappingModification {
+    pub fn kind(&self) -> MappingModificationKind {
+        match self {
+            MappingModification::LearnTarget(_) => MappingModificationKind::LearnTarget,
+            MappingModification::SetTargetToLastTouched(_) => {
+                MappingModificationKind::SetTargetToLastTouched
+            }
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct LearnTargetMappingModification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub included_targets: Option<HashSet<LearnableTargetKind>>,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct SetTargetToLastTouchedMappingModification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub included_targets: Option<HashSet<LearnableTargetKind>>,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

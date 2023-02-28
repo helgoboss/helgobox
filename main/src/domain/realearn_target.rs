@@ -583,6 +583,7 @@ pub struct HitInstructionContext<'a> {
     Debug,
     PartialEq,
     Eq,
+    Hash,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -727,6 +728,18 @@ impl ReaperTargetType {
             A::ReaperAction => B::Action,
             A::TransportAction => B::Transport,
         }
+    }
+
+    pub fn from_learnable_target_kinds(
+        set: HashSet<LearnableTargetKind>,
+    ) -> HashSet<ReaperTargetType> {
+        set.into_iter()
+            .map(|kind| ReaperTargetType::from_learnable_target_kind(kind))
+            .collect()
+    }
+
+    pub fn all() -> HashSet<ReaperTargetType> {
+        ReaperTargetType::into_enum_iter().collect()
     }
 
     pub fn supports_feedback_resolution(self) -> bool {

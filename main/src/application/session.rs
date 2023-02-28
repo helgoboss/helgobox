@@ -19,9 +19,9 @@ use crate::domain::{
     MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
     NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
     ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix,
-    RealearnTarget, ReaperTarget, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
-    TargetControlEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
-    VirtualSourceValue,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
+    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -722,8 +722,8 @@ impl Session {
             .set_mapping_which_learns_target(None);
         if let Some(qualified_id) = qualified_id {
             if let Some(mapping) = self
-                .find_mapping_and_index_by_qualified_id(qualified_id)
-                .map(|(_, m)| m.clone())
+                .find_mapping_by_qualified_id(qualified_id)
+                .map(|m| m.clone())
             {
                 let mut mapping = mapping.borrow_mut();
                 let compartment = mapping.compartment();
@@ -1155,8 +1155,8 @@ impl Session {
                         One(InCompartment(compartment, One(InMapping(mapping_id, affected)))) => {
                             // Sync mapping to processors if necessary.
                             if let Some(relevance) = affected.processing_relevance() {
-                                if let Some((_, mapping)) =
-                                    session.find_mapping_and_index_by_id(*compartment, *mapping_id)
+                                if let Some(mapping) =
+                                    session.find_mapping_by_id(*compartment, *mapping_id)
                                 {
                                     let mapping = mapping.borrow();
                                     use ProcessingRelevance::*;
@@ -1218,9 +1218,8 @@ impl Session {
         f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
     ) -> ChangeResult<CompartmentProp> {
         let mapping = self
-            .find_mapping_and_index_by_id(id.compartment, id.id)
+            .find_mapping_by_id(id.compartment, id.id)
             .ok_or_else(|| String::from("mapping not found"))?
-            .1
             .clone();
         let mut mapping = mapping.borrow_mut();
         self.changing_mapping(&mut mapping, f)
@@ -1453,6 +1452,7 @@ impl Session {
                     Rc::downgrade(&shared_session),
                     qualified_mapping_id,
                     false,
+                    None,
                 );
             });
         }
@@ -1491,11 +1491,26 @@ impl Session {
         self.mappings[compartment].len()
     }
 
+    pub fn find_mapping_by_qualified_id(&self, id: QualifiedMappingId) -> Option<&SharedMapping> {
+        Some(self.find_mapping_by_id(id.compartment, id.id)?)
+    }
+
     pub fn find_mapping_and_index_by_qualified_id(
         &self,
         id: QualifiedMappingId,
     ) -> Option<(usize, &SharedMapping)> {
         self.find_mapping_and_index_by_id(id.compartment, id.id)
+    }
+
+    pub fn find_mapping_by_id(
+        &self,
+        compartment: Compartment,
+        mapping_id: MappingId,
+    ) -> Option<&SharedMapping> {
+        Some(
+            self.find_mapping_and_index_by_id(compartment, mapping_id)?
+                .1,
+        )
     }
 
     pub fn find_mapping_and_index_by_id(
@@ -1614,9 +1629,8 @@ impl Session {
         let allow_virtual_sources = mapping_id.compartment != Compartment::Controller;
         let osc_arg_index_hint = {
             let mapping = self
-                .find_mapping_and_index_by_qualified_id(mapping_id)
-                .ok_or("mapping not found")?
-                .1;
+                .find_mapping_by_qualified_id(mapping_id)
+                .ok_or("mapping not found")?;
             let m = mapping.borrow();
             m.source_model.osc_arg_index()
         };
@@ -1697,14 +1711,18 @@ impl Session {
                 return;
             }
         }
-        self.start_learning_target_internal(session, mapping_id, true);
+        self.start_learning_target_internal(session, mapping_id, true, None);
     }
 
+    /// Not setting `included_targets` means all targets are potentially included. This should
+    /// not be used for presets / Lua code because the set of learnable targets will widen in
+    /// future.
     fn start_learning_target_internal(
         &mut self,
         session: WeakSession,
         mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
+        included_targets: Option<HashSet<ReaperTargetType>>,
     ) {
         self.instance_state
             .borrow_mut()
@@ -1714,6 +1732,14 @@ impl Session {
         }
         when(
             ReaperTarget::touched()
+                .filter(move |t| {
+                    if let Some(included_targets) = &included_targets {
+                        let actual_target_type = ReaperTargetType::from_target(t);
+                        included_targets.contains(&actual_target_type)
+                    } else {
+                        true
+                    }
+                })
                 // We have this explicit stop criteria because we listen to global REAPER
                 // events.
                 .take_until(self.party_is_over())
@@ -2182,8 +2208,8 @@ impl Session {
         compartment: Compartment,
         mapping_id: MappingId,
     ) -> Result<(), &'static str> {
-        let (_, mapping) = self
-            .find_mapping_and_index_by_id(compartment, mapping_id)
+        let mapping = self
+            .find_mapping_by_id(compartment, mapping_id)
             .ok_or("mapping not found")?;
         debug!(
             self.logger,
@@ -2603,12 +2629,43 @@ impl DomainEventHandler for WeakSession {
                 let mut s = session.try_borrow_mut()?;
                 let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
                 match event.modification {
-                    MappingModification::LearnTarget => {
+                    MappingModification::LearnTarget(m) => {
                         if event.value.is_on() {
-                            s.start_learning_target_internal(self.clone(), id, false);
+                            let included_targets = m
+                                .included_targets
+                                .map(ReaperTargetType::from_learnable_target_kinds)
+                                .unwrap_or_else(|| ReaperTargetType::all());
+                            s.start_learning_target_internal(
+                                self.clone(),
+                                id,
+                                false,
+                                Some(included_targets),
+                            );
                         } else {
                             s.stop_learning_target();
                         }
+                    }
+                    MappingModification::SetTargetToLastTouched(m) => {
+                        let included_targets = m
+                            .included_targets
+                            .map(ReaperTargetType::from_learnable_target_kinds)
+                            .unwrap_or_else(|| ReaperTargetType::all());
+                        let Some(target) =
+                            BackboneState::get().find_last_touched_target(&included_targets) else
+                        {
+                            return Ok(());
+                        };
+                        let Some(m) = s.find_mapping_by_qualified_id(id).map(|m| m.clone()) else {
+                            return Ok(());
+                        };
+                        let mut m = m.borrow_mut();
+                        s.change_target_with_closure(&mut m, None, self.clone(), |ctx| {
+                            ctx.mapping.target_model.apply_from_target(
+                                &target,
+                                ctx.extended_context,
+                                ctx.mapping.compartment(),
+                            )
+                        });
                     }
                 }
             }

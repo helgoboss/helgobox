@@ -134,7 +134,7 @@ pub mod root {
     pub const ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL: u32 = 30072;
     pub const ID_SOURCE_SCRIPT_DETAIL_BUTTON: u32 = 30073;
     pub const ID_TARGET_LEARN_BUTTON: u32 = 30075;
-    pub const ID_TARGET_OPEN_BUTTON: u32 = 30076;
+    pub const ID_TARGET_MENU_BUTTON: u32 = 30076;
     pub const ID_TARGET_HINT: u32 = 30077;
     pub const ID_TARGET_CATEGORY_COMBO_BOX: u32 = 30079;
     pub const ID_TARGET_TYPE_COMBO_BOX: u32 = 30080;

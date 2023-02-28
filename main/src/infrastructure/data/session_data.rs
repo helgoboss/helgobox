@@ -930,9 +930,9 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
     }
 
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey> {
-        let (_, mapping) = self
+        let mapping = self
             .session
-            .find_mapping_and_index_by_id(self.compartment, mapping_id)?;
+            .find_mapping_by_id(self.compartment, mapping_id)?;
         Some(mapping.borrow().key().clone())
     }
 

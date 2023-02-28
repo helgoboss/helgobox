@@ -157,10 +157,10 @@ impl MappingRowsPanel {
     }
 
     pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
-        if let Some((_, m)) = self
+        if let Some(m) = self
             .session()
             .borrow()
-            .find_mapping_and_index_by_id(compartment, mapping_id)
+            .find_mapping_by_id(compartment, mapping_id)
         {
             self.panel_manager().borrow_mut().edit_mapping(m);
         }

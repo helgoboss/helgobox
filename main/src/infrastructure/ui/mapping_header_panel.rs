@@ -234,8 +234,8 @@ impl MappingHeaderPanel {
                 button.show();
                 check_box.hide();
                 let text = if let Some(mapping_id) = item.mapping_id() {
-                    if let Some((_, mapping)) =
-                        session.find_mapping_and_index_by_id(item.compartment(), mapping_id)
+                    if let Some(mapping) =
+                        session.find_mapping_by_id(item.compartment(), mapping_id)
                     {
                         let mapping = mapping.borrow();
                         let group = session.find_group_by_id_including_default_group(

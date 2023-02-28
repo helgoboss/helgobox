@@ -27,16 +27,18 @@ use realearn_api::persistence::{
     ClipTransportActionTarget, ClipVolumeTarget, DummyTarget, EnableInstancesTarget,
     EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, LoadPotPresetTarget, ModifyMappingTarget, MouseTarget,
-    PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget,
-    RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
-    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnTargetMappingModification,
+    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget, MappingModification,
+    MappingModificationKind, ModifyMappingTarget, MouseTarget, PlayRateTarget,
+    PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
+    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget, TempoTarget,
+    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
+    TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
+    TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -64,7 +66,7 @@ fn convert_real_target(
         }),
         LastTouched => T::LastTouched(LastTouchedTarget {
             commons,
-            targets: data.targets,
+            included_targets: data.included_targets,
         }),
         AutomationModeOverride => {
             let t = AutomationModeOverrideTarget {
@@ -669,7 +671,20 @@ fn convert_real_target(
         }),
         ModifyMapping => T::ModifyMapping(ModifyMappingTarget {
             commons,
-            modification: data.mapping_modification,
+            modification: match data.mapping_modification_kind {
+                MappingModificationKind::LearnTarget => {
+                    MappingModification::LearnTarget(LearnTargetMappingModification {
+                        included_targets: data.included_targets,
+                    })
+                }
+                MappingModificationKind::SetTargetToLastTouched => {
+                    MappingModification::SetTargetToLastTouched(
+                        SetTargetToLastTouchedMappingModification {
+                            included_targets: data.included_targets,
+                        },
+                    )
+                }
+            },
             session: data.session_id,
             mapping: data.mapping_key.map(|key| key.into()),
         }),

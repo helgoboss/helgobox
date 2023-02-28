@@ -132,7 +132,7 @@ impl<'a> Target<'a> for TrackPhaseTarget {
 pub const TRACK_PHASE_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Track: Phase invert/normal",
     short_name: "Track phase",
-    hint: "ganging/grouping support since REAPER v6.70",
+    hint: "Ganging/grouping support from REAPER v6.70",
     supports_track: true,
     supports_track_exclusivity: true,
     supports_gang_selected: true,

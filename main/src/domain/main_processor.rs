@@ -873,7 +873,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         while let Ok(task) = self.basics.channels.feedback_task_receiver.try_recv() {
             use FeedbackMainTask::*;
             match task {
-                TargetTouched => self.process_target_touched_event(),
                 MappingTargetValueChanged {
                     lead_mapping_id,
                     target_value,
@@ -931,9 +930,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_activation_effects(compartment, activation_effects, false);
     }
 
-    fn process_target_touched_event(&mut self) {
-        // A target has been touched! We re-resolve all "Last touched" targets so they
-        // now control the last touched target.
+    fn process_change_of_last_touched_target(&mut self) {
+        // The last touched target has changed! We re-resolve all "Last touched" targets.
         for compartment in Compartment::enum_iter() {
             for mapping_id in self.collections.target_touch_dependent_mappings[compartment].iter() {
                 // Virtual targets are not candidates for "Last touched" so we don't
@@ -1608,7 +1606,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
+    pub fn process_additional_feedback_event(&mut self, event: &AdditionalFeedbackEvent) {
+        if matches!(event, AdditionalFeedbackEvent::LastTouchedTargetChanged) {
+            self.process_change_of_last_touched_target();
+        }
         if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
@@ -1762,13 +1763,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &self.collections.mappings_with_virtual_targets,
                 f,
             );
-    }
-
-    pub fn notify_target_touched(&self) {
-        self.basics
-            .channels
-            .self_feedback_sender
-            .send_complaining(FeedbackMainTask::TargetTouched);
     }
 
     fn wants_messages_in_general(&self) -> bool {
@@ -2888,9 +2882,6 @@ pub enum ParameterMainTask {
 /// A feedback-related task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackMainTask {
-    /// Sent whenever a target has been touched (usually a subset of the value change events)
-    /// and as a result the global "last touched target" has been updated.
-    TargetTouched,
     /// Only sent if this mapping is somewhere referenced in target value activation conditions.
     ///
     /// It's used for asynchronously re-evaluating the follow mappings' activation conditions.

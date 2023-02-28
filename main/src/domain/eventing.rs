@@ -68,7 +68,7 @@ pub struct MappingEnabledChangeRequestedEvent {
     pub is_enabled: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct MappingModificationRequestedEvent {
     pub compartment: Compartment,
     pub mapping_id: MappingId,

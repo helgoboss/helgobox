@@ -26,7 +26,7 @@ use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
     MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ReaProject,
-    ReaperNormalizedFxParamValue,
+    ReaperNormalizedFxParamValue, SectionContext,
 };
 use rxrust::prelude::*;
 use slog::debug;
@@ -135,6 +135,7 @@ pub enum AdditionalFeedbackEvent {
         instance_id: InstanceId,
         instance_event: InstanceStateChanged,
     },
+    LastTouchedTargetChanged,
 }
 
 #[derive(Debug)]
@@ -175,6 +176,7 @@ pub struct BeatChangedEvent {
 
 #[derive(Debug)]
 pub struct ActionInvokedEvent {
+    pub section_context: SectionContext<'static>,
     pub command_id: CommandId,
 }
 
@@ -351,10 +353,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
                 //  touching for "Last touched" target and global learning (see
                 //  LearningTarget state)! Connect the dots!
-                BackboneState::get().set_last_touched_target(target);
-                for p in &*self.main_processors.borrow() {
-                    p.notify_target_touched();
-                }
+                BackboneState::get().notify_target_touched(target);
             }
         }
         // Now that everything ran successfully, we can assign the old drained vector back to the
@@ -450,6 +449,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event)
+            }
+            if let Some(target) = ReaperTarget::touched_from_additional_event(&event) {
+                BackboneState::get().notify_target_touched(target);
             }
         }
     }
@@ -566,7 +568,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             || (!last.is_still_focused && new.is_still_focused && last.fx == new.fx)
         {
             let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
-            for p in &*self.main_processors.borrow() {
+            for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event);
             }
         }
@@ -584,7 +586,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     project,
                     new_value: reference_pos,
                 });
-                for p in &*self.main_processors.borrow() {
+                for p in &mut *self.main_processors.borrow_mut() {
                     p.process_additional_feedback_event(&event);
                 }
             }

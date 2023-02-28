@@ -33,7 +33,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LastTouched,
-            targets: d.targets.clone(),
+            included_targets: d.included_targets.clone(),
             ..init(d.commons)
         },
         Target::AutomationModeOverride(d) => {
@@ -860,7 +860,11 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::ModifyMapping(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ModifyMapping,
-            mapping_modification: d.modification,
+            mapping_modification_kind: d.modification.kind(),
+            included_targets: match d.modification {
+                MappingModification::LearnTarget(t) => t.included_targets,
+                MappingModification::SetTargetToLastTouched(t) => t.included_targets,
+            },
             session_id: d.session,
             mapping_key: d.mapping.map(|id| id.into()),
             ..init(d.commons)
