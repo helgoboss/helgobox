@@ -1,6 +1,7 @@
-use crate::base::blocking_lock;
+use crate::base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
+use derivative::Derivative;
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, Ui};
 use egui::{Context, SidePanel, TextEdit};
@@ -11,7 +12,9 @@ use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-pub type SharedContent = Arc<Mutex<String>>;
+pub type Value = String;
+
+pub type SharedValue = Arc<Mutex<Value>>;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
@@ -60,8 +63,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     };
                                     content += "\n";
                                     content += template.content;
-                                    *blocking_lock(&state.content) = content;
-                                    state.invalidate();
+                                    *blocking_lock(&state.shared_value) = content;
+                                    state.invalidate_and_send();
                                     ui.close_menu();
                                 }
                             }
@@ -75,12 +78,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 ui.hyperlink_to("Help", state.toolbox.help_url);
             });
             let response = {
-                let mut content = blocking_lock(&state.content);
+                let mut content = blocking_lock(&state.shared_value);
                 let text_edit = TextEdit::multiline(&mut *content).code_editor();
                 ui.add_sized(ui.available_size(), text_edit)
             };
             if response.changed() {
-                state.invalidate();
+                state.invalidate_and_send();
             }
         });
     CentralPanel::default().show(ctx, |ui| {
@@ -188,34 +191,41 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
     });
 }
 
+#[derive(Debug)]
 pub struct State {
-    content: SharedContent,
+    shared_value: SharedValue,
     last_build_outcome: BuildOutcome,
     template_in_preview: Option<TemplateInPreview>,
     toolbox: Toolbox,
 }
 
+#[derive(Debug)]
 struct TemplateInPreview {
     template: &'static ScriptTemplate,
     build_outcome: BuildOutcome,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct BuildOutcome {
     plot_entries: Vec<PlotEntry>,
     uses_time: bool,
     error: String,
 }
 
+#[derive(Debug)]
 struct PlotEntry {
     input: f64,
     output: TransformationOutput<UnitValue>,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Toolbox {
+    #[derivative(Debug = "ignore")]
     pub engine: Box<dyn ScriptEngine>,
     pub help_url: &'static str,
     pub script_template_groups: &'static [ScriptTemplateGroup],
+    pub value_sender: SenderToNormalThread<SharedValue>,
 }
 
 /// How much time to cover in the plot for time-dependent scripts.
@@ -286,9 +296,9 @@ impl Toolbox {
 }
 
 impl State {
-    pub fn new(content: SharedContent, toolbox: Toolbox) -> Self {
+    pub fn new(initial_value: Value, toolbox: Toolbox) -> Self {
         let mut state = State {
-            content,
+            shared_value: SharedValue::new(Mutex::new(initial_value)),
             last_build_outcome: Default::default(),
             template_in_preview: None,
             toolbox,
@@ -297,8 +307,15 @@ impl State {
         state
     }
 
+    pub fn invalidate_and_send(&mut self) {
+        self.invalidate();
+        self.toolbox
+            .value_sender
+            .send_complaining(self.shared_value.clone());
+    }
+
     pub fn invalidate(&mut self) {
-        let content = blocking_lock(&self.content);
+        let content = blocking_lock(&self.shared_value);
         self.last_build_outcome = self.toolbox.build(&content);
     }
 }

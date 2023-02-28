@@ -104,10 +104,10 @@ impl HeaderPanel {
         let initial_notes = session.borrow().compartment_notes(compartment).to_owned();
         let weak_session = self.session.clone();
         let input = ScriptEditorInput {
-            initial_content: initial_notes,
+            initial_value: initial_notes,
             engine: Box::new(PlainTextEngine),
             help_url: "",
-            apply: move |edited_notes| {
+            set_value: move |edited_notes| {
                 let weak_session = weak_session.clone();
                 if let Some(session) = weak_session.upgrade() {
                     session.borrow_mut().change_with_notification(

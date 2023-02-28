@@ -160,10 +160,10 @@ impl ScriptEngine for LuaMidiScriptEngine {
 }
 
 pub struct ScriptEditorInput<A> {
-    pub initial_content: String,
     pub engine: Box<dyn ScriptEngine>,
     pub help_url: &'static str,
-    pub apply: A,
+    pub initial_value: String,
+    pub set_value: A,
 }
 
 #[derive(Derivative)]
@@ -184,8 +184,8 @@ impl SimpleScriptEditorPanel {
     pub fn new(input: ScriptEditorInput<impl Fn(String) + 'static>) -> Self {
         Self {
             view: Default::default(),
-            content: RefCell::new(input.initial_content),
-            apply: Box::new(input.apply),
+            content: RefCell::new(input.initial_value),
+            apply: Box::new(input.set_value),
             engine: input.engine,
             help_url: input.help_url,
         }

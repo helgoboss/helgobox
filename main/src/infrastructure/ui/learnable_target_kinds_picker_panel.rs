@@ -45,7 +45,7 @@ impl View for LearnableTargetKindsPickerPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.set_timer(TIMER_ID, Duration::from_millis(30));
-        let state = self.state.borrow_mut().take().unwrap();
+        let state = self.state.take().expect("state already in use");
         egui_views::open(window, "Learnable targets", state, run_ui);
         true
     }

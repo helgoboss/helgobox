@@ -1,20 +1,25 @@
-use crate::base::blocking_lock;
+use crate::base::{blocking_lock, SenderToNormalThread};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::advanced_script_editor;
-use crate::infrastructure::ui::egui_views::advanced_script_editor::Toolbox;
+use crate::infrastructure::ui::egui_views::advanced_script_editor::{
+    SharedValue, State, Toolbox, Value,
+};
 use crate::infrastructure::ui::{egui_views, ScriptEditorInput};
+use crossbeam_channel::Receiver;
 use derivative::Derivative;
 use reaper_low::raw;
 use semver::Version;
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
+#[derive(Debug)]
 pub struct ScriptTemplateGroup {
     pub name: &'static str,
     pub templates: &'static [ScriptTemplate],
 }
 
+#[derive(Debug)]
 pub struct ScriptTemplate {
     pub min_realearn_version: Option<Version>,
     pub name: &'static str,
@@ -23,7 +28,7 @@ pub struct ScriptTemplate {
     pub content: &'static str,
 }
 
-#[derive(Copy, Clone, derive_more::Display)]
+#[derive(Copy, Clone, Debug, derive_more::Display)]
 pub enum ControlStyle {
     #[display(fmt = "range elements")]
     RangeElement,
@@ -46,36 +51,34 @@ impl ControlStyle {
 #[derivative(Debug)]
 pub struct AdvancedScriptEditorPanel {
     view: ViewContext,
-    content: advanced_script_editor::SharedContent,
+    state: RefCell<Option<State>>,
+    value_receiver: Receiver<SharedValue>,
     #[derivative(Debug = "ignore")]
-    apply: Box<dyn Fn(String)>,
-    #[derivative(Debug = "ignore")]
-    toolbox: RefCell<Option<Toolbox>>,
+    set_value: Box<dyn Fn(Value)>,
 }
+const TIMER_ID: usize = 321;
 
 impl AdvancedScriptEditorPanel {
     pub fn new(
         input: ScriptEditorInput<impl Fn(String) + 'static>,
         script_template_groups: &'static [ScriptTemplateGroup],
     ) -> Self {
+        let (value_sender, value_receiver) =
+            SenderToNormalThread::new_unbounded_channel("advanced script editor apply");
         Self {
             view: Default::default(),
-            content: Arc::new(Mutex::new(input.initial_content)),
-            apply: Box::new(input.apply),
-            toolbox: {
+            state: {
                 let toolbox = Toolbox {
                     engine: input.engine,
                     help_url: input.help_url,
                     script_template_groups,
+                    value_sender,
                 };
-                RefCell::new(Some(toolbox))
+                RefCell::new(Some(State::new(input.initial_value, toolbox)))
             },
+            value_receiver,
+            set_value: Box::new(input.set_value),
         }
-    }
-
-    fn apply(&self) {
-        let content = blocking_lock(&self.content);
-        (self.apply)(content.clone());
     }
 }
 
@@ -89,8 +92,8 @@ impl View for AdvancedScriptEditorPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        let toolbox = self.toolbox.take().expect("toolbox already in use");
-        let state = advanced_script_editor::State::new(self.content.clone(), toolbox);
+        window.set_timer(TIMER_ID, Duration::from_millis(30));
+        let state = self.state.take().expect("state already in use");
         egui_views::open(
             window,
             "Script editor",
@@ -100,10 +103,6 @@ impl View for AdvancedScriptEditorPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
-        self.apply();
-    }
-
     #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
@@ -111,5 +110,13 @@ impl View for AdvancedScriptEditorPanel {
             raw::IDCANCEL => self.close(),
             _ => {}
         }
+    }
+
+    fn timer(&self, _: usize) -> bool {
+        if let Some(v) = self.value_receiver.try_iter().last() {
+            let v = blocking_lock(&v);
+            (self.set_value)(v.clone());
+        }
+        true
     }
 }
