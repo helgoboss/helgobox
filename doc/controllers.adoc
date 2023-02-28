@@ -199,8 +199,23 @@ There are https://github.com/helgoboss/realearn/tree/master/resources/controller
 
 === Behringer X32
 
-I haven't tried this device myself but users reported that its OSC implementation can't deal with OSC bundles, only with
-OSC messages. Therefore, you need to untick "Can deal with bundles" in the OSC device configuration.
+I haven't tried this device myself but a user was so kind to provide the following basic setup instructions:
+
+1. Make the x32 use a static IP address (x32 "Setup" → Tab "Network").
+2. Create a new OSC device in ReaLearn:
+    - Use port 10023 (!!!) and uncheck "Can deal with OSC bundles".
+3. Add a mapping that periodically sends OSC message `/xremote` to the x32 (otherwise it will not respond to commands sent by ReaLearn):
+* *Source*
+** *Source Category:* REAPER
+** *Type:* Timer
+** *Millis:* 6000
+* *Target*
+** *Type:* OSC: Send message
+** *Output:* Feedback output
+** *Address:* `/xremote`
+** *Argument:* Float
+** *Range:* 0.0000 - 1.0000
+
 
 === Behringer XR18
 
