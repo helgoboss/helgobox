@@ -627,10 +627,7 @@ impl MappingPanel {
                     ReaperTargetType::LastTouched => {
                         self.open_learnable_targets_picker(mapping);
                     }
-                    ReaperTargetType::ModifyMapping
-                        if mapping.borrow().target_model.mapping_modification_kind()
-                            == MappingModificationKind::LearnTarget =>
-                    {
+                    ReaperTargetType::ModifyMapping => {
                         self.open_learnable_targets_picker(mapping);
                     }
                     _ => {
