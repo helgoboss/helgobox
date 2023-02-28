@@ -1,4 +1,5 @@
 = ReaLearn user guide
+:experimental:
 :toc:
 :toclevels: 5
 :sectnums:
@@ -10,7 +11,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2023-01-13 (v2.14.2)`
+|Last update of text: |`2023-02-28 (v2.15.0-pre.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -2497,11 +2498,14 @@ A target is a thing that is supposed to be controlled.
 
 Starts or stops learning the target of this mapping.
 
-====== Go there
+====== Menu
 
-If applicable, pressing this button makes the target of this mapping visible in
- REAPER. E.g. if the target is a track FX parameter, the corresponding track FX window will be
- displayed.
+Opens a small menu related to the target section:
+
+- *Pick recently touched target (by type):* Gives you a list of recently touched parameters or executed actions in REAPER. When you click one of it, the target will be populated accordingly. It's an alternative to "Learn". Please note that not all targets can be picked that way, some have to be configured manually.
+- *Go there (if supported):* If applicable, this makes the target of this mapping visible in REAPER. E.g. if the target is a track FX parameter, the corresponding track FX window will be displayed.
+
+
 
 ====== Type
 
@@ -2883,8 +2887,12 @@ In the probably rare case that the polling causes performance issues, you can un
 This will control whatever target has been last touched in REAPER. It's similar to the built-in REAPER action
 "Adjust last touched FX parameter" but provides the following benefits:
 
-. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
+. It's applicable to all ReaLearn targets that are learnable, not just FX parameters.
 . It offers feedback.
+
+- *Targets:* This opens a window that lets you pick all included target types (only macOS and Windows so far). Last-touched targets not checked in this window will be ignored.
+
+TIP: Don't forget to choose the included target types, otherwise this target will do nothing.
 
 ====== Global: Mouse
 
@@ -3580,6 +3588,18 @@ Please note:
 * Some targets don't report values and therefore don't participate in snapshotting.
 * Feedback of this target indicates whether the desired snapshot is the one which has last been loaded (for the given tags).
 
+====== ReaLearn: Modify mapping
+
+Triggers a modification of another ReaLearn mapping.
+
+* *Kind:* The kind of modification.
+** *Learn target:* Switches "Learn target" on or off for the destination mapping. You need to use button kbd:[...] to pick the list of target types to be included in the learning process.
+** *Set target to last touched:* Sets the target of the destination mapping to the last-touched target. You need to use button kbd:[...] to pick the list of target types to be included.
+* *Instance:* Allows you to pick another ReaLearn instance.
+* *Mapping:* Allows you to pick the destination mapping.
+
+TIP: This target is great to "pin" targets to certain control elements on demand.
+
 [#realearn-take-mapping-snapshot]
 ====== ReaLearn: Take mapping snapshot
 
@@ -3727,6 +3747,7 @@ TIP: If you want to control _other_ mappings only and not _this_ mapping, just p
  latter, _Inverse target value_ allows for exclusivity between completely different target types and completely
  custom groupings - independent of e.g. organization of tracks into folders.
 * *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
+* *Inverse target value (off only):* Variation of _Inverse target value_ that applies the inverse only when the target value is 0%.
 
 ===== Feedback type
 
@@ -3996,7 +4017,7 @@ This feature allows you to write a formula that transforms incoming control valu
 While very powerful because it allows for arbitrary transformations (velocity curves,
  random values - you name it), it's not everybody's cup of tea to write something like that. The formula must be written in the language https://www.cockos.com/EEL2/[EEL2]. Some REAPER power users might be familiar with it because REAPER's JSFX uses the same language.
 
-Luckily, ReaLearn has a fancy editor which visualizes the formula and has some predefined templates built-in (available on Windows and macOS only at the moment). Press the "*...*" button to open the editor.
+Luckily, ReaLearn has a fancy editor which visualizes the formula and has some predefined templates built-in (available on Windows and macOS only at the moment). Press the "*...*" button to open the editor. Code changes are applied immediately.
 
 The most simple
  formula is `y = x`, which means there will be no transformation at all. `y = x / 2` means that
