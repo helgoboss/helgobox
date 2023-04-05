@@ -945,7 +945,7 @@ impl Default for TargetModel {
             pot_filter_item_kind: Default::default(),
             mapping_modification_kind: Default::default(),
             mapping_ref: Default::default(),
-            included_targets: Default::default(),
+            included_targets: LearnableTargetKind::into_enum_iter().collect(),
         }
     }
 }

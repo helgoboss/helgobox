@@ -1,7 +1,7 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
     BackboneState, Compartment, ExtendedProcessorContext, ReaperTarget, ReaperTargetType,
-    UnresolvedReaperTargetDef,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use std::collections::HashSet;
 
@@ -25,3 +25,10 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
         Ok(vec![last_touched_target])
     }
 }
+
+pub const LAST_TOUCHED_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Global: Last touched",
+    short_name: "Last touched",
+    supports_included_targets: true,
+    ..DEFAULT_TARGET
+};

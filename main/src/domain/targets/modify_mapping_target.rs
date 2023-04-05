@@ -244,5 +244,6 @@ fn bool_to_current_value(on: bool) -> Option<AbsoluteValue> {
 pub const LEARN_MAPPING_TARGET: TargetTypeDef = TargetTypeDef {
     name: "ReaLearn: Modify mapping",
     short_name: "Modify mapping",
+    supports_included_targets: true,
     ..DEFAULT_TARGET
 };

@@ -635,7 +635,11 @@ impl TargetModelData {
             mapping_modification_kind: model.mapping_modification_kind(),
             session_id,
             mapping_key,
-            included_targets: Some(model.included_targets().clone()),
+            included_targets: if model.target_type().definition().supports_included_targets() {
+                Some(model.included_targets().clone())
+            } else {
+                None
+            },
         }
     }
 
