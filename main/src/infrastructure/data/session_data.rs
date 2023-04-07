@@ -29,7 +29,6 @@ use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 use std::error::Error;
 use std::ops::Deref;
 
@@ -564,9 +563,7 @@ impl SessionData {
                         let raw_midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map_err(|_| "invalid MIDI input device ID")?;
-                        let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
-                            .try_into()
-                            .map_err(|_| "MIDI input device ID out of range")?;
+                        let midi_dev_id = MidiInputDeviceId::new(raw_midi_dev_id);
                         ControlInput::Midi(MidiControlInput::Device(midi_dev_id))
                     }
                     Osc(osc_dev_id) => ControlInput::Osc(*osc_dev_id),

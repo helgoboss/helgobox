@@ -61,7 +61,7 @@ impl LastTouchedTargetsContainer {
     pub fn update(&mut self, event: TargetTouchEvent) -> bool {
         // Don't do anything if the given target is the same as the last touched one
         if let Some(last_target_touch) = self.last_target_touches.last() {
-            if &event.target == &last_target_touch.target
+            if event.target == last_target_touch.target
                 && event.caused_by_realearn == last_target_touch.caused_by_realearn
             {
                 return false;
