@@ -67,6 +67,7 @@ fn convert_real_target(
         LastTouched => T::LastTouched(LastTouchedTarget {
             commons,
             included_targets: data.included_targets,
+            touch_cause: style.required_value(data.touch_cause),
         }),
         AutomationModeOverride => {
             let t = AutomationModeOverrideTarget {
@@ -681,6 +682,7 @@ fn convert_real_target(
                     MappingModification::SetTargetToLastTouched(
                         SetTargetToLastTouchedMappingModification {
                             included_targets: data.included_targets,
+                            touch_cause: style.required_value(data.touch_cause),
                         },
                     )
                 }

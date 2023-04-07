@@ -3,7 +3,7 @@ use reaper_low::firewall;
 use swell_ui::Window;
 
 pub mod advanced_script_editor;
-pub mod learnable_target_kinds_picker;
+pub mod target_filter_panel;
 
 pub fn open<S: Send + 'static>(
     window: Window,

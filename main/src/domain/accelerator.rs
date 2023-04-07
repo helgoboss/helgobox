@@ -1,5 +1,5 @@
 use crate::domain::{
-    ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
+    BackboneState, ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
     SharedMainProcessors,
 };
 use helgoboss_learn::AbstractTimestamp;
@@ -43,8 +43,21 @@ where
     fn process_control(&mut self, msg: KeyMessage) -> bool {
         let evt = ControlEvent::new(msg, ControlEventTimestamp::now());
         let mut filter_out_event = false;
+        let mut notified_backbone = false;
         for proc in &mut *self.main_processors.borrow_mut() {
-            if proc.wants_keys() && proc.process_incoming_key_msg(evt) {
+            if !proc.wants_keys() {
+                continue;
+            }
+            let result = proc.process_incoming_key_msg(evt);
+            // Notify backbone that ReaLearn mappings successfully matched keyboard input in this
+            // main loop cycle. We need to do that only once.
+            if !notified_backbone && result.match_outcome.matched() {
+                notified_backbone = true;
+                BackboneState::get().set_keyboard_input_match_flag();
+            }
+            // If at least one instance wants to filter the key out, we filter it out, not
+            // passing it forward to the rest of the keyboard processing chain!
+            if result.filter_out_event {
                 filter_out_event = true;
             }
         }

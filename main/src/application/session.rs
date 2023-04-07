@@ -16,10 +16,10 @@ use crate::domain::{
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
     IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, InstanceState,
-    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
-    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
-    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnClipMatrix,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
+    LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
+    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealearnClipMatrix, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
     StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetValueChangedEvent,
     VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
@@ -2647,8 +2647,12 @@ impl DomainEventHandler for WeakSession {
                             .included_targets
                             .map(ReaperTargetType::from_learnable_target_kinds)
                             .unwrap_or_else(ReaperTargetType::all);
+                        let filter = LastTouchedTargetFilter {
+                            included_target_types: &included_targets,
+                            touch_cause: m.touch_cause.unwrap_or_default(),
+                        };
                         let Some(target) =
-                            BackboneState::get().find_last_touched_target(&included_targets) else
+                            BackboneState::get().find_last_touched_target(filter) else
                         {
                             return Ok(());
                         };

@@ -60,6 +60,37 @@ pub enum LearnableTargetKind {
     // RoutePhase,
 }
 
+/// Which target invocations to observe, based on causality. E.g. only those not triggered by
+/// ReaLearn (would pick up invocations triggered by mouse interaction with REAPER but not by
+/// ReaLearn mapping control).
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    enum_map::Enum,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+    derive_more::Display,
+)]
+#[repr(usize)]
+pub enum TargetTouchCause {
+    #[display(fmt = "Any")]
+    #[default]
+    Any,
+    #[display(fmt = "Caused by ReaLearn (via mapping)")]
+    Realearn,
+    #[display(fmt = "Not caused by ReaLearn (e.g. via mouse)")]
+    Reaper,
+}
+
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Target {
@@ -174,6 +205,8 @@ pub struct LastTouchedTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub included_targets: Option<HashSet<LearnableTargetKind>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub touch_cause: Option<TargetTouchCause>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -993,6 +1026,8 @@ pub struct LearnTargetMappingModification {
 pub struct SetTargetToLastTouchedMappingModification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub included_targets: Option<HashSet<LearnableTargetKind>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub touch_cause: Option<TargetTouchCause>,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]

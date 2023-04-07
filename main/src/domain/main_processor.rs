@@ -1850,10 +1850,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    /// Returns whether this message should be filtered out from the keyboard processing chain.
-    ///
     /// This doesn't check if control enabled! You need to check before.
-    pub fn process_incoming_key_msg(&mut self, evt: ControlEvent<KeyMessage>) -> bool {
+    pub fn process_incoming_key_msg(
+        &mut self,
+        evt: ControlEvent<KeyMessage>,
+    ) -> KeyProcessingResult {
         if self.basics.settings.real_input_logging_enabled {
             self.log_incoming_message(evt);
         }
@@ -1863,7 +1864,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             && self.basics.settings.let_matched_events_through)
             || (!match_outcome.matched_or_consumed()
                 && self.basics.settings.let_unmatched_events_through);
-        !let_through
+        KeyProcessingResult {
+            match_outcome,
+            filter_out_event: !let_through,
+        }
     }
 
     fn process_incoming_msg_for_controlling(
@@ -4316,4 +4320,10 @@ fn determine_final_target_value_for_conditional_activation(
         // Target is inactive. We let the condition distinguish this case by passing `None`.
         Ok(None)
     }
+}
+
+pub struct KeyProcessingResult {
+    pub match_outcome: MatchOutcome,
+    /// Whether this message should be filtered out from the keyboard processing chain.
+    pub filter_out_event: bool,
 }

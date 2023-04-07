@@ -69,8 +69,8 @@ use realearn_api::persistence::{
     LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
     MonitoringMode, MouseAction, MouseButton, PotFilterItemKind, SeekBehavior,
-    SetTargetToLastTouchedMappingModification, TrackDescriptorCommons, TrackFxChain, TrackScope,
-    TrackToolAction,
+    SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
+    TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -175,6 +175,7 @@ pub enum TargetCommand {
     SetMappingModificationKind(MappingModificationKind),
     SetMappingRef(MappingRefModel),
     SetLearnableTargetKinds(HashSet<LearnableTargetKind>),
+    SetTouchCause(TargetTouchCause),
 }
 
 #[derive(Eq, PartialEq)]
@@ -274,7 +275,8 @@ pub enum TargetProp {
     PotFilterItemKind,
     MappingModificationKind,
     MappingRef,
-    LearnableTargetKinds,
+    IncludedTargets,
+    TouchCause,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -659,7 +661,11 @@ impl<'a> Change<'a> for TargetModel {
             }
             C::SetLearnableTargetKinds(kinds) => {
                 self.included_targets = kinds;
-                One(P::LearnableTargetKinds)
+                One(P::IncludedTargets)
+            }
+            C::SetTouchCause(touch_cause) => {
+                self.touch_cause = touch_cause;
+                One(P::TouchCause)
             }
         };
         Some(affected)
@@ -799,6 +805,7 @@ pub struct TargetModel {
     pot_filter_item_kind: PotFilterItemKind,
     // # For targets that deal with target learning/touching
     included_targets: HashSet<LearnableTargetKind>,
+    touch_cause: TargetTouchCause,
 }
 
 #[derive(Clone, Debug)]
@@ -946,6 +953,7 @@ impl Default for TargetModel {
             mapping_modification_kind: Default::default(),
             mapping_ref: Default::default(),
             included_targets: LearnableTargetKind::into_enum_iter().collect(),
+            touch_cause: Default::default(),
         }
     }
 }
@@ -2432,6 +2440,7 @@ impl TargetModel {
                                 .copied()
                                 .map(ReaperTargetType::from_learnable_target_kind)
                                 .collect(),
+                            touch_cause: self.touch_cause,
                         })
                     }
                     TrackTouchState => {
@@ -2536,6 +2545,7 @@ impl TargetModel {
                                     MappingModification::SetTargetToLastTouched(
                                         SetTargetToLastTouchedMappingModification {
                                             included_targets: Some(self.included_targets.clone()),
+                                            touch_cause: Some(self.touch_cause),
                                         },
                                     )
                                 }
@@ -2683,6 +2693,10 @@ impl TargetModel {
 
     pub fn included_targets(&self) -> &HashSet<LearnableTargetKind> {
         &self.included_targets
+    }
+
+    pub fn touch_cause(&self) -> TargetTouchCause {
+        self.touch_cause
     }
 
     pub fn mapping_modification_kind(&self) -> MappingModificationKind {

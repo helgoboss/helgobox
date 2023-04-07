@@ -67,16 +67,16 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::egui_views::target_filter_panel;
 use crate::infrastructure::ui::util::{
     compartment_parameter_dropdown_contents, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
-    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
-    LearnableTargetKindsPickerPanel, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
-    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
-    CONTROL_TRANSFORMATION_TEMPLATES,
+    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel,
+    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
+    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TargetFilterPanel,
+    TextualFeedbackExpressionEngine, YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
 };
 
 #[derive(Debug)]
@@ -579,8 +579,12 @@ impl MappingPanel {
                                                 view.invalidate_target_line_3(initiator);
                                                 view.invalidate_target_line_4(initiator);
                                             }
-                                            P::LearnableTargetKinds => {
+                                            P::IncludedTargets => {
                                                 view.invalidate_target_line_2(initiator);
+                                            }
+                                            P::TouchCause => {
+                                                // Not shown in mapping panel at the moment, only
+                                                // in egui view (in a non-reactive way).
                                             }
                                         }
                                     }
@@ -654,14 +658,28 @@ impl MappingPanel {
     }
 
     fn open_learnable_targets_picker(self: SharedView<Self>, mapping: SharedMapping) {
-        let value = mapping.borrow().target_model.included_targets().clone();
+        let value = {
+            let mapping = mapping.borrow();
+            target_filter_panel::Value {
+                included_targets: mapping.target_model.included_targets().clone(),
+                touch_cause: mapping.target_model.touch_cause(),
+            }
+        };
         let session = self.session.clone();
-        let panel = LearnableTargetKindsPickerPanel::new(value, move |value| {
+        let panel = TargetFilterPanel::new(value, move |value| {
             let mut mapping = mapping.borrow_mut();
             Session::change_mapping_from_ui_simple(
                 session.clone(),
                 &mut mapping,
-                MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(value)),
+                MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
+                    value.included_targets,
+                )),
+                None,
+            );
+            Session::change_mapping_from_ui_simple(
+                session.clone(),
+                &mut mapping,
+                MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
                 None,
             );
         });

@@ -34,7 +34,7 @@ use realearn_api::persistence::{
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
     ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModificationKind,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    PotFilterItemKind, SeekBehavior, TargetValue, TrackScope, TrackToolAction,
+    PotFilterItemKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -516,6 +516,13 @@ pub struct TargetModelData {
         alias = "targets"
     )]
     pub included_targets: Option<HashSet<LearnableTargetKind>>,
+    /// New since ReaLearn v2.15.0-pre.2
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub touch_cause: TargetTouchCause,
 }
 
 impl TargetModelData {
@@ -640,6 +647,7 @@ impl TargetModelData {
             } else {
                 None
             },
+            touch_cause: model.touch_cause(),
         }
     }
 
@@ -992,6 +1000,7 @@ impl TargetModelData {
             HashSet::from_iter(old_kinds.into_iter())
         });
         model.change(C::SetLearnableTargetKinds(target_kinds));
+        model.change(C::SetTouchCause(self.touch_cause));
         Ok(())
     }
 }

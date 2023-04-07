@@ -7,7 +7,7 @@ use crate::domain::{
     MidiDeviceChangePayload, MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId,
     OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
     RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector,
-    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor,
+    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TargetTouchEvent,
     TouchedTrackParameterType,
 };
 use crossbeam_channel::Receiver;
@@ -252,24 +252,49 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
+        // Poll for change events that don't support notification. At the moment we execute this
+        // only once per run() invocation to save resources. As a consequence, we can't detect
+        // whether the changes were caused by ReaLearn targets or direct interaction with REAPER
+        // (e.g. via mouse). However, since change events detected by polling are currently not
+        // used for target learning / last touched target detection anyway, we don't need to know
+        // about their cause.
         self.poll_for_more_change_events();
-        self.process_change_events();
+        // Process REAPER events that occurred since the last call of run(). All events
+        // accumulated up to this point are most likely *not* caused by ReaLearn, but by direct
+        // interaction with REAPER, e.g. changing track volume with the mouse.
+        // However, there's one exception: At least one ReaLearn instance might have input set to
+        // "Computer keyboard" and therefore process key strokes. In this case, the keyboard
+        // processing chain might have run before and caused ReaLearn to invoke some target.
+        // In this case, the backbone knows about it.
+        let realearn_was_matching_keyboard_input =
+            BackboneState::get().reset_keyboard_input_match_flag();
+        self.process_events(realearn_was_matching_keyboard_input);
+        // Execute operations scheduled by ReaLearn (in different ways)
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
         self.process_main_tasks();
-        self.process_incoming_additional_feedback();
         self.process_instance_orchestration_events();
+        // Inform ReaLearn about various changes that are not relevant for target learning
         self.detect_reaper_config_changes();
         self.emit_focus_switch_between_main_and_fx_as_feedback_event();
         self.emit_beats_as_feedback_events();
         self.emit_device_changes_as_reaper_source_messages(timestamp);
         self.process_incoming_osc_messages(timestamp);
+        // Drive clip matrix
         self.poll_clip_matrixes();
         self.process_incoming_clip_matrix_events();
+        // Finally let the ReaLearn main processors do their regular job (the instances)
         self.run_main_processors(timestamp);
+        // Free memory that has been used in real-time thread
         self.drop_garbage();
+        // Some control surface events might have been picked up during this call of run() while
+        // the change event queue was borrowed. Process them now (most likely they are turned into
+        // change events).
         self.process_deferred_control_surface_events();
+        // Process REAPER events that were accumulated within this call of run(). All events
+        // accumulated up to this point are caused by ReaLearn itself.
+        self.process_events(true);
         self.counter += 1;
     }
 
@@ -305,7 +330,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.future_middleware.reset();
     }
 
-    fn process_change_events(&mut self) {
+    fn process_events(&mut self, caused_by_realearn: bool) {
+        self.process_change_events(caused_by_realearn);
+        self.process_incoming_additional_feedback(caused_by_realearn);
+    }
+
+    fn process_change_events(&mut self, caused_by_realearn: bool) {
         // Our goal is to always keep using the same change event queue vector so that we don't
         // have to reallocate on each main loop cycle. That's also why we use `drain` further down.
         // Previously, we just directly used the `change_event_queue` variable. However, an
@@ -353,7 +383,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
                 //  touching for "Last touched" target and global learning (see
                 //  LearningTarget state)! Connect the dots!
-                BackboneState::get().notify_target_touched(target);
+                let touch_event = TargetTouchEvent {
+                    target,
+                    caused_by_realearn,
+                };
+                BackboneState::get().notify_target_touched(touch_event);
             }
         }
         // Now that everything ran successfully, we can assign the old drained vector back to the
@@ -432,7 +466,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn process_incoming_additional_feedback(&mut self) {
+    fn process_incoming_additional_feedback(&mut self, caused_by_realearn: bool) {
         for event in self
             .additional_feedback_event_receiver
             .try_iter()
@@ -451,7 +485,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 p.process_additional_feedback_event(&event)
             }
             if let Some(target) = ReaperTarget::touched_from_additional_event(&event) {
-                BackboneState::get().notify_target_touched(target);
+                let evt = TargetTouchEvent {
+                    target,
+                    caused_by_realearn,
+                };
+                BackboneState::get().notify_target_touched(evt);
             }
         }
     }
@@ -738,12 +776,13 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
-        // Reentrancy check (check if we are currently mutably in `run()`)
         // TODO-high-refactoring We should do this in reaper-medium (in a more generic way) as soon as it turns
         //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
         match self.change_event_queue.try_borrow_mut() {
             Ok(mut queue) => self.handle_event_internal(&event, &mut queue),
             Err(_) => {
+                // When we can't borrow the control surface event queue because of reentrancy,
+                // we need to defer its processing.
                 self.control_surface_event_sender
                     .send_complaining(event.clone().into_owned());
                 false

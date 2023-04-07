@@ -11,12 +11,12 @@ use crate::domain::{
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
     Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
     InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
-    MainProcessor, MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent,
-    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnClipMatrix,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, ReaperTargetType,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent, MessageCaptureResult,
+    MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
+    OscScanResult, QualifiedClipMatrixEvent, QualifiedMappingId, RealearnAccelerator,
+    RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
+    ReaperTarget, ReaperTargetType, SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -39,7 +39,7 @@ use crate::infrastructure::server::grpc::{
 };
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
-    Envelope, FxChainDescriptor, FxDescriptor, TrackDescriptor, TrackFxChain,
+    Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
 use reaper_high::{
     ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
@@ -1071,7 +1071,11 @@ impl App {
             "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
                 let included_target_types = ReaperTargetType::into_enum_iter().collect();
-                let target = BackboneState::get().find_last_touched_target(&included_target_types);
+                let filter = LastTouchedTargetFilter {
+                    included_target_types: &included_target_types,
+                    touch_cause: TargetTouchCause::Any,
+                };
+                let target = BackboneState::get().find_last_touched_target(filter);
                 let target = match target.as_ref() {
                     None => return,
                     Some(t) => t,

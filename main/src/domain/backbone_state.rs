@@ -8,8 +8,9 @@ use crate::domain::{
 };
 use enum_iterator::IntoEnumIterator;
 use playtime_clip_engine::rt::WeakMatrix;
+use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Reaper, Track};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -32,46 +33,72 @@ pub struct BackboneState {
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
+    was_processing_keyboard_input: Cell<bool>,
 }
 
 struct LastTouchedTargetsContainer {
     /// Contains the most recently touched targets at the end!
-    last_touched_targets: Vec<ReaperTarget>,
+    last_target_touches: Vec<TargetTouch>,
+}
+
+struct TargetTouch {
+    pub target: ReaperTarget,
+    pub caused_by_realearn: bool,
 }
 
 impl Default for LastTouchedTargetsContainer {
     fn default() -> Self {
-        let max_count = ReaperTargetType::into_enum_iter().count();
+        // Each target type can be there twice: Once touched via ReaLearn, once touched in other way
+        let max_count = ReaperTargetType::into_enum_iter().count() * 2;
         Self {
-            last_touched_targets: Vec::with_capacity(max_count),
+            last_target_touches: Vec::with_capacity(max_count),
         }
     }
 }
 
 impl LastTouchedTargetsContainer {
     /// Returns `true` if the last touched target has changed.
-    pub fn update(&mut self, touched_target: ReaperTarget) -> bool {
+    pub fn update(&mut self, event: TargetTouchEvent) -> bool {
         // Don't do anything if the given target is the same as the last touched one
-        if let Some(last_touched_target) = self.last_touched_targets.last() {
-            if &touched_target == last_touched_target {
+        if let Some(last_target_touch) = self.last_target_touches.last() {
+            if &event.target == &last_target_touch.target
+                && event.caused_by_realearn == last_target_touch.caused_by_realearn
+            {
                 return false;
             }
         }
-        // Remove all previous entries of that target type
-        let last_touched_target_type = ReaperTargetType::from_target(&touched_target);
-        self.last_touched_targets
-            .retain(|t| ReaperTargetType::from_target(t) != last_touched_target_type);
+        // Remove all previous entries of that target type and conditions
+        let last_touched_target_type = ReaperTargetType::from_target(&event.target);
+        self.last_target_touches.retain(|t| {
+            ReaperTargetType::from_target(&t.target) != last_touched_target_type
+                || t.caused_by_realearn != event.caused_by_realearn
+        });
         // Push it as last touched target
-        self.last_touched_targets.push(touched_target);
+        let touch = TargetTouch {
+            target: event.target,
+            caused_by_realearn: event.caused_by_realearn,
+        };
+        self.last_target_touches.push(touch);
         true
     }
 
-    pub fn find(&self, included_target_types: &HashSet<ReaperTargetType>) -> Option<&ReaperTarget> {
-        self.last_touched_targets.iter().rev().find(|t| {
-            let target_type = ReaperTargetType::from_target(t);
-            included_target_types.contains(&target_type)
-        })
+    pub fn find(&self, filter: LastTouchedTargetFilter) -> Option<&ReaperTarget> {
+        let touch = self.last_target_touches.iter().rev().find(|t| {
+            match filter.touch_cause {
+                TargetTouchCause::Reaper if t.caused_by_realearn => return false,
+                TargetTouchCause::Realearn if !t.caused_by_realearn => return false,
+                _ => {}
+            }
+            let target_type = ReaperTargetType::from_target(&t.target);
+            filter.included_target_types.contains(&target_type)
+        })?;
+        Some(&touch.target)
     }
+}
+
+pub struct LastTouchedTargetFilter<'a> {
+    pub included_target_types: &'a HashSet<ReaperTargetType>,
+    pub touch_cause: TargetTouchCause,
 }
 
 impl BackboneState {
@@ -88,7 +115,21 @@ impl BackboneState {
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
             instance_states: Default::default(),
+            was_processing_keyboard_input: Default::default(),
         }
+    }
+
+    /// Sets a flag that indicates that there's at least one ReaLearn mapping (in any instance)
+    /// which matched some computer keyboard input in this main loop cycle. This flag will be read
+    /// and reset a bit later in the same main loop cycle by [`RealearnControlSurfaceMiddleware`].
+    pub fn set_keyboard_input_match_flag(&self) {
+        self.was_processing_keyboard_input.set(true);
+    }
+
+    /// Resets the flag which indicates that there was at least one ReaLearn mapping which matched
+    /// some computer keyboard input. Returns whether the flag was set.
+    pub fn reset_keyboard_input_match_flag(&self) -> bool {
+        self.was_processing_keyboard_input.replace(false)
     }
 
     /// Returns a static reference to a Lua state, intended to be used in the main thread only!
@@ -127,16 +168,18 @@ impl BackboneState {
     pub fn extract_last_touched_targets(&self) -> Vec<ReaperTarget> {
         self.last_touched_targets_container
             .borrow()
-            .last_touched_targets
-            .clone()
+            .last_target_touches
+            .iter()
+            .map(|t| t.target.clone())
+            .collect()
     }
 
     pub fn find_last_touched_target(
         &self,
-        included_types: &HashSet<ReaperTargetType>,
+        filter: LastTouchedTargetFilter,
     ) -> Option<ReaperTarget> {
         let container = self.last_touched_targets_container.borrow();
-        container.find(included_types).cloned()
+        container.find(filter).cloned()
     }
 
     pub fn lives_on_upper_floor(&self, instance_id: &InstanceId) -> bool {
@@ -415,11 +458,11 @@ impl BackboneState {
         }
     }
 
-    pub(super) fn notify_target_touched(&self, target: ReaperTarget) {
+    pub(super) fn notify_target_touched(&self, event: TargetTouchEvent) {
         let has_changed = self
             .last_touched_targets_container
             .borrow_mut()
-            .update(target);
+            .update(event);
         if has_changed {
             self.additional_feedback_event_sender
                 .send_complaining(AdditionalFeedbackEvent::LastTouchedTargetChanged)
@@ -484,3 +527,8 @@ const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
 const REFERENCED_INSTANCE_NOT_AVAILABLE: &str = "other instance not available";
 const REFERENCED_CLIP_MATRIX_NOT_AVAILABLE: &str = "clip matrix of other instance not available";
 const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance also borrows";
+
+pub struct TargetTouchEvent {
+    pub target: ReaperTarget,
+    pub caused_by_realearn: bool,
+}
