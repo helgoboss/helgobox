@@ -475,11 +475,10 @@ impl ModeModel {
             let is_applicable = |is_feedback| {
                 let input = ModeApplicabilityCheckInput {
                     is_feedback,
-                    mode_parameter,
                     source_character: *source_character,
                     ..base_input
                 };
-                check_mode_applicability(input).is_relevant()
+                check_mode_applicability(mode_parameter, input).is_relevant()
             };
             (control_is_relevant && is_applicable(false))
                 || (feedback_is_relevant && is_applicable(true))

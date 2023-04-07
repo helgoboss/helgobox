@@ -3682,7 +3682,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     ) -> (Option<&str>, Option<&str>) {
         let base_input = ModeApplicabilityCheckInput {
             source_character,
-            mode_parameter,
             ..self.mapping.base_mode_applicability_check_input()
         };
         let control = ModeApplicabilityCheckInput {
@@ -3694,8 +3693,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             ..base_input
         };
         (
-            check_mode_applicability(control).hint(),
-            check_mode_applicability(feedback).hint(),
+            check_mode_applicability(mode_parameter, control).hint(),
+            check_mode_applicability(mode_parameter, feedback).hint(),
         )
     }
 

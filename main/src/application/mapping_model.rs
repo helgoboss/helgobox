@@ -496,8 +496,6 @@ impl MappingModel {
             // Any is okay, will be overwritten.
             source_character: DetailedSourceCharacter::RangeControl,
             absolute_mode: self.mode_model.absolute_mode(),
-            // Any is okay, will be overwritten.
-            mode_parameter: ModeParameter::TargetMinMax,
             target_value_sequence_is_set: !self.mode_model.target_value_sequence().is_empty(),
         }
     }
