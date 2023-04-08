@@ -5,8 +5,8 @@ use crate::domain::{
     TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
-use reaper_medium::{EditMode, ReaperFunctionError};
+use reaper_high::{ChangeEvent, Pan, Project, ReaperError, Track, TrackRoute};
+use reaper_medium::EditMode;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -133,7 +133,7 @@ impl RealearnTarget for RoutePanTarget {
 }
 
 impl RoutePanTarget {
-    fn pan(&self) -> Result<Pan, ReaperFunctionError> {
+    fn pan(&self) -> Result<Pan, ReaperError> {
         self.route.pan()
     }
 }

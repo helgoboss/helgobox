@@ -68,9 +68,9 @@ impl RealearnTarget for RoutePhaseTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            self.route.set_phase_inverted(false);
+            self.route.set_phase_inverted(false)?;
         } else {
-            self.route.set_phase_inverted(true);
+            self.route.set_phase_inverted(true)?;
         }
         Ok(HitResponse::processed_with_effect())
     }

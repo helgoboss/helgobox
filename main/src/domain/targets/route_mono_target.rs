@@ -68,9 +68,9 @@ impl RealearnTarget for RouteMonoTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            self.route.set_mono(false);
+            self.route.set_mono(false)?;
         } else {
-            self.route.set_mono(true);
+            self.route.set_mono(true)?;
         }
         Ok(HitResponse::processed_with_effect())
     }

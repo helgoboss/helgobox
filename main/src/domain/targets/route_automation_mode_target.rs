@@ -76,9 +76,9 @@ impl RealearnTarget for RouteAutomationModeTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            self.route.set_automation_mode(AutomationMode::TrimRead)
+            self.route.set_automation_mode(AutomationMode::TrimRead)?;
         } else {
-            self.route.set_automation_mode(self.mode);
+            self.route.set_automation_mode(self.mode)?;
         }
         Ok(HitResponse::processed_with_effect())
     }

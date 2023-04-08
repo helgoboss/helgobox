@@ -68,9 +68,9 @@ impl RealearnTarget for RouteMuteTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            self.route.unmute();
+            self.route.unmute()?;
         } else {
-            self.route.mute();
+            self.route.mute()?;
         }
         Ok(HitResponse::processed_with_effect())
     }
@@ -108,7 +108,7 @@ impl<'a> Target<'a> for RouteMuteTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = mute_unit_value(self.route.is_muted());
+        let val = mute_unit_value(self.route.is_muted().ok()?);
         Some(AbsoluteValue::Continuous(val))
     }
 

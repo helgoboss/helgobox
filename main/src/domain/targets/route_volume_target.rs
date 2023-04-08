@@ -8,8 +8,8 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
-use reaper_medium::{EditMode, ReaperFunctionError};
+use reaper_high::{ChangeEvent, Project, ReaperError, Track, TrackRoute, Volume};
+use reaper_medium::EditMode;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -138,7 +138,7 @@ impl RealearnTarget for RouteVolumeTarget {
 }
 
 impl RouteVolumeTarget {
-    fn volume(&self) -> Result<Volume, ReaperFunctionError> {
+    fn volume(&self) -> Result<Volume, ReaperError> {
         self.route.volume()
     }
 }
