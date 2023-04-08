@@ -1751,11 +1751,6 @@ impl Session {
                 if !filter.matches(&event) {
                     continue;
                 }
-                // TODO-high CONTINUE Make it possible to learn transport/actions.
-                // TODO-high CONTINUE Make it still possible to have normal control while
-                //  learning a target (as before, at least for instance target learning, but
-                //  different than before for global target learning). Low-prio.
-                //  => Test global learning and Learn many!
                 let session = weak_session.upgrade().ok_or(SESSION_GONE)?;
                 let mut session = session.borrow_mut();
                 session.learn_target(&event.target, weak_session.clone());

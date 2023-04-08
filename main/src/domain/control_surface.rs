@@ -376,14 +376,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
-                let touch_event = TargetTouchEvent {
-                    target,
-                    caused_by_realearn,
-                };
-                for sender in self.target_capture_senders.values() {
-                    let _ = sender.try_send(touch_event.clone());
-                }
-                BackboneState::get().notify_target_touched(touch_event);
+                process_touched_target(target, caused_by_realearn, &self.target_capture_senders);
             }
         }
         // Now that everything ran successfully, we can assign the old drained vector back to the
@@ -475,11 +468,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 p.process_additional_feedback_event(&event)
             }
             if let Some(target) = ReaperTarget::touched_from_additional_event(&event) {
-                let evt = TargetTouchEvent {
-                    target,
-                    caused_by_realearn,
-                };
-                BackboneState::get().notify_target_touched(evt);
+                process_touched_target(target, caused_by_realearn, &self.target_capture_senders);
             }
         }
     }
@@ -860,4 +849,19 @@ fn reset_midi_devices(
         };
         reaper_low.midi_init(input_arg, output_arg);
     }
+}
+
+fn process_touched_target(
+    target: ReaperTarget,
+    caused_by_realearn: bool,
+    target_capture_senders: &HashMap<Option<InstanceId>, TargetCaptureSender>,
+) {
+    let touch_event = TargetTouchEvent {
+        target,
+        caused_by_realearn,
+    };
+    for sender in target_capture_senders.values() {
+        let _ = sender.try_send(touch_event.clone());
+    }
+    BackboneState::get().notify_target_touched(touch_event);
 }
