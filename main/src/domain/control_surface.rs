@@ -35,7 +35,7 @@ use std::collections::HashMap;
 use std::mem;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
-type TargetCaptureSender = async_channel::Sender<ReaperTarget>;
+type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
@@ -376,13 +376,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
-                for sender in self.target_capture_senders.values() {
-                    let _ = sender.try_send(target.clone());
-                }
                 let touch_event = TargetTouchEvent {
                     target,
                     caused_by_realearn,
                 };
+                for sender in self.target_capture_senders.values() {
+                    let _ = sender.try_send(touch_event.clone());
+                }
                 BackboneState::get().notify_target_touched(touch_event);
             }
         }

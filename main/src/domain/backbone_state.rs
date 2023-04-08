@@ -102,8 +102,15 @@ pub struct LastTouchedTargetFilter<'a> {
 }
 
 impl<'a> LastTouchedTargetFilter<'a> {
-    pub fn matches(&self, target: &ReaperTarget) -> bool {
-        let actual_target_type = ReaperTargetType::from_target(target);
+    pub fn matches(&self, event: &TargetTouchEvent) -> bool {
+        // Check touch cause
+        match self.touch_cause {
+            TargetTouchCause::Realearn if !event.caused_by_realearn => return false,
+            TargetTouchCause::Reaper if event.caused_by_realearn => return false,
+            _ => {}
+        }
+        // Check target types
+        let actual_target_type = ReaperTargetType::from_target(&event.target);
         self.included_target_types.contains(&actual_target_type)
     }
 }
@@ -535,6 +542,7 @@ const REFERENCED_INSTANCE_NOT_AVAILABLE: &str = "other instance not available";
 const REFERENCED_CLIP_MATRIX_NOT_AVAILABLE: &str = "clip matrix of other instance not available";
 const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance also borrows";
 
+#[derive(Clone, Debug)]
 pub struct TargetTouchEvent {
     pub target: ReaperTarget,
     pub caused_by_realearn: bool,

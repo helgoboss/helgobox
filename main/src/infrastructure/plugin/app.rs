@@ -1194,14 +1194,15 @@ impl App {
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
             App::get()
                 .control_surface_main_task_sender
-                .stop_learning_targets(None);
+                .stop_capturing_targets(None);
         });
-        let receiver = self
-            .control_surface_main_task_sender
-            .request_next_reaper_targets(None);
-        while let Ok(target) = receiver.recv().await {
+        let receiver = self.control_surface_main_task_sender.capture_targets(None);
+        while let Ok(event) = receiver.recv().await {
+            if event.caused_by_realearn {
+                continue;
+            }
             if let Some((session, mapping)) =
-                self.find_first_relevant_session_with_target(compartment, &target)
+                self.find_first_relevant_session_with_target(compartment, &event.target)
             {
                 self.close_message_panel();
                 session
@@ -1361,13 +1362,16 @@ impl App {
         self.show_message_panel("ReaLearn", msg, || {
             App::get()
                 .control_surface_main_task_sender
-                .stop_learning_targets(None);
+                .stop_capturing_targets(None);
         });
-        self.control_surface_main_task_sender
-            .request_next_reaper_targets(None)
-            .recv()
-            .await
-            .map_err(|_| "stopped learning")
+        let receiver = self.control_surface_main_task_sender.capture_targets(None);
+        while let Ok(event) = receiver.recv().await {
+            if event.caused_by_realearn {
+                continue;
+            }
+            return Ok(event.target);
+        }
+        Err("capturing ended")
     }
 
     fn start_learning_source_for_target(&self, compartment: Compartment, target: &ReaperTarget) {
