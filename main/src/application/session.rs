@@ -1727,6 +1727,7 @@ impl Session {
         handle_control_disabling: bool,
         filter: Option<(HashSet<ReaperTargetType>, TargetTouchCause)>,
     ) {
+        let instance_id = self.instance_id;
         if handle_control_disabling {
             self.disable_control();
         }
@@ -1739,7 +1740,7 @@ impl Session {
                 .ok_or(SESSION_GONE)?
                 .borrow()
                 .control_surface_main_task_sender
-                .request_next_reaper_targets();
+                .request_next_reaper_targets(Some(instance_id));
             while let Ok(target) = receiver.recv().await {
                 if let Some(filter) = &filter {
                     let filter = LastTouchedTargetFilter {
@@ -1751,11 +1752,12 @@ impl Session {
                     }
                 }
                 // TODO-high CONTINUE Make it possible to learn transport/actions.
-                // TODO-high CONTINUE Make learn target work in multiple instances
-                //  simultaneously (as before)
                 // TODO-high CONTINUE Make it still possible to have normal control while
                 //  learning a target (as before, at least for instance target learning, but
                 //  different than before for global target learning). Low-prio.
+                //  => Test global learning and Learn many!
+                // TODO-high Ignore touch events caused by ReaLearn when doing global target capturing
+                //  and local UI-triggered learning
                 let session = weak_session.upgrade().ok_or(SESSION_GONE)?;
                 let mut session = session.borrow_mut();
                 session.learn_target(&target, weak_session.clone());
@@ -1781,7 +1783,7 @@ impl Session {
 
     fn stop_learning_target(&self) {
         self.control_surface_main_task_sender
-            .stop_learning_targets();
+            .stop_learning_targets(Some(self.instance_id));
         self.instance_state
             .borrow_mut()
             .set_mapping_which_learns_target(None);
@@ -2821,14 +2823,22 @@ pub type RealearnControlSurfaceMainTaskSender =
     SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
 
 impl RealearnControlSurfaceMainTaskSender {
-    pub fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
+    pub fn request_next_reaper_targets(
+        &self,
+        instance_id: Option<InstanceId>,
+    ) -> async_channel::Receiver<ReaperTarget> {
         let (sender, receiver) = async_channel::bounded(500);
-        self.send_complaining(RealearnControlSurfaceMainTask::StartLearningTargets(sender));
+        self.send_complaining(RealearnControlSurfaceMainTask::StartCapturingTargets(
+            instance_id,
+            sender,
+        ));
         receiver
     }
 
-    pub fn stop_learning_targets(&self) {
-        self.send_complaining(RealearnControlSurfaceMainTask::StopCapturingAnything);
+    pub fn stop_learning_targets(&self, instance_id: Option<InstanceId>) {
+        self.send_complaining(RealearnControlSurfaceMainTask::StopCapturingTargets(
+            instance_id,
+        ));
     }
 }
 

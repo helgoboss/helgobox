@@ -35,6 +35,7 @@ use std::collections::HashMap;
 use std::mem;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
+type TargetCaptureSender = async_channel::Sender<ReaperTarget>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
@@ -60,7 +61,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     full_beats: HashMap<ReaProject, u32>,
     fx_focus_state: Option<GetFocusedFx2Result>,
-    state: State,
+    target_capture_senders: HashMap<Option<InstanceId>, TargetCaptureSender>,
+    osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
     device_change_detector: DeviceChangeDetector,
@@ -86,22 +88,15 @@ pub enum Garbage {
     ClipMatrix(WeakMatrix),
 }
 
-#[derive(Debug)]
-enum State {
-    Normal,
-    CapturingOsc(OscCaptureSender),
-    LearningTarget(async_channel::Sender<ReaperTarget>),
-}
-
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     // Removing a main processor is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
     LogDebugInfo,
-    StartLearningTargets(async_channel::Sender<ReaperTarget>),
+    StartCapturingTargets(Option<InstanceId>, TargetCaptureSender),
+    StopCapturingTargets(Option<InstanceId>),
     StartCapturingOsc(OscCaptureSender),
-    /// Stops capturing targets or OSC messages (if currently capturing).
-    StopCapturingAnything,
+    StopCapturingOsc,
     SendAllFeedback,
 }
 
@@ -241,7 +236,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             counter: 0,
             full_beats: Default::default(),
             fx_focus_state: Default::default(),
-            state: State::Normal,
+            target_capture_senders: Default::default(),
+            osc_capture_sender: None,
             osc_input_devices: vec![],
             garbage_receiver,
             device_change_detector,
@@ -380,10 +376,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
-                // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)
-                //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
-                //  touching for "Last touched" target and global learning (see
-                //  LearningTarget state)! Connect the dots!
+                for sender in self.target_capture_senders.values() {
+                    let _ = sender.try_send(target.clone());
+                }
                 let touch_event = TargetTouchEvent {
                     target,
                     caused_by_realearn,
@@ -417,14 +412,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 LogDebugInfo => {
                     self.log_debug_info();
                 }
-                StartLearningTargets(sender) => {
-                    self.state = State::LearningTarget(sender);
+                StartCapturingTargets(instance_id, sender) => {
+                    self.target_capture_senders.insert(instance_id, sender);
                 }
-                StopCapturingAnything => {
-                    self.state = State::Normal;
+                StopCapturingTargets(instance_id) => {
+                    self.target_capture_senders.remove(&instance_id);
                 }
                 StartCapturingOsc(sender) => {
-                    self.state = State::CapturingOsc(sender);
+                    self.osc_capture_sender = Some(sender);
+                }
+                StopCapturingOsc => {
+                    self.osc_capture_sender = None;
                 }
                 SendAllFeedback => {
                     for m in &*self.main_processors.borrow() {
@@ -452,18 +450,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_main_processors(&mut self, timestamp: ControlEventTimestamp) {
-        match &self.state {
-            State::Normal => {
-                for p in &mut *self.main_processors.borrow_mut() {
-                    p.run_essential(timestamp);
-                    p.run_control(timestamp);
-                }
-            }
-            State::CapturingOsc(_) | State::LearningTarget(_) => {
-                for p in &mut *self.main_processors.borrow_mut() {
-                    p.run_essential(timestamp);
-                }
-            }
+        for p in &mut *self.main_processors.borrow_mut() {
+            p.run_essential(timestamp);
+            p.run_control(timestamp);
         }
     }
 
@@ -697,23 +686,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             })
             .collect();
         for (dev_id, packets) in packets_by_device {
-            match &self.state {
-                State::Normal => {
-                    for proc in &mut *self.main_processors.borrow_mut() {
-                        if proc.wants_osc_from(&dev_id) {
-                            for packet in &packets {
-                                let evt = ControlEvent::new(packet, timestamp);
-                                proc.process_incoming_osc_packet(evt);
-                            }
-                        }
+            for proc in &mut *self.main_processors.borrow_mut() {
+                if proc.wants_osc_from(&dev_id) {
+                    for packet in &packets {
+                        let evt = ControlEvent::new(packet, timestamp);
+                        proc.process_incoming_osc_packet(evt);
                     }
                 }
-                State::CapturingOsc(sender) => {
-                    for packet in packets {
-                        process_incoming_osc_packet_for_learning(dev_id, sender, packet)
-                    }
+            }
+            if let Some(sender) = &self.osc_capture_sender {
+                for packet in packets {
+                    process_incoming_osc_packet_for_learning(dev_id, sender, packet)
                 }
-                State::LearningTarget(_) => {}
             }
         }
     }
@@ -726,21 +710,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // We always need to forward to the change detection middleware even if we are in
         // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
-            match &self.state {
-                State::Normal => {
-                    // We don't process change events immediately in order to be able to process
-                    // multiple events occurring in one main loop cycle as a natural batch. This
-                    // is important for performance reasons
-                    // (see https://github.com/helgoboss/realearn/issues/553).
-                    change_event_queue.push(e);
-                }
-                State::LearningTarget(sender) => {
-                    if let Some(target) = ReaperTarget::touched_from_change_event(e) {
-                        let _ = sender.try_send(target);
-                    }
-                }
-                State::CapturingOsc(_) => {}
-            }
+            // We don't process change events immediately in order to be able to process
+            // multiple events occurring in one main loop cycle as a natural batch. This
+            // is important for performance reasons
+            // (see https://github.com/helgoboss/realearn/issues/553).
+            change_event_queue.push(e);
         })
     }
 

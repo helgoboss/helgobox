@@ -1194,11 +1194,11 @@ impl App {
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
             App::get()
                 .control_surface_main_task_sender
-                .stop_learning_targets();
+                .stop_learning_targets(None);
         });
         let receiver = self
             .control_surface_main_task_sender
-            .request_next_reaper_targets();
+            .request_next_reaper_targets(None);
         while let Ok(target) = receiver.recv().await {
             if let Some((session, mapping)) =
                 self.find_first_relevant_session_with_target(compartment, &target)
@@ -1340,7 +1340,7 @@ impl App {
             .send_complaining(NormalAudioHookTask::StopCapturingMidi);
         App::get()
             .control_surface_main_task_sender
-            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingAnything);
+            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
     }
 
     fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
@@ -1361,10 +1361,10 @@ impl App {
         self.show_message_panel("ReaLearn", msg, || {
             App::get()
                 .control_surface_main_task_sender
-                .stop_learning_targets();
+                .stop_learning_targets(None);
         });
         self.control_surface_main_task_sender
-            .request_next_reaper_targets()
+            .request_next_reaper_targets(None)
             .recv()
             .await
             .map_err(|_| "stopped learning")
