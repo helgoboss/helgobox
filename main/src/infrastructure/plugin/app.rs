@@ -1,5 +1,6 @@
 use crate::application::{
-    Session, SessionCommand, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    RealearnControlSurfaceMainTaskSender, Session, SessionCommand, SharedMapping, SharedSession,
+    VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
 use crate::base::{
@@ -81,9 +82,6 @@ pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession, RealearnS
 
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
-
-pub type RealearnControlSurfaceMainTaskSender =
-    SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
 
 #[derive(Debug)]
 pub struct App {
@@ -645,6 +643,10 @@ impl App {
         &self.osc_feedback_task_sender
     }
 
+    pub fn control_surface_main_task_sender(&self) -> &RealearnControlSurfaceMainTaskSender {
+        &self.control_surface_main_task_sender
+    }
+
     pub fn occasional_matrix_update_sender(
         &self,
     ) -> &tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch> {
@@ -1092,6 +1094,7 @@ impl App {
                     let _ = App::get()
                         .learn_mapping_reassigning_source(Compartment::Main, false)
                         .await;
+                    Ok(())
                 });
             },
             ActionKind::NotToggleable,
@@ -1104,6 +1107,7 @@ impl App {
                     let _ = App::get()
                         .learn_mapping_reassigning_source(Compartment::Main, true)
                         .await;
+                    Ok(())
                 });
             },
             ActionKind::NotToggleable,
@@ -1116,6 +1120,7 @@ impl App {
                     let _ = App::get()
                         .find_first_mapping_by_source(Compartment::Main)
                         .await;
+                    Ok(())
                 });
             },
             ActionKind::NotToggleable,
@@ -1128,6 +1133,7 @@ impl App {
                     let _ = App::get()
                         .find_first_mapping_by_target(Compartment::Main)
                         .await;
+                    Ok(())
                 });
             },
             ActionKind::NotToggleable,
@@ -1186,9 +1192,13 @@ impl App {
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
-            App::stop_learning_targets();
+            App::get()
+                .control_surface_main_task_sender
+                .stop_learning_targets();
         });
-        let receiver = self.request_next_reaper_targets();
+        let receiver = self
+            .control_surface_main_task_sender
+            .request_next_reaper_targets();
         while let Ok(target) = receiver.recv().await {
             if let Some((session, mapping)) =
                 self.find_first_relevant_session_with_target(compartment, &target)
@@ -1330,7 +1340,7 @@ impl App {
             .send_complaining(NormalAudioHookTask::StopCapturingMidi);
         App::get()
             .control_surface_main_task_sender
-            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
+            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingAnything);
     }
 
     fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
@@ -1349,25 +1359,15 @@ impl App {
 
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
-            App::stop_learning_targets();
+            App::get()
+                .control_surface_main_task_sender
+                .stop_learning_targets();
         });
-        self.request_next_reaper_targets()
+        self.control_surface_main_task_sender
+            .request_next_reaper_targets()
             .recv()
             .await
             .map_err(|_| "stopped learning")
-    }
-
-    fn stop_learning_targets() {
-        App::get()
-            .control_surface_main_task_sender
-            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
-    }
-
-    fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
-        let (sender, receiver) = async_channel::bounded(500);
-        self.control_surface_main_task_sender
-            .send_complaining(RealearnControlSurfaceMainTask::StartLearningTargets(sender));
-        receiver
     }
 
     fn start_learning_source_for_target(&self, compartment: Compartment, target: &ReaperTarget) {

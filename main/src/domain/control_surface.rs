@@ -100,7 +100,8 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     LogDebugInfo,
     StartLearningTargets(async_channel::Sender<ReaperTarget>),
     StartCapturingOsc(OscCaptureSender),
-    StopCapturingOsc,
+    /// Stops capturing targets or OSC messages (if currently capturing).
+    StopCapturingAnything,
     SendAllFeedback,
 }
 
@@ -419,7 +420,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 StartLearningTargets(sender) => {
                     self.state = State::LearningTarget(sender);
                 }
-                StopCapturingOsc => {
+                StopCapturingAnything => {
                     self.state = State::Normal;
                 }
                 StartCapturingOsc(sender) => {
@@ -734,8 +735,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     change_event_queue.push(e);
                 }
                 State::LearningTarget(sender) => {
-                    // At some point we want the Rx stuff out of the domain layer. This is one step
-                    // in this direction.
                     if let Some(target) = ReaperTarget::touched_from_change_event(e) {
                         let _ = sender.try_send(target);
                     }

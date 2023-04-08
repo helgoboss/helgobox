@@ -55,6 +55,7 @@ where
             let response = inner_response_future.await;
             // Push result via channel to Tokio runtime thread
             let _ = tx.send(response);
+            Ok(())
         });
         let response_future = async {
             rx.await.unwrap_or_else(|_| {

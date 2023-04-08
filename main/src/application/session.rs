@@ -19,9 +19,10 @@ use crate::domain::{
     LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
     MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
     ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnClipMatrix, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
-    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    RealearnClipMatrix, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
+    TargetControlEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
+    VirtualSourceValue,
 };
 use derivative::Derivative;
 use enum_map::EnumMap;
@@ -39,7 +40,9 @@ use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use playtime_clip_engine::base::ClipMatrixEvent;
-use realearn_api::persistence::{FxDescriptor, MappingModification, TrackDescriptor};
+use realearn_api::persistence::{
+    FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+};
 use reaper_medium::RecordingInput;
 use std::error::Error;
 use std::fmt;
@@ -148,6 +151,7 @@ pub struct Session {
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
+    control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
     /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
     /// instance but this instance is not yet loaded.
     unresolved_foreign_clip_matrix_session_id: Option<String>,
@@ -238,6 +242,7 @@ impl Session {
         >,
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
+        control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
     ) -> Session {
         let session = Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -302,6 +307,7 @@ impl Session {
             global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
+            control_surface_main_task_sender,
             unresolved_foreign_clip_matrix_session_id: None,
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
@@ -1716,53 +1722,46 @@ impl Session {
     /// future.
     fn start_learning_target_internal(
         &mut self,
-        session: WeakSession,
+        weak_session: WeakSession,
         mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
-        included_targets: Option<HashSet<ReaperTargetType>>,
+        filter: Option<(HashSet<ReaperTargetType>, TargetTouchCause)>,
     ) {
-        self.instance_state
-            .borrow_mut()
-            .set_mapping_which_learns_target(Some(mapping_id));
         if handle_control_disabling {
             self.disable_control();
         }
-        when(
-            ReaperTarget::touched()
-                .filter(move |t| {
-                    if let Some(included_targets) = &included_targets {
-                        let actual_target_type = ReaperTargetType::from_target(t);
-                        included_targets.contains(&actual_target_type)
-                    } else {
-                        true
+        self.instance_state
+            .borrow_mut()
+            .set_mapping_which_learns_target(Some(mapping_id));
+        Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+            let receiver = weak_session
+                .upgrade()
+                .ok_or(SESSION_GONE)?
+                .borrow()
+                .control_surface_main_task_sender
+                .request_next_reaper_targets();
+            while let Ok(target) = receiver.recv().await {
+                if let Some(filter) = &filter {
+                    let filter = LastTouchedTargetFilter {
+                        included_target_types: &filter.0,
+                        touch_cause: filter.1,
+                    };
+                    if !filter.matches(&target) {
+                        continue;
                     }
-                })
-                // We have this explicit stop criteria because we listen to global REAPER
-                // events.
-                .take_until(self.party_is_over())
-                .take_until(
-                    self.instance_state
-                        .borrow()
-                        .mapping_which_learns_target()
-                        .changed_to(None),
-                )
-                .take(1),
-        )
-        .with(session)
-        .finally(move |session| {
-            let session = session.borrow();
-            if handle_control_disabling {
-                session.enable_control();
+                }
+                // TODO-high CONTINUE Make it possible to learn transport/actions.
+                // TODO-high CONTINUE Make learn target work in multiple instances
+                //  simultaneously (as before)
+                // TODO-high CONTINUE Make it still possible to have normal control while
+                //  learning a target (as before, at least for instance target learning, but
+                //  different than before for global target learning). Low-prio.
+                let session = weak_session.upgrade().ok_or(SESSION_GONE)?;
+                let mut session = session.borrow_mut();
+                session.learn_target(&target, weak_session.clone());
+                session.stop_learning_target();
             }
-            session
-                .instance_state
-                .borrow_mut()
-                .set_mapping_which_learns_target(None);
-        })
-        .do_async(|session, target| {
-            session
-                .borrow_mut()
-                .learn_target(target.as_ref(), Rc::downgrade(&session));
+            Ok(())
         });
     }
 
@@ -1781,9 +1780,12 @@ impl Session {
     }
 
     fn stop_learning_target(&self) {
+        self.control_surface_main_task_sender
+            .stop_learning_targets();
         self.instance_state
             .borrow_mut()
             .set_mapping_which_learns_target(None);
+        self.enable_control();
     }
 
     fn find_index_of_closest_mapping(
@@ -2632,12 +2634,8 @@ impl DomainEventHandler for WeakSession {
                                 .included_targets
                                 .map(ReaperTargetType::from_learnable_target_kinds)
                                 .unwrap_or_else(ReaperTargetType::all);
-                            s.start_learning_target_internal(
-                                self.clone(),
-                                id,
-                                false,
-                                Some(included_targets),
-                            );
+                            let filter = (included_targets, m.touch_cause.unwrap_or_default());
+                            s.start_learning_target_internal(self.clone(), id, false, Some(filter));
                         } else {
                             s.stop_learning_target();
                         }
@@ -2818,3 +2816,20 @@ pub struct MappingChangeContext<'a> {
     pub mapping: &'a mut MappingModel,
     pub extended_context: ExtendedProcessorContext<'a>,
 }
+
+pub type RealearnControlSurfaceMainTaskSender =
+    SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
+
+impl RealearnControlSurfaceMainTaskSender {
+    pub fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
+        let (sender, receiver) = async_channel::bounded(500);
+        self.send_complaining(RealearnControlSurfaceMainTask::StartLearningTargets(sender));
+        receiver
+    }
+
+    pub fn stop_learning_targets(&self) {
+        self.send_complaining(RealearnControlSurfaceMainTask::StopCapturingAnything);
+    }
+}
+
+const SESSION_GONE: &str = "session gone";

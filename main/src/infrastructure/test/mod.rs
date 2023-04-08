@@ -23,8 +23,10 @@ pub fn register_test_action() {
 }
 
 fn run_test() {
-    Global::future_support()
-        .spawn_in_main_thread_from_main_thread(async { Test::new().test().await })
+    Global::future_support().spawn_in_main_thread_from_main_thread(async {
+        Test::new().test().await;
+        Ok(())
+    })
 }
 
 #[derive(Default)]

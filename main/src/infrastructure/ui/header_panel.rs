@@ -1168,6 +1168,7 @@ impl HeaderPanel {
                 .expect("this instance has no clip matrix")
                 .freeze()
                 .await;
+            Ok(())
         });
     }
 

@@ -101,6 +101,13 @@ pub struct LastTouchedTargetFilter<'a> {
     pub touch_cause: TargetTouchCause,
 }
 
+impl<'a> LastTouchedTargetFilter<'a> {
+    pub fn matches(&self, target: &ReaperTarget) -> bool {
+        let actual_target_type = ReaperTargetType::from_target(target);
+        self.included_target_types.contains(&actual_target_type)
+    }
+}
+
 impl BackboneState {
     pub fn new(
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,

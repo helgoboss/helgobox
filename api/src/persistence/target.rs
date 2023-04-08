@@ -1020,6 +1020,8 @@ impl MappingModification {
 pub struct LearnTargetMappingModification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub included_targets: Option<HashSet<LearnableTargetKind>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub touch_cause: Option<TargetTouchCause>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]

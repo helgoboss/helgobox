@@ -2538,6 +2538,7 @@ impl TargetModel {
                                     MappingModification::LearnTarget(
                                         LearnTargetMappingModification {
                                             included_targets: Some(self.included_targets.clone()),
+                                            touch_cause: Some(self.touch_cause),
                                         },
                                     )
                                 }

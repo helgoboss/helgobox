@@ -676,6 +676,7 @@ fn convert_real_target(
                 MappingModificationKind::LearnTarget => {
                     MappingModification::LearnTarget(LearnTargetMappingModification {
                         included_targets: data.included_targets,
+                        touch_cause: style.required_value(data.touch_cause),
                     })
                 }
                 MappingModificationKind::SetTargetToLastTouched => {
