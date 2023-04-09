@@ -577,7 +577,7 @@ impl HeaderPanel {
                 menu(
                     "Logging",
                     vec![
-                        item("Log debug info", || MainMenuAction::LogDebugInfo),
+                        item("Log debug info (now)", || MainMenuAction::LogDebugInfo),
                         item_with_opts(
                             "Log real control messages",
                             ItemOpts {

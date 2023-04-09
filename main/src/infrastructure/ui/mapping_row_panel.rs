@@ -768,7 +768,7 @@ impl MappingRowPanel {
                                 )
                             },
                         ),
-                        item("Log debug info", || MenuAction::LogDebugInfo),
+                        item("Log debug info (now)", || MenuAction::LogDebugInfo),
                     ],
                 ),
             ];

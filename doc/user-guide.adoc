@@ -1080,7 +1080,7 @@ Reason: You probably want to refer to values of this parameter in certain parts 
 [#logging]
 ====== Logging
 
-* **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+* **Log debug info (now):** Logs some information about ReaLearn's internal state. Can be interesting for
 investigating bugs or understanding how this plug-in works.
 * ** Log real control messages:** When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console. Each log entry contains the following information:
 ** Timestamp in seconds
@@ -1531,7 +1531,7 @@ which allows you access to the following functionality:
 ** *Copy as Lua (include default values):* Includes even default values.
 ** *Paste from Lua (replaces):* Like _Paste (replace)_ but treats the clipboard content as Lua code.
 ** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Lua code.
-** *Log debug info:* Logs debug information about this particular mapping.
+** *Log debug info (now):* Logs debug information about this particular mapping.
 
 [#mapping-panel]
 === Mapping panel
