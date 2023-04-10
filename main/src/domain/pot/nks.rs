@@ -5,10 +5,12 @@ use crate::domain::pot::{
     Preset, PresetCollection, RuntimeState,
 };
 use fallible_iterator::FallibleIterator;
+use indexmap::IndexSet;
 use riff_io::{ChunkMeta, Entry, RiffFile};
-use rusqlite::{Connection, OpenFlags, ToSql};
+use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::collections::HashMap;
 use std::error::Error;
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -244,12 +246,16 @@ impl PresetDb {
         &self,
         state: &RuntimeState,
     ) -> Result<(RuntimeState, Collections), Box<dyn Error>> {
-        let (nks_filter_settings, nks_filter_item_collections) =
-            self.build_filter_items(state.filter_settings.nks)?;
+        let (filter_settings, mut filters) = self.build_filter_items(state.filter_settings.nks)?;
         let preset_collection = self.build_preset_collection(&state.filter_settings.nks)?;
+        let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
+        let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
+        narrow_down(&mut filters.categories, &non_empty_categories);
+        narrow_down(&mut filters.sub_categories, &non_empty_categories);
+        narrow_down(&mut filters.modes, &non_empty_modes);
         let state = RuntimeState {
             filter_settings: FilterSettings {
-                nks: nks_filter_settings,
+                nks: filter_settings,
             },
             preset_id: state.preset_id,
         };
@@ -261,7 +267,7 @@ impl PresetDb {
                     parent_name: Default::default(),
                     name: "NKS".to_string(),
                 }],
-                nks: nks_filter_item_collections,
+                nks: filters,
             },
             preset_collection,
         };
@@ -271,8 +277,43 @@ impl PresetDb {
     fn build_preset_collection(
         &self,
         filter_settings: &NksFilterSettings,
-    ) -> Result<PresetCollection, Box<dyn Error>> {
-        let mut from_extras = String::new();
+    ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
+        self.execute_preset_query(filter_settings, "i.id", PresetId)
+    }
+
+    fn find_non_empty_categories(
+        &self,
+        filter_settings: NksFilterSettings,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = NksFilterSettings {
+            category: None,
+            sub_category: None,
+            mode: None,
+            ..filter_settings
+        };
+        self.execute_preset_query(&filter_settings, "DISTINCT ic.category_id", FilterItemId)
+    }
+
+    fn find_non_empty_modes(
+        &self,
+        filter_settings: NksFilterSettings,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = NksFilterSettings {
+            mode: None,
+            ..filter_settings
+        };
+        self.execute_preset_query(&filter_settings, "DISTINCT im.mode_id", FilterItemId)
+    }
+
+    fn execute_preset_query<R>(
+        &self,
+        filter_settings: &NksFilterSettings,
+        select_clause: &str,
+        index_mapper: impl Fn(u32) -> R,
+    ) -> Result<IndexSet<R>, Box<dyn Error>>
+    where
+        R: Hash + Eq,
+    {
         let mut where_extras = String::new();
         let mut params: Vec<&dyn ToSql> = vec![];
         // Bank and sub bank (= "Instrument" and "Bank")
@@ -290,11 +331,9 @@ impl PresetDb {
         }
         // Category and sub category (= "Type" and "Sub type")
         if let Some(sub_category_id) = &filter_settings.sub_category {
-            from_extras += " JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
             where_extras += " AND ic.category_id = ?";
             params.push(&sub_category_id.0);
         } else if let Some(category_id) = &filter_settings.category {
-            from_extras += " JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
             where_extras += r#"
                 AND ic.category_id IN (
                     SELECT child.id FROM k_category child WHERE child.category = (
@@ -305,20 +344,31 @@ impl PresetDb {
         }
         // Mode (= "Character")
         if let Some(mode_id) = &filter_settings.mode {
-            from_extras += " JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
             where_extras += " AND im.mode_id = ?";
             params.push(&mode_id.0);
         }
         // Put it all together
-        let sql = format!("SELECT i.id FROM k_sound_info i{from_extras} WHERE true{where_extras}");
+        let sql = format!(
+            r#"
+            SELECT {select_clause}
+            FROM k_sound_info i
+                JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
+                JOIN k_sound_info_mode im ON i.id = im.sound_info_id
+            WHERE true{where_extras}
+            "#
+        );
         let mut statement = self.connection.prepare_cached(&sql)?;
-        let collection: Result<PresetCollection, _> = statement
+        let collection: Result<IndexSet<R>, _> = statement
             .query(params.as_slice())?
-            .mapped(|row| Ok(PresetId(row.get(0)?)))
+            .mapped(|row| Ok(index_mapper(row.get(0)?)))
             .collect();
         Ok(collection?)
     }
 
+    /// Creates filter collections. Narrows down sub filter items as far as possible (based on
+    /// the currently selected parent filter item). Doesn't yet narrow down according to whether
+    /// presets actually exists which satisfy that filter item! This must be narrowed down at a
+    /// later stage!
     pub fn build_filter_items(
         &self,
         mut settings: NksFilterSettings,
@@ -409,4 +459,11 @@ fn path_to_preset_db() -> Result<PathBuf, &'static str> {
     let data_dir = dirs::data_local_dir().ok_or("couldn't identify data-local dir")?;
     let komplete_kontrol_dir = data_dir.join("Native Instruments/Komplete Kontrol");
     Ok(komplete_kontrol_dir.join("komplete.db3"))
+}
+
+fn narrow_down(
+    filter_items: &mut Vec<FilterItem>,
+    non_empty_filter_item_ids: &IndexSet<FilterItemId>,
+) {
+    filter_items.retain(|item| non_empty_filter_item_ids.contains(&item.id))
 }
