@@ -188,6 +188,7 @@ unsafe extern "C" fn view_dialog_proc(
                     ViewManager::get().borrow_mut().unregister_view(hwnd);
                     1
                 }
+                raw::WM_SIZE => view.resized().into(),
                 raw::WM_COMMAND => {
                     let resource_id = loword(wparam);
                     match hiword(wparam) as u32 {

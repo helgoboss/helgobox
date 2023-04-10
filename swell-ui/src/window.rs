@@ -22,6 +22,27 @@ impl Window {
         NonNull::new(hwnd).map(Window::from_non_null)
     }
 
+    pub fn from_raw_window_handle(handle: RawWindowHandle) -> Result<Self, &'static str> {
+        let window_ptr = match handle {
+            RawWindowHandle::AppKit(h) => h.ns_view,
+            RawWindowHandle::Win32(h) => h.hwnd,
+            _ => return Err("unsupported raw window handle"),
+        };
+        Self::new(window_ptr as _).ok_or("couldn't obtain window from raw window handle")
+    }
+
+    pub fn screen_size() -> Dimensions<Pixels> {
+        Dimensions::new(Self::screen_width(), Self::screen_height())
+    }
+
+    pub fn screen_width() -> Pixels {
+        Pixels(Swell::get().GetSystemMetrics(raw::SM_CXSCREEN) as _)
+    }
+
+    pub fn screen_height() -> Pixels {
+        Pixels(Swell::get().GetSystemMetrics(raw::SM_CYSCREEN) as _)
+    }
+
     pub fn cursor_pos() -> Point<Pixels> {
         let mut point = raw::POINT { x: 0, y: 0 };
         unsafe { Swell::get().GetCursorPos(&mut point as _) };
@@ -575,6 +596,21 @@ impl Window {
                 0,
                 0,
                 (raw::SWP_NOSIZE | raw::SWP_NOZORDER) as _,
+            );
+        }
+    }
+
+    pub fn resize(self, dimensions: Dimensions<Pixels>) {
+        unsafe {
+            Swell::get().SetWindowPos(
+                self.raw,
+                null_mut(),
+                0,
+                0,
+                dimensions.width.as_raw(),
+                dimensions.height.as_raw(),
+                // (raw::SWP_NOMOVE | raw::SWP_NOZORDER) as _,
+                0,
             );
         }
     }

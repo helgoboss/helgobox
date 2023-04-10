@@ -47,9 +47,9 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, PlainTextEngine, ScriptEditorInput, SearchExpression, SerializationFormat,
-    SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
-    UntaggedDataObject,
+    MappingRowsPanel, PlainTextEngine, PotBrowserPanel, ScriptEditorInput, SearchExpression,
+    SerializationFormat, SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel,
+    SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -74,7 +74,7 @@ pub struct HeaderPanel {
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
-    notes_editor: RefCell<Option<SharedView<SimpleScriptEditorPanel>>>,
+    extra_panel: RefCell<Option<SharedView<dyn View>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -93,7 +93,7 @@ impl HeaderPanel {
             plugin_parameters,
             panel_manager,
             group_panel: Default::default(),
-            notes_editor: Default::default(),
+            extra_panel: Default::default(),
             is_invoked_programmatically: false.into(),
         }
     }
@@ -122,15 +122,16 @@ impl HeaderPanel {
             },
         };
         let editor = SimpleScriptEditorPanel::new(input);
-        let shared_editor = SharedView::new(editor);
-        if let Some(existing_editor) = self
-            .notes_editor
-            .borrow_mut()
-            .replace(shared_editor.clone())
-        {
-            existing_editor.close();
+        self.open_extra_panel(editor);
+    }
+
+    fn open_extra_panel(&self, panel: impl View + 'static) {
+        let panel = SharedView::new(panel);
+        let panel_clone = panel.clone();
+        if let Some(existing_panel) = self.extra_panel.replace(Some(panel)) {
+            existing_panel.close();
         };
-        shared_editor.open(self.view.require_window());
+        panel_clone.open(self.view.require_window());
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -573,6 +574,7 @@ impl HeaderPanel {
                 item("Reload all presets from disk", || {
                     MainMenuAction::ReloadAllPresets
                 }),
+                item("Open pot browser", || MainMenuAction::OpenPotBrowser),
                 separator(),
                 menu(
                     "Logging",
@@ -733,6 +735,7 @@ impl HeaderPanel {
             }
             MainMenuAction::ChangeSessionId => self.change_session_id(),
             MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
+            MainMenuAction::OpenPotBrowser => self.open_pot_browser(),
             MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
             MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
             MainMenuAction::LogDebugInfo => self.log_debug_info(),
@@ -2219,6 +2222,11 @@ impl HeaderPanel {
         let _ = App::get().main_preset_manager().borrow_mut().load_presets();
     }
 
+    fn open_pot_browser(&self) {
+        let panel = PotBrowserPanel::new();
+        self.open_extra_panel(panel);
+    }
+
     fn open_preset_folder(&self) {
         let path = App::realearn_preset_dir_path();
         let result = open_in_file_manager(&path).map_err(|e| e.into());
@@ -2928,6 +2936,7 @@ enum MainMenuAction {
     RemovePresetLink(PresetLinkScope, FxId),
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
+    OpenPotBrowser,
     OpenPresetFolder,
     EditNewOscDevice,
     EditExistingOscDevice(OscDeviceId),

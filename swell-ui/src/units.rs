@@ -1,7 +1,7 @@
 use std::ops::{Add, Mul};
 
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct DialogUnits(pub u32);
 
 impl DialogUnits {
@@ -53,7 +53,7 @@ impl Pixels {
 }
 
 /// Point in a coordinate system.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Point<T> {
     pub x: T,
     pub y: T,

@@ -168,6 +168,7 @@ device_query = "1.1.1"
 egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn" }
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
 egui = "0.19.0"
+egui_extras = "0.19.0"
 # For Pot target
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 # For Pot target
@@ -178,6 +179,8 @@ riff-io = "0.1.2"
 rmp-serde = "1.1.1"
 # For Pot target (NKS)
 dirs = "4.0.0"
+# For interfacing with egui
+raw-window-handle = "0.4.2"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

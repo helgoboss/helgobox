@@ -45,6 +45,10 @@ mod target_filter_panel;
 pub use target_filter_panel::*;
 
 #[allow(dead_code)]
+mod pot_browser_panel;
+pub use pot_browser_panel::*;
+
+#[allow(dead_code)]
 mod control_transformation_templates;
 pub use control_transformation_templates::*;
 

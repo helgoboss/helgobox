@@ -682,6 +682,7 @@ pub enum Style {
     WS_VISIBLE,
     WS_CAPTION,
     WS_SYSMENU,
+    // WS_THICKFRAME,
     DS_CONTROL,
     WS_CHILD,
     CBS_DROPDOWNLIST,

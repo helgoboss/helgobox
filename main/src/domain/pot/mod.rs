@@ -4,12 +4,14 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use crate::domain::pot::nks::{NksFilterSettings, PersistentNksFilterSettings};
+use crate::domain::pot::nks::{NksFile, NksFilterSettings, PersistentNksFilterSettings};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
+use reaper_high::{Fx, Reaper};
+use reaper_medium::InsertMediaMode;
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub mod nks;
@@ -83,8 +85,8 @@ impl PotUnit {
 
 #[derive(Debug)]
 pub struct RuntimePotUnit {
-    runtime_state: RuntimeState,
-    collections: Collections,
+    pub runtime_state: RuntimeState,
+    pub collections: Collections,
 }
 
 #[derive(Debug, Default)]
@@ -129,6 +131,19 @@ impl RuntimeState {
             }
         })
     }
+
+    pub fn filter_item_id_mut(&mut self, kind: PotFilterItemKind) -> &mut Option<FilterItemId> {
+        use PotFilterItemKind::*;
+        let settings = &mut self.filter_settings.nks;
+        match kind {
+            NksBank => &mut settings.bank,
+            NksSubBank => &mut settings.sub_bank,
+            NksCategory => &mut settings.category,
+            NksSubCategory => &mut settings.sub_category,
+            NksMode => &mut settings.mode,
+            _ => panic!("unsupported filter item ID"),
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -159,6 +174,21 @@ pub struct FilterSettings {
 pub struct Collections {
     filter_item_collections: FilterItemCollections,
     preset_collection: PresetCollection,
+}
+
+impl Collections {
+    pub fn find_all_filter_items(&self, kind: PotFilterItemKind) -> &[FilterItem] {
+        use PotFilterItemKind::*;
+        let collections = &self.filter_item_collections;
+        match kind {
+            Database => &collections.databases,
+            NksBank => &collections.nks.banks,
+            NksSubBank => &collections.nks.sub_banks,
+            NksCategory => &collections.nks.categories,
+            NksSubCategory => &collections.nks.sub_categories,
+            NksMode => &collections.nks.modes,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -240,17 +270,7 @@ impl RuntimePotUnit {
     }
 
     pub fn set_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
-        use PotFilterItemKind::*;
-        let settings = &mut self.runtime_state.filter_settings.nks;
-        let prop = match kind {
-            NksBank => &mut settings.bank,
-            NksSubBank => &mut settings.sub_bank,
-            NksCategory => &mut settings.category,
-            NksSubCategory => &mut settings.sub_category,
-            NksMode => &mut settings.mode,
-            _ => return,
-        };
-        *prop = id;
+        *self.runtime_state.filter_item_id_mut(kind) = id;
     }
 
     pub fn rebuild_collections(&mut self) -> Result<(), Box<dyn Error>> {
@@ -261,17 +281,7 @@ impl RuntimePotUnit {
     }
 
     pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
-        use PotFilterItemKind::*;
-        let collections = &self.collections.filter_item_collections;
-        let len = match kind {
-            Database => collections.databases.len(),
-            NksBank => collections.nks.banks.len(),
-            NksSubBank => collections.nks.sub_banks.len(),
-            NksCategory => collections.nks.categories.len(),
-            NksSubCategory => collections.nks.sub_categories.len(),
-            NksMode => collections.nks.modes.len(),
-        };
-        len as _
+        self.collections.find_all_filter_items(kind).len() as u32
     }
 
     pub fn count_presets(&self) -> u32 {
@@ -298,22 +308,14 @@ impl RuntimePotUnit {
         Some(self.find_filter_item_at_index(kind, index)?.id)
     }
 
-    fn find_filter_item_at_index(
+    pub fn find_filter_item_at_index(
         &self,
         kind: PotFilterItemKind,
         index: u32,
     ) -> Option<&FilterItem> {
-        use PotFilterItemKind::*;
-        let collections = &self.collections.filter_item_collections;
-        let index = index as usize;
-        match kind {
-            Database => collections.databases.get(index),
-            NksBank => collections.nks.banks.get(index),
-            NksSubBank => collections.nks.sub_banks.get(index),
-            NksCategory => collections.nks.categories.get(index),
-            NksSubCategory => collections.nks.sub_categories.get(index),
-            NksMode => collections.nks.modes.get(index),
-        }
+        self.collections
+            .find_all_filter_items(kind)
+            .get(index as usize)
     }
 
     pub fn find_index_of_filter_item(
@@ -374,4 +376,65 @@ pub struct Preset {
 #[derive(serde::Deserialize)]
 struct ParamAssignment {
     id: Option<u32>,
+}
+
+pub fn load_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
+    match preset.file_ext.as_str() {
+        "wav" | "aif" => load_audio_preset(&preset, fx),
+        "nksf" | "nksfx" => load_nksf_preset(&preset, fx),
+        _ => Err("unsupported preset format"),
+    }
+}
+
+fn load_nksf_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
+    let nks_file = NksFile::load(&preset.file_name)?;
+    let nks_content = nks_file.content()?;
+    make_sure_fx_has_correct_type(nks_content.vst_magic_number, fx)?;
+    fx.set_vst_chunk(nks_content.vst_chunk)?;
+    Ok(nks_content.current_preset)
+}
+
+fn load_audio_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
+    const RS5K_VST_ID: u32 = 1920167789;
+    make_sure_fx_has_correct_type(RS5K_VST_ID, fx)?;
+    let window_is_open_before = fx.window_is_open();
+    if window_is_open_before {
+        if !fx.window_has_focus() {
+            fx.hide_floating_window();
+            fx.show_in_floating_window();
+        }
+    } else {
+        fx.show_in_floating_window();
+    }
+    load_media_in_last_focused_rs5k(&preset.file_name)?;
+    if !window_is_open_before {
+        fx.hide_floating_window();
+    }
+    Ok(CurrentPreset::default())
+}
+
+fn make_sure_fx_has_correct_type(vst_magic_number: u32, fx: &Fx) -> Result<(), &'static str> {
+    if !fx.is_available() {
+        return Err("FX not available");
+    }
+    let fx_info = fx.info()?;
+    if fx_info.id != vst_magic_number.to_string() {
+        // We don't have the right plug-in type. Remove FX and insert correct one.
+        let chain = fx.chain();
+        let fx_index = fx.index();
+        chain.remove_fx(fx)?;
+        // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
+        // otherwise loading by VST2 magic number doesn't work.
+        chain.insert_fx_by_name(fx_index, format!("i7zh34z<{vst_magic_number}"));
+    }
+    Ok(())
+}
+
+fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
+    Reaper::get().medium_reaper().insert_media(
+        path,
+        InsertMediaMode::CurrentReasamplomatic,
+        Default::default(),
+    )?;
+    Ok(())
 }

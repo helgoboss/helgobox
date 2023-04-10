@@ -106,6 +106,11 @@ pub trait View: Debug {
     /// WM_HSCROLL, lparam (!= 0).
     fn slider_moved(self: SharedView<Self>, _slider: Window) {}
 
+    /// Should return `true` if processed.
+    fn resized(self: SharedView<Self>) -> bool {
+        false
+    }
+
     /// WM_MOUSEWHEEL, HIWORD(wparam).
     ///
     /// Should return `true` if processed.
