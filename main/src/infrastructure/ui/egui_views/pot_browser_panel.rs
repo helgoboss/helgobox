@@ -11,6 +11,25 @@ use reaper_high::Reaper;
 use std::collections::HashSet;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
+    // TODO Add text search
+    // TODO Use left outer join to also display stuff that's not associated with any bank/category/mode
+    // TODO Explicitly add "should be null" filter option for displaying non-associated stuff
+    // TODO Make rows in preset table selectable
+    // TODO Make layout less jumping around
+    // TODO Execute query in background
+    // TODO Display preset count
+    // TODO Display query execution time
+    // TODO Provide option to only show sub filters when parent filter chosen
+    // TODO Provide option to hide star filters
+    // TODO Reflect instance pot unit
+    // TODO Add preview button
+    // TODO Make it possible to set FX slot into which the stuff should be loaded:
+    //  - Last focused FX
+    //  - Selected track, position X
+    //  - Track X, position Y
+    //  - ReaLearn instance FX
+    //  - Below ReaLearn
+    // TODO Provide some wheels to control parameters
     let mut pot_unit = state.pot_unit.loaded().unwrap();
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
