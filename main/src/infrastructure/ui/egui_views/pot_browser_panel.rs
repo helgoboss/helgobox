@@ -17,8 +17,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     // TODO Make rows in preset table selectable
     // TODO Make layout less jumping around
     // TODO Execute query in background
-    // TODO Display preset count
-    // TODO Display query execution time
     // TODO Provide option to only show sub filters when parent filter chosen
     // TODO Provide option to hide star filters
     // TODO Reflect instance pot unit
@@ -42,6 +40,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         });
     let preset_count = pot_unit.count_presets();
     CentralPanel::default().show(ctx, |ui: &mut Ui| {
+        ui.horizontal(|ui: &mut Ui| {
+            ui.strong("Count: ");
+            ui.label(preset_count.to_string());
+            ui.strong("Query time: ");
+            ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
+        });
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
         let mut table = TableBuilder::new(ui)
             .striped(true)

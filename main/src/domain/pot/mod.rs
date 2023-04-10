@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 pub mod nks;
 
@@ -88,6 +89,12 @@ impl PotUnit {
 pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub collections: Collections,
+    pub stats: Stats,
+}
+
+#[derive(Debug, Default)]
+pub struct Stats {
+    pub query_duration: Duration,
 }
 
 #[derive(Debug, Default)]
@@ -208,6 +215,7 @@ impl RuntimePotUnit {
         let mut unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
+            stats: Default::default(),
         };
         unit.rebuild_collections()
             .map_err(|_| "couldn't rebuild collections on load")?;
@@ -275,9 +283,11 @@ impl RuntimePotUnit {
     }
 
     pub fn rebuild_collections(&mut self) -> Result<(), Box<dyn Error>> {
+        let before = Instant::now();
         let (state, collections) = with_preset_db(|db| db.build_collections(&self.runtime_state))??;
         self.runtime_state = state;
         self.collections = collections;
+        self.stats.query_duration = before.elapsed();
         Ok(())
     }
 
