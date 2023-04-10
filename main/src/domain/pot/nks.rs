@@ -247,12 +247,22 @@ impl PresetDb {
         state: &RuntimeState,
     ) -> Result<(RuntimeState, Collections), Box<dyn Error>> {
         let (filter_settings, mut filters) = self.build_filter_items(state.filter_settings.nks)?;
-        let preset_collection = self.build_preset_collection(&state.filter_settings.nks)?;
+        // TODO-medium-performance The following ideas could be taken into consideration if the
+        //  following queries are too slow:
+        //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
+        //     ... then do the rest manually in-memory. But the result is a very long list of
+        //     combinations.
+        //  b) Don't make unnecessary joins (it was easier to make all joins for the narrow-down
+        //     logic, but it could be prevented).
+        let non_empty_banks = self.find_non_empty_banks()?;
         let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
         let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
+        narrow_down(&mut filters.banks, &non_empty_banks);
+        narrow_down(&mut filters.sub_banks, &non_empty_banks);
         narrow_down(&mut filters.categories, &non_empty_categories);
         narrow_down(&mut filters.sub_categories, &non_empty_categories);
         narrow_down(&mut filters.modes, &non_empty_modes);
+        let preset_collection = self.build_preset_collection(&state.filter_settings.nks)?;
         let state = RuntimeState {
             filter_settings: FilterSettings {
                 nks: filter_settings,
@@ -278,38 +288,55 @@ impl PresetDb {
         &self,
         filter_settings: &NksFilterSettings,
     ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
-        self.execute_preset_query(filter_settings, "i.id", PresetId)
+        self.execute_preset_query(filter_settings, "i.id", |row| Ok(PresetId(row.get(0)?)))
     }
 
     fn find_non_empty_categories(
         &self,
         filter_settings: NksFilterSettings,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
         let filter_settings = NksFilterSettings {
             category: None,
             sub_category: None,
             mode: None,
             ..filter_settings
         };
-        self.execute_preset_query(&filter_settings, "DISTINCT ic.category_id", FilterItemId)
+        self.execute_preset_query(
+            &filter_settings,
+            "DISTINCT ic.category_id",
+            optional_filter_item_id,
+        )
+    }
+
+    fn find_non_empty_banks(&self) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
+        let filter_settings = NksFilterSettings::default();
+        self.execute_preset_query(
+            &filter_settings,
+            "DISTINCT i.bank_chain_id",
+            optional_filter_item_id,
+        )
     }
 
     fn find_non_empty_modes(
         &self,
         filter_settings: NksFilterSettings,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
         let filter_settings = NksFilterSettings {
             mode: None,
             ..filter_settings
         };
-        self.execute_preset_query(&filter_settings, "DISTINCT im.mode_id", FilterItemId)
+        self.execute_preset_query(
+            &filter_settings,
+            "DISTINCT im.mode_id",
+            optional_filter_item_id,
+        )
     }
 
     fn execute_preset_query<R>(
         &self,
         filter_settings: &NksFilterSettings,
         select_clause: &str,
-        index_mapper: impl Fn(u32) -> R,
+        row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<IndexSet<R>, Box<dyn Error>>
     where
         R: Hash + Eq,
@@ -360,7 +387,7 @@ impl PresetDb {
         let mut statement = self.connection.prepare_cached(&sql)?;
         let collection: Result<IndexSet<R>, _> = statement
             .query(params.as_slice())?
-            .mapped(|row| Ok(index_mapper(row.get(0)?)))
+            .mapped(|row| row_mapper(row))
             .collect();
         Ok(collection?)
     }
@@ -463,7 +490,12 @@ fn path_to_preset_db() -> Result<PathBuf, &'static str> {
 
 fn narrow_down(
     filter_items: &mut Vec<FilterItem>,
-    non_empty_filter_item_ids: &IndexSet<FilterItemId>,
+    non_empty_filter_item_ids: &IndexSet<Option<FilterItemId>>,
 ) {
-    filter_items.retain(|item| non_empty_filter_item_ids.contains(&item.id))
+    filter_items.retain(|item| non_empty_filter_item_ids.contains(&Some(item.id)))
+}
+
+fn optional_filter_item_id(row: &Row) -> Result<Option<FilterItemId>, rusqlite::Error> {
+    let id: Option<u32> = row.get(0)?;
+    Ok(id.map(FilterItemId))
 }
