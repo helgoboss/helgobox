@@ -382,6 +382,7 @@ impl PresetDb {
                 JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
                 JOIN k_sound_info_mode im ON i.id = im.sound_info_id
             WHERE true{where_extras}
+            ORDER BY i.name
             "#
         );
         let mut statement = self.connection.prepare_cached(&sql)?;
