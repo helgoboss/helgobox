@@ -471,11 +471,12 @@ impl PresetDb {
         };
         rows.map(|row| {
             let name: Option<String> = row.get(2)?;
+            let parent_name: String = row.get(1)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
                 id: FilterItemId(row.get(0)?),
-                parent_name: row.get(1)?,
-                name: name.unwrap_or_else(|| "Default".to_string()),
+                name: name.unwrap_or_else(|| parent_name.clone()),
+                parent_name,
             };
             Ok(item)
         })
