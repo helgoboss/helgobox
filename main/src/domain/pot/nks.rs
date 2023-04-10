@@ -275,7 +275,7 @@ impl PresetDb {
                     persistent_id: "Nks".to_string(),
                     id: Default::default(),
                     parent_name: Default::default(),
-                    name: "NKS".to_string(),
+                    name: Some("NKS".to_string()),
                 }],
                 nks: filters,
             },
@@ -471,12 +471,11 @@ impl PresetDb {
         };
         rows.map(|row| {
             let name: Option<String> = row.get(2)?;
-            let parent_name: String = row.get(1)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
                 id: FilterItemId(row.get(0)?),
-                name: name.unwrap_or_else(|| parent_name.clone()),
-                parent_name,
+                name,
+                parent_name: row.get(1)?,
             };
             Ok(item)
         })

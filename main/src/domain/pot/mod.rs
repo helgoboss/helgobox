@@ -9,6 +9,7 @@ use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, Reaper};
 use reaper_medium::InsertMediaMode;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -360,8 +361,23 @@ impl RuntimePotUnit {
 pub struct FilterItem {
     pub persistent_id: String,
     pub id: FilterItemId,
-    pub parent_name: String,
-    pub name: String,
+    /// Only set for sub filters. If not set, we know it's a top-level filter.
+    pub parent_name: Option<String>,
+    /// If not set, parent name should be set. It's the most unspecific sub filter of a
+    /// top-level filter, so to say.
+    pub name: Option<String>,
+}
+
+impl FilterItem {
+    pub fn effective_leaf_name(&self) -> Cow<str> {
+        match &self.name {
+            None => match &self.parent_name {
+                None => "".into(),
+                Some(n) => format!("{n}*").into(),
+            },
+            Some(n) => n.into(),
+        }
+    }
 }
 
 #[derive(Debug)]

@@ -96,7 +96,11 @@ fn add_filter_view(
         let filter_item_id = pot_unit.runtime_state.filter_item_id_mut(kind);
         ui.selectable_value(filter_item_id, None, "<All>");
         for filter_item in pot_unit.collections.find_all_filter_items(kind) {
-            ui.selectable_value(filter_item_id, Some(filter_item.id), &filter_item.name);
+            ui.selectable_value(
+                filter_item_id,
+                Some(filter_item.id),
+                filter_item.effective_leaf_name(),
+            );
         }
         if filter_item_id != &initial_filter_item_id {
             pot_unit.rebuild_collections();

@@ -169,7 +169,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
             None => return Some("<Not found>".into()),
             Some(p) => p,
         };
-        Some(item.name.into())
+        Some(item.effective_leaf_name().to_string().into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
@@ -190,13 +190,8 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let item_id = self.current_item_id(pot_unit)?;
         let item = self.find_item_by_id(pot_unit, item_id)?;
         match key {
-            "item.parent.name" => {
-                if item.parent_name.is_empty() {
-                    return None;
-                }
-                Some(PropValue::Text(item.parent_name.into()))
-            }
-            "item.name" => Some(PropValue::Text(item.name.into())),
+            "item.parent.name" => Some(PropValue::Text(item.parent_name?.into())),
+            "item.name" => Some(PropValue::Text(item.name?.into())),
             _ => None,
         }
     }
