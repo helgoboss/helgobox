@@ -407,7 +407,14 @@ impl PresetDb {
             params.push(&mode_id.0);
         }
         // Search expression
-        let like_expression = format!("%{search_expression}%");
+        let like_expression: String = search_expression
+            .chars()
+            .map(|x| match x {
+                '*' => '%',
+                '?' => '_',
+                _ => x,
+            })
+            .collect();
         if !search_expression.is_empty() {
             where_extras += " AND i.name LIKE ?";
             params.push(&like_expression);
