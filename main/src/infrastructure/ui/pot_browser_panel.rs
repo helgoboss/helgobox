@@ -1,4 +1,5 @@
 use crate::base::SenderToNormalThread;
+use crate::domain::pot::SharedRuntimePotUnit;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
 use crate::infrastructure::ui::egui_views::pot_browser_panel::{run_ui, State};
@@ -15,13 +16,15 @@ use swell_ui::{DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Wi
 pub struct PotBrowserPanel {
     view: ViewContext,
     child_window: Cell<Option<Window>>,
+    pot_unit: SharedRuntimePotUnit,
 }
 
 impl PotBrowserPanel {
-    pub fn new() -> Self {
+    pub fn new(pot_unit: SharedRuntimePotUnit) -> Self {
         Self {
             view: Default::default(),
             child_window: Default::default(),
+            pot_unit,
         }
     }
 }
@@ -39,7 +42,12 @@ impl View for PotBrowserPanel {
         let screen_size = Window::screen_size();
         window.move_to(Point::default());
         window.resize(screen_size);
-        let child_window_handle = egui_views::open(window, "Pot browser", State::new(), run_ui);
+        let child_window_handle = egui_views::open(
+            window,
+            "Pot browser",
+            State::new(self.pot_unit.clone()),
+            run_ui,
+        );
         if let Ok(child_window) =
             Window::from_raw_window_handle(child_window_handle.raw_window_handle())
         {

@@ -1,4 +1,4 @@
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, LockResult, Mutex, MutexGuard};
 
 /// Attempts to lock the given mutex.
 ///
@@ -35,4 +35,11 @@ pub fn blocking_lock<T>(mutex: &Mutex<T>) -> MutexGuard<T> {
         Ok(g) => g,
         Err(e) => e.into_inner(),
     }
+}
+
+/// Locks the given mutex.
+///
+/// Returns the guard even if mutex is poisoned.
+pub fn blocking_lock_arc<T>(mutex: &Arc<Mutex<T>>) -> MutexGuard<T> {
+    blocking_lock(&*mutex)
 }

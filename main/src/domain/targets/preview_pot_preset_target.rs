@@ -1,3 +1,4 @@
+use crate::base::blocking_lock_arc;
 use crate::domain::pot::{preset_db, PresetId, RuntimePotUnit};
 use crate::domain::{
     pot::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
@@ -47,8 +48,9 @@ impl RealearnTarget for PreviewPotPresetTarget {
         if value.is_on() {
             let mut instance_state = context.control_context.instance_state.borrow_mut();
             let pot_unit = instance_state.pot_unit()?;
+            let pot_unit = blocking_lock_arc(&pot_unit);
             let preset_id = self
-                .current_preset_id(pot_unit)
+                .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
             let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
                 .ok_or("couldn't find preset or build preset preview file")?;
@@ -67,7 +69,8 @@ impl RealearnTarget for PreviewPotPresetTarget {
             Ok(u) => u,
             Err(_) => return false,
         };
-        preset_db().is_ok() && self.current_preset_id(pot_unit).is_some()
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some()
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

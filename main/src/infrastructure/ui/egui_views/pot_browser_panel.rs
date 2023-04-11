@@ -1,5 +1,5 @@
-use crate::base::{NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::{with_preset_db, PotUnit, Preset, RuntimePotUnit};
+use crate::base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
+use crate::domain::pot::{with_preset_db, PotUnit, Preset, RuntimePotUnit, SharedRuntimePotUnit};
 use crate::domain::{pot, ReaperTargetType};
 use derivative::Derivative;
 use egui::{CentralPanel, Ui};
@@ -11,7 +11,6 @@ use reaper_high::Reaper;
 use std::collections::HashSet;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
-    // TODO Add text search
     // TODO Use left outer join to also display stuff that's not associated with any bank/category/mode
     // TODO Explicitly add "should be null" filter option for displaying non-associated stuff
     // TODO Make rows in preset table selectable
@@ -19,7 +18,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     // TODO Execute query in background
     // TODO Provide option to only show sub filters when parent filter chosen
     // TODO Provide option to hide star filters
-    // TODO Reflect instance pot unit
     // TODO Add preview button
     // TODO Make it possible to set FX slot into which the stuff should be loaded:
     //  - Last focused FX
@@ -28,7 +26,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     //  - ReaLearn instance FX
     //  - Below ReaLearn
     // TODO Provide some wheels to control parameters
-    let mut pot_unit = state.pot_unit.loaded().unwrap();
+    let mut pot_unit = &mut blocking_lock(&*state.pot_unit);
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
@@ -102,14 +100,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
 
 #[derive(Debug)]
 pub struct State {
-    pot_unit: PotUnit,
+    pot_unit: SharedRuntimePotUnit,
 }
 
 impl State {
-    pub fn new() -> Self {
-        Self {
-            pot_unit: Default::default(),
-        }
+    pub fn new(pot_unit: SharedRuntimePotUnit) -> Self {
+        Self { pot_unit }
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::base::blocking_lock_arc;
 use crate::domain::pot::nks::NksFile;
 use crate::domain::pot::{
     preset_db, with_preset_db, CurrentPreset, Preset, PresetId, RuntimePotUnit,
@@ -62,8 +63,9 @@ impl RealearnTarget for LoadPotPresetTarget {
         }
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
+        let pot_unit = blocking_lock_arc(&pot_unit);
         let preset_id = self
-            .current_preset_id(pot_unit)
+            .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
@@ -80,7 +82,8 @@ impl RealearnTarget for LoadPotPresetTarget {
             Ok(u) => u,
             Err(_) => return false,
         };
-        preset_db().is_ok() && self.current_preset_id(pot_unit).is_some() && self.fx.is_available()
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {

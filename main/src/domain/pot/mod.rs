@@ -4,6 +4,7 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
+use crate::base::blocking_lock;
 use crate::domain::pot::nks::{NksFile, NksFilterSettings, PersistentNksFilterSettings};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -13,7 +14,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub mod nks;
@@ -31,13 +32,15 @@ pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
     nks::preset_db()
 }
 
+pub type SharedRuntimePotUnit = Arc<Mutex<RuntimePotUnit>>;
+
 #[derive(Debug)]
 pub enum PotUnit {
     Unloaded {
         state: PersistentState,
         previous_load_error: &'static str,
     },
-    Loaded(RuntimePotUnit),
+    Loaded(SharedRuntimePotUnit),
 }
 
 impl Default for PotUnit {
@@ -54,7 +57,7 @@ impl PotUnit {
         }
     }
 
-    pub fn loaded(&mut self) -> Result<&mut RuntimePotUnit, &'static str> {
+    pub fn loaded(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
         match self {
             PotUnit::Unloaded {
                 state,
@@ -74,14 +77,14 @@ impl PotUnit {
                     }
                 }
             }
-            PotUnit::Loaded(p) => Ok(p),
+            PotUnit::Loaded(p) => Ok(p.clone()),
         }
     }
 
     pub fn persistent_state(&self) -> PersistentState {
         match self {
             PotUnit::Unloaded { state, .. } => state.clone(),
-            PotUnit::Loaded(u) => u.persistent_state(),
+            PotUnit::Loaded(u) => blocking_lock(u).persistent_state(),
         }
     }
 }
@@ -218,15 +221,17 @@ impl CurrentPreset {
 }
 
 impl RuntimePotUnit {
-    pub fn load(state: &PersistentState) -> Result<Self, &'static str> {
+    pub fn load(state: &PersistentState) -> Result<SharedRuntimePotUnit, &'static str> {
         let mut unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
             stats: Default::default(),
         };
-        unit.rebuild_collections()
-            .map_err(|_| "couldn't rebuild collections on load")?;
-        Ok(unit)
+        let shared_unit = Arc::new(Mutex::new(unit));
+        // TODO-high CONTINUE
+        // unit.rebuild_collections()
+        //     .map_err(|_| "couldn't rebuild collections on load")?;
+        Ok(shared_unit)
     }
 
     pub fn persistent_state(&self) -> PersistentState {

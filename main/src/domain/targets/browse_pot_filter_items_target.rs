@@ -1,3 +1,4 @@
+use crate::base::blocking_lock_arc;
 use crate::domain::pot::nks::FilterItemId;
 use crate::domain::pot::{preset_db, FilterItem, RuntimePotUnit};
 use crate::domain::{
@@ -53,7 +54,8 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
             Ok(u) => u,
             Err(_) => return (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
         };
-        let count = self.item_count(pot_unit) + 1;
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let count = self.item_count(&pot_unit) + 1;
         let atomic_step_size = convert_count_to_step_size(count);
         (
             ControlType::AbsoluteDiscrete {
@@ -87,8 +89,9 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     ) -> Result<u32, &'static str> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
+        let pot_unit = blocking_lock_arc(&pot_unit);
         let value = self
-            .convert_unit_value_to_item_index(pot_unit, value)
+            .convert_unit_value_to_item_index(&pot_unit, value)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
@@ -102,8 +105,9 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let item_id = {
             let pot_unit = instance_state.pot_unit()?;
+            let pot_unit = blocking_lock_arc(&pot_unit);
             let item_index =
-                self.convert_unit_value_to_item_index(pot_unit, value.to_unit_value()?);
+                self.convert_unit_value_to_item_index(&pot_unit, value.to_unit_value()?);
             match item_index {
                 None => None,
                 Some(i) => {
@@ -136,7 +140,8 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
                     Ok(u) => u,
                     Err(_) => return (false, None),
                 };
-                let value = self.convert_item_id_to_absolute_value(pot_unit, *id);
+                let pot_unit = blocking_lock_arc(&pot_unit);
+                let value = self.convert_item_id_to_absolute_value(&pot_unit, *id);
                 (true, Some(value))
             }
             CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
@@ -154,18 +159,20 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let index = if value == 0 { None } else { Some(value - 1) };
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let uv = convert_discrete_to_unit_value_with_none(index, self.item_count(pot_unit));
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let uv = convert_discrete_to_unit_value_with_none(index, self.item_count(&pot_unit));
         Ok(uv)
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let item_id = match self.current_item_id(pot_unit) {
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let item_id = match self.current_item_id(&pot_unit) {
             None => return Some("All".into()),
             Some(id) => id,
         };
-        let item = match self.find_item_by_id(pot_unit, item_id) {
+        let item = match self.find_item_by_id(&pot_unit, item_id) {
             None => return Some("<Not found>".into()),
             Some(p) => p,
         };
@@ -175,8 +182,9 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let item_id = self.current_item_id(pot_unit)?;
-        let item_index = self.find_index_of_item(pot_unit, item_id)?;
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let item_id = self.current_item_id(&pot_unit)?;
+        let item_index = self.find_index_of_item(&pot_unit, item_id)?;
         Some(NumericValue::Discrete(item_index as i32 + 1))
     }
 
@@ -187,8 +195,9 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let item_id = self.current_item_id(pot_unit)?;
-        let item = self.find_item_by_id(pot_unit, item_id)?;
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let item_id = self.current_item_id(&pot_unit)?;
+        let item = self.find_item_by_id(&pot_unit, item_id)?;
         match key {
             "item.parent.name" => Some(PropValue::Text(item.parent_name?.into())),
             "item.name" => Some(PropValue::Text(item.name?.into())),
@@ -203,8 +212,9 @@ impl<'a> Target<'a> for BrowsePotFilterItemsTarget {
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let item_id = self.current_item_id(pot_unit);
-        Some(self.convert_item_id_to_absolute_value(pot_unit, item_id))
+        let pot_unit = blocking_lock_arc(&pot_unit);
+        let item_id = self.current_item_id(&pot_unit);
+        Some(self.convert_item_id_to_absolute_value(&pot_unit, item_id))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

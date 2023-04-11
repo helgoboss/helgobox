@@ -2,14 +2,18 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::rc::{Rc, Weak};
+use std::sync::MutexGuard;
 
 use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{
+    blocking_lock, blocking_lock_arc, NamedChannelSender, Prop, SenderToNormalThread,
+    SenderToRealTimeThread,
+};
 use crate::domain::pot::nks::FilterItemId;
-use crate::domain::pot::{PotUnit, PresetId, RuntimePotUnit};
+use crate::domain::pot::{PotUnit, PresetId, RuntimePotUnit, SharedRuntimePotUnit};
 use crate::domain::{
     pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
@@ -282,11 +286,11 @@ impl InstanceState {
 
     /// Returns the runtime pot unit associated with this instance.
     ///
-    /// If the pot unit isn't loaded yet and no load attempt has been done yet, loads it.
+    /// If the pot unit isn't loaded yet and loading has not been attempted yet, loads it.
     ///
     /// Returns an error if the necessary pot database is not available.
-    pub fn pot_unit(&mut self) -> Result<&mut RuntimePotUnit, &'static str> {
-        self.pot_unit.loaded()
+    pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
+        Ok(self.pot_unit.loaded()?)
     }
 
     /// Restores a pot unit state from persistent data.
@@ -309,7 +313,7 @@ impl InstanceState {
         kind: PotFilterItemKind,
         id: Option<FilterItemId>,
     ) -> Result<(), &'static str> {
-        self.pot_unit()?.set_filter_item_id(kind, id);
+        blocking_lock_arc(&self.pot_unit()?).set_filter_item_id(kind, id);
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::FilterItemChanged {
                 kind,
@@ -320,7 +324,7 @@ impl InstanceState {
     }
 
     pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) -> Result<(), &'static str> {
-        self.pot_unit()?.set_preset_id(id);
+        blocking_lock_arc(&self.pot_unit()?).set_preset_id(id);
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::PresetChanged { id }),
         );
@@ -328,7 +332,7 @@ impl InstanceState {
     }
 
     pub fn rebuild_pot_indexes(&mut self) -> Result<(), Box<dyn Error>> {
-        self.pot_unit()?.rebuild_collections()?;
+        blocking_lock_arc(&self.pot_unit()?).rebuild_collections()?;
         self.instance_feedback_event_sender.send_complaining(
             InstanceStateChanged::PotStateChanged(PotStateChangedEvent::IndexesRebuilt),
         );
