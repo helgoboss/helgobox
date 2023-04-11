@@ -30,18 +30,21 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
-            add_filter_view(ui, pot_unit, "Instrument", PotFilterItemKind::NksBank);
-            add_filter_view(ui, pot_unit, "Bank", PotFilterItemKind::NksSubBank);
-            add_filter_view(ui, pot_unit, "Type", PotFilterItemKind::NksCategory);
-            add_filter_view(ui, pot_unit, "Sub type", PotFilterItemKind::NksSubCategory);
-            add_filter_view(ui, pot_unit, "Character", PotFilterItemKind::NksMode);
+            let changed = add_filter_view(ui, pot_unit, "Instrument", PotFilterItemKind::NksBank)
+                | add_filter_view(ui, pot_unit, "Bank", PotFilterItemKind::NksSubBank)
+                | add_filter_view(ui, pot_unit, "Type", PotFilterItemKind::NksCategory)
+                | add_filter_view(ui, pot_unit, "Sub type", PotFilterItemKind::NksSubCategory)
+                | add_filter_view(ui, pot_unit, "Character", PotFilterItemKind::NksMode);
+            if changed {
+                pot_unit.rebuild_collections(state.pot_unit.clone());
+            }
         });
     let preset_count = pot_unit.count_presets();
     CentralPanel::default().show(ctx, |ui: &mut Ui| {
         ui.horizontal(|ui: &mut Ui| {
             let response = ui.text_edit_singleline(pot_unit.runtime_state.search_expression_mut());
             if response.changed() {
-                pot_unit.rebuild_collections();
+                pot_unit.rebuild_collections(state.pot_unit.clone());
             }
         });
         ui.horizontal(|ui: &mut Ui| {
@@ -119,11 +122,11 @@ fn add_filter_view(
     pot_unit: &mut RuntimePotUnit,
     label: &str,
     kind: PotFilterItemKind,
-) {
+) -> bool {
     ui.strong(label);
+    let initial_filter_item_id = pot_unit.filter_item_id(kind);
+    let filter_item_id = pot_unit.runtime_state.filter_item_id_mut(kind);
     ui.horizontal_wrapped(|ui: &mut Ui| {
-        let initial_filter_item_id = pot_unit.filter_item_id(kind);
-        let filter_item_id = pot_unit.runtime_state.filter_item_id_mut(kind);
         ui.selectable_value(filter_item_id, None, "<All>");
         for filter_item in pot_unit.collections.find_all_filter_items(kind) {
             ui.selectable_value(
@@ -132,8 +135,6 @@ fn add_filter_view(
                 filter_item.effective_leaf_name(),
             );
         }
-        if filter_item_id != &initial_filter_item_id {
-            pot_unit.rebuild_collections();
-        }
     });
+    filter_item_id != &initial_filter_item_id
 }

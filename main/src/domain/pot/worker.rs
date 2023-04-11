@@ -1,20 +1,16 @@
-use crossbeam_channel::{Receiver, Sender};
 use once_cell::sync::Lazy;
+use std::error::Error;
+use std::future::Future;
+use tokio::runtime::Runtime;
 
-enum PotTask {
-    RebuildCollections,
+static POT_WORKER_RUNTIME: Lazy<std::io::Result<Runtime>> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .build()
+});
+
+pub fn spawn(f: impl Future<Output = Result<(), Box<dyn Error>>> + Send + 'static) {
+    POT_WORKER_RUNTIME.as_ref().unwrap().spawn(async {
+        f.await.unwrap();
+    });
 }
-
-struct PotChannel {
-    sender: Sender<PotTask>,
-    receiver: Receiver<PotTask>,
-}
-
-impl Default for PotChannel {
-    fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::bounded(100);
-        Self { sender, receiver }
-    }
-}
-
-static POT_WORKER_CHANNEL: Lazy<PotChannel> = Lazy::new(Default::default);

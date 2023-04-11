@@ -743,7 +743,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ) {
                 let pot_unit = self.basics.instance_state.borrow_mut().pot_unit();
                 if let Ok(pot_unit) = pot_unit {
-                    let _ = blocking_lock_arc(&pot_unit).rebuild_collections();
+                    blocking_lock_arc(&pot_unit).rebuild_collections(pot_unit.clone());
                 }
             }
             // Propagate to other instances if necessary

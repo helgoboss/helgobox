@@ -4,7 +4,7 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use crate::base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
+use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::nks::{NksFile, NksFilterSettings, PersistentNksFilterSettings};
 use crate::domain::{InstanceStateChanged, PotStateChangedEvent};
 use indexmap::IndexSet;
@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub mod nks;
-pub mod worker;
+mod worker;
 
 pub type FilterItemId = nks::FilterItemId;
 pub type PresetId = nks::PresetId;
@@ -236,9 +236,8 @@ impl RuntimePotUnit {
             stats: Default::default(),
             sender,
         };
-        unit.rebuild_collections()
-            .map_err(|_| "couldn't rebuild collections on load")?;
         let shared_unit = Arc::new(Mutex::new(unit));
+        blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone());
         Ok(shared_unit)
     }
 
@@ -310,17 +309,37 @@ impl RuntimePotUnit {
             ));
     }
 
-    pub fn rebuild_collections(&mut self) -> Result<(), Box<dyn Error>> {
-        let before = Instant::now();
-        let (state, collections) = with_preset_db(|db| db.build_collections(&self.runtime_state))??;
-        self.runtime_state = state;
+    pub fn rebuild_collections(&mut self, shared_self: SharedRuntimePotUnit) {
+        let runtime_state = self.runtime_state.clone();
+        worker::spawn(async move {
+            let before = Instant::now();
+            let (runtime_state, collections) =
+                with_preset_db(|db| db.build_collections(&runtime_state))??;
+            let stats = Stats {
+                query_duration: before.elapsed(),
+            };
+            blocking_lock_arc(&shared_self).notify_collections_ready(
+                runtime_state,
+                collections,
+                stats,
+            );
+            Ok(())
+        });
+    }
+
+    fn notify_collections_ready(
+        &mut self,
+        runtime_state: RuntimeState,
+        collections: Collections,
+        stats: Stats,
+    ) {
+        self.runtime_state = runtime_state;
         self.collections = collections;
-        self.stats.query_duration = before.elapsed();
+        self.stats = stats;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,
             ));
-        Ok(())
     }
 
     pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {

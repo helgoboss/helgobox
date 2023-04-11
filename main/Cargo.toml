@@ -66,7 +66,7 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For ReaLearn's servers
 futures = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["rt", "sync", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
 tokio-stream = { version = "0.1.8", features = ["sync"] }
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
