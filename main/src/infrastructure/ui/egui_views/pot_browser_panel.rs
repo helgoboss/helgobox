@@ -96,6 +96,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 );
             })
     });
+    // Necessary in order to not just repaint on clicks or so but also when controller changes
+    // pot stuff.
+    // TODO-high CONTINUE This is probably a performance hog. We could do better by reacting
+    //  to notifications.
+    ctx.request_repaint();
 }
 
 #[derive(Debug)]
