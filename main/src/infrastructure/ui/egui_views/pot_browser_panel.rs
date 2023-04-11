@@ -41,6 +41,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     let preset_count = pot_unit.count_presets();
     CentralPanel::default().show(ctx, |ui: &mut Ui| {
         ui.horizontal(|ui: &mut Ui| {
+            let response = ui.text_edit_singleline(pot_unit.runtime_state.search_expression_mut());
+            if response.changed() {
+                pot_unit.rebuild_collections();
+            }
+        });
+        ui.horizontal(|ui: &mut Ui| {
             ui.strong("Count: ");
             ui.label(preset_count.to_string());
             ui.strong("Query time: ");

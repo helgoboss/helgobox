@@ -246,7 +246,8 @@ impl PresetDb {
         &self,
         state: &RuntimeState,
     ) -> Result<(RuntimeState, Collections), Box<dyn Error>> {
-        let (filter_settings, mut filters) = self.build_filter_items(state.filter_settings.nks)?;
+        let (new_filter_settings, mut new_filters) =
+            self.build_filter_items(state.filter_settings.nks)?;
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
@@ -257,16 +258,18 @@ impl PresetDb {
         let non_empty_banks = self.find_non_empty_banks()?;
         let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
         let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
-        narrow_down(&mut filters.banks, &non_empty_banks);
-        narrow_down(&mut filters.sub_banks, &non_empty_banks);
-        narrow_down(&mut filters.categories, &non_empty_categories);
-        narrow_down(&mut filters.sub_categories, &non_empty_categories);
-        narrow_down(&mut filters.modes, &non_empty_modes);
-        let preset_collection = self.build_preset_collection(&state.filter_settings.nks)?;
+        narrow_down(&mut new_filters.banks, &non_empty_banks);
+        narrow_down(&mut new_filters.sub_banks, &non_empty_banks);
+        narrow_down(&mut new_filters.categories, &non_empty_categories);
+        narrow_down(&mut new_filters.sub_categories, &non_empty_categories);
+        narrow_down(&mut new_filters.modes, &non_empty_modes);
+        let preset_collection =
+            self.build_preset_collection(&state.filter_settings.nks, &state.search_expression)?;
         let state = RuntimeState {
             filter_settings: FilterSettings {
-                nks: filter_settings,
+                nks: new_filter_settings,
             },
+            search_expression: state.search_expression.clone(),
             preset_id: state.preset_id,
         };
         let indexes = Collections {
@@ -277,7 +280,7 @@ impl PresetDb {
                     parent_name: Default::default(),
                     name: Some("NKS".to_string()),
                 }],
-                nks: filters,
+                nks: new_filters,
             },
             preset_collection,
         };
@@ -287,8 +290,11 @@ impl PresetDb {
     fn build_preset_collection(
         &self,
         filter_settings: &NksFilterSettings,
+        search_expression: &str,
     ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
-        self.execute_preset_query(filter_settings, "i.id", |row| Ok(PresetId(row.get(0)?)))
+        self.execute_preset_query(filter_settings, search_expression, "i.id", |row| {
+            Ok(PresetId(row.get(0)?))
+        })
     }
 
     fn find_non_empty_categories(
@@ -303,6 +309,7 @@ impl PresetDb {
         };
         self.execute_preset_query(
             &filter_settings,
+            "",
             "DISTINCT ic.category_id",
             optional_filter_item_id,
         )
@@ -312,6 +319,7 @@ impl PresetDb {
         let filter_settings = NksFilterSettings::default();
         self.execute_preset_query(
             &filter_settings,
+            "",
             "DISTINCT i.bank_chain_id",
             optional_filter_item_id,
         )
@@ -327,6 +335,7 @@ impl PresetDb {
         };
         self.execute_preset_query(
             &filter_settings,
+            "",
             "DISTINCT im.mode_id",
             optional_filter_item_id,
         )
@@ -335,6 +344,7 @@ impl PresetDb {
     fn execute_preset_query<R>(
         &self,
         filter_settings: &NksFilterSettings,
+        search_expression: &str,
         select_clause: &str,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<IndexSet<R>, Box<dyn Error>>
@@ -373,6 +383,12 @@ impl PresetDb {
         if let Some(mode_id) = &filter_settings.mode {
             where_extras += " AND im.mode_id = ?";
             params.push(&mode_id.0);
+        }
+        // Search expression
+        let like_expression = format!("%{search_expression}%");
+        if !search_expression.is_empty() {
+            where_extras += " AND i.name LIKE ?";
+            params.push(&like_expression);
         }
         // Put it all together
         let sql = format!(

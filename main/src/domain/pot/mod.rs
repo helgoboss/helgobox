@@ -100,6 +100,7 @@ pub struct Stats {
 #[derive(Debug, Default)]
 pub struct RuntimeState {
     filter_settings: FilterSettings,
+    search_expression: String,
     preset_id: Option<PresetId>,
 }
 
@@ -135,9 +136,14 @@ impl RuntimeState {
                 .and_then(|persistent_id| db.find_preset_id_by_favorite_id(persistent_id));
             Self {
                 filter_settings,
+                search_expression: "".to_string(),
                 preset_id,
             }
         })
+    }
+
+    pub fn search_expression_mut(&mut self) -> &mut String {
+        &mut self.search_expression
     }
 
     pub fn filter_item_id_mut(&mut self, kind: PotFilterItemKind) -> &mut Option<FilterItemId> {
