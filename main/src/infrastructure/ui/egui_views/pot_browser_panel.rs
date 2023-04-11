@@ -28,14 +28,41 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
-            let changed = add_filter_view(ui, pot_unit, "Instrument", PotFilterItemKind::NksBank)
-                | add_filter_view(ui, pot_unit, "Bank", PotFilterItemKind::NksSubBank)
-                | add_filter_view(ui, pot_unit, "Type", PotFilterItemKind::NksCategory)
-                | add_filter_view(ui, pot_unit, "Sub type", PotFilterItemKind::NksSubCategory)
-                | add_filter_view(ui, pot_unit, "Character", PotFilterItemKind::NksMode);
-            if changed {
-                pot_unit.rebuild_collections(state.pot_unit.clone());
-            }
+            add_filter_view(
+                ui,
+                &state.pot_unit,
+                pot_unit,
+                "Instrument",
+                PotFilterItemKind::NksBank,
+            );
+            add_filter_view(
+                ui,
+                &state.pot_unit,
+                pot_unit,
+                "Bank",
+                PotFilterItemKind::NksSubBank,
+            );
+            add_filter_view(
+                ui,
+                &state.pot_unit,
+                pot_unit,
+                "Type",
+                PotFilterItemKind::NksCategory,
+            );
+            add_filter_view(
+                ui,
+                &state.pot_unit,
+                pot_unit,
+                "Sub type",
+                PotFilterItemKind::NksSubCategory,
+            );
+            add_filter_view(
+                ui,
+                &state.pot_unit,
+                pot_unit,
+                "Character",
+                PotFilterItemKind::NksMode,
+            );
         });
     let preset_count = pot_unit.count_presets();
     CentralPanel::default().show(ctx, |ui: &mut Ui| {
@@ -123,6 +150,7 @@ impl State {
 
 fn add_filter_view(
     ui: &mut Ui,
+    shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
     label: &str,
     kind: PotFilterItemKind,
@@ -142,7 +170,7 @@ fn add_filter_view(
     });
     let changed = new_filter_item_id != old_filter_item_id;
     if changed {
-        pot_unit.set_filter_item_id(kind, new_filter_item_id);
+        pot_unit.set_filter_item_id(kind, new_filter_item_id, shared_pot_unit.clone());
     }
     changed
 }

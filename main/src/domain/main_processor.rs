@@ -733,19 +733,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
-            // TODO-medium Debounce!
-            // Rebuild pot indexes if necessary
-            if matches!(
-                event,
-                InstanceStateChanged::PotStateChanged(
-                    PotStateChangedEvent::FilterItemChanged { .. }
-                )
-            ) {
-                let pot_unit = self.basics.instance_state.borrow_mut().pot_unit();
-                if let Ok(pot_unit) = pot_unit {
-                    blocking_lock_arc(&pot_unit).rebuild_collections(pot_unit.clone());
-                }
-            }
             // Propagate to other instances if necessary
             if event.is_interesting_for_other_instances() {
                 let global_event = AdditionalFeedbackEvent::Instance {
