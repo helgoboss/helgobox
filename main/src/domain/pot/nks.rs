@@ -245,8 +245,8 @@ impl PresetDb {
 
     pub fn build_collections(&self, state: &RuntimeState) -> Result<BuildOutcome, Box<dyn Error>> {
         let before = Instant::now();
-        let (new_filter_settings, mut new_filters) =
-            self.build_filter_items(state.filter_settings.nks)?;
+        // Build filter collections
+        let mut filter_items = self.build_filter_items(&state.filter_settings.nks)?;
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
@@ -257,13 +257,33 @@ impl PresetDb {
         let non_empty_banks = self.find_non_empty_banks()?;
         let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
         let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
-        narrow_down(&mut new_filters.banks, &non_empty_banks);
-        narrow_down(&mut new_filters.sub_banks, &non_empty_banks);
-        narrow_down(&mut new_filters.categories, &non_empty_categories);
-        narrow_down(&mut new_filters.sub_categories, &non_empty_categories);
-        narrow_down(&mut new_filters.modes, &non_empty_modes);
+        narrow_down(&mut filter_items.banks, &non_empty_banks);
+        narrow_down(&mut filter_items.sub_banks, &non_empty_banks);
+        narrow_down(&mut filter_items.categories, &non_empty_categories);
+        narrow_down(&mut filter_items.sub_categories, &non_empty_categories);
+        narrow_down(&mut filter_items.modes, &non_empty_modes);
+        // Fix now invalid filter item IDs
+        let clear_setting_if_invalid =
+            |setting: &mut Option<FilterItemId>, items: &[FilterItem]| {
+                if let Some(id) = setting {
+                    if !items.iter().any(|item| item.id == *id) {
+                        *setting = None;
+                    }
+                }
+            };
+        let mut fixed_settings = state.filter_settings.nks;
+        clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.sub_banks);
+        clear_setting_if_invalid(&mut fixed_settings.sub_bank, &filter_items.sub_banks);
+        clear_setting_if_invalid(&mut fixed_settings.category, &filter_items.sub_categories);
+        clear_setting_if_invalid(
+            &mut fixed_settings.sub_category,
+            &filter_items.sub_categories,
+        );
+        clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.sub_banks);
+        // Build preset collection
         let preset_collection =
-            self.build_preset_collection(&state.filter_settings.nks, &state.search_expression)?;
+            self.build_preset_collection(&fixed_settings, &state.search_expression)?;
+        // Put everything together
         let collections = Collections {
             filter_item_collections: FilterItemCollections {
                 databases: vec![FilterItem {
@@ -272,7 +292,7 @@ impl PresetDb {
                     parent_name: Default::default(),
                     name: Some("NKS".to_string()),
                 }],
-                nks: new_filters,
+                nks: filter_items,
             },
             preset_collection,
         };
@@ -283,7 +303,7 @@ impl PresetDb {
             collections,
             stats,
             filter_settings: FilterSettings {
-                nks: new_filter_settings,
+                nks: fixed_settings,
             },
         };
         Ok(outcome)
@@ -417,8 +437,8 @@ impl PresetDb {
     /// later stage!
     pub fn build_filter_items(
         &self,
-        mut settings: NksFilterSettings,
-    ) -> Result<(NksFilterSettings, FilterNksItemCollections), Box<dyn Error>> {
+        settings: &NksFilterSettings,
+    ) -> Result<FilterNksItemCollections, Box<dyn Error>> {
         let collections = FilterNksItemCollections {
             banks: self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
@@ -449,19 +469,7 @@ impl PresetDb {
             modes: self
                 .select_nks_filter_items("SELECT id, '', name FROM k_mode ORDER BY name", None),
         };
-        let clear_setting_if_invalid =
-            |setting: &mut Option<FilterItemId>, items: &[FilterItem]| {
-                if let Some(id) = setting {
-                    if !items.iter().any(|item| item.id == *id) {
-                        *setting = None;
-                    }
-                }
-            };
-        // TODO-high CONTINUE Clearing invalid settings should be done at a later point
-        //  (after empty filter items have been thrown away)
-        clear_setting_if_invalid(&mut settings.sub_bank, &collections.sub_banks);
-        clear_setting_if_invalid(&mut settings.sub_category, &collections.sub_categories);
-        Ok((settings, collections))
+        Ok(collections)
     }
 
     fn select_nks_filter_items(

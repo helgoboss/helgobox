@@ -124,8 +124,8 @@ impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
         with_preset_db(|db| {
             let filter_settings = db
-                .build_filter_items(Default::default())
-                .map(|(_, collections)| {
+                .build_filter_items(&Default::default())
+                .map(|collections| {
                     let find_id = |setting: &Option<String>, items: &[FilterItem]| {
                         setting.as_ref().and_then(|persistent_id| {
                             let item = items
