@@ -91,7 +91,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     ) -> Result<HitResponse, &'static str> {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let shared_pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock(&*shared_pot_unit);
+        let mut pot_unit = blocking_lock(&*shared_pot_unit);
         let preset_index =
             self.convert_unit_value_to_preset_index(&pot_unit, value.to_unit_value()?);
         let preset_id = match preset_index {
@@ -103,7 +103,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
                 Some(id)
             }
         };
-        instance_state.set_pot_preset_id(preset_id)?;
+        pot_unit.set_preset_id(preset_id);
         Ok(HitResponse::processed_with_effect())
     }
 

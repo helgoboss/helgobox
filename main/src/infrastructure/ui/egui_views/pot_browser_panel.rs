@@ -11,11 +11,11 @@ use reaper_high::Reaper;
 use std::collections::HashSet;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
+    // TODO Execute query in background
     // TODO Use left outer join to also display stuff that's not associated with any bank/category/mode
     // TODO Explicitly add "should be null" filter option for displaying non-associated stuff
     // TODO Make rows in preset table selectable
     // TODO Make layout less jumping around
-    // TODO Execute query in background
     // TODO Provide option to only show sub filters when parent filter chosen
     // TODO Provide option to hide star filters
     // TODO Add preview button

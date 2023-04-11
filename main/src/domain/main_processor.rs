@@ -30,7 +30,9 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 
-use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{
+    blocking_lock_arc, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+};
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
     format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
@@ -739,11 +741,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     PotStateChangedEvent::FilterItemChanged { .. }
                 )
             ) {
-                let _ = self
-                    .basics
-                    .instance_state
-                    .borrow_mut()
-                    .rebuild_pot_indexes();
+                let pot_unit = self.basics.instance_state.borrow_mut().pot_unit();
+                if let Ok(pot_unit) = pot_unit {
+                    let _ = blocking_lock_arc(&pot_unit).rebuild_collections();
+                }
             }
             // Propagate to other instances if necessary
             if event.is_interesting_for_other_instances() {

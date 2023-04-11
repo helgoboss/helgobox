@@ -103,22 +103,19 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        let item_id = {
-            let pot_unit = instance_state.pot_unit()?;
-            let pot_unit = blocking_lock_arc(&pot_unit);
-            let item_index =
-                self.convert_unit_value_to_item_index(&pot_unit, value.to_unit_value()?);
-            match item_index {
-                None => None,
-                Some(i) => {
-                    let id = pot_unit
-                        .find_filter_item_id_at_index(self.settings.kind, i)
-                        .ok_or("no filter item found for that index")?;
-                    Some(id)
-                }
+        let pot_unit = instance_state.pot_unit()?;
+        let mut pot_unit = blocking_lock_arc(&pot_unit);
+        let item_index = self.convert_unit_value_to_item_index(&pot_unit, value.to_unit_value()?);
+        let item_id = match item_index {
+            None => None,
+            Some(i) => {
+                let id = pot_unit
+                    .find_filter_item_id_at_index(self.settings.kind, i)
+                    .ok_or("no filter item found for that index")?;
+                Some(id)
             }
         };
-        instance_state.set_pot_filter_item_id(self.settings.kind, item_id)?;
+        pot_unit.set_filter_item_id(self.settings.kind, item_id);
         Ok(HitResponse::processed_with_effect())
     }
 

@@ -290,7 +290,7 @@ impl InstanceState {
     ///
     /// Returns an error if the necessary pot database is not available.
     pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
-        Ok(self.pot_unit.loaded()?)
+        Ok(self.pot_unit.loaded(&self.instance_feedback_event_sender)?)
     }
 
     /// Restores a pot unit state from persistent data.
@@ -306,37 +306,6 @@ impl InstanceState {
     /// Returns a pot unit state suitable to be saved by the persistence logic.
     pub fn save_pot_unit(&self) -> pot::PersistentState {
         self.pot_unit.persistent_state()
-    }
-
-    pub fn set_pot_filter_item_id(
-        &mut self,
-        kind: PotFilterItemKind,
-        id: Option<FilterItemId>,
-    ) -> Result<(), &'static str> {
-        blocking_lock_arc(&self.pot_unit()?).set_filter_item_id(kind, id);
-        self.instance_feedback_event_sender.send_complaining(
-            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::FilterItemChanged {
-                kind,
-                id,
-            }),
-        );
-        Ok(())
-    }
-
-    pub fn set_pot_preset_id(&mut self, id: Option<PresetId>) -> Result<(), &'static str> {
-        blocking_lock_arc(&self.pot_unit()?).set_preset_id(id);
-        self.instance_feedback_event_sender.send_complaining(
-            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::PresetChanged { id }),
-        );
-        Ok(())
-    }
-
-    pub fn rebuild_pot_indexes(&mut self) -> Result<(), Box<dyn Error>> {
-        blocking_lock_arc(&self.pot_unit()?).rebuild_collections()?;
-        self.instance_feedback_event_sender.send_complaining(
-            InstanceStateChanged::PotStateChanged(PotStateChangedEvent::IndexesRebuilt),
-        );
-        Ok(())
     }
 
     pub fn set_mapping_snapshot_container(

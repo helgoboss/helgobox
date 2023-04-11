@@ -4,8 +4,9 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use crate::base::blocking_lock;
+use crate::base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::nks::{NksFile, NksFilterSettings, PersistentNksFilterSettings};
+use crate::domain::{InstanceStateChanged, PotStateChangedEvent};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, Reaper};
@@ -57,7 +58,10 @@ impl PotUnit {
         }
     }
 
-    pub fn loaded(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
+    pub fn loaded(
+        &mut self,
+        sender: &SenderToNormalThread<InstanceStateChanged>,
+    ) -> Result<SharedRuntimePotUnit, &'static str> {
         match self {
             PotUnit::Unloaded {
                 state,
@@ -66,10 +70,10 @@ impl PotUnit {
                 if !previous_load_error.is_empty() {
                     return Err(previous_load_error);
                 }
-                match RuntimePotUnit::load(state) {
+                match RuntimePotUnit::load(state, sender.clone()) {
                     Ok(u) => {
-                        *self = Self::Loaded(u);
-                        self.loaded()
+                        *self = Self::Loaded(u.clone());
+                        Ok(u)
                     }
                     Err(e) => {
                         *previous_load_error = e;
@@ -94,6 +98,7 @@ pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub collections: Collections,
     pub stats: Stats,
+    pub sender: SenderToNormalThread<InstanceStateChanged>,
 }
 
 #[derive(Debug, Default)]
@@ -221,16 +226,19 @@ impl CurrentPreset {
 }
 
 impl RuntimePotUnit {
-    pub fn load(state: &PersistentState) -> Result<SharedRuntimePotUnit, &'static str> {
+    pub fn load(
+        state: &PersistentState,
+        sender: SenderToNormalThread<InstanceStateChanged>,
+    ) -> Result<SharedRuntimePotUnit, &'static str> {
         let mut unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
             stats: Default::default(),
+            sender,
         };
+        unit.rebuild_collections()
+            .map_err(|_| "couldn't rebuild collections on load")?;
         let shared_unit = Arc::new(Mutex::new(unit));
-        // TODO-high CONTINUE
-        // unit.rebuild_collections()
-        //     .map_err(|_| "couldn't rebuild collections on load")?;
         Ok(shared_unit)
     }
 
@@ -275,6 +283,10 @@ impl RuntimePotUnit {
 
     pub fn set_preset_id(&mut self, id: Option<PresetId>) {
         self.runtime_state.preset_id = id;
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetChanged { id },
+            ));
     }
 
     pub fn filter_item_id(&self, kind: PotFilterItemKind) -> Option<FilterItemId> {
@@ -292,6 +304,10 @@ impl RuntimePotUnit {
 
     pub fn set_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
         *self.runtime_state.filter_item_id_mut(kind) = id;
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::FilterItemChanged { kind, id },
+            ));
     }
 
     pub fn rebuild_collections(&mut self) -> Result<(), Box<dyn Error>> {
@@ -300,6 +316,10 @@ impl RuntimePotUnit {
         self.runtime_state = state;
         self.collections = collections;
         self.stats.query_duration = before.elapsed();
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::IndexesRebuilt,
+            ));
         Ok(())
     }
 
