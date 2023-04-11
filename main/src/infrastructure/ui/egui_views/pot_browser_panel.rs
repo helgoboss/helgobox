@@ -24,6 +24,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     //  - ReaLearn instance FX
     //  - Below ReaLearn
     // TODO Provide some wheels to control parameters
+    // TODO Mousewheel/touchpad scrolling support
+    // TODO Resizing support
     let mut pot_unit = &mut blocking_lock(&*state.pot_unit);
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
@@ -67,6 +69,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     let preset_count = pot_unit.count_presets();
     CentralPanel::default().show(ctx, |ui: &mut Ui| {
         ui.horizontal(|ui: &mut Ui| {
+            ui.strong("Search:");
             let response = ui.text_edit_singleline(pot_unit.runtime_state.search_expression_mut());
             if response.changed() {
                 pot_unit.rebuild_collections(state.pot_unit.clone());
