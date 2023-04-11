@@ -106,6 +106,12 @@ pub struct Stats {
     pub query_duration: Duration,
 }
 
+pub struct BuildOutcome {
+    pub collections: Collections,
+    pub stats: Stats,
+    pub filter_settings: FilterSettings,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
     filter_settings: FilterSettings,
@@ -312,30 +318,16 @@ impl RuntimePotUnit {
     pub fn rebuild_collections(&mut self, shared_self: SharedRuntimePotUnit) {
         let runtime_state = self.runtime_state.clone();
         worker::spawn(async move {
-            let before = Instant::now();
-            let (runtime_state, collections) =
-                with_preset_db(|db| db.build_collections(&runtime_state))??;
-            let stats = Stats {
-                query_duration: before.elapsed(),
-            };
-            blocking_lock_arc(&shared_self).notify_collections_ready(
-                runtime_state,
-                collections,
-                stats,
-            );
+            let build_outcome = with_preset_db(|db| db.build_collections(&runtime_state))??;
+            blocking_lock_arc(&shared_self).notify_build_outcome_ready(build_outcome);
             Ok(())
         });
     }
 
-    fn notify_collections_ready(
-        &mut self,
-        runtime_state: RuntimeState,
-        collections: Collections,
-        stats: Stats,
-    ) {
-        self.runtime_state = runtime_state;
-        self.collections = collections;
-        self.stats = stats;
+    fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutcome) {
+        self.runtime_state.filter_settings = build_outcome.filter_settings;
+        self.collections = build_outcome.collections;
+        self.stats = build_outcome.stats;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,

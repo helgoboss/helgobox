@@ -5,6 +5,7 @@ use tokio::runtime::Runtime;
 
 static POT_WORKER_RUNTIME: Lazy<std::io::Result<Runtime>> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
+        .thread_name("ReaLearn Pot Worker")
         .worker_threads(1)
         .build()
 });

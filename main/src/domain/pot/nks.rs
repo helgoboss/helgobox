@@ -1,8 +1,8 @@
 use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
-    Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterSettings, ParamAssignment,
-    Preset, PresetCollection, RuntimeState,
+    BuildOutcome, Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterSettings,
+    ParamAssignment, Preset, PresetCollection, RuntimeState, Stats,
 };
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;
@@ -13,6 +13,7 @@ use std::error::Error;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Instant;
 
 // TODO-medium Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
@@ -242,10 +243,8 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn build_collections(
-        &self,
-        state: &RuntimeState,
-    ) -> Result<(RuntimeState, Collections), Box<dyn Error>> {
+    pub fn build_collections(&self, state: &RuntimeState) -> Result<BuildOutcome, Box<dyn Error>> {
+        let before = Instant::now();
         let (new_filter_settings, mut new_filters) =
             self.build_filter_items(state.filter_settings.nks)?;
         // TODO-medium-performance The following ideas could be taken into consideration if the
@@ -265,14 +264,7 @@ impl PresetDb {
         narrow_down(&mut new_filters.modes, &non_empty_modes);
         let preset_collection =
             self.build_preset_collection(&state.filter_settings.nks, &state.search_expression)?;
-        let state = RuntimeState {
-            filter_settings: FilterSettings {
-                nks: new_filter_settings,
-            },
-            search_expression: state.search_expression.clone(),
-            preset_id: state.preset_id,
-        };
-        let indexes = Collections {
+        let collections = Collections {
             filter_item_collections: FilterItemCollections {
                 databases: vec![FilterItem {
                     persistent_id: "Nks".to_string(),
@@ -284,7 +276,17 @@ impl PresetDb {
             },
             preset_collection,
         };
-        Ok((state, indexes))
+        let stats = Stats {
+            query_duration: before.elapsed(),
+        };
+        let outcome = BuildOutcome {
+            collections,
+            stats,
+            filter_settings: FilterSettings {
+                nks: new_filter_settings,
+            },
+        };
+        Ok(outcome)
     }
 
     fn build_preset_collection(
