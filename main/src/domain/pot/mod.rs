@@ -99,6 +99,7 @@ pub struct RuntimePotUnit {
     pub collections: Collections,
     pub stats: Stats,
     pub sender: SenderToNormalThread<InstanceStateChanged>,
+    pub change_counter: u64,
 }
 
 #[derive(Debug, Default)]
@@ -241,6 +242,7 @@ impl RuntimePotUnit {
             collections: Default::default(),
             stats: Default::default(),
             sender,
+            change_counter: 0,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone());
@@ -317,9 +319,16 @@ impl RuntimePotUnit {
 
     pub fn rebuild_collections(&mut self, shared_self: SharedRuntimePotUnit) {
         let runtime_state = self.runtime_state.clone();
+        self.change_counter += 1;
+        let last_change_counter = self.change_counter;
         worker::spawn(async move {
             let build_outcome = with_preset_db(|db| db.build_collections(&runtime_state))??;
-            blocking_lock_arc(&shared_self).notify_build_outcome_ready(build_outcome);
+            let mut pot_unit = blocking_lock_arc(&shared_self);
+            // Only integrate build outcome if no new build has been requested in the meantime.
+            // Prevents flickering and increment/decrement issues.
+            if pot_unit.change_counter == last_change_counter {
+                pot_unit.notify_build_outcome_ready(build_outcome);
+            }
             Ok(())
         });
     }
