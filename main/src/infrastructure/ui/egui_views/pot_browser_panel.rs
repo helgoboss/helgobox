@@ -128,17 +128,21 @@ fn add_filter_view(
     kind: PotFilterItemKind,
 ) -> bool {
     ui.strong(label);
-    let initial_filter_item_id = pot_unit.filter_item_id(kind);
-    let filter_item_id = pot_unit.runtime_state.filter_item_id_mut(kind);
+    let old_filter_item_id = pot_unit.filter_item_id(kind);
+    let mut new_filter_item_id = old_filter_item_id;
     ui.horizontal_wrapped(|ui: &mut Ui| {
-        ui.selectable_value(filter_item_id, None, "<All>");
+        ui.selectable_value(&mut new_filter_item_id, None, "<All>");
         for filter_item in pot_unit.collections.find_all_filter_items(kind) {
             ui.selectable_value(
-                filter_item_id,
+                &mut new_filter_item_id,
                 Some(filter_item.id),
                 filter_item.effective_leaf_name(),
             );
         }
     });
-    filter_item_id != &initial_filter_item_id
+    let changed = new_filter_item_id != old_filter_item_id;
+    if changed {
+        pot_unit.set_filter_item_id(kind, new_filter_item_id);
+    }
+    changed
 }

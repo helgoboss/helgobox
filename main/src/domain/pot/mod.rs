@@ -162,7 +162,7 @@ impl RuntimeState {
         &mut self.search_expression
     }
 
-    pub fn filter_item_id_mut(&mut self, kind: PotFilterItemKind) -> &mut Option<FilterItemId> {
+    fn filter_item_id_mut(&mut self, kind: PotFilterItemKind) -> &mut Option<FilterItemId> {
         use PotFilterItemKind::*;
         let settings = &mut self.filter_settings.nks;
         match kind {
