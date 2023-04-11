@@ -310,6 +310,8 @@ impl RuntimePotUnit {
     }
 
     pub fn set_filter_item_id(&mut self, kind: PotFilterItemKind, id: Option<FilterItemId>) {
+        // TODO-high CONTINUE We should probably trigger a rebuild already here, not as async
+        //  reaction to the resulting event!
         *self.runtime_state.filter_item_id_mut(kind) = id;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(

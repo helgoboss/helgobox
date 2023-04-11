@@ -2,7 +2,7 @@ use crate::base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::{with_preset_db, PotUnit, Preset, RuntimePotUnit, SharedRuntimePotUnit};
 use crate::domain::{pot, ReaperTargetType};
 use derivative::Derivative;
-use egui::{CentralPanel, Ui};
+use egui::{CentralPanel, Color32, RichText, TextStyle, Ui};
 use egui::{Context, SidePanel};
 use egui_extras::{Size, TableBody, TableBuilder, TableRow};
 use enum_iterator::IntoEnumIterator;
@@ -11,10 +11,8 @@ use reaper_high::Reaper;
 use std::collections::HashSet;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
-    // TODO Execute query in background
     // TODO Use left outer join to also display stuff that's not associated with any bank/category/mode
     // TODO Explicitly add "should be null" filter option for displaying non-associated stuff
-    // TODO Make rows in preset table selectable
     // TODO Make layout less jumping around
     // TODO Provide option to only show sub filters when parent filter chosen
     // TODO Provide option to hide star filters
@@ -81,8 +79,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         let preset_id = pot_unit.find_preset_id_at_index(row_index as u32).unwrap();
                         let preset: Preset =
                             with_preset_db(|db| db.find_preset_by_id(preset_id).unwrap()).unwrap();
-                        row.col(|ui| {
-                            ui.label(&preset.name);
+                        row.col(|ui: &mut Ui| {
+                            let mut text = RichText::new(&preset.name);
+                            if Some(preset_id) == pot_unit.preset_id() {
+                                text = text.background_color(Color32::LIGHT_BLUE);
+                            }
+                            if ui.button(text).clicked() {
+                                pot_unit.set_preset_id(Some(preset_id));
+                            }
                         });
                         row.col(|ui| {
                             ui.label(&preset.file_ext);

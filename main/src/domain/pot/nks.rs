@@ -457,6 +457,8 @@ impl PresetDb {
                     }
                 }
             };
+        // TODO-high CONTINUE Clearing invalid settings should be done at a later point
+        //  (after empty filter items have been thrown away)
         clear_setting_if_invalid(&mut settings.sub_bank, &collections.sub_banks);
         clear_setting_if_invalid(&mut settings.sub_category, &collections.sub_categories);
         Ok((settings, collections))
