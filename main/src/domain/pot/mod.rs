@@ -17,6 +17,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 pub mod nks;
+pub mod worker;
 
 pub type FilterItemId = nks::FilterItemId;
 pub type PresetId = nks::PresetId;
@@ -97,7 +98,7 @@ pub struct Stats {
     pub query_duration: Duration,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
     filter_settings: FilterSettings,
     search_expression: String,
@@ -179,7 +180,7 @@ pub struct PersistentFilterSettings {
     pub nks: nks::PersistentNksFilterSettings,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct FilterSettings {
     pub nks: nks::NksFilterSettings,
 }
