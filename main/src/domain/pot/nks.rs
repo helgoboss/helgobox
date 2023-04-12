@@ -2,15 +2,17 @@ use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
     BuildOutcome, Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterSettings,
-    ParamAssignment, Preset, PresetCollection, RuntimeState, Stats,
+    ParamAssignment, Preset, RuntimeState, Stats,
 };
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;
 use riff_io::{ChunkMeta, Entry, RiffFile};
+use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::collections::HashMap;
 use std::error::Error;
 use std::hash::Hash;
+use std::iter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -22,7 +24,7 @@ pub struct PresetId(u32);
 #[derive(
     Copy, Clone, Eq, PartialEq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
-pub struct FilterItemId(u32);
+pub struct FilterItemId(pub Option<u32>);
 
 pub struct PresetDb {
     connection: Connection,
@@ -41,13 +43,17 @@ pub struct FilterNksItemCollections {
     pub modes: Vec<FilterItem>,
 }
 
+/// `Some` means a filter is set (can also be the `<None>` filter).
+/// `None` means no filter is set (`<Any>`).
+pub type OptFilter = Option<FilterItemId>;
+
 #[derive(Copy, Clone, Debug, Default)]
-pub struct NksFilterSettings {
-    pub bank: Option<FilterItemId>,
-    pub sub_bank: Option<FilterItemId>,
-    pub category: Option<FilterItemId>,
-    pub sub_category: Option<FilterItemId>,
-    pub mode: Option<FilterItemId>,
+pub struct Filters {
+    pub bank: OptFilter,
+    pub sub_bank: OptFilter,
+    pub category: OptFilter,
+    pub sub_category: OptFilter,
+    pub mode: OptFilter,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -263,14 +269,13 @@ impl PresetDb {
         narrow_down(&mut filter_items.sub_categories, &non_empty_categories);
         narrow_down(&mut filter_items.modes, &non_empty_modes);
         // Fix now invalid filter item IDs
-        let clear_setting_if_invalid =
-            |setting: &mut Option<FilterItemId>, items: &[FilterItem]| {
-                if let Some(id) = setting {
-                    if !items.iter().any(|item| item.id == *id) {
-                        *setting = None;
-                    }
+        let clear_setting_if_invalid = |setting: &mut OptFilter, items: &[FilterItem]| {
+            if let Some(id) = setting {
+                if !items.iter().any(|item| item.id == *id) {
+                    *setting = None;
                 }
-            };
+            }
+        };
         let mut fixed_settings = state.filter_settings.nks;
         clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.sub_banks);
         clear_setting_if_invalid(&mut fixed_settings.sub_bank, &filter_items.sub_banks);
@@ -311,7 +316,7 @@ impl PresetDb {
 
     fn build_preset_collection(
         &self,
-        filter_settings: &NksFilterSettings,
+        filter_settings: &Filters,
         search_expression: &str,
     ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
         self.execute_preset_query(filter_settings, search_expression, "i.id", |row| {
@@ -321,9 +326,9 @@ impl PresetDb {
 
     fn find_non_empty_categories(
         &self,
-        filter_settings: NksFilterSettings,
-    ) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
-        let filter_settings = NksFilterSettings {
+        filter_settings: Filters,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = Filters {
             category: None,
             sub_category: None,
             mode: None,
@@ -337,8 +342,8 @@ impl PresetDb {
         )
     }
 
-    fn find_non_empty_banks(&self) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
-        let filter_settings = NksFilterSettings::default();
+    fn find_non_empty_banks(&self) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = Filters::default();
         self.execute_preset_query(
             &filter_settings,
             "",
@@ -349,9 +354,9 @@ impl PresetDb {
 
     fn find_non_empty_modes(
         &self,
-        filter_settings: NksFilterSettings,
-    ) -> Result<IndexSet<Option<FilterItemId>>, Box<dyn Error>> {
-        let filter_settings = NksFilterSettings {
+        filter_settings: Filters,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = Filters {
             mode: None,
             ..filter_settings
         };
@@ -365,7 +370,7 @@ impl PresetDb {
 
     fn execute_preset_query<R>(
         &self,
-        filter_settings: &NksFilterSettings,
+        filter_settings: &Filters,
         search_expression: &str,
         select_clause: &str,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
@@ -377,34 +382,34 @@ impl PresetDb {
         let mut params: Vec<&dyn ToSql> = vec![];
         // Bank and sub bank (= "Instrument" and "Bank")
         if let Some(sub_bank_id) = &filter_settings.sub_bank {
-            where_extras += " AND i.bank_chain_id = ?";
-            params.push(&sub_bank_id.0);
+            where_extras += " AND i.bank_chain_id IS ?";
+            params.push(sub_bank_id);
         } else if let Some(bank_id) = &filter_settings.bank {
             where_extras += r#"
                 AND i.bank_chain_id IN (
                     SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
-                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
+                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id IS ?
                     ) 
                 )"#;
-            params.push(&bank_id.0);
+            params.push(bank_id);
         }
         // Category and sub category (= "Type" and "Sub type")
         if let Some(sub_category_id) = &filter_settings.sub_category {
-            where_extras += " AND ic.category_id = ?";
-            params.push(&sub_category_id.0);
+            where_extras += " AND ic.category_id IS ?";
+            params.push(sub_category_id);
         } else if let Some(category_id) = &filter_settings.category {
             where_extras += r#"
                 AND ic.category_id IN (
                     SELECT child.id FROM k_category child WHERE child.category = (
-                        SELECT parent.category FROM k_category parent WHERE parent.id = ?
+                        SELECT parent.category FROM k_category parent WHERE parent.id IS ?
                     )
                 )"#;
-            params.push(&category_id.0);
+            params.push(category_id);
         }
         // Mode (= "Character")
         if let Some(mode_id) = &filter_settings.mode {
-            where_extras += " AND im.mode_id = ?";
-            params.push(&mode_id.0);
+            where_extras += " AND im.mode_id IS ?";
+            params.push(mode_id);
         }
         // Search expression
         let like_expression: String = search_expression
@@ -424,10 +429,10 @@ impl PresetDb {
             r#"
             SELECT {select_clause}
             FROM k_sound_info i
-                JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
-                JOIN k_sound_info_mode im ON i.id = im.sound_info_id
+                LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
+                LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id
             WHERE true{where_extras}
-            ORDER BY i.name
+            ORDER BY i.name -- COLLATE NOCASE ASC
             "#
         );
         let mut statement = self.connection.prepare_cached(&sql)?;
@@ -444,7 +449,7 @@ impl PresetDb {
     /// later stage!
     pub fn build_filter_items(
         &self,
-        settings: &NksFilterSettings,
+        settings: &Filters,
     ) -> Result<FilterNksItemCollections, Box<dyn Error>> {
         let collections = FilterNksItemCollections {
             banks: self.select_nks_filter_items(
@@ -453,12 +458,12 @@ impl PresetDb {
             ),
             sub_banks: {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
-                let parent_bank_id = settings.bank;
-                if parent_bank_id.is_some() {
+                let parent_bank_filter = settings.bank;
+                if parent_bank_filter.is_some() {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_id)
+                self.select_nks_filter_items(&sql, parent_bank_filter)
             },
             categories: self.select_nks_filter_items(
                 "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
@@ -466,12 +471,12 @@ impl PresetDb {
             ),
             sub_categories: {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
-                let parent_category_id = settings.category;
-                if parent_category_id.is_some() {
+                let parent_category_filter = settings.category;
+                if parent_category_filter.is_some() {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_id)
+                self.select_nks_filter_items(&sql, parent_category_filter)
             },
             modes: self
                 .select_nks_filter_items("SELECT id, '', name FROM k_mode ORDER BY name", None),
@@ -479,12 +484,8 @@ impl PresetDb {
         Ok(collections)
     }
 
-    fn select_nks_filter_items(
-        &self,
-        query: &str,
-        parent_id: Option<FilterItemId>,
-    ) -> Vec<FilterItem> {
-        match self.select_nks_filter_items_internal(query, parent_id) {
+    fn select_nks_filter_items(&self, query: &str, parent_filter: OptFilter) -> Vec<FilterItem> {
+        match self.select_nks_filter_items_internal(query, parent_filter) {
             Ok(items) => items,
             Err(e) => {
                 tracing::error!("Error when selecting NKS filter items: {}", e);
@@ -496,15 +497,15 @@ impl PresetDb {
     fn select_nks_filter_items_internal(
         &self,
         query: &str,
-        parent_id: Option<FilterItemId>,
+        parent_filter: OptFilter,
     ) -> rusqlite::Result<Vec<FilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
-        let rows = if let Some(parent_id) = parent_id {
-            statement.query([parent_id.0])?
+        let rows = if let Some(parent_filter) = parent_filter {
+            statement.query([parent_filter])?
         } else {
             statement.query([])?
         };
-        rows.map(|row| {
+        let existing_filter_items = rows.map(|row| {
             let name: Option<String> = row.get(2)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
@@ -513,8 +514,10 @@ impl PresetDb {
                 parent_name: row.get(1)?,
             };
             Ok(item)
-        })
-        .collect()
+        });
+        iter::once(Ok(FilterItem::none()))
+            .chain(existing_filter_items.iterator())
+            .collect()
     }
 }
 
@@ -526,12 +529,21 @@ fn path_to_preset_db() -> Result<PathBuf, &'static str> {
 
 fn narrow_down(
     filter_items: &mut Vec<FilterItem>,
-    non_empty_filter_item_ids: &IndexSet<Option<FilterItemId>>,
+    non_empty_filter_item_ids: &IndexSet<FilterItemId>,
 ) {
-    filter_items.retain(|item| non_empty_filter_item_ids.contains(&Some(item.id)))
+    filter_items.retain(|item| non_empty_filter_item_ids.contains(&item.id))
 }
 
-fn optional_filter_item_id(row: &Row) -> Result<Option<FilterItemId>, rusqlite::Error> {
+fn optional_filter_item_id(row: &Row) -> Result<FilterItemId, rusqlite::Error> {
     let id: Option<u32> = row.get(0)?;
-    Ok(id.map(FilterItemId))
+    Ok(FilterItemId(id))
+}
+
+impl ToSql for FilterItemId {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        match self.0 {
+            None => Ok(ToSqlOutput::Owned(Value::Null)),
+            Some(id) => Ok(ToSqlOutput::Owned(Value::Integer(id as _))),
+        }
+    }
 }

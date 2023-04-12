@@ -5,7 +5,7 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::{NksFile, NksFilterSettings, PersistentNksFilterSettings};
+use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings};
 use crate::domain::{InstanceStateChanged, PotStateChangedEvent};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -13,10 +13,9 @@ use reaper_high::{Fx, Reaper};
 use reaper_medium::InsertMediaMode;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub mod nks;
 mod worker;
@@ -136,7 +135,7 @@ impl RuntimeState {
                     };
                     let nks = &persistent_state.filter_settings.nks;
                     FilterSettings {
-                        nks: NksFilterSettings {
+                        nks: Filters {
                             bank: find_id(&nks.bank, &collections.banks),
                             sub_bank: find_id(&nks.sub_bank, &collections.sub_banks),
                             category: find_id(&nks.category, &collections.categories),
@@ -162,7 +161,7 @@ impl RuntimeState {
         &mut self.search_expression
     }
 
-    fn filter_item_id_mut(&mut self, kind: PotFilterItemKind) -> &mut Option<FilterItemId> {
+    fn get_filter_mut(&mut self, kind: PotFilterItemKind) -> &mut OptFilter {
         use PotFilterItemKind::*;
         let settings = &mut self.filter_settings.nks;
         match kind {
@@ -197,7 +196,7 @@ pub struct PersistentFilterSettings {
 
 #[derive(Clone, Debug, Default)]
 pub struct FilterSettings {
-    pub nks: nks::NksFilterSettings,
+    pub nks: nks::Filters,
 }
 
 #[derive(Debug, Default)]
@@ -237,7 +236,7 @@ impl RuntimePotUnit {
         state: &PersistentState,
         sender: SenderToNormalThread<InstanceStateChanged>,
     ) -> Result<SharedRuntimePotUnit, &'static str> {
-        let mut unit = Self {
+        let unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
             stats: Default::default(),
@@ -250,7 +249,7 @@ impl RuntimePotUnit {
     }
 
     pub fn persistent_state(&self) -> PersistentState {
-        let find_id = |setting: Option<FilterItemId>, items: &[FilterItem]| {
+        let find_id = |setting: OptFilter, items: &[FilterItem]| {
             setting.and_then(|id| {
                 items
                     .iter()
@@ -296,7 +295,7 @@ impl RuntimePotUnit {
             ));
     }
 
-    pub fn filter_item_id(&self, kind: PotFilterItemKind) -> Option<FilterItemId> {
+    pub fn get_filter(&self, kind: PotFilterItemKind) -> OptFilter {
         use PotFilterItemKind::*;
         let settings = &self.runtime_state.filter_settings.nks;
         match kind {
@@ -309,16 +308,16 @@ impl RuntimePotUnit {
         }
     }
 
-    pub fn set_filter_item_id(
+    pub fn set_filter(
         &mut self,
         kind: PotFilterItemKind,
-        id: Option<FilterItemId>,
+        id: OptFilter,
         shared_self: SharedRuntimePotUnit,
     ) {
-        *self.runtime_state.filter_item_id_mut(kind) = id;
+        *self.runtime_state.get_filter_mut(kind) = id;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::FilterItemChanged { kind, id },
+                PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             ));
         self.rebuild_collections(shared_self);
     }
@@ -427,7 +426,10 @@ impl RuntimePotUnit {
 
 #[derive(Clone, Debug)]
 pub struct FilterItem {
+    // TODO-high CONTINUE Distinguish <Any> and <None> in persistence
     pub persistent_id: String,
+    /// `None` is also a valid filter item! It would match filter `<None>` (e.g. no category
+    /// assigned at all)
     pub id: FilterItemId,
     /// Only set for sub filters. If not set, we know it's a top-level filter.
     pub parent_name: Option<String>,
@@ -437,6 +439,15 @@ pub struct FilterItem {
 }
 
 impl FilterItem {
+    pub fn none() -> Self {
+        Self {
+            persistent_id: "".to_string(),
+            id: nks::FilterItemId(None),
+            parent_name: None,
+            name: Some("<None>".to_string()),
+        }
+    }
+
     pub fn effective_leaf_name(&self) -> Cow<str> {
         match &self.name {
             None => match &self.parent_name {

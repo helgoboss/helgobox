@@ -1,19 +1,14 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::rc::{Rc, Weak};
-use std::sync::MutexGuard;
 
 use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use crate::base::{
-    blocking_lock, blocking_lock_arc, NamedChannelSender, Prop, SenderToNormalThread,
-    SenderToRealTimeThread,
-};
-use crate::domain::pot::nks::FilterItemId;
-use crate::domain::pot::{PotUnit, PresetId, RuntimePotUnit, SharedRuntimePotUnit};
+use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::pot::nks::OptFilter;
+use crate::domain::pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use crate::domain::{
     pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
@@ -719,7 +714,7 @@ impl InstanceStateChanged {
 pub enum PotStateChangedEvent {
     FilterItemChanged {
         kind: PotFilterItemKind,
-        id: Option<FilterItemId>,
+        filter: OptFilter,
     },
     PresetChanged {
         id: Option<PresetId>,

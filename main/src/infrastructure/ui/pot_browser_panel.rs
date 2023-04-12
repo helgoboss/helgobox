@@ -1,15 +1,12 @@
-use crate::base::SenderToNormalThread;
 use crate::domain::pot::SharedRuntimePotUnit;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
 use crate::infrastructure::ui::egui_views::pot_browser_panel::{run_ui, State};
-use crossbeam_channel::Receiver;
 use derivative::Derivative;
 use raw_window_handle::HasRawWindowHandle;
-use reaper_low::{raw, Swell};
-use std::cell::{Cell, RefCell};
-use std::time::Duration;
-use swell_ui::{DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window};
+use reaper_low::raw;
+use std::cell::Cell;
+use swell_ui::{Point, SharedView, View, ViewContext, Window};
 
 #[derive(Derivative)]
 #[derivative(Debug)]

@@ -13,9 +13,9 @@ use crate::domain::{
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet,
     OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams,
-    PotStateChangedEvent, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource, RawParamValue,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedClipMatrixEvent,
+    QualifiedMappingId, QualifiedSource, RawParamValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
     ReaperTarget, SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
     TargetControlEvent, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
@@ -30,9 +30,7 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 
-use crate::base::{
-    blocking_lock_arc, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
-};
+use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
     format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,

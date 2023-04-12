@@ -1,4 +1,4 @@
-use std::sync::{Arc, LockResult, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Attempts to lock the given mutex.
 ///

@@ -1,8 +1,5 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::nks::NksFile;
-use crate::domain::pot::{
-    preset_db, with_preset_db, CurrentPreset, Preset, PresetId, RuntimePotUnit,
-};
+use crate::domain::pot::{preset_db, with_preset_db, PresetId, RuntimePotUnit};
 use crate::domain::{
     pot, BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
@@ -10,9 +7,7 @@ use crate::domain::{
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use reaper_high::{Fx, Project, Reaper, Track};
-use reaper_medium::InsertMediaMode;
-use std::path::Path;
+use reaper_high::{Fx, Project, Track};
 
 #[derive(Debug)]
 pub struct UnresolvedLoadPotPresetTarget {

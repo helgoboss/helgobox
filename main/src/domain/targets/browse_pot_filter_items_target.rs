@@ -115,7 +115,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
                 Some(id)
             }
         };
-        pot_unit.set_filter_item_id(self.settings.kind, item_id, shared_pot_unit.clone());
+        pot_unit.set_filter(self.settings.kind, item_id, shared_pot_unit.clone());
         Ok(HitResponse::processed_with_effect())
     }
 
@@ -130,7 +130,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::FilterItemChanged { kind, id },
+                PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             )) if *kind == self.settings.kind => {
                 let mut instance_state = context.instance_state.borrow_mut();
                 let pot_unit = match instance_state.pot_unit() {
@@ -166,7 +166,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit);
         let item_id = match self.current_item_id(&pot_unit) {
-            None => return Some("All".into()),
+            None => return Some("Any".into()),
             Some(id) => id,
         };
         let item = match self.find_item_by_id(&pot_unit, item_id) {
@@ -247,7 +247,7 @@ impl BrowsePotFilterItemsTarget {
     }
 
     fn current_item_id(&self, pot_unit: &RuntimePotUnit) -> Option<FilterItemId> {
-        pot_unit.filter_item_id(self.settings.kind)
+        pot_unit.get_filter(self.settings.kind)
     }
 
     fn find_item_by_id(&self, pot_unit: &RuntimePotUnit, id: FilterItemId) -> Option<FilterItem> {
