@@ -26,6 +26,10 @@ pub struct PresetId(u32);
 )]
 pub struct FilterItemId(pub Option<u32>);
 
+impl FilterItemId {
+    pub const NONE: Self = Self(None);
+}
+
 pub struct PresetDb {
     connection: Connection,
 }
@@ -54,6 +58,24 @@ pub struct Filters {
     pub category: OptFilter,
     pub sub_category: OptFilter,
     pub mode: OptFilter,
+}
+
+impl Filters {
+    pub fn effective_sub_bank(&self) -> &OptFilter {
+        if self.bank == Some(FilterItemId::NONE) {
+            &self.bank
+        } else {
+            &self.sub_bank
+        }
+    }
+
+    pub fn effective_sub_category(&self) -> &OptFilter {
+        if self.category == Some(FilterItemId::NONE) {
+            &self.category
+        } else {
+            &self.sub_category
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -381,27 +403,27 @@ impl PresetDb {
         let mut where_extras = String::new();
         let mut params: Vec<&dyn ToSql> = vec![];
         // Bank and sub bank (= "Instrument" and "Bank")
-        if let Some(sub_bank_id) = &filter_settings.sub_bank {
+        if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
             where_extras += " AND i.bank_chain_id IS ?";
             params.push(sub_bank_id);
         } else if let Some(bank_id) = &filter_settings.bank {
             where_extras += r#"
                 AND i.bank_chain_id IN (
                     SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
-                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id IS ?
+                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
                     ) 
                 )"#;
             params.push(bank_id);
         }
         // Category and sub category (= "Type" and "Sub type")
-        if let Some(sub_category_id) = &filter_settings.sub_category {
+        if let Some(sub_category_id) = filter_settings.effective_sub_category() {
             where_extras += " AND ic.category_id IS ?";
             params.push(sub_category_id);
         } else if let Some(category_id) = &filter_settings.category {
             where_extras += r#"
                 AND ic.category_id IN (
                     SELECT child.id FROM k_category child WHERE child.category = (
-                        SELECT parent.category FROM k_category parent WHERE parent.id IS ?
+                        SELECT parent.category FROM k_category parent WHERE parent.id = ?
                     )
                 )"#;
             params.push(category_id);
@@ -432,7 +454,7 @@ impl PresetDb {
                 LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
                 LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id
             WHERE true{where_extras}
-            ORDER BY i.name -- COLLATE NOCASE ASC
+            ORDER BY i.name -- COLLATE NOCASE ASC -- disabled because slow
             "#
         );
         let mut statement = self.connection.prepare_cached(&sql)?;
