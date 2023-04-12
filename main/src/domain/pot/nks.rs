@@ -299,14 +299,14 @@ impl PresetDb {
             }
         };
         let mut fixed_settings = state.filter_settings.nks;
-        clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.sub_banks);
+        clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.banks);
         clear_setting_if_invalid(&mut fixed_settings.sub_bank, &filter_items.sub_banks);
-        clear_setting_if_invalid(&mut fixed_settings.category, &filter_items.sub_categories);
+        clear_setting_if_invalid(&mut fixed_settings.category, &filter_items.categories);
         clear_setting_if_invalid(
             &mut fixed_settings.sub_category,
             &filter_items.sub_categories,
         );
-        clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.sub_banks);
+        // clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.sub_banks);
         // Build preset collection
         let preset_collection =
             self.build_preset_collection(&fixed_settings, &state.search_expression)?;
@@ -477,6 +477,7 @@ impl PresetDb {
             banks: self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
+                true,
             ),
             sub_banks: {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
@@ -485,11 +486,12 @@ impl PresetDb {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_filter)
+                self.select_nks_filter_items(&sql, parent_bank_filter, false)
             },
             categories: self.select_nks_filter_items(
                 "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
                 None,
+                true,
             ),
             sub_categories: {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
@@ -498,16 +500,24 @@ impl PresetDb {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_filter)
+                self.select_nks_filter_items(&sql, parent_category_filter, false)
             },
-            modes: self
-                .select_nks_filter_items("SELECT id, '', name FROM k_mode ORDER BY name", None),
+            modes: self.select_nks_filter_items(
+                "SELECT id, '', name FROM k_mode ORDER BY name",
+                None,
+                true,
+            ),
         };
         Ok(collections)
     }
 
-    fn select_nks_filter_items(&self, query: &str, parent_filter: OptFilter) -> Vec<FilterItem> {
-        match self.select_nks_filter_items_internal(query, parent_filter) {
+    fn select_nks_filter_items(
+        &self,
+        query: &str,
+        parent_filter: OptFilter,
+        include_none_filter: bool,
+    ) -> Vec<FilterItem> {
+        match self.select_nks_filter_items_internal(query, parent_filter, include_none_filter) {
             Ok(items) => items,
             Err(e) => {
                 tracing::error!("Error when selecting NKS filter items: {}", e);
@@ -520,6 +530,7 @@ impl PresetDb {
         &self,
         query: &str,
         parent_filter: OptFilter,
+        include_none_filter: bool,
     ) -> rusqlite::Result<Vec<FilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
         let rows = if let Some(parent_filter) = parent_filter {
@@ -537,9 +548,13 @@ impl PresetDb {
             };
             Ok(item)
         });
-        iter::once(Ok(FilterItem::none()))
-            .chain(existing_filter_items.iterator())
-            .collect()
+        if include_none_filter {
+            iter::once(Ok(FilterItem::none()))
+                .chain(existing_filter_items.iterator())
+                .collect()
+        } else {
+            existing_filter_items.collect()
+        }
     }
 }
 
