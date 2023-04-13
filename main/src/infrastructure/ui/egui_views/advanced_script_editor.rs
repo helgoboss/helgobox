@@ -138,6 +138,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         let mut normal_points = vec![];
         let mut none_points = vec![];
         let mut stop_points = vec![];
+        // plot_ui.set_plot_bounds(PlotBounds::from_min_max([0.0, 0.0], [1.0, 1.0]));
         for e in &build_outcome.plot_entries {
             x = e.input;
             prev_y = match e.output {
