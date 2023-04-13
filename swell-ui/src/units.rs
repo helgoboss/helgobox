@@ -52,6 +52,14 @@ impl Pixels {
     }
 }
 
+impl Mul<f64> for Pixels {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self((self.0 as f64 * rhs).round() as _)
+    }
+}
+
 impl Sub for Pixels {
     type Output = Pixels;
 

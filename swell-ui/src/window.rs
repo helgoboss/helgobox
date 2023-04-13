@@ -585,8 +585,7 @@ impl Window {
         Some(res)
     }
 
-    pub fn move_to(self, point: Point<DialogUnits>) {
-        let point: Point<_> = self.convert_to_pixels(point);
+    pub fn move_to_pixels(self, point: Point<Pixels>) {
         unsafe {
             Swell::get().SetWindowPos(
                 self.raw,
@@ -598,6 +597,10 @@ impl Window {
                 (raw::SWP_NOSIZE | raw::SWP_NOZORDER) as _,
             );
         }
+    }
+
+    pub fn move_to_dialog_units(self, point: Point<DialogUnits>) {
+        self.move_to_pixels(self.convert_to_pixels(point));
     }
 
     pub fn resize(self, dimensions: Dimensions<Pixels>) {

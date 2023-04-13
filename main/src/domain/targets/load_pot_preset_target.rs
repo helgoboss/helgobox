@@ -1,7 +1,7 @@
 use crate::base::blocking_lock_arc;
 use crate::domain::pot::{preset_db, with_preset_db, PresetId, RuntimePotUnit};
 use crate::domain::{
-    pot, BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };

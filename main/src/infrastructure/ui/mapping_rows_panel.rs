@@ -612,7 +612,7 @@ impl View for MappingRowsPanel {
                 reaper.CoolSB_SetThemeIndex(hwnd, -1);
             }
         }
-        window.move_to(self.position);
+        window.move_to_dialog_units(self.position);
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
         self.invalidate_scroll_info();

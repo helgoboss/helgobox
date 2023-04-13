@@ -6,7 +6,7 @@ use derivative::Derivative;
 use raw_window_handle::HasRawWindowHandle;
 use reaper_low::raw;
 use std::cell::Cell;
-use swell_ui::{Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{Dimensions, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -37,11 +37,11 @@ impl View for PotBrowserPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         let screen_size = Window::screen_size();
-        window.move_to(Point::default());
-        // TODO-high CONTINUE Maximize (otherwise we are larger than the available area)
-        window.resize(Dimensions::new(
-            screen_size.width,
-            screen_size.height - Pixels(40),
+        let window_size = Dimensions::new(screen_size.width * 0.75, screen_size.height * 0.75);
+        window.resize(window_size);
+        window.move_to_pixels(Point::new(
+            (screen_size.width - window_size.width) * 0.5,
+            (screen_size.height - window_size.height) * 0.5,
         ));
         let child_window_handle = egui_views::open(
             window,
@@ -66,12 +66,12 @@ impl View for PotBrowserPanel {
         }
     }
 
-    fn resized(self: SharedView<Self>) -> bool {
-        // TODO-high CONTINUE This doesn't work yet. Maybe even not necessary?
-        if let Some(child_window) = self.child_window.get() {
-            let new_size = self.view.require_window().size();
-            child_window.resize(new_size);
-        }
-        true
-    }
+    // fn resized(self: SharedView<Self>) -> bool {
+    //     // TODO-high CONTINUE This doesn't work yet. Maybe even not necessary?
+    //     if let Some(child_window) = self.child_window.get() {
+    //         let new_size = self.view.require_window().size();
+    //         child_window.resize(new_size);
+    //     }
+    //     true
+    // }
 }

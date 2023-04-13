@@ -612,7 +612,7 @@ impl View for MappingHeaderPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        window.move_to(self.position);
+        window.move_to_dialog_units(self.position);
         self.init_controls();
         true
     }

@@ -861,7 +861,7 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
-        window.move_to(Point::new(
+        window.move_to_dialog_units(Point::new(
             DialogUnits(0),
             mapping_row_panel_height() * self.row_index,
         ));
