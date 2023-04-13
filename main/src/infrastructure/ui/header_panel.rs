@@ -122,16 +122,16 @@ impl HeaderPanel {
             },
         };
         let editor = SimpleScriptEditorPanel::new(input);
-        self.open_extra_panel(editor);
+        self.open_extra_panel(editor, self.view.require_window());
     }
 
-    fn open_extra_panel(&self, panel: impl View + 'static) {
+    fn open_extra_panel(&self, panel: impl View + 'static, parent_window: Window) {
         let panel = SharedView::new(panel);
         let panel_clone = panel.clone();
         if let Some(existing_panel) = self.extra_panel.replace(Some(panel)) {
             existing_panel.close();
         };
-        panel_clone.open(self.view.require_window());
+        panel_clone.open(parent_window);
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -2228,7 +2228,7 @@ impl HeaderPanel {
         let session = self.session();
         let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
         let panel = PotBrowserPanel::new(pot_unit);
-        self.open_extra_panel(panel);
+        self.open_extra_panel(panel, Window::from_non_null(Reaper::get().main_window()));
         Ok(())
     }
 
