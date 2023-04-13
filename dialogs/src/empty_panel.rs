@@ -16,7 +16,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             WS_VISIBLE,
             WS_CAPTION,
             WS_SYSMENU,
-            // WS_THICKFRAME,
+            WS_THICKFRAME,
         ]),
         ..context.default_dialog()
     }

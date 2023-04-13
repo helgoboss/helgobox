@@ -67,9 +67,9 @@ impl View for PotBrowserPanel {
     }
 
     fn resized(self: SharedView<Self>) -> bool {
+        // TODO-high CONTINUE This doesn't work yet. Maybe even not necessary?
         if let Some(child_window) = self.child_window.get() {
             let new_size = self.view.require_window().size();
-            dbg!(child_window.size());
             child_window.resize(new_size);
         }
         true

@@ -9,17 +9,11 @@ use reaper_high::Reaper;
 use reaper_medium::MasterTrackBehavior;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
-    // TODO Provide option to only show sub filters when parent filter chosen
     // TODO Provide option to hide star filters
-    // TODO Add preview button
     // TODO Make it possible to set FX slot into which the stuff should be loaded:
-    //  - Last focused FX
-    //  - Selected track, position X
-    //  - Track X, position Y
-    //  - ReaLearn instance FX
+    //  - Selected track
     //  - Below ReaLearn
     // TODO Provide some wheels to control parameters
-    // TODO Mousewheel/touchpad scrolling support
     // TODO Resizing support
     let pot_unit = &mut blocking_lock(&*state.pot_unit);
     SidePanel::left("left-panel")
