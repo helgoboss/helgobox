@@ -50,6 +50,7 @@ use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);
+    fn show_pot_browser(&self);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn midi_devices_changed(&self);
@@ -1194,6 +1195,10 @@ impl Session {
                 }
             })
             .unwrap();
+    }
+
+    pub fn ui(&self) -> &dyn SessionUi {
+        &*self.ui
     }
 
     fn change_compartment_internal(

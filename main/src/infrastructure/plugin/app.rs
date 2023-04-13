@@ -1126,6 +1126,17 @@ impl App {
             ActionKind::NotToggleable,
         );
         Reaper::get().register_action(
+            "REALEARN_OPEN_FIRST_POT_BROWSER",
+            "ReaLearn: Open first pot browser",
+            move || {
+                let Some(session) = App::get().find_first_relevant_session_monitoring_first() else {
+                    return;
+                };
+                session.borrow().ui().show_pot_browser();
+            },
+            ActionKind::NotToggleable,
+        );
+        Reaper::get().register_action(
             "REALEARN_FIND_FIRST_MAPPING_BY_TARGET",
             "ReaLearn: Find first mapping by target",
             move || {
@@ -1219,7 +1230,7 @@ impl App {
         open_mapping: bool,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
-        if self.find_first_relevant_session().is_none() {
+        if self.find_first_relevant_session_project_first().is_none() {
             self.close_message_panel_with_alert(
                 "At first you need to add a ReaLearn instance to the monitoring FX chain or this project! Don't forget to set the MIDI control input.",
             );
@@ -1386,7 +1397,7 @@ impl App {
                     .and_then(|t| self.find_first_session_on_track(t))
             })
             // If not found, find a random instance
-            .or_else(|| self.find_first_relevant_session());
+            .or_else(|| self.find_first_relevant_session_project_first());
         match session {
             None => {
                 notification::alert(
@@ -1441,7 +1452,12 @@ impl App {
         })
     }
 
-    fn find_first_relevant_session(&self) -> Option<SharedSession> {
+    fn find_first_relevant_session_monitoring_first(&self) -> Option<SharedSession> {
+        self.find_first_session_in_project(None)
+            .or_else(|| self.find_first_session_in_project(Some(Reaper::get().current_project())))
+    }
+
+    fn find_first_relevant_session_project_first(&self) -> Option<SharedSession> {
         self.find_first_session_in_project(Some(Reaper::get().current_project()))
             .or_else(|| self.find_first_session_in_project(None))
     }

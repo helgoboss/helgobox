@@ -736,7 +736,7 @@ impl HeaderPanel {
             MainMenuAction::ChangeSessionId => self.change_session_id(),
             MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
             MainMenuAction::OpenPotBrowser => {
-                self.notify_user_on_error(self.open_pot_browser());
+                self.show_pot_browser();
             }
             MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
             MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
@@ -2224,7 +2224,11 @@ impl HeaderPanel {
         let _ = App::get().main_preset_manager().borrow_mut().load_presets();
     }
 
-    fn open_pot_browser(&self) -> Result<(), Box<dyn Error>> {
+    pub fn show_pot_browser(&self) {
+        self.notify_user_on_error(self.show_pot_browser_internal());
+    }
+
+    fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
         let session = self.session();
         let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
         let panel = PotBrowserPanel::new(pot_unit);

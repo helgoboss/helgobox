@@ -169,6 +169,12 @@ impl MainPanel {
         }
     }
 
+    pub fn show_pot_browser(&self) {
+        if let Some(data) = self.active_data.borrow() {
+            data.header_panel.show_pot_browser();
+        }
+    }
+
     fn open_sub_panels(&self, window: Window) {
         if let Some(data) = self.active_data.borrow() {
             data.header_panel.clone().open(window);
@@ -485,6 +491,10 @@ impl View for MainPanel {
 impl SessionUi for Weak<MainPanel> {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         upgrade_panel(self).edit_mapping(compartment, mapping_id);
+    }
+
+    fn show_pot_browser(&self) {
+        upgrade_panel(self).show_pot_browser();
     }
 
     fn target_value_changed(&self, event: TargetValueChangedEvent) {
