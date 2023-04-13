@@ -166,9 +166,10 @@ enigo = "0.0.14"
 device_query = "1.1.1"
 # For egui graphics
 egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn" }
+#egui-baseview = { path = "../../egui-baseview" }
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
-egui = "0.19.0"
-egui_extras = "0.19.0"
+egui = "0.21.0"
+egui_extras = "0.21.0"
 # For Pot target
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 # For Pot target

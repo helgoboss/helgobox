@@ -180,7 +180,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         );
         if build_outcome.uses_time {
             plot_ui.ctx().request_repaint();
-            let time = plot_ui.ctx().input().time;
+            let time = plot_ui.ctx().input(|i| i.time);
             let bar_color = if visuals.dark_mode {
                 Color32::LIGHT_GRAY
             } else {

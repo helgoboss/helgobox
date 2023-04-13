@@ -3,7 +3,7 @@ use crate::domain::pot;
 use crate::domain::pot::{with_preset_db, Preset, RuntimePotUnit, SharedRuntimePotUnit};
 use egui::{CentralPanel, Color32, Frame, RichText, ScrollArea, TextStyle, TopBottomPanel, Ui};
 use egui::{Context, SidePanel};
-use egui_extras::{Size, TableBuilder};
+use egui_extras::{Column, Size, TableBuilder};
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::Reaper;
 use reaper_medium::MasterTrackBehavior;
@@ -122,9 +122,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             .striped(true)
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Size::initial(200.0).at_least(60.0))
-            .column(Size::initial(60.0).at_least(40.0))
-            .column(Size::remainder().at_least(40.0))
+            .column(Column::auto())
+            // .column(Column::initial(200.0).at_least(60.0))
+            .column(Column::initial(60.0).at_least(40.0).clip(true))
+            .column(Column::remainder().at_least(40.0))
+            .min_scrolled_height(0.0)
             .header(20.0, |mut header| {
                 header.col(|ui| {
                     ui.strong("Name");
