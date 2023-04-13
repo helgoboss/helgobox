@@ -15,6 +15,8 @@ pub struct SoundPlayer {
     play_handle: Cell<Option<NonNull<raw::preview_register_t>>>,
 }
 
+unsafe impl Send for SoundPlayer {}
+
 impl Default for SoundPlayer {
     fn default() -> Self {
         Self::new()

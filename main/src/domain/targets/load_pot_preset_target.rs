@@ -64,7 +64,8 @@ impl RealearnTarget for LoadPotPresetTarget {
             .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
-        let current_preset = pot::load_preset(&preset, &self.fx)?;
+        let fx_index = self.fx.index();
+        let current_preset = pot_unit.load_preset_at(&preset, self.fx.chain(), fx_index)?;
         BackboneState::target_state()
             .borrow_mut()
             .set_current_fx_preset(self.fx.clone(), current_preset);

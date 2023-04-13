@@ -1158,6 +1158,7 @@ pub struct LoadPotPresetTarget {
     Clone,
     Eq,
     PartialEq,
+    Hash,
     Debug,
     Serialize,
     Deserialize,

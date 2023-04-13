@@ -6,11 +6,11 @@
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings};
-use crate::domain::{InstanceStateChanged, PotStateChangedEvent};
+use crate::domain::{InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, Reaper};
-use reaper_medium::InsertMediaMode;
+use reaper_high::{Fx, FxChain, Reaper};
+use reaper_medium::{InsertMediaMode, MasterTrackBehavior};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -99,6 +99,7 @@ pub struct RuntimePotUnit {
     pub stats: Stats,
     pub sender: SenderToNormalThread<InstanceStateChanged>,
     pub change_counter: u64,
+    pub sound_player: SoundPlayer,
 }
 
 #[derive(Debug, Default)]
@@ -242,6 +243,7 @@ impl RuntimePotUnit {
             stats: Default::default(),
             sender,
             change_counter: 0,
+            sound_player: Default::default(),
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone());
@@ -279,6 +281,39 @@ impl RuntimePotUnit {
         }
     }
 
+    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
+        let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
+            .ok_or("couldn't find preset or build preset preview file")?;
+        self.sound_player.load_file(&preview_file)?;
+        self.sound_player.play()?;
+        Ok(())
+    }
+
+    pub fn stop_preview(&mut self) -> Result<(), &'static str> {
+        self.sound_player.stop()
+    }
+
+    pub fn load_preset(&self, preset: &Preset) -> Result<CurrentPreset, &'static str> {
+        let selected_track = Reaper::get()
+            .current_project()
+            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+            .ok_or("no track selected")?;
+        self.load_preset_at(preset, &selected_track.normal_fx_chain(), 0)
+    }
+
+    pub fn load_preset_at(
+        &self,
+        preset: &Preset,
+        chain: &FxChain,
+        fx_index: u32,
+    ) -> Result<CurrentPreset, &'static str> {
+        match preset.file_ext.as_str() {
+            "wav" | "aif" => load_audio_preset(&preset, chain, fx_index),
+            "nksf" | "nksfx" => load_nksf_preset(&preset, chain, fx_index),
+            _ => Err("unsupported preset format"),
+        }
+    }
+
     pub fn state(&self) -> &RuntimeState {
         &self.runtime_state
     }
@@ -306,6 +341,10 @@ impl RuntimePotUnit {
             NksSubCategory => settings.sub_category,
             NksMode => settings.mode,
         }
+    }
+
+    pub fn filter_is_set_to_non_none(&self, kind: PotFilterItemKind) -> bool {
+        matches!(self.get_filter(kind), Some(nks::FilterItemId(Some(_))))
     }
 
     pub fn set_filter(
@@ -473,25 +512,25 @@ struct ParamAssignment {
     id: Option<u32>,
 }
 
-pub fn load_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
-    match preset.file_ext.as_str() {
-        "wav" | "aif" => load_audio_preset(&preset, fx),
-        "nksf" | "nksfx" => load_nksf_preset(&preset, fx),
-        _ => Err("unsupported preset format"),
-    }
-}
-
-fn load_nksf_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
+fn load_nksf_preset(
+    preset: &Preset,
+    chain: &FxChain,
+    fx_index: u32,
+) -> Result<CurrentPreset, &'static str> {
     let nks_file = NksFile::load(&preset.file_name)?;
     let nks_content = nks_file.content()?;
-    make_sure_fx_has_correct_type(nks_content.vst_magic_number, fx)?;
+    let fx = make_sure_fx_has_correct_type(nks_content.vst_magic_number, chain, fx_index)?;
     fx.set_vst_chunk(nks_content.vst_chunk)?;
     Ok(nks_content.current_preset)
 }
 
-fn load_audio_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static str> {
+fn load_audio_preset(
+    preset: &Preset,
+    chain: &FxChain,
+    fx_index: u32,
+) -> Result<CurrentPreset, &'static str> {
     const RS5K_VST_ID: u32 = 1920167789;
-    make_sure_fx_has_correct_type(RS5K_VST_ID, fx)?;
+    let fx = make_sure_fx_has_correct_type(RS5K_VST_ID, chain, fx_index)?;
     let window_is_open_before = fx.window_is_open();
     if window_is_open_before {
         if !fx.window_has_focus() {
@@ -508,21 +547,35 @@ fn load_audio_preset(preset: &Preset, fx: &Fx) -> Result<CurrentPreset, &'static
     Ok(CurrentPreset::default())
 }
 
-fn make_sure_fx_has_correct_type(vst_magic_number: u32, fx: &Fx) -> Result<(), &'static str> {
-    if !fx.is_available() {
-        return Err("FX not available");
+fn make_sure_fx_has_correct_type(
+    vst_magic_number: u32,
+    chain: &FxChain,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    match chain.fx_by_index(fx_index) {
+        None => insert_fx_by_vst_magic_number(vst_magic_number, chain, fx_index),
+        Some(fx) => {
+            let fx_info = fx.info()?;
+            if fx_info.id == vst_magic_number.to_string() {
+                return Ok(fx);
+            }
+            // We don't have the right plug-in type. Remove FX and insert correct one.
+            chain.remove_fx(&fx)?;
+            insert_fx_by_vst_magic_number(vst_magic_number, chain, fx_index)
+        }
     }
-    let fx_info = fx.info()?;
-    if fx_info.id != vst_magic_number.to_string() {
-        // We don't have the right plug-in type. Remove FX and insert correct one.
-        let chain = fx.chain();
-        let fx_index = fx.index();
-        chain.remove_fx(fx)?;
-        // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
-        // otherwise loading by VST2 magic number doesn't work.
-        chain.insert_fx_by_name(fx_index, format!("i7zh34z<{vst_magic_number}"));
-    }
-    Ok(())
+}
+
+fn insert_fx_by_vst_magic_number(
+    vst_magic_number: u32,
+    chain: &FxChain,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
+    // otherwise loading by VST2 magic number doesn't work.
+    chain
+        .insert_fx_by_name(fx_index, format!("i7zh34z<{vst_magic_number}"))
+        .ok_or("couldn't insert FX by VST magic number")
 }
 
 fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {

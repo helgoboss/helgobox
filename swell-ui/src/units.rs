@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
@@ -49,6 +49,14 @@ impl Pixels {
 
     pub fn scale(&self, scale: f64) -> Self {
         Pixels((scale * self.0 as f64).round() as _)
+    }
+}
+
+impl Sub for Pixels {
+    type Output = Pixels;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Pixels(self.0 - rhs.0)
     }
 }
 

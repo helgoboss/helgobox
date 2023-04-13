@@ -6,7 +6,7 @@ use derivative::Derivative;
 use raw_window_handle::HasRawWindowHandle;
 use reaper_low::raw;
 use std::cell::Cell;
-use swell_ui::{Point, SharedView, View, ViewContext, Window};
+use swell_ui::{Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -38,7 +38,11 @@ impl View for PotBrowserPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         let screen_size = Window::screen_size();
         window.move_to(Point::default());
-        window.resize(screen_size);
+        // TODO-high CONTINUE Maximize (otherwise we are larger than the available area)
+        window.resize(Dimensions::new(
+            screen_size.width,
+            screen_size.height - Pixels(40),
+        ));
         let child_window_handle = egui_views::open(
             window,
             "Pot browser",
