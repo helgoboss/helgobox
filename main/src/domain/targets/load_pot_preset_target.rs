@@ -1,5 +1,7 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::{preset_db, with_preset_db, PresetId, RuntimePotUnit};
+use crate::domain::pot::{
+    preset_db, with_preset_db, PresetId, PresetLoadDestination, RuntimePotUnit,
+};
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
@@ -65,10 +67,11 @@ impl RealearnTarget for LoadPotPresetTarget {
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
         let fx_index = self.fx.index();
-        let current_preset = pot_unit.load_preset_at(&preset, self.fx.chain(), fx_index)?;
-        BackboneState::target_state()
-            .borrow_mut()
-            .set_current_fx_preset(self.fx.clone(), current_preset);
+        let load_dest = PresetLoadDestination {
+            chain: self.fx.chain().clone(),
+            fx_index,
+        };
+        pot_unit.load_preset_at(&preset, &load_dest)?;
         Ok(HitResponse::processed_with_effect())
     }
 

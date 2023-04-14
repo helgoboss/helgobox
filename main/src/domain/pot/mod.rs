@@ -6,13 +6,14 @@
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings};
-use crate::domain::{InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
+use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxChain, Reaper};
+use reaper_high::{Fx, FxChain, FxChainContext, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -220,12 +221,31 @@ impl Collections {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CurrentPreset {
+    preset: Preset,
     param_mapping: HashMap<u32, u32>,
 }
 
 impl CurrentPreset {
+    pub fn without_parameters(preset: Preset) -> Self {
+        Self {
+            preset,
+            param_mapping: Default::default(),
+        }
+    }
+
+    pub fn with_parameters(preset: Preset, param_mapping: HashMap<u32, u32>) -> Self {
+        Self {
+            preset,
+            param_mapping,
+        }
+    }
+
+    pub fn preset(&self) -> &Preset {
+        &self.preset
+    }
+
     pub fn find_mapped_parameter_index_at(&self, slot_index: u32) -> Option<u32> {
         self.param_mapping.get(&slot_index).copied()
     }
@@ -311,25 +331,29 @@ impl RuntimePotUnit {
     }
 
     pub fn load_preset(&self, preset: &Preset) -> Result<(), &'static str> {
-        let selected_track = Reaper::get()
-            .current_project()
-            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-            .ok_or("no track selected")?;
-        self.load_preset_at(preset, &selected_track.normal_fx_chain(), 0)?;
+        let dest = self.preset_load_destination()?;
+        self.load_preset_at(preset, &dest)?;
         Ok(())
+    }
+
+    pub fn preset_load_destination(&self) -> Result<PresetLoadDestination, &'static str> {
+        PresetLoadDestination::first_fx_on_selected_track()
     }
 
     pub fn load_preset_at(
         &self,
         preset: &Preset,
-        chain: &FxChain,
-        fx_index: u32,
-    ) -> Result<CurrentPreset, &'static str> {
-        match preset.file_ext.as_str() {
-            "wav" | "aif" => load_audio_preset(&preset, chain, fx_index),
-            "nksf" | "nksfx" => load_nksf_preset(&preset, chain, fx_index),
-            _ => Err("unsupported preset format"),
-        }
+        destination: &PresetLoadDestination,
+    ) -> Result<(), &'static str> {
+        let outcome = match preset.file_ext.as_str() {
+            "wav" | "aif" => load_audio_preset(&preset, destination)?,
+            "nksf" | "nksfx" => load_nksf_preset(&preset, destination)?,
+            _ => return Err("unsupported preset format"),
+        };
+        BackboneState::target_state()
+            .borrow_mut()
+            .set_current_fx_preset(outcome.fx, outcome.current_preset);
+        Ok(())
     }
 
     pub fn state(&self) -> &RuntimeState {
@@ -546,7 +570,7 @@ impl FilterItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Preset {
     pub favorite_id: String,
     pub id: PresetId,
@@ -562,23 +586,25 @@ struct ParamAssignment {
 
 fn load_nksf_preset(
     preset: &Preset,
-    chain: &FxChain,
-    fx_index: u32,
-) -> Result<CurrentPreset, &'static str> {
+    destination: &PresetLoadDestination,
+) -> Result<LoadPresetOutcome, &'static str> {
     let nks_file = NksFile::load(&preset.file_name)?;
     let nks_content = nks_file.content()?;
-    let fx = make_sure_fx_has_correct_type(nks_content.vst_magic_number, chain, fx_index)?;
+    let fx = make_sure_fx_has_correct_type(nks_content.vst_magic_number, destination)?;
     fx.set_vst_chunk(nks_content.vst_chunk)?;
-    Ok(nks_content.current_preset)
+    let outcome = LoadPresetOutcome {
+        fx,
+        current_preset: CurrentPreset::with_parameters(preset.clone(), nks_content.param_mapping),
+    };
+    Ok(outcome)
 }
 
 fn load_audio_preset(
     preset: &Preset,
-    chain: &FxChain,
-    fx_index: u32,
-) -> Result<CurrentPreset, &'static str> {
+    destination: &PresetLoadDestination,
+) -> Result<LoadPresetOutcome, &'static str> {
     const RS5K_VST_ID: u32 = 1920167789;
-    let fx = make_sure_fx_has_correct_type(RS5K_VST_ID, chain, fx_index)?;
+    let fx = make_sure_fx_has_correct_type(RS5K_VST_ID, destination)?;
     let window_is_open_before = fx.window_is_open();
     if window_is_open_before {
         if !fx.window_has_focus() {
@@ -592,37 +618,45 @@ fn load_audio_preset(
     if !window_is_open_before {
         fx.hide_floating_window();
     }
-    Ok(CurrentPreset::default())
+    let outcome = LoadPresetOutcome {
+        fx,
+        current_preset: CurrentPreset::without_parameters(preset.clone()),
+    };
+    Ok(outcome)
+}
+
+struct LoadPresetOutcome {
+    fx: Fx,
+    current_preset: CurrentPreset,
 }
 
 fn make_sure_fx_has_correct_type(
     vst_magic_number: u32,
-    chain: &FxChain,
-    fx_index: u32,
+    destination: &PresetLoadDestination,
 ) -> Result<Fx, &'static str> {
-    match chain.fx_by_index(fx_index) {
-        None => insert_fx_by_vst_magic_number(vst_magic_number, chain, fx_index),
+    match destination.resolve() {
+        None => insert_fx_by_vst_magic_number(vst_magic_number, destination),
         Some(fx) => {
             let fx_info = fx.info()?;
             if fx_info.id == vst_magic_number.to_string() {
                 return Ok(fx);
             }
             // We don't have the right plug-in type. Remove FX and insert correct one.
-            chain.remove_fx(&fx)?;
-            insert_fx_by_vst_magic_number(vst_magic_number, chain, fx_index)
+            destination.chain.remove_fx(&fx)?;
+            insert_fx_by_vst_magic_number(vst_magic_number, destination)
         }
     }
 }
 
 fn insert_fx_by_vst_magic_number(
     vst_magic_number: u32,
-    chain: &FxChain,
-    fx_index: u32,
+    destination: &PresetLoadDestination,
 ) -> Result<Fx, &'static str> {
     // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
     // otherwise loading by VST2 magic number doesn't work.
-    chain
-        .insert_fx_by_name(fx_index, format!("i7zh34z<{vst_magic_number}"))
+    destination
+        .chain
+        .insert_fx_by_name(destination.fx_index, format!("i7zh34z<{vst_magic_number}"))
         .ok_or("couldn't insert FX by VST magic number")
 }
 
@@ -633,4 +667,50 @@ fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
         Default::default(),
     )?;
     Ok(())
+}
+
+pub struct PresetLoadDestination {
+    pub chain: FxChain,
+    pub fx_index: u32,
+}
+
+impl PresetLoadDestination {
+    pub fn first_fx_on_selected_track() -> Result<Self, &'static str> {
+        let selected_track = Reaper::get()
+            .current_project()
+            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+            .ok_or("no track selected")?;
+        let dest = Self {
+            chain: selected_track.normal_fx_chain(),
+            fx_index: 0,
+        };
+        Ok(dest)
+    }
+
+    pub fn resolve(&self) -> Option<Fx> {
+        self.chain.fx_by_index(self.fx_index)
+    }
+}
+
+impl Display for PresetLoadDestination {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self.chain.context() {
+            FxChainContext::Monitoring => {
+                write!(f, "Monitoring FX chain")?;
+            }
+            FxChainContext::Track { track, is_input_fx } => {
+                let chain_name = if *is_input_fx {
+                    "Normal chain"
+                } else {
+                    "Input chain"
+                };
+                write!(f, "Track \"{}\" / {chain_name}", track.name().unwrap())?;
+            }
+            FxChainContext::Take(_) => {
+                panic!("take FX chain not yet supported");
+            }
+        }
+        write!(f, " / FX #{}", self.fx_index + 1)?;
+        Ok(())
+    }
 }

@@ -1,5 +1,6 @@
 use baseview::WindowHandle;
 use egui::{Context, Visuals};
+use reaper_high::Reaper;
 use reaper_low::firewall;
 use swell_ui::Window;
 
@@ -13,6 +14,14 @@ pub fn open<S: Send + 'static>(
     state: S,
     run_ui: impl Fn(&egui::Context, &mut S) + Send + Sync + 'static,
 ) {
+    if cfg!(target_os = "linux") {
+        window.alert(
+            "ReaLearn",
+            "This feature is currently not supported on Linux",
+        );
+        window.close();
+        return;
+    }
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();

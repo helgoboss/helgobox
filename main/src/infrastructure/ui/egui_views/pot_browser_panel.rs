@@ -1,14 +1,17 @@
 use crate::base::blocking_lock;
-use crate::domain::pot::{with_preset_db, Preset, RuntimePotUnit, SharedRuntimePotUnit};
+use crate::domain::pot::{
+    with_preset_db, Preset, PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
+};
+use crate::domain::BackboneState;
 use egui::{
-    vec2, Button, CentralPanel, Color32, Key, Modifiers, RichText, ScrollArea, TextStyle, Ui,
-    Widget,
+    vec2, Button, CentralPanel, Color32, DragValue, Key, Modifiers, RichText, ScrollArea,
+    TextStyle, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_medium::ReaperVolumeValue;
+use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
 
@@ -155,6 +158,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         });
     let preset_count = pot_unit.preset_count();
     CentralPanel::default().show(ctx, |ui| {
+        // Preset section header
         ui.horizontal(|ui| {
             ui.strong("Search:");
             let response = ui.text_edit_singleline(&mut pot_unit.runtime_state.search_expression);
@@ -178,6 +182,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             let mut new_volume_raw = old_volume.get();
             egui::DragValue::new(&mut new_volume_raw)
                 .speed(0.01)
+                .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
                 .clamp_range(0.0..=1.0)
                 .ui(ui)
                 .on_hover_text("Change volume of the sound previews");
@@ -189,10 +194,60 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         ui.horizontal(|ui| {
             ui.strong("Count: ");
             ui.label(preset_count.to_string());
+            ui.separator();
             ui.strong("Query time: ");
             ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
         });
+        // Info about currently loaded preset
+        ui.horizontal_wrapped(|ui| {
+            ui.strong("Destination: ");
+            match pot_unit.preset_load_destination() {
+                Ok(dest) => {
+                    ui.label(dest.to_string());
+                    ui.separator();
+                    ui.strong("FX: ");
+                    if let Some(fx) = dest.resolve() {
+                        ui.label(fx.name().into_string());
+                        let target_state = BackboneState::target_state().borrow();
+                        if let Some(current_preset) = target_state.current_fx_preset(&fx) {
+                            ui.separator();
+                            ui.strong("Preset: ");
+                            ui.label(&current_preset.preset().name);
+                            ui.end_row();
+                            // Macro parameters
+                            for macro_index in 0..8 {
+                                if let Some(param_index) = current_preset.find_mapped_parameter_index_at(macro_index) {
+                                    let param = fx.parameter_by_index(param_index);
+                                    let old_param_value = param.reaper_normalized_value();
+                                    let mut new_param_value_raw = old_param_value.get();
+                                    ui.vertical(|ui| {
+                                        DragValue::new(&mut new_param_value_raw)
+                                            .speed(0.01)
+                                            .custom_formatter(|v, _| {
+                                                let v = ReaperNormalizedFxParamValue::new(v);
+                                                param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
+                                            })
+                                            .clamp_range(0.0..=1.0)
+                                            .ui(ui);
+                                        ui.strong(param.name().into_string());
+                                    });
+                                    if new_param_value_raw != old_param_value.get() {
+                                        let _ = param.set_reaper_normalized_value(new_param_value_raw);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        ui.label("<Empty>");
+                    }
+                }
+                Err(e) => {
+                    ui.colored_label(ui.visuals().error_fg_color, e);
+                }
+            }
+        });
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+        // Preset table
         let mut table = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -257,7 +312,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     if state.paint_continuously {
         // Necessary in order to not just repaint on clicks or so but also when controller changes
         // pot stuff.
-        // TODO-high CONTINUE This is probably a performance hog. We could do better by reacting
+        // TODO-medium-performance This is probably a performance hog. We could do better by reacting
         //  to notifications.
         ctx.request_repaint();
     }

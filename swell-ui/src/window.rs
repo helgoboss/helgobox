@@ -516,7 +516,7 @@ impl Window {
 
     pub fn resize_all_children_according_to_parent(self) {
         unsafe {
-            extern "C" fn resize_proc(arg1: raw::HWND, arg2: raw::LPARAM) -> raw::BOOL {
+            extern "C" fn resize_proc(arg1: raw::HWND, _arg2: raw::LPARAM) -> raw::BOOL {
                 if let Some(win) = Window::new(arg1) {
                     win.resize(win.parent().unwrap().size());
                 }
@@ -528,7 +528,7 @@ impl Window {
 
     pub fn focus_first_child(self) {
         unsafe {
-            extern "C" fn focus_proc(arg1: raw::HWND, arg2: raw::LPARAM) -> raw::BOOL {
+            extern "C" fn focus_proc(arg1: raw::HWND, _arg2: raw::LPARAM) -> raw::BOOL {
                 if let Some(win) = Window::new(arg1) {
                     win.focus();
                 }

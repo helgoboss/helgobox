@@ -116,7 +116,7 @@ pub struct PersistentNksFilterSettings {
 pub struct NksFileContent<'a> {
     pub vst_magic_number: u32,
     pub vst_chunk: &'a [u8],
-    pub current_preset: CurrentPreset,
+    pub param_mapping: HashMap<u32, u32>,
 }
 
 impl NksFile {
@@ -156,14 +156,14 @@ impl NksFile {
                 value.vst_magic
             },
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
-            current_preset: CurrentPreset {
-                param_mapping: nica_chunk
+            param_mapping: {
+                nica_chunk
                     .and_then(|nica_chunk| {
                         let bytes = self.relevant_bytes_of_chunk(&nica_chunk);
                         let value: NicaChunkContent = rmp_serde::from_slice(bytes).ok()?;
                         Some(value.extract_param_mapping())
                     })
-                    .unwrap_or_default(),
+                    .unwrap_or_default()
             },
         };
         Ok(content)
