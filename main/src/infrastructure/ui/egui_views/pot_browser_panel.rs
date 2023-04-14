@@ -1,4 +1,5 @@
 use crate::base::blocking_lock;
+use crate::domain::pot::nks::PresetId;
 use crate::domain::pot::{
     with_preset_db, MacroParam, Preset, PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
 };
@@ -13,6 +14,7 @@ use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::FxParameter;
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use std::mem;
 use std::time::Duration;
 use swell_ui::Window;
 
@@ -31,7 +33,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     // TODO Provide some wheels to control parameters
     // TODO Fix borrow errors (was occurring when removing other ReaLearn instances because
     //  it was accidentally a destination!)
-    let mut scroll_to_preset_row: Option<u32> = None;
     let mut focus_search_field = false;
     // Keyboard control
     enum KeyAction {
@@ -65,7 +66,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         pot_unit.find_preset_id_at_index(next_preset_index)
                     {
                         pot_unit.set_preset_id(Some(next_preset_id));
-                        scroll_to_preset_row = Some(next_preset_index);
                         if state.auto_preview {
                             let _ = pot_unit.play_preview(next_preset_id);
                         }
@@ -301,8 +301,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             .column(Column::initial(60.0).at_least(40.0).clip(true))
             .column(Column::remainder().at_least(40.0))
             .min_scrolled_height(0.0);
-        if let Some(i) = scroll_to_preset_row {
-            table = table.scroll_to_row(i as usize, None);
+
+        if pot_unit.preset_id() != state.last_preset_id {
+            let scroll_index = match pot_unit.preset_id() {
+                None => 0,
+                Some(id) => {
+                    pot_unit.find_index_of_preset(id).unwrap_or(0)
+                }
+            };
+            table = table.scroll_to_row(scroll_index as usize, None);
         }
         table
             .header(20.0, |mut header| {
@@ -361,6 +368,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         //  to notifications.
         ctx.request_repaint();
     }
+    state.last_preset_id = pot_unit.preset_id();
 }
 
 #[derive(Debug)]
@@ -370,6 +378,7 @@ pub struct State {
     auto_hide_sub_filters: bool,
     paint_continuously: bool,
     os_window: Window,
+    last_preset_id: Option<PresetId>,
 }
 
 impl State {
@@ -380,6 +389,7 @@ impl State {
             auto_hide_sub_filters: false,
             paint_continuously: true,
             os_window,
+            last_preset_id: None,
         }
     }
 }
