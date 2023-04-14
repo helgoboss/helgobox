@@ -12,7 +12,7 @@ use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::FxParameter;
+use reaper_high::{FxChainContext, FxParameter, Reaper};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::mem;
 use std::time::Duration;
@@ -26,7 +26,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
     // TODO Filter keyboard control
-    // TODO Display macro param section names
     // TODO Debounce rebuilding of collections
     // TODO Make it possible to globally hide filter items
     // TODO Build 2nd database support (RfxChain)
@@ -212,11 +211,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             ui.strong("Destination: ");
             match pot_unit.preset_load_destination() {
                 Ok(dest) => {
-                    ui.label(dest.to_string());
+                    if ui.small_button(dest.to_string()).clicked() {
+                        dest.chain.show();
+                    };
                     ui.separator();
                     ui.strong("FX: ");
                     if let Some(fx) = dest.resolve() {
-                        ui.label(fx.name().into_string());
+                        if ui.small_button(fx.name().into_string()).clicked() {
+                           fx.show_in_floating_window();
+                        }
                         let target_state = BackboneState::target_state().borrow();
                         if let Some(current_preset) = target_state.current_fx_preset(&fx) {
                             ui.separator();
