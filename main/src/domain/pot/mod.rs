@@ -97,6 +97,8 @@ impl PotUnit {
 pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub collections: Collections,
+    pub wasted_runs: u32,
+    pub wasted_duration: Duration,
     pub stats: Stats,
     sender: SenderToNormalThread<InstanceStateChanged>,
     change_counter: u64,
@@ -267,6 +269,8 @@ impl RuntimePotUnit {
         let unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
+            wasted_runs: 0,
+            wasted_duration: Default::default(),
             stats: Default::default(),
             sender,
             change_counter: 0,
@@ -416,6 +420,8 @@ impl RuntimePotUnit {
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
             // Debounce (cheap)
+            // If we remove this, the wasted runs will increase when quickly changing filters
+            // (via encoder).
             {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 let mut pot_unit = blocking_lock_arc(&shared_self);
@@ -430,6 +436,8 @@ impl RuntimePotUnit {
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit = blocking_lock_arc(&shared_self);
             if pot_unit.change_counter != last_change_counter {
+                pot_unit.wasted_duration += build_outcome.stats.query_duration;
+                pot_unit.wasted_runs += 1;
                 return Ok(());
             }
             pot_unit.notify_build_outcome_ready(build_outcome);

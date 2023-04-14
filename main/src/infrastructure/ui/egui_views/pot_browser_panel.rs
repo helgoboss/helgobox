@@ -198,11 +198,16 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
         });
         ui.horizontal(|ui| {
-            ui.strong("Count: ");
+            ui.strong("Preset count: ");
             ui.label(preset_count.to_string());
             ui.separator();
-            ui.strong("Query time: ");
+            ui.strong("Time of last query: ");
             ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
+            ui.strong("Wasted runs: ");
+            ui.label(pot_unit.wasted_runs.to_string());
+            ui.strong("Wasted query time: ");
+            ui.label(format!("{}ms", pot_unit.wasted_duration.as_millis()));
+            ui.separator();
         });
         // Info about currently loaded preset
         ui.separator();
