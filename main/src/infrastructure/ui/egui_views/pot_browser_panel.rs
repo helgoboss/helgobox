@@ -1,27 +1,90 @@
 use crate::base::blocking_lock;
-use crate::domain::pot;
 use crate::domain::pot::{with_preset_db, Preset, RuntimePotUnit, SharedRuntimePotUnit};
-use egui::{CentralPanel, Color32, Frame, RichText, ScrollArea, TextStyle, TopBottomPanel, Ui};
+use egui::{
+    vec2, Button, CentralPanel, Color32, Key, Modifiers, RichText, ScrollArea, TextStyle, Ui,
+    Widget,
+};
 use egui::{Context, SidePanel};
-use egui_extras::{Column, Size, TableBuilder};
+use egui_extras::{Column, TableBuilder};
+use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::Reaper;
-use reaper_medium::MasterTrackBehavior;
+use reaper_medium::ReaperVolumeValue;
+use std::time::Duration;
+use swell_ui::Window;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
-    // TODO Provide option to hide star filters
-    // TODO Make it possible to set FX slot into which the stuff should be loaded:
-    //  - Selected track
-    //  - Below ReaLearn
-    // TODO Provide some wheels to control parameters
-    // TODO Resizing support
     let pot_unit = &mut blocking_lock(&*state.pot_unit);
+    let toast_margin = 10.0;
+    let mut toasts = Toasts::new()
+        .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
+        .direction(egui::Direction::RightToLeft)
+        .align_to_end(true);
+    // TODO Display loaded FX
+    // TODO Provide option to hide star filters
+    // TODO Provide some wheels to control parameters
+    let mut scroll_to_preset_row: Option<u32> = None;
+    let mut focus_search_field = false;
+    // Keyboard control
+    enum KeyAction {
+        NavigateWithinPresets(i32),
+        LoadPreset,
+        FocusSearchField,
+    }
+    let key_action = if ctx.wants_keyboard_input() {
+        None
+    } else {
+        ctx.input_mut(|input| {
+            let a = if input.count_and_consume_key(Default::default(), Key::ArrowUp) > 0 {
+                KeyAction::NavigateWithinPresets(-1)
+            } else if input.count_and_consume_key(Default::default(), Key::ArrowDown) > 0 {
+                KeyAction::NavigateWithinPresets(1)
+            } else if input.count_and_consume_key(Default::default(), Key::Enter) > 0 {
+                KeyAction::LoadPreset
+            } else if input.count_and_consume_key(Modifiers::COMMAND, Key::F) > 0 {
+                KeyAction::FocusSearchField
+            } else {
+                return None;
+            };
+            Some(a)
+        })
+    };
+    if let Some(key_action) = key_action {
+        match key_action {
+            KeyAction::NavigateWithinPresets(amount) => {
+                if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount) {
+                    if let Some(next_preset_id) =
+                        pot_unit.find_preset_id_at_index(next_preset_index)
+                    {
+                        pot_unit.set_preset_id(Some(next_preset_id));
+                        scroll_to_preset_row = Some(next_preset_index);
+                        if state.auto_preview {
+                            let _ = pot_unit.play_preview(next_preset_id);
+                        }
+                    }
+                }
+            }
+            KeyAction::LoadPreset => {
+                if let Some(preset) = pot_unit.preset() {
+                    load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts);
+                }
+            }
+            KeyAction::FocusSearchField => {
+                focus_search_field = true;
+            }
+        }
+    }
+    // UI
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
             // Auto-hide sub filter logic logic
             ui.horizontal(|ui| {
-                ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters");
+                ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
+                    .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
+                ui.checkbox(&mut state.paint_continuously, "Paint continuously")
+                    .on_hover_text(
+                        "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
+                    );
             });
             let show_sub_banks = !state.auto_hide_sub_filters
                 || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::NksBank)
@@ -45,7 +108,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 Some(filter_view_height),
                 &state.pot_unit,
                 pot_unit,
-                "Instrument",
                 PotFilterItemKind::NksBank,
                 false,
                 false,
@@ -56,7 +118,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     Some(filter_view_height),
                     &state.pot_unit,
                     pot_unit,
-                    "Bank",
                     PotFilterItemKind::NksSubBank,
                     true,
                     true,
@@ -67,7 +128,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 Some(filter_view_height),
                 &state.pot_unit,
                 pot_unit,
-                "Type",
                 PotFilterItemKind::NksCategory,
                 true,
                 false,
@@ -78,7 +138,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     Some(filter_view_height),
                     &state.pot_unit,
                     pot_unit,
-                    "Sub type",
                     PotFilterItemKind::NksSubCategory,
                     true,
                     true,
@@ -89,21 +148,43 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 Some(filter_view_height),
                 &state.pot_unit,
                 pot_unit,
-                "Character",
                 PotFilterItemKind::NksMode,
                 true,
                 false,
             );
         });
-    let preset_count = pot_unit.count_presets();
+    let preset_count = pot_unit.preset_count();
     CentralPanel::default().show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.strong("Search:");
-            let response = ui.text_edit_singleline(pot_unit.runtime_state.search_expression_mut());
+            let response = ui.text_edit_singleline(&mut pot_unit.runtime_state.search_expression);
+            if focus_search_field {
+                response.request_focus();
+            }
             if response.changed() {
                 pot_unit.rebuild_collections(state.pot_unit.clone());
             }
-            ui.checkbox(&mut state.auto_preview, "Auto-preview");
+            let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
+            ui.checkbox(
+                &mut pot_unit.runtime_state.use_wildcard_search,
+                "Wildcard search",
+            ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
+            if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
+                pot_unit.rebuild_collections(state.pot_unit.clone());
+            }
+            ui.checkbox(&mut state.auto_preview, "Auto-preview")
+                .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
+            let old_volume = pot_unit.preview_volume();
+            let mut new_volume_raw = old_volume.get();
+            egui::DragValue::new(&mut new_volume_raw)
+                .speed(0.01)
+                .clamp_range(0.0..=1.0)
+                .ui(ui)
+                .on_hover_text("Change volume of the sound previews");
+            let new_volume = ReaperVolumeValue::new(new_volume_raw);
+            if new_volume != old_volume {
+                pot_unit.set_preview_volume(new_volume);
+            }
         });
         ui.horizontal(|ui| {
             ui.strong("Count: ");
@@ -112,15 +193,18 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
         });
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-        TableBuilder::new(ui)
+        let mut table = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
-            // .column(Column::initial(200.0).at_least(60.0))
             .column(Column::initial(60.0).at_least(40.0).clip(true))
             .column(Column::remainder().at_least(40.0))
-            .min_scrolled_height(0.0)
+            .min_scrolled_height(0.0);
+        if let Some(i) = scroll_to_preset_row {
+            table = table.scroll_to_row(i as usize, None);
+        }
+        table
             .header(20.0, |mut header| {
                 header.col(|ui| {
                     ui.strong("Name");
@@ -138,11 +222,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     let preset: Preset =
                         with_preset_db(|db| db.find_preset_by_id(preset_id).unwrap()).unwrap();
                     row.col(|ui| {
-                        let mut text = RichText::new(&preset.name);
+                        let mut button = Button::new(&preset.name).small();
                         if Some(preset_id) == pot_unit.preset_id() {
-                            text = text.background_color(Color32::LIGHT_BLUE);
+                            button = button.fill(Color32::LIGHT_BLUE);
                         }
-                        let button = ui.button(text);
+                        let button = ui.add_sized(ui.available_size(), button);
                         if button.clicked() {
                             if state.auto_preview {
                                 let _ = pot_unit.play_preview(preset_id);
@@ -150,30 +234,33 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             pot_unit.set_preset_id(Some(preset_id));
                         }
                         if button.double_clicked() {
-                            let _ = pot_unit.load_preset(&preset);
+                            load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts);
                         }
                     });
                     row.col(|ui| {
                         ui.label(&preset.file_ext);
                     });
                     row.col(|ui| {
-                        if ui.button("Load").clicked() {
-                            let _ = pot_unit.load_preset(&preset);
+                        if ui.small_button("Load").clicked() {
+                            load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts);
                         };
                         if !state.auto_preview {
-                            if ui.button("Preview").clicked() {
-                                let _ = pot_unit.play_preview(preset_id);
+                            if ui.small_button("Preview").clicked() {
+                                process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
                             }
                         }
                     });
                 });
             });
     });
-    // Necessary in order to not just repaint on clicks or so but also when controller changes
-    // pot stuff.
-    // TODO-high CONTINUE This is probably a performance hog. We could do better by reacting
-    //  to notifications.
-    ctx.request_repaint();
+    toasts.show(ctx);
+    if state.paint_continuously {
+        // Necessary in order to not just repaint on clicks or so but also when controller changes
+        // pot stuff.
+        // TODO-high CONTINUE This is probably a performance hog. We could do better by reacting
+        //  to notifications.
+        ctx.request_repaint();
+    }
 }
 
 #[derive(Debug)]
@@ -181,14 +268,18 @@ pub struct State {
     pot_unit: SharedRuntimePotUnit,
     auto_preview: bool,
     auto_hide_sub_filters: bool,
+    paint_continuously: bool,
+    os_window: Window,
 }
 
 impl State {
-    pub fn new(pot_unit: SharedRuntimePotUnit) -> Self {
+    pub fn new(pot_unit: SharedRuntimePotUnit, os_window: Window) -> Self {
         Self {
             pot_unit,
             auto_preview: true,
             auto_hide_sub_filters: false,
+            paint_continuously: true,
+            os_window,
         }
     }
 }
@@ -198,7 +289,6 @@ fn add_filter_view(
     max_height: Option<f32>,
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
-    label: &str,
     kind: PotFilterItemKind,
     add_separator: bool,
     indent: bool,
@@ -229,7 +319,7 @@ fn add_filter_view(
         };
         let heading_height = ui
             .label(
-                RichText::new(label)
+                RichText::new(kind.to_string())
                     .text_style(TextStyle::Heading)
                     .size(heading_style_height),
             )
@@ -245,11 +335,24 @@ fn add_filter_view(
             ui.horizontal_wrapped(|ui| {
                 ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
                 for filter_item in pot_unit.collections.find_all_filter_items(kind) {
-                    ui.selectable_value(
+                    let resp = ui.selectable_value(
                         &mut new_filter_item_id,
                         Some(filter_item.id),
                         filter_item.effective_leaf_name(),
                     );
+                    if let Some(parent_kind) = kind.parent() {
+                        if let Some(parent_name) = filter_item.parent_name.as_ref() {
+                            if !parent_name.is_empty() {
+                                let tooltip = match &filter_item.name {
+                                    None => format!(
+                                        "{parent_name} (directly associated with {parent_kind})"
+                                    ),
+                                    Some(n) => format!("{parent_name} / {n}"),
+                                };
+                                resp.on_hover_text(tooltip);
+                            }
+                        }
+                    }
                 }
             });
         });
@@ -268,5 +371,21 @@ fn add_filter_view(
         });
     } else {
         render(ui);
+    }
+}
+
+fn load_preset_and_regain_focus(
+    preset: &Preset,
+    os_window: Window,
+    pot_unit: &RuntimePotUnit,
+    toasts: &mut Toasts,
+) {
+    process_potential_error(&pot_unit.load_preset(preset), toasts);
+    os_window.focus_first_child();
+}
+
+fn process_potential_error(result: &Result<(), &'static str>, toasts: &mut Toasts) {
+    if let Err(e) = result.as_ref() {
+        toasts.error(*e, Duration::from_secs(1));
     }
 }

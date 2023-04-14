@@ -10,7 +10,7 @@ use crate::domain::{InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, FxChain, Reaper};
-use reaper_medium::{InsertMediaMode, MasterTrackBehavior};
+use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -97,9 +97,10 @@ pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub collections: Collections,
     pub stats: Stats,
-    pub sender: SenderToNormalThread<InstanceStateChanged>,
-    pub change_counter: u64,
-    pub sound_player: SoundPlayer,
+    sender: SenderToNormalThread<InstanceStateChanged>,
+    change_counter: u64,
+    sound_player: SoundPlayer,
+    preview_volume: ReaperVolumeValue,
 }
 
 #[derive(Debug, Default)]
@@ -116,7 +117,8 @@ pub struct BuildOutcome {
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
     filter_settings: FilterSettings,
-    search_expression: String,
+    pub search_expression: String,
+    pub use_wildcard_search: bool,
     preset_id: Option<PresetId>,
 }
 
@@ -153,13 +155,10 @@ impl RuntimeState {
             Self {
                 filter_settings,
                 search_expression: "".to_string(),
+                use_wildcard_search: false,
                 preset_id,
             }
         })
-    }
-
-    pub fn search_expression_mut(&mut self) -> &mut String {
-        &mut self.search_expression
     }
 
     fn get_filter_mut(&mut self, kind: PotFilterItemKind) -> &mut OptFilter {
@@ -237,17 +236,30 @@ impl RuntimePotUnit {
         state: &PersistentState,
         sender: SenderToNormalThread<InstanceStateChanged>,
     ) -> Result<SharedRuntimePotUnit, &'static str> {
+        let sound_player = SoundPlayer::new();
         let unit = Self {
             runtime_state: RuntimeState::load(state)?,
             collections: Default::default(),
             stats: Default::default(),
             sender,
             change_counter: 0,
-            sound_player: Default::default(),
+            preview_volume: sound_player.volume().unwrap_or_default(),
+            sound_player,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone());
         Ok(shared_unit)
+    }
+
+    pub fn preview_volume(&self) -> ReaperVolumeValue {
+        self.preview_volume
+    }
+
+    pub fn set_preview_volume(&mut self, volume: ReaperVolumeValue) {
+        self.preview_volume = volume;
+        self.sound_player
+            .set_volume(volume)
+            .expect("changing preview volume value failed");
     }
 
     pub fn persistent_state(&self) -> PersistentState {
@@ -293,12 +305,18 @@ impl RuntimePotUnit {
         self.sound_player.stop()
     }
 
-    pub fn load_preset(&self, preset: &Preset) -> Result<CurrentPreset, &'static str> {
+    pub fn preset(&self) -> Option<Preset> {
+        let preset_id = self.preset_id()?;
+        with_preset_db(|db| db.find_preset_by_id(preset_id)).ok()?
+    }
+
+    pub fn load_preset(&self, preset: &Preset) -> Result<(), &'static str> {
         let selected_track = Reaper::get()
             .current_project()
             .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
             .ok_or("no track selected")?;
-        self.load_preset_at(preset, &selected_track.normal_fx_chain(), 0)
+        self.load_preset_at(preset, &selected_track.normal_fx_chain(), 0)?;
+        Ok(())
     }
 
     pub fn load_preset_at(
@@ -367,9 +385,9 @@ impl RuntimePotUnit {
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
             let build_outcome = with_preset_db(|db| db.build_collections(&runtime_state))??;
-            let mut pot_unit = blocking_lock_arc(&shared_self);
             // Only integrate build outcome if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
+            let mut pot_unit = blocking_lock_arc(&shared_self);
             if pot_unit.change_counter == last_change_counter {
                 pot_unit.notify_build_outcome_ready(build_outcome);
             }
@@ -391,8 +409,38 @@ impl RuntimePotUnit {
         self.collections.find_all_filter_items(kind).len() as u32
     }
 
-    pub fn count_presets(&self) -> u32 {
+    pub fn preset_count(&self) -> u32 {
         self.collections.preset_collection.len() as u32
+    }
+
+    pub fn find_next_preset_index(&self, amount: i32) -> Option<u32> {
+        let preset_count = self.preset_count();
+        if preset_count == 0 {
+            return None;
+        }
+        match self
+            .runtime_state
+            .preset_id
+            .and_then(|id| self.find_index_of_preset(id))
+        {
+            None => {
+                if amount < 0 {
+                    Some(preset_count - 1)
+                } else {
+                    Some(0)
+                }
+            }
+            Some(current_index) => {
+                let next_index = current_index as i32 + amount;
+                if next_index < 0 {
+                    Some(preset_count - 1)
+                } else if next_index as u32 >= preset_count {
+                    Some(0)
+                } else {
+                    Some(next_index as u32)
+                }
+            }
+        }
     }
 
     pub fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {

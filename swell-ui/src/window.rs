@@ -17,6 +17,8 @@ pub struct Window {
     raw: raw::HWND,
 }
 
+unsafe impl Send for Window {}
+
 impl Window {
     pub fn new(hwnd: raw::HWND) -> Option<Window> {
         NonNull::new(hwnd).map(Window::from_non_null)
@@ -509,6 +511,30 @@ impl Window {
             self.show();
         } else {
             self.hide();
+        }
+    }
+
+    pub fn resize_all_children_according_to_parent(self) {
+        unsafe {
+            extern "C" fn resize_proc(arg1: raw::HWND, arg2: raw::LPARAM) -> raw::BOOL {
+                if let Some(win) = Window::new(arg1) {
+                    win.resize(win.parent().unwrap().size());
+                }
+                1
+            }
+            Swell::get().EnumChildWindows(self.raw, Some(resize_proc), 0);
+        }
+    }
+
+    pub fn focus_first_child(self) {
+        unsafe {
+            extern "C" fn focus_proc(arg1: raw::HWND, arg2: raw::LPARAM) -> raw::BOOL {
+                if let Some(win) = Window::new(arg1) {
+                    win.focus();
+                }
+                0
+            }
+            Swell::get().EnumChildWindows(self.raw, Some(focus_proc), 0);
         }
     }
 

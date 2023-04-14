@@ -12,7 +12,7 @@ pub fn open<S: Send + 'static>(
     title: impl Into<String>,
     state: S,
     run_ui: impl Fn(&egui::Context, &mut S) + Send + Sync + 'static,
-) -> WindowHandle {
+) {
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();
@@ -39,7 +39,7 @@ pub fn open<S: Send + 'static>(
                 run_ui(ctx, state);
             });
         },
-    )
+    );
 }
 
 fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {

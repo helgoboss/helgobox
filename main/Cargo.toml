@@ -169,6 +169,7 @@ egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
 egui = "0.21.0"
 egui_extras = "0.21.0"
+egui-toast = "0.6.0"
 # For Pot target
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 # For Pot target

@@ -47,6 +47,17 @@ impl SoundPlayer {
         Ok(())
     }
 
+    pub fn volume(&self) -> Result<ReaperVolumeValue, &'static str> {
+        let preview_register = self.lock_preview_register()?;
+        Ok(preview_register.volume())
+    }
+
+    pub fn set_volume(&self, volume: ReaperVolumeValue) -> Result<(), &'static str> {
+        let mut preview_register = self.lock_preview_register()?;
+        preview_register.set_volume(volume);
+        Ok(())
+    }
+
     pub fn play(&self) -> Result<(), &'static str> {
         if self.play_handle.get().is_some() {
             // Is playing already. Simply rewind.

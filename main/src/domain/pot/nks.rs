@@ -308,8 +308,11 @@ impl PresetDb {
         );
         // clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.sub_banks);
         // Build preset collection
-        let preset_collection =
-            self.build_preset_collection(&fixed_settings, &state.search_expression)?;
+        let search_criteria = SearchCriteria {
+            expression: &state.search_expression,
+            use_wildcards: state.use_wildcard_search,
+        };
+        let preset_collection = self.build_preset_collection(&fixed_settings, search_criteria)?;
         // Put everything together
         let collections = Collections {
             filter_item_collections: FilterItemCollections {
@@ -339,9 +342,9 @@ impl PresetDb {
     fn build_preset_collection(
         &self,
         filter_settings: &Filters,
-        search_expression: &str,
+        search_criteria: SearchCriteria,
     ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
-        self.execute_preset_query(filter_settings, search_expression, "i.id", |row| {
+        self.execute_preset_query(filter_settings, search_criteria, "i.id", |row| {
             Ok(PresetId(row.get(0)?))
         })
     }
@@ -358,7 +361,7 @@ impl PresetDb {
         };
         self.execute_preset_query(
             &filter_settings,
-            "",
+            SearchCriteria::empty(),
             "DISTINCT ic.category_id",
             optional_filter_item_id,
         )
@@ -368,7 +371,7 @@ impl PresetDb {
         let filter_settings = Filters::default();
         self.execute_preset_query(
             &filter_settings,
-            "",
+            SearchCriteria::empty(),
             "DISTINCT i.bank_chain_id",
             optional_filter_item_id,
         )
@@ -384,7 +387,7 @@ impl PresetDb {
         };
         self.execute_preset_query(
             &filter_settings,
-            "",
+            SearchCriteria::empty(),
             "DISTINCT im.mode_id",
             optional_filter_item_id,
         )
@@ -393,7 +396,7 @@ impl PresetDb {
     fn execute_preset_query<R>(
         &self,
         filter_settings: &Filters,
-        search_expression: &str,
+        search_criteria: SearchCriteria,
         select_clause: &str,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<IndexSet<R>, Box<dyn Error>>
@@ -434,14 +437,19 @@ impl PresetDb {
             params.push(mode_id);
         }
         // Search expression
-        let like_expression: String = search_expression
-            .chars()
-            .map(|x| match x {
-                '*' => '%',
-                '?' => '_',
-                _ => x,
-            })
-            .collect();
+        let search_expression = search_criteria.expression;
+        let like_expression: String = if search_criteria.use_wildcards {
+            search_expression
+                .chars()
+                .map(|x| match x {
+                    '*' => '%',
+                    '?' => '_',
+                    _ => x,
+                })
+                .collect()
+        } else {
+            format!("%{search_expression}%")
+        };
         if !search_expression.is_empty() {
             where_extras += " AND i.name LIKE ?";
             params.push(&like_expression);
@@ -582,5 +590,17 @@ impl ToSql for FilterItemId {
             None => Ok(ToSqlOutput::Owned(Value::Null)),
             Some(id) => Ok(ToSqlOutput::Owned(Value::Integer(id as _))),
         }
+    }
+}
+
+#[derive(Default)]
+struct SearchCriteria<'a> {
+    expression: &'a str,
+    use_wildcards: bool,
+}
+
+impl<'a> SearchCriteria<'a> {
+    pub fn empty() -> Self {
+        Self::default()
     }
 }

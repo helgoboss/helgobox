@@ -1407,6 +1407,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-toast"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0aebd18cd109a99d787771c7b236fc2727379150b63cfe39d88bbf313e08a17"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui_extras"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3848,6 +3857,7 @@ dependencies = [
  "edit",
  "egui",
  "egui-baseview",
+ "egui-toast",
  "egui_extras",
  "either",
  "embed-resource",

@@ -1173,15 +1173,15 @@ pub struct LoadPotPresetTarget {
 pub enum PotFilterItemKind {
     #[display(fmt = "Database")]
     Database,
-    #[display(fmt = "NKS instrument")]
+    #[display(fmt = "Instrument")]
     NksBank,
-    #[display(fmt = "NKS bank")]
+    #[display(fmt = "Bank")]
     NksSubBank,
-    #[display(fmt = "NKS type")]
+    #[display(fmt = "Type")]
     NksCategory,
-    #[display(fmt = "NKS sub type")]
+    #[display(fmt = "Sub type")]
     NksSubCategory,
-    #[display(fmt = "NKS character")]
+    #[display(fmt = "Character")]
     NksMode,
 }
 
@@ -1190,6 +1190,14 @@ impl PotFilterItemKind {
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
         Self::into_enum_iter()
+    }
+
+    pub fn parent(&self) -> Option<Self> {
+        match self {
+            PotFilterItemKind::NksSubBank => Some(PotFilterItemKind::NksBank),
+            PotFilterItemKind::NksSubCategory => Some(PotFilterItemKind::NksCategory),
+            _ => None,
+        }
     }
 }
 

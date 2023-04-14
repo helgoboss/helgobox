@@ -210,7 +210,7 @@ impl BrowsePotPresetsTarget {
     }
 
     fn preset_count(&self, pot_unit: &RuntimePotUnit) -> u32 {
-        pot_unit.count_presets()
+        pot_unit.preset_count()
     }
 
     fn convert_unit_value_to_preset_index(
