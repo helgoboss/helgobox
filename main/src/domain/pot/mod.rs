@@ -415,13 +415,24 @@ impl RuntimePotUnit {
         self.change_counter += 1;
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
+            // Debounce (cheap)
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                let mut pot_unit = blocking_lock_arc(&shared_self);
+                if pot_unit.change_counter != last_change_counter {
+                    return Ok(());
+                }
+            }
+            // Build (expensive)
             let build_outcome = with_preset_db(|db| db.build_collections(&runtime_state))??;
-            // Only integrate build outcome if no new build has been requested in the meantime.
+            // Set result (cheap)
+            // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit = blocking_lock_arc(&shared_self);
-            if pot_unit.change_counter == last_change_counter {
-                pot_unit.notify_build_outcome_ready(build_outcome);
+            if pot_unit.change_counter != last_change_counter {
+                return Ok(());
             }
+            pot_unit.notify_build_outcome_ready(build_outcome);
             Ok(())
         });
     }

@@ -26,7 +26,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
     // TODO Filter keyboard control
-    // TODO Debounce rebuilding of collections
     // TODO Make it possible to globally hide filter items
     // TODO Build 2nd database support (RfxChain)
     // TODO Provide option to hide star filters
