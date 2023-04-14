@@ -215,6 +215,7 @@ impl NicaChunkContent {
                     .filter_map(move |(slot_index, slot)| {
                         let macro_param = MacroParam {
                             name: slot.name,
+                            section_name: slot.section.unwrap_or_default(),
                             param_index: slot.id?,
                         };
                         Some((bank_index as u32 * 8 + slot_index as u32, macro_param))

@@ -230,6 +230,7 @@ pub struct CurrentPreset {
 #[derive(Clone, Debug)]
 pub struct MacroParam {
     pub name: String,
+    pub section_name: String,
     pub param_index: u32,
 }
 

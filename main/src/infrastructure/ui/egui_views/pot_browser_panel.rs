@@ -25,6 +25,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
+    // TODO Filter keyboard control
     // TODO Display macro param section names
     // TODO Debounce rebuilding of collections
     // TODO Make it possible to globally hide filter items
@@ -206,6 +207,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
         });
         // Info about currently loaded preset
+        ui.separator();
         ui.horizontal_wrapped(|ui| {
             ui.strong("Destination: ");
             match pot_unit.preset_load_destination() {
@@ -252,10 +254,13 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 table.header(20.0, |mut header| {
                                     for param in &params {
                                         header.col(|ui| {
-                                            let resp = ui.strong(&param.macro_param.name);
-                                            if let Some(fx_param) = &param.fx_param {
-                                                resp.on_hover_text(fx_param.name().into_string());
-                                            }
+                                            ui.vertical(|ui| {
+                                                ui.label(&param.macro_param.section_name);
+                                                let resp = ui.strong(&param.macro_param.name);
+                                                if let Some(fx_param) = &param.fx_param {
+                                                    resp.on_hover_text(fx_param.name().into_string());
+                                                }
+                                            });
                                         });
                                     }
                                 }).body(|mut body| {
@@ -293,6 +298,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
         });
         // Preset table
+        ui.separator();
         let mut table = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
