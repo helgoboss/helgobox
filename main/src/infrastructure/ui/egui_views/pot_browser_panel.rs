@@ -158,6 +158,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         });
     let preset_count = pot_unit.preset_count();
     CentralPanel::default().show(ctx, |ui| {
+        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
         // Preset section header
         ui.horizontal(|ui| {
             ui.strong("Search:");
@@ -215,27 +216,50 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.label(&current_preset.preset().name);
                             ui.end_row();
                             // Macro parameters
-                            for macro_index in 0..8 {
-                                if let Some(param_index) = current_preset.find_mapped_parameter_index_at(macro_index) {
+                            ui.vertical(|ui| {
+                                let bank_size = 8;
+                                let mut table = TableBuilder::new(ui)
+                                    .striped(true)
+                                    .resizable(false)
+                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                                    .columns(Column::remainder(), bank_size)
+                                    .vscroll(false);
+                                let params: Vec<_> = (0..8).filter_map(|i| {
+                                    let param_index = current_preset.find_mapped_parameter_index_at(i)?;
                                     let param = fx.parameter_by_index(param_index);
-                                    let old_param_value = param.reaper_normalized_value();
-                                    let mut new_param_value_raw = old_param_value.get();
-                                    ui.vertical(|ui| {
-                                        DragValue::new(&mut new_param_value_raw)
-                                            .speed(0.01)
-                                            .custom_formatter(|v, _| {
-                                                let v = ReaperNormalizedFxParamValue::new(v);
-                                                param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
-                                            })
-                                            .clamp_range(0.0..=1.0)
-                                            .ui(ui);
-                                        ui.strong(param.name().into_string());
-                                    });
-                                    if new_param_value_raw != old_param_value.get() {
-                                        let _ = param.set_reaper_normalized_value(new_param_value_raw);
+                                    if !param.is_available() {
+                                        return None;
                                     }
-                                }
-                            }
+                                    Some(param)
+                                }).collect();
+                                table.header(20.0, |mut header| {
+                                    for param in &params {
+                                        header.col(|ui| {
+                                            ui.strong(param.name().into_string());
+                                        });
+                                    }
+                                }).body(|mut body| {
+                                    body.row(text_height, |mut row| {
+                                        for param in &params {
+                                            row.col(|ui| {
+                                                let old_param_value = param.reaper_normalized_value();
+                                                let mut new_param_value_raw = old_param_value.get();
+                                                DragValue::new(&mut new_param_value_raw)
+                                                    .speed(0.01)
+                                                    .custom_formatter(|v, _| {
+                                                        let v = ReaperNormalizedFxParamValue::new(v);
+                                                        param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
+                                                    })
+                                                    .clamp_range(0.0..=1.0)
+                                                    .ui(ui);
+                                                if new_param_value_raw != old_param_value.get() {
+                                                    let _ = param.set_reaper_normalized_value(new_param_value_raw);
+                                                }
+                                            });
+                                        }
+                                    });
+                                });
+                            });
                         }
                     } else {
                         ui.label("<Empty>");
@@ -246,7 +270,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 }
             }
         });
-        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
         // Preset table
         let mut table = TableBuilder::new(ui)
             .striped(true)
