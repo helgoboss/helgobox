@@ -1020,8 +1020,8 @@ impl VirtualFxParameter {
                     let target_state = BackboneState::target_state().borrow();
                     let preset = target_state.current_fx_preset(fx);
                     let index = preset
-                        .and_then(|p| p.find_mapped_parameter_index_at(slot_index))
-                        .map(|res| res as f64)
+                        .and_then(|p| p.find_macro_param_at(slot_index))
+                        .map(|res| res.param_index as f64)
                         .unwrap_or(EXPRESSION_NONE_VALUE);
                     Some(index)
                 }

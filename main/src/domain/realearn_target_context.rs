@@ -65,10 +65,17 @@ impl RealearnTargetState {
     }
 
     pub fn current_fx_preset(&self, fx: &Fx) -> Option<&pot::CurrentPreset> {
-        self.current_pot_preset_by_fx.get(fx)
+        let fx = fx.guid_based()?;
+        self.current_pot_preset_by_fx.get(&fx)
     }
 
     pub fn set_current_fx_preset(&mut self, fx: Fx, current_preset: pot::CurrentPreset) {
+        // reaper_high::Fx is really not a good candidate for hashing. At the moment, we must
+        // "normalize" it to be guid-based to really match. But it's still dirty, even the FX
+        // chain and track matching. We need several distinct types!
+        let Some(fx) = fx.guid_based() else {
+            return;
+        };
         self.current_pot_preset_by_fx.insert(fx, current_preset);
         self.additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::MappedFxParametersChanged);

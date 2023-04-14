@@ -1,6 +1,6 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::{
-    with_preset_db, Preset, PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
+    with_preset_db, MacroParam, Preset, PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::BackboneState;
 use egui::{
@@ -11,6 +11,7 @@ use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
+use reaper_high::FxParameter;
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
@@ -22,9 +23,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
-    // TODO Display loaded FX
+    // TODO Display macro param section names
+    // TODO Debounce rebuilding of collections
+    // TODO Make it possible to globally hide filter items
+    // TODO Build 2nd database support (RfxChain)
     // TODO Provide option to hide star filters
     // TODO Provide some wheels to control parameters
+    // TODO Fix borrow errors (was occurring when removing other ReaLearn instances because
+    //  it was accidentally a destination!)
     let mut scroll_to_preset_row: Option<u32> = None;
     let mut focus_search_field = false;
     // Keyboard control
@@ -219,41 +225,57 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.vertical(|ui| {
                                 let bank_size = 8;
                                 let mut table = TableBuilder::new(ui)
-                                    .striped(true)
+                                    .striped(false)
                                     .resizable(false)
                                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                                     .columns(Column::remainder(), bank_size)
                                     .vscroll(false);
+                                struct CombinedParam<'a> {
+                                    macro_param: &'a MacroParam,
+                                    fx_param: Option<FxParameter>
+                                }
                                 let params: Vec<_> = (0..8).filter_map(|i| {
-                                    let param_index = current_preset.find_mapped_parameter_index_at(i)?;
-                                    let param = fx.parameter_by_index(param_index);
-                                    if !param.is_available() {
-                                        return None;
-                                    }
-                                    Some(param)
+                                    let macro_param = current_preset.find_macro_param_at(i)?;
+                                    let combined_param = CombinedParam {
+                                        fx_param: {
+                                            let fx_param = fx.parameter_by_index(macro_param.param_index);
+                                            if fx_param.is_available() {
+                                                Some(fx_param)
+                                            } else {
+                                                None
+                                            }
+                                        },
+                                        macro_param,
+                                    };
+                                    Some(combined_param)
                                 }).collect();
                                 table.header(20.0, |mut header| {
                                     for param in &params {
                                         header.col(|ui| {
-                                            ui.strong(param.name().into_string());
+                                            let resp = ui.strong(&param.macro_param.name);
+                                            if let Some(fx_param) = &param.fx_param {
+                                                resp.on_hover_text(fx_param.name().into_string());
+                                            }
                                         });
                                     }
                                 }).body(|mut body| {
                                     body.row(text_height, |mut row| {
                                         for param in &params {
                                             row.col(|ui| {
-                                                let old_param_value = param.reaper_normalized_value();
-                                                let mut new_param_value_raw = old_param_value.get();
-                                                DragValue::new(&mut new_param_value_raw)
-                                                    .speed(0.01)
-                                                    .custom_formatter(|v, _| {
-                                                        let v = ReaperNormalizedFxParamValue::new(v);
-                                                        param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
-                                                    })
-                                                    .clamp_range(0.0..=1.0)
-                                                    .ui(ui);
-                                                if new_param_value_raw != old_param_value.get() {
-                                                    let _ = param.set_reaper_normalized_value(new_param_value_raw);
+                                                if let Some(param) = param.fx_param.as_ref() {
+                                                    let old_param_value = param.reaper_normalized_value();
+                                                    let mut new_param_value_raw = old_param_value.get();
+                                                    DragValue::new(&mut new_param_value_raw)
+                                                        .speed(0.01)
+                                                        .custom_formatter(|v, _| {
+                                                            let v = ReaperNormalizedFxParamValue::new(v);
+                                                            param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
+                                                        })
+                                                        .clamp_range(0.0..=1.0)
+                                                        .ui(ui);
+                                                    if new_param_value_raw != old_param_value.get() {
+                                                        let _ = param.set_reaper_normalized_value(new_param_value_raw);
+                                                    }
                                                 }
                                             });
                                         }

@@ -224,21 +224,27 @@ impl Collections {
 #[derive(Debug)]
 pub struct CurrentPreset {
     preset: Preset,
-    param_mapping: HashMap<u32, u32>,
+    macro_params: HashMap<u32, MacroParam>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MacroParam {
+    pub name: String,
+    pub param_index: u32,
 }
 
 impl CurrentPreset {
     pub fn without_parameters(preset: Preset) -> Self {
         Self {
             preset,
-            param_mapping: Default::default(),
+            macro_params: Default::default(),
         }
     }
 
-    pub fn with_parameters(preset: Preset, param_mapping: HashMap<u32, u32>) -> Self {
+    pub fn with_parameters(preset: Preset, macro_params: HashMap<u32, MacroParam>) -> Self {
         Self {
             preset,
-            param_mapping,
+            macro_params,
         }
     }
 
@@ -246,8 +252,8 @@ impl CurrentPreset {
         &self.preset
     }
 
-    pub fn find_mapped_parameter_index_at(&self, slot_index: u32) -> Option<u32> {
-        self.param_mapping.get(&slot_index).copied()
+    pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
+        self.macro_params.get(&slot_index)
     }
 }
 
@@ -582,6 +588,14 @@ pub struct Preset {
 #[derive(serde::Deserialize)]
 struct ParamAssignment {
     id: Option<u32>,
+    #[serde(default)]
+    section: Option<String>,
+    #[serde(default)]
+    autoname: bool,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    vflag: bool,
 }
 
 fn load_nksf_preset(
@@ -594,7 +608,7 @@ fn load_nksf_preset(
     fx.set_vst_chunk(nks_content.vst_chunk)?;
     let outcome = LoadPresetOutcome {
         fx,
-        current_preset: CurrentPreset::with_parameters(preset.clone(), nks_content.param_mapping),
+        current_preset: CurrentPreset::with_parameters(preset.clone(), nks_content.macro_params),
     };
     Ok(outcome)
 }

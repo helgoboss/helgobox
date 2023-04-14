@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
     BuildOutcome, Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterSettings,
-    ParamAssignment, Preset, RuntimeState, Stats,
+    MacroParam, ParamAssignment, Preset, RuntimeState, Stats,
 };
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;
@@ -116,7 +116,7 @@ pub struct PersistentNksFilterSettings {
 pub struct NksFileContent<'a> {
     pub vst_magic_number: u32,
     pub vst_chunk: &'a [u8],
-    pub param_mapping: HashMap<u32, u32>,
+    pub macro_params: HashMap<u32, MacroParam>,
 }
 
 impl NksFile {
@@ -156,10 +156,12 @@ impl NksFile {
                 value.vst_magic
             },
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
-            param_mapping: {
+            macro_params: {
                 nica_chunk
                     .and_then(|nica_chunk| {
                         let bytes = self.relevant_bytes_of_chunk(&nica_chunk);
+                        // let json_value: serde_json::Value = rmp_serde::from_slice(bytes).ok()?;
+                        // dbg!(json_value);
                         let value: NicaChunkContent = rmp_serde::from_slice(bytes).ok()?;
                         Some(value.extract_param_mapping())
                     })
@@ -203,16 +205,19 @@ struct NicaChunkContent {
 }
 
 impl NicaChunkContent {
-    pub fn extract_param_mapping(&self) -> HashMap<u32, u32> {
+    pub fn extract_param_mapping(self) -> HashMap<u32, MacroParam> {
         self.ni8
-            .iter()
+            .into_iter()
             .enumerate()
             .flat_map(|(bank_index, bank)| {
-                bank.iter()
+                bank.into_iter()
                     .enumerate()
                     .filter_map(move |(slot_index, slot)| {
-                        let param_id = slot.id?;
-                        Some((bank_index as u32 * 8 + slot_index as u32, param_id))
+                        let macro_param = MacroParam {
+                            name: slot.name,
+                            param_index: slot.id?,
+                        };
+                        Some((bank_index as u32 * 8 + slot_index as u32, macro_param))
                     })
             })
             .collect()
