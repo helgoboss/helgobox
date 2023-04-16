@@ -1,5 +1,8 @@
 use egui::{Context, Visuals};
-use reaper_low::firewall;
+use raw_window_handle::HasRawWindowHandle;
+use reaper_low::raw::RECT;
+use reaper_low::{firewall, Swell};
+use std::ptr::null_mut;
 use swell_ui::Window;
 
 pub mod advanced_script_editor;
@@ -12,14 +15,6 @@ pub fn open<S: Send + 'static>(
     state: S,
     run_ui: impl Fn(&egui::Context, &mut S) + Send + Sync + 'static,
 ) {
-    if cfg!(target_os = "linux") {
-        window.alert(
-            "ReaLearn",
-            "This feature is currently not supported on Linux",
-        );
-        window.close();
-        return;
-    }
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();

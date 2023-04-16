@@ -753,19 +753,21 @@ unsafe impl HasRawWindowHandle for Window {
             RawWindowHandle::Win32(handle)
         }
         #[cfg(target_os = "linux")]
-        {
+        unsafe {
             let mut handle = raw_window_handle::XlibHandle::empty();
-            // TODO-high-egui This doesn't work yet.
             // TODO-high-egui Even if it works, SWELL_GetOSWindow is only available in newer
-            //  REAPER versions, so we must take care to not use egui in that case or open the
-            //  egui window without SWELL (maybe unparented ... could be a general Linux solution?)
-            let os_window = unsafe {
+            //  REAPER versions, so we must take care to not use egui in that case
+            let gdk_window = unsafe {
                 Swell::get().SWELL_GetOSWindow(
                     self.raw,
                     reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
                 )
-            };
-            handle.window = os_window as _;
+            } as *mut gdk_sys::GdkWindow;
+            let gdk_display = gdk_sys::gdk_window_get_display(gdk_window);
+            let x_display = gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _);
+            let x_window = gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _);
+            handle.window = x_window as _;
+            handle.display = x_display as _;
             RawWindowHandle::Xlib(handle)
         }
     }
