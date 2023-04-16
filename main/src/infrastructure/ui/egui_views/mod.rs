@@ -25,13 +25,22 @@ pub fn open<S: Send + 'static>(
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();
-    let dpi_factor = window.dpi_scaling_factor();
-    let window_width = window_size.width.get() as f64 / dpi_factor;
-    let window_height = window_size.height.get() as f64 / dpi_factor;
+    let (width, height, scale) = if cfg!(windows) {
+        let dpi_factor = window.dpi_scaling_factor();
+        let width = window_size.width.get() as f64 / dpi_factor;
+        let height = window_size.height.get() as f64 / dpi_factor;
+        let scale = baseview::WindowScalePolicy::ScaleFactor(dpi_factor);
+        (width, height, scale)
+    } else {
+        let width = window_size.width.get() as f64;
+        let height = window_size.height.get() as f64;
+        let scale = baseview::WindowScalePolicy::SystemScaleFactor;
+        (width, height, scale)
+    };
     let settings = baseview::WindowOpenOptions {
         title,
-        size: baseview::Size::new(window_width, window_height),
-        scale: baseview::WindowScalePolicy::SystemScaleFactor,
+        size: baseview::Size::new(width, height),
+        scale,
         gl_config: Some(Default::default()),
     };
     egui_baseview::EguiWindow::open_parented(
@@ -49,6 +58,21 @@ pub fn open<S: Send + 'static>(
             });
         },
     );
+}
+
+/// To be called in the `resized` callback of the container window. Takes care of resizing
+/// the egui child window to exactly the same size as parent. Works at least on Windows.
+pub fn on_parent_window_resize(parent: Window) -> bool {
+    #[cfg(windows)]
+    {
+        parent.resize_first_child_according_to_parent();
+        true
+    }
+    #[cfg(not(windows))]
+    {
+        parent.resize_all_children_according_to_parent();
+        false
+    }
 }
 
 fn init_ui(ctx: &Context, dark_mode_is_enabled: bool) {

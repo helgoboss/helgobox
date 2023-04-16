@@ -17,6 +17,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             WS_CAPTION,
             WS_SYSMENU,
             WS_THICKFRAME,
+            WS_OVERLAPPEDWINDOW,
         ]),
         ..context.default_dialog()
     }

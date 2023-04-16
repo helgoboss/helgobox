@@ -514,13 +514,13 @@ impl Window {
         }
     }
 
-    pub fn resize_all_children_according_to_parent(self) {
+    pub fn resize_first_child_according_to_parent(self) {
         unsafe {
             extern "C" fn resize_proc(arg1: raw::HWND, _arg2: raw::LPARAM) -> raw::BOOL {
                 if let Some(win) = Window::new(arg1) {
                     win.resize(win.parent().unwrap().size());
                 }
-                1
+                0
             }
             Swell::get().EnumChildWindows(self.raw, Some(resize_proc), 0);
         }
@@ -664,22 +664,19 @@ impl Window {
         }
     }
 
+    #[cfg(target_family = "windows")]
     pub fn dpi_scaling_factor(&self) -> f64 {
         self.dpi() as f64 / 96.0
     }
 
+    #[cfg(target_family = "windows")]
     pub fn dpi(&self) -> u32 {
-        #[cfg(target_family = "windows")]
-        {
-            let dynamic_win_api = crate::win::DynamicWinApi::load();
-            if let Some(f) = dynamic_win_api.get_dpi_for_window() {
-                f(self.raw as _)
-            } else {
-                96
-            }
+        let dynamic_win_api = crate::win::DynamicWinApi::load();
+        if let Some(f) = dynamic_win_api.get_dpi_for_window() {
+            f(self.raw as _)
+        } else {
+            96
         }
-        #[cfg(target_family = "unix")]
-        96
     }
 
     /// Converts the given dialog unit point or dimensions to a pixels point or dimensions by using
