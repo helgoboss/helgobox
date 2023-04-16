@@ -9,7 +9,7 @@ use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSe
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxChain, FxChainContext, Reaper, Track};
+use reaper_high::{Fx, FxChain, FxChainContext, Reaper};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -424,7 +424,7 @@ impl RuntimePotUnit {
             // (via encoder).
             {
                 tokio::time::sleep(Duration::from_millis(10)).await;
-                let mut pot_unit = blocking_lock_arc(&shared_self);
+                let pot_unit = blocking_lock_arc(&shared_self);
                 if pot_unit.change_counter != last_change_counter {
                     return Ok(());
                 }
@@ -606,6 +606,7 @@ pub struct Preset {
 }
 
 #[derive(serde::Deserialize)]
+#[allow(dead_code)]
 struct ParamAssignment {
     id: Option<u32>,
     #[serde(default)]

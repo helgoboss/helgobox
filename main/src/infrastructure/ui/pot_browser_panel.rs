@@ -3,9 +3,7 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
 use crate::infrastructure::ui::egui_views::pot_browser_panel::{run_ui, State};
 use derivative::Derivative;
-use raw_window_handle::HasRawWindowHandle;
 use reaper_low::raw;
-use std::cell::Cell;
 use swell_ui::{Dimensions, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Derivative)]

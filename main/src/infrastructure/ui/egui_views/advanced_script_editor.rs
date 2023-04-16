@@ -3,7 +3,7 @@ use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use derivative::Derivative;
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
-use egui::{CentralPanel, Color32, Hyperlink, RichText, Ui};
+use egui::{CentralPanel, Color32, RichText, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,

@@ -1,7 +1,7 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::nks::PresetId;
 use crate::domain::pot::{
-    with_preset_db, MacroParam, Preset, PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
+    with_preset_db, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::BackboneState;
 use egui::{
@@ -12,9 +12,8 @@ use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{FxChainContext, FxParameter, Reaper};
+use reaper_high::FxParameter;
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
-use std::mem;
 use std::time::Duration;
 use swell_ui::Window;
 
@@ -232,7 +231,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             // Macro parameters
                             ui.vertical(|ui| {
                                 let bank_size = 8;
-                                let mut table = TableBuilder::new(ui)
+                                let table = TableBuilder::new(ui)
                                     .striped(false)
                                     .resizable(false)
                                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))

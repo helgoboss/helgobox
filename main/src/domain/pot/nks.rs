@@ -1,8 +1,8 @@
 use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
-    BuildOutcome, Collections, CurrentPreset, FilterItem, FilterItemCollections, FilterSettings,
-    MacroParam, ParamAssignment, Preset, RuntimeState, Stats,
+    BuildOutcome, Collections, FilterItem, FilterItemCollections, FilterSettings, MacroParam,
+    ParamAssignment, Preset, RuntimeState, Stats,
 };
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;

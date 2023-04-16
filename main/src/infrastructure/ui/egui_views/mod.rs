@@ -1,6 +1,4 @@
-use baseview::WindowHandle;
 use egui::{Context, Visuals};
-use reaper_high::Reaper;
 use reaper_low::firewall;
 use swell_ui::Window;
 
@@ -25,13 +23,16 @@ pub fn open<S: Send + 'static>(
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();
-    let (width, height, scale) = if cfg!(windows) {
+    #[cfg(windows)]
+    let (width, height, scale) = {
         let dpi_factor = window.dpi_scaling_factor();
         let width = window_size.width.get() as f64 / dpi_factor;
         let height = window_size.height.get() as f64 / dpi_factor;
         let scale = baseview::WindowScalePolicy::ScaleFactor(dpi_factor);
         (width, height, scale)
-    } else {
+    };
+    #[cfg(not(windows))]
+    let (width, height, scale) = {
         let width = window_size.width.get() as f64;
         let height = window_size.height.get() as f64;
         let scale = baseview::WindowScalePolicy::SystemScaleFactor;
