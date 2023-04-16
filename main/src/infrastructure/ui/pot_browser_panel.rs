@@ -59,7 +59,6 @@ impl View for PotBrowserPanel {
         }
     }
 
-    // TODO-high CONTINUE Windows: Clicking egui browser link - as expected - crashes REAPER again
     fn resized(self: SharedView<Self>) -> bool {
         egui_views::on_parent_window_resize(self.view.require_window())
     }
