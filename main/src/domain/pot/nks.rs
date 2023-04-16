@@ -114,9 +114,38 @@ pub struct PersistentNksFilterSettings {
 
 #[derive(Debug)]
 pub struct NksFileContent<'a> {
-    pub vst_magic_number: u32,
+    pub plugin_id: PluginId,
     pub vst_chunk: &'a [u8],
     pub macro_params: HashMap<u32, MacroParam>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum PluginId {
+    Vst2 { vst_magic_number: u32 },
+    Vst3 { vst_uid: [u32; 4] },
+}
+
+impl PluginId {
+    pub fn reaper_prefix(&self) -> char {
+        match self {
+            PluginId::Vst2 { .. } => '<',
+            PluginId::Vst3 { .. } => '{',
+        }
+    }
+
+    pub fn formatted_for_reaper(&self) -> String {
+        match self {
+            PluginId::Vst2 { vst_magic_number } => {
+                format!("i7zh34z<{vst_magic_number}")
+            }
+            PluginId::Vst3 { vst_uid } => {
+                format!(
+                    "i7zh34z{{{:X}{:X}{:X}{:X}",
+                    vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3]
+                )
+            }
+        }
+    }
 }
 
 impl NksFile {
@@ -149,11 +178,17 @@ impl NksFile {
         let pchk_chunk = pchk_chunk.ok_or("couldn't find PCHK chunk")?;
         // Build content from relevant chunks
         let content = NksFileContent {
-            vst_magic_number: {
+            plugin_id: {
                 let bytes = self.relevant_bytes_of_chunk(&plid_chunk);
                 let value: PlidChunkContent =
                     rmp_serde::from_slice(bytes).map_err(|_| "couldn't find VST magic number")?;
-                value.vst_magic
+                if let Some(vst3_uid) = value.vst3_uid {
+                    PluginId::Vst3 { vst_uid: vst3_uid }
+                } else {
+                    PluginId::Vst2 {
+                        vst_magic_number: value.vst_magic,
+                    }
+                }
             },
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
             macro_params: {
@@ -197,6 +232,8 @@ pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
 struct PlidChunkContent {
     #[serde(rename = "VST.magic")]
     vst_magic: u32,
+    #[serde(rename = "VST3.uid")]
+    vst3_uid: Option<[u32; 4]>,
 }
 
 #[derive(serde::Deserialize)]

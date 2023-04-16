@@ -5,7 +5,7 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings};
+use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId};
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -625,7 +625,7 @@ fn load_nksf_preset(
 ) -> Result<LoadPresetOutcome, &'static str> {
     let nks_file = NksFile::load(&preset.file_name)?;
     let nks_content = nks_file.content()?;
-    let fx = make_sure_fx_has_correct_type(nks_content.vst_magic_number, destination)?;
+    let fx = make_sure_fx_has_correct_type(nks_content.plugin_id, destination)?;
     fx.set_vst_chunk(nks_content.vst_chunk)?;
     let outcome = LoadPresetOutcome {
         fx,
@@ -639,7 +639,10 @@ fn load_audio_preset(
     destination: &PresetLoadDestination,
 ) -> Result<LoadPresetOutcome, &'static str> {
     const RS5K_VST_ID: u32 = 1920167789;
-    let fx = make_sure_fx_has_correct_type(RS5K_VST_ID, destination)?;
+    let plugin_id = PluginId::Vst2 {
+        vst_magic_number: RS5K_VST_ID,
+    };
+    let fx = make_sure_fx_has_correct_type(plugin_id, destination)?;
     let window_is_open_before = fx.window_is_open();
     if window_is_open_before {
         if !fx.window_has_focus() {
@@ -666,32 +669,37 @@ struct LoadPresetOutcome {
 }
 
 fn make_sure_fx_has_correct_type(
-    vst_magic_number: u32,
+    plugin_id: PluginId,
     destination: &PresetLoadDestination,
 ) -> Result<Fx, &'static str> {
     match destination.resolve() {
-        None => insert_fx_by_vst_magic_number(vst_magic_number, destination),
+        None => insert_fx_by_plugin_id(plugin_id, destination),
         Some(fx) => {
             let fx_info = fx.info()?;
-            if fx_info.id == vst_magic_number.to_string() {
+            if fx_info.id == plugin_id.formatted_for_reaper() {
                 return Ok(fx);
             }
             // We don't have the right plug-in type. Remove FX and insert correct one.
             destination.chain.remove_fx(&fx)?;
-            insert_fx_by_vst_magic_number(vst_magic_number, destination)
+            insert_fx_by_plugin_id(plugin_id, destination)
         }
     }
 }
 
-fn insert_fx_by_vst_magic_number(
-    vst_magic_number: u32,
+fn insert_fx_by_plugin_id(
+    plugin_id: PluginId,
     destination: &PresetLoadDestination,
 ) -> Result<Fx, &'static str> {
     // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
     // otherwise loading by VST2 magic number doesn't work.
+    let name = format!(
+        "i7zh34z{}{}",
+        plugin_id.reaper_prefix(),
+        plugin_id.formatted_for_reaper()
+    );
     destination
         .chain
-        .insert_fx_by_name(destination.fx_index, format!("i7zh34z<{vst_magic_number}"))
+        .insert_fx_by_name(destination.fx_index, name)
         .ok_or("couldn't insert FX by VST magic number")
 }
 
