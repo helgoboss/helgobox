@@ -59,10 +59,10 @@ reaper-medium = { path = "../reaper-rs/main/medium" }
 reaper-low = { path = "../reaper-rs/main/low" }
 reaper-rx = { path = "../reaper-rs/main/rx" }
 
-# This is for temporary development with local egui-baseview.
-[patch.'https://github.com/helgoboss/egui-baseview.git']
-egui-baseview = { path = "../egui-baseview" }
-
-# This is for temporary development with local baseview.
-[patch.'https://github.com/helgoboss/baseview.git']
-baseview = { path = "../baseview" }
+## This is for temporary development with local egui-baseview.
+#[patch.'https://github.com/helgoboss/egui-baseview.git']
+#egui-baseview = { path = "../egui-baseview" }
+#
+## This is for temporary development with local baseview.
+#[patch.'https://github.com/helgoboss/baseview.git']
+#baseview = { path = "../baseview" }

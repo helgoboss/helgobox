@@ -522,6 +522,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "baseview"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/baseview.git?branch=realearn#4387a36125fcb10a6afd2369e706be79864b9a95"
 dependencies = [
  "cocoa",
  "core-foundation 0.9.1",
@@ -1396,6 +1397,7 @@ dependencies = [
 [[package]]
 name = "egui-baseview"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/egui-baseview.git?branch=realearn#278b7434577ecb0c0ef75fe7a50f55b1ba66869d"
 dependencies = [
  "baseview",
  "copypasta",
