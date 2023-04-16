@@ -71,6 +71,7 @@ pub fn on_parent_window_resize(parent: Window) -> bool {
     }
     #[cfg(not(windows))]
     {
+        let _ = parent;
         false
     }
 }

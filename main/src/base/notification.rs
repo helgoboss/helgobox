@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use reaper_high::Reaper;
 use reaper_medium::{MessageBoxType, ReaperStringArg};
+use std::error::Error;
 use std::sync::Mutex;
 
 pub fn notify_processing_result(heading: &str, msgs: Vec<String>) {
@@ -24,6 +25,16 @@ pub fn warn(msg: String) {
         reaper.show_console_msg(format!("\n\nReaLearn warning: {msg} "));
         *prev_msg = msg;
     }
+}
+
+pub fn notify_user_on_error(result: Result<(), Box<dyn Error>>) {
+    if let Err(e) = result {
+        notify_user_about_error(e);
+    }
+}
+
+pub fn notify_user_about_error(e: Box<dyn Error>) {
+    alert(e.to_string());
 }
 
 pub fn alert<'a>(msg: impl Into<ReaperStringArg<'a>>) {

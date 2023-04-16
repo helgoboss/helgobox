@@ -21,7 +21,7 @@ use crate::application::{
     MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
     SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
-use crate::base::{when, Global};
+use crate::base::{notification, when, Global};
 use crate::domain::{
     convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef, Compartment,
     CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
@@ -2225,7 +2225,10 @@ impl HeaderPanel {
     }
 
     pub fn show_pot_browser(&self) {
-        self.notify_user_on_error(self.show_pot_browser_internal());
+        let result = self.show_pot_browser_internal();
+        // Important to not use the header window to show the error because the pot browser
+        // might be opened without any ReaLearn window being open!
+        notification::notify_user_on_error(result);
     }
 
     fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
