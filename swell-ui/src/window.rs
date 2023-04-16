@@ -754,18 +754,32 @@ unsafe impl HasRawWindowHandle for Window {
         }
         #[cfg(target_os = "linux")]
         unsafe {
-            let mut handle = raw_window_handle::XlibHandle::empty();
-            // TODO-high-egui Even if it works, SWELL_GetOSWindow is only available in newer
-            //  REAPER versions, so we must take care to not use egui in that case
+            let swell = Swell::get();
+            if swell.pointers().SWELL_GetOSWindow.is_none() {
+                panic!("Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!");
+            }
             let gdk_window = unsafe {
-                Swell::get().SWELL_GetOSWindow(
+                swell.SWELL_GetOSWindow(
                     self.raw,
                     reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
                 )
             } as *mut gdk_sys::GdkWindow;
+            if gdk_window.is_null() {
+                panic!("Couldn't get OS window from SWELL window");
+            }
             let gdk_display = gdk_sys::gdk_window_get_display(gdk_window);
+            if gdk_display.is_null() {
+                panic!("Couldn't get GDK display from SWELL OS window");
+            }
             let x_display = gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _);
+            if x_display.is_null() {
+                panic!("Couldn't get X display from GDK display");
+            }
             let x_window = gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _);
+            if x_window.is_null() {
+                panic!("Couldn't get X window from GDK window");
+            }
+            let mut handle = raw_window_handle::XlibHandle::empty();
             handle.window = x_window as _;
             handle.display = x_display as _;
             RawWindowHandle::Xlib(handle)
