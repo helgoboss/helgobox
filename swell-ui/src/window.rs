@@ -776,7 +776,7 @@ unsafe impl HasRawWindowHandle for Window {
                 panic!("Couldn't get X display from GDK display");
             }
             let x_window = gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _);
-            if x_window.is_null() {
+            if x_window == 0 {
                 panic!("Couldn't get X window from GDK window");
             }
             let mut handle = raw_window_handle::XlibHandle::empty();
