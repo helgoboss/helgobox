@@ -429,7 +429,7 @@ impl Clip {
                     }
                     PleaseContinuePolling { pos } => {
                         self.shared_pos.set(pos);
-                        // TODO-high Set recording peak somewhere
+                        // TODO-high-clip-engine Set recording peak somewhere
                         true
                     }
                 }
@@ -1722,7 +1722,7 @@ pub struct QualifiedClipChangeEvent {
 pub enum ClipChangeEvent {
     /// Everything within the clip has potentially changed.
     Everything,
-    // TODO-high Is special handling for volume and looped necessary?
+    // TODO-high-clip-engine Is special handling for volume and looped necessary?
     Volume(Db),
     Looped(bool),
 }

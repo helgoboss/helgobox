@@ -563,7 +563,7 @@ impl RuntimePotUnit {
 
 #[derive(Clone, Debug)]
 pub struct FilterItem {
-    // TODO-high CONTINUE Distinguish <Any> and <None> in persistence
+    // TODO-high-pot Distinguish <Any> and <None> in persistence
     pub persistent_id: String,
     /// `None` is also a valid filter item! It would match filter `<None>` (e.g. no category
     /// assigned at all)
@@ -747,13 +747,13 @@ impl Display for PresetLoadDestination {
                 } else {
                     "Input chain"
                 };
-                write!(f, "Track \"{}\" / {chain_name}", track.name().unwrap())?;
+                write!(f, "Track \"{}\" → {chain_name}", track.name().unwrap())?;
             }
             FxChainContext::Take(_) => {
                 panic!("take FX chain not yet supported");
             }
         }
-        write!(f, " / FX #{}", self.fx_index + 1)?;
+        write!(f, " → FX #{}", self.fx_index + 1)?;
         Ok(())
     }
 }

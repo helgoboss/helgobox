@@ -164,7 +164,7 @@ function clip_position_feedback(channel_index)
         target = {
             kind = "ClipSeek",
             slot = current_slot(channel_index),
-            -- TODO-high The Platform M+ seems to don't like resolution High (skips messages). Maybe time for #533.
+            -- TODO-high-clip-engine The Platform M+ seems to don't like resolution High (skips messages). Maybe time for #533.
             feedback_resolution = "Beat",
         },
     }

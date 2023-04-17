@@ -206,7 +206,7 @@ local feedback_value_table = {
         -- Red
         recording = 3,
         -- Yellow blinking
-        -- TODO-high Might be better to distinguish between scheduled_for_stop or scheduled_for_play_start instead.
+        -- TODO-high-clip-engine Might be better to distinguish between scheduled_for_stop or scheduled_for_play_start instead.
         scheduled_for_record_stop = 6,
     }
 }

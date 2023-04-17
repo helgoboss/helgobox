@@ -736,7 +736,7 @@ impl Column {
                     // If the slot doesn't have any clip, there's nothing useful it can process.
                     continue;
                 }
-                // TODO-high We should move this logic to the slot. It's not just for better
+                // TODO-high-clip-engine We should move this logic to the slot. It's not just for better
                 //  encapsulation but also for more performance (maybe we can use iterators
                 //  instead of bound checks).
                 for i in 0..clip_count {

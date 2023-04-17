@@ -1,8 +1,5 @@
 use egui::{Context, Visuals};
-use raw_window_handle::HasRawWindowHandle;
-use reaper_low::raw::RECT;
-use reaper_low::{firewall, Swell};
-use std::ptr::null_mut;
+use reaper_low::firewall;
 use swell_ui::Window;
 
 pub mod advanced_script_editor;

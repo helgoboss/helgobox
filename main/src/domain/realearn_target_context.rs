@@ -22,12 +22,12 @@ pub struct RealearnTargetState {
     /// Memorizes for each FX the hash of its last FX snapshot loaded via "Load FX snapshot" target.
     ///
     /// Persistent.
-    // TODO-high CONTINUE Restore on load (by looking up snapshot chunk)
+    // TODO-high-pot Restore on load (by looking up snapshot chunk)
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
     /// Memorizes for each FX some infos about its last loaded Pot preset.
     ///
     /// Persistent.
-    // TODO-high CONTINUE Restore on load (by looking up DB)
+    // TODO-high-pot Restore on load (by looking up DB)
     current_pot_preset_by_fx: HashMap<Fx, pot::CurrentPreset>,
     /// Memorizes all currently touched track parameters.
     ///

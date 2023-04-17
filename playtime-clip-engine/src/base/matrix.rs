@@ -464,7 +464,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Fill slot with clips", |matrix| {
             let column = get_column_mut(&mut matrix.columns, address.column)?;
             for api_clip in api_clips {
-                // TODO-high CONTINUE Starting from here, don't let the methods return events anymore!
+                // TODO-high-clip-engine CONTINUE Starting from here, don't let the methods return events anymore!
                 //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
                 //  for all clips). But on the other hand, it doesn't know about batches
                 //  and might therefore build a list of events for nothing!
@@ -864,7 +864,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         let clip = self.get_clip_mut(address)?;
         *clip = Clip::load(api_clip);
-        // TODO-high Sync important data to real-time processor
+        // TODO-high-clip-engine Sync important data to real-time processor
         self.emit(ClipMatrixEvent::clip_changed(
             address,
             ClipChangeEvent::Everything,
@@ -989,7 +989,7 @@ impl ClipRecordInput {
         match &self {
             HardwareInput(ClipRecordHardwareInput::Midi(_)) => {
                 let quantization_settings = if auto_quantize_midi {
-                    // TODO-high Use project quantization settings
+                    // TODO-high-clip-engine Use project quantization settings
                     Some(QuantizationSettings {})
                 } else {
                     None

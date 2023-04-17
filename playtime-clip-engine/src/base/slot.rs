@@ -104,12 +104,12 @@ impl Content {
     }
 
     pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
-        // TODO-high-playtime CONTINUE Get the clip-to-item layout 100% right.
-        // TODO-high-playtime CONTINUE Sync the frozen clips to the real-time thread when finished.
-        // TODO-high-playtime CONTINUE Provide a header panel action to go back to unfrozen version.
-        // TODO-high-playtime CONTINUE Provide a header panel action to go back to frozen version.
-        // TODO-high-playtime CONTINUE Don't freeze tracks whose FX chain contains ReaLearn FX only.
-        // TODO-high-playtime CONTINUE Take relevant FX offline/online when freezing/unfreezing.
+        // TODO-high-clip-engine CONTINUE Get the clip-to-item layout 100% right.
+        // TODO-high-clip-engine CONTINUE Sync the frozen clips to the real-time thread when finished.
+        // TODO-high-clip-engine CONTINUE Provide a header panel action to go back to unfrozen version.
+        // TODO-high-clip-engine CONTINUE Provide a header panel action to go back to frozen version.
+        // TODO-high-clip-engine CONTINUE Don't freeze tracks whose FX chain contains ReaLearn FX only.
+        // TODO-high-clip-engine CONTINUE Take relevant FX offline/online when freezing/unfreezing.
         let project = playback_track.project();
         let manifestation = manifest_clip_on_track(project, self, playback_track)?;
         project.select_item_exclusively(manifestation.item);

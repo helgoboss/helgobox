@@ -156,7 +156,7 @@ impl Column {
 
     /// Returns all clips that are currently playing (along with slot index) .
     pub(crate) fn playing_clips(&self) -> impl Iterator<Item = (usize, &Clip)> + '_ {
-        // TODO-high This is used for building a scene from the currently playing clips.
+        // TODO-high-clip-engine This is used for building a scene from the currently playing clips.
         //  If multiple clips are currently playing in one column, we shouldn't add new columns
         //  but put the clips into one slot! This is a new possibility and this is a good use case!
         self.slots.iter().enumerate().flat_map(|(i, s)| {
@@ -433,36 +433,36 @@ impl Column {
             source,
             frozen_source: None,
             active_source: Default::default(),
-            // TODO-high Derive whether time or beat from item/track/project
+            // TODO-high-clip-engine Derive whether time or beat from item/track/project
             time_base: ClipTimeBase::Beat(BeatTimeBase {
-                // TODO-high Correctly determine audio tempo if audio
+                // TODO-high-clip-engine Correctly determine audio tempo if audio
                 audio_tempo: None,
-                // TODO-high Correctly determine time signature at item position
+                // TODO-high-clip-engine Correctly determine time signature at item position
                 time_signature: TimeSignature {
                     numerator: 4,
                     denominator: 4,
                 },
-                // TODO-high Correctly determine by looking at snap offset
+                // TODO-high-clip-engine Correctly determine by looking at snap offset
                 downbeat: PositiveBeat::default(),
             }),
             start_timing: None,
             stop_timing: None,
-            // TODO-high Check if item itself is looped or not
+            // TODO-high-clip-engine Check if item itself is looped or not
             looped: true,
-            // TODO-high Derive from item take volume
+            // TODO-high-clip-engine Derive from item take volume
             volume: api::Db::ZERO,
-            // TODO-high Derive from item color
+            // TODO-high-clip-engine Derive from item color
             color: ClipColor::PlayTrackColor,
-            // TODO-high Derive from item cut
+            // TODO-high-clip-engine Derive from item cut
             section: Section {
                 start_pos: PositiveSecond::default(),
                 length: None,
             },
             audio_settings: ClipAudioSettings {
                 apply_source_fades: true,
-                // TODO-high Derive from item time stretch mode
+                // TODO-high-clip-engine Derive from item time stretch mode
                 time_stretch_mode: None,
-                // TODO-high Derive from item resample mode
+                // TODO-high-clip-engine Derive from item resample mode
                 resample_mode: None,
                 cache_behavior: None,
             },

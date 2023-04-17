@@ -438,7 +438,7 @@ function clip_quantize(col, row)
     }
 end
 
--- TODO-high Make short press toggle and long press be momentary.
+-- TODO-high-clip-engine Make short press toggle and long press be momentary.
 --  Problem 1: "Fire after timeout" somehow doesn't have an effect.
 --  Problem 2: "Fire after timeout" doesn't switch off when button released.
 function mode_button(button_id, mode)

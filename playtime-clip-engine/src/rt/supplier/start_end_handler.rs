@@ -102,7 +102,7 @@ impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {
             }
         }
         if self.enabled_for_end && response.status.reached_end() {
-            // TODO-high This is sent repeatedly when the section exceeds the source length!
+            // TODO-high-clip-engine This is sent repeatedly when the section exceeds the source length!
             debug!("Silence MIDI at source end");
             midi_util::silence_midi(
                 event_list,

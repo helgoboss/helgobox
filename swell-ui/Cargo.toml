@@ -11,8 +11,6 @@ rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e23
 rx-util = { path = "../rx-util" }
 scopeguard = "1.1.0"
 raw-window-handle = "0.4.2"
-gdk-sys = "0.17.0"
-gdkx11-sys = "0.17.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "uxtheme"] }
@@ -21,6 +19,11 @@ libloading = "0.7"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.3.0-beta.3"
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gdk-sys = "0.17.0"
+gdkx11-sys = "0.17.0"
 
 [build-dependencies]
 bindgen = "0.60.1"

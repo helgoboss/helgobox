@@ -586,7 +586,7 @@ fn send_occasional_matrix_updates_caused_by_matrix(
     if sender.receiver_count() == 0 {
         return;
     }
-    // TODO-high-playtime-performance Push persistent matrix state only once (even if many events)
+    // TODO-high-clip-engine-performance Push persistent matrix state only once (even if many events)
     let updates: Vec<_> = events
         .iter()
         .filter_map(|event| match event {
@@ -772,7 +772,7 @@ fn send_occasional_matrix_updates_caused_by_reaper(
             track_update(matrix, &e.track, || Update::selected(e.new_value))
         }
         ChangeEvent::MasterTempoChanged(e) => {
-            // TODO-high-playtime Also notify correctly about time signature changes. Looks like
+            // TODO-high-clip-engine Also notify correctly about time signature changes. Looks like
             //  MasterTempoChanged event doesn't fire in that case :(
             Some(R::Matrix(occasional_matrix_update::Update::tempo(
                 e.new_value,
@@ -822,7 +822,7 @@ fn send_continuous_slot_updates(session: &Session, events: &[ClipMatrixEvent]) {
                 Some(QualifiedContinuousSlotUpdate {
                     slot_address: Some(SlotAddress::from_engine(*slot_coordinates)),
                     update: Some(ContinuousSlotUpdate {
-                        // TODO-high-playtime Send for each clip
+                        // TODO-high-clip-engine Send for each clip
                         clip_update: vec![
                             (ContinuousClipUpdate {
                                 proportional_position: proportional.get(),
@@ -856,7 +856,7 @@ fn send_continuous_matrix_updates(session: &Session) {
     let pos = timeline.cursor_pos();
     let bar_quantization = EvenQuantization::ONE_BAR;
     let next_bar = timeline.next_quantized_pos_at(pos, bar_quantization, Laziness::EagerForNextPos);
-    // TODO-high-playtime CONTINUE We are mainly interested in beats relative to the bar in order to get a
+    // TODO-high-clip-engine CONTINUE We are mainly interested in beats relative to the bar in order to get a
     //  typical position display and a useful visual metronome!
     let full_beats = timeline.full_beats_at_pos(pos);
     let batch_event = ContinuousMatrixUpdateBatch {
