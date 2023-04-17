@@ -3,7 +3,7 @@
 :sectnums:
 :sectnumlevels: 2
 
-Contributions are very welcome!
+Contributions are welcome! *However, please open an issue first and discuss the details with me, preferably before you start working on a pull request!* And if possible, avoid very large PRs. I usually can't find the time to process large PRs.
 
 == Basics
 
