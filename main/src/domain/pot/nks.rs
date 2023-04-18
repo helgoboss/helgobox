@@ -40,6 +40,8 @@ pub struct NksFile {
 
 #[derive(Debug, Default)]
 pub struct FilterNksItemCollections {
+    pub content_types: Vec<FilterItem>,
+    pub tables: Vec<FilterItem>,
     pub banks: Vec<FilterItem>,
     pub sub_banks: Vec<FilterItem>,
     pub categories: Vec<FilterItem>,
@@ -53,6 +55,8 @@ pub type OptFilter = Option<FilterItemId>;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Filters {
+    pub content_type: OptFilter,
+    pub table: OptFilter,
     pub bank: OptFilter,
     pub sub_bank: OptFilter,
     pub category: OptFilter,
@@ -322,10 +326,13 @@ impl PresetDb {
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
         //     ... then do the rest manually in-memory. But the result is a very long list of
-        //     combinations.
+        //     combinations. So maybe not feasible.
         //  b) Don't make unnecessary joins (it was easier to make all joins for the narrow-down
         //     logic, but it could be prevented).
-        let non_empty_banks = self.find_non_empty_banks()?;
+        //  c) Don't rebuild unaffected filter collections (e.g. only rebuild subordinate filter
+        //     collections).
+        //  d) Query instrument/effect/loop/one-shot tables only.
+        let non_empty_banks = self.find_non_empty_banks(state.filter_settings.nks)?;
         let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
         let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
         narrow_down(&mut filter_items.banks, &non_empty_banks);
@@ -349,7 +356,7 @@ impl PresetDb {
             &mut fixed_settings.sub_category,
             &filter_items.sub_categories,
         );
-        // clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.sub_banks);
+        clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.modes);
         // Build preset collection
         let search_criteria = SearchCriteria {
             expression: &state.search_expression,
@@ -410,8 +417,18 @@ impl PresetDb {
         )
     }
 
-    fn find_non_empty_banks(&self) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
-        let filter_settings = Filters::default();
+    fn find_non_empty_banks(
+        &self,
+        filter_settings: Filters,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        let filter_settings = Filters {
+            bank: None,
+            sub_bank: None,
+            category: None,
+            sub_category: None,
+            mode: None,
+            ..filter_settings
+        };
         self.execute_preset_query(
             &filter_settings,
             SearchCriteria::empty(),
@@ -447,7 +464,55 @@ impl PresetDb {
         R: Hash + Eq,
     {
         let mut where_extras = String::new();
+        let mut from_extras = String::new();
         let mut params: Vec<&dyn ToSql> = vec![];
+        // Content type (= factory or user)
+        if let Some(FilterItemId(Some(content_type))) = &filter_settings.content_type {
+            from_extras += " JOIN k_content_path cp ON cp.id = i.content_path_id";
+            where_extras += " AND cp.content_type = ?";
+            params.push(content_type)
+        }
+        // Table (= instrument, effect, loop or one shot)
+        if let Some(table) = &filter_settings.table {
+            match table.0 {
+                None => {
+                    // This query is nuts. The database is not optimized for this filter combination.
+                    // TODO-medium Not sure if NOT EXISTS ist faster.
+                    from_extras += r#"
+                        LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id
+                        LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id
+                    "#;
+                    where_extras += r#" 
+                        AND pi1.id IS NULL
+                        AND pi2.id IS NULL
+                        AND pe1.id IS NULL
+                        AND pe2.id IS NULL
+                        AND pl1.id IS NULL
+                        AND pl2.id IS NULL
+                        AND po1.id IS NULL
+                        AND po2.id IS NULL
+                    "#;
+                }
+                Some(id) => {
+                    let table_base_name = match id {
+                        1 => "Instrument",
+                        2 => "Effect",
+                        3 => "Loop",
+                        4 => "Oneshot",
+                        _ => return Err("unknown table filter item".into()),
+                    };
+                    use std::fmt::Write;
+                    // TODO-medium Not sure if EXISTS ist faster.
+                    write!(&mut from_extras, " JOIN (SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS p ON p.id = i.id")?;
+                }
+            }
+        }
         // Bank and sub bank (= "Instrument" and "Bank")
         if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
             where_extras += " AND i.bank_chain_id IS ?";
@@ -504,6 +569,7 @@ impl PresetDb {
             FROM k_sound_info i
                 LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
                 LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id
+                {from_extras}
             WHERE true{where_extras}
             ORDER BY i.name -- COLLATE NOCASE ASC -- disabled because slow
             "#
@@ -525,6 +591,17 @@ impl PresetDb {
         settings: &Filters,
     ) -> Result<FilterNksItemCollections, Box<dyn Error>> {
         let collections = FilterNksItemCollections {
+            content_types: vec![
+                FilterItem::simple(1, "User"),
+                FilterItem::simple(2, "Factory"),
+            ],
+            tables: vec![
+                FilterItem::none(),
+                FilterItem::simple(1, "Instrument"),
+                FilterItem::simple(2, "Effect"),
+                FilterItem::simple(3, "Loop"),
+                FilterItem::simple(4, "One shot"),
+            ],
             banks: self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,

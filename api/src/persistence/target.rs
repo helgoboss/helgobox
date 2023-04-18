@@ -1173,7 +1173,13 @@ pub struct LoadPotPresetTarget {
 pub enum PotFilterItemKind {
     #[display(fmt = "Database")]
     Database,
-    #[display(fmt = "Instrument")]
+    /// Factory or User
+    #[display(fmt = "Content types")]
+    NksContentType,
+    /// Instrument, Effect, Loop, One Shot
+    #[display(fmt = "Product types")]
+    NksProductType,
+    #[display(fmt = "Product")]
     NksBank,
     #[display(fmt = "Bank")]
     NksSubBank,

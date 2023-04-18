@@ -142,6 +142,8 @@ impl RuntimeState {
                     let nks = &persistent_state.filter_settings.nks;
                     FilterSettings {
                         nks: Filters {
+                            content_type: None,
+                            table: None,
                             bank: find_id(&nks.bank, &collections.banks),
                             sub_bank: find_id(&nks.sub_bank, &collections.sub_banks),
                             category: find_id(&nks.category, &collections.categories),
@@ -168,6 +170,8 @@ impl RuntimeState {
         use PotFilterItemKind::*;
         let settings = &mut self.filter_settings.nks;
         match kind {
+            NksContentType => &mut settings.content_type,
+            NksProductType => &mut settings.table,
             NksBank => &mut settings.bank,
             NksSubBank => &mut settings.sub_bank,
             NksCategory => &mut settings.category,
@@ -214,6 +218,8 @@ impl Collections {
         let collections = &self.filter_item_collections;
         match kind {
             Database => &collections.databases,
+            NksContentType => &collections.nks.content_types,
+            NksProductType => &collections.nks.tables,
             NksBank => &collections.nks.banks,
             NksSubBank => &collections.nks.sub_banks,
             NksCategory => &collections.nks.categories,
@@ -388,6 +394,8 @@ impl RuntimePotUnit {
         let settings = &self.runtime_state.filter_settings.nks;
         match kind {
             Database => None,
+            NksContentType => settings.content_type,
+            NksProductType => settings.table,
             NksBank => settings.bank,
             NksSubBank => settings.sub_bank,
             NksCategory => settings.category,
@@ -552,6 +560,8 @@ impl RuntimePotUnit {
         let collections = &self.collections.filter_item_collections;
         match kind {
             Database => find(&collections.databases, id),
+            NksContentType => find(&collections.nks.content_types, id),
+            NksProductType => find(&collections.nks.tables, id),
             NksBank => find(&collections.nks.banks, id),
             NksSubBank => find(&collections.nks.sub_banks, id),
             NksCategory => find(&collections.nks.categories, id),
@@ -578,10 +588,21 @@ pub struct FilterItem {
 impl FilterItem {
     pub fn none() -> Self {
         Self {
+            // TODO-high-pot Persistence
             persistent_id: "".to_string(),
             id: nks::FilterItemId(None),
             parent_name: None,
             name: Some("<None>".to_string()),
+        }
+    }
+
+    pub fn simple(id: u32, name: &str) -> Self {
+        Self {
+            // TODO-high-pot Persistence
+            persistent_id: "".to_string(),
+            id: nks::FilterItemId(Some(id)),
+            parent_name: None,
+            name: Some(name.to_string()),
         }
     }
 

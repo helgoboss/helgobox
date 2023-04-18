@@ -77,15 +77,35 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     SidePanel::left("left-panel")
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
-            // Auto-hide sub filter logic logic
+            // General controls
             ui.horizontal(|ui| {
-                ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
-                    .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
                 ui.checkbox(&mut state.paint_continuously, "Paint continuously")
                     .on_hover_text(
                         "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
                     );
+                ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
+                    .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
             });
+            // Add independent filter views
+            ui.heading("Product/content type");
+            ui.horizontal(|ui| {
+                add_filter_view_content(
+                    &state.pot_unit,
+                    pot_unit,
+                    PotFilterItemKind::NksProductType,
+                    ui,
+                    false
+                );
+                ui.separator();
+                add_filter_view_content(
+                    &state.pot_unit,
+                    pot_unit,
+                    PotFilterItemKind::NksContentType,
+                    ui,
+                    false
+                );
+            });
+            // Add dependent filter views
             let show_sub_banks = !state.auto_hide_sub_filters
                 || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::NksBank)
                     || pot_unit.get_filter(PotFilterItemKind::NksSubBank).is_some());
@@ -101,11 +121,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             if !show_sub_categories {
                 remaining_kind_count -= 1;
             }
-            // Add filter views
             let filter_view_height = ui.available_height() / remaining_kind_count as f32;
             add_filter_view(
                 ui,
-                Some(filter_view_height),
+                filter_view_height,
                 &state.pot_unit,
                 pot_unit,
                 PotFilterItemKind::NksBank,
@@ -115,7 +134,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             if show_sub_banks {
                 add_filter_view(
                     ui,
-                    Some(filter_view_height),
+                    filter_view_height,
                     &state.pot_unit,
                     pot_unit,
                     PotFilterItemKind::NksSubBank,
@@ -125,7 +144,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
             add_filter_view(
                 ui,
-                Some(filter_view_height),
+                filter_view_height,
                 &state.pot_unit,
                 pot_unit,
                 PotFilterItemKind::NksCategory,
@@ -135,7 +154,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             if show_sub_categories {
                 add_filter_view(
                     ui,
-                    Some(filter_view_height),
+                    filter_view_height,
                     &state.pot_unit,
                     pot_unit,
                     PotFilterItemKind::NksSubCategory,
@@ -145,7 +164,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
             add_filter_view(
                 ui,
-                Some(filter_view_height),
+                filter_view_height,
                 &state.pot_unit,
                 pot_unit,
                 PotFilterItemKind::NksMode,
@@ -390,7 +409,7 @@ impl State {
         Self {
             pot_unit,
             auto_preview: true,
-            auto_hide_sub_filters: false,
+            auto_hide_sub_filters: true,
             paint_continuously: true,
             os_window,
             last_preset_id: None,
@@ -400,7 +419,7 @@ impl State {
 
 fn add_filter_view(
     ui: &mut Ui,
-    max_height: Option<f32>,
+    max_height: f32,
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
     kind: PotFilterItemKind,
@@ -419,12 +438,9 @@ fn add_filter_view(
         0.0
     };
     let mut render = |ui: &mut Ui| {
-        let old_filter_item_id = pot_unit.get_filter(kind);
-        let mut new_filter_item_id = old_filter_item_id;
         // let mut panel = TopBottomPanel::top(kind)
         //     .resizable(false)
         //     .frame(Frame::none());
-        let mut scroll_area = ScrollArea::vertical().id_source(kind);
         let h1_style_height = ui.text_style_height(&TextStyle::Heading);
         let heading_style_height = if indent {
             h1_style_height * 0.9
@@ -439,41 +455,15 @@ fn add_filter_view(
             )
             .rect
             .height();
-        if let Some(h) = max_height {
-            let h = h - heading_height - separator_height;
-            // panel = panel.min_height(h).max_height(h);
-            scroll_area = scroll_area.max_height(h);
-        }
+        // panel = panel.min_height(h).max_height(h);
         // panel.show_inside(ui, |ui| {
-        scroll_area.show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
-                for filter_item in pot_unit.collections.find_all_filter_items(kind) {
-                    let resp = ui.selectable_value(
-                        &mut new_filter_item_id,
-                        Some(filter_item.id),
-                        filter_item.effective_leaf_name(),
-                    );
-                    if let Some(parent_kind) = kind.parent() {
-                        if let Some(parent_name) = filter_item.parent_name.as_ref() {
-                            if !parent_name.is_empty() {
-                                let tooltip = match &filter_item.name {
-                                    None => format!(
-                                        "{parent_name} (directly associated with {parent_kind})"
-                                    ),
-                                    Some(n) => format!("{parent_name} / {n}"),
-                                };
-                                resp.on_hover_text(tooltip);
-                            }
-                        }
-                    }
-                }
+        ScrollArea::vertical()
+            .id_source(kind)
+            .max_height(max_height - heading_height - separator_height)
+            .show(ui, |ui| {
+                add_filter_view_content(shared_pot_unit, pot_unit, kind, ui, true);
             });
-        });
         // });
-        if new_filter_item_id != old_filter_item_id {
-            pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
-        }
     };
     if indent {
         ui.horizontal_top(|ui| {
@@ -485,6 +475,48 @@ fn add_filter_view(
         });
     } else {
         render(ui);
+    }
+}
+
+fn add_filter_view_content(
+    shared_pot_unit: &SharedRuntimePotUnit,
+    pot_unit: &mut RuntimePotUnit,
+    kind: PotFilterItemKind,
+    ui: &mut Ui,
+    wrapped: bool,
+) {
+    let old_filter_item_id = pot_unit.get_filter(kind);
+    let mut new_filter_item_id = old_filter_item_id;
+    let render = |ui: &mut Ui| {
+        ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
+        for filter_item in pot_unit.collections.find_all_filter_items(kind) {
+            let resp = ui.selectable_value(
+                &mut new_filter_item_id,
+                Some(filter_item.id),
+                filter_item.effective_leaf_name(),
+            );
+            if let Some(parent_kind) = kind.parent() {
+                if let Some(parent_name) = filter_item.parent_name.as_ref() {
+                    if !parent_name.is_empty() {
+                        let tooltip = match &filter_item.name {
+                            None => {
+                                format!("{parent_name} (directly associated with {parent_kind})")
+                            }
+                            Some(n) => format!("{parent_name} / {n}"),
+                        };
+                        resp.on_hover_text(tooltip);
+                    }
+                }
+            }
+        }
+    };
+    if wrapped {
+        ui.horizontal_wrapped(render);
+    } else {
+        ui.horizontal(render);
+    }
+    if new_filter_item_id != old_filter_item_id {
+        pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
     }
 }
 
