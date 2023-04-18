@@ -1,8 +1,8 @@
 use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
-    BuildOutcome, Collections, FilterItem, FilterItemCollections, FilterSettings, MacroParam,
-    ParamAssignment, Preset, RuntimeState, Stats,
+    BuildInput, BuildOutput, Collections, FilterItem, FilterItemCollections, FilterSettings,
+    MacroParam, ParamAssignment, Preset, Stats,
 };
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;
@@ -318,10 +318,10 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn build_collections(&self, state: &RuntimeState) -> Result<BuildOutcome, Box<dyn Error>> {
+    pub fn build_collections(&self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
         let before = Instant::now();
         // Build filter collections
-        let mut filter_items = self.build_filter_items(&state.filter_settings.nks)?;
+        let mut filter_items = self.build_filter_items(&input.state.filter_settings.nks)?;
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
@@ -332,9 +332,10 @@ impl PresetDb {
         //  c) Don't rebuild unaffected filter collections (e.g. only rebuild subordinate filter
         //     collections).
         //  d) Query instrument/effect/loop/one-shot tables only.
-        let non_empty_banks = self.find_non_empty_banks(state.filter_settings.nks)?;
-        let non_empty_categories = self.find_non_empty_categories(state.filter_settings.nks)?;
-        let non_empty_modes = self.find_non_empty_modes(state.filter_settings.nks)?;
+        let non_empty_banks = self.find_non_empty_banks(input.state.filter_settings.nks)?;
+        let non_empty_categories =
+            self.find_non_empty_categories(input.state.filter_settings.nks)?;
+        let non_empty_modes = self.find_non_empty_modes(input.state.filter_settings.nks)?;
         narrow_down(&mut filter_items.banks, &non_empty_banks);
         narrow_down(&mut filter_items.sub_banks, &non_empty_banks);
         narrow_down(&mut filter_items.categories, &non_empty_categories);
@@ -348,7 +349,7 @@ impl PresetDb {
                 }
             }
         };
-        let mut fixed_settings = state.filter_settings.nks;
+        let mut fixed_settings = input.state.filter_settings.nks;
         clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.banks);
         clear_setting_if_invalid(&mut fixed_settings.sub_bank, &filter_items.sub_banks);
         clear_setting_if_invalid(&mut fixed_settings.category, &filter_items.categories);
@@ -359,8 +360,8 @@ impl PresetDb {
         clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.modes);
         // Build preset collection
         let search_criteria = SearchCriteria {
-            expression: &state.search_expression,
-            use_wildcards: state.use_wildcard_search,
+            expression: &input.state.search_expression,
+            use_wildcards: input.state.use_wildcard_search,
         };
         let preset_collection = self.build_preset_collection(&fixed_settings, search_criteria)?;
         // Put everything together
@@ -379,7 +380,7 @@ impl PresetDb {
         let stats = Stats {
             query_duration: before.elapsed(),
         };
-        let outcome = BuildOutcome {
+        let outcome = BuildOutput {
             collections,
             stats,
             filter_settings: FilterSettings {

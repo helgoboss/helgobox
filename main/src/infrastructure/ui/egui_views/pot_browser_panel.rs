@@ -1,7 +1,7 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::nks::PresetId;
 use crate::domain::pot::{
-    with_preset_db, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
+    with_preset_db, ChangeHint, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::BackboneState;
 use egui::{
@@ -183,7 +183,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 response.request_focus();
             }
             if response.changed() {
-                pot_unit.rebuild_collections(state.pot_unit.clone());
+                pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
             }
             let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
             ui.checkbox(
@@ -191,7 +191,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 "Wildcard search",
             ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
             if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
-                pot_unit.rebuild_collections(state.pot_unit.clone());
+                pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
             }
             ui.checkbox(&mut state.auto_preview, "Auto-preview")
                 .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");

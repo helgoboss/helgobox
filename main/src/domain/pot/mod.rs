@@ -111,7 +111,18 @@ pub struct Stats {
     pub query_duration: Duration,
 }
 
-pub struct BuildOutcome {
+pub struct BuildInput<'a> {
+    pub state: &'a RuntimeState,
+    pub change_hint: Option<ChangeHint>,
+}
+
+#[derive(Copy, Clone)]
+pub enum ChangeHint {
+    Filter(PotFilterItemKind),
+    SearchExpression,
+}
+
+pub struct BuildOutput {
     pub collections: Collections,
     pub stats: Stats,
     pub filter_settings: FilterSettings,
@@ -284,7 +295,7 @@ impl RuntimePotUnit {
             sound_player,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
-        blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone());
+        blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
         Ok(shared_unit)
     }
 
@@ -419,10 +430,14 @@ impl RuntimePotUnit {
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             ));
-        self.rebuild_collections(shared_self);
+        self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)));
     }
 
-    pub fn rebuild_collections(&mut self, shared_self: SharedRuntimePotUnit) {
+    pub fn rebuild_collections(
+        &mut self,
+        shared_self: SharedRuntimePotUnit,
+        change_hint: Option<ChangeHint>,
+    ) {
         let runtime_state = self.runtime_state.clone();
         self.change_counter += 1;
         let last_change_counter = self.change_counter;
@@ -438,7 +453,11 @@ impl RuntimePotUnit {
                 }
             }
             // Build (expensive)
-            let build_outcome = with_preset_db(|db| db.build_collections(&runtime_state))??;
+            let build_input = BuildInput {
+                state: &runtime_state,
+                change_hint,
+            };
+            let build_outcome = with_preset_db(|db| db.build_collections(build_input))??;
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
@@ -453,7 +472,7 @@ impl RuntimePotUnit {
         });
     }
 
-    fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutcome) {
+    fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
         self.runtime_state.filter_settings = build_outcome.filter_settings;
         self.collections = build_outcome.collections;
         self.stats = build_outcome.stats;
