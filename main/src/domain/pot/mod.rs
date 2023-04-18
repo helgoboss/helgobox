@@ -5,7 +5,9 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId};
+use crate::domain::pot::nks::{
+    FilterNksItemCollections, Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId,
+};
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -151,32 +153,23 @@ impl RuntimeState {
                         })
                     };
                     let nks = &persistent_state.filter_settings.nks;
-                    FilterSettings {
-                        nks: {
-                            let mut filters = Filters::empty();
-                            filters.set(
-                                PotFilterItemKind::NksBank,
-                                find_id(&nks.bank, &collections.banks),
-                            );
-                            filters.set(
-                                PotFilterItemKind::NksSubBank,
-                                find_id(&nks.sub_bank, &collections.sub_banks),
-                            );
-                            filters.set(
-                                PotFilterItemKind::NksCategory,
-                                find_id(&nks.category, &collections.categories),
-                            );
-                            filters.set(
-                                PotFilterItemKind::NksSubCategory,
-                                find_id(&nks.sub_category, &collections.sub_categories),
-                            );
-                            filters.set(
-                                PotFilterItemKind::NksMode,
-                                find_id(&nks.mode, &collections.modes),
-                            );
-                            filters
-                        },
-                    }
+                    let mut filters = Filters::empty();
+                    let mut set_filter = |setting: &Option<String>, kind: PotFilterItemKind| {
+                        let id = setting.as_ref().and_then(|persistent_id| {
+                            let item = collections
+                                .get(kind)
+                                .iter()
+                                .find(|item| &item.persistent_id == persistent_id)?;
+                            Some(item.id)
+                        });
+                        filters.set(kind, id);
+                    };
+                    set_filter(&nks.bank, PotFilterItemKind::NksBank);
+                    set_filter(&nks.sub_bank, PotFilterItemKind::NksSubBank);
+                    set_filter(&nks.category, PotFilterItemKind::NksCategory);
+                    set_filter(&nks.sub_category, PotFilterItemKind::NksSubCategory);
+                    set_filter(&nks.mode, PotFilterItemKind::NksMode);
+                    FilterSettings { nks: filters }
                 })
                 .unwrap_or_default();
             let preset_id = persistent_state
@@ -225,18 +218,10 @@ pub struct Collections {
 
 impl Collections {
     pub fn find_all_filter_items(&self, kind: PotFilterItemKind) -> &[FilterItem] {
-        use PotFilterItemKind::*;
-        let collections = &self.filter_item_collections;
-        match kind {
-            Database => &collections.databases,
-            NksContentType => &collections.nks.content_types,
-            NksProductType => &collections.nks.tables,
-            NksBank => &collections.nks.banks,
-            NksSubBank => &collections.nks.sub_banks,
-            NksCategory => &collections.nks.categories,
-            NksSubCategory => &collections.nks.sub_categories,
-            NksMode => &collections.nks.modes,
+        if kind == PotFilterItemKind::Database {
+            return &self.filter_item_collections.databases;
         }
+        self.filter_item_collections.nks.get(kind)
     }
 }
 
@@ -312,22 +297,23 @@ impl RuntimePotUnit {
 
     pub fn persistent_state(&self) -> PersistentState {
         let nks_settings = &self.runtime_state.filter_settings.nks;
-        let find_id = |kind: PotFilterItemKind, items: &[FilterItem]| {
+        let nks_items = &self.collections.filter_item_collections.nks;
+        let find_id = |kind: PotFilterItemKind| {
             nks_settings.get(kind).and_then(|id| {
-                items
+                nks_items
+                    .get(kind)
                     .iter()
                     .find(|item| item.id == id)
                     .map(|item| item.persistent_id.clone())
             })
         };
-        let nks_items = &self.collections.filter_item_collections.nks;
         let filter_settings = PersistentFilterSettings {
             nks: PersistentNksFilterSettings {
-                bank: find_id(PotFilterItemKind::NksBank, &nks_items.banks),
-                sub_bank: find_id(PotFilterItemKind::NksSubBank, &nks_items.sub_banks),
-                category: find_id(PotFilterItemKind::NksCategory, &nks_items.categories),
-                sub_category: find_id(PotFilterItemKind::NksSubCategory, &nks_items.sub_categories),
-                mode: find_id(PotFilterItemKind::NksMode, &nks_items.modes),
+                bank: find_id(PotFilterItemKind::NksBank),
+                sub_bank: find_id(PotFilterItemKind::NksSubBank),
+                category: find_id(PotFilterItemKind::NksCategory),
+                sub_category: find_id(PotFilterItemKind::NksSubCategory),
+                mode: find_id(PotFilterItemKind::NksMode),
             },
         };
         let preset_id = self.runtime_state.preset_id.and_then(|id| {
@@ -566,15 +552,10 @@ impl RuntimePotUnit {
             Some((i as u32, item))
         }
         let collections = &self.collections.filter_item_collections;
-        match kind {
-            Database => find(&collections.databases, id),
-            NksContentType => find(&collections.nks.content_types, id),
-            NksProductType => find(&collections.nks.tables, id),
-            NksBank => find(&collections.nks.banks, id),
-            NksSubBank => find(&collections.nks.sub_banks, id),
-            NksCategory => find(&collections.nks.categories, id),
-            NksSubCategory => find(&collections.nks.sub_categories, id),
-            NksMode => find(&collections.nks.modes, id),
+        if kind == Database {
+            find(&collections.databases, id)
+        } else {
+            find(collections.nks.get(kind), id)
         }
     }
 }

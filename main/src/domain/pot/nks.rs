@@ -41,14 +41,24 @@ pub struct NksFile {
 }
 
 #[derive(Debug, Default)]
-pub struct FilterNksItemCollections {
-    pub content_types: Vec<FilterItem>,
-    pub tables: Vec<FilterItem>,
-    pub banks: Vec<FilterItem>,
-    pub sub_banks: Vec<FilterItem>,
-    pub categories: Vec<FilterItem>,
-    pub sub_categories: Vec<FilterItem>,
-    pub modes: Vec<FilterItem>,
+pub struct FilterNksItemCollections(EnumMap<PotFilterItemKind, Vec<FilterItem>>);
+
+impl FilterNksItemCollections {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&self, kind: PotFilterItemKind) -> &[FilterItem] {
+        &self.0[kind]
+    }
+
+    pub fn set(&mut self, kind: PotFilterItemKind, items: Vec<FilterItem>) {
+        self.0[kind] = items;
+    }
+
+    pub fn narrow_down(&mut self, kind: PotFilterItemKind, includes: &IndexSet<FilterItemId>) {
+        self.0[kind].retain(|item| includes.contains(&item.id))
+    }
 }
 
 /// `Some` means a filter is set (can also be the `<None>` filter).
@@ -77,6 +87,19 @@ impl Filters {
 
     pub fn effective_sub_bank(&self) -> &OptFilter {
         self.effective_sub_item(PotFilterItemKind::NksBank, PotFilterItemKind::NksSubBank)
+    }
+
+    pub fn clear_if_invalid(
+        &mut self,
+        kind: PotFilterItemKind,
+        collections: &FilterNksItemCollections,
+    ) {
+        if let Some(id) = self.0[kind] {
+            let valid_items = collections.get(kind);
+            if !valid_items.iter().any(|item| item.id == id) {
+                self.0[kind] = None;
+            }
+        }
     }
 
     pub fn effective_sub_category(&self) -> &OptFilter {
@@ -354,28 +377,18 @@ impl PresetDb {
         let non_empty_categories =
             self.find_non_empty_categories(input.state.filter_settings.nks)?;
         let non_empty_modes = self.find_non_empty_modes(input.state.filter_settings.nks)?;
-        narrow_down(&mut filter_items.banks, &non_empty_banks);
-        narrow_down(&mut filter_items.sub_banks, &non_empty_banks);
-        narrow_down(&mut filter_items.categories, &non_empty_categories);
-        narrow_down(&mut filter_items.sub_categories, &non_empty_categories);
-        narrow_down(&mut filter_items.modes, &non_empty_modes);
+        filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
+        filter_items.narrow_down(PotFilterItemKind::NksSubBank, &non_empty_banks);
+        filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
+        filter_items.narrow_down(PotFilterItemKind::NksSubCategory, &non_empty_categories);
+        filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
         // Fix now invalid filter item IDs
         let mut fixed_settings = input.state.filter_settings.nks;
-        let mut clear_setting_if_invalid = |kind: PotFilterItemKind, items: &[FilterItem]| {
-            if let Some(id) = fixed_settings.get(kind) {
-                if !items.iter().any(|item| item.id == id) {
-                    fixed_settings.set(kind, None);
-                }
-            }
-        };
-        clear_setting_if_invalid(PotFilterItemKind::NksBank, &filter_items.banks);
-        clear_setting_if_invalid(PotFilterItemKind::NksSubBank, &filter_items.sub_banks);
-        clear_setting_if_invalid(PotFilterItemKind::NksCategory, &filter_items.categories);
-        clear_setting_if_invalid(
-            PotFilterItemKind::NksSubCategory,
-            &filter_items.sub_categories,
-        );
-        clear_setting_if_invalid(PotFilterItemKind::NksMode, &filter_items.modes);
+        fixed_settings.clear_if_invalid(PotFilterItemKind::NksBank, &filter_items);
+        fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubBank, &filter_items);
+        fixed_settings.clear_if_invalid(PotFilterItemKind::NksCategory, &filter_items);
+        fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubCategory, &filter_items);
+        fixed_settings.clear_if_invalid(PotFilterItemKind::NksMode, &filter_items);
         // Build preset collection
         let search_criteria = SearchCriteria {
             expression: &input.state.search_expression,
@@ -602,52 +615,58 @@ impl PresetDb {
         &self,
         settings: &Filters,
     ) -> Result<FilterNksItemCollections, Box<dyn Error>> {
-        let collections = FilterNksItemCollections {
-            content_types: vec![
-                FilterItem::simple(1, "User"),
-                FilterItem::simple(2, "Factory"),
-            ],
-            tables: vec![
-                FilterItem::none(),
-                FilterItem::simple(1, "Instrument"),
-                FilterItem::simple(2, "Effect"),
-                FilterItem::simple(3, "Loop"),
-                FilterItem::simple(4, "One shot"),
-            ],
-            banks: self.select_nks_filter_items(
-                "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
-                None,
-                true,
-            ),
-            sub_banks: {
-                let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
-                let parent_bank_filter = settings.get(PotFilterItemKind::NksBank);
-                if parent_bank_filter.is_some() {
-                    sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
-                }
-                sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_filter, false)
-            },
-            categories: self.select_nks_filter_items(
-                "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
-                None,
-                true,
-            ),
-            sub_categories: {
-                let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
-                let parent_category_filter = settings.get(PotFilterItemKind::NksCategory);
-                if parent_category_filter.is_some() {
-                    sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
-                }
-                sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_filter, false)
-            },
-            modes: self.select_nks_filter_items(
-                "SELECT id, '', name FROM k_mode ORDER BY name",
-                None,
-                true,
-            ),
+        let mut collections = FilterNksItemCollections::empty();
+        let content_types = vec![
+            FilterItem::simple(1, "User"),
+            FilterItem::simple(2, "Factory"),
+        ];
+        let product_types = vec![
+            FilterItem::none(),
+            FilterItem::simple(1, "Instrument"),
+            FilterItem::simple(2, "Effect"),
+            FilterItem::simple(3, "Loop"),
+            FilterItem::simple(4, "One shot"),
+        ];
+        let banks = self.select_nks_filter_items(
+            "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
+            None,
+            true,
+        );
+        let sub_banks = {
+            let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
+            let parent_bank_filter = settings.get(PotFilterItemKind::NksBank);
+            if parent_bank_filter.is_some() {
+                sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
+            }
+            sql += " ORDER BY entry2";
+            self.select_nks_filter_items(&sql, parent_bank_filter, false)
         };
+        let categories = self.select_nks_filter_items(
+            "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
+            None,
+            true,
+        );
+        let sub_categories = {
+            let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
+            let parent_category_filter = settings.get(PotFilterItemKind::NksCategory);
+            if parent_category_filter.is_some() {
+                sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
+            }
+            sql += " ORDER BY subcategory";
+            self.select_nks_filter_items(&sql, parent_category_filter, false)
+        };
+        let modes = self.select_nks_filter_items(
+            "SELECT id, '', name FROM k_mode ORDER BY name",
+            None,
+            true,
+        );
+        collections.set(PotFilterItemKind::NksContentType, content_types);
+        collections.set(PotFilterItemKind::NksProductType, product_types);
+        collections.set(PotFilterItemKind::NksBank, banks);
+        collections.set(PotFilterItemKind::NksSubBank, sub_banks);
+        collections.set(PotFilterItemKind::NksCategory, categories);
+        collections.set(PotFilterItemKind::NksSubCategory, sub_categories);
+        collections.set(PotFilterItemKind::NksMode, modes);
         Ok(collections)
     }
 
@@ -702,13 +721,6 @@ fn path_to_preset_db() -> Result<PathBuf, &'static str> {
     let data_dir = dirs::data_local_dir().ok_or("couldn't identify data-local dir")?;
     let komplete_kontrol_dir = data_dir.join("Native Instruments/Komplete Kontrol");
     Ok(komplete_kontrol_dir.join("komplete.db3"))
-}
-
-fn narrow_down(
-    filter_items: &mut Vec<FilterItem>,
-    non_empty_filter_item_ids: &IndexSet<FilterItemId>,
-) {
-    filter_items.retain(|item| non_empty_filter_item_ids.contains(&item.id))
 }
 
 fn optional_filter_item_id(row: &Row) -> Result<FilterItemId, rusqlite::Error> {
