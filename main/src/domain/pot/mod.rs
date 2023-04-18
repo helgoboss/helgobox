@@ -5,10 +5,9 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::{
-    FilterNksItemCollections, Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId,
-};
+use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId};
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
+use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, FxChain, FxChainContext, Reaper};
@@ -118,6 +117,16 @@ pub struct BuildInput<'a> {
     pub change_hint: Option<ChangeHint>,
 }
 
+impl<'a> BuildInput<'a> {
+    pub fn affected_kinds(&self) -> EnumSet<PotFilterItemKind> {
+        match self.change_hint {
+            None => EnumSet::all(),
+            Some(ChangeHint::SearchExpression) => EnumSet::empty(),
+            Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub enum ChangeHint {
     Filter(PotFilterItemKind),
@@ -128,6 +137,7 @@ pub struct BuildOutput {
     pub collections: Collections,
     pub stats: Stats,
     pub filter_settings: FilterSettings,
+    pub changed_filter_item_kinds: EnumSet<PotFilterItemKind>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -141,37 +151,28 @@ pub struct RuntimeState {
 impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
         with_preset_db(|db| {
-            let filter_settings = db
-                .build_filter_items(&Default::default())
-                .map(|collections| {
-                    let find_id = |setting: &Option<String>, items: &[FilterItem]| {
-                        setting.as_ref().and_then(|persistent_id| {
-                            let item = items
-                                .iter()
-                                .find(|item| &item.persistent_id == persistent_id)?;
-                            Some(item.id)
-                        })
-                    };
-                    let nks = &persistent_state.filter_settings.nks;
-                    let mut filters = Filters::empty();
-                    let mut set_filter = |setting: &Option<String>, kind: PotFilterItemKind| {
-                        let id = setting.as_ref().and_then(|persistent_id| {
-                            let item = collections
-                                .get(kind)
-                                .iter()
-                                .find(|item| &item.persistent_id == persistent_id)?;
-                            Some(item.id)
-                        });
-                        filters.set(kind, id);
-                    };
-                    set_filter(&nks.bank, PotFilterItemKind::NksBank);
-                    set_filter(&nks.sub_bank, PotFilterItemKind::NksSubBank);
-                    set_filter(&nks.category, PotFilterItemKind::NksCategory);
-                    set_filter(&nks.sub_category, PotFilterItemKind::NksSubCategory);
-                    set_filter(&nks.mode, PotFilterItemKind::NksMode);
-                    FilterSettings { nks: filters }
-                })
-                .unwrap_or_default();
+            let collections =
+                db.build_filter_items(&Default::default(), EnumSet::all().into_iter());
+            let filter_settings = {
+                let nks = &persistent_state.filter_settings.nks;
+                let mut filters = Filters::empty();
+                let mut set_filter = |setting: &Option<String>, kind: PotFilterItemKind| {
+                    let id = setting.as_ref().and_then(|persistent_id| {
+                        let item = collections
+                            .get(kind)
+                            .iter()
+                            .find(|item| &item.persistent_id == persistent_id)?;
+                        Some(item.id)
+                    });
+                    filters.set(kind, id);
+                };
+                set_filter(&nks.bank, PotFilterItemKind::NksBank);
+                set_filter(&nks.sub_bank, PotFilterItemKind::NksSubBank);
+                set_filter(&nks.category, PotFilterItemKind::NksCategory);
+                set_filter(&nks.sub_category, PotFilterItemKind::NksSubCategory);
+                set_filter(&nks.mode, PotFilterItemKind::NksMode);
+                FilterSettings { nks: filters }
+            };
             let preset_id = persistent_state
                 .preset_id
                 .as_ref()
@@ -448,8 +449,26 @@ impl RuntimePotUnit {
     }
 
     fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
-        self.runtime_state.filter_settings = build_outcome.filter_settings;
-        self.collections = build_outcome.collections;
+        self.collections.preset_collection = build_outcome.collections.preset_collection;
+        for (kind, collection) in build_outcome
+            .collections
+            .filter_item_collections
+            .nks
+            .into_iter()
+        {
+            if build_outcome.changed_filter_item_kinds.contains(kind) {
+                self.collections
+                    .filter_item_collections
+                    .nks
+                    .set(kind, collection);
+            }
+        }
+        for changed_kind in build_outcome.changed_filter_item_kinds {
+            self.runtime_state.filter_settings.nks.set(
+                changed_kind,
+                build_outcome.filter_settings.nks.get(changed_kind),
+            );
+        }
         self.stats = build_outcome.stats;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(

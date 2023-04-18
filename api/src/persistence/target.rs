@@ -1154,10 +1154,6 @@ pub struct LoadPotPresetTarget {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
     Hash,
     Debug,
     Serialize,
@@ -1168,6 +1164,7 @@ pub struct LoadPotPresetTarget {
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     enum_map::Enum,
+    enumset::EnumSetType,
 )]
 #[repr(usize)]
 pub enum PotFilterItemKind {
@@ -1203,6 +1200,24 @@ impl PotFilterItemKind {
             PotFilterItemKind::NksSubBank => Some(PotFilterItemKind::NksBank),
             PotFilterItemKind::NksSubCategory => Some(PotFilterItemKind::NksCategory),
             _ => None,
+        }
+    }
+
+    pub fn dependent_kinds(&self) -> impl Iterator<Item = PotFilterItemKind> {
+        let dep_pos = self.dependency_position();
+        Self::into_enum_iter().filter(move |k| k.dependency_position() > dep_pos)
+    }
+
+    pub fn dependency_position(&self) -> u32 {
+        use PotFilterItemKind::*;
+        match self {
+            Database => 0,
+            NksContentType | NksProductType => 1,
+            NksBank => 2,
+            NksSubBank => 3,
+            NksCategory => 4,
+            NksSubCategory => 5,
+            NksMode => 6,
         }
     }
 }

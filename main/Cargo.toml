@@ -180,6 +180,8 @@ riff-io = "0.1.2"
 rmp-serde = "1.1.1"
 # For Pot target (NKS)
 dirs = "4.0.0"
+# For Pot target (NKS)
+enumset = "1.0.12"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 
