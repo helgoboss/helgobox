@@ -152,14 +152,29 @@ impl RuntimeState {
                     };
                     let nks = &persistent_state.filter_settings.nks;
                     FilterSettings {
-                        nks: Filters {
-                            content_type: None,
-                            table: None,
-                            bank: find_id(&nks.bank, &collections.banks),
-                            sub_bank: find_id(&nks.sub_bank, &collections.sub_banks),
-                            category: find_id(&nks.category, &collections.categories),
-                            sub_category: find_id(&nks.sub_category, &collections.sub_categories),
-                            mode: find_id(&nks.mode, &collections.modes),
+                        nks: {
+                            let mut filters = Filters::empty();
+                            filters.set(
+                                PotFilterItemKind::NksBank,
+                                find_id(&nks.bank, &collections.banks),
+                            );
+                            filters.set(
+                                PotFilterItemKind::NksSubBank,
+                                find_id(&nks.sub_bank, &collections.sub_banks),
+                            );
+                            filters.set(
+                                PotFilterItemKind::NksCategory,
+                                find_id(&nks.category, &collections.categories),
+                            );
+                            filters.set(
+                                PotFilterItemKind::NksSubCategory,
+                                find_id(&nks.sub_category, &collections.sub_categories),
+                            );
+                            filters.set(
+                                PotFilterItemKind::NksMode,
+                                find_id(&nks.mode, &collections.modes),
+                            );
+                            filters
                         },
                     }
                 })
@@ -175,21 +190,6 @@ impl RuntimeState {
                 preset_id,
             }
         })
-    }
-
-    fn get_filter_mut(&mut self, kind: PotFilterItemKind) -> &mut OptFilter {
-        use PotFilterItemKind::*;
-        let settings = &mut self.filter_settings.nks;
-        match kind {
-            NksContentType => &mut settings.content_type,
-            NksProductType => &mut settings.table,
-            NksBank => &mut settings.bank,
-            NksSubBank => &mut settings.sub_bank,
-            NksCategory => &mut settings.category,
-            NksSubCategory => &mut settings.sub_category,
-            NksMode => &mut settings.mode,
-            _ => panic!("unsupported filter item ID"),
-        }
     }
 }
 
@@ -311,23 +311,23 @@ impl RuntimePotUnit {
     }
 
     pub fn persistent_state(&self) -> PersistentState {
-        let find_id = |setting: OptFilter, items: &[FilterItem]| {
-            setting.and_then(|id| {
+        let nks_settings = &self.runtime_state.filter_settings.nks;
+        let find_id = |kind: PotFilterItemKind, items: &[FilterItem]| {
+            nks_settings.get(kind).and_then(|id| {
                 items
                     .iter()
                     .find(|item| item.id == id)
                     .map(|item| item.persistent_id.clone())
             })
         };
-        let nks_settings = &self.runtime_state.filter_settings.nks;
         let nks_items = &self.collections.filter_item_collections.nks;
         let filter_settings = PersistentFilterSettings {
             nks: PersistentNksFilterSettings {
-                bank: find_id(nks_settings.bank, &nks_items.banks),
-                sub_bank: find_id(nks_settings.sub_bank, &nks_items.sub_banks),
-                category: find_id(nks_settings.category, &nks_items.categories),
-                sub_category: find_id(nks_settings.sub_category, &nks_items.sub_categories),
-                mode: find_id(nks_settings.mode, &nks_items.modes),
+                bank: find_id(PotFilterItemKind::NksBank, &nks_items.banks),
+                sub_bank: find_id(PotFilterItemKind::NksSubBank, &nks_items.sub_banks),
+                category: find_id(PotFilterItemKind::NksCategory, &nks_items.categories),
+                sub_category: find_id(PotFilterItemKind::NksSubCategory, &nks_items.sub_categories),
+                mode: find_id(PotFilterItemKind::NksMode, &nks_items.modes),
             },
         };
         let preset_id = self.runtime_state.preset_id.and_then(|id| {
@@ -401,18 +401,7 @@ impl RuntimePotUnit {
     }
 
     pub fn get_filter(&self, kind: PotFilterItemKind) -> OptFilter {
-        use PotFilterItemKind::*;
-        let settings = &self.runtime_state.filter_settings.nks;
-        match kind {
-            Database => None,
-            NksContentType => settings.content_type,
-            NksProductType => settings.table,
-            NksBank => settings.bank,
-            NksSubBank => settings.sub_bank,
-            NksCategory => settings.category,
-            NksSubCategory => settings.sub_category,
-            NksMode => settings.mode,
-        }
+        self.runtime_state.filter_settings.nks.get(kind)
     }
 
     pub fn filter_is_set_to_non_none(&self, kind: PotFilterItemKind) -> bool {
@@ -425,7 +414,7 @@ impl RuntimePotUnit {
         id: OptFilter,
         shared_self: SharedRuntimePotUnit,
     ) {
-        *self.runtime_state.get_filter_mut(kind) = id;
+        self.runtime_state.filter_settings.nks.set(kind, id);
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },

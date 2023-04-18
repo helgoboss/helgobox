@@ -4,8 +4,10 @@ use crate::domain::pot::{
     BuildInput, BuildOutput, Collections, FilterItem, FilterItemCollections, FilterSettings,
     MacroParam, ParamAssignment, Preset, Stats,
 };
+use enum_map::EnumMap;
 use fallible_iterator::FallibleIterator;
 use indexmap::IndexSet;
+use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
@@ -54,30 +56,46 @@ pub struct FilterNksItemCollections {
 pub type OptFilter = Option<FilterItemId>;
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Filters {
-    pub content_type: OptFilter,
-    pub table: OptFilter,
-    pub bank: OptFilter,
-    pub sub_bank: OptFilter,
-    pub category: OptFilter,
-    pub sub_category: OptFilter,
-    pub mode: OptFilter,
-}
+pub struct Filters(EnumMap<PotFilterItemKind, OptFilter>);
 
 impl Filters {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&self, kind: PotFilterItemKind) -> OptFilter {
+        self.0[kind]
+    }
+
+    pub fn get_ref(&self, kind: PotFilterItemKind) -> &OptFilter {
+        &self.0[kind]
+    }
+
+    pub fn set(&mut self, kind: PotFilterItemKind, value: OptFilter) {
+        self.0[kind] = value;
+    }
+
     pub fn effective_sub_bank(&self) -> &OptFilter {
-        if self.bank == Some(FilterItemId::NONE) {
-            &self.bank
-        } else {
-            &self.sub_bank
-        }
+        self.effective_sub_item(PotFilterItemKind::NksBank, PotFilterItemKind::NksSubBank)
     }
 
     pub fn effective_sub_category(&self) -> &OptFilter {
-        if self.category == Some(FilterItemId::NONE) {
-            &self.category
+        self.effective_sub_item(
+            PotFilterItemKind::NksCategory,
+            PotFilterItemKind::NksSubCategory,
+        )
+    }
+
+    fn effective_sub_item(
+        &self,
+        parent_kind: PotFilterItemKind,
+        sub_kind: PotFilterItemKind,
+    ) -> &OptFilter {
+        let category = &self.0[parent_kind];
+        if category == &Some(FilterItemId::NONE) {
+            &category
         } else {
-            &self.sub_category
+            &self.0[sub_kind]
         }
     }
 }
@@ -342,22 +360,22 @@ impl PresetDb {
         narrow_down(&mut filter_items.sub_categories, &non_empty_categories);
         narrow_down(&mut filter_items.modes, &non_empty_modes);
         // Fix now invalid filter item IDs
-        let clear_setting_if_invalid = |setting: &mut OptFilter, items: &[FilterItem]| {
-            if let Some(id) = setting {
-                if !items.iter().any(|item| item.id == *id) {
-                    *setting = None;
+        let mut fixed_settings = input.state.filter_settings.nks;
+        let mut clear_setting_if_invalid = |kind: PotFilterItemKind, items: &[FilterItem]| {
+            if let Some(id) = fixed_settings.get(kind) {
+                if !items.iter().any(|item| item.id == id) {
+                    fixed_settings.set(kind, None);
                 }
             }
         };
-        let mut fixed_settings = input.state.filter_settings.nks;
-        clear_setting_if_invalid(&mut fixed_settings.bank, &filter_items.banks);
-        clear_setting_if_invalid(&mut fixed_settings.sub_bank, &filter_items.sub_banks);
-        clear_setting_if_invalid(&mut fixed_settings.category, &filter_items.categories);
+        clear_setting_if_invalid(PotFilterItemKind::NksBank, &filter_items.banks);
+        clear_setting_if_invalid(PotFilterItemKind::NksSubBank, &filter_items.sub_banks);
+        clear_setting_if_invalid(PotFilterItemKind::NksCategory, &filter_items.categories);
         clear_setting_if_invalid(
-            &mut fixed_settings.sub_category,
+            PotFilterItemKind::NksSubCategory,
             &filter_items.sub_categories,
         );
-        clear_setting_if_invalid(&mut fixed_settings.mode, &filter_items.modes);
+        clear_setting_if_invalid(PotFilterItemKind::NksMode, &filter_items.modes);
         // Build preset collection
         let search_criteria = SearchCriteria {
             expression: &input.state.search_expression,
@@ -400,36 +418,15 @@ impl PresetDb {
         })
     }
 
-    fn find_non_empty_categories(
-        &self,
-        filter_settings: Filters,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
-        let filter_settings = Filters {
-            category: None,
-            sub_category: None,
-            mode: None,
-            ..filter_settings
-        };
-        self.execute_preset_query(
-            &filter_settings,
-            SearchCriteria::empty(),
-            "DISTINCT ic.category_id",
-            optional_filter_item_id,
-        )
-    }
-
     fn find_non_empty_banks(
         &self,
-        filter_settings: Filters,
+        mut filter_settings: Filters,
     ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
-        let filter_settings = Filters {
-            bank: None,
-            sub_bank: None,
-            category: None,
-            sub_category: None,
-            mode: None,
-            ..filter_settings
-        };
+        filter_settings.set(PotFilterItemKind::NksBank, None);
+        filter_settings.set(PotFilterItemKind::NksSubBank, None);
+        filter_settings.set(PotFilterItemKind::NksCategory, None);
+        filter_settings.set(PotFilterItemKind::NksSubCategory, None);
+        filter_settings.set(PotFilterItemKind::NksMode, None);
         self.execute_preset_query(
             &filter_settings,
             SearchCriteria::empty(),
@@ -438,14 +435,26 @@ impl PresetDb {
         )
     }
 
+    fn find_non_empty_categories(
+        &self,
+        mut filter_settings: Filters,
+    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+        filter_settings.set(PotFilterItemKind::NksCategory, None);
+        filter_settings.set(PotFilterItemKind::NksSubCategory, None);
+        filter_settings.set(PotFilterItemKind::NksMode, None);
+        self.execute_preset_query(
+            &filter_settings,
+            SearchCriteria::empty(),
+            "DISTINCT ic.category_id",
+            optional_filter_item_id,
+        )
+    }
+
     fn find_non_empty_modes(
         &self,
-        filter_settings: Filters,
+        mut filter_settings: Filters,
     ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
-        let filter_settings = Filters {
-            mode: None,
-            ..filter_settings
-        };
+        filter_settings.set(PotFilterItemKind::NksMode, None);
         self.execute_preset_query(
             &filter_settings,
             SearchCriteria::empty(),
@@ -468,14 +477,16 @@ impl PresetDb {
         let mut from_extras = String::new();
         let mut params: Vec<&dyn ToSql> = vec![];
         // Content type (= factory or user)
-        if let Some(FilterItemId(Some(content_type))) = &filter_settings.content_type {
+        if let Some(FilterItemId(Some(content_type))) =
+            filter_settings.get_ref(PotFilterItemKind::NksContentType)
+        {
             from_extras += " JOIN k_content_path cp ON cp.id = i.content_path_id";
             where_extras += " AND cp.content_type = ?";
             params.push(content_type)
         }
-        // Table (= instrument, effect, loop or one shot)
-        if let Some(table) = &filter_settings.table {
-            match table.0 {
+        // Product type (= instrument, effect, loop or one shot)
+        if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
+            match product_type.0 {
                 None => {
                     // This query is nuts. The database is not optimized for this filter combination.
                     // TODO-medium Not sure if NOT EXISTS ist faster.
@@ -518,7 +529,7 @@ impl PresetDb {
         if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
             where_extras += " AND i.bank_chain_id IS ?";
             params.push(sub_bank_id);
-        } else if let Some(bank_id) = &filter_settings.bank {
+        } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::NksBank) {
             where_extras += r#"
                 AND i.bank_chain_id IN (
                     SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
@@ -531,7 +542,7 @@ impl PresetDb {
         if let Some(sub_category_id) = filter_settings.effective_sub_category() {
             where_extras += " AND ic.category_id IS ?";
             params.push(sub_category_id);
-        } else if let Some(category_id) = &filter_settings.category {
+        } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::NksCategory) {
             where_extras += r#"
                 AND ic.category_id IN (
                     SELECT child.id FROM k_category child WHERE child.category = (
@@ -541,7 +552,7 @@ impl PresetDb {
             params.push(category_id);
         }
         // Mode (= "Character")
-        if let Some(mode_id) = &filter_settings.mode {
+        if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::NksMode) {
             where_extras += " AND im.mode_id IS ?";
             params.push(mode_id);
         }
@@ -610,7 +621,7 @@ impl PresetDb {
             ),
             sub_banks: {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
-                let parent_bank_filter = settings.bank;
+                let parent_bank_filter = settings.get(PotFilterItemKind::NksBank);
                 if parent_bank_filter.is_some() {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
@@ -624,7 +635,7 @@ impl PresetDb {
             ),
             sub_categories: {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
-                let parent_category_filter = settings.category;
+                let parent_category_filter = settings.get(PotFilterItemKind::NksCategory);
                 if parent_category_filter.is_some() {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
