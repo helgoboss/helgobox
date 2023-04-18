@@ -24,13 +24,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
-    // TODO Filter keyboard control
-    // TODO Make it possible to globally hide filter items
-    // TODO Build 2nd database support (RfxChain)
-    // TODO Provide option to hide star filters
-    // TODO Provide some wheels to control parameters
-    // TODO Fix borrow errors (was occurring when removing other ReaLearn instances because
-    //  it was accidentally a destination!)
     let mut focus_search_field = false;
     // Keyboard control
     enum KeyAction {
