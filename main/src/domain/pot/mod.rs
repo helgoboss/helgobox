@@ -340,8 +340,12 @@ impl CurrentPreset {
             .find_macro_param_at(bank_slot_index)
     }
 
-    pub fn macro_param_bank_count(&self) -> usize {
+    pub fn macro_param_bank_count(&self) -> u32 {
         self.macro_param_banks.len() as _
+    }
+
+    pub fn has_params(&self) -> bool {
+        self.macro_param_banks.len() > 0
     }
 }
 

@@ -6,14 +6,14 @@ use crate::domain::pot::{
 };
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Margin, Modifiers, RichText,
-    ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
+    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Margin, Modifiers,
+    RichText, ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxParameter};
+use reaper_high::{Fx, FxParameter, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
@@ -93,14 +93,47 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     if let Some(fx) = &curr.fx {
         let target_state = BackboneState::target_state().borrow();
         if let Some(current_preset) = target_state.current_fx_preset(fx) {
-            if current_preset.macro_param_bank_count() > 0 {
-                TopBottomPanel::top("top-panel")
-                    .frame(panel_frame)
-                    .resizable(false)
-                    .min_height(50.0)
-                    .show(ctx, |ui| {
+            // Macro params
+            TopBottomPanel::top("top-panel")
+                .frame(panel_frame)
+                .resizable(false)
+                .min_height(50.0)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        if current_preset.has_params() {
+                            // Bank picker
+                            ui.strong("Parameter bank:");
+                            let mut new_bank_index = state.bank_index as usize;
+                            egui::ComboBox::from_id_source("banks").show_index(
+                                ui,
+                                &mut new_bank_index,
+                                current_preset.macro_param_bank_count() as usize,
+                                |i| {
+                                    if let Some(bank) =
+                                        current_preset.find_macro_param_bank_at(i as _)
+                                    {
+                                        format!("{}. {}", i + 1, bank.name())
+                                    } else {
+                                        format!("Bank {} (doesn't exist)", i + 1)
+                                    }
+                                },
+                            );
+                            let new_bank_index = new_bank_index as u32;
+                            if new_bank_index != state.bank_index {
+                                state.bank_index = new_bank_index;
+                            }
+                        }
+                        // Basic preset info
+                        ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                            ui.label(&current_preset.preset().name);
+                            ui.strong("Current preset: ");
+                        });
+                    });
+                    // Actual macro param display
+                    if current_preset.has_params() {
                         show_macro_params(ui, fx, current_preset, state.bank_index);
-                        // This must come at the end, otherwise ui_contains_pointer works with a zero-sized UI!
+                        // Scroll handler. This must come at the end, otherwise ui_contains_pointer
+                        // works with a zero-sized UI!
                         if ui.ui_contains_pointer() {
                             let vertical_scroll = ui.input(|i| {
                                 i.events.iter().find_map(|e| match e {
@@ -113,8 +146,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 state.bank_index = state.bank_index.saturating_add_signed(amount);
                             }
                         }
-                    });
-            }
+                    }
+                });
         }
     }
     SidePanel::left("left-panel")
@@ -248,7 +281,9 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             let mut new_volume_raw = old_volume.get();
             egui::DragValue::new(&mut new_volume_raw)
                 .speed(0.01)
-                .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                .custom_formatter(|v, _| {
+                    Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
+                })
                 .clamp_range(0.0..=1.0)
                 .ui(ui)
                 .on_hover_text("Change volume of the sound previews");
@@ -304,18 +339,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 }
             }
         });
-        // Current preset
-        if let Some(fx) = &curr.fx {
-            let target_state = BackboneState::target_state().borrow();
-            if let Some(current_preset) = target_state.current_fx_preset(fx) {
-                ui.separator();
-                // Basic preset info
-                ui.horizontal(|ui| {
-                    ui.strong("Current preset: ");
-                    ui.label(&current_preset.preset().name);
-                });
-            }
-        }
         // Preset table
         ui.separator();
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
@@ -401,15 +424,6 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
     // Added this UI just to not get duplicate table IDs
     ui.vertical(|ui| {
         if let Some(bank) = current_preset.find_macro_param_bank_at(bank_index) {
-            ui.vertical_centered_justified(|ui| {
-                // egui::ComboBox::from_id_source("banks").show_index(
-                //     ui,
-                //     &mut selected,
-                //     alternatives.len(),
-                //     |i| alternatives[i].to_owned(),
-                // );
-                ui.heading(format!("{}. {}", bank_index + 1, bank.name()))
-            });
             let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
             let table = TableBuilder::new(ui)
                 .striped(false)
