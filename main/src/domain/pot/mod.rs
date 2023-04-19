@@ -106,6 +106,7 @@ pub struct RuntimePotUnit {
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
     pub destination_descriptor: DestinationDescriptor,
+    pub name_track_after_preset: bool,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -416,6 +417,7 @@ impl RuntimePotUnit {
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
             destination_descriptor: Default::default(),
+            name_track_after_preset: true,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
@@ -489,6 +491,11 @@ impl RuntimePotUnit {
     ) -> Result<(), &'static str> {
         let dest = self.resolve_destination()?.get_existing_or_create()?;
         self.load_preset_at(preset, &dest, options)?;
+        if self.name_track_after_preset {
+            if let Some(track) = dest.chain.track() {
+                track.set_name(preset.name.as_str());
+            }
+        }
         Ok(())
     }
 

@@ -303,7 +303,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     if new_volume != old_volume {
                         pot_unit.set_preview_volume(new_volume);
                     }
-                    // Always show new FX
+                    // Always show newly added FX
                     let mut show_if_newly_added = state.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
                     ui.checkbox(&mut show_if_newly_added, "Show newly added FX");
                     state.load_preset_window_behavior = if show_if_newly_added {
@@ -311,6 +311,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     } else {
                         LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
                     };
+                    // Name track after preset
+                    ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset");
                 });
                 // Search
                 ui.horizontal(|ui| {
@@ -423,7 +425,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     }
                     // Resolved
                     if let Some(fx) = &curr.fx {
-                        if ui.small_button("Open!").clicked() {
+                        if ui.small_button("Show!").clicked() {
                             fx.show_in_floating_window();
                         }
                     }
