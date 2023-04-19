@@ -4498,7 +4498,7 @@ pub fn get_track_label(track: &Track) -> String {
             let name = track.name().expect("non-master track must have name");
             let name = name.to_str();
             if name.is_empty() {
-                position.to_string()
+                format!("{position}. <no name>")
             } else {
                 format!("{position}. {name}")
             }

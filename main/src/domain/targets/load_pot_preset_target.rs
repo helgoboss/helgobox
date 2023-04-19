@@ -1,6 +1,7 @@
 use crate::base::blocking_lock_arc;
 use crate::domain::pot::{
-    preset_db, with_preset_db, PresetId, PresetLoadDestination, RuntimePotUnit,
+    preset_db, with_preset_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId,
+    RuntimePotUnit,
 };
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
@@ -67,11 +68,14 @@ impl RealearnTarget for LoadPotPresetTarget {
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
         let fx_index = self.fx.index();
-        let load_dest = PresetLoadDestination {
+        let load_dest = Destination {
             chain: self.fx.chain().clone(),
             fx_index,
         };
-        pot_unit.load_preset_at(&preset, &load_dest)?;
+        let options = LoadPresetOptions {
+            window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+        };
+        pot_unit.load_preset_at(&preset, &load_dest, options)?;
         Ok(HitResponse::processed_with_effect())
     }
 

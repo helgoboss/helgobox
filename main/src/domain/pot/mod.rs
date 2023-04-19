@@ -105,7 +105,7 @@ pub struct RuntimePotUnit {
     change_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
-    pub preset_load_destination_descriptor: DestinationDescriptor,
+    pub destination_descriptor: DestinationDescriptor,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -137,17 +137,53 @@ impl DestinationTrackDescriptor {
         };
         Ok(track)
     }
+
+    pub fn is_dynamic(&self) -> bool {
+        matches!(self, Self::SelectedTrack)
+    }
+}
+
+pub enum DestinationInstruction {
+    Existing(Destination),
+    AddTrack,
+}
+
+impl DestinationInstruction {
+    pub fn get_existing_or_create(self) -> Result<Destination, &'static str> {
+        match self {
+            DestinationInstruction::Existing(d) => Ok(d),
+            DestinationInstruction::AddTrack => {
+                let track = Reaper::get().current_project().add_track()?;
+                track.select_exclusively();
+                let dest = Destination {
+                    chain: track.normal_fx_chain(),
+                    fx_index: 0,
+                };
+                Ok(dest)
+            }
+        }
+    }
+
+    pub fn get_existing(&self) -> Option<&Destination> {
+        match self {
+            DestinationInstruction::Existing(d) => Some(d),
+            DestinationInstruction::AddTrack => None,
+        }
+    }
 }
 
 impl DestinationDescriptor {
-    pub fn resolve_destination(&self) -> Result<PresetLoadDestination, &'static str> {
+    pub fn resolve_destination(&self) -> Result<DestinationInstruction, &'static str> {
         let project = Reaper::get().current_project();
-        let track = self.track.resolve(project)?;
-        let dest = PresetLoadDestination {
-            chain: track.normal_fx_chain(),
-            fx_index: self.fx_index,
-        };
-        Ok(dest)
+        if let Ok(track) = self.track.resolve(project) {
+            let dest = Destination {
+                chain: track.normal_fx_chain(),
+                fx_index: self.fx_index,
+            };
+            Ok(DestinationInstruction::Existing(dest))
+        } else {
+            Ok(DestinationInstruction::AddTrack)
+        }
     }
 }
 
@@ -379,7 +415,7 @@ impl RuntimePotUnit {
             change_counter: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
-            preset_load_destination_descriptor: Default::default(),
+            destination_descriptor: Default::default(),
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
@@ -446,25 +482,29 @@ impl RuntimePotUnit {
         with_preset_db(|db| db.find_preset_by_id(preset_id)).ok()?
     }
 
-    pub fn load_preset(&self, preset: &Preset) -> Result<(), &'static str> {
-        let dest = self.resolve_preset_load_destination()?;
-        self.load_preset_at(preset, &dest)?;
+    pub fn load_preset(
+        &self,
+        preset: &Preset,
+        options: LoadPresetOptions,
+    ) -> Result<(), &'static str> {
+        let dest = self.resolve_destination()?.get_existing_or_create()?;
+        self.load_preset_at(preset, &dest, options)?;
         Ok(())
     }
 
-    pub fn resolve_preset_load_destination(&self) -> Result<PresetLoadDestination, &'static str> {
-        self.preset_load_destination_descriptor
-            .resolve_destination()
+    pub fn resolve_destination(&self) -> Result<DestinationInstruction, &'static str> {
+        self.destination_descriptor.resolve_destination()
     }
 
     pub fn load_preset_at(
         &self,
         preset: &Preset,
-        destination: &PresetLoadDestination,
+        destination: &Destination,
+        options: LoadPresetOptions,
     ) -> Result<(), &'static str> {
         let outcome = match preset.file_ext.as_str() {
-            "wav" | "aif" => load_audio_preset(&preset, destination)?,
-            "nksf" | "nksfx" => load_nksf_preset(&preset, destination)?,
+            "wav" | "aif" => load_audio_preset(&preset, destination, options)?,
+            "nksf" | "nksfx" => load_nksf_preset(&preset, destination, options)?,
             _ => return Err("unsupported preset format"),
         };
         BackboneState::target_state()
@@ -752,14 +792,23 @@ struct ParamAssignment {
 
 fn load_nksf_preset(
     preset: &Preset,
-    destination: &PresetLoadDestination,
+    destination: &Destination,
+    options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
     let nks_file = NksFile::load(&preset.file_name)?;
     let nks_content = nks_file.content()?;
-    let fx = make_sure_fx_has_correct_type(nks_content.plugin_id, destination)?;
-    fx.set_vst_chunk(nks_content.vst_chunk)?;
+    let existing_fx = destination.resolve();
+    let fx_was_open_before = existing_fx
+        .as_ref()
+        .map(|fx| fx.window_is_open())
+        .unwrap_or(false);
+    let output = ensure_fx_has_correct_type(nks_content.plugin_id, destination, existing_fx)?;
+    output.fx.set_vst_chunk(nks_content.vst_chunk)?;
+    options
+        .window_behavior
+        .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
-        fx,
+        fx: output.fx,
         current_preset: CurrentPreset::with_parameters(
             preset.clone(),
             nks_content.macro_param_banks,
@@ -770,28 +819,37 @@ fn load_nksf_preset(
 
 fn load_audio_preset(
     preset: &Preset,
-    destination: &PresetLoadDestination,
+    destination: &Destination,
+    options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
     const RS5K_VST_ID: u32 = 1920167789;
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
     };
-    let fx = make_sure_fx_has_correct_type(plugin_id, destination)?;
-    let window_is_open_before = fx.window_is_open();
-    if window_is_open_before {
-        if !fx.window_has_focus() {
-            fx.hide_floating_window();
-            fx.show_in_floating_window();
+    let existing_fx = destination.resolve();
+    let fx_was_open_before = existing_fx
+        .as_ref()
+        .map(|fx| fx.window_is_open())
+        .unwrap_or(false);
+    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
+    // Make sure RS5k has focus
+    let window_is_open_now = output.fx.window_is_open();
+    if window_is_open_now {
+        if !output.fx.window_has_focus() {
+            output.fx.hide_floating_window();
+            output.fx.show_in_floating_window();
         }
     } else {
-        fx.show_in_floating_window();
+        output.fx.show_in_floating_window();
     }
+    // Load into RS5k
     load_media_in_last_focused_rs5k(&preset.file_name)?;
-    if !window_is_open_before {
-        fx.hide_floating_window();
-    }
+    // Remainder
+    options
+        .window_behavior
+        .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
-        fx,
+        fx: output.fx,
         current_preset: CurrentPreset::without_parameters(preset.clone()),
     };
     Ok(outcome)
@@ -802,27 +860,55 @@ struct LoadPresetOutcome {
     current_preset: CurrentPreset,
 }
 
-fn make_sure_fx_has_correct_type(
+pub struct FxEnsureOutput {
+    pub fx: Fx,
+    pub op: FxEnsureOp,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum FxEnsureOp {
+    Same,
+    Added,
+    Replaced,
+}
+
+fn ensure_fx_has_correct_type(
     plugin_id: PluginId,
-    destination: &PresetLoadDestination,
-) -> Result<Fx, &'static str> {
-    match destination.resolve() {
-        None => insert_fx_by_plugin_id(plugin_id, destination),
+    destination: &Destination,
+    existing_fx: Option<Fx>,
+) -> Result<FxEnsureOutput, &'static str> {
+    let output = match existing_fx {
+        None => {
+            let fx = insert_fx_by_plugin_id(plugin_id, destination)?;
+            FxEnsureOutput {
+                fx,
+                op: FxEnsureOp::Added,
+            }
+        }
         Some(fx) => {
             let fx_info = fx.info()?;
             if fx_info.id == plugin_id.formatted_for_reaper() {
-                return Ok(fx);
+                FxEnsureOutput {
+                    fx,
+                    op: FxEnsureOp::Same,
+                }
+            } else {
+                // We don't have the right plug-in type. Remove FX and insert correct one.
+                destination.chain.remove_fx(&fx)?;
+                let fx = insert_fx_by_plugin_id(plugin_id, destination)?;
+                FxEnsureOutput {
+                    fx,
+                    op: FxEnsureOp::Replaced,
+                }
             }
-            // We don't have the right plug-in type. Remove FX and insert correct one.
-            destination.chain.remove_fx(&fx)?;
-            insert_fx_by_plugin_id(plugin_id, destination)
         }
-    }
+    };
+    Ok(output)
 }
 
 fn insert_fx_by_plugin_id(
     plugin_id: PluginId,
-    destination: &PresetLoadDestination,
+    destination: &Destination,
 ) -> Result<Fx, &'static str> {
     // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
     // otherwise loading by VST2 magic number doesn't work.
@@ -847,13 +933,63 @@ fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
 }
 
 #[derive(Debug)]
-pub struct PresetLoadDestination {
+pub struct Destination {
     pub chain: FxChain,
     pub fx_index: u32,
 }
 
-impl PresetLoadDestination {
+impl Destination {
     pub fn resolve(&self) -> Option<Fx> {
         self.chain.fx_by_index(self.fx_index)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct LoadPresetOptions {
+    pub window_behavior: LoadPresetWindowBehavior,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+pub enum LoadPresetWindowBehavior {
+    NeverShow,
+    ShowOnlyIfPreviouslyShown,
+    #[default]
+    ShowOnlyIfPreviouslyShownOrNewlyAdded,
+    AlwaysShow,
+}
+
+impl LoadPresetWindowBehavior {
+    pub fn open_or_close(&self, fx: &Fx, was_open_before: bool, op: FxEnsureOp) {
+        let now_is_open = fx.window_is_open();
+        match self {
+            LoadPresetWindowBehavior::NeverShow => {
+                if now_is_open {
+                    fx.hide_floating_window();
+                }
+            }
+            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown => {
+                if !was_open_before && now_is_open {
+                    fx.hide_floating_window();
+                } else if was_open_before && !now_is_open {
+                    fx.show_in_floating_window();
+                }
+            }
+            LoadPresetWindowBehavior::AlwaysShow => {
+                if !now_is_open {
+                    fx.show_in_floating_window();
+                }
+            }
+            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded => {
+                if op == FxEnsureOp::Added {
+                    if !now_is_open {
+                        fx.show_in_floating_window()
+                    }
+                } else if !was_open_before && now_is_open {
+                    fx.hide_floating_window();
+                } else if was_open_before && !now_is_open {
+                    fx.show_in_floating_window();
+                }
+            }
+        }
     }
 }
