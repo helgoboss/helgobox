@@ -1,8 +1,9 @@
+use crate::application::get_track_label;
 use crate::base::blocking_lock;
 use crate::domain::pot::nks::PresetId;
 use crate::domain::pot::{
-    with_preset_db, ChangeHint, CurrentPreset, MacroParam, Preset, PresetLoadDestination,
-    RuntimePotUnit, SharedRuntimePotUnit,
+    with_preset_db, ChangeHint, CurrentPreset, DestinationTrackDescriptor, MacroParam, Preset,
+    PresetLoadDestination, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::BackboneState;
 use egui::{
@@ -13,7 +14,7 @@ use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxParameter, Volume};
+use reaper_high::{Fx, FxParameter, Reaper, Track, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
@@ -78,7 +79,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         dest: Result<PresetLoadDestination, &'static str>,
         fx: Option<Fx>,
     }
-    let curr = match pot_unit.preset_load_destination() {
+    let curr = match pot_unit.resolve_preset_load_destination() {
         Ok(dest) => Curr {
             fx: dest.resolve(),
             dest: Ok(dest),
@@ -318,24 +319,70 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         // Destination info
         ui.separator();
         ui.horizontal_wrapped(|ui| {
-            ui.strong("Destination: ");
-            match curr.dest.as_ref() {
-                Ok(dest) => {
-                    if ui.small_button(dest.to_string()).clicked() {
-                        dest.chain.show();
-                    };
-                    ui.separator();
-                    ui.strong("FX: ");
-                    if let Some(fx) = &curr.fx {
-                        if ui.small_button(fx.name().into_string()).clicked() {
-                            fx.show_in_floating_window();
+            // Track descriptor
+            let current_project = Reaper::get().current_project();
+            {
+                ui.strong("Destination track:");
+                let old_track_code = match pot_unit.preset_load_destination_descriptor.track {
+                    DestinationTrackDescriptor::SelectedTrack => 0usize,
+                    DestinationTrackDescriptor::MasterTrack => 1usize,
+                    DestinationTrackDescriptor::Track(i) => i as usize + 2
+                };
+                let mut new_track_code = old_track_code;
+                egui::ComboBox::from_id_source("tracks").show_index(
+                    ui,
+                    &mut new_track_code,
+                    current_project.track_count() as usize + 2,
+                    |code| {
+                        match code {
+                            0 => "<Selected>".to_string(),
+                            1 => "<Master>".to_string(),
+                            _ => if let Some(track) = current_project.track_by_index(code as u32 - 2) {
+                                get_track_label(&track)
+                            } else {
+                                format!("Track {} (doesn't exist)", code + 3)
+                            }
                         }
-                    } else {
-                        ui.label("<Empty>");
-                    }
+                    },
+                );
+                if new_track_code != old_track_code {
+                    let track_desc = match new_track_code {
+                        0 => DestinationTrackDescriptor::SelectedTrack,
+                        1 => DestinationTrackDescriptor::MasterTrack,
+                        c => DestinationTrackDescriptor::Track(c as u32 - 2),
+                    };
+                    pot_unit.preset_load_destination_descriptor.track = track_desc;
                 }
-                Err(e) => {
-                    ui.colored_label(ui.visuals().error_fg_color, *e);
+            }
+            // FX descriptor
+            {
+                ui.strong("FX:");
+                let resolved_track = pot_unit.preset_load_destination_descriptor.track.resolve(current_project);
+                if let Ok(t) = resolved_track.as_ref() {
+                    let chain = t.normal_fx_chain();
+                    let mut fx_code = pot_unit.preset_load_destination_descriptor.fx_index as usize;
+                    egui::ComboBox::from_id_source("fxs").show_index(
+                        ui,
+                        &mut fx_code,
+                        chain.fx_count() as usize,
+                        |code| {
+                            match chain.fx_by_index(code as _) {
+                                None => {
+                                    format!("FX {} (doesn't exist)", code + 1)
+                                }
+                                Some(fx) => {
+                                    format!("{}. {}", code + 1, fx.name())
+                                }
+                            }
+                        },
+                    );
+                    pot_unit.preset_load_destination_descriptor.fx_index = fx_code as _;
+                }
+            }
+            // Resolved
+            if let Some(fx) = &curr.fx {
+                if ui.small_button("Open FX").clicked() {
+                    fx.show_in_floating_window();
                 }
             }
         });

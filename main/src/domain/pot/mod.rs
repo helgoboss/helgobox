@@ -10,7 +10,7 @@ use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, S
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxChain, FxChainContext, Reaper};
+use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -105,35 +105,49 @@ pub struct RuntimePotUnit {
     change_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
-    preset_load_destination_type: PresetLoadDestinationType,
+    pub preset_load_destination_descriptor: DestinationDescriptor,
 }
 
-#[derive(Debug)]
-pub enum PresetLoadDestinationType {
-    FxOnSelectedTrack { fx_index: u32 },
+#[derive(Copy, Clone, Debug, Default)]
+pub struct DestinationDescriptor {
+    pub track: DestinationTrackDescriptor,
+    pub fx_index: u32,
 }
 
-impl Default for PresetLoadDestinationType {
-    fn default() -> Self {
-        Self::FxOnSelectedTrack { fx_index: 0 }
+#[derive(Copy, Clone, Debug, Default)]
+pub enum DestinationTrackDescriptor {
+    #[default]
+    SelectedTrack,
+    MasterTrack,
+    Track(u32),
+}
+
+impl DestinationTrackDescriptor {
+    pub fn resolve(&self, project: Project) -> Result<Track, &'static str> {
+        let track = match self {
+            DestinationTrackDescriptor::SelectedTrack => project
+                .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+                .ok_or("No track selected")?,
+            DestinationTrackDescriptor::MasterTrack => project
+                .master_track()
+                .map_err(|_| "Couldn't get master track")?,
+            DestinationTrackDescriptor::Track(i) => project
+                .track_by_index(*i)
+                .ok_or("No track at that position")?,
+        };
+        Ok(track)
     }
 }
 
-impl PresetLoadDestinationType {
-    pub fn create_destination(&self) -> Result<PresetLoadDestination, &'static str> {
-        match self {
-            PresetLoadDestinationType::FxOnSelectedTrack { fx_index } => {
-                let selected_track = Reaper::get()
-                    .current_project()
-                    .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-                    .ok_or("no track selected")?;
-                let dest = PresetLoadDestination {
-                    chain: selected_track.normal_fx_chain(),
-                    fx_index: *fx_index,
-                };
-                Ok(dest)
-            }
-        }
+impl DestinationDescriptor {
+    pub fn resolve_destination(&self) -> Result<PresetLoadDestination, &'static str> {
+        let project = Reaper::get().current_project();
+        let track = self.track.resolve(project)?;
+        let dest = PresetLoadDestination {
+            chain: track.normal_fx_chain(),
+            fx_index: self.fx_index,
+        };
+        Ok(dest)
     }
 }
 
@@ -365,7 +379,7 @@ impl RuntimePotUnit {
             change_counter: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
-            preset_load_destination_type: Default::default(),
+            preset_load_destination_descriptor: Default::default(),
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
@@ -433,13 +447,14 @@ impl RuntimePotUnit {
     }
 
     pub fn load_preset(&self, preset: &Preset) -> Result<(), &'static str> {
-        let dest = self.preset_load_destination()?;
+        let dest = self.resolve_preset_load_destination()?;
         self.load_preset_at(preset, &dest)?;
         Ok(())
     }
 
-    pub fn preset_load_destination(&self) -> Result<PresetLoadDestination, &'static str> {
-        self.preset_load_destination_type.create_destination()
+    pub fn resolve_preset_load_destination(&self) -> Result<PresetLoadDestination, &'static str> {
+        self.preset_load_destination_descriptor
+            .resolve_destination()
     }
 
     pub fn load_preset_at(
@@ -840,28 +855,5 @@ pub struct PresetLoadDestination {
 impl PresetLoadDestination {
     pub fn resolve(&self) -> Option<Fx> {
         self.chain.fx_by_index(self.fx_index)
-    }
-}
-
-impl Display for PresetLoadDestination {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self.chain.context() {
-            FxChainContext::Monitoring => {
-                write!(f, "Monitoring FX chain")?;
-            }
-            FxChainContext::Track { track, is_input_fx } => {
-                let chain_name = if *is_input_fx {
-                    "Input chain"
-                } else {
-                    "Normal chain"
-                };
-                write!(f, "Track \"{}\" ➡ {chain_name}", track.name().unwrap())?;
-            }
-            FxChainContext::Take(_) => {
-                panic!("take FX chain not yet supported");
-            }
-        }
-        write!(f, " ➡ FX #{}", self.fx_index + 1)?;
-        Ok(())
     }
 }
