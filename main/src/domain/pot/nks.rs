@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
     BuildInput, BuildOutput, ChangeHint, Collections, FilterItem, FilterItemCollections,
-    FilterSettings, MacroParam, ParamAssignment, Preset, Stats,
+    FilterSettings, MacroParam, MacroParamBank, ParamAssignment, Preset, Stats,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -166,7 +166,7 @@ pub struct PersistentNksFilterSettings {
 pub struct NksFileContent<'a> {
     pub plugin_id: PluginId,
     pub vst_chunk: &'a [u8],
-    pub macro_params: HashMap<u32, MacroParam>,
+    pub macro_param_banks: Vec<MacroParamBank>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -241,14 +241,12 @@ impl NksFile {
                 }
             },
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
-            macro_params: {
+            macro_param_banks: {
                 nica_chunk
                     .and_then(|nica_chunk| {
                         let bytes = self.relevant_bytes_of_chunk(&nica_chunk);
-                        // let json_value: serde_json::Value = rmp_serde::from_slice(bytes).ok()?;
-                        // dbg!(json_value);
                         let value: NicaChunkContent = rmp_serde::from_slice(bytes).ok()?;
-                        Some(value.extract_param_mapping())
+                        Some(value.extract_macro_param_banks())
                     })
                     .unwrap_or_default()
             },
@@ -292,21 +290,19 @@ struct NicaChunkContent {
 }
 
 impl NicaChunkContent {
-    pub fn extract_param_mapping(self) -> HashMap<u32, MacroParam> {
+    pub fn extract_macro_param_banks(self) -> Vec<MacroParamBank> {
         self.ni8
             .into_iter()
-            .enumerate()
-            .flat_map(|(bank_index, bank)| {
-                bank.into_iter()
-                    .enumerate()
-                    .filter_map(move |(slot_index, slot)| {
-                        let macro_param = MacroParam {
-                            name: slot.name,
-                            section_name: slot.section.unwrap_or_default(),
-                            param_index: slot.id?,
-                        };
-                        Some((bank_index as u32 * 8 + slot_index as u32, macro_param))
+            .map(|params| {
+                let params = params
+                    .into_iter()
+                    .map(move |param| MacroParam {
+                        name: param.name,
+                        section_name: param.section.unwrap_or_default(),
+                        param_index: param.id,
                     })
+                    .collect();
+                MacroParamBank::new(params)
             })
             .collect()
     }
@@ -381,24 +377,33 @@ impl PresetDb {
         let mut filter_items =
             self.build_filter_items(&input.state.filter_settings.nks, affected_kinds.into_iter());
         let mut fixed_settings = input.state.filter_settings.nks;
-        if affected_kinds.contains(PotFilterItemKind::NksBank)
-            || affected_kinds.contains(PotFilterItemKind::NksSubBank)
-        {
+        let banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksBank);
+        let sub_banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksSubBank);
+        if banks_are_affected || sub_banks_are_affected {
             let non_empty_banks = self.find_non_empty_banks(input.state.filter_settings.nks)?;
-            filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
-            filter_items.narrow_down(PotFilterItemKind::NksSubBank, &non_empty_banks);
-            fixed_settings.clear_if_invalid(PotFilterItemKind::NksBank, &filter_items);
-            fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubBank, &filter_items);
+            if banks_are_affected {
+                filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
+                fixed_settings.clear_if_invalid(PotFilterItemKind::NksBank, &filter_items);
+            }
+            if sub_banks_are_affected {
+                filter_items.narrow_down(PotFilterItemKind::NksSubBank, &non_empty_banks);
+                fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubBank, &filter_items);
+            }
         }
-        if affected_kinds.contains(PotFilterItemKind::NksCategory)
-            || affected_kinds.contains(PotFilterItemKind::NksSubCategory)
-        {
+        let categories_are_affected = affected_kinds.contains(PotFilterItemKind::NksCategory);
+        let sub_categories_are_affected =
+            affected_kinds.contains(PotFilterItemKind::NksSubCategory);
+        if categories_are_affected || sub_categories_are_affected {
             let non_empty_categories =
                 self.find_non_empty_categories(input.state.filter_settings.nks)?;
-            filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
-            filter_items.narrow_down(PotFilterItemKind::NksSubCategory, &non_empty_categories);
-            fixed_settings.clear_if_invalid(PotFilterItemKind::NksCategory, &filter_items);
-            fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubCategory, &filter_items);
+            if categories_are_affected {
+                filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
+                fixed_settings.clear_if_invalid(PotFilterItemKind::NksCategory, &filter_items);
+            }
+            if sub_categories_are_affected {
+                filter_items.narrow_down(PotFilterItemKind::NksSubCategory, &non_empty_categories);
+                fixed_settings.clear_if_invalid(PotFilterItemKind::NksSubCategory, &filter_items);
+            }
         }
         if affected_kinds.contains(PotFilterItemKind::NksMode) {
             let non_empty_modes = self.find_non_empty_modes(input.state.filter_settings.nks)?;

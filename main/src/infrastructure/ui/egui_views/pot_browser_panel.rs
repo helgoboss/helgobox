@@ -1,18 +1,19 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::nks::PresetId;
 use crate::domain::pot::{
-    with_preset_db, ChangeHint, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
+    with_preset_db, ChangeHint, CurrentPreset, MacroParam, Preset, PresetLoadDestination,
+    RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Button, CentralPanel, Color32, DragValue, Key, Modifiers, RichText, ScrollArea,
-    TextStyle, Ui, Widget,
+    vec2, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Margin, Modifiers, RichText,
+    ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
-use egui_extras::{Column, TableBuilder};
+use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::FxParameter;
+use reaper_high::{Fx, FxParameter};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
@@ -73,8 +74,51 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
         }
     }
+    struct Curr {
+        dest: Result<PresetLoadDestination, &'static str>,
+        fx: Option<Fx>,
+    }
+    let curr = match pot_unit.preset_load_destination() {
+        Ok(dest) => Curr {
+            fx: dest.resolve(),
+            dest: Ok(dest),
+        },
+        Err(e) => Curr {
+            dest: Err(e),
+            fx: None,
+        },
+    };
     // UI
+    let panel_frame = Frame::central_panel(&ctx.style());
+    if let Some(fx) = &curr.fx {
+        let target_state = BackboneState::target_state().borrow();
+        if let Some(current_preset) = target_state.current_fx_preset(fx) {
+            if current_preset.macro_param_bank_count() > 0 {
+                TopBottomPanel::top("top-panel")
+                    .frame(panel_frame)
+                    .resizable(false)
+                    .min_height(50.0)
+                    .show(ctx, |ui| {
+                        show_macro_params(ui, fx, current_preset, state.bank_index);
+                        // This must come at the end, otherwise ui_contains_pointer works with a zero-sized UI!
+                        if ui.ui_contains_pointer() {
+                            let vertical_scroll = ui.input(|i| {
+                                i.events.iter().find_map(|e| match e {
+                                    Event::Scroll(s) if s.y != 0.0 => Some(s.y),
+                                    _ => None,
+                                })
+                            });
+                            if let Some(s) = vertical_scroll {
+                                let amount = -s.signum() as i32;
+                                state.bank_index = state.bank_index.saturating_add_signed(amount);
+                            }
+                        }
+                    });
+            }
+        }
+    }
     SidePanel::left("left-panel")
+        .frame(panel_frame)
         .default_width(ctx.available_rect().width() * 0.5)
         .show(ctx, |ui| {
             // General controls
@@ -86,8 +130,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
                     .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
             });
+            ui.separator();
             // Add independent filter views
-            ui.heading("Product/content type");
+            let heading_height = ui.text_style_height(&TextStyle::Heading);
+            ui
+                .label(
+                    RichText::new("Basics")
+                        .text_style(TextStyle::Heading)
+                        .size(heading_height),
+                );
             ui.horizontal(|ui| {
                 add_filter_view_content(
                     &state.pot_unit,
@@ -173,26 +224,24 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             );
         });
     let preset_count = pot_unit.preset_count();
-    CentralPanel::default().show(ctx, |ui| {
-        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-        // Preset section header
+    CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
+        // Settings
         ui.horizontal(|ui| {
-            ui.strong("Search:");
-            let response = ui.text_edit_singleline(&mut pot_unit.runtime_state.search_expression);
-            if focus_search_field {
-                response.request_focus();
-            }
-            if response.changed() {
-                pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
-            }
             let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
+            // Wildcards
             ui.checkbox(
                 &mut pot_unit.runtime_state.use_wildcard_search,
-                "Wildcard search",
+                "Wildcards",
             ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
             if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
                 pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
             }
+            // Stats
+            ui.checkbox(
+                &mut state.show_stats,
+                "Stats",
+            ).on_hover_text("Show query statistics");
+            // Preview
             ui.checkbox(&mut state.auto_preview, "Auto-preview")
                 .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
             let old_volume = pot_unit.preview_volume();
@@ -208,114 +257,68 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 pot_unit.set_preview_volume(new_volume);
             }
         });
+        ui.separator();
+        // Search
         ui.horizontal(|ui| {
-            ui.strong("Preset count: ");
-            ui.label(preset_count.to_string());
-            ui.separator();
-            ui.strong("Time of last query: ");
-            ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
-            ui.strong("Wasted runs: ");
-            ui.label(pot_unit.wasted_runs.to_string());
-            ui.strong("Wasted query time: ");
-            ui.label(format!("{}ms", pot_unit.wasted_duration.as_millis()));
+            ui.strong("Search:");
+            let response = ui.text_edit_singleline(&mut pot_unit.runtime_state.search_expression);
+            if focus_search_field {
+                response.request_focus();
+            }
+            if response.changed() {
+                pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            }
+            ui.label(format!("➡ {preset_count} presets"));
         });
-        // Info about currently loaded preset
+        // Stats
+        if state.show_stats {
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.strong("Last query: ");
+                ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
+                ui.strong("Wasted runs/time: ");
+                ui.label(format!("{}/{}ms", pot_unit.wasted_runs, pot_unit.wasted_duration.as_millis()));
+            });
+        }
+        // Destination info
         ui.separator();
         ui.horizontal_wrapped(|ui| {
             ui.strong("Destination: ");
-            match pot_unit.preset_load_destination() {
+            match curr.dest.as_ref() {
                 Ok(dest) => {
                     if ui.small_button(dest.to_string()).clicked() {
                         dest.chain.show();
                     };
                     ui.separator();
                     ui.strong("FX: ");
-                    if let Some(fx) = dest.resolve() {
+                    if let Some(fx) = &curr.fx {
                         if ui.small_button(fx.name().into_string()).clicked() {
-                           fx.show_in_floating_window();
-                        }
-                        let target_state = BackboneState::target_state().borrow();
-                        if let Some(current_preset) = target_state.current_fx_preset(&fx) {
-                            ui.separator();
-                            ui.strong("Preset: ");
-                            ui.label(&current_preset.preset().name);
-                            ui.end_row();
-                            // Macro parameters
-                            ui.vertical(|ui| {
-                                let bank_size = 8;
-                                let table = TableBuilder::new(ui)
-                                    .striped(false)
-                                    .resizable(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .columns(Column::remainder(), bank_size)
-                                    .vscroll(false);
-                                struct CombinedParam<'a> {
-                                    macro_param: &'a MacroParam,
-                                    fx_param: Option<FxParameter>
-                                }
-                                let params: Vec<_> = (0..8).filter_map(|i| {
-                                    let macro_param = current_preset.find_macro_param_at(i)?;
-                                    let combined_param = CombinedParam {
-                                        fx_param: {
-                                            let fx_param = fx.parameter_by_index(macro_param.param_index);
-                                            if fx_param.is_available() {
-                                                Some(fx_param)
-                                            } else {
-                                                None
-                                            }
-                                        },
-                                        macro_param,
-                                    };
-                                    Some(combined_param)
-                                }).collect();
-                                table.header(20.0, |mut header| {
-                                    for param in &params {
-                                        header.col(|ui| {
-                                            ui.vertical(|ui| {
-                                                ui.label(&param.macro_param.section_name);
-                                                let resp = ui.strong(&param.macro_param.name);
-                                                if let Some(fx_param) = &param.fx_param {
-                                                    resp.on_hover_text(fx_param.name().into_string());
-                                                }
-                                            });
-                                        });
-                                    }
-                                }).body(|mut body| {
-                                    body.row(text_height, |mut row| {
-                                        for param in &params {
-                                            row.col(|ui| {
-                                                if let Some(param) = param.fx_param.as_ref() {
-                                                    let old_param_value = param.reaper_normalized_value();
-                                                    let mut new_param_value_raw = old_param_value.get();
-                                                    DragValue::new(&mut new_param_value_raw)
-                                                        .speed(0.01)
-                                                        .custom_formatter(|v, _| {
-                                                            let v = ReaperNormalizedFxParamValue::new(v);
-                                                            param.format_reaper_normalized_value(v).unwrap_or_default().into_string()
-                                                        })
-                                                        .clamp_range(0.0..=1.0)
-                                                        .ui(ui);
-                                                    if new_param_value_raw != old_param_value.get() {
-                                                        let _ = param.set_reaper_normalized_value(new_param_value_raw);
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                });
-                            });
+                            fx.show_in_floating_window();
                         }
                     } else {
                         ui.label("<Empty>");
                     }
                 }
                 Err(e) => {
-                    ui.colored_label(ui.visuals().error_fg_color, e);
+                    ui.colored_label(ui.visuals().error_fg_color, *e);
                 }
             }
         });
+        // Current preset
+        if let Some(fx) = &curr.fx {
+            let target_state = BackboneState::target_state().borrow();
+            if let Some(current_preset) = target_state.current_fx_preset(fx) {
+                ui.separator();
+                // Basic preset info
+                ui.horizontal(|ui| {
+                    ui.strong("Current preset: ");
+                    ui.label(&current_preset.preset().name);
+                });
+            }
+        }
         // Preset table
         ui.separator();
+        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
         let mut table = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -394,14 +397,110 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     state.last_preset_id = pot_unit.preset_id();
 }
 
+fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_index: u32) {
+    // Added this UI just to not get duplicate table IDs
+    ui.vertical(|ui| {
+        if let Some(bank) = current_preset.find_macro_param_bank_at(bank_index) {
+            ui.vertical_centered_justified(|ui| {
+                // egui::ComboBox::from_id_source("banks").show_index(
+                //     ui,
+                //     &mut selected,
+                //     alternatives.len(),
+                //     |i| alternatives[i].to_owned(),
+                // );
+                ui.heading(format!("{}. {}", bank_index + 1, bank.name()))
+            });
+            let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+            let table = TableBuilder::new(ui)
+                .striped(false)
+                .resizable(false)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .columns(Column::remainder(), bank.param_count() as _)
+                .vscroll(false);
+            struct CombinedParam<'a> {
+                macro_param: &'a MacroParam,
+                fx_param: Option<FxParameter>,
+            }
+            let params: Vec<_> = (0..bank.param_count())
+                .filter_map(|i| {
+                    let macro_param = bank.find_macro_param_at(i)?;
+                    let combined_param = CombinedParam {
+                        fx_param: {
+                            if let Some(i) = macro_param.param_index {
+                                let fx_param = fx.parameter_by_index(i);
+                                if fx_param.is_available() {
+                                    Some(fx_param)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        },
+                        macro_param,
+                    };
+                    Some(combined_param)
+                })
+                .collect();
+            table
+                .header(20.0, |mut header| {
+                    for param in &params {
+                        header.col(|ui| {
+                            ui.vertical(|ui| {
+                                ui.label(&param.macro_param.section_name);
+                                let resp = ui.strong(&param.macro_param.name);
+                                if let Some(fx_param) = &param.fx_param {
+                                    resp.on_hover_text(fx_param.name().into_string());
+                                }
+                            });
+                        });
+                    }
+                })
+                .body(|mut body| {
+                    body.row(text_height, |mut row| {
+                        for param in &params {
+                            row.col(|ui| {
+                                if let Some(param) = param.fx_param.as_ref() {
+                                    let old_param_value = param.reaper_normalized_value();
+                                    let mut new_param_value_raw = old_param_value.get();
+                                    DragValue::new(&mut new_param_value_raw)
+                                        .speed(0.01)
+                                        .custom_formatter(|v, _| {
+                                            let v = ReaperNormalizedFxParamValue::new(v);
+                                            param
+                                                .format_reaper_normalized_value(v)
+                                                .unwrap_or_default()
+                                                .into_string()
+                                        })
+                                        .clamp_range(0.0..=1.0)
+                                        .ui(ui);
+                                    if new_param_value_raw != old_param_value.get() {
+                                        let _ =
+                                            param.set_reaper_normalized_value(new_param_value_raw);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+        } else {
+            ui.vertical_centered_justified(|ui| {
+                ui.heading(format!("Parameter bank {} doesn't exist", bank_index + 1));
+            });
+        };
+    });
+}
+
 #[derive(Debug)]
 pub struct State {
     pot_unit: SharedRuntimePotUnit,
     auto_preview: bool,
     auto_hide_sub_filters: bool,
+    show_stats: bool,
     paint_continuously: bool,
     os_window: Window,
     last_preset_id: Option<PresetId>,
+    bank_index: u32,
 }
 
 impl State {
@@ -410,9 +509,11 @@ impl State {
             pot_unit,
             auto_preview: true,
             auto_hide_sub_filters: true,
+            show_stats: true,
             paint_continuously: true,
             os_window,
             last_preset_id: None,
+            bank_index: 0,
         }
     }
 }
@@ -460,6 +561,7 @@ fn add_filter_view(
         ScrollArea::vertical()
             .id_source(kind)
             .max_height(max_height - heading_height - separator_height)
+            .auto_shrink([false, false])
             .show(ui, |ui| {
                 add_filter_view_content(shared_pot_unit, pot_unit, kind, ui, true);
             });

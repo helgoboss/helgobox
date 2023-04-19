@@ -1021,7 +1021,8 @@ impl VirtualFxParameter {
                     let preset = target_state.current_fx_preset(fx);
                     let index = preset
                         .and_then(|p| p.find_macro_param_at(slot_index))
-                        .map(|res| res.param_index as f64)
+                        .and_then(|p| p.param_index)
+                        .map(|i| i as f64)
                         .unwrap_or(EXPRESSION_NONE_VALUE);
                     Some(index)
                 }

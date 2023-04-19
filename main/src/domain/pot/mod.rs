@@ -105,6 +105,36 @@ pub struct RuntimePotUnit {
     change_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
+    preset_load_destination_type: PresetLoadDestinationType,
+}
+
+#[derive(Debug)]
+pub enum PresetLoadDestinationType {
+    FxOnSelectedTrack { fx_index: u32 },
+}
+
+impl Default for PresetLoadDestinationType {
+    fn default() -> Self {
+        Self::FxOnSelectedTrack { fx_index: 0 }
+    }
+}
+
+impl PresetLoadDestinationType {
+    pub fn create_destination(&self) -> Result<PresetLoadDestination, &'static str> {
+        match self {
+            PresetLoadDestinationType::FxOnSelectedTrack { fx_index } => {
+                let selected_track = Reaper::get()
+                    .current_project()
+                    .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+                    .ok_or("no track selected")?;
+                let dest = PresetLoadDestination {
+                    chain: selected_track.normal_fx_chain(),
+                    fx_index: *fx_index,
+                };
+                Ok(dest)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -229,28 +259,60 @@ impl Collections {
 #[derive(Debug)]
 pub struct CurrentPreset {
     preset: Preset,
-    macro_params: HashMap<u32, MacroParam>,
+    macro_param_banks: Vec<MacroParamBank>,
+}
+
+#[derive(Debug)]
+pub struct MacroParamBank {
+    params: Vec<MacroParam>,
+}
+
+impl MacroParamBank {
+    pub fn new(params: Vec<MacroParam>) -> Self {
+        Self { params }
+    }
+
+    pub fn name(&self) -> String {
+        let mut name = String::with_capacity(32);
+        for p in &self.params {
+            if !p.section_name.is_empty() {
+                if !name.is_empty() {
+                    name += " / ";
+                }
+                name += &p.section_name;
+            }
+        }
+        name
+    }
+
+    pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
+        self.params.get(slot_index as usize)
+    }
+
+    pub fn param_count(&self) -> u32 {
+        self.params.len() as _
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct MacroParam {
     pub name: String,
     pub section_name: String,
-    pub param_index: u32,
+    pub param_index: Option<u32>,
 }
 
 impl CurrentPreset {
     pub fn without_parameters(preset: Preset) -> Self {
         Self {
             preset,
-            macro_params: Default::default(),
+            macro_param_banks: Default::default(),
         }
     }
 
-    pub fn with_parameters(preset: Preset, macro_params: HashMap<u32, MacroParam>) -> Self {
+    pub fn with_parameters(preset: Preset, macro_param_banks: Vec<MacroParamBank>) -> Self {
         Self {
             preset,
-            macro_params,
+            macro_param_banks,
         }
     }
 
@@ -258,8 +320,28 @@ impl CurrentPreset {
         &self.preset
     }
 
+    pub fn find_macro_param_bank_at(&self, bank_index: u32) -> Option<&MacroParamBank> {
+        self.macro_param_banks.get(bank_index as usize)
+    }
+
     pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
-        self.macro_params.get(&slot_index)
+        let bank_index = slot_index / 8;
+        let bank_slot_index = slot_index % 8;
+        self.find_bank_macro_param_at(bank_index, bank_slot_index)
+    }
+
+    pub fn find_bank_macro_param_at(
+        &self,
+        bank_index: u32,
+        bank_slot_index: u32,
+    ) -> Option<&MacroParam> {
+        self.macro_param_banks
+            .get(bank_index as usize)?
+            .find_macro_param_at(bank_slot_index)
+    }
+
+    pub fn macro_param_bank_count(&self) -> usize {
+        self.macro_param_banks.len() as _
     }
 }
 
@@ -279,6 +361,7 @@ impl RuntimePotUnit {
             change_counter: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
+            preset_load_destination_type: Default::default(),
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
@@ -352,7 +435,7 @@ impl RuntimePotUnit {
     }
 
     pub fn preset_load_destination(&self) -> Result<PresetLoadDestination, &'static str> {
-        PresetLoadDestination::first_fx_on_selected_track()
+        self.preset_load_destination_type.create_destination()
     }
 
     pub fn load_preset_at(
@@ -658,7 +741,10 @@ fn load_nksf_preset(
     fx.set_vst_chunk(nks_content.vst_chunk)?;
     let outcome = LoadPresetOutcome {
         fx,
-        current_preset: CurrentPreset::with_parameters(preset.clone(), nks_content.macro_params),
+        current_preset: CurrentPreset::with_parameters(
+            preset.clone(),
+            nks_content.macro_param_banks,
+        ),
     };
     Ok(outcome)
 }
@@ -741,24 +827,13 @@ fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
     Ok(())
 }
 
+#[derive(Debug)]
 pub struct PresetLoadDestination {
     pub chain: FxChain,
     pub fx_index: u32,
 }
 
 impl PresetLoadDestination {
-    pub fn first_fx_on_selected_track() -> Result<Self, &'static str> {
-        let selected_track = Reaper::get()
-            .current_project()
-            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-            .ok_or("no track selected")?;
-        let dest = Self {
-            chain: selected_track.normal_fx_chain(),
-            fx_index: 0,
-        };
-        Ok(dest)
-    }
-
     pub fn resolve(&self) -> Option<Fx> {
         self.chain.fx_by_index(self.fx_index)
     }
@@ -772,17 +847,17 @@ impl Display for PresetLoadDestination {
             }
             FxChainContext::Track { track, is_input_fx } => {
                 let chain_name = if *is_input_fx {
-                    "Normal chain"
-                } else {
                     "Input chain"
+                } else {
+                    "Normal chain"
                 };
-                write!(f, "Track \"{}\" → {chain_name}", track.name().unwrap())?;
+                write!(f, "Track \"{}\" ➡ {chain_name}", track.name().unwrap())?;
             }
             FxChainContext::Take(_) => {
                 panic!("take FX chain not yet supported");
             }
         }
-        write!(f, " → FX #{}", self.fx_index + 1)?;
+        write!(f, " ➡ FX #{}", self.fx_index + 1)?;
         Ok(())
     }
 }
