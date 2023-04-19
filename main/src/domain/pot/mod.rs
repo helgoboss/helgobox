@@ -952,8 +952,8 @@ pub struct LoadPresetOptions {
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum LoadPresetWindowBehavior {
     NeverShow,
-    ShowOnlyIfPreviouslyShown,
     #[default]
+    ShowOnlyIfPreviouslyShown,
     ShowOnlyIfPreviouslyShownOrNewlyAdded,
     AlwaysShow,
 }

@@ -339,25 +339,32 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     // Track descriptor
                     let current_project = Reaper::get().current_project();
                     {
+                        const SPECIAL_TRACK_COUNT: usize = 2;
                         ui.strong("Destination track:");
-                        let old_track_code = match pot_unit.destination_descriptor.track {
+                        let track_count = current_project.track_count();
+                        let old_track_code = match &mut pot_unit.destination_descriptor.track {
                             DestinationTrackDescriptor::SelectedTrack => 0usize,
                             DestinationTrackDescriptor::MasterTrack => 1usize,
-                            DestinationTrackDescriptor::Track(i) => i as usize + 2
+                            DestinationTrackDescriptor::Track(i) => {
+                                // If configured track index too high, set it to 
+                                // "new track at end of project".
+                                *i = (*i).min(track_count);
+                                *i as usize + SPECIAL_TRACK_COUNT
+                            }
                         };
                         let mut new_track_code = old_track_code;
                         egui::ComboBox::from_id_source("tracks").show_index(
                             ui,
                             &mut new_track_code,
-                            current_project.track_count() as usize + 2,
+                            SPECIAL_TRACK_COUNT + track_count as usize + 1,
                             |code| {
                                 match code {
                                     0 => "<Selected>".to_string(),
                                     1 => "<Master>".to_string(),
-                                    _ => if let Some(track) = current_project.track_by_index(code as u32 - 2) {
+                                    _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
                                         get_track_label(&track)
                                     } else {
-                                        format!("Track {} (doesn't exist)", code + 3)
+                                        "<New track>".to_string()
                                     }
                                 }
                             },
@@ -366,7 +373,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             let track_desc = match new_track_code {
                                 0 => DestinationTrackDescriptor::SelectedTrack,
                                 1 => DestinationTrackDescriptor::MasterTrack,
-                                c => DestinationTrackDescriptor::Track(c as u32 - 2),
+                                c => DestinationTrackDescriptor::Track(c as u32 - SPECIAL_TRACK_COUNT as u32),
                             };
                             pot_unit.destination_descriptor.track = track_desc;
                         }
@@ -391,15 +398,19 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.label("➡");
                             ui.strong("FX:");
                             let chain = t.normal_fx_chain();
+                            let fx_count = chain.fx_count();
+                            // If configured FX index too high, set it to "new FX at end of chain".
+                            pot_unit.destination_descriptor.fx_index =
+                                pot_unit.destination_descriptor.fx_index.min(fx_count);
                             let mut fx_code = pot_unit.destination_descriptor.fx_index as usize;
                             egui::ComboBox::from_id_source("fxs").show_index(
                                 ui,
                                 &mut fx_code,
-                                chain.fx_count() as usize,
+                                fx_count as usize + 1,
                                 |code| {
                                     match chain.fx_by_index(code as _) {
                                         None => {
-                                            format!("FX {} (doesn't exist)", code + 1)
+                                            "<New FX>".to_string()
                                         }
                                         Some(fx) => {
                                             format!("{}. {}", code + 1, fx.name())
