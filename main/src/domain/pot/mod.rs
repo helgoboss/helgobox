@@ -484,22 +484,25 @@ impl RuntimePotUnit {
         preset: &Preset,
         options: LoadPresetOptions,
     ) -> Result<(), &'static str> {
-        let dest = match self.resolve_destination()? {
-            DestinationInstruction::Existing(d) => d,
-            DestinationInstruction::AddTrack => {
-                let track = Reaper::get().current_project().add_track()?;
-                // Reset FX back to first one for UI and next preset load.
-                self.destination_descriptor.fx_index = 0;
-                track.select_exclusively();
-                Destination {
-                    chain: track.normal_fx_chain(),
-                    fx_index: 0,
+        let build_destination = |pot_unit: &mut Self| {
+            let dest = match pot_unit.resolve_destination()? {
+                DestinationInstruction::Existing(d) => d,
+                DestinationInstruction::AddTrack => {
+                    let track = Reaper::get().current_project().add_track()?;
+                    // Reset FX back to first one for UI and next preset load.
+                    pot_unit.destination_descriptor.fx_index = 0;
+                    track.select_exclusively();
+                    Destination {
+                        chain: track.normal_fx_chain(),
+                        fx_index: 0,
+                    }
                 }
-            }
+            };
+            Ok(dest)
         };
-        self.load_preset_at(preset, &dest, options)?;
+        let fx = self.load_preset_at(preset, options, build_destination)?;
         if self.name_track_after_preset {
-            if let Some(track) = dest.chain.track() {
+            if let Some(track) = fx.track() {
                 track.set_name(preset.name.as_str());
             }
         }
@@ -511,20 +514,26 @@ impl RuntimePotUnit {
     }
 
     pub fn load_preset_at(
-        &self,
+        &mut self,
         preset: &Preset,
-        destination: &Destination,
         options: LoadPresetOptions,
-    ) -> Result<(), &'static str> {
+        build_destination: impl FnOnce(&mut Self) -> Result<Destination, &'static str>,
+    ) -> Result<Fx, &'static str> {
         let outcome = match preset.file_ext.as_str() {
-            "wav" | "aif" => load_audio_preset(&preset, destination, options)?,
-            "nksf" | "nksfx" => load_nksf_preset(&preset, destination, options)?,
+            "wav" | "aif" => {
+                let dest = build_destination(self)?;
+                load_audio_preset(&preset, &dest, options)?
+            }
+            "nksf" | "nksfx" => {
+                let dest = build_destination(self)?;
+                load_nksf_preset(&preset, &dest, options)?
+            }
             _ => return Err("unsupported preset format"),
         };
         BackboneState::target_state()
             .borrow_mut()
-            .set_current_fx_preset(outcome.fx, outcome.current_preset);
-        Ok(())
+            .set_current_fx_preset(outcome.fx.clone(), outcome.current_preset);
+        Ok(outcome.fx)
     }
 
     pub fn state(&self) -> &RuntimeState {

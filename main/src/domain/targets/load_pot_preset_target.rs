@@ -61,21 +61,23 @@ impl RealearnTarget for LoadPotPresetTarget {
         }
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let mut pot_unit = blocking_lock_arc(&pot_unit);
         let preset_id = self
             .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
         let preset =
             with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
         let fx_index = self.fx.index();
-        let load_dest = Destination {
-            chain: self.fx.chain().clone(),
-            fx_index,
-        };
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
-        pot_unit.load_preset_at(&preset, &load_dest, options)?;
+        pot_unit.load_preset_at(&preset, options, |_| {
+            let dest = Destination {
+                chain: self.fx.chain().clone(),
+                fx_index,
+            };
+            Ok(dest)
+        })?;
         Ok(HitResponse::processed_with_effect())
     }
 
