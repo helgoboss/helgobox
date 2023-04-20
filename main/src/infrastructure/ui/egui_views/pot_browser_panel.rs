@@ -351,7 +351,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     let current_project = Reaper::get().current_project();
                     {
                         const SPECIAL_TRACK_COUNT: usize = 2;
-                        ui.strong("Destination track:");
+                        ui.strong("Load into");
                         let track_count = current_project.track_count();
                         let old_track_code = match &mut pot_unit.destination_descriptor.track {
                             DestinationTrackDescriptor::SelectedTrack => 0usize,
@@ -370,8 +370,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             SPECIAL_TRACK_COUNT + track_count as usize + 1,
                             |code| {
                                 match code {
-                                    0 => "<Selected>".to_string(),
-                                    1 => "<Master>".to_string(),
+                                    0 => "<Selected track>".to_string(),
+                                    1 => "<Master track>".to_string(),
                                     _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
                                         get_track_label(&track)
                                     } else {
@@ -406,8 +406,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     // FX descriptor
                     {
                         if let Ok(t) = resolved_track.as_ref() {
-                            ui.label("➡");
-                            ui.strong("FX:");
+                            ui.label("at slot");
                             let chain = t.normal_fx_chain();
                             let fx_count = chain.fx_count();
                             // If configured FX index too high, set it to "new FX at end of chain".
@@ -434,8 +433,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     }
                     // Resolved
                     if let Some(fx) = &curr.fx {
-                        if ui.small_button("Show!").clicked() {
+                        if ui.small_button("Show FX").clicked() {
                             fx.show_in_floating_window();
+                        }
+                        if ui.small_button("Show chain").clicked() {
+                            fx.show_in_chain();
                         }
                     }
                 });
@@ -770,7 +772,7 @@ fn add_filter_view_content(
 fn load_preset_and_regain_focus(
     preset: &Preset,
     os_window: Window,
-    pot_unit: &RuntimePotUnit,
+    pot_unit: &mut RuntimePotUnit,
     toasts: &mut Toasts,
     window_behavior: LoadPresetWindowBehavior,
 ) {

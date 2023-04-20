@@ -152,21 +152,6 @@ pub enum DestinationInstruction {
 }
 
 impl DestinationInstruction {
-    pub fn get_existing_or_create(self) -> Result<Destination, &'static str> {
-        match self {
-            DestinationInstruction::Existing(d) => Ok(d),
-            DestinationInstruction::AddTrack => {
-                let track = Reaper::get().current_project().add_track()?;
-                track.select_exclusively();
-                let dest = Destination {
-                    chain: track.normal_fx_chain(),
-                    fx_index: 0,
-                };
-                Ok(dest)
-            }
-        }
-    }
-
     pub fn get_existing(&self) -> Option<&Destination> {
         match self {
             DestinationInstruction::Existing(d) => Some(d),
@@ -495,11 +480,23 @@ impl RuntimePotUnit {
     }
 
     pub fn load_preset(
-        &self,
+        &mut self,
         preset: &Preset,
         options: LoadPresetOptions,
     ) -> Result<(), &'static str> {
-        let dest = self.resolve_destination()?.get_existing_or_create()?;
+        let dest = match self.resolve_destination()? {
+            DestinationInstruction::Existing(d) => d,
+            DestinationInstruction::AddTrack => {
+                let track = Reaper::get().current_project().add_track()?;
+                // Reset FX back to first one for UI and next preset load.
+                self.destination_descriptor.fx_index = 0;
+                track.select_exclusively();
+                Destination {
+                    chain: track.normal_fx_chain(),
+                    fx_index: 0,
+                }
+            }
+        };
         self.load_preset_at(preset, &dest, options)?;
         if self.name_track_after_preset {
             if let Some(track) = dest.chain.track() {
