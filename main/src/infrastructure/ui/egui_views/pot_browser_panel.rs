@@ -206,6 +206,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui,
                             false
                         );
+                        ui.separator();
+                        add_filter_view_content(
+                            &state.pot_unit,
+                            pot_unit,
+                            PotFilterItemKind::NksFavorite,
+                            ui,
+                            false
+                        );
                     });
                     // Add dependent filter views
                     ui.separator();

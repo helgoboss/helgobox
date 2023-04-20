@@ -27,7 +27,7 @@ pub type FilterItemId = nks::FilterItemId;
 pub type PresetId = nks::PresetId;
 pub type PresetDb = nks::PresetDb;
 
-pub fn with_preset_db<R>(f: impl FnOnce(&PresetDb) -> R) -> Result<R, &'static str> {
+pub fn with_preset_db<R>(f: impl FnOnce(&mut PresetDb) -> R) -> Result<R, &'static str> {
     nks::with_preset_db(f)
 }
 
@@ -532,7 +532,7 @@ impl RuntimePotUnit {
                 let dest = build_destination(self)?;
                 load_nksf_preset(&preset, &dest, options)?
             }
-            _ => return Err("unsupported preset format"),
+            _ => return Err("Unsupported preset format"),
         };
         BackboneState::target_state()
             .borrow_mut()

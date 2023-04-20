@@ -1176,6 +1176,9 @@ pub enum PotFilterItemKind {
     /// Instrument, Effect, Loop, One Shot
     #[display(fmt = "Product types")]
     NksProductType,
+    /// Favorite
+    #[display(fmt = "Favorite")]
+    NksFavorite,
     #[display(fmt = "Product")]
     NksBank,
     #[display(fmt = "Bank")]
@@ -1220,7 +1223,7 @@ impl PotFilterItemKind {
         use PotFilterItemKind::*;
         match self {
             Database => 0,
-            NksContentType | NksProductType => 1,
+            NksContentType | NksProductType | NksFavorite => 1,
             NksBank => 2,
             NksSubBank => 3,
             NksCategory => 4,

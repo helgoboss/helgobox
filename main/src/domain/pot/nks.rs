@@ -36,6 +36,8 @@ impl FilterItemId {
 
 pub struct PresetDb {
     connection: Connection,
+    favorites_db_path: PathBuf,
+    attached_favorites_db: bool,
 }
 
 pub struct NksFile {
@@ -274,10 +276,10 @@ impl NksFile {
     }
 }
 
-pub fn with_preset_db<R>(f: impl FnOnce(&PresetDb) -> R) -> Result<R, &'static str> {
+pub fn with_preset_db<R>(f: impl FnOnce(&mut PresetDb) -> R) -> Result<R, &'static str> {
     let preset_db = preset_db()?;
-    let preset_db = blocking_lock(preset_db);
-    Ok(f(&preset_db))
+    let mut preset_db = blocking_lock(preset_db);
+    Ok(f(&mut preset_db))
 }
 
 pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
@@ -321,9 +323,31 @@ impl NicaChunkContent {
 
 impl PresetDb {
     fn open() -> Result<Mutex<Self>, Box<dyn Error>> {
-        let path = path_to_preset_db()?;
-        let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        Ok(Mutex::new(Self { connection }))
+        let (main_db_path, favorites_db_path) = path_to_main_and_favorites_db()?;
+        let connection =
+            Connection::open_with_flags(main_db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let db = Self {
+            connection,
+            favorites_db_path,
+            attached_favorites_db: false,
+        };
+        Ok(Mutex::new(db))
+    }
+
+    fn ensure_favorites_db_is_attached(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.attached_favorites_db {
+            return Ok(());
+        }
+        let mut stmt = self
+            .connection
+            .prepare_cached("ATTACH DATABASE ? AS favorites_db")?;
+        let favorites_db_utf8_path = self
+            .favorites_db_path
+            .to_str()
+            .ok_or("non-UTF8 characters in favorite db path")?;
+        stmt.execute([favorites_db_utf8_path])?;
+        self.attached_favorites_db = true;
+        Ok(())
     }
 
     pub fn find_preset_preview_file(&self, id: PresetId) -> Option<PathBuf> {
@@ -371,7 +395,7 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn build_collections(&self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
+    pub fn build_collections(&mut self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
         let before = Instant::now();
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
@@ -477,7 +501,7 @@ impl PresetDb {
     }
 
     fn build_preset_collection(
-        &self,
+        &mut self,
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         exclude_list: &PotFilterExcludeList,
@@ -492,7 +516,7 @@ impl PresetDb {
     }
 
     fn find_non_empty_banks(
-        &self,
+        &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
@@ -511,7 +535,7 @@ impl PresetDb {
     }
 
     fn find_non_empty_categories(
-        &self,
+        &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
@@ -528,7 +552,7 @@ impl PresetDb {
     }
 
     fn find_non_empty_modes(
-        &self,
+        &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
@@ -543,7 +567,7 @@ impl PresetDb {
     }
 
     fn execute_preset_query<R>(
-        &self,
+        &mut self,
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         select_clause: &str,
@@ -557,14 +581,6 @@ impl PresetDb {
         let mut where_extras = String::new();
         let mut from_extras = String::new();
         let mut params: Vec<&dyn ToSql> = vec![];
-        // Filter on content type (= factory or user)
-        if let Some(FilterItemId(Some(content_type))) =
-            filter_settings.get_ref(PotFilterItemKind::NksContentType)
-        {
-            from_extras += " JOIN k_content_path cp ON cp.id = i.content_path_id";
-            where_extras += " AND cp.content_type = ?";
-            params.push(content_type)
-        }
         // Filter on product type (= instrument, effect, loop or one shot)
         if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
             match product_type.0 {
@@ -598,11 +614,36 @@ impl PresetDb {
                         2 => "Effect",
                         3 => "Loop",
                         4 => "Oneshot",
-                        _ => return Err("unknown table filter item".into()),
+                        _ => return Err("unknown product type filter item".into()),
                     };
                     // TODO-medium Not sure if EXISTS ist faster.
                     write!(&mut from_extras, " JOIN (SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS p ON p.id = i.id")?;
                 }
+            }
+        }
+        // Filter on content type (= factory or user)
+        if let Some(FilterItemId(Some(content_type))) =
+            filter_settings.get_ref(PotFilterItemKind::NksContentType)
+        {
+            from_extras += " JOIN k_content_path cp ON cp.id = i.content_path_id";
+            where_extras += " AND cp.content_type = ?";
+            params.push(content_type)
+        }
+        // Filter on favorite or not
+        if let Some(FilterItemId(Some(favorite))) =
+            filter_settings.get_ref(PotFilterItemKind::NksFavorite)
+        {
+            let is_favorite = *favorite == 1;
+            if self.ensure_favorites_db_is_attached().is_ok() {
+                if is_favorite {
+                    from_extras += " JOIN favorites_db.favorites f ON i.favorite_id = f.id";
+                } else {
+                    where_extras +=
+                        " AND i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)";
+                }
+            } else if is_favorite {
+                // If the favorites database doesn't exist, it means we have no favorites!
+                where_extras += " AND false";
             }
         }
         // Filter on bank and sub bank (= "Instrument" and "Bank")
@@ -735,6 +776,12 @@ impl PresetDb {
                     FilterItem::simple(4, "One shot"),
                 ]
             }
+            NksFavorite => {
+                vec![
+                    FilterItem::simple(1, "Favorite"),
+                    FilterItem::simple(2, "Not favorite"),
+                ]
+            }
             NksBank => self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
@@ -818,10 +865,11 @@ impl PresetDb {
     }
 }
 
-fn path_to_preset_db() -> Result<PathBuf, &'static str> {
+fn path_to_main_and_favorites_db() -> Result<(PathBuf, PathBuf), &'static str> {
     let data_dir = dirs::data_local_dir().ok_or("couldn't identify data-local dir")?;
-    let komplete_kontrol_dir = data_dir.join("Native Instruments/Komplete Kontrol");
-    Ok(komplete_kontrol_dir.join("komplete.db3"))
+    let main_db_path = data_dir.join("Native Instruments/Komplete Kontrol/komplete.db3");
+    let favorites_db_path = data_dir.join("Native Instruments/Shared/favorites.db3");
+    Ok((main_db_path, favorites_db_path))
 }
 
 fn optional_filter_item_id(row: &Row) -> Result<FilterItemId, rusqlite::Error> {
