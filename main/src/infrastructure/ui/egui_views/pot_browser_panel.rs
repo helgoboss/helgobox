@@ -538,14 +538,15 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
             struct CombinedParam<'a> {
                 macro_param: &'a MacroParam,
                 fx_param: Option<FxParameter>,
+                param_index: u32,
             }
             let slots: Vec<_> = bank
                 .params()
                 .iter()
                 .map(|macro_param| {
+                    let param_index = macro_param.param_index?;
                     let combined_param = CombinedParam {
                         fx_param: {
-                            let param_index = macro_param.param_index?;
                             let fx_param = fx.parameter_by_index(param_index);
                             if fx_param.is_available() {
                                 Some(fx_param)
@@ -554,6 +555,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                             }
                         },
                         macro_param,
+                        param_index,
                     };
                     Some(combined_param)
                 })
@@ -569,9 +571,17 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                             ui.vertical(|ui| {
                                 ui.label(&param.macro_param.section_name);
                                 let resp = ui.strong(&param.macro_param.name);
-                                if let Some(fx_param) = &param.fx_param {
-                                    resp.on_hover_text(fx_param.name().into_string());
-                                }
+                                resp.on_hover_ui(|ui| {
+                                    let hover_text = if let Some(fx_param) = &param.fx_param {
+                                        fx_param.name().into_string()
+                                    } else {
+                                        format!(
+                                            "Mapped parameter {} doesn't exist in actual plug-in",
+                                            param.param_index + 1
+                                        )
+                                    };
+                                    ui.label(hover_text);
+                                });
                             });
                         });
                     }
