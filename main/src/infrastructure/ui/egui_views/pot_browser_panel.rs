@@ -539,18 +539,16 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                 macro_param: &'a MacroParam,
                 fx_param: Option<FxParameter>,
             }
-            let params: Vec<_> = (0..bank.param_count())
-                .filter_map(|i| {
-                    let macro_param = bank.find_macro_param_at(i)?;
+            let slots: Vec<_> = bank
+                .params()
+                .iter()
+                .map(|macro_param| {
                     let combined_param = CombinedParam {
                         fx_param: {
-                            if let Some(i) = macro_param.param_index {
-                                let fx_param = fx.parameter_by_index(i);
-                                if fx_param.is_available() {
-                                    Some(fx_param)
-                                } else {
-                                    None
-                                }
+                            let param_index = macro_param.param_index?;
+                            let fx_param = fx.parameter_by_index(param_index);
+                            if fx_param.is_available() {
+                                Some(fx_param)
                             } else {
                                 None
                             }
@@ -562,8 +560,12 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                 .collect();
             table
                 .header(20.0, |mut header| {
-                    for param in &params {
+                    for slot in &slots {
                         header.col(|ui| {
+                            let Some(param) = slot else {
+                                // Empty slot yields empty column
+                                return;
+                            };
                             ui.vertical(|ui| {
                                 ui.label(&param.macro_param.section_name);
                                 let resp = ui.strong(&param.macro_param.name);
@@ -576,16 +578,20 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                 })
                 .body(|mut body| {
                     body.row(text_height, |mut row| {
-                        for param in &params {
+                        for slot in &slots {
                             row.col(|ui| {
-                                if let Some(param) = param.fx_param.as_ref() {
-                                    let old_param_value = param.reaper_normalized_value();
+                                let Some(param) = slot else {
+                                    // Empty slot yields empty column
+                                    return;
+                                };
+                                if let Some(fx_param) = param.fx_param.as_ref() {
+                                    let old_param_value = fx_param.reaper_normalized_value();
                                     let mut new_param_value_raw = old_param_value.get();
                                     DragValue::new(&mut new_param_value_raw)
                                         .speed(0.01)
                                         .custom_formatter(|v, _| {
                                             let v = ReaperNormalizedFxParamValue::new(v);
-                                            param
+                                            fx_param
                                                 .format_reaper_normalized_value(v)
                                                 .unwrap_or_default()
                                                 .into_string()
@@ -593,8 +599,8 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                                         .clamp_range(0.0..=1.0)
                                         .ui(ui);
                                     if new_param_value_raw != old_param_value.get() {
-                                        let _ =
-                                            param.set_reaper_normalized_value(new_param_value_raw);
+                                        let _ = fx_param
+                                            .set_reaper_normalized_value(new_param_value_raw);
                                     }
                                 }
                             });

@@ -330,6 +330,10 @@ impl MacroParamBank {
         name
     }
 
+    pub fn params(&self) -> &[MacroParam] {
+        &self.params
+    }
+
     pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
         self.params.get(slot_index as usize)
     }
