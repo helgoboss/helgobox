@@ -181,40 +181,37 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
                             }
                         }
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            add_filter_view_content_as_icons(
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterItemKind::NksContentType,
+                                ui,
+                            );
+                            ui.separator();
+                            add_filter_view_content_as_icons(
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterItemKind::NksFavorite,
+                                ui,
+                            );
+                        });
                     });
                     // Add independent filter views
                     let heading_height = ui.text_style_height(&TextStyle::Heading);
                     ui
                         .label(
-                            RichText::new("Basics")
+                            RichText::new("Product type")
                                 .text_style(TextStyle::Heading)
                                 .size(heading_height),
                         );
-                    ui.horizontal(|ui| {
-                        add_filter_view_content(
-                            &state.pot_unit,
-                            pot_unit,
-                            PotFilterItemKind::NksProductType,
-                            ui,
-                            false
-                        );
-                        ui.separator();
-                        add_filter_view_content(
-                            &state.pot_unit,
-                            pot_unit,
-                            PotFilterItemKind::NksContentType,
-                            ui,
-                            false
-                        );
-                        ui.separator();
-                        add_filter_view_content(
-                            &state.pot_unit,
-                            pot_unit,
-                            PotFilterItemKind::NksFavorite,
-                            ui,
-                            false
-                        );
-                    });
+                    add_filter_view_content(
+                        &state.pot_unit,
+                        pot_unit,
+                        PotFilterItemKind::NksProductType,
+                        ui,
+                        false
+                    );
                     // Add dependent filter views
                     ui.separator();
                     let show_sub_banks = !state.auto_hide_sub_filters
@@ -743,22 +740,27 @@ fn add_filter_view_content(
         for filter_item in pot_unit.collections.find_all_filter_items(kind) {
             let mut text = RichText::new(filter_item.effective_leaf_name());
             if exclude_list.contains(kind, filter_item.id) {
-                text = text.color(ui.style().visuals.weak_text_color());
+                text = text.weak();
             };
             let mut resp = ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
             if let Some(parent_kind) = kind.parent() {
                 if let Some(parent_name) = filter_item.parent_name.as_ref() {
                     if !parent_name.is_empty() {
-                        let tooltip = match &filter_item.name {
-                            None => {
-                                format!("{parent_name} (directly associated with {parent_kind})")
-                            }
-                            Some(n) => format!("{parent_name} / {n}"),
-                        };
-                        resp = resp.on_hover_text(tooltip);
+                        resp = resp.on_hover_ui(|ui| {
+                            let tooltip = match &filter_item.name {
+                                None => {
+                                    format!(
+                                        "{parent_name} (directly associated with {parent_kind})"
+                                    )
+                                }
+                                Some(n) => format!("{parent_name} / {n}"),
+                            };
+                            ui.label(tooltip);
+                        });
                     }
                 }
             }
+            // Context menu
             if kind.allows_excludes() {
                 resp.context_menu(|ui| {
                     let is_excluded = exclude_list.contains(kind, filter_item.id);
@@ -790,6 +792,36 @@ fn add_filter_view_content(
                 pot_unit.include_filter_item(kind, id, include, shared_pot_unit.clone());
             }
         }
+    }
+}
+
+fn add_filter_view_content_as_icons(
+    shared_pot_unit: &SharedRuntimePotUnit,
+    pot_unit: &mut RuntimePotUnit,
+    kind: PotFilterItemKind,
+    ui: &mut Ui,
+) {
+    let old_filter_item_id = pot_unit.get_filter(kind);
+    let mut new_filter_item_id = old_filter_item_id;
+    for filter_item in pot_unit.collections.find_all_filter_items(kind) {
+        let selected_old = old_filter_item_id == Some(filter_item.id);
+        let mut selected_new = selected_old;
+        let text = RichText::new(filter_item.icon.unwrap_or('-'))
+            .size(18.0)
+            .weak();
+        ui.toggle_value(&mut selected_new, text).on_hover_ui(|ui| {
+            ui.label(filter_item.effective_leaf_name());
+        });
+        if selected_new != selected_old {
+            new_filter_item_id = if selected_new {
+                Some(filter_item.id)
+            } else {
+                None
+            }
+        }
+    }
+    if new_filter_item_id != old_filter_item_id {
+        pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
     }
 }
 

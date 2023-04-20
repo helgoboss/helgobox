@@ -804,6 +804,7 @@ pub struct FilterItem {
     /// If not set, parent name should be set. It's the most unspecific sub filter of a
     /// top-level filter, so to say.
     pub name: Option<String>,
+    pub icon: Option<char>,
 }
 
 impl FilterItem {
@@ -814,16 +815,29 @@ impl FilterItem {
             id: nks::FilterItemId(None),
             parent_name: None,
             name: Some("<None>".to_string()),
+            icon: None,
         }
     }
 
-    pub fn simple(id: u32, name: &str) -> Self {
+    pub fn simple(id: u32, name: &str, icon: char) -> Self {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
             id: nks::FilterItemId(Some(id)),
             parent_name: None,
             name: Some(name.to_string()),
+            icon: Some(icon),
+        }
+    }
+
+    fn new(id: u32, name: &str) -> Self {
+        Self {
+            // TODO-high-pot Persistence
+            persistent_id: "".to_string(),
+            id: nks::FilterItemId(Some(id)),
+            parent_name: None,
+            name: Some(name.to_string()),
+            icon: None,
         }
     }
 

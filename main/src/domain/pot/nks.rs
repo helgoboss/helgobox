@@ -481,6 +481,7 @@ impl PresetDb {
                     id: Default::default(),
                     parent_name: Default::default(),
                     name: Some("NKS".to_string()),
+                    icon: None,
                 }],
                 nks: filter_items,
             },
@@ -763,23 +764,23 @@ impl PresetDb {
             Database => vec![],
             NksContentType => {
                 vec![
-                    FilterItem::simple(1, "User"),
-                    FilterItem::simple(2, "Factory"),
+                    FilterItem::simple(1, "User", '🕵'),
+                    FilterItem::simple(2, "Factory", '🏭'),
                 ]
             }
             NksProductType => {
                 vec![
                     FilterItem::none(),
-                    FilterItem::simple(1, "Instrument"),
-                    FilterItem::simple(2, "Effect"),
-                    FilterItem::simple(3, "Loop"),
-                    FilterItem::simple(4, "One shot"),
+                    FilterItem::simple(1, "Instrument", '🎹'),
+                    FilterItem::simple(2, "Effect", '✨'),
+                    FilterItem::simple(3, "Loop", '➿'),
+                    FilterItem::simple(4, "One shot", '💥'),
                 ]
             }
             NksFavorite => {
                 vec![
-                    FilterItem::simple(1, "Favorite"),
-                    FilterItem::simple(2, "Not favorite"),
+                    FilterItem::simple(1, "Favorite", '★'),
+                    FilterItem::simple(2, "Not favorite", '☆'),
                 ]
             }
             NksBank => self.select_nks_filter_items(
@@ -852,6 +853,7 @@ impl PresetDb {
                 id: FilterItemId(row.get(0)?),
                 name,
                 parent_name: row.get(1)?,
+                icon: None,
             };
             Ok(item)
         });
