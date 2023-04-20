@@ -7,13 +7,14 @@
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId};
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
+use enum_map::EnumMap;
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -107,6 +108,7 @@ pub struct RuntimePotUnit {
     preview_volume: ReaperVolumeValue,
     pub destination_descriptor: DestinationDescriptor,
     pub name_track_after_preset: bool,
+    show_excluded_filter_items: bool,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -196,6 +198,7 @@ pub struct Stats {
 pub struct BuildInput<'a> {
     pub state: &'a RuntimeState,
     pub change_hint: Option<ChangeHint>,
+    pub filter_exclude_list: PotFilterExcludeList,
 }
 
 impl<'a> BuildInput<'a> {
@@ -204,6 +207,7 @@ impl<'a> BuildInput<'a> {
             None => EnumSet::all(),
             Some(ChangeHint::SearchExpression) => EnumSet::empty(),
             Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
+            Some(ChangeHint::FilterExclude) => EnumSet::all(),
         }
     }
 }
@@ -212,6 +216,7 @@ impl<'a> BuildInput<'a> {
 pub enum ChangeHint {
     Filter(PotFilterItemKind),
     SearchExpression,
+    FilterExclude,
 }
 
 pub struct BuildOutput {
@@ -232,8 +237,12 @@ pub struct RuntimeState {
 impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
         with_preset_db(|db| {
-            let collections =
-                db.build_filter_items(&Default::default(), EnumSet::all().into_iter());
+            let filter_exclude_list = BackboneState::get().pot_filter_exclude_list();
+            let collections = db.build_filter_items(
+                &Default::default(),
+                EnumSet::all().into_iter(),
+                &filter_exclude_list,
+            );
             let filter_settings = {
                 let nks = &persistent_state.filter_settings.nks;
                 let mut filters = Filters::empty();
@@ -418,6 +427,7 @@ impl RuntimePotUnit {
             sound_player,
             destination_descriptor: Default::default(),
             name_track_after_preset: true,
+            show_excluded_filter_items: false,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
@@ -544,6 +554,37 @@ impl RuntimePotUnit {
         matches!(self.get_filter(kind), Some(nks::FilterItemId(Some(_))))
     }
 
+    pub fn show_excluded_filter_items(&self) -> bool {
+        self.show_excluded_filter_items
+    }
+
+    pub fn set_show_excluded_filter_items(
+        &mut self,
+        show: bool,
+        shared_self: SharedRuntimePotUnit,
+    ) {
+        self.show_excluded_filter_items = show;
+        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude));
+    }
+
+    pub fn include_filter_item(
+        &mut self,
+        kind: PotFilterItemKind,
+        id: FilterItemId,
+        include: bool,
+        shared_self: SharedRuntimePotUnit,
+    ) {
+        {
+            let mut list = BackboneState::get().pot_filter_exclude_list_mut();
+            if include {
+                list.include(kind, id);
+            } else {
+                list.exclude(kind, id);
+            }
+        }
+        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude));
+    }
+
     pub fn set_filter(
         &mut self,
         kind: PotFilterItemKind,
@@ -563,7 +604,19 @@ impl RuntimePotUnit {
         shared_self: SharedRuntimePotUnit,
         change_hint: Option<ChangeHint>,
     ) {
-        let runtime_state = self.runtime_state.clone();
+        // Acquire exclude list in main thread
+        let filter_exclude_list = if self.show_excluded_filter_items {
+            PotFilterExcludeList::default()
+        } else {
+            BackboneState::get().pot_filter_exclude_list().clone()
+        };
+        let mut runtime_state = self.runtime_state.clone();
+        // Here we already have enough knowledge to fix some filter settings.
+        runtime_state
+            .filter_settings
+            .nks
+            .clear_excluded_ones(&filter_exclude_list);
+        // Spawn new async task (don't block GUI thread, might take longer)
         self.change_counter += 1;
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
@@ -581,6 +634,7 @@ impl RuntimePotUnit {
             let build_input = BuildInput {
                 state: &runtime_state,
                 change_hint,
+                filter_exclude_list,
             };
             let build_outcome = with_preset_db(|db| db.build_collections(build_input))??;
             // Set result (cheap)
@@ -998,5 +1052,37 @@ impl LoadPresetWindowBehavior {
                 }
             }
         }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct PotFilterExcludeList {
+    exluded_items: EnumMap<PotFilterItemKind, HashSet<FilterItemId>>,
+}
+
+impl PotFilterExcludeList {
+    pub fn contains(&self, kind: PotFilterItemKind, id: FilterItemId) -> bool {
+        self.exluded_items[kind].contains(&id)
+    }
+
+    pub fn include(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
+        self.exluded_items[kind].remove(&id);
+    }
+
+    pub fn exclude(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
+        self.exluded_items[kind].insert(id);
+    }
+
+    pub fn normal_excludes_by_kind(
+        &self,
+        kind: PotFilterItemKind,
+    ) -> impl Iterator<Item = &u32> + '_ {
+        self.exluded_items[kind]
+            .iter()
+            .filter_map(|id| Some(id.0.as_ref()?))
+    }
+
+    pub fn contains_none(&self, kind: PotFilterItemKind) -> bool {
+        self.exluded_items[kind].contains(&FilterItemId::NONE)
     }
 }

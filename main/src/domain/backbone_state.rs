@@ -1,4 +1,6 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use crate::domain::pot::nks::FilterItemId;
+use crate::domain::pot::PotFilterExcludeList;
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
@@ -7,10 +9,11 @@ use crate::domain::{
     WeakInstanceState,
 };
 use enum_iterator::IntoEnumIterator;
+use enum_map::EnumMap;
 use playtime_clip_engine::rt::WeakMatrix;
-use realearn_api::persistence::TargetTouchCause;
+use realearn_api::persistence::{PotFilterItemKind, TargetTouchCause};
 use reaper_high::{Reaper, Track};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -34,6 +37,7 @@ pub struct BackboneState {
     /// control the same clip matrix from different controllers.
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
+    global_pot_filter_exclude_list: RefCell<PotFilterExcludeList>,
 }
 
 struct LastTouchedTargetsContainer {
@@ -130,7 +134,16 @@ impl BackboneState {
             upper_floor_instances: Default::default(),
             instance_states: Default::default(),
             was_processing_keyboard_input: Default::default(),
+            global_pot_filter_exclude_list: Default::default(),
         }
+    }
+
+    pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludeList> {
+        self.global_pot_filter_exclude_list.borrow()
+    }
+
+    pub fn pot_filter_exclude_list_mut(&self) -> RefMut<PotFilterExcludeList> {
+        self.global_pot_filter_exclude_list.borrow_mut()
     }
 
     /// Sets a flag that indicates that there's at least one ReaLearn mapping (in any instance)

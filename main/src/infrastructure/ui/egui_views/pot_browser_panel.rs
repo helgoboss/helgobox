@@ -1,6 +1,6 @@
 use crate::application::get_track_label;
 use crate::base::blocking_lock;
-use crate::domain::pot::nks::PresetId;
+use crate::domain::pot::nks::{FilterItemId, PresetId};
 use crate::domain::pot::{
     with_preset_db, ChangeHint, CurrentPreset, Destination, DestinationInstruction,
     DestinationTrackDescriptor, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset,
@@ -172,6 +172,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             );
                         ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
                             .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
+                        {
+                            let old = pot_unit.show_excluded_filter_items();
+                            let mut new = pot_unit.show_excluded_filter_items();
+                            ui.checkbox(&mut new, "Show excluded filters")
+                                .on_hover_text("Shows all previously excluded filters again, so you can include them again if you want.");
+                            if new != old {
+                                pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
+                            }
+                        }
                     });
                     // Add independent filter views
                     let heading_height = ui.text_style_height(&TextStyle::Heading);
@@ -696,16 +705,21 @@ fn add_filter_view_content(
     ui: &mut Ui,
     wrapped: bool,
 ) {
+    enum UiAction {
+        InOrExcludeFilter(PotFilterItemKind, FilterItemId, bool),
+    }
+    let mut action = None;
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
     let render = |ui: &mut Ui| {
+        let exclude_list = BackboneState::get().pot_filter_exclude_list();
         ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
         for filter_item in pot_unit.collections.find_all_filter_items(kind) {
-            let resp = ui.selectable_value(
-                &mut new_filter_item_id,
-                Some(filter_item.id),
-                filter_item.effective_leaf_name(),
-            );
+            let mut text = RichText::new(filter_item.effective_leaf_name());
+            if exclude_list.contains(kind, filter_item.id) {
+                text = text.color(ui.style().visuals.weak_text_color());
+            };
+            let mut resp = ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
             if let Some(parent_kind) = kind.parent() {
                 if let Some(parent_name) = filter_item.parent_name.as_ref() {
                     if !parent_name.is_empty() {
@@ -715,9 +729,23 @@ fn add_filter_view_content(
                             }
                             Some(n) => format!("{parent_name} / {n}"),
                         };
-                        resp.on_hover_text(tooltip);
+                        resp = resp.on_hover_text(tooltip);
                     }
                 }
+            }
+            if kind.allows_excludes() {
+                resp.context_menu(|ui| {
+                    let is_excluded = exclude_list.contains(kind, filter_item.id);
+                    let (text, include) = if is_excluded {
+                        ("Include again (globally)", true)
+                    } else {
+                        ("Exclude (globally)", false)
+                    };
+                    if ui.button(text).clicked() {
+                        action = Some(UiAction::InOrExcludeFilter(kind, filter_item.id, include));
+                        ui.close_menu();
+                    }
+                });
             }
         }
     };
@@ -726,8 +754,16 @@ fn add_filter_view_content(
     } else {
         ui.horizontal(render);
     }
+    // Execute actions
     if new_filter_item_id != old_filter_item_id {
         pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
+    }
+    if let Some(act) = action {
+        match act {
+            UiAction::InOrExcludeFilter(kind, id, include) => {
+                pot_unit.include_filter_item(kind, id, include, shared_pot_unit.clone());
+            }
+        }
     }
 }
 

@@ -1195,6 +1195,14 @@ impl PotFilterItemKind {
         Self::into_enum_iter()
     }
 
+    pub fn allows_excludes(&self) -> bool {
+        use PotFilterItemKind::*;
+        matches!(
+            self,
+            NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode
+        )
+    }
+
     pub fn parent(&self) -> Option<Self> {
         match self {
             PotFilterItemKind::NksSubBank => Some(PotFilterItemKind::NksBank),
