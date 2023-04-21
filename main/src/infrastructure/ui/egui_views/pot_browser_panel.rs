@@ -806,19 +806,20 @@ fn add_filter_view_content_as_icons(
     for filter_item in pot_unit.collections.find_all_filter_items(kind) {
         let selected_old = old_filter_item_id == Some(filter_item.id);
         let mut selected_new = selected_old;
-        let text = RichText::new(filter_item.icon.unwrap_or('-'))
-            .size(18.0)
-            .weak();
-        ui.toggle_value(&mut selected_new, text).on_hover_ui(|ui| {
+        let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(18.0);
+        if !selected_old {
+            text = text.weak();
+        }
+        let resp = ui.button(text).on_hover_ui(|ui| {
             ui.label(filter_item.effective_leaf_name());
         });
-        if selected_new != selected_old {
+        if resp.clicked() {
             new_filter_item_id = if selected_new {
                 Some(filter_item.id)
             } else {
                 None
             }
-        }
+        };
     }
     if new_filter_item_id != old_filter_item_id {
         pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
