@@ -816,20 +816,19 @@ fn add_filter_view_content_as_icons(
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
     for filter_item in pot_unit.collections.find_all_filter_items(kind) {
-        let selected_old = old_filter_item_id == Some(filter_item.id);
-        let mut selected_new = selected_old;
+        let currently_selected = old_filter_item_id == Some(filter_item.id);
         let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(18.0);
-        if !selected_old {
+        if !currently_selected {
             text = text.weak();
         }
         let resp = ui.button(text).on_hover_ui(|ui| {
             ui.label(filter_item.effective_leaf_name());
         });
         if resp.clicked() {
-            new_filter_item_id = if selected_new {
-                Some(filter_item.id)
-            } else {
+            new_filter_item_id = if currently_selected {
                 None
+            } else {
+                Some(filter_item.id)
             }
         };
     }
