@@ -90,7 +90,9 @@ impl PotUnit {
     pub fn persistent_state(&self) -> PersistentState {
         match self {
             PotUnit::Unloaded { state, .. } => state.clone(),
-            PotUnit::Loaded(u) => blocking_lock(u).persistent_state(),
+            PotUnit::Loaded(u) => {
+                blocking_lock(u, "PotUnit from persistence_state").persistent_state()
+            }
         }
     }
 }
@@ -419,7 +421,8 @@ impl RuntimePotUnit {
             show_excluded_filter_items: false,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
-        blocking_lock_arc(&shared_unit).rebuild_collections(shared_unit.clone(), None);
+        blocking_lock_arc(&shared_unit, "PotUnit from load")
+            .rebuild_collections(shared_unit.clone(), None);
         Ok(shared_unit)
     }
 
@@ -635,7 +638,8 @@ impl RuntimePotUnit {
             // (via encoder).
             {
                 tokio::time::sleep(Duration::from_millis(10)).await;
-                let pot_unit = blocking_lock_arc(&shared_self);
+                let pot_unit =
+                    blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
                 if pot_unit.change_counter != last_change_counter {
                     return Ok(());
                 }
@@ -650,7 +654,8 @@ impl RuntimePotUnit {
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
-            let mut pot_unit = blocking_lock_arc(&shared_self);
+            let mut pot_unit =
+                blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
             if pot_unit.change_counter != last_change_counter {
                 pot_unit.wasted_duration += build_outcome.stats.query_duration;
                 pot_unit.wasted_runs += 1;

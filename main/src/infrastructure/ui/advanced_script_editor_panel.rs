@@ -114,7 +114,7 @@ impl View for AdvancedScriptEditorPanel {
 
     fn timer(&self, _: usize) -> bool {
         if let Some(v) = self.value_receiver.try_iter().last() {
-            let v = blocking_lock(&v);
+            let v = blocking_lock(&v, "AdvancedScriptEditor value receiver (timer)");
             (self.set_value)(v.clone());
         }
         true

@@ -63,7 +63,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     };
                                     content += "\n";
                                     content += template.content;
-                                    *blocking_lock(&state.shared_value) = content;
+                                    *blocking_lock(
+                                        &state.shared_value,
+                                        "AdvancedScriptEditor run_ui 1",
+                                    ) = content;
                                     state.invalidate_and_send();
                                     ui.close_menu();
                                 }
@@ -78,7 +81,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 ui.hyperlink_to("Help", state.toolbox.help_url).clicked();
             });
             let response = {
-                let mut content = blocking_lock(&state.shared_value);
+                let mut content =
+                    blocking_lock(&state.shared_value, "AdvancedScriptEditor run_ui 2");
                 let text_edit = TextEdit::multiline(&mut *content).code_editor();
                 ui.add_sized(ui.available_size(), text_edit)
             };
@@ -316,7 +320,7 @@ impl State {
     }
 
     pub fn invalidate(&mut self) {
-        let content = blocking_lock(&self.shared_value);
+        let content = blocking_lock(&self.shared_value, "AdvancedScriptEditor State 1");
         self.last_build_outcome = self.toolbox.build(&content);
     }
 }

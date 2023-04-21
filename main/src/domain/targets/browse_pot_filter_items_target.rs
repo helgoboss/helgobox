@@ -54,7 +54,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
             Ok(u) => u,
             Err(_) => return (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
         };
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 1");
         let count = self.item_count(&pot_unit) + 1;
         let atomic_step_size = convert_count_to_step_size(count);
         (
@@ -89,7 +89,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     ) -> Result<u32, &'static str> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 2");
         let value = self
             .convert_unit_value_to_item_index(&pot_unit, value)
             .map(|i| i + 1)
@@ -104,7 +104,10 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     ) -> Result<HitResponse, &'static str> {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let shared_pot_unit = instance_state.pot_unit()?;
-        let mut pot_unit = blocking_lock_arc(&shared_pot_unit);
+        let mut pot_unit = blocking_lock_arc(
+            &shared_pot_unit,
+            "PotUnit from BrowsePotFilterItemsTarget hit",
+        );
         let item_index = self.convert_unit_value_to_item_index(&pot_unit, value.to_unit_value()?);
         let item_id = match item_index {
             None => None,
@@ -137,7 +140,8 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
                     Ok(u) => u,
                     Err(_) => return (false, None),
                 };
-                let pot_unit = blocking_lock_arc(&pot_unit);
+                let pot_unit =
+                    blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 3");
                 let value = self.convert_item_id_to_absolute_value(&pot_unit, *id);
                 (true, Some(value))
             }
@@ -156,7 +160,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         let index = if value == 0 { None } else { Some(value - 1) };
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 4");
         let uv = convert_discrete_to_unit_value_with_none(index, self.item_count(&pot_unit));
         Ok(uv)
     }
@@ -164,7 +168,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 5");
         let item_id = match self.current_item_id(&pot_unit) {
             None => return Some("Any".into()),
             Some(id) => id,
@@ -179,7 +183,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 6");
         let item_id = self.current_item_id(&pot_unit)?;
         let item_index = self.find_index_of_item(&pot_unit, item_id)?;
         Some(NumericValue::Discrete(item_index as i32 + 1))
@@ -192,7 +196,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 7");
         let item_id = self.current_item_id(&pot_unit)?;
         let item = self.find_item_by_id(&pot_unit, item_id)?;
         match key {
@@ -209,7 +213,7 @@ impl<'a> Target<'a> for BrowsePotFilterItemsTarget {
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 8");
         let item_id = self.current_item_id(&pot_unit);
         Some(self.convert_item_id_to_absolute_value(&pot_unit, item_id))
     }

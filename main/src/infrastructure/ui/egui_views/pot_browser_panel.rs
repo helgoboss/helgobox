@@ -21,7 +21,7 @@ use std::time::Duration;
 use swell_ui::Window;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
-    let pot_unit = &mut blocking_lock(&*state.pot_unit);
+    let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))

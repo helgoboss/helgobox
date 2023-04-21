@@ -6,6 +6,26 @@ use std::time::{Duration, Instant};
 static METRICS_ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("REALEARN_METRICS").is_ok());
 static METRICS_CHANNEL: Lazy<MetricsChannel> = Lazy::new(Default::default);
 
+/// A simple function that doesn't expose anything to the metrics endpoint but warns if a
+/// threshold is exceeded. Doesn't do anything in release builds (except executing the function).
+pub fn warn_if_takes_too_long<R>(label: &'static str, max: Duration, f: impl FnOnce() -> R) -> R {
+    #[cfg(debug_assertions)]
+    {
+        let before = Instant::now();
+        let r = f();
+        let elapsed = before.elapsed();
+        if elapsed > max {
+            tracing::warn!(
+                "Operation took too long: \"{label}\" ({})ms",
+                elapsed.as_millis()
+            );
+        }
+        r
+    }
+    #[cfg(not(debug_assertions))]
+    f()
+}
+
 /// Initializes the metrics channel.  
 pub fn init_metrics() {
     let _ = *METRICS_ENABLED;
@@ -25,6 +45,7 @@ pub fn init_metrics() {
         .unwrap();
 }
 
+/// Measures and records the time of the given operation and exposes it at the metrics endpoint.
 pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
     if !*METRICS_ENABLED {
         return f();

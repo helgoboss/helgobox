@@ -278,7 +278,7 @@ impl NksFile {
 
 pub fn with_preset_db<R>(f: impl FnOnce(&mut PresetDb) -> R) -> Result<R, &'static str> {
     let preset_db = preset_db()?;
-    let mut preset_db = blocking_lock(preset_db);
+    let mut preset_db = blocking_lock(preset_db, "with_preset_db");
     Ok(f(&mut preset_db))
 }
 

@@ -41,7 +41,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
             Ok(u) => u,
             Err(_) => return (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
         };
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 9");
         let count = self.preset_count(&pot_unit) + 1;
         let atomic_step_size = convert_count_to_step_size(count);
         (
@@ -76,7 +76,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     ) -> Result<u32, &'static str> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 1");
         let value = self
             .convert_unit_value_to_preset_index(&pot_unit, value)
             .map(|i| i + 1)
@@ -91,7 +91,8 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     ) -> Result<HitResponse, &'static str> {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let shared_pot_unit = instance_state.pot_unit()?;
-        let mut pot_unit = blocking_lock(&*shared_pot_unit);
+        let mut pot_unit =
+            blocking_lock(&*shared_pot_unit, "PotUnit from BrowsePotPresetsTarget 2");
         let preset_index =
             self.convert_unit_value_to_preset_index(&pot_unit, value.to_unit_value()?);
         let preset_id = match preset_index {
@@ -125,7 +126,8 @@ impl RealearnTarget for BrowsePotPresetsTarget {
                     Ok(u) => u,
                     Err(_) => return (false, None),
                 };
-                let pot_unit = blocking_lock_arc(&pot_unit);
+                let pot_unit =
+                    blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 3");
                 let value = self.convert_preset_id_to_absolute_value(&pot_unit, *id);
                 (true, Some(value))
             }
@@ -144,7 +146,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
         let index = if value == 0 { None } else { Some(value - 1) };
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 4");
         let uv = convert_discrete_to_unit_value_with_none(index, self.preset_count(&pot_unit));
         Ok(uv)
     }
@@ -152,7 +154,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 4");
         let preset_id = match self.current_preset_id(&pot_unit) {
             None => return Some("<None>".into()),
             Some(id) => id,
@@ -167,7 +169,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 5");
         let preset_id = self.current_preset_id(&pot_unit)?;
         let preset_index = self.find_index_of_preset(&pot_unit, preset_id)?;
         Some(NumericValue::Discrete(preset_index as i32 + 1))
@@ -184,7 +186,7 @@ impl<'a> Target<'a> for BrowsePotPresetsTarget {
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 6");
         let preset_id = self.current_preset_id(&pot_unit);
         Some(self.convert_preset_id_to_absolute_value(&pot_unit, preset_id))
     }

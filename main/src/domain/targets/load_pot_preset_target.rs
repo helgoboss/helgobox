@@ -61,7 +61,7 @@ impl RealearnTarget for LoadPotPresetTarget {
         }
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let mut pot_unit = blocking_lock_arc(&pot_unit);
+        let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 3");
         let preset_id = self
             .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
@@ -87,7 +87,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             Ok(u) => u,
             Err(_) => return false,
         };
-        let pot_unit = blocking_lock_arc(&pot_unit);
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 1");
         preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
     }
 
