@@ -417,7 +417,6 @@ impl PresetDb {
     }
 
     pub fn build_collections(&mut self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
-        let before = Instant::now();
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
@@ -429,6 +428,7 @@ impl PresetDb {
         //     collections).
         //  d) Query instrument/effect/loop/one-shot tables only.
         // Build filter collections
+        let filter_start_time = Instant::now();
         let affected_kinds = input.affected_kinds();
         let mut filter_items = self.build_filter_items(
             &input.state.filter_settings.nks,
@@ -484,7 +484,9 @@ impl PresetDb {
             fixed_settings
                 .clear_if_not_available_anymore(PotFilterItemKind::NksMode, &filter_items);
         }
+        let filter_query_duration = filter_start_time.elapsed();
         // Build preset collection
+        let preset_start_time = Instant::now();
         let search_criteria = SearchCriteria {
             expression: &input.state.search_expression,
             use_wildcards: input.state.use_wildcard_search,
@@ -494,6 +496,7 @@ impl PresetDb {
             search_criteria,
             &input.filter_exclude_list,
         )?;
+        let preset_query_duration = preset_start_time.elapsed();
         // Put everything together
         let collections = Collections {
             filter_item_collections: FilterItemCollections {
@@ -509,7 +512,8 @@ impl PresetDb {
             preset_collection,
         };
         let stats = Stats {
-            query_duration: before.elapsed(),
+            filter_query_duration,
+            preset_query_duration,
         };
         let outcome = BuildOutput {
             collections,

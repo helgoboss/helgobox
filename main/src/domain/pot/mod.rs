@@ -180,7 +180,14 @@ impl DestinationDescriptor {
 
 #[derive(Debug, Default)]
 pub struct Stats {
-    pub query_duration: Duration,
+    pub filter_query_duration: Duration,
+    pub preset_query_duration: Duration,
+}
+
+impl Stats {
+    pub fn total_query_duration(&self) -> Duration {
+        self.filter_query_duration + self.preset_query_duration
+    }
 }
 
 pub struct BuildInput<'a> {
@@ -660,7 +667,7 @@ impl RuntimePotUnit {
             let mut pot_unit =
                 blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
             if pot_unit.change_counter != last_change_counter {
-                pot_unit.wasted_duration += build_outcome.stats.query_duration;
+                pot_unit.wasted_duration += build_outcome.stats.total_query_duration();
                 pot_unit.wasted_runs += 1;
                 return Ok(());
             }
