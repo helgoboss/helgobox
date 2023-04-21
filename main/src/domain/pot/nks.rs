@@ -289,6 +289,27 @@ pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
     PRESET_DB.as_ref().map_err(|s| s.as_str())
 }
 
+/// This returns a second connection to the preset database.
+///
+/// At the moment, the UI thread continuously queries the database for the currently visible rows.
+/// This runs in parallel with expensive background queries. In order to not get UI freezes due
+/// to mutex contention, we need a second connection to the same DB.
+///
+/// This is probably temporary. Might be better performance-wise to keep the complete table data
+/// (names and other fields to be shown) in-memory.
+pub fn with_secondary_preset_db<R>(f: impl FnOnce(&mut PresetDb) -> R) -> Result<R, &'static str> {
+    let secondary_preset_db = secondary_preset_db()?;
+    let mut secondary_preset_db = blocking_lock(secondary_preset_db, "with_secondary_preset_db");
+    Ok(f(&mut secondary_preset_db))
+}
+
+pub fn secondary_preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
+    use once_cell::sync::Lazy;
+    static PRESET_DB: Lazy<Result<Mutex<PresetDb>, String>> =
+        Lazy::new(|| PresetDb::open().map_err(|e| e.to_string()));
+    PRESET_DB.as_ref().map_err(|s| s.as_str())
+}
+
 #[derive(serde::Deserialize)]
 struct PlidChunkContent {
     #[serde(rename = "VST.magic")]
