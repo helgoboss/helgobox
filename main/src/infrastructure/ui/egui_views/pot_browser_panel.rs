@@ -8,8 +8,8 @@ use crate::domain::pot::{
 };
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, Margin,
-    Modifiers, RichText, ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
+    vec2, Align, Button, CentralPanel, Color32, Direction, DragValue, Event, Frame, Key, Layout,
+    Margin, Modifiers, RichText, ScrollArea, Spinner, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -22,6 +22,9 @@ use swell_ui::Window;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
+    // Query commonly used stuff
+    let background_task_elapsed = pot_unit.background_task_elapsed();
+    // Prepare toasts
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
@@ -181,6 +184,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
                             }
                         }
+                        // Spinner
+                        if background_task_elapsed.is_some() {
+                            ui.spinner();
+                        }
+                        // Mini filters
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
@@ -344,7 +352,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 if state.show_stats {
                     ui.horizontal(|ui| {
                         ui.strong("Last query: ");
-                        ui.label(format!("{}ms", pot_unit.stats.query_duration.as_millis()));
+                        let text_height = TextStyle::Body.resolve(ui.style()).size;
+                        ui.allocate_ui_with_layout(vec2(100.0, text_height), Layout::centered_and_justified(Direction::LeftToRight), |ui | {
+                            let duration = background_task_elapsed.unwrap_or(pot_unit.stats.query_duration);
+                            ui.label(format!("{}ms", duration.as_millis()));
+                        });
                         ui.strong("Wasted runs/time: ");
                         ui.label(format!("{}/{}ms", pot_unit.wasted_runs, pot_unit.wasted_duration.as_millis()));
                     });

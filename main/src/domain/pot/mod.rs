@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub mod nks;
 mod worker;
@@ -111,6 +111,7 @@ pub struct RuntimePotUnit {
     pub destination_descriptor: DestinationDescriptor,
     pub name_track_after_preset: bool,
     show_excluded_filter_items: bool,
+    background_task_start_time: Option<Instant>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -419,6 +420,7 @@ impl RuntimePotUnit {
             destination_descriptor: Default::default(),
             name_track_after_preset: true,
             show_excluded_filter_items: false,
+            background_task_start_time: None,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit, "PotUnit from load")
@@ -631,11 +633,12 @@ impl RuntimePotUnit {
             .clear_excluded_ones(&filter_exclude_list);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.change_counter += 1;
+        self.background_task_start_time = Some(Instant::now());
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
             // Debounce (cheap)
-            // If we remove this, the wasted runs will increase when quickly changing filters
-            // (via encoder).
+            // If we don't do this, the wasted runs will dramatically increase when quickly changing
+            // filters while last query still running.
             {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 let pot_unit =
@@ -666,7 +669,12 @@ impl RuntimePotUnit {
         });
     }
 
+    pub fn background_task_elapsed(&self) -> Option<Duration> {
+        Some(self.background_task_start_time?.elapsed())
+    }
+
     fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
+        self.background_task_start_time = None;
         self.collections.preset_collection = build_outcome.collections.preset_collection;
         for (kind, collection) in build_outcome
             .collections
