@@ -538,7 +538,9 @@ impl PresetDb {
             filter_settings,
             search_criteria,
             "i.id",
+            None,
             exclude_list,
+            Some("i.name"),
             |row| Ok(PresetId(row.get(0)?)),
         )
     }
@@ -557,7 +559,9 @@ impl PresetDb {
             &filters,
             SearchCriteria::empty(),
             "DISTINCT i.bank_chain_id",
+            None,
             exclude_list,
+            None,
             optional_filter_item_id,
         )
     }
@@ -574,7 +578,9 @@ impl PresetDb {
             &filters,
             SearchCriteria::empty(),
             "DISTINCT ic.category_id",
+            Some(CATEGORY_JOIN),
             exclude_list,
+            None,
             optional_filter_item_id,
         )
     }
@@ -589,7 +595,9 @@ impl PresetDb {
             &filters,
             SearchCriteria::empty(),
             "DISTINCT im.mode_id",
+            Some(MODE_JOIN),
             exclude_list,
+            None,
             optional_filter_item_id,
         )
     }
@@ -599,7 +607,9 @@ impl PresetDb {
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         select_clause: &str,
+        from_more: Option<&str>,
         exclude_list: &PotFilterExcludeList,
+        order_by: Option<&str>,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<IndexSet<R>, Box<dyn Error>>
     where
@@ -608,53 +618,99 @@ impl PresetDb {
         use std::fmt::Write;
         let mut sql = Sql::default();
         sql.select(select_clause);
-        sql.from("k_sound_info i");
-        sql.order_by("i.name");
-        sql.from_more("LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id");
-        sql.from_more("LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id");
-        // Filter on product type (= instrument, effect, loop or one shot)
-        if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
-            match product_type.0 {
-                None => {
-                    // This query is nuts. The database is not optimized for this filter combination.
-                    // TODO-medium Not sure if NOT EXISTS ist faster.
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id");
-                    sql.from_more("LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id");
-                    sql.where_and("pi1.id IS NULL");
-                    sql.where_and("pi2.id IS NULL");
-                    sql.where_and("pe1.id IS NULL");
-                    sql.where_and("pe2.id IS NULL");
-                    sql.where_and("pl1.id IS NULL");
-                    sql.where_and("pl2.id IS NULL");
-                    sql.where_and("po1.id IS NULL");
-                    sql.where_and("po2.id IS NULL");
-                }
-                Some(id) => {
-                    let table_base_name = match id {
-                        1 => "Instrument",
-                        2 => "Effect",
-                        3 => "Loop",
-                        4 => "Oneshot",
-                        _ => return Err("unknown product type filter item".into()),
-                    };
-                    // TODO-medium Not sure if EXISTS ist faster.
-                    sql.from_more(format!("JOIN (SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS p ON p.id = i.id"));
+        if let Some(v) = from_more {
+            sql.from_more(v);
+        }
+        if let Some(v) = order_by {
+            sql.order_by(v);
+        }
+        // Much depends on the filtering on product type (= instrument, effect, loop or one shot)
+        match filter_settings.get(PotFilterItemKind::NksProductType) {
+            None => {
+                // No specific product type selected. It's best if we use the very large table that
+                // contains each and every preset!
+                sql.from("k_sound_info i");
+                // Manually filter on content type (= factory or user)
+                if let Some(FilterItemId(Some(content_type))) =
+                    filter_settings.get_ref(PotFilterItemKind::NksContentType)
+                {
+                    sql.from_more(CONTENT_PATH_JOIN);
+                    sql.where_and_with_param("cp.content_type = ?", content_type);
                 }
             }
-        }
-        // Filter on content type (= factory or user)
-        if let Some(FilterItemId(Some(content_type))) =
-            filter_settings.get_ref(PotFilterItemKind::NksContentType)
-        {
-            sql.from_more("JOIN k_content_path cp ON cp.id = i.content_path_id");
-            sql.where_and_with_param("cp.content_type = ?", content_type);
-        }
+            Some(product_type) => {
+                match product_type.0 {
+                    None => {
+                        // We are looking for presets that are not bound to *any* product type.
+                        sql.from("k_sound_info i");
+                        // This query is nuts. The database is not optimized for this filter combination.
+                        // TODO-medium Not sure if NOT EXISTS ist faster.
+                        sql.from_more(
+                            "LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id",
+                        );
+                        sql.from_more(
+                            "LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id",
+                        );
+                        sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id");
+                        sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id");
+                        sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id");
+                        sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id");
+                        sql.from_more(
+                            "LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id",
+                        );
+                        sql.from_more(
+                            "LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id",
+                        );
+                        sql.where_and("pi1.id IS NULL");
+                        sql.where_and("pi2.id IS NULL");
+                        sql.where_and("pe1.id IS NULL");
+                        sql.where_and("pe2.id IS NULL");
+                        sql.where_and("pl1.id IS NULL");
+                        sql.where_and("pl2.id IS NULL");
+                        sql.where_and("po1.id IS NULL");
+                        sql.where_and("po2.id IS NULL");
+                        // Manually filter on content type (= factory or user)
+                        if let Some(FilterItemId(Some(content_type))) =
+                            filter_settings.get_ref(PotFilterItemKind::NksContentType)
+                        {
+                            sql.from_more(CONTENT_PATH_JOIN);
+                            sql.where_and_with_param("cp.content_type = ?", content_type);
+                        }
+                    }
+                    Some(product_type) => {
+                        // We are looking for presets with a specific product type. The fastest
+                        // way is to look into the specially prepared tables.
+                        let table_base_name = match product_type {
+                            1 => "Instrument",
+                            2 => "Effect",
+                            3 => "Loop",
+                            4 => "Oneshot",
+                            _ => return Err("unknown product type filter item".into()),
+                        };
+                        // But actually there are two versions of each table. The one ending
+                        // on _1 contains those with content type 1 (= user presets). The one
+                        // ending on _2 contains those with content type 2 (= factory presets).
+                        // So we have the change to get rid of manual filtering.
+                        match filter_settings.get_ref(PotFilterItemKind::NksContentType) {
+                            None => {
+                                // Damn. We want both factory and user presets. So we need to
+                                // union both tables.
+                                sql.from(format!("(SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS i"));
+                            }
+                            Some(content_type) => {
+                                let Some(content_type) = content_type.0 else {
+                                    return Err("filtering on content type <None> not allowed ... each preset has a content type!".into());
+                                };
+                                // Jackpot! This is the sweet spot: We can save lots of filtering.
+                                sql.from(format!(
+                                    "p_sound_info_{table_base_name}_{content_type} i"
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        };
         // Filter on favorite or not
         if let Some(FilterItemId(Some(favorite))) =
             filter_settings.get_ref(PotFilterItemKind::NksFavorite)
@@ -662,7 +718,8 @@ impl PresetDb {
             let is_favorite = *favorite == 1;
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
-                    sql.from_more("JOIN favorites_db.favorites f ON i.favorite_id = f.id");
+                    // TODO-high Check if "i.favorite_id IN is" or "EXISTS (SELECT id FROM ...)
+                    sql.from_more(FAVORITES_JOIN);
                 } else {
                     sql.where_and("i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)");
                 }
@@ -673,7 +730,16 @@ impl PresetDb {
         }
         // Filter on bank and sub bank (= "Instrument" and "Bank")
         if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
-            sql.where_and_with_param("i.bank_chain_id IS ?", sub_bank_id);
+            // TODO-high Check if the performance difference matters. Otherwise we can always
+            //  use "IS ?"
+            match &sub_bank_id.0 {
+                None => {
+                    sql.where_and("i.bank_chain_id IS NULL");
+                }
+                Some(id) => {
+                    sql.where_and_with_param("i.bank_chain_id = ?", id);
+                }
+            }
         } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::NksBank) {
             sql.where_and_with_param(
                 r#"
@@ -687,8 +753,18 @@ impl PresetDb {
         }
         // Filter on category and sub category (= "Type" and "Sub type")
         if let Some(sub_category_id) = filter_settings.effective_sub_category() {
-            sql.where_and_with_param("ic.category_id IS ?", sub_category_id);
+            match &sub_category_id.0 {
+                None => {
+                    sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_category)")
+                }
+                Some(id) => {
+                    sql.from_more(CATEGORY_JOIN);
+                    sql.where_and_with_param("ic.category_id = ?", id);
+                }
+            }
         } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::NksCategory) {
+            // At this point, category_id cannot be <None> anymore (see effective_sub_category)
+            sql.from_more(CATEGORY_JOIN);
             sql.where_and_with_param(
                 r#"
                 ic.category_id IN (
@@ -701,7 +777,13 @@ impl PresetDb {
         }
         // Filter on mode (= "Character")
         if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::NksMode) {
-            sql.where_and_with_param("im.mode_id IS ?", mode_id);
+            match &mode_id.0 {
+                None => sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_mode)"),
+                Some(id) => {
+                    sql.from_more(MODE_JOIN);
+                    sql.where_and_with_param("im.mode_id = ?", mode_id);
+                }
+            }
         }
         // Search expression
         let search_expression = search_criteria.expression;
@@ -721,21 +803,23 @@ impl PresetDb {
             sql.where_and_with_param("i.name LIKE ?", &like_expression);
         }
         // Exclude filters
-        for kind in PotFilterItemKind::into_enum_iter() {
-            use PotFilterItemKind::*;
-            let selector = match kind {
-                NksBank | NksSubBank => "i.bank_chain_id",
-                NksCategory | NksSubCategory => "ic.category_id",
-                NksMode => "im.mode_id",
-                _ => continue,
-            };
-            if exclude_list.contains_none(kind) {
-                sql.where_and(format!("{selector} IS NOT NULL"));
-            }
-            for exclude in exclude_list.normal_excludes_by_kind(kind) {
-                sql.where_and_with_param(format!("{selector} <> ?"), exclude);
-            }
-        }
+        // TODO-high Implement exclude filters. We can actually simplify the contains_none.
+        //  And for the normal excludes, it's enough if the JOIN is on board.
+        // for kind in PotFilterItemKind::into_enum_iter() {
+        //     use PotFilterItemKind::*;
+        //     let selector = match kind {
+        //         NksBank | NksSubBank => "i.bank_chain_id",
+        //         NksCategory | NksSubCategory => "ic.category_id",
+        //         NksMode => "im.mode_id",
+        //         _ => continue,
+        //     };
+        //     if exclude_list.contains_none(kind) {
+        //         sql.where_and(format!("{selector} IS NOT NULL"));
+        //     }
+        //     for exclude in exclude_list.normal_excludes_by_kind(kind) {
+        //         sql.where_and_with_param(format!("{selector} <> ?"), exclude);
+        //     }
+        // }
         // Put it all together
         // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
         // but this makes it considerably slower.
@@ -975,3 +1059,8 @@ impl<'a> Display for Sql<'a> {
         Ok(())
     }
 }
+
+const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
+const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
+const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
+const FAVORITES_JOIN: &str = "JOIN favorites_db.favorites f ON i.favorite_id = f.id";
