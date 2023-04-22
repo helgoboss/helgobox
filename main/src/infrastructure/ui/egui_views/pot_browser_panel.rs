@@ -352,16 +352,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 if state.show_stats {
                     ui.horizontal(|ui| {
                         ui.strong("Last query: ");
-                        let text_height = TextStyle::Body.resolve(ui.style()).size;
-                        ui.allocate_ui_with_layout(vec2(150.0, text_height), Layout::centered_and_justified(Direction::LeftToRight), |ui | {
-                            ui.horizontal(|ui| {
-                                let total_duration = background_task_elapsed.unwrap_or(pot_unit.stats.total_query_duration());
-                                ui.label(format!("{}ms", total_duration.as_millis()));
-                                if background_task_elapsed.is_none() {
-                                    ui.label(format!("(= {} + {})", pot_unit.stats.filter_query_duration.as_millis(), pot_unit.stats.preset_query_duration.as_millis()));
-                                }
-                            });
-                        });
+                        let total_duration = background_task_elapsed.unwrap_or(pot_unit.stats.total_query_duration());
+                        ui.label(format!("{}ms", total_duration.as_millis()));
+                        if background_task_elapsed.is_none() {
+                            ui.label(format!("(= {}ms + {}ms)", pot_unit.stats.filter_query_duration.as_millis(), pot_unit.stats.preset_query_duration.as_millis()));
+                        }
                         ui.strong("Wasted runs/time: ");
                         ui.label(format!("{}/{}ms", pot_unit.wasted_runs, pot_unit.wasted_duration.as_millis()));
                     });
