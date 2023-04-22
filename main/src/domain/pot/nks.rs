@@ -540,6 +540,8 @@ impl PresetDb {
             "i.id",
             None,
             exclude_list,
+            // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
+            // but this makes it considerably slower.
             Some("i.name"),
             |row| Ok(PresetId(row.get(0)?)),
         )
@@ -646,9 +648,15 @@ impl PresetDb {
             let is_favorite = *favorite == 1;
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
-                    // TODO-high Check if "i.favorite_id IN is" or "EXISTS (SELECT id FROM ...)
-                    sql.from_more(FAVORITES_JOIN);
+                    // The IN query is vastly superior compared to the other two (EXISTS and JOIN)!
+                    sql.where_and("i.favorite_id IN (SELECT id FROM favorites_db.favorites)");
+                    // sql.from_more(FAVORITES_JOIN);
+                    // sql.where_and(
+                    //     "EXISTS (SELECT 1 FROM favorites_db.favorites f WHERE f.id = i.favorite_id)",
+                    // );
                 } else {
+                    // NOT EXISTS is in the same ballpark ... takes long. Fortunately,  this filter
+                    // is not popular.
                     sql.where_and("i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)");
                 }
             } else if is_favorite {
@@ -658,8 +666,6 @@ impl PresetDb {
         }
         // Filter on bank and sub bank (= "Instrument" and "Bank")
         if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
-            // TODO-high Check if the performance difference matters. Otherwise we can always
-            //  use "IS ?"
             match &sub_bank_id.0 {
                 None => {
                     sql.where_and("i.bank_chain_id IS NULL");
@@ -749,8 +755,6 @@ impl PresetDb {
         //     }
         // }
         // Put it all together
-        // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
-        // but this makes it considerably slower.
         let mut statement = self.connection.prepare_cached(&sql.to_string())?;
         let collection: Result<IndexSet<R>, _> = statement
             .query(sql.params.as_slice())?
