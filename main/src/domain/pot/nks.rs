@@ -13,8 +13,10 @@ use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::iter;
 use std::path::{Path, PathBuf};
@@ -604,35 +606,34 @@ impl PresetDb {
         R: Hash + Eq,
     {
         use std::fmt::Write;
-        let mut where_extras = String::new();
-        let mut from_extras = String::new();
-        let mut params: Vec<&dyn ToSql> = vec![];
+        let mut sql = Sql::default();
+        sql.select(select_clause);
+        sql.from("k_sound_info i");
+        sql.order_by("i.name");
+        sql.from_more("LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id");
+        sql.from_more("LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id");
         // Filter on product type (= instrument, effect, loop or one shot)
         if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
             match product_type.0 {
                 None => {
                     // This query is nuts. The database is not optimized for this filter combination.
                     // TODO-medium Not sure if NOT EXISTS ist faster.
-                    from_extras += r#"
-                        LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id
-                        LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id
-                    "#;
-                    where_extras += r#" 
-                        AND pi1.id IS NULL
-                        AND pi2.id IS NULL
-                        AND pe1.id IS NULL
-                        AND pe2.id IS NULL
-                        AND pl1.id IS NULL
-                        AND pl2.id IS NULL
-                        AND po1.id IS NULL
-                        AND po2.id IS NULL
-                    "#;
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id");
+                    sql.from_more("LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id");
+                    sql.where_and("pi1.id IS NULL");
+                    sql.where_and("pi2.id IS NULL");
+                    sql.where_and("pe1.id IS NULL");
+                    sql.where_and("pe2.id IS NULL");
+                    sql.where_and("pl1.id IS NULL");
+                    sql.where_and("pl2.id IS NULL");
+                    sql.where_and("po1.id IS NULL");
+                    sql.where_and("po2.id IS NULL");
                 }
                 Some(id) => {
                     let table_base_name = match id {
@@ -643,7 +644,7 @@ impl PresetDb {
                         _ => return Err("unknown product type filter item".into()),
                     };
                     // TODO-medium Not sure if EXISTS ist faster.
-                    write!(&mut from_extras, " JOIN (SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS p ON p.id = i.id")?;
+                    sql.from_more(format!("JOIN (SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS p ON p.id = i.id"));
                 }
             }
         }
@@ -651,9 +652,8 @@ impl PresetDb {
         if let Some(FilterItemId(Some(content_type))) =
             filter_settings.get_ref(PotFilterItemKind::NksContentType)
         {
-            from_extras += " JOIN k_content_path cp ON cp.id = i.content_path_id";
-            where_extras += " AND cp.content_type = ?";
-            params.push(content_type)
+            sql.from_more("JOIN k_content_path cp ON cp.id = i.content_path_id");
+            sql.where_and_with_param("cp.content_type = ?", content_type);
         }
         // Filter on favorite or not
         if let Some(FilterItemId(Some(favorite))) =
@@ -662,46 +662,46 @@ impl PresetDb {
             let is_favorite = *favorite == 1;
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
-                    from_extras += " JOIN favorites_db.favorites f ON i.favorite_id = f.id";
+                    sql.from_more("JOIN favorites_db.favorites f ON i.favorite_id = f.id");
                 } else {
-                    where_extras +=
-                        " AND i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)";
+                    sql.where_and("i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)");
                 }
             } else if is_favorite {
                 // If the favorites database doesn't exist, it means we have no favorites!
-                where_extras += " AND false";
+                sql.where_and("false");
             }
         }
         // Filter on bank and sub bank (= "Instrument" and "Bank")
         if let Some(sub_bank_id) = filter_settings.effective_sub_bank() {
-            where_extras += " AND i.bank_chain_id IS ?";
-            params.push(sub_bank_id);
+            sql.where_and_with_param("i.bank_chain_id IS ?", sub_bank_id);
         } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::NksBank) {
-            where_extras += r#"
-                AND i.bank_chain_id IN (
+            sql.where_and_with_param(
+                r#"
+                i.bank_chain_id IN (
                     SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
                         SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
                     ) 
-                )"#;
-            params.push(bank_id);
+                )"#,
+                bank_id,
+            );
         }
         // Filter on category and sub category (= "Type" and "Sub type")
         if let Some(sub_category_id) = filter_settings.effective_sub_category() {
-            where_extras += " AND ic.category_id IS ?";
-            params.push(sub_category_id);
+            sql.where_and_with_param("ic.category_id IS ?", sub_category_id);
         } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::NksCategory) {
-            where_extras += r#"
-                AND ic.category_id IN (
+            sql.where_and_with_param(
+                r#"
+                ic.category_id IN (
                     SELECT child.id FROM k_category child WHERE child.category = (
                         SELECT parent.category FROM k_category parent WHERE parent.id = ?
                     )
-                )"#;
-            params.push(category_id);
+                )"#,
+                category_id,
+            );
         }
         // Filter on mode (= "Character")
         if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::NksMode) {
-            where_extras += " AND im.mode_id IS ?";
-            params.push(mode_id);
+            sql.where_and_with_param("im.mode_id IS ?", mode_id);
         }
         // Search expression
         let search_expression = search_criteria.expression;
@@ -718,8 +718,7 @@ impl PresetDb {
             format!("%{search_expression}%")
         };
         if !search_expression.is_empty() {
-            where_extras += " AND i.name LIKE ?";
-            params.push(&like_expression);
+            sql.where_and_with_param("i.name LIKE ?", &like_expression);
         }
         // Exclude filters
         for kind in PotFilterItemKind::into_enum_iter() {
@@ -731,30 +730,18 @@ impl PresetDb {
                 _ => continue,
             };
             if exclude_list.contains_none(kind) {
-                write!(&mut where_extras, " AND {selector} IS NOT NULL")?;
+                sql.where_and(format!("{selector} IS NOT NULL"));
             }
             for exclude in exclude_list.normal_excludes_by_kind(kind) {
-                write!(&mut where_extras, " AND {selector} <> ?")?;
-                params.push(exclude);
+                sql.where_and_with_param(format!("{selector} <> ?"), exclude);
             }
         }
         // Put it all together
         // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
         // but this makes it considerably slower.
-        let sql = format!(
-            r#"
-            SELECT {select_clause}
-            FROM k_sound_info i
-                LEFT OUTER JOIN k_sound_info_category ic ON i.id = ic.sound_info_id
-                LEFT OUTER JOIN k_sound_info_mode im ON i.id = im.sound_info_id
-                {from_extras}
-            WHERE true{where_extras}
-            ORDER BY i.name
-            "#
-        );
-        let mut statement = self.connection.prepare_cached(&sql)?;
+        let mut statement = self.connection.prepare_cached(&sql.to_string())?;
         let collection: Result<IndexSet<R>, _> = statement
-            .query(params.as_slice())?
+            .query(sql.params.as_slice())?
             .mapped(|row| row_mapper(row))
             .collect();
         Ok(collection?)
@@ -922,5 +909,69 @@ struct SearchCriteria<'a> {
 impl<'a> SearchCriteria<'a> {
     pub fn empty() -> Self {
         Self::default()
+    }
+}
+
+#[derive(Default)]
+struct Sql<'a> {
+    select_clause: Cow<'a, str>,
+    from_main: Cow<'a, str>,
+    from_joins: BTreeSet<Cow<'a, str>>,
+    where_conjunctions: Vec<Cow<'a, str>>,
+    order_by_conditions: Vec<Cow<'a, str>>,
+    params: Vec<&'a dyn ToSql>,
+}
+
+impl<'a> Sql<'a> {
+    pub fn select(&mut self, value: impl Into<Cow<'a, str>>) {
+        self.select_clause = value.into();
+    }
+
+    pub fn from(&mut self, value: impl Into<Cow<'a, str>>) {
+        self.from_main = value.into();
+    }
+
+    pub fn from_more(&mut self, value: impl Into<Cow<'a, str>>) {
+        self.from_joins.insert(value.into());
+    }
+
+    pub fn where_and_with_param(&mut self, value: impl Into<Cow<'a, str>>, param: &'a dyn ToSql) {
+        self.where_and(value);
+        self.params.push(param);
+    }
+
+    pub fn where_and(&mut self, value: impl Into<Cow<'a, str>>) {
+        self.where_conjunctions.push(value.into());
+    }
+
+    pub fn order_by(&mut self, value: impl Into<Cow<'a, str>>) {
+        self.order_by_conditions.push(value.into());
+    }
+}
+
+impl<'a> Display for Sql<'a> {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        writeln!(f, "SELECT {}", &self.select_clause)?;
+        writeln!(f, "FROM {}", &self.from_main)?;
+        for join in &self.from_joins {
+            writeln!(f, "    {}", join)?;
+        }
+        for (i, cond) in self.where_conjunctions.iter().enumerate() {
+            if i == 0 {
+                writeln!(f, "WHERE {}", cond)?;
+            } else {
+                writeln!(f, "    AND {}", cond)?;
+            }
+        }
+        if !self.order_by_conditions.is_empty() {
+            write!(f, "ORDER BY ")?;
+        }
+        for (i, cond) in self.order_by_conditions.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            cond.fmt(f)?;
+        }
+        Ok(())
     }
 }
