@@ -618,98 +618,26 @@ impl PresetDb {
         use std::fmt::Write;
         let mut sql = Sql::default();
         sql.select(select_clause);
+        sql.from("k_sound_info i");
         if let Some(v) = from_more {
             sql.from_more(v);
         }
         if let Some(v) = order_by {
             sql.order_by(v);
         }
-        // Much depends on the filtering on product type (= instrument, effect, loop or one shot)
-        match filter_settings.get(PotFilterItemKind::NksProductType) {
-            None => {
-                // No specific product type selected. It's best if we use the very large table that
-                // contains each and every preset!
-                sql.from("k_sound_info i");
-                // Manually filter on content type (= factory or user)
-                if let Some(FilterItemId(Some(content_type))) =
-                    filter_settings.get_ref(PotFilterItemKind::NksContentType)
-                {
-                    sql.from_more(CONTENT_PATH_JOIN);
-                    sql.where_and_with_param("cp.content_type = ?", content_type);
-                }
-            }
-            Some(product_type) => {
-                match product_type.0 {
-                    None => {
-                        // We are looking for presets that are not bound to *any* product type.
-                        sql.from("k_sound_info i");
-                        // This query is nuts. The database is not optimized for this filter combination.
-                        // TODO-medium Not sure if NOT EXISTS ist faster.
-                        sql.from_more(
-                            "LEFT OUTER JOIN p_sound_info_Instrument_1 pi1 ON pi1.id = i.id",
-                        );
-                        sql.from_more(
-                            "LEFT OUTER JOIN p_sound_info_Instrument_2 pi2 ON pi2.id = i.id",
-                        );
-                        sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_1 pe1 ON pe1.id = i.id");
-                        sql.from_more("LEFT OUTER JOIN p_sound_info_Effect_2 pe2 ON pe2.id = i.id");
-                        sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_1 pl1 ON pl1.id = i.id");
-                        sql.from_more("LEFT OUTER JOIN p_sound_info_Loop_2 pl2 ON pl2.id = i.id");
-                        sql.from_more(
-                            "LEFT OUTER JOIN p_sound_info_Oneshot_1 po1 ON po1.id = i.id",
-                        );
-                        sql.from_more(
-                            "LEFT OUTER JOIN p_sound_info_Oneshot_2 po2 ON po2.id = i.id",
-                        );
-                        sql.where_and("pi1.id IS NULL");
-                        sql.where_and("pi2.id IS NULL");
-                        sql.where_and("pe1.id IS NULL");
-                        sql.where_and("pe2.id IS NULL");
-                        sql.where_and("pl1.id IS NULL");
-                        sql.where_and("pl2.id IS NULL");
-                        sql.where_and("po1.id IS NULL");
-                        sql.where_and("po2.id IS NULL");
-                        // Manually filter on content type (= factory or user)
-                        if let Some(FilterItemId(Some(content_type))) =
-                            filter_settings.get_ref(PotFilterItemKind::NksContentType)
-                        {
-                            sql.from_more(CONTENT_PATH_JOIN);
-                            sql.where_and_with_param("cp.content_type = ?", content_type);
-                        }
-                    }
-                    Some(product_type) => {
-                        // We are looking for presets with a specific product type. The fastest
-                        // way is to look into the specially prepared tables.
-                        let table_base_name = match product_type {
-                            1 => "Instrument",
-                            2 => "Effect",
-                            3 => "Loop",
-                            4 => "Oneshot",
-                            _ => return Err("unknown product type filter item".into()),
-                        };
-                        // But actually there are two versions of each table. The one ending
-                        // on _1 contains those with content type 1 (= user presets). The one
-                        // ending on _2 contains those with content type 2 (= factory presets).
-                        // So we have the change to get rid of manual filtering.
-                        match filter_settings.get_ref(PotFilterItemKind::NksContentType) {
-                            None => {
-                                // Damn. We want both factory and user presets. So we need to
-                                // union both tables.
-                                sql.from(format!("(SELECT * FROM p_sound_info_{table_base_name}_1 UNION ALL SELECT * FROM p_sound_info_{table_base_name}_2) AS i"));
-                            }
-                            Some(content_type) => {
-                                let Some(content_type) = content_type.0 else {
-                                    return Err("filtering on content type <None> not allowed ... each preset has a content type!".into());
-                                };
-                                // Jackpot! This is the sweet spot: We can save lots of filtering.
-                                sql.from(format!(
-                                    "p_sound_info_{table_base_name}_{content_type} i"
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
+        // Filter on content type (= factory or user)
+        if let Some(FilterItemId(Some(content_type))) =
+            filter_settings.get_ref(PotFilterItemKind::NksContentType)
+        {
+            sql.from_more(CONTENT_PATH_JOIN);
+            sql.where_and_with_param("cp.content_type = ?", content_type);
+        }
+        // Filter on product/device type (= instrument, effect, loop or one shot)
+        let empty_device_type_flags = 0;
+        if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
+            // We chose the filter item IDs so they correspond to the device type flags.
+            let device_type_flags = product_type.0.as_ref().unwrap_or(&empty_device_type_flags);
+            sql.where_and_with_param("i.device_type_flags = ?", device_type_flags);
         };
         // Filter on favorite or not
         if let Some(FilterItemId(Some(favorite))) =
@@ -869,8 +797,8 @@ impl PresetDb {
                     FilterItem::none(),
                     FilterItem::simple(1, "Instrument", '🎹'),
                     FilterItem::simple(2, "Effect", '✨'),
-                    FilterItem::simple(3, "Loop", '➿'),
-                    FilterItem::simple(4, "One shot", '💥'),
+                    FilterItem::simple(4, "Loop", '➿'),
+                    FilterItem::simple(8, "One shot", '💥'),
                 ]
             }
             NksFavorite => {
