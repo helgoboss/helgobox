@@ -1117,6 +1117,10 @@ impl PotFilterExcludeList {
         self.exluded_items[kind].insert(id);
     }
 
+    pub fn has_excludes(&self, kind: PotFilterItemKind) -> bool {
+        !self.exluded_items[kind].is_empty()
+    }
+
     pub fn normal_excludes_by_kind(
         &self,
         kind: PotFilterItemKind,

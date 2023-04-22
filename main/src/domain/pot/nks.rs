@@ -737,23 +737,30 @@ impl PresetDb {
             sql.where_and_with_param("i.name LIKE ?", &like_expression);
         }
         // Exclude filters
-        // TODO-high Implement exclude filters. We can actually simplify the contains_none.
-        //  And for the normal excludes, it's enough if the JOIN is on board.
-        // for kind in PotFilterItemKind::into_enum_iter() {
-        //     use PotFilterItemKind::*;
-        //     let selector = match kind {
-        //         NksBank | NksSubBank => "i.bank_chain_id",
-        //         NksCategory | NksSubCategory => "ic.category_id",
-        //         NksMode => "im.mode_id",
-        //         _ => continue,
-        //     };
-        //     if exclude_list.contains_none(kind) {
-        //         sql.where_and(format!("{selector} IS NOT NULL"));
-        //     }
-        //     for exclude in exclude_list.normal_excludes_by_kind(kind) {
-        //         sql.where_and_with_param(format!("{selector} <> ?"), exclude);
-        //     }
-        // }
+        for kind in PotFilterItemKind::into_enum_iter() {
+            if !exclude_list.has_excludes(kind) {
+                continue;
+            }
+            use PotFilterItemKind::*;
+            let selector = match kind {
+                NksBank | NksSubBank => "i.bank_chain_id",
+                NksCategory | NksSubCategory => {
+                    sql.from_more(CATEGORY_JOIN);
+                    "ic.category_id"
+                }
+                NksMode => {
+                    sql.from_more(MODE_JOIN);
+                    "im.mode_id"
+                }
+                _ => continue,
+            };
+            if exclude_list.contains_none(kind) {
+                sql.where_and(format!("{selector} IS NOT NULL"));
+            }
+            for exclude in exclude_list.normal_excludes_by_kind(kind) {
+                sql.where_and_with_param(format!("{selector} <> ?"), exclude);
+            }
+        }
         // Put it all together
         let mut statement = self.connection.prepare_cached(&sql.to_string())?;
         let collection: Result<IndexSet<R>, _> = statement
@@ -995,4 +1002,3 @@ impl<'a> Display for Sql<'a> {
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
 const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
 const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
-const FAVORITES_JOIN: &str = "JOIN favorites_db.favorites f ON i.favorite_id = f.id";
