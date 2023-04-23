@@ -198,6 +198,7 @@ impl Stats {
     }
 }
 
+#[derive(Clone)]
 pub struct BuildInput<'a> {
     pub state: &'a RuntimeState,
     pub change_hint: Option<ChangeHint>,
@@ -222,6 +223,7 @@ pub enum ChangeHint {
     FilterExclude,
 }
 
+#[derive(Default)]
 pub struct BuildOutput {
     pub collections: Collections,
     pub stats: Stats,
@@ -231,7 +233,7 @@ pub struct BuildOutput {
 
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
-    filter_settings: FilterSettings,
+    pub filter_settings: FilterSettings,
     pub search_expression: String,
     pub use_wildcard_search: bool,
     preset_id: Option<PresetId>,
@@ -580,7 +582,7 @@ impl RuntimePotUnit {
                 change_hint,
                 filter_exclude_list,
             };
-            let build_outcome = pot_db().build_collections(build_input)?;
+            let build_outcome = pot_db().build_collections(build_input);
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.

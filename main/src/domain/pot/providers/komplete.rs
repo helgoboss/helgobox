@@ -47,8 +47,8 @@ impl KompleteDatabase {
 }
 
 impl Database for KompleteDatabase {
-    fn id(&self) -> DatabaseId {
-        DatabaseId::dummy()
+    fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(())
     }
 
     fn build_collections(&self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {

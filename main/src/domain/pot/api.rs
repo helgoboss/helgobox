@@ -70,6 +70,12 @@ impl Filters {
         Self::default()
     }
 
+    pub fn are_all_empty_or_none(&self) -> bool {
+        self.0
+            .values()
+            .all(|f| matches!(f, None | Some(FilterItemId(None))))
+    }
+
     pub fn get(&self, kind: PotFilterItemKind) -> OptFilter {
         self.0[kind]
     }
