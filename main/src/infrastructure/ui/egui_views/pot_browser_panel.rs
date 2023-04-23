@@ -748,7 +748,7 @@ fn add_filter_view_content(
     let render = |ui: &mut Ui| {
         let exclude_list = BackboneState::get().pot_filter_exclude_list();
         ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
-        for filter_item in pot_unit.collections.find_all_filter_items(kind) {
+        for filter_item in pot_unit.filter_item_collections.get(kind) {
             let mut text = RichText::new(filter_item.effective_leaf_name());
             if exclude_list.contains(kind, filter_item.id) {
                 text = text.weak();
@@ -814,7 +814,7 @@ fn add_filter_view_content_as_icons(
 ) {
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
-    for filter_item in pot_unit.collections.find_all_filter_items(kind) {
+    for filter_item in pot_unit.filter_item_collections.get(kind) {
         let currently_selected = old_filter_item_id == Some(filter_item.id);
         let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(18.0);
         if !currently_selected {

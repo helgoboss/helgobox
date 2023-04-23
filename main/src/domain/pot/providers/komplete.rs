@@ -3,8 +3,8 @@ use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
 use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
-    Collections, FilterItem, FilterItemCollections, FilterItemId, FilterNksItemCollections,
-    FilterSettings, Filters, MacroParam, ParamAssignment, PluginId, Stats,
+    FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment,
+    PluginId, Stats,
 };
 use enum_iterator::IntoEnumIterator;
 use fallible_iterator::FallibleIterator;
@@ -276,18 +276,16 @@ impl PresetDb {
         let filter_start_time = Instant::now();
         let affected_kinds = input.affected_kinds();
         let mut filter_items = self.build_filter_items(
-            &input.state.filter_settings.nks,
+            &input.filter_settings,
             affected_kinds.into_iter(),
             &input.filter_exclude_list,
         );
-        let mut fixed_settings = input.state.filter_settings.nks;
+        let mut fixed_settings = input.filter_settings;
         let banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksBank);
         let sub_banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksSubBank);
         if banks_are_affected || sub_banks_are_affected {
-            let non_empty_banks = self.find_non_empty_banks(
-                input.state.filter_settings.nks,
-                &input.filter_exclude_list,
-            )?;
+            let non_empty_banks =
+                self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
             if banks_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
                 fixed_settings
@@ -303,10 +301,8 @@ impl PresetDb {
         let sub_categories_are_affected =
             affected_kinds.contains(PotFilterItemKind::NksSubCategory);
         if categories_are_affected || sub_categories_are_affected {
-            let non_empty_categories = self.find_non_empty_categories(
-                input.state.filter_settings.nks,
-                &input.filter_exclude_list,
-            )?;
+            let non_empty_categories =
+                self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
             if categories_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
                 fixed_settings
@@ -321,10 +317,8 @@ impl PresetDb {
             }
         }
         if affected_kinds.contains(PotFilterItemKind::NksMode) {
-            let non_empty_modes = self.find_non_empty_modes(
-                input.state.filter_settings.nks,
-                &input.filter_exclude_list,
-            )?;
+            let non_empty_modes =
+                self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
             filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
             fixed_settings
                 .clear_if_not_available_anymore(PotFilterItemKind::NksMode, &filter_items);
@@ -333,8 +327,8 @@ impl PresetDb {
         // Build preset collection
         let preset_start_time = Instant::now();
         let search_criteria = SearchCriteria {
-            expression: &input.state.search_expression,
-            use_wildcards: input.state.use_wildcard_search,
+            expression: &input.search_expression,
+            use_wildcards: input.use_wildcard_search,
         };
         let preset_collection = self.build_preset_collection(
             &fixed_settings,
@@ -348,21 +342,10 @@ impl PresetDb {
             preset_query_duration,
         };
         let outcome = InnerBuildOutput {
-            filter_item_collections: FilterItemCollections {
-                databases: vec![FilterItem {
-                    persistent_id: "Nks".to_string(),
-                    id: Default::default(),
-                    parent_name: Default::default(),
-                    name: Some("NKS".to_string()),
-                    icon: None,
-                }],
-                nks: filter_items,
-            },
+            filter_item_collections: filter_items,
             preset_collection,
             stats,
-            filter_settings: FilterSettings {
-                nks: fixed_settings,
-            },
+            filter_settings: fixed_settings,
             changed_filter_item_kinds: affected_kinds,
         };
         Ok(outcome)
@@ -619,8 +602,8 @@ impl PresetDb {
         settings: &Filters,
         kinds: impl Iterator<Item = PotFilterItemKind>,
         exclude_list: &PotFilterExcludeList,
-    ) -> FilterNksItemCollections {
-        let mut collections = FilterNksItemCollections::empty();
+    ) -> FilterItemCollections {
+        let mut collections = FilterItemCollections::empty();
         for kind in kinds {
             let mut filter_items = self.build_filter_items_of_kind(kind, settings);
             filter_items.retain(|i| !exclude_list.contains(kind, i.id));

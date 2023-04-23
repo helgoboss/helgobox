@@ -2,7 +2,7 @@ use crate::base::{blocking_lock, blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
 use crate::domain::pot::providers::fx_chain::FxChainDatabase;
 use crate::domain::pot::providers::komplete::KompleteDatabase;
-use crate::domain::pot::{BuildInput, BuildOutput, Collections, Preset, PresetId, Stats};
+use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId, Stats};
 use enum_iterator::IntoEnumIterator;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::Reaper;
@@ -75,8 +75,8 @@ impl PotDatabase {
                 let qualified_preset_id = PresetId::new(*db_id, id);
                 total_output.preset_collection.insert(qualified_preset_id);
             }
-            for (kind, items) in o.filter_item_collections.nks.into_iter() {
-                total_output.filter_item_collections.nks.set(kind, items);
+            for (kind, items) in o.filter_item_collections.into_iter() {
+                total_output.filter_item_collections.set(kind, items);
             }
             total_output.stats.preset_query_duration += o.stats.preset_query_duration;
             total_output.stats.filter_query_duration += o.stats.filter_query_duration;

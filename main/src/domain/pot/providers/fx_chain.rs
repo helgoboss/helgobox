@@ -64,23 +64,23 @@ impl Database for FxChainDatabase {
 
     fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
         let mut build_output = InnerBuildOutput::default();
-        if !input.state.filter_settings.nks.are_all_empty_or_none() {
+        if !input.filter_settings.are_all_empty_or_none() {
             return Ok(build_output);
         }
-        let wild_match = WildMatch::new(input.state.search_expression.trim());
+        let wild_match = WildMatch::new(input.search_expression.trim());
         build_output.preset_collection = self
             .rfx_chains
             .iter()
             .filter_map(|(id, rfx_chain)| {
-                let trimmed_search_expression = input.state.search_expression.trim();
+                let trimmed_search_expression = input.search_expression.trim();
                 if trimmed_search_expression.is_empty() {
                     return Some(*id);
                 }
                 // TODO-high Makes this case insensitive!
-                let matches = if input.state.use_wildcard_search {
+                let matches = if input.use_wildcard_search {
                     wild_match.matches(&rfx_chain.preset_name)
                 } else {
-                    rfx_chain.preset_name == input.state.search_expression
+                    rfx_chain.preset_name == input.search_expression
                 };
                 if matches {
                     Some(*id)

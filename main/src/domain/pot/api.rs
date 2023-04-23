@@ -34,9 +34,9 @@ impl FilterItemId {
 }
 
 #[derive(Debug, Default)]
-pub struct FilterNksItemCollections(EnumMap<PotFilterItemKind, Vec<FilterItem>>);
+pub struct FilterItemCollections(EnumMap<PotFilterItemKind, Vec<FilterItem>>);
 
-impl FilterNksItemCollections {
+impl FilterItemCollections {
     pub fn empty() -> Self {
         Self::default()
     }
@@ -105,7 +105,7 @@ impl Filters {
     pub fn clear_if_not_available_anymore(
         &mut self,
         kind: PotFilterItemKind,
-        collections: &FilterNksItemCollections,
+        collections: &FilterItemCollections,
     ) {
         if let Some(id) = self.0[kind] {
             let valid_items = collections.get(kind);

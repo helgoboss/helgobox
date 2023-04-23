@@ -1,9 +1,8 @@
 use crate::base::blocking_lock;
 use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::pot::{
-    BuildInput, BuildOutput, ChangeHint, Collections, FilterItem, FilterItemCollections,
-    FilterSettings, MacroParam, MacroParamBank, ParamAssignment, PotFilterExcludeList, Preset,
-    Stats,
+    BuildInput, BuildOutput, ChangeHint, FilterItem, FilterItemCollections, Filters, MacroParam,
+    MacroParamBank, ParamAssignment, PotFilterExcludeList, Preset, Stats,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;

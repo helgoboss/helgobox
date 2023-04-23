@@ -108,7 +108,8 @@ impl PotUnit {
 #[derive(Debug)]
 pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
-    pub collections: Collections,
+    pub filter_item_collections: FilterItemCollections,
+    pub preset_collection: PresetCollection,
     pub wasted_runs: u32,
     pub wasted_duration: Duration,
     pub stats: Stats,
@@ -199,13 +200,15 @@ impl Stats {
 }
 
 #[derive(Clone)]
-pub struct BuildInput<'a> {
-    pub state: &'a RuntimeState,
+pub struct BuildInput {
+    pub filter_settings: Filters,
+    pub search_expression: String,
+    pub use_wildcard_search: bool,
     pub change_hint: Option<ChangeHint>,
     pub filter_exclude_list: PotFilterExcludeList,
 }
 
-impl<'a> BuildInput<'a> {
+impl BuildInput {
     pub fn affected_kinds(&self) -> EnumSet<PotFilterItemKind> {
         match self.change_hint {
             None => EnumSet::all(),
@@ -234,13 +237,13 @@ pub struct GenericBuildOutput<T> {
     pub filter_item_collections: FilterItemCollections,
     pub preset_collection: T,
     pub stats: Stats,
-    pub filter_settings: FilterSettings,
+    pub filter_settings: Filters,
     pub changed_filter_item_kinds: EnumSet<PotFilterItemKind>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
-    pub filter_settings: FilterSettings,
+    pub filter_settings: Filters,
     pub search_expression: String,
     pub use_wildcard_search: bool,
     preset_id: Option<PresetId>,
@@ -304,35 +307,9 @@ pub struct PersistentState {
 
 type PresetCollection = IndexSet<PresetId>;
 
-#[derive(Debug, Default)]
-pub struct FilterItemCollections {
-    pub databases: Vec<FilterItem>,
-    pub nks: FilterNksItemCollections,
-}
-
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistentFilterSettings {
     pub nks: nks::PersistentNksFilterSettings,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct FilterSettings {
-    pub nks: Filters,
-}
-
-#[derive(Debug, Default)]
-pub struct Collections {
-    filter_item_collections: FilterItemCollections,
-    preset_collection: PresetCollection,
-}
-
-impl Collections {
-    pub fn find_all_filter_items(&self, kind: PotFilterItemKind) -> &[FilterItem] {
-        if kind == PotFilterItemKind::Database {
-            return &self.filter_item_collections.databases;
-        }
-        self.filter_item_collections.nks.get(kind)
-    }
 }
 
 impl RuntimePotUnit {
@@ -343,7 +320,8 @@ impl RuntimePotUnit {
         let sound_player = SoundPlayer::new();
         let unit = Self {
             runtime_state: RuntimeState::load(state)?,
-            collections: Default::default(),
+            filter_item_collections: Default::default(),
+            preset_collection: Default::default(),
             wasted_runs: 0,
             wasted_duration: Default::default(),
             stats: Default::default(),
@@ -498,7 +476,7 @@ impl RuntimePotUnit {
     }
 
     pub fn get_filter(&self, kind: PotFilterItemKind) -> OptFilter {
-        self.runtime_state.filter_settings.nks.get(kind)
+        self.runtime_state.filter_settings.get(kind)
     }
 
     pub fn filter_is_set_to_non_none(&self, kind: PotFilterItemKind) -> bool {
@@ -542,7 +520,7 @@ impl RuntimePotUnit {
         id: OptFilter,
         shared_self: SharedRuntimePotUnit,
     ) {
-        self.runtime_state.filter_settings.nks.set(kind, id);
+        self.runtime_state.filter_settings.set(kind, id);
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
@@ -556,17 +534,22 @@ impl RuntimePotUnit {
         change_hint: Option<ChangeHint>,
     ) {
         // Acquire exclude list in main thread
-        let filter_exclude_list = if self.show_excluded_filter_items {
-            PotFilterExcludeList::default()
-        } else {
-            BackboneState::get().pot_filter_exclude_list().clone()
+        let build_input = BuildInput {
+            filter_settings: self.runtime_state.filter_settings.clone(),
+            search_expression: self.runtime_state.search_expression.clone(),
+            use_wildcard_search: self.runtime_state.use_wildcard_search,
+            change_hint,
+            filter_exclude_list: if self.show_excluded_filter_items {
+                PotFilterExcludeList::default()
+            } else {
+                BackboneState::get().pot_filter_exclude_list().clone()
+            },
         };
         let mut runtime_state = self.runtime_state.clone();
         // Here we already have enough knowledge to fix some filter settings.
         runtime_state
             .filter_settings
-            .nks
-            .clear_excluded_ones(&filter_exclude_list);
+            .clear_excluded_ones(&build_input.filter_exclude_list);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.change_counter += 1;
         self.background_task_start_time = Some(Instant::now());
@@ -584,11 +567,6 @@ impl RuntimePotUnit {
                 }
             }
             // Build (expensive)
-            let build_input = BuildInput {
-                state: &runtime_state,
-                change_hint,
-                filter_exclude_list,
-            };
             let build_outcome = pot_db().build_collections(build_input);
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
@@ -611,19 +589,16 @@ impl RuntimePotUnit {
 
     fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
         self.background_task_start_time = None;
-        self.collections.preset_collection = build_outcome.preset_collection;
-        for (kind, collection) in build_outcome.filter_item_collections.nks.into_iter() {
+        self.preset_collection = build_outcome.preset_collection;
+        for (kind, collection) in build_outcome.filter_item_collections.into_iter() {
             if build_outcome.changed_filter_item_kinds.contains(kind) {
-                self.collections
-                    .filter_item_collections
-                    .nks
-                    .set(kind, collection);
+                self.filter_item_collections.set(kind, collection);
             }
         }
         for changed_kind in build_outcome.changed_filter_item_kinds {
-            self.runtime_state.filter_settings.nks.set(
+            self.runtime_state.filter_settings.set(
                 changed_kind,
-                build_outcome.filter_settings.nks.get(changed_kind),
+                build_outcome.filter_settings.get(changed_kind),
             );
         }
         self.stats = build_outcome.stats;
@@ -634,11 +609,11 @@ impl RuntimePotUnit {
     }
 
     pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
-        self.collections.find_all_filter_items(kind).len() as u32
+        self.filter_item_collections.get(kind).len() as u32
     }
 
     pub fn preset_count(&self) -> u32 {
-        self.collections.preset_collection.len() as u32
+        self.preset_collection.len() as u32
     }
 
     pub fn find_next_preset_index(&self, amount: i32) -> Option<u32> {
@@ -672,15 +647,12 @@ impl RuntimePotUnit {
     }
 
     pub fn find_index_of_preset(&self, id: PresetId) -> Option<u32> {
-        let index = self.collections.preset_collection.get_index_of(&id)?;
+        let index = self.preset_collection.get_index_of(&id)?;
         Some(index as _)
     }
 
     pub fn find_preset_id_at_index(&self, index: u32) -> Option<PresetId> {
-        self.collections
-            .preset_collection
-            .get_index(index as _)
-            .copied()
+        self.preset_collection.get_index(index as _).copied()
     }
 
     pub fn find_filter_item_id_at_index(
@@ -696,9 +668,7 @@ impl RuntimePotUnit {
         kind: PotFilterItemKind,
         index: u32,
     ) -> Option<&FilterItem> {
-        self.collections
-            .find_all_filter_items(kind)
-            .get(index as usize)
+        self.filter_item_collections.get(kind).get(index as usize)
     }
 
     pub fn find_index_of_filter_item(
@@ -727,12 +697,7 @@ impl RuntimePotUnit {
             let (i, item) = items.iter().enumerate().find(|(_, item)| item.id == id)?;
             Some((i as u32, item))
         }
-        let collections = &self.collections.filter_item_collections;
-        if kind == Database {
-            find(&collections.databases, id)
-        } else {
-            find(collections.nks.get(kind), id)
-        }
+        find(self.filter_item_collections.get(kind), id)
     }
 }
 
