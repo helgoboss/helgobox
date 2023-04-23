@@ -53,7 +53,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
             let preview_file = pot_db()
-                .find_legacy_preview_file_by_preset_id(preset_id)
+                .find_preview_file_by_preset_id(preset_id)
                 .ok_or("couldn't find preset or build preset preview file")?;
             self.sound_player.load_file(&preview_file)?;
             self.sound_player.play()?;

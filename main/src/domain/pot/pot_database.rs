@@ -1,5 +1,4 @@
 use crate::base::{blocking_lock, blocking_read_lock, blocking_write_lock};
-use crate::domain::pot::api::QualifiedPresetId;
 use crate::domain::pot::provider_database::{Database, DatabaseId};
 use crate::domain::pot::providers::fx_chain::FxChainDatabase;
 use crate::domain::pot::providers::komplete::KompleteDatabase;
@@ -65,22 +64,19 @@ impl PotDatabase {
 
     pub fn build_collections(&self, input: BuildInput) -> BuildOutput {
         let mut total_output = BuildOutput::default();
-        let single_outputs = self.databases.values().filter_map(|db| {
+        let single_outputs = self.databases.iter().filter_map(|(db_id, db)| {
             let db = blocking_read_lock(db, "pot db build_collections");
             let db = db.as_ref().ok()?;
             let output = db.build_collections(input.clone()).ok()?;
-            Some(output)
+            Some((db_id, output))
         });
-        for o in single_outputs {
-            for id in o.collections.preset_collection.into_iter() {
-                total_output.collections.preset_collection.insert(id);
+        for (db_id, o) in single_outputs {
+            for id in o.preset_collection.into_iter() {
+                let qualified_preset_id = PresetId::new(*db_id, id);
+                total_output.preset_collection.insert(qualified_preset_id);
             }
-            for (kind, items) in o.collections.filter_item_collections.nks.into_iter() {
-                total_output
-                    .collections
-                    .filter_item_collections
-                    .nks
-                    .set(kind, items);
+            for (kind, items) in o.filter_item_collections.nks.into_iter() {
+                total_output.filter_item_collections.nks.set(kind, items);
             }
             total_output.stats.preset_query_duration += o.stats.preset_query_duration;
             total_output.stats.filter_query_duration += o.stats.filter_query_duration;
@@ -88,22 +84,14 @@ impl PotDatabase {
         total_output
     }
 
-    pub fn find_legacy_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
-        self.find_preset_by_id(QualifiedPresetId::new(DatabaseId::dummy(), preset_id))
-    }
-
-    pub fn find_preset_by_id(&self, preset_id: QualifiedPresetId) -> Option<Preset> {
+    pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
         let db = self.databases.get(&preset_id.database_id)?;
         let db = blocking_read_lock(db, "pot db find_preset_by_id");
         let db = db.as_ref().ok()?;
         db.find_preset_by_id(preset_id.preset_id)
     }
 
-    pub fn find_legacy_preview_file_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
-        self.find_preview_file_by_preset_id(QualifiedPresetId::new(DatabaseId::dummy(), preset_id))
-    }
-
-    pub fn find_preview_file_by_preset_id(&self, preset_id: QualifiedPresetId) -> Option<PathBuf> {
+    pub fn find_preview_file_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
         let db = self.databases.get(&preset_id.database_id)?;
         let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id");
         let db = db.as_ref().ok()?;

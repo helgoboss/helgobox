@@ -159,7 +159,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
             None => return Some("<None>".into()),
             Some(id) => id,
         };
-        let preset = match pot_db().find_legacy_preset_by_id(preset_id) {
+        let preset = match pot_db().find_preset_by_id(preset_id) {
             None => return Some("<Not found>".into()),
             Some(p) => p,
         };

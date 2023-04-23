@@ -223,9 +223,16 @@ pub enum ChangeHint {
     FilterExclude,
 }
 
+pub type BuildOutput = GenericBuildOutput<IndexSet<PresetId>>;
+// TODO-high CONTINUE At this point, we don't need an IndexSet yet. We still need to aggregate.
+//  When we change this, also try to use DISTINCT on Komplete DB side! The query might
+//  actually return duplicates, never checked that because the IndexSet sorted it out.
+pub type InnerBuildOutput = GenericBuildOutput<IndexSet<InnerPresetId>>;
+
 #[derive(Default)]
-pub struct BuildOutput {
-    pub collections: Collections,
+pub struct GenericBuildOutput<T> {
+    pub filter_item_collections: FilterItemCollections,
+    pub preset_collection: T,
     pub stats: Stats,
     pub filter_settings: FilterSettings,
     pub changed_filter_item_kinds: EnumSet<PotFilterItemKind>,
@@ -401,7 +408,7 @@ impl RuntimePotUnit {
 
     pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
         let preview_file = pot_db()
-            .find_legacy_preview_file_by_preset_id(preset_id)
+            .find_preview_file_by_preset_id(preset_id)
             .ok_or("couldn't find preset or build preset preview file")?;
         self.sound_player.load_file(&preview_file)?;
         self.sound_player.play()?;
@@ -414,7 +421,7 @@ impl RuntimePotUnit {
 
     pub fn preset(&self) -> Option<Preset> {
         let preset_id = self.preset_id()?;
-        pot_db().find_legacy_preset_by_id(preset_id)
+        pot_db().find_preset_by_id(preset_id)
     }
 
     pub fn load_preset(
@@ -604,13 +611,8 @@ impl RuntimePotUnit {
 
     fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
         self.background_task_start_time = None;
-        self.collections.preset_collection = build_outcome.collections.preset_collection;
-        for (kind, collection) in build_outcome
-            .collections
-            .filter_item_collections
-            .nks
-            .into_iter()
-        {
+        self.collections.preset_collection = build_outcome.preset_collection;
+        for (kind, collection) in build_outcome.filter_item_collections.nks.into_iter() {
             if build_outcome.changed_filter_item_kinds.contains(kind) {
                 self.collections
                     .filter_item_collections
@@ -797,7 +799,6 @@ impl FilterItem {
 #[derive(Clone, Debug)]
 pub struct Preset {
     pub favorite_id: String,
-    pub id: PresetId,
     pub name: String,
     pub file_name: PathBuf,
     pub file_ext: String,

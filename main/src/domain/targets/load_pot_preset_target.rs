@@ -65,7 +65,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
         let preset = pot_db()
-            .find_legacy_preset_by_id(preset_id)
+            .find_preset_by_id(preset_id)
             .ok_or("preset not found")?;
         let fx_index = self.fx.index();
         let options = LoadPresetOptions {

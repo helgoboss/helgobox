@@ -7,13 +7,13 @@ use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashSet;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
-pub struct QualifiedPresetId {
+pub struct PresetId {
     pub database_id: DatabaseId,
-    pub preset_id: PresetId,
+    pub preset_id: InnerPresetId,
 }
 
-impl QualifiedPresetId {
-    pub fn new(database_id: DatabaseId, preset_id: PresetId) -> Self {
+impl PresetId {
+    pub fn new(database_id: DatabaseId, preset_id: InnerPresetId) -> Self {
         Self {
             database_id,
             preset_id,
@@ -22,7 +22,7 @@ impl QualifiedPresetId {
 }
 // TODO-medium Introduce target "Pot: Mark preset"
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PresetId(pub u32);
+pub struct InnerPresetId(pub u32);
 
 #[derive(
     Copy, Clone, Eq, PartialEq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,

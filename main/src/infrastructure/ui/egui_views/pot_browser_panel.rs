@@ -5,7 +5,7 @@ use crate::domain::pot::{
     DestinationTrackDescriptor, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset,
     RuntimePotUnit, SharedRuntimePotUnit,
 };
-use crate::domain::pot::{FilterItemId, PresetId, QualifiedPresetId};
+use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
     vec2, Align, Button, CentralPanel, Color32, Direction, DragValue, Event, Frame, Key, Layout,
@@ -494,7 +494,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .body(|body| {
                         body.rows(text_height, preset_count as usize, |row_index, mut row| {
                             let preset_id = pot_unit.find_preset_id_at_index(row_index as u32).unwrap();
-                            let preset = pot_db().find_legacy_preset_by_id(preset_id).unwrap();
+                            let preset = pot_db().find_preset_by_id(preset_id).unwrap();
                             row.col(|ui| {
                                 let mut button = Button::new(&preset.name).small();
                                 if Some(preset_id) == pot_unit.preset_id() {

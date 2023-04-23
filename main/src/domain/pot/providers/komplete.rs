@@ -1,7 +1,7 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
-use crate::domain::pot::{BuildInput, BuildOutput, MacroParamBank, Preset, PresetId};
+use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
     Collections, FilterItem, FilterItemCollections, FilterItemId, FilterNksItemCollections,
     FilterSettings, Filters, MacroParam, ParamAssignment, PluginId, Stats,
@@ -51,18 +51,18 @@ impl Database for KompleteDatabase {
         Ok(())
     }
 
-    fn build_collections(&self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
+    fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB build_collections");
         preset_db.build_collections(input)
     }
 
-    fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
+    fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
         let mut preset_db =
             blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
         preset_db.find_preset_by_id(preset_id)
     }
 
-    fn find_preview_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
+    fn find_preview_by_preset_id(&self, preset_id: InnerPresetId) -> Option<PathBuf> {
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB find_preview_by_preset_id",
@@ -214,7 +214,7 @@ impl PresetDb {
         Ok(())
     }
 
-    pub fn find_preset_preview_file(&self, id: PresetId) -> Option<PathBuf> {
+    pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
         let preset = self.find_preset_by_id(id)?;
         match preset.file_ext.as_str() {
             "wav" | "aif" => Some(preset.file_name),
@@ -227,17 +227,17 @@ impl PresetDb {
         }
     }
 
-    pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<PresetId> {
+    pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<InnerPresetId> {
         self.connection
             .query_row(
                 "SELECT id FROM k_sound_info WHERE favorite_id = ?",
                 [favorite_id],
-                |row| Ok(PresetId(row.get(0)?)),
+                |row| Ok(InnerPresetId(row.get(0)?)),
             )
             .ok()
     }
 
-    pub fn find_preset_by_id(&self, id: PresetId) -> Option<Preset> {
+    pub fn find_preset_by_id(&self, id: InnerPresetId) -> Option<Preset> {
         self.connection
             .query_row(
                 "SELECT name, file_name, file_ext, favorite_id FROM k_sound_info WHERE id = ?",
@@ -245,7 +245,6 @@ impl PresetDb {
                 |row| {
                     let preset = Preset {
                         favorite_id: row.get(3)?,
-                        id,
                         name: row.get(0)?,
                         file_name: {
                             let s: String = row.get(1)?;
@@ -259,7 +258,10 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn build_collections(&mut self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
+    pub fn build_collections(
+        &mut self,
+        input: BuildInput,
+    ) -> Result<InnerBuildOutput, Box<dyn Error>> {
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
         //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
@@ -341,7 +343,11 @@ impl PresetDb {
         )?;
         let preset_query_duration = preset_start_time.elapsed();
         // Put everything together
-        let collections = Collections {
+        let stats = Stats {
+            filter_query_duration,
+            preset_query_duration,
+        };
+        let outcome = InnerBuildOutput {
             filter_item_collections: FilterItemCollections {
                 databases: vec![FilterItem {
                     persistent_id: "Nks".to_string(),
@@ -353,13 +359,6 @@ impl PresetDb {
                 nks: filter_items,
             },
             preset_collection,
-        };
-        let stats = Stats {
-            filter_query_duration,
-            preset_query_duration,
-        };
-        let outcome = BuildOutput {
-            collections,
             stats,
             filter_settings: FilterSettings {
                 nks: fixed_settings,
@@ -374,7 +373,7 @@ impl PresetDb {
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<IndexSet<PresetId>, Box<dyn Error>> {
+    ) -> Result<IndexSet<InnerPresetId>, Box<dyn Error>> {
         self.execute_preset_query(
             filter_settings,
             search_criteria,
@@ -384,7 +383,7 @@ impl PresetDb {
             // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
             // but this makes it considerably slower.
             Some("i.name"),
-            |row| Ok(PresetId(row.get(0)?)),
+            |row| Ok(InnerPresetId(row.get(0)?)),
         )
     }
 

@@ -1,5 +1,5 @@
 use crate::domain::pot::provider_database::{Database, DatabaseId};
-use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId};
+use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, Preset};
 use reaper_high::Reaper;
 use std::collections::HashMap;
 use std::error::Error;
@@ -10,7 +10,7 @@ use wildmatch::WildMatch;
 
 pub struct FxChainDatabase {
     root_dir: PathBuf,
-    rfx_chains: HashMap<PresetId, RfxChain>,
+    rfx_chains: HashMap<InnerPresetId, RfxChain>,
 }
 
 impl FxChainDatabase {
@@ -57,18 +57,18 @@ impl Database for FxChainDatabase {
             });
         self.rfx_chains = rfx_chains
             .enumerate()
-            .map(|(i, rfx_chain)| (PresetId(i as _), rfx_chain))
+            .map(|(i, rfx_chain)| (InnerPresetId(i as _), rfx_chain))
             .collect();
         Ok(())
     }
 
-    fn build_collections(&self, input: BuildInput) -> Result<BuildOutput, Box<dyn Error>> {
-        let mut build_output = BuildOutput::default();
+    fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
+        let mut build_output = InnerBuildOutput::default();
         if !input.state.filter_settings.nks.are_all_empty_or_none() {
             return Ok(build_output);
         }
         let wild_match = WildMatch::new(input.state.search_expression.trim());
-        build_output.collections.preset_collection = self
+        build_output.preset_collection = self
             .rfx_chains
             .iter()
             .filter_map(|(id, rfx_chain)| {
@@ -92,11 +92,10 @@ impl Database for FxChainDatabase {
         Ok(build_output)
     }
 
-    fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
+    fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
         let rfx_chain = self.rfx_chains.get(&preset_id)?;
         let preset = Preset {
             favorite_id: rfx_chain.relative_path.clone(),
-            id: preset_id,
             name: rfx_chain.preset_name.clone(),
             // TODO-high We need to replace this with an enum that covers supported file types
             file_name: Default::default(),
@@ -105,7 +104,7 @@ impl Database for FxChainDatabase {
         Some(preset)
     }
 
-    fn find_preview_by_preset_id(&self, _preset_id: PresetId) -> Option<PathBuf> {
+    fn find_preview_by_preset_id(&self, _preset_id: InnerPresetId) -> Option<PathBuf> {
         None
     }
 }
