@@ -442,7 +442,11 @@ impl RuntimePotUnit {
             }
             "nksf" | "nksfx" => {
                 let dest = build_destination(self)?;
-                load_nksf_preset(&preset, &dest, options)?
+                load_nks_preset(&preset, &dest, options)?
+            }
+            "RfxChain" => {
+                let dest = build_destination(self)?;
+                load_rfx_chain_preset(&preset, &dest, options)?
             }
             _ => return Err("Unsupported preset format"),
         };
@@ -764,7 +768,7 @@ struct ParamAssignment {
     vflag: bool,
 }
 
-fn load_nksf_preset(
+fn load_nks_preset(
     preset: &Preset,
     destination: &Destination,
     options: LoadPresetOptions,
@@ -787,6 +791,33 @@ fn load_nksf_preset(
             preset.clone(),
             nks_content.macro_param_banks,
         ),
+    };
+    Ok(outcome)
+}
+
+fn load_rfx_chain_preset(
+    preset: &Preset,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, &'static str> {
+    let mut fx_was_open_before = false;
+    for fx in destination.chain.fxs().rev() {
+        if fx.window_is_open() {
+            fx_was_open_before = true;
+        }
+        destination.chain.remove_fx(&fx)?;
+    }
+    let preset_file_name = preset.file_name.to_string_lossy().to_string();
+    let fx = destination
+        .chain
+        .add_fx_by_original_name(preset_file_name)
+        .ok_or("couldn't load FX chain file")?;
+    options
+        .window_behavior
+        .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+    let outcome = LoadPresetOutcome {
+        fx,
+        current_preset: CurrentPreset::without_parameters(preset.clone()),
     };
     Ok(outcome)
 }

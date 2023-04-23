@@ -29,7 +29,6 @@ impl RfxChainDatabase {
 struct RfxChain {
     preset_name: String,
     relative_path: String,
-    absolute_path: PathBuf,
 }
 
 impl Database for RfxChainDatabase {
@@ -51,7 +50,6 @@ impl Database for RfxChainDatabase {
                 let rfx_chain = RfxChain {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
                     relative_path: relative_path.to_str()?.to_string(),
-                    absolute_path: entry.into_path(),
                 };
                 Some(rfx_chain)
             });
@@ -98,8 +96,8 @@ impl Database for RfxChainDatabase {
         let preset = Preset {
             favorite_id: rfx_chain.relative_path.clone(),
             name: rfx_chain.preset_name.clone(),
-            // TODO-high We need to replace this with an enum that covers supported file types
-            file_name: Default::default(),
+            // At the moment, we can only add RfxChains relative to the official FXChains path anyway.
+            file_name: PathBuf::from(&rfx_chain.relative_path),
             file_ext: "RfxChain".to_string(),
         };
         Some(preset)

@@ -84,9 +84,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             }
         }
     }
-    struct Curr {
-        fx: Option<Fx>,
-    }
     let current_fx = pot_unit
         .resolve_destination()
         .ok()
