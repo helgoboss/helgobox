@@ -1,5 +1,5 @@
-use crate::domain::pot::provider_database::Database;
-use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, Preset};
+use crate::domain::pot::provider_database::{Database, InnerBuildOutput, SortablePresetId};
+use crate::domain::pot::{BuildInput, InnerPresetId, Preset};
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -73,17 +73,18 @@ impl Database for RfxChainDatabase {
             .rfx_chains
             .iter()
             .filter_map(|(id, rfx_chain)| {
-                if lowercase_search_expression.is_empty() {
-                    return Some(*id);
-                }
-                let lowercase_preset_name = rfx_chain.preset_name.to_lowercase();
-                let matches = if input.use_wildcard_search {
-                    wild_match.matches(&lowercase_preset_name)
+                let matches = if lowercase_search_expression.is_empty() {
+                    true
                 } else {
-                    lowercase_preset_name.contains(&lowercase_search_expression)
+                    let lowercase_preset_name = rfx_chain.preset_name.to_lowercase();
+                    if input.use_wildcard_search {
+                        wild_match.matches(&lowercase_preset_name)
+                    } else {
+                        lowercase_preset_name.contains(&lowercase_search_expression)
+                    }
                 };
                 if matches {
-                    Some(*id)
+                    Some(SortablePresetId::new(*id, rfx_chain.preset_name.clone()))
                 } else {
                     None
                 }

@@ -2,7 +2,6 @@ use crate::domain::pot::provider_database::DatabaseId;
 use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashSet;
 
@@ -20,7 +19,7 @@ impl PresetId {
         }
     }
 }
-// TODO-medium Introduce target "Pot: Mark preset"
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct InnerPresetId(pub u32);
 

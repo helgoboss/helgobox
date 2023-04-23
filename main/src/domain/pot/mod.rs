@@ -225,9 +225,6 @@ pub enum ChangeHint {
     FilterExclude,
 }
 
-pub type BuildOutput = GenericBuildOutput<IndexSet<PresetId>>;
-pub type InnerBuildOutput = GenericBuildOutput<Vec<InnerPresetId>>;
-
 #[derive(Default)]
 pub struct GenericBuildOutput<T> {
     pub filter_item_collections: FilterItemCollections,

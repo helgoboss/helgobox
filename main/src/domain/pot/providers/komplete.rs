@@ -1,14 +1,13 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::Database;
-use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, MacroParamBank, Preset};
+use crate::domain::pot::provider_database::{Database, InnerBuildOutput, SortablePresetId};
+use crate::domain::pot::{BuildInput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
     FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment,
     PluginId, Stats,
 };
 use enum_iterator::IntoEnumIterator;
 use fallible_iterator::FallibleIterator;
-use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::types::{ToSqlOutput, Value};
@@ -17,7 +16,6 @@ use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -355,17 +353,20 @@ impl PresetDb {
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<Vec<InnerPresetId>, Box<dyn Error>> {
+    ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         self.execute_preset_query(
             filter_settings,
             search_criteria,
-            "DISTINCT i.id",
+            "DISTINCT i.id, i.name",
             None,
             exclude_list,
-            // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
-            // but this makes it considerably slower.
-            Some("i.name"),
-            |row| Ok(InnerPresetId(row.get(0)?)),
+            None,
+            |row| {
+                Ok(SortablePresetId::new(
+                    InnerPresetId(row.get(0)?),
+                    row.get(1)?,
+                ))
+            },
         )
     }
 
@@ -437,7 +438,6 @@ impl PresetDb {
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<C, Box<dyn Error>>
     where
-        R: Hash + Eq,
         C: FromIterator<R>,
     {
         let mut sql = Sql::default();

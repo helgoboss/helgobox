@@ -2,8 +2,10 @@ use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::providers::rfx_chain::RfxChainDatabase;
-use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId};
+use crate::domain::pot::{BuildInput, GenericBuildOutput, Preset, PresetId};
 
+use indexmap::IndexSet;
+use itertools::Itertools;
 use reaper_high::Reaper;
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -63,30 +65,36 @@ impl PotDatabase {
 
     pub fn build_collections(&self, input: BuildInput) -> BuildOutput {
         let mut total_output = BuildOutput::default();
-        let single_outputs = self.databases.iter().filter_map(|(db_id, db)| {
-            let db = blocking_read_lock(db, "pot db build_collections");
-            let db = db.as_ref().ok()?;
-            let output = db.build_collections(input.clone()).ok()?;
-            Some((db_id, output))
-        });
-        for (db_id, o) in single_outputs {
-            for id in o.preset_collection.into_iter() {
-                let qualified_preset_id = PresetId::new(*db_id, id);
-                total_output.preset_collection.insert(qualified_preset_id);
-            }
-            for (kind, items) in o.filter_item_collections.into_iter() {
+        let single_outputs: Vec<_> = self
+            .databases
+            .iter()
+            .filter_map(|(db_id, db)| {
+                let db = blocking_read_lock(db, "pot db build_collections");
+                let db = db.as_ref().ok()?;
+                let output = db.build_collections(input.clone()).ok()?;
+                Some((db_id, output))
+            })
+            .collect();
+        total_output.preset_collection = single_outputs
+            .into_iter()
+            .flat_map(|(db_id, o)| {
+                for (kind, items) in o.filter_item_collections.into_iter() {
+                    total_output
+                        .filter_item_collections
+                        .extend(kind, items.into_iter());
+                }
+                total_output.stats.preset_query_duration += o.stats.preset_query_duration;
+                total_output.stats.filter_query_duration += o.stats.filter_query_duration;
                 total_output
-                    .filter_item_collections
-                    .extend(kind, items.into_iter());
-            }
-            total_output.stats.preset_query_duration += o.stats.preset_query_duration;
-            total_output.stats.filter_query_duration += o.stats.filter_query_duration;
-            total_output
-                .changed_filter_item_kinds
-                .extend(o.changed_filter_item_kinds.into_iter());
-            // TODO-high Implement application of fixed filters
-            // total_output.filter_settings.
-        }
+                    .changed_filter_item_kinds
+                    .extend(o.changed_filter_item_kinds.into_iter());
+                // TODO-high Implement application of fixed filters
+                // total_output.filter_settings.
+                o.preset_collection.into_iter().map(|p| (*db_id, p))
+            })
+            .sorted_by(|(_, p1), (_, p2)| p1.preset_name.cmp(&p2.preset_name))
+            .map(|(db_id, p)| PresetId::new(db_id, p.inner_preset_id))
+            .collect();
         total_output
     }
 
@@ -104,3 +112,5 @@ impl PotDatabase {
         db.find_preview_by_preset_id(preset_id.preset_id)
     }
 }
+
+pub type BuildOutput = GenericBuildOutput<IndexSet<PresetId>>;
