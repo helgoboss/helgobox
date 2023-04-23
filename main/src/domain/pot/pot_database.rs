@@ -75,10 +75,17 @@ impl PotDatabase {
                 total_output.preset_collection.insert(qualified_preset_id);
             }
             for (kind, items) in o.filter_item_collections.into_iter() {
-                total_output.filter_item_collections.set(kind, items);
+                total_output
+                    .filter_item_collections
+                    .extend(kind, items.into_iter());
             }
             total_output.stats.preset_query_duration += o.stats.preset_query_duration;
             total_output.stats.filter_query_duration += o.stats.filter_query_duration;
+            total_output
+                .changed_filter_item_kinds
+                .extend(o.changed_filter_item_kinds.into_iter());
+            // TODO-high Implement application of fixed filters
+            // total_output.filter_settings.
         }
         total_output
     }

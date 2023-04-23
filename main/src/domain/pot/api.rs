@@ -53,7 +53,11 @@ impl FilterItemCollections {
         self.0[kind] = items;
     }
 
-    pub fn narrow_down(&mut self, kind: PotFilterItemKind, includes: &IndexSet<FilterItemId>) {
+    pub fn extend(&mut self, kind: PotFilterItemKind, items: impl Iterator<Item = FilterItem>) {
+        self.0[kind].extend(items);
+    }
+
+    pub fn narrow_down(&mut self, kind: PotFilterItemKind, includes: &HashSet<FilterItemId>) {
         self.0[kind].retain(|item| includes.contains(&item.id))
     }
 }

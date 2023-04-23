@@ -226,10 +226,7 @@ pub enum ChangeHint {
 }
 
 pub type BuildOutput = GenericBuildOutput<IndexSet<PresetId>>;
-// TODO-high CONTINUE At this point, we don't need an IndexSet yet. We still need to aggregate.
-//  When we change this, also try to use DISTINCT on Komplete DB side! The query might
-//  actually return duplicates, never checked that because the IndexSet sorted it out.
-pub type InnerBuildOutput = GenericBuildOutput<IndexSet<InnerPresetId>>;
+pub type InnerBuildOutput = GenericBuildOutput<Vec<InnerPresetId>>;
 
 #[derive(Default)]
 pub struct GenericBuildOutput<T> {

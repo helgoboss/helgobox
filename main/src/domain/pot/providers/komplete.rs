@@ -14,7 +14,7 @@ use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -355,11 +355,11 @@ impl PresetDb {
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<IndexSet<InnerPresetId>, Box<dyn Error>> {
+    ) -> Result<Vec<InnerPresetId>, Box<dyn Error>> {
         self.execute_preset_query(
             filter_settings,
             search_criteria,
-            "i.id",
+            "DISTINCT i.id",
             None,
             exclude_list,
             // Adding "COLLATE NOCASE ASC" to the ORDER BY would order in a case insensitive way,
@@ -373,7 +373,7 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.set(PotFilterItemKind::NksBank, None);
         filters.set(PotFilterItemKind::NksSubBank, None);
         filters.set(PotFilterItemKind::NksCategory, None);
@@ -394,7 +394,7 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.set(PotFilterItemKind::NksCategory, None);
         filters.set(PotFilterItemKind::NksSubCategory, None);
         filters.set(PotFilterItemKind::NksMode, None);
@@ -413,7 +413,7 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
-    ) -> Result<IndexSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.set(PotFilterItemKind::NksMode, None);
         self.execute_preset_query(
             &filters,
@@ -426,7 +426,7 @@ impl PresetDb {
         )
     }
 
-    fn execute_preset_query<R>(
+    fn execute_preset_query<C, R>(
         &mut self,
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
@@ -435,9 +435,10 @@ impl PresetDb {
         exclude_list: &PotFilterExcludeList,
         order_by: Option<&str>,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
-    ) -> Result<IndexSet<R>, Box<dyn Error>>
+    ) -> Result<C, Box<dyn Error>>
     where
         R: Hash + Eq,
+        C: FromIterator<R>,
     {
         let mut sql = Sql::default();
         sql.select(select_clause);
@@ -584,7 +585,7 @@ impl PresetDb {
         }
         // Put it all together
         let mut statement = self.connection.prepare_cached(&sql.to_string())?;
-        let collection: Result<IndexSet<R>, _> = statement
+        let collection: Result<C, _> = statement
             .query(sql.params.as_slice())?
             .mapped(|row| row_mapper(row))
             .collect();
