@@ -3,7 +3,6 @@ use crate::domain::pot::provider_database::{
 };
 use crate::domain::pot::{BuildInput, FilterItemId, InnerPresetId, Preset};
 
-use enum_iterator::IntoEnumIterator;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashMap;
 use std::error::Error;

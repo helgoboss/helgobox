@@ -2,6 +2,7 @@ use crate::domain::pot::provider_database::DatabaseId;
 use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
+use enumset::EnumSet;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashSet;
 
@@ -106,13 +107,15 @@ impl Filters {
 
     pub fn clear_if_not_available_anymore(
         &mut self,
-        kind: PotFilterItemKind,
+        affected_kinds: EnumSet<PotFilterItemKind>,
         collections: &FilterItemCollections,
     ) {
-        if let Some(id) = self.0[kind] {
-            let valid_items = collections.get(kind);
-            if !valid_items.iter().any(|item| item.id == id) {
-                self.0[kind] = None;
+        for kind in affected_kinds {
+            if let Some(id) = self.0[kind] {
+                let valid_items = collections.get(kind);
+                if !valid_items.iter().any(|item| item.id == id) {
+                    self.0[kind] = None;
+                }
             }
         }
     }

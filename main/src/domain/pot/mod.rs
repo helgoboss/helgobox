@@ -228,7 +228,6 @@ pub struct GenericBuildOutput<T> {
     pub filter_item_collections: FilterItemCollections,
     pub preset_collection: T,
     pub stats: Stats,
-    pub filter_settings: Filters,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -594,12 +593,9 @@ impl RuntimePotUnit {
                 self.filter_item_collections.set(kind, collection);
             }
         }
-        for affected_kind in affected_kinds {
-            self.runtime_state.filter_settings.set(
-                affected_kind,
-                build_output.filter_settings.get(affected_kind),
-            );
-        }
+        self.runtime_state
+            .filter_settings
+            .clear_if_not_available_anymore(affected_kinds, &self.filter_item_collections);
         self.stats = build_output.stats;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(

@@ -264,7 +264,7 @@ impl PresetDb {
 
     pub fn build_collections(
         &mut self,
-        input: BuildInput,
+        mut input: BuildInput,
     ) -> Result<InnerBuildOutput, Box<dyn Error>> {
         // TODO-medium-performance The following ideas could be taken into consideration if the
         //  following queries are too slow:
@@ -283,7 +283,6 @@ impl PresetDb {
             input.affected_kinds.into_iter(),
             &input.filter_exclude_list,
         );
-        let mut fixed_settings = input.filter_settings;
         let banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksBank);
         let sub_banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksSubBank);
         if banks_are_affected || sub_banks_are_affected {
@@ -291,13 +290,9 @@ impl PresetDb {
                 self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
             if banks_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
-                fixed_settings
-                    .clear_if_not_available_anymore(PotFilterItemKind::NksBank, &filter_items);
             }
             if sub_banks_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksSubBank, &non_empty_banks);
-                fixed_settings
-                    .clear_if_not_available_anymore(PotFilterItemKind::NksSubBank, &filter_items);
             }
         }
         let categories_are_affected = input
@@ -311,23 +306,15 @@ impl PresetDb {
                 self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
             if categories_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
-                fixed_settings
-                    .clear_if_not_available_anymore(PotFilterItemKind::NksCategory, &filter_items);
             }
             if sub_categories_are_affected {
                 filter_items.narrow_down(PotFilterItemKind::NksSubCategory, &non_empty_categories);
-                fixed_settings.clear_if_not_available_anymore(
-                    PotFilterItemKind::NksSubCategory,
-                    &filter_items,
-                );
             }
         }
         if input.affected_kinds.contains(PotFilterItemKind::NksMode) {
             let non_empty_modes =
                 self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
             filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
-            fixed_settings
-                .clear_if_not_available_anymore(PotFilterItemKind::NksMode, &filter_items);
         }
         let filter_query_duration = filter_start_time.elapsed();
         // Build preset collection
@@ -336,8 +323,14 @@ impl PresetDb {
             expression: &input.search_expression,
             use_wildcards: input.use_wildcard_search,
         };
+        // Important to clear here *before* getting presets. Otherwise we might end up using the
+        // wrong filters. The code which processes the build output will clear non-available filters
+        // as well!
+        input
+            .filter_settings
+            .clear_if_not_available_anymore(input.affected_kinds, &filter_items);
         let preset_collection = self.build_preset_collection(
-            &fixed_settings,
+            &input.filter_settings,
             search_criteria,
             &input.filter_exclude_list,
         )?;
@@ -351,7 +344,6 @@ impl PresetDb {
             filter_item_collections: filter_items,
             preset_collection,
             stats,
-            filter_settings: fixed_settings,
         };
         Ok(outcome)
     }
