@@ -7,7 +7,7 @@ use reaper_high::Track;
 use rxrust::prelude::*;
 
 use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
-use crate::domain::pot::nks::OptFilter;
+use crate::domain::pot::OptFilter;
 use crate::domain::pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use crate::domain::{
     pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,

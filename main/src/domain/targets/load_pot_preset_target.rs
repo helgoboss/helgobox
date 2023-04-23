@@ -1,7 +1,6 @@
 use crate::base::blocking_lock_arc;
 use crate::domain::pot::{
-    preset_db, with_preset_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId,
-    RuntimePotUnit,
+    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId, RuntimePotUnit,
 };
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
@@ -65,8 +64,9 @@ impl RealearnTarget for LoadPotPresetTarget {
         let preset_id = self
             .current_preset_id(&pot_unit)
             .ok_or("no preset selected")?;
-        let preset =
-            with_preset_db(|db| db.find_preset_by_id(preset_id))?.ok_or("preset not found")?;
+        let preset = pot_db()
+            .find_legacy_preset_by_id(preset_id)
+            .ok_or("preset not found")?;
         let fx_index = self.fx.index();
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
@@ -88,7 +88,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             Err(_) => return false,
         };
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 1");
-        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
+        self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {

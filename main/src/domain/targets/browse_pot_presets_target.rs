@@ -1,5 +1,5 @@
 use crate::base::{blocking_lock, blocking_lock_arc};
-use crate::domain::pot::{preset_db, with_preset_db, Preset, PresetId, RuntimePotUnit};
+use crate::domain::pot::{pot_db, Preset, PresetId, RuntimePotUnit};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
     convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
@@ -109,7 +109,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
-        preset_db().is_ok()
+        true
     }
 
     fn process_change_event(
@@ -159,7 +159,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
             None => return Some("<None>".into()),
             Some(id) => id,
         };
-        let preset = match find_preset_by_id(preset_id) {
+        let preset = match pot_db().find_legacy_preset_by_id(preset_id) {
             None => return Some("<Not found>".into()),
             Some(p) => p,
         };
@@ -238,7 +238,3 @@ pub const BROWSE_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
     hint: "Highly experimental!!!",
     ..DEFAULT_TARGET
 };
-
-fn find_preset_by_id(id: PresetId) -> Option<Preset> {
-    with_preset_db(|db| db.find_preset_by_id(id)).ok().flatten()
-}

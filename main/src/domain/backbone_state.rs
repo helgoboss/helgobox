@@ -1,5 +1,5 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use crate::domain::pot::nks::FilterItemId;
+use crate::domain::pot::FilterItemId;
 use crate::domain::pot::PotFilterExcludeList;
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,

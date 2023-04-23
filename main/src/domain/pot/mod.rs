@@ -5,7 +5,7 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::{Filters, NksFile, OptFilter, PersistentNksFilterSettings, PluginId};
+use crate::domain::pot::nks::PersistentNksFilterSettings;
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 use enum_map::EnumMap;
 use enumset::EnumSet;
@@ -20,20 +20,28 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-pub mod nks;
+mod api;
+pub use api::*;
+mod nks;
+mod pot_database;
+use crate::domain::pot::providers::komplete::NksFile;
+pub use pot_database::*;
+
+mod provider_database;
+mod providers;
 mod worker;
 
-pub type FilterItemId = nks::FilterItemId;
-pub type PresetId = nks::PresetId;
-pub type PresetDb = nks::PresetDb;
-
-pub fn with_preset_db<R>(f: impl FnOnce(&mut PresetDb) -> R) -> Result<R, &'static str> {
-    nks::with_preset_db(f)
-}
-
-pub fn preset_db() -> Result<&'static Mutex<PresetDb>, &'static str> {
-    nks::preset_db()
-}
+// - We have a global list of databases
+// - A pot unit doesn't own those databases but it will access them.
+// - That means for sure that this list of databases is *shared*.
+// - Those databases can and will contain mutable state. Most queries are read-only, but there
+//   will be something like rescan() that modifies its state. And in future maybe also write access.
+// - That means we need to have a Mutex or RWLock.
+// - Question is if we need this RWLock around each database or around the complete list.
+// - Having it around the list will probably be necessary in future in order to add more databases
+//   at runtime.
+// - But having it (maybe additionally in future) around each database makes it possible to
+//   query multiple databases in parallel, also from different pot units.
 
 pub type SharedRuntimePotUnit = Arc<Mutex<RuntimePotUnit>>;
 
@@ -231,44 +239,51 @@ pub struct RuntimeState {
 
 impl RuntimeState {
     pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
-        with_preset_db(|db| {
-            let filter_exclude_list = BackboneState::get().pot_filter_exclude_list();
-            let collections = db.build_filter_items(
-                &Default::default(),
-                EnumSet::all().into_iter(),
-                &filter_exclude_list,
-            );
-            let filter_settings = {
-                let nks = &persistent_state.filter_settings.nks;
-                let mut filters = Filters::empty();
-                let mut set_filter = |setting: &Option<String>, kind: PotFilterItemKind| {
-                    let id = setting.as_ref().and_then(|persistent_id| {
-                        let item = collections
-                            .get(kind)
-                            .iter()
-                            .find(|item| &item.persistent_id == persistent_id)?;
-                        Some(item.id)
-                    });
-                    filters.set(kind, id);
-                };
-                set_filter(&nks.bank, PotFilterItemKind::NksBank);
-                set_filter(&nks.sub_bank, PotFilterItemKind::NksSubBank);
-                set_filter(&nks.category, PotFilterItemKind::NksCategory);
-                set_filter(&nks.sub_category, PotFilterItemKind::NksSubCategory);
-                set_filter(&nks.mode, PotFilterItemKind::NksMode);
-                FilterSettings { nks: filters }
-            };
-            let preset_id = persistent_state
-                .preset_id
-                .as_ref()
-                .and_then(|persistent_id| db.find_preset_id_by_favorite_id(persistent_id));
-            Self {
-                filter_settings,
-                search_expression: "".to_string(),
-                use_wildcard_search: false,
-                preset_id,
-            }
-        })
+        // with_preset_db(|db| {
+        //     let filter_exclude_list = BackboneState::get().pot_filter_exclude_list();
+        //     let collections = db.build_filter_items(
+        //         &Default::default(),
+        //         EnumSet::all().into_iter(),
+        //         &filter_exclude_list,
+        //     );
+        //     let filter_settings = {
+        //         let nks = &persistent_state.filter_settings.nks;
+        //         let mut filters = Filters::empty();
+        //         let mut set_filter = |setting: &Option<String>, kind: PotFilterItemKind| {
+        //             let id = setting.as_ref().and_then(|persistent_id| {
+        //                 let item = collections
+        //                     .get(kind)
+        //                     .iter()
+        //                     .find(|item| &item.persistent_id == persistent_id)?;
+        //                 Some(item.id)
+        //             });
+        //             filters.set(kind, id);
+        //         };
+        //         set_filter(&nks.bank, PotFilterItemKind::NksBank);
+        //         set_filter(&nks.sub_bank, PotFilterItemKind::NksSubBank);
+        //         set_filter(&nks.category, PotFilterItemKind::NksCategory);
+        //         set_filter(&nks.sub_category, PotFilterItemKind::NksSubCategory);
+        //         set_filter(&nks.mode, PotFilterItemKind::NksMode);
+        //         FilterSettings { nks: filters }
+        //     };
+        //     let preset_id = persistent_state
+        //         .preset_id
+        //         .as_ref()
+        //         .and_then(|persistent_id| db.find_preset_id_by_favorite_id(persistent_id));
+        //     Self {
+        //         filter_settings,
+        //         search_expression: "".to_string(),
+        //         use_wildcard_search: false,
+        //         preset_id,
+        //     }
+        // })
+        let state = Self {
+            filter_settings: Default::default(),
+            search_expression: "".to_string(),
+            use_wildcard_search: false,
+            preset_id: None,
+        };
+        Ok(state)
     }
 }
 
@@ -283,7 +298,7 @@ type PresetCollection = IndexSet<PresetId>;
 #[derive(Debug, Default)]
 pub struct FilterItemCollections {
     pub databases: Vec<FilterItem>,
-    pub nks: nks::FilterNksItemCollections,
+    pub nks: FilterNksItemCollections,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -293,7 +308,7 @@ pub struct PersistentFilterSettings {
 
 #[derive(Clone, Debug, Default)]
 pub struct FilterSettings {
-    pub nks: nks::Filters,
+    pub nks: Filters,
 }
 
 #[derive(Debug, Default)]
@@ -308,103 +323,6 @@ impl Collections {
             return &self.filter_item_collections.databases;
         }
         self.filter_item_collections.nks.get(kind)
-    }
-}
-
-#[derive(Debug)]
-pub struct CurrentPreset {
-    preset: Preset,
-    macro_param_banks: Vec<MacroParamBank>,
-}
-
-#[derive(Debug)]
-pub struct MacroParamBank {
-    params: Vec<MacroParam>,
-}
-
-impl MacroParamBank {
-    pub fn new(params: Vec<MacroParam>) -> Self {
-        Self { params }
-    }
-
-    pub fn name(&self) -> String {
-        let mut name = String::with_capacity(32);
-        for p in &self.params {
-            if !p.section_name.is_empty() {
-                if !name.is_empty() {
-                    name += " / ";
-                }
-                name += &p.section_name;
-            }
-        }
-        name
-    }
-
-    pub fn params(&self) -> &[MacroParam] {
-        &self.params
-    }
-
-    pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
-        self.params.get(slot_index as usize)
-    }
-
-    pub fn param_count(&self) -> u32 {
-        self.params.len() as _
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct MacroParam {
-    pub name: String,
-    pub section_name: String,
-    pub param_index: Option<u32>,
-}
-
-impl CurrentPreset {
-    pub fn without_parameters(preset: Preset) -> Self {
-        Self {
-            preset,
-            macro_param_banks: Default::default(),
-        }
-    }
-
-    pub fn with_parameters(preset: Preset, macro_param_banks: Vec<MacroParamBank>) -> Self {
-        Self {
-            preset,
-            macro_param_banks,
-        }
-    }
-
-    pub fn preset(&self) -> &Preset {
-        &self.preset
-    }
-
-    pub fn find_macro_param_bank_at(&self, bank_index: u32) -> Option<&MacroParamBank> {
-        self.macro_param_banks.get(bank_index as usize)
-    }
-
-    pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
-        let bank_index = slot_index / 8;
-        let bank_slot_index = slot_index % 8;
-        self.find_bank_macro_param_at(bank_index, bank_slot_index)
-    }
-
-    pub fn find_bank_macro_param_at(
-        &self,
-        bank_index: u32,
-        bank_slot_index: u32,
-    ) -> Option<&MacroParam> {
-        self.macro_param_banks
-            .get(bank_index as usize)?
-            .find_macro_param_at(bank_slot_index)
-    }
-
-    pub fn macro_param_bank_count(&self) -> u32 {
-        self.macro_param_banks.len() as _
-    }
-
-    pub fn has_params(&self) -> bool {
-        self.macro_param_banks.len() > 0
     }
 }
 
@@ -447,39 +365,41 @@ impl RuntimePotUnit {
     }
 
     pub fn persistent_state(&self) -> PersistentState {
-        let nks_settings = &self.runtime_state.filter_settings.nks;
-        let nks_items = &self.collections.filter_item_collections.nks;
-        let find_id = |kind: PotFilterItemKind| {
-            nks_settings.get(kind).and_then(|id| {
-                nks_items
-                    .get(kind)
-                    .iter()
-                    .find(|item| item.id == id)
-                    .map(|item| item.persistent_id.clone())
-            })
-        };
-        let filter_settings = PersistentFilterSettings {
-            nks: PersistentNksFilterSettings {
-                bank: find_id(PotFilterItemKind::NksBank),
-                sub_bank: find_id(PotFilterItemKind::NksSubBank),
-                category: find_id(PotFilterItemKind::NksCategory),
-                sub_category: find_id(PotFilterItemKind::NksSubCategory),
-                mode: find_id(PotFilterItemKind::NksMode),
-            },
-        };
-        let preset_id = self.runtime_state.preset_id.and_then(|id| {
-            with_preset_db(|db| Some(db.find_preset_by_id(id)?.favorite_id))
-                .ok()
-                .flatten()
-        });
-        PersistentState {
-            filter_settings,
-            preset_id,
-        }
+        // let nks_settings = &self.runtime_state.filter_settings.nks;
+        // let nks_items = &self.collections.filter_item_collections.nks;
+        // let find_id = |kind: PotFilterItemKind| {
+        //     nks_settings.get(kind).and_then(|id| {
+        //         nks_items
+        //             .get(kind)
+        //             .iter()
+        //             .find(|item| item.id == id)
+        //             .map(|item| item.persistent_id.clone())
+        //     })
+        // };
+        // let filter_settings = PersistentFilterSettings {
+        //     nks: PersistentNksFilterSettings {
+        //         bank: find_id(PotFilterItemKind::NksBank),
+        //         sub_bank: find_id(PotFilterItemKind::NksSubBank),
+        //         category: find_id(PotFilterItemKind::NksCategory),
+        //         sub_category: find_id(PotFilterItemKind::NksSubCategory),
+        //         mode: find_id(PotFilterItemKind::NksMode),
+        //     },
+        // };
+        // let preset_id = self.runtime_state.preset_id.and_then(|id| {
+        //     with_preset_db(|db| Some(db.find_preset_by_id(id)?.favorite_id))
+        //         .ok()
+        //         .flatten()
+        // });
+        // PersistentState {
+        //     filter_settings,
+        //     preset_id,
+        // }
+        PersistentState::default()
     }
 
     pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
-        let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
+        let preview_file = pot_db()
+            .find_legacy_preview_file_by_preset_id(preset_id)
             .ok_or("couldn't find preset or build preset preview file")?;
         self.sound_player.load_file(&preview_file)?;
         self.sound_player.play()?;
@@ -492,7 +412,7 @@ impl RuntimePotUnit {
 
     pub fn preset(&self) -> Option<Preset> {
         let preset_id = self.preset_id()?;
-        with_preset_db(|db| db.find_preset_by_id(preset_id)).ok()?
+        pot_db().find_legacy_preset_by_id(preset_id)
     }
 
     pub fn load_preset(
@@ -573,7 +493,7 @@ impl RuntimePotUnit {
     }
 
     pub fn filter_is_set_to_non_none(&self, kind: PotFilterItemKind) -> bool {
-        matches!(self.get_filter(kind), Some(nks::FilterItemId(Some(_))))
+        matches!(self.get_filter(kind), Some(FilterItemId(Some(_))))
     }
 
     pub fn show_excluded_filter_items(&self) -> bool {
@@ -660,7 +580,7 @@ impl RuntimePotUnit {
                 change_hint,
                 filter_exclude_list,
             };
-            let build_outcome = with_preset_db(|db| db.build_collections(build_input))??;
+            let build_outcome = pot_db().build_collections(build_input)?;
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
@@ -832,7 +752,7 @@ impl FilterItem {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
-            id: nks::FilterItemId(None),
+            id: FilterItemId(None),
             parent_name: None,
             name: Some("<None>".to_string()),
             icon: None,
@@ -843,7 +763,7 @@ impl FilterItem {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
-            id: nks::FilterItemId(Some(id)),
+            id: FilterItemId(Some(id)),
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),
@@ -854,7 +774,7 @@ impl FilterItem {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
-            id: nks::FilterItemId(Some(id)),
+            id: FilterItemId(Some(id)),
             parent_name: None,
             name: Some(name.to_string()),
             icon: None,
@@ -1099,38 +1019,31 @@ impl LoadPresetWindowBehavior {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct PotFilterExcludeList {
-    exluded_items: EnumMap<PotFilterItemKind, HashSet<FilterItemId>>,
+#[derive(Copy, Clone, Debug)]
+pub enum PluginId {
+    Vst2 { vst_magic_number: u32 },
+    Vst3 { vst_uid: [u32; 4] },
 }
 
-impl PotFilterExcludeList {
-    pub fn contains(&self, kind: PotFilterItemKind, id: FilterItemId) -> bool {
-        self.exluded_items[kind].contains(&id)
+impl PluginId {
+    pub fn reaper_prefix(&self) -> char {
+        match self {
+            PluginId::Vst2 { .. } => '<',
+            PluginId::Vst3 { .. } => '{',
+        }
     }
 
-    pub fn include(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
-        self.exluded_items[kind].remove(&id);
-    }
-
-    pub fn exclude(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
-        self.exluded_items[kind].insert(id);
-    }
-
-    pub fn has_excludes(&self, kind: PotFilterItemKind) -> bool {
-        !self.exluded_items[kind].is_empty()
-    }
-
-    pub fn normal_excludes_by_kind(
-        &self,
-        kind: PotFilterItemKind,
-    ) -> impl Iterator<Item = &u32> + '_ {
-        self.exluded_items[kind]
-            .iter()
-            .filter_map(|id| Some(id.0.as_ref()?))
-    }
-
-    pub fn contains_none(&self, kind: PotFilterItemKind) -> bool {
-        self.exluded_items[kind].contains(&FilterItemId::NONE)
+    pub fn formatted_for_reaper(&self) -> String {
+        match self {
+            PluginId::Vst2 { vst_magic_number } => {
+                format!("i7zh34z<{vst_magic_number}")
+            }
+            PluginId::Vst3 { vst_uid } => {
+                format!(
+                    "i7zh34z{{{:X}{:X}{:X}{:X}",
+                    vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3]
+                )
+            }
+        }
     }
 }

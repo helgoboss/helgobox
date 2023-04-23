@@ -1,9 +1,9 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::{preset_db, PresetId, RuntimePotUnit};
+use crate::domain::pot::{pot_db, PresetId, RuntimePotUnit};
 use crate::domain::{
-    pot::with_preset_db, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoundPlayer,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SoundPlayer, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -52,7 +52,8 @@ impl RealearnTarget for PreviewPotPresetTarget {
             let preset_id = self
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
-            let preview_file = with_preset_db(|db| db.find_preset_preview_file(preset_id))?
+            let preview_file = pot_db()
+                .find_legacy_preview_file_by_preset_id(preset_id)
                 .ok_or("couldn't find preset or build preset preview file")?;
             self.sound_player.load_file(&preview_file)?;
             self.sound_player.play()?;
@@ -70,7 +71,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
             Err(_) => return false,
         };
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 2");
-        preset_db().is_ok() && self.current_preset_id(&pot_unit).is_some()
+        self.current_preset_id(&pot_unit).is_some()
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

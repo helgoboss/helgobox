@@ -1,6 +1,6 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::nks::FilterItemId;
-use crate::domain::pot::{preset_db, FilterItem, RuntimePotUnit};
+use crate::domain::pot::FilterItemId;
+use crate::domain::pot::{FilterItem, RuntimePotUnit};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
     convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
@@ -123,7 +123,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
-        preset_db().is_ok()
+        true
     }
 
     fn process_change_event(
