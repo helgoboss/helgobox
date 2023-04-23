@@ -2,7 +2,8 @@ use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
 use crate::domain::pot::provider_database::{
     Database, InnerBuildOutput, SortablePresetId, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
-    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID,
+    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID,
+    PRODUCT_TYPE_INSTRUMENT_ID, PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
 };
 use crate::domain::pot::{BuildInput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
@@ -618,28 +619,6 @@ impl PresetDb {
     ) -> Vec<FilterItem> {
         use PotFilterItemKind::*;
         match kind {
-            Database => vec![],
-            NksContentType => {
-                vec![
-                    FilterItem::simple(CONTENT_TYPE_USER_ID, "User", '🕵'),
-                    FilterItem::simple(CONTENT_TYPE_FACTORY_ID, "Factory", '🏭'),
-                ]
-            }
-            NksProductType => {
-                vec![
-                    FilterItem::none(),
-                    FilterItem::simple(1, "Instrument", '🎹'),
-                    FilterItem::simple(2, "Effect", '✨'),
-                    FilterItem::simple(4, "Loop", '➿'),
-                    FilterItem::simple(8, "One shot", '💥'),
-                ]
-            }
-            NksFavorite => {
-                vec![
-                    FilterItem::simple(FAVORITE_FAVORITE_ID, "Favorite", '★'),
-                    FilterItem::simple(FAVORITE_NOT_FAVORITE_ID, "Not favorite", '☆'),
-                ]
-            }
             NksBank => self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
@@ -673,6 +652,7 @@ impl PresetDb {
                 None,
                 true,
             ),
+            _ => vec![],
         }
     }
 
