@@ -801,7 +801,12 @@ fn load_rfx_chain_preset(
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
     let mut fx_was_open_before = false;
-    for fx in destination.chain.fxs().rev() {
+    for fx in destination
+        .chain
+        .fxs()
+        .skip(destination.fx_index as _)
+        .rev()
+    {
         if fx.window_is_open() {
             fx_was_open_before = true;
         }
@@ -812,9 +817,11 @@ fn load_rfx_chain_preset(
         .chain
         .add_fx_by_original_name(preset_file_name)
         .ok_or("couldn't load FX chain file")?;
-    options
-        .window_behavior
-        .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+    for fx in destination.chain.fxs().skip(destination.fx_index as _) {
+        options
+            .window_behavior
+            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+    }
     let outcome = LoadPresetOutcome {
         fx,
         current_preset: CurrentPreset::without_parameters(preset.clone()),
