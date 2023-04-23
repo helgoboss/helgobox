@@ -1,11 +1,14 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
-use crate::domain::pot::provider_database::{Database, DatabaseId};
+use crate::domain::pot::provider_database::{Database, DatabaseId, InnerBuildOutput};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::providers::rfx_chain::RfxChainDatabase;
-use crate::domain::pot::{BuildInput, GenericBuildOutput, Preset, PresetId};
+use crate::domain::pot::{
+    BuildInput, FilterItem, FilterItemId, GenericBuildOutput, Preset, PresetId,
+};
 
 use indexmap::IndexSet;
 use itertools::Itertools;
+use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::Reaper;
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -46,7 +49,7 @@ impl PotDatabase {
         let databases = databases
             .into_iter()
             .enumerate()
-            .map(|(i, db)| (DatabaseId(i as u8), RwLock::new(db)))
+            .map(|(i, db)| (DatabaseId(i as _), RwLock::new(db)))
             .collect();
         let mut pot_database = Self { databases };
         pot_database.refresh();
@@ -65,17 +68,43 @@ impl PotDatabase {
 
     pub fn build_collections(&self, input: BuildInput) -> BuildOutput {
         let mut total_output = BuildOutput::default();
-        let single_outputs: Vec<_> = self
+        let mut database_filter_items = Vec::new();
+        // Let databases build collections
+        let build_outputs: Vec<(DatabaseId, InnerBuildOutput)> = self
             .databases
             .iter()
             .filter_map(|(db_id, db)| {
+                // Acquire database access
                 let db = blocking_read_lock(db, "pot db build_collections");
                 let db = db.as_ref().ok()?;
+                // Create database filter item
+                let filter_item = FilterItem {
+                    persistent_id: "".to_string(),
+                    id: FilterItemId(Some(db_id.0)),
+                    parent_name: None,
+                    name: Some(db.filter_item_name()),
+                    icon: None,
+                };
+                database_filter_items.push(filter_item);
+                // Don't build collections if database filter doesn't match
+                if let Some(FilterItemId(Some(filter_db_id))) =
+                    input.filter_settings.get(PotFilterItemKind::Database)
+                {
+                    if db_id.0 != filter_db_id {
+                        return None;
+                    }
+                }
+                // Let database build collections
                 let output = db.build_collections(input.clone()).ok()?;
-                Some((db_id, output))
+                Some((*db_id, output))
             })
             .collect();
-        total_output.preset_collection = single_outputs
+        // Set database filter items
+        total_output
+            .filter_item_collections
+            .set(PotFilterItemKind::Database, database_filter_items);
+        // Process outputs
+        total_output.preset_collection = build_outputs
             .into_iter()
             .flat_map(|(db_id, o)| {
                 for (kind, items) in o.filter_item_collections.into_iter() {
@@ -83,15 +112,20 @@ impl PotDatabase {
                         .filter_item_collections
                         .extend(kind, items.into_iter());
                 }
+                // Merge stats
                 total_output.stats.preset_query_duration += o.stats.preset_query_duration;
                 total_output.stats.filter_query_duration += o.stats.filter_query_duration;
+                // TODO-high This will overwrite some filters. I guess we should do decide HERE
+                //  which filters to process. Will be the same with each database anyway!
                 total_output
                     .changed_filter_item_kinds
                     .extend(o.changed_filter_item_kinds.into_iter());
-                // TODO-high Implement application of fixed filters
+                // TODO-high Implement application of fixed filters. I guess we should actually
+                //  fix filter settings in the caller of this function, not here!
                 // total_output.filter_settings.
-                o.preset_collection.into_iter().map(|p| (*db_id, p))
+                o.preset_collection.into_iter().map(move |p| (db_id, p))
             })
+            // Merge presets
             .sorted_by(|(_, p1), (_, p2)| p1.preset_name.cmp(&p2.preset_name))
             .map(|(db_id, p)| PresetId::new(db_id, p.inner_preset_id))
             .collect();

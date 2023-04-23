@@ -1,6 +1,10 @@
-use crate::domain::pot::provider_database::{Database, InnerBuildOutput, SortablePresetId};
-use crate::domain::pot::{BuildInput, InnerPresetId, Preset};
+use crate::domain::pot::provider_database::{
+    Database, InnerBuildOutput, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
+};
+use crate::domain::pot::{BuildInput, FilterItemId, InnerPresetId, Preset};
 
+use enum_iterator::IntoEnumIterator;
+use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
@@ -32,6 +36,10 @@ struct RfxChain {
 }
 
 impl Database for RfxChainDatabase {
+    fn filter_item_name(&self) -> String {
+        "FX chains".to_string()
+    }
+
     fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
         let rfx_chains = WalkDir::new(&self.root_dir)
             .follow_links(true)
@@ -62,8 +70,19 @@ impl Database for RfxChainDatabase {
 
     fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
         let mut build_output = InnerBuildOutput::default();
-        if !input.filter_settings.are_all_empty_or_none() {
-            return Ok(build_output);
+        for (kind, filter) in input.filter_settings.iter() {
+            use PotFilterItemKind::*;
+            let matches = match kind {
+                NksContentType => filter != Some(FilterItemId(Some(CONTENT_TYPE_FACTORY_ID))),
+                NksFavorite => filter != Some(FilterItemId(Some(FAVORITE_FAVORITE_ID))),
+                NksProductType | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode => {
+                    matches!(filter, None | Some(FilterItemId::NONE))
+                }
+                _ => true,
+            };
+            if !matches {
+                return Ok(build_output);
+            }
         }
         let lowercase_search_expression = input.search_expression.trim().to_lowercase();
         let wild_match = WildMatch::new(&lowercase_search_expression);

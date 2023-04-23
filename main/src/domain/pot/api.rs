@@ -73,10 +73,9 @@ impl Filters {
         Self::default()
     }
 
-    pub fn are_all_empty_or_none(&self) -> bool {
-        self.0
-            .values()
-            .all(|f| matches!(f, None | Some(FilterItemId(None))))
+    /// Returns `false` if set to `None`
+    pub fn is_set_to_concrete_value(&self, kind: PotFilterItemKind) -> bool {
+        matches!(self.0[kind], Some(FilterItemId(Some(_))))
     }
 
     pub fn get(&self, kind: PotFilterItemKind) -> OptFilter {
@@ -116,6 +115,10 @@ impl Filters {
                 self.0[kind] = None;
             }
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (PotFilterItemKind, OptFilter)> {
+        self.0.into_iter()
     }
 
     pub fn effective_sub_category(&self) -> &OptFilter {

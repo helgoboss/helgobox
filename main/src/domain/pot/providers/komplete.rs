@@ -1,6 +1,9 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::{Database, InnerBuildOutput, SortablePresetId};
+use crate::domain::pot::provider_database::{
+    Database, InnerBuildOutput, SortablePresetId, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
+    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID,
+};
 use crate::domain::pot::{BuildInput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
     FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment,
@@ -45,6 +48,10 @@ impl KompleteDatabase {
 }
 
 impl Database for KompleteDatabase {
+    fn filter_item_name(&self) -> String {
+        "Komplete".to_string()
+    }
+
     fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
@@ -621,8 +628,8 @@ impl PresetDb {
             Database => vec![],
             NksContentType => {
                 vec![
-                    FilterItem::simple(1, "User", '🕵'),
-                    FilterItem::simple(2, "Factory", '🏭'),
+                    FilterItem::simple(CONTENT_TYPE_USER_ID, "User", '🕵'),
+                    FilterItem::simple(CONTENT_TYPE_FACTORY_ID, "Factory", '🏭'),
                 ]
             }
             NksProductType => {
@@ -636,8 +643,8 @@ impl PresetDb {
             }
             NksFavorite => {
                 vec![
-                    FilterItem::simple(1, "Favorite", '★'),
-                    FilterItem::simple(2, "Not favorite", '☆'),
+                    FilterItem::simple(FAVORITE_FAVORITE_ID, "Favorite", '★'),
+                    FilterItem::simple(FAVORITE_NOT_FAVORITE_ID, "Not favorite", '☆'),
                 ]
             }
             NksBank => self.select_nks_filter_items(

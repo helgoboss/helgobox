@@ -5,15 +5,11 @@ use std::path::PathBuf;
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, serde::Serialize, serde::Deserialize,
 )]
-pub struct DatabaseId(pub u8);
-
-impl DatabaseId {
-    pub fn dummy() -> Self {
-        Self(0)
-    }
-}
+pub struct DatabaseId(pub u32);
 
 pub trait Database {
+    fn filter_item_name(&self) -> String;
+
     fn refresh(&mut self) -> Result<(), Box<dyn Error>>;
 
     fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>>;
@@ -38,3 +34,8 @@ impl SortablePresetId {
         }
     }
 }
+
+pub const CONTENT_TYPE_USER_ID: u32 = 1;
+pub const CONTENT_TYPE_FACTORY_ID: u32 = 2;
+pub const FAVORITE_FAVORITE_ID: u32 = 1;
+pub const FAVORITE_NOT_FAVORITE_ID: u32 = 2;

@@ -196,6 +196,21 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     });
                     // Add independent filter views
                     let heading_height = ui.text_style_height(&TextStyle::Heading);
+                    // Database
+                    ui
+                        .label(
+                            RichText::new("Database")
+                                .text_style(TextStyle::Heading)
+                                .size(heading_height),
+                        );
+                    add_filter_view_content(
+                        &state.pot_unit,
+                        pot_unit,
+                        PotFilterItemKind::Database,
+                        ui,
+                        false
+                    );
+                    // Product type
                     ui
                         .label(
                             RichText::new("Product type")
