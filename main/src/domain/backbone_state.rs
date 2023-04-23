@@ -1,5 +1,5 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use crate::domain::pot::FilterItemId;
+
 use crate::domain::pot::PotFilterExcludeList;
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
@@ -9,9 +9,9 @@ use crate::domain::{
     WeakInstanceState,
 };
 use enum_iterator::IntoEnumIterator;
-use enum_map::EnumMap;
+
 use playtime_clip_engine::rt::WeakMatrix;
-use realearn_api::persistence::{PotFilterItemKind, TargetTouchCause};
+use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Reaper, Track};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};

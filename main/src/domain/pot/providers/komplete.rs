@@ -1,6 +1,6 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::{Database, DatabaseId};
+use crate::domain::pot::provider_database::Database;
 use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
     FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment,
@@ -57,13 +57,12 @@ impl Database for KompleteDatabase {
     }
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
-        let mut preset_db =
-            blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
+        let preset_db = blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
         preset_db.find_preset_by_id(preset_id)
     }
 
     fn find_preview_by_preset_id(&self, preset_id: InnerPresetId) -> Option<PathBuf> {
-        let mut preset_db = blocking_lock(
+        let preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB find_preview_by_preset_id",
         );
@@ -440,7 +439,6 @@ impl PresetDb {
     where
         R: Hash + Eq,
     {
-        use std::fmt::Write;
         let mut sql = Sql::default();
         sql.select(select_clause);
         sql.from("k_sound_info i");

@@ -5,17 +5,16 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
-use crate::domain::pot::nks::PersistentNksFilterSettings;
+
 use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
-use enum_map::EnumMap;
+
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
+use reaper_high::{Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -250,7 +249,7 @@ pub struct RuntimeState {
 }
 
 impl RuntimeState {
-    pub fn load(persistent_state: &PersistentState) -> Result<Self, &'static str> {
+    pub fn load(_persistent_state: &PersistentState) -> Result<Self, &'static str> {
         // with_preset_db(|db| {
         //     let filter_exclude_list = BackboneState::get().pot_filter_exclude_list();
         //     let collections = db.build_filter_items(
@@ -692,7 +691,6 @@ impl RuntimePotUnit {
         kind: PotFilterItemKind,
         id: FilterItemId,
     ) -> Option<(u32, &FilterItem)> {
-        use PotFilterItemKind::*;
         fn find(items: &[FilterItem], id: FilterItemId) -> Option<(u32, &FilterItem)> {
             let (i, item) = items.iter().enumerate().find(|(_, item)| item.id == id)?;
             Some((i as u32, item))
@@ -736,17 +734,6 @@ impl FilterItem {
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),
-        }
-    }
-
-    fn new(id: u32, name: &str) -> Self {
-        Self {
-            // TODO-high-pot Persistence
-            persistent_id: "".to_string(),
-            id: FilterItemId(Some(id)),
-            parent_name: None,
-            name: Some(name.to_string()),
-            icon: None,
         }
     }
 

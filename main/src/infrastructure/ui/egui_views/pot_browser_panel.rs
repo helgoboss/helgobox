@@ -1,21 +1,20 @@
 use crate::application::get_track_label;
 use crate::base::blocking_lock;
 use crate::domain::pot::{
-    pot_db, ChangeHint, CurrentPreset, Destination, DestinationInstruction,
-    DestinationTrackDescriptor, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset,
-    RuntimePotUnit, SharedRuntimePotUnit,
+    pot_db, ChangeHint, CurrentPreset, DestinationTrackDescriptor, LoadPresetOptions,
+    LoadPresetWindowBehavior, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Align, Button, CentralPanel, Color32, Direction, DragValue, Event, Frame, Key, Layout,
-    Margin, Modifiers, RichText, ScrollArea, Spinner, TextStyle, TopBottomPanel, Ui, Widget,
+    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, Modifiers,
+    RichText, ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
-use egui_extras::{Column, Size, StripBuilder, TableBuilder};
+use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxParameter, Reaper, Track, Volume};
+use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::time::Duration;
 use swell_ui::Window;
@@ -86,23 +85,16 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         }
     }
     struct Curr {
-        instruction: Result<DestinationInstruction, &'static str>,
         fx: Option<Fx>,
     }
-    let curr = match pot_unit.resolve_destination() {
-        Ok(inst) => Curr {
-            fx: inst.get_existing().and_then(|dest| dest.resolve()),
-            instruction: Ok(inst),
-        },
-        Err(e) => Curr {
-            instruction: Err(e),
-            fx: None,
-        },
-    };
+    let current_fx = pot_unit
+        .resolve_destination()
+        .ok()
+        .and_then(|inst| inst.get_existing().and_then(|dest| dest.resolve()));
     // UI
     let panel_frame = Frame::central_panel(&ctx.style());
     // Top/bottom panel
-    if let Some(fx) = &curr.fx {
+    if let Some(fx) = &current_fx {
         let target_state = BackboneState::target_state().borrow();
         if let Some(current_preset) = target_state.current_fx_preset(fx) {
             // Macro params
@@ -449,7 +441,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         }
                     }
                     // Resolved
-                    if let Some(fx) = &curr.fx {
+                    if let Some(fx) = &current_fx {
                         if ui.small_button("Show FX").clicked() {
                             fx.show_in_floating_window();
                         }

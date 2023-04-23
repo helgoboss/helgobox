@@ -1,6 +1,4 @@
-use crate::domain::pot::{
-    BuildInput, BuildOutput, InnerBuildOutput, InnerPresetId, Preset, PresetId,
-};
+use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, Preset};
 use std::error::Error;
 use std::path::PathBuf;
 

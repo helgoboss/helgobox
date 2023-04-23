@@ -1,6 +1,6 @@
-use crate::base::metrics_util::{measure_time, warn_if_takes_too_long};
+use crate::base::metrics_util::warn_if_takes_too_long;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Attempts to lock the given mutex.
 ///

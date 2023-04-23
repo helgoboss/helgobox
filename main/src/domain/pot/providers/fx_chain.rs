@@ -1,10 +1,10 @@
-use crate::domain::pot::provider_database::{Database, DatabaseId};
+use crate::domain::pot::provider_database::Database;
 use crate::domain::pot::{BuildInput, InnerBuildOutput, InnerPresetId, Preset};
-use reaper_high::Reaper;
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use walkdir::WalkDir;
 use wildmatch::WildMatch;
 

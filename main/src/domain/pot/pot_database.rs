@@ -1,16 +1,15 @@
-use crate::base::{blocking_lock, blocking_read_lock, blocking_write_lock};
+use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
 use crate::domain::pot::providers::fx_chain::FxChainDatabase;
 use crate::domain::pot::providers::komplete::KompleteDatabase;
-use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId, Stats};
-use enum_iterator::IntoEnumIterator;
-use realearn_api::persistence::PotFilterItemKind;
+use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId};
+
 use reaper_high::Reaper;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::{Mutex, RwLock};
+use std::sync::RwLock;
 
 pub fn pot_db() -> &'static PotDatabase {
     use once_cell::sync::Lazy;
