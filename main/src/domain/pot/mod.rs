@@ -200,21 +200,19 @@ impl Stats {
 
 #[derive(Clone)]
 pub struct BuildInput {
+    pub affected_kinds: EnumSet<PotFilterItemKind>,
     pub filter_settings: Filters,
     pub search_expression: String,
     pub use_wildcard_search: bool,
-    pub change_hint: Option<ChangeHint>,
     pub filter_exclude_list: PotFilterExcludeList,
 }
 
-impl BuildInput {
-    pub fn affected_kinds(&self) -> EnumSet<PotFilterItemKind> {
-        match self.change_hint {
-            None => EnumSet::all(),
-            Some(ChangeHint::SearchExpression) => EnumSet::empty(),
-            Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
-            Some(ChangeHint::FilterExclude) => EnumSet::all(),
-        }
+fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterItemKind> {
+    match change_hint {
+        None => EnumSet::all(),
+        Some(ChangeHint::SearchExpression) => EnumSet::empty(),
+        Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
+        Some(ChangeHint::FilterExclude) => EnumSet::all(),
     }
 }
 
@@ -231,7 +229,6 @@ pub struct GenericBuildOutput<T> {
     pub preset_collection: T,
     pub stats: Stats,
     pub filter_settings: Filters,
-    pub changed_filter_item_kinds: EnumSet<PotFilterItemKind>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -531,11 +528,12 @@ impl RuntimePotUnit {
         change_hint: Option<ChangeHint>,
     ) {
         // Acquire exclude list in main thread
+        let affected_kinds = affected_kinds(change_hint);
         let build_input = BuildInput {
+            affected_kinds,
             filter_settings: self.runtime_state.filter_settings.clone(),
             search_expression: self.runtime_state.search_expression.clone(),
             use_wildcard_search: self.runtime_state.use_wildcard_search,
-            change_hint,
             filter_exclude_list: if self.show_excluded_filter_items {
                 PotFilterExcludeList::default()
             } else {
@@ -564,18 +562,18 @@ impl RuntimePotUnit {
                 }
             }
             // Build (expensive)
-            let build_outcome = pot_db().build_collections(build_input);
+            let build_output = pot_db().build_collections(build_input);
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit =
                 blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
             if pot_unit.change_counter != last_change_counter {
-                pot_unit.wasted_duration += build_outcome.stats.total_query_duration();
+                pot_unit.wasted_duration += build_output.stats.total_query_duration();
                 pot_unit.wasted_runs += 1;
                 return Ok(());
             }
-            pot_unit.notify_build_outcome_ready(build_outcome);
+            pot_unit.notify_build_outcome_ready(build_output, affected_kinds);
             Ok(())
         });
     }
@@ -584,21 +582,25 @@ impl RuntimePotUnit {
         Some(self.background_task_start_time?.elapsed())
     }
 
-    fn notify_build_outcome_ready(&mut self, build_outcome: BuildOutput) {
+    fn notify_build_outcome_ready(
+        &mut self,
+        build_output: BuildOutput,
+        affected_kinds: EnumSet<PotFilterItemKind>,
+    ) {
         self.background_task_start_time = None;
-        self.preset_collection = build_outcome.preset_collection;
-        for (kind, collection) in build_outcome.filter_item_collections.into_iter() {
-            if build_outcome.changed_filter_item_kinds.contains(kind) {
+        self.preset_collection = build_output.preset_collection;
+        for (kind, collection) in build_output.filter_item_collections.into_iter() {
+            if affected_kinds.contains(kind) {
                 self.filter_item_collections.set(kind, collection);
             }
         }
-        for changed_kind in build_outcome.changed_filter_item_kinds {
+        for affected_kind in affected_kinds {
             self.runtime_state.filter_settings.set(
-                changed_kind,
-                build_outcome.filter_settings.get(changed_kind),
+                affected_kind,
+                build_output.filter_settings.get(affected_kind),
             );
         }
-        self.stats = build_outcome.stats;
+        self.stats = build_output.stats;
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,

@@ -115,11 +115,6 @@ impl PotDatabase {
                 // Merge stats
                 total_output.stats.preset_query_duration += o.stats.preset_query_duration;
                 total_output.stats.filter_query_duration += o.stats.filter_query_duration;
-                // TODO-high This will overwrite some filters. I guess we should do decide HERE
-                //  which filters to process. Will be the same with each database anyway!
-                total_output
-                    .changed_filter_item_kinds
-                    .extend(o.changed_filter_item_kinds.into_iter());
                 // TODO-high Implement application of fixed filters. I guess we should actually
                 //  fix filter settings in the caller of this function, not here!
                 // total_output.filter_settings.

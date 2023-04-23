@@ -278,15 +278,14 @@ impl PresetDb {
         //  d) Query instrument/effect/loop/one-shot tables only.
         // Build filter collections
         let filter_start_time = Instant::now();
-        let affected_kinds = input.affected_kinds();
         let mut filter_items = self.build_filter_items(
             &input.filter_settings,
-            affected_kinds.into_iter(),
+            input.affected_kinds.into_iter(),
             &input.filter_exclude_list,
         );
         let mut fixed_settings = input.filter_settings;
-        let banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksBank);
-        let sub_banks_are_affected = affected_kinds.contains(PotFilterItemKind::NksSubBank);
+        let banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksBank);
+        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksSubBank);
         if banks_are_affected || sub_banks_are_affected {
             let non_empty_banks =
                 self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
@@ -301,9 +300,12 @@ impl PresetDb {
                     .clear_if_not_available_anymore(PotFilterItemKind::NksSubBank, &filter_items);
             }
         }
-        let categories_are_affected = affected_kinds.contains(PotFilterItemKind::NksCategory);
-        let sub_categories_are_affected =
-            affected_kinds.contains(PotFilterItemKind::NksSubCategory);
+        let categories_are_affected = input
+            .affected_kinds
+            .contains(PotFilterItemKind::NksCategory);
+        let sub_categories_are_affected = input
+            .affected_kinds
+            .contains(PotFilterItemKind::NksSubCategory);
         if categories_are_affected || sub_categories_are_affected {
             let non_empty_categories =
                 self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
@@ -320,7 +322,7 @@ impl PresetDb {
                 );
             }
         }
-        if affected_kinds.contains(PotFilterItemKind::NksMode) {
+        if input.affected_kinds.contains(PotFilterItemKind::NksMode) {
             let non_empty_modes =
                 self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
             filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
@@ -350,7 +352,6 @@ impl PresetDb {
             preset_collection,
             stats,
             filter_settings: fixed_settings,
-            changed_filter_item_kinds: affected_kinds,
         };
         Ok(outcome)
     }
