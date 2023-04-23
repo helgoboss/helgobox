@@ -1,7 +1,7 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{Database, DatabaseId};
-use crate::domain::pot::providers::fx_chain::FxChainDatabase;
 use crate::domain::pot::providers::komplete::KompleteDatabase;
+use crate::domain::pot::providers::rfx_chain::RfxChainDatabase;
 use crate::domain::pot::{BuildInput, BuildOutput, Preset, PresetId};
 
 use reaper_high::Reaper;
@@ -39,8 +39,8 @@ fn box_db<D: Database + Send + Sync + 'static>(
 impl PotDatabase {
     pub fn open() -> Self {
         let komplete_db = KompleteDatabase::open();
-        let fx_chain_db = FxChainDatabase::open(Reaper::get().resource_path().join("FXChains"));
-        let databases = [box_db(komplete_db), box_db(fx_chain_db)];
+        let rfx_chain_db = RfxChainDatabase::open(Reaper::get().resource_path().join("FXChains"));
+        let databases = [box_db(komplete_db), box_db(rfx_chain_db)];
         let databases = databases
             .into_iter()
             .enumerate()

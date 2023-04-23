@@ -8,12 +8,12 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 use wildmatch::WildMatch;
 
-pub struct FxChainDatabase {
+pub struct RfxChainDatabase {
     root_dir: PathBuf,
     rfx_chains: HashMap<InnerPresetId, RfxChain>,
 }
 
-impl FxChainDatabase {
+impl RfxChainDatabase {
     pub fn open(root_dir: PathBuf) -> Result<Self, Box<dyn Error>> {
         if !root_dir.try_exists()? {
             return Err("path to FX chains directory doesn't exist".into());
@@ -32,7 +32,7 @@ struct RfxChain {
     absolute_path: PathBuf,
 }
 
-impl Database for FxChainDatabase {
+impl Database for RfxChainDatabase {
     fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
         let rfx_chains = WalkDir::new(&self.root_dir)
             .follow_links(true)
@@ -67,20 +67,20 @@ impl Database for FxChainDatabase {
         if !input.filter_settings.are_all_empty_or_none() {
             return Ok(build_output);
         }
-        let wild_match = WildMatch::new(input.search_expression.trim());
+        let lowercase_search_expression = input.search_expression.trim().to_lowercase();
+        let wild_match = WildMatch::new(&lowercase_search_expression);
         build_output.preset_collection = self
             .rfx_chains
             .iter()
             .filter_map(|(id, rfx_chain)| {
-                let trimmed_search_expression = input.search_expression.trim();
-                if trimmed_search_expression.is_empty() {
+                if lowercase_search_expression.is_empty() {
                     return Some(*id);
                 }
-                // TODO-high Makes this case insensitive!
+                let lowercase_preset_name = rfx_chain.preset_name.to_lowercase();
                 let matches = if input.use_wildcard_search {
-                    wild_match.matches(&rfx_chain.preset_name)
+                    wild_match.matches(&lowercase_preset_name)
                 } else {
-                    rfx_chain.preset_name == input.search_expression
+                    lowercase_preset_name.contains(&lowercase_search_expression)
                 };
                 if matches {
                     Some(*id)
@@ -99,7 +99,7 @@ impl Database for FxChainDatabase {
             name: rfx_chain.preset_name.clone(),
             // TODO-high We need to replace this with an enum that covers supported file types
             file_name: Default::default(),
-            file_ext: "".to_string(),
+            file_ext: "RfxChain".to_string(),
         };
         Some(preset)
     }
