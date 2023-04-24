@@ -174,14 +174,16 @@ egui-toast = "0.6.0"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 # For Pot target
 fallible-iterator = "0.2"
-# For Pot target (NKS)
+# For Pot target
 riff-io = "0.1.2"
-# For Pot target (NKS)
+# For Pot target
 rmp-serde = "1.1.1"
-# For Pot target (NKS)
+# For Pot target
 dirs = "4.0.0"
-# For Pot target (NKS)
+# For Pot target
 enumset = "1.0.12"
+# For Pot target
+rust-ini = "0.18.0"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 

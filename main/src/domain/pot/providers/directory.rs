@@ -1,46 +1,63 @@
 use crate::domain::pot::provider_database::{
-    Database, InnerBuildOutput, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
+    Database, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
 };
-use crate::domain::pot::{BuildInput, FilterItemId, InnerPresetId, Preset};
+use crate::domain::pot::{BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, Preset};
 
 use realearn_api::persistence::PotFilterItemKind;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use wildmatch::WildMatch;
 
-pub struct RfxChainDatabase {
+pub struct DirectoryDatabase {
     root_dir: PathBuf,
-    rfx_chains: HashMap<InnerPresetId, RfxChain>,
+    valid_extensions: HashSet<&'static OsStr>,
+    name: &'static str,
+    publish_relative_path: bool,
+    entries: HashMap<InnerPresetId, PresetEntry>,
 }
 
-impl RfxChainDatabase {
-    pub fn open(root_dir: PathBuf) -> Result<Self, Box<dyn Error>> {
-        if !root_dir.try_exists()? {
-            return Err("path to FX chains directory doesn't exist".into());
+pub struct DirectoryDbConfig {
+    pub root_dir: PathBuf,
+    pub valid_extensions: &'static [&'static str],
+    pub name: &'static str,
+    pub publish_relative_path: bool,
+}
+
+impl DirectoryDatabase {
+    pub fn open(config: DirectoryDbConfig) -> Result<Self, Box<dyn Error>> {
+        if !config.root_dir.try_exists()? {
+            return Err("path to root directory doesn't exist".into());
         }
         let db = Self {
-            root_dir,
-            rfx_chains: Default::default(),
+            name: config.name,
+            entries: Default::default(),
+            root_dir: config.root_dir,
+            valid_extensions: config
+                .valid_extensions
+                .into_iter()
+                .map(OsStr::new)
+                .collect(),
+            publish_relative_path: config.publish_relative_path,
         };
         Ok(db)
     }
 }
 
-struct RfxChain {
+struct PresetEntry {
     preset_name: String,
     relative_path: String,
 }
 
-impl Database for RfxChainDatabase {
+impl Database for DirectoryDatabase {
     fn filter_item_name(&self) -> String {
-        "FX chains".to_string()
+        self.name.to_string()
     }
 
     fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
-        let rfx_chains = WalkDir::new(&self.root_dir)
+        let preset_entries = WalkDir::new(&self.root_dir)
             .follow_links(true)
             .into_iter()
             .filter_map(|entry| {
@@ -48,27 +65,34 @@ impl Database for RfxChainDatabase {
                 if !entry.file_type().is_file() {
                     return None;
                 }
-                if entry.path().extension() != Some(OsStr::new("RfxChain")) {
+                let extension = entry.path().extension()?;
+                if !self.valid_extensions.contains(extension) {
                     return None;
                 }
                 let relative_path = entry.path().strip_prefix(&self.root_dir).ok()?;
                 // Immediately exclude relative paths that can't be represented as valid UTF-8.
                 // Otherwise we will potentially open a can of worms (regarding persistence etc.).
-                let rfx_chain = RfxChain {
+                let preset_entry = PresetEntry {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
                     relative_path: relative_path.to_str()?.to_string(),
                 };
-                Some(rfx_chain)
+                Some(preset_entry)
             });
-        self.rfx_chains = rfx_chains
+        self.entries = preset_entries
             .enumerate()
-            .map(|(i, rfx_chain)| (InnerPresetId(i as _), rfx_chain))
+            .map(|(i, entry)| (InnerPresetId(i as _), entry))
             .collect();
         Ok(())
     }
 
-    fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
-        let mut build_output = InnerBuildOutput::default();
+    fn query_filter_collections(
+        &self,
+        _: &BuildInput,
+    ) -> Result<FilterItemCollections, Box<dyn Error>> {
+        Ok(FilterItemCollections::empty())
+    }
+
+    fn query_presets(&self, input: &BuildInput) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         for (kind, filter) in input.filter_settings.iter() {
             use PotFilterItemKind::*;
             let matches = match kind {
@@ -80,19 +104,19 @@ impl Database for RfxChainDatabase {
                 _ => true,
             };
             if !matches {
-                return Ok(build_output);
+                return Ok(vec![]);
             }
         }
         let lowercase_search_expression = input.search_expression.trim().to_lowercase();
         let wild_match = WildMatch::new(&lowercase_search_expression);
-        build_output.preset_collection = self
-            .rfx_chains
+        let preset_ids = self
+            .entries
             .iter()
-            .filter_map(|(id, rfx_chain)| {
+            .filter_map(|(id, preset_entry)| {
                 let matches = if lowercase_search_expression.is_empty() {
                     true
                 } else {
-                    let lowercase_preset_name = rfx_chain.preset_name.to_lowercase();
+                    let lowercase_preset_name = preset_entry.preset_name.to_lowercase();
                     if input.use_wildcard_search {
                         wild_match.matches(&lowercase_preset_name)
                     } else {
@@ -100,23 +124,31 @@ impl Database for RfxChainDatabase {
                     }
                 };
                 if matches {
-                    Some(SortablePresetId::new(*id, rfx_chain.preset_name.clone()))
+                    Some(SortablePresetId::new(*id, preset_entry.preset_name.clone()))
                 } else {
                     None
                 }
             })
             .collect();
-        Ok(build_output)
+        Ok(preset_ids)
     }
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
-        let rfx_chain = self.rfx_chains.get(&preset_id)?;
+        let preset_entry = self.entries.get(&preset_id)?;
+        let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
-            favorite_id: rfx_chain.relative_path.clone(),
-            name: rfx_chain.preset_name.clone(),
-            // At the moment, we can only add RfxChains relative to the official FXChains path anyway.
-            file_name: PathBuf::from(&rfx_chain.relative_path),
-            file_ext: "RfxChain".to_string(),
+            favorite_id: preset_entry.relative_path.clone(),
+            name: preset_entry.preset_name.clone(),
+            file_ext: relative_path
+                .extension()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+            path: if self.publish_relative_path {
+                relative_path
+            } else {
+                self.root_dir.join(relative_path)
+            },
         };
         Some(preset)
     }

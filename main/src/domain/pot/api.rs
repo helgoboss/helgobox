@@ -74,6 +74,14 @@ impl Filters {
         Self::default()
     }
 
+    pub fn database_matches(&self, db_id: DatabaseId) -> bool {
+        if let Some(FilterItemId(Some(filter_db_id))) = self.get(PotFilterItemKind::Database) {
+            db_id.0 == filter_db_id
+        } else {
+            true
+        }
+    }
+
     /// Returns `false` if set to `None`
     pub fn is_set_to_concrete_value(&self, kind: PotFilterItemKind) -> bool {
         matches!(self.0[kind], Some(FilterItemId(Some(_))))

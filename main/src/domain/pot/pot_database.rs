@@ -1,15 +1,16 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, InnerBuildOutput, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
-    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID,
-    PRODUCT_TYPE_INSTRUMENT_ID, PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
+    Database, DatabaseId, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID, FAVORITE_FAVORITE_ID,
+    FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID, PRODUCT_TYPE_INSTRUMENT_ID,
+    PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
 };
+use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
-use crate::domain::pot::providers::rfx_chain::RfxChainDatabase;
 use crate::domain::pot::{
-    BuildInput, FilterItem, FilterItemId, GenericBuildOutput, Preset, PresetId,
+    BuildInput, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
 };
 
+use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterItemKind;
@@ -19,6 +20,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::RwLock;
+use std::time::{Duration, Instant};
 
 pub fn pot_db() -> &'static PotDatabase {
     use once_cell::sync::Lazy;
@@ -47,20 +49,44 @@ fn box_db<D: Database + Send + Sync + 'static>(
 
 impl PotDatabase {
     pub fn open() -> Self {
+        let resource_path = Reaper::get().resource_path();
         let komplete_db = KompleteDatabase::open();
-        let rfx_chain_db = RfxChainDatabase::open(Reaper::get().resource_path().join("FXChains"));
-        let databases = [box_db(komplete_db), box_db(rfx_chain_db)];
+        let rfx_chain_db = {
+            let config = DirectoryDbConfig {
+                root_dir: resource_path.join("FXChains"),
+                valid_extensions: &["RfxChain"],
+                name: "FX chains",
+                publish_relative_path: true,
+            };
+            DirectoryDatabase::open(config)
+        };
+        let track_template_db = {
+            let config = DirectoryDbConfig {
+                root_dir: resource_path.join("TrackTemplates"),
+                valid_extensions: &["RTrackTemplate"],
+                name: "Track templates",
+                publish_relative_path: false,
+            };
+            DirectoryDatabase::open(config)
+        };
+        let ini_db = IniDatabase::open(resource_path.join("presets"));
+        let databases = [
+            box_db(komplete_db),
+            box_db(rfx_chain_db),
+            box_db(track_template_db),
+            box_db(ini_db),
+        ];
         let databases = databases
             .into_iter()
             .enumerate()
             .map(|(i, db)| (DatabaseId(i as _), RwLock::new(db)))
             .collect();
-        let mut pot_database = Self { databases };
+        let pot_database = Self { databases };
         pot_database.refresh();
         pot_database
     }
 
-    pub fn refresh(&mut self) {
+    pub fn refresh(&self) {
         for db in self.databases.values() {
             let mut db = blocking_write_lock(db, "pot db build_collections");
             let Some(db) = db.as_mut().ok() else {
@@ -70,17 +96,57 @@ impl PotDatabase {
         }
     }
 
-    pub fn build_collections(&self, input: BuildInput) -> BuildOutput {
+    pub fn build_collections(&self, mut input: BuildInput) -> BuildOutput {
+        // Build constant filter collections
         let mut total_output = BuildOutput::default();
-        // Let databases build collections
-        let mut database_filter_items = Vec::new();
-        let build_outputs: Vec<(DatabaseId, InnerBuildOutput)> = self
-            .databases
-            .iter()
-            .filter_map(|(db_id, db)| {
+        measure_duration(&mut total_output.stats.filter_query_duration, || {
+            if input
+                .affected_kinds
+                .contains(PotFilterItemKind::NksContentType)
+            {
+                total_output.filter_item_collections.set(
+                    PotFilterItemKind::NksContentType,
+                    vec![
+                        FilterItem::simple(CONTENT_TYPE_USER_ID, "User", '🕵'),
+                        FilterItem::simple(CONTENT_TYPE_FACTORY_ID, "Factory", '🏭'),
+                    ],
+                );
+            }
+            if input
+                .affected_kinds
+                .contains(PotFilterItemKind::NksProductType)
+            {
+                total_output.filter_item_collections.set(
+                    PotFilterItemKind::NksProductType,
+                    vec![
+                        FilterItem::none(),
+                        FilterItem::simple(PRODUCT_TYPE_INSTRUMENT_ID, "Instrument", '🎹'),
+                        FilterItem::simple(PRODUCT_TYPE_EFFECT_ID, "Effect", '✨'),
+                        FilterItem::simple(PRODUCT_TYPE_LOOP_ID, "Loop", '➿'),
+                        FilterItem::simple(PRODUCT_TYPE_ONE_SHOT_ID, "One shot", '💥'),
+                    ],
+                );
+            }
+            if input
+                .affected_kinds
+                .contains(PotFilterItemKind::NksFavorite)
+            {
+                total_output.filter_item_collections.set(
+                    PotFilterItemKind::NksFavorite,
+                    vec![
+                        FilterItem::simple(FAVORITE_FAVORITE_ID, "Favorite", '★'),
+                        FilterItem::simple(FAVORITE_NOT_FAVORITE_ID, "Not favorite", '☆'),
+                    ],
+                );
+            }
+            // Let all databases build filter collections and accumulate them
+            let mut database_filter_items = Vec::new();
+            for (db_id, db) in &self.databases {
                 // Acquire database access
-                let db = blocking_read_lock(db, "pot db build_collections");
-                let db = db.as_ref().ok()?;
+                let db = blocking_read_lock(db, "pot db build_collections 1");
+                let Ok(db) = db.as_ref() else {
+                continue
+            };
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
@@ -90,68 +156,61 @@ impl PotDatabase {
                     icon: None,
                 };
                 database_filter_items.push(filter_item);
-                // Don't build collections if database filter doesn't match
-                if let Some(FilterItemId(Some(filter_db_id))) =
-                    input.filter_settings.get(PotFilterItemKind::Database)
-                {
-                    if db_id.0 != filter_db_id {
-                        return None;
-                    }
+                // Don't continue if database doesn't match
+                if !input.filter_settings.database_matches(*db_id) {
+                    continue;
                 }
-                // Let database build collections
-                let output = db.build_collections(input.clone()).ok()?;
-                Some((*db_id, output))
-            })
-            .collect();
-        // Set filter items
-        total_output
-            .filter_item_collections
-            .set(PotFilterItemKind::Database, database_filter_items);
-        total_output.filter_item_collections.set(
-            PotFilterItemKind::NksContentType,
-            vec![
-                FilterItem::simple(CONTENT_TYPE_USER_ID, "User", '🕵'),
-                FilterItem::simple(CONTENT_TYPE_FACTORY_ID, "Factory", '🏭'),
-            ],
-        );
-        total_output.filter_item_collections.set(
-            PotFilterItemKind::NksProductType,
-            vec![
-                FilterItem::none(),
-                FilterItem::simple(PRODUCT_TYPE_INSTRUMENT_ID, "Instrument", '🎹'),
-                FilterItem::simple(PRODUCT_TYPE_EFFECT_ID, "Effect", '✨'),
-                FilterItem::simple(PRODUCT_TYPE_LOOP_ID, "Loop", '➿'),
-                FilterItem::simple(PRODUCT_TYPE_ONE_SHOT_ID, "One shot", '💥'),
-            ],
-        );
-        total_output.filter_item_collections.set(
-            PotFilterItemKind::NksFavorite,
-            vec![
-                FilterItem::simple(FAVORITE_FAVORITE_ID, "Favorite", '★'),
-                FilterItem::simple(FAVORITE_NOT_FAVORITE_ID, "Not favorite", '☆'),
-            ],
-        );
-        // Process outputs
-        total_output.preset_collection = build_outputs
-            .into_iter()
-            .flat_map(|(db_id, o)| {
-                for (kind, items) in o.filter_item_collections.into_iter() {
+                // Build and accumulate filters collections
+                let Ok(filter_collections) = db.query_filter_collections(&input) else {
+                continue;
+            };
+                for (kind, items) in filter_collections.into_iter() {
                     total_output
                         .filter_item_collections
                         .extend(kind, items.into_iter());
                 }
-                // Merge stats
-                total_output.stats.preset_query_duration += o.stats.preset_query_duration;
-                total_output.stats.filter_query_duration += o.stats.filter_query_duration;
-                // TODO-high Implement application of fixed filters. I guess we should actually
-                //  fix filter settings in the caller of this function, not here!
-                // total_output.filter_settings.
-                o.preset_collection.into_iter().map(move |p| (db_id, p))
-            })
-            // Merge presets
-            .sorted_by(|(_, p1), (_, p2)| p1.preset_name.cmp(&p2.preset_name))
-            .map(|(db_id, p)| PresetId::new(db_id, p.inner_preset_id))
-            .collect();
+            }
+            // Add database filter items
+            if input.affected_kinds.contains(PotFilterItemKind::Database) {
+                total_output
+                    .filter_item_collections
+                    .set(PotFilterItemKind::Database, database_filter_items);
+            }
+            // Important: At this point, some previously selected filters might not exist anymore.
+            // So we should reset them and not let them influence the preset query anymore!
+            input.filter_settings.clear_if_not_available_anymore(
+                input.affected_kinds,
+                &total_output.filter_item_collections,
+            );
+        });
+        // Finally build and accumulate presets
+        let mut sortable_preset_ids: Vec<_> =
+            measure_duration(&mut total_output.stats.preset_query_duration, || {
+                self.databases
+                    .iter()
+                    .filter(|(db_id, _)| input.filter_settings.database_matches(**db_id))
+                    .filter_map(|(db_id, db)| {
+                        // Acquire database access
+                        let db = blocking_read_lock(db, "pot db build_collections 2");
+                        let db = db.as_ref().ok()?;
+                        // Let database build presets
+                        let preset_ids = db.query_presets(&input).ok()?;
+                        Some((*db_id, preset_ids))
+                    })
+                    .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
+                    .collect()
+            });
+        // Sort presets
+        measure_duration(&mut total_output.stats.sort_duration, || {
+            sortable_preset_ids.sort_by(|(_, p1), (_, p2)| p1.preset_name.cmp(&p2.preset_name));
+        });
+        // Index presets
+        measure_duration(&mut total_output.stats.index_duration, || {
+            total_output.preset_collection = sortable_preset_ids
+                .into_iter()
+                .map(|(db_id, p)| PresetId::new(db_id, p.inner_preset_id))
+                .collect();
+        });
         total_output
     }
 
@@ -162,6 +221,19 @@ impl PotDatabase {
         db.find_preset_by_id(preset_id.preset_id)
     }
 
+    pub fn try_find_preset_by_id(
+        &self,
+        preset_id: PresetId,
+    ) -> Result<Option<Preset>, &'static str> {
+        let db = self
+            .databases
+            .get(&preset_id.database_id)
+            .ok_or("database not found")?;
+        let db = db.try_read().map_err(|_| "couldn't acquire lock")?;
+        let db = db.as_ref().map_err(|_| "database not opened")?;
+        Ok(db.find_preset_by_id(preset_id.preset_id))
+    }
+
     pub fn find_preview_file_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
         let db = self.databases.get(&preset_id.database_id)?;
         let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id");
@@ -170,4 +242,16 @@ impl PotDatabase {
     }
 }
 
-pub type BuildOutput = GenericBuildOutput<IndexSet<PresetId>>;
+#[derive(Default)]
+pub struct BuildOutput {
+    pub filter_item_collections: FilterItemCollections,
+    pub preset_collection: IndexSet<PresetId>,
+    pub stats: Stats,
+}
+
+fn measure_duration<R>(duration: &mut Duration, f: impl FnOnce() -> R) -> R {
+    let start = Instant::now();
+    let r = f();
+    *duration = start.elapsed();
+    r
+}

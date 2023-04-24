@@ -11,10 +11,12 @@ use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, S
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
-use reaper_high::{Fx, FxChain, Project, Reaper, Track};
+use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
+use std::fs;
 
+use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -190,6 +192,8 @@ impl DestinationDescriptor {
 pub struct Stats {
     pub filter_query_duration: Duration,
     pub preset_query_duration: Duration,
+    pub sort_duration: Duration,
+    pub index_duration: Duration,
 }
 
 impl Stats {
@@ -209,25 +213,19 @@ pub struct BuildInput {
 
 fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterItemKind> {
     match change_hint {
-        None => EnumSet::all(),
+        None | Some(ChangeHint::TotalRefresh) => EnumSet::all(),
         Some(ChangeHint::SearchExpression) => EnumSet::empty(),
         Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
         Some(ChangeHint::FilterExclude) => EnumSet::all(),
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ChangeHint {
+    TotalRefresh,
     Filter(PotFilterItemKind),
     SearchExpression,
     FilterExclude,
-}
-
-#[derive(Default)]
-pub struct GenericBuildOutput<T> {
-    pub filter_item_collections: FilterItemCollections,
-    pub preset_collection: T,
-    pub stats: Stats,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -431,8 +429,8 @@ impl RuntimePotUnit {
         options: LoadPresetOptions,
         build_destination: impl FnOnce(&mut Self) -> Result<Destination, &'static str>,
     ) -> Result<Fx, &'static str> {
-        let outcome = match preset.file_ext.as_str() {
-            "wav" | "aif" => {
+        let outcome = match preset.file_ext.to_lowercase().as_str() {
+            "wav" | "aif" | "ogg" | "mp3" => {
                 let dest = build_destination(self)?;
                 load_audio_preset(&preset, &dest, options)?
             }
@@ -440,9 +438,13 @@ impl RuntimePotUnit {
                 let dest = build_destination(self)?;
                 load_nks_preset(&preset, &dest, options)?
             }
-            "RfxChain" => {
+            "rfxchain" => {
                 let dest = build_destination(self)?;
                 load_rfx_chain_preset(&preset, &dest, options)?
+            }
+            "rtracktemplate" => {
+                let dest = build_destination(self)?;
+                load_track_template_preset(&preset, &dest, options)?
             }
             _ => return Err("Unsupported preset format"),
         };
@@ -520,6 +522,9 @@ impl RuntimePotUnit {
             ));
         self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)));
     }
+    pub fn refresh_pot(&mut self, shared_self: SharedRuntimePotUnit) {
+        self.rebuild_collections(shared_self, Some(ChangeHint::TotalRefresh));
+    }
 
     pub fn rebuild_collections(
         &mut self,
@@ -549,6 +554,9 @@ impl RuntimePotUnit {
         self.background_task_start_time = Some(Instant::now());
         let last_change_counter = self.change_counter;
         worker::spawn(async move {
+            if change_hint == Some(ChangeHint::TotalRefresh) {
+                pot_db().refresh();
+            }
             // Debounce (cheap)
             // If we don't do this, the wasted runs will dramatically increase when quickly changing
             // filters while last query still running.
@@ -748,7 +756,7 @@ impl FilterItem {
 pub struct Preset {
     pub favorite_id: String,
     pub name: String,
-    pub file_name: PathBuf,
+    pub path: PathBuf,
     pub file_ext: String,
 }
 
@@ -771,7 +779,7 @@ fn load_nks_preset(
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
-    let nks_file = NksFile::load(&preset.file_name)?;
+    let nks_file = NksFile::load(&preset.path)?;
     let nks_content = nks_file.content()?;
     let existing_fx = destination.resolve();
     let fx_was_open_before = existing_fx
@@ -810,7 +818,7 @@ fn load_rfx_chain_preset(
         }
         destination.chain.remove_fx(&fx)?;
     }
-    let preset_file_name = preset.file_name.to_string_lossy().to_string();
+    let preset_file_name = preset.path.to_string_lossy().to_string();
     let fx = destination
         .chain
         .add_fx_by_original_name(preset_file_name)
@@ -822,6 +830,47 @@ fn load_rfx_chain_preset(
     }
     let outcome = LoadPresetOutcome {
         fx,
+        current_preset: CurrentPreset::without_parameters(preset.clone()),
+    };
+    Ok(outcome)
+}
+
+fn load_track_template_preset(
+    preset: &Preset,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, &'static str> {
+    let mut fx_was_open_before = false;
+    for fx in destination
+        .chain
+        .fxs()
+        .skip(destination.fx_index as _)
+        .rev()
+    {
+        if fx.window_is_open() {
+            fx_was_open_before = true;
+        }
+    }
+    let rxml =
+        fs::read_to_string(&preset.path).map_err(|_| "couldn't read track template as string")?;
+    // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
+    let rxml: String = rxml.lines().map(|l| l.trim()).join("\n");
+    let track_chunk = Chunk::new(rxml);
+    let fx_chain_region = track_chunk
+        .region()
+        .find_first_tag_named(0, "FXCHAIN")
+        .ok_or("track template doesn't have FX chain")?;
+    destination.chain.set_chunk(&fx_chain_region.content())?;
+    for fx in destination.chain.fxs() {
+        options
+            .window_behavior
+            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+    }
+    let outcome = LoadPresetOutcome {
+        fx: destination
+            .chain
+            .first_fx()
+            .ok_or("couldn't get hold of first FX on chain")?,
         current_preset: CurrentPreset::without_parameters(preset.clone()),
     };
     Ok(outcome)
@@ -853,7 +902,7 @@ fn load_audio_preset(
         output.fx.show_in_floating_window();
     }
     // Load into RS5k
-    load_media_in_last_focused_rs5k(&preset.file_name)?;
+    load_media_in_last_focused_rs5k(&preset.path)?;
     // Remainder
     options
         .window_behavior

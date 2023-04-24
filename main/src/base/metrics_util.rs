@@ -23,7 +23,10 @@ pub fn warn_if_takes_too_long<R>(label: &'static str, max: Duration, f: impl FnO
         r
     }
     #[cfg(not(debug_assertions))]
-    f()
+    {
+        let _ = (label, max);
+        f()
+    }
 }
 
 /// Initializes the metrics channel.  

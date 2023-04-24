@@ -1,14 +1,9 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::{
-    Database, InnerBuildOutput, SortablePresetId, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
-    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID,
-    PRODUCT_TYPE_INSTRUMENT_ID, PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
-};
+use crate::domain::pot::provider_database::{Database, SortablePresetId};
 use crate::domain::pot::{BuildInput, InnerPresetId, MacroParamBank, Preset};
 use crate::domain::pot::{
-    FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment,
-    PluginId, Stats,
+    FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
 };
 use enum_iterator::IntoEnumIterator;
 use fallible_iterator::FallibleIterator;
@@ -23,7 +18,6 @@ use std::fmt::{Display, Formatter};
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::Instant;
 
 pub struct KompleteDatabase {
     primary_preset_db: Mutex<PresetDb>,
@@ -57,9 +51,20 @@ impl Database for KompleteDatabase {
         Ok(())
     }
 
-    fn build_collections(&self, input: BuildInput) -> Result<InnerBuildOutput, Box<dyn Error>> {
-        let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB build_collections");
-        preset_db.build_collections(input)
+    fn query_filter_collections(
+        &self,
+        input: &BuildInput,
+    ) -> Result<FilterItemCollections, Box<dyn Error>> {
+        let mut preset_db = blocking_lock(
+            &self.primary_preset_db,
+            "Komplete DB query_filter_collections",
+        );
+        preset_db.query_filter_collections(input)
+    }
+
+    fn query_presets(&self, input: &BuildInput) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
+        let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
+        preset_db.query_presets(input)
     }
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
@@ -222,10 +227,10 @@ impl PresetDb {
     pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
         let preset = self.find_preset_by_id(id)?;
         match preset.file_ext.as_str() {
-            "wav" | "aif" => Some(preset.file_name),
+            "wav" | "aif" => Some(preset.path),
             _ => {
-                let preview_dir = preset.file_name.parent()?.join(".previews");
-                let pure_file_name = preset.file_name.file_name()?;
+                let preview_dir = preset.path.parent()?.join(".previews");
+                let pure_file_name = preset.path.file_name()?;
                 let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
                 Some(preview_dir.join(preview_file_name))
             }
@@ -251,7 +256,7 @@ impl PresetDb {
                     let preset = Preset {
                         favorite_id: row.get(3)?,
                         name: row.get(0)?,
-                        file_name: {
+                        path: {
                             let s: String = row.get(1)?;
                             s.into()
                         },
@@ -263,22 +268,10 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn build_collections(
+    pub fn query_filter_collections(
         &mut self,
-        mut input: BuildInput,
-    ) -> Result<InnerBuildOutput, Box<dyn Error>> {
-        // TODO-medium-performance The following ideas could be taken into consideration if the
-        //  following queries are too slow:
-        //  a) Use just one query to query ALL the preset IDs plus corresponding filter item IDs
-        //     ... then do the rest manually in-memory. But the result is a very long list of
-        //     combinations. So maybe not feasible.
-        //  b) Don't make unnecessary joins (it was easier to make all joins for the narrow-down
-        //     logic, but it could be prevented).
-        //  c) [DONE] Don't rebuild unaffected filter collections (e.g. only rebuild subordinate filter
-        //     collections).
-        //  d) Query instrument/effect/loop/one-shot tables only.
-        // Build filter collections
-        let filter_start_time = Instant::now();
+        input: &BuildInput,
+    ) -> Result<FilterItemCollections, Box<dyn Error>> {
         let mut filter_items = self.build_filter_items(
             &input.filter_settings,
             input.affected_kinds.into_iter(),
@@ -317,36 +310,23 @@ impl PresetDb {
                 self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
             filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
         }
-        let filter_query_duration = filter_start_time.elapsed();
-        // Build preset collection
-        let preset_start_time = Instant::now();
+        Ok(filter_items)
+    }
+
+    pub fn query_presets(
+        &mut self,
+        input: &BuildInput,
+    ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let search_criteria = SearchCriteria {
             expression: &input.search_expression,
             use_wildcards: input.use_wildcard_search,
         };
-        // Important to clear here *before* getting presets. Otherwise we might end up using the
-        // wrong filters. The code which processes the build output will clear non-available filters
-        // as well!
-        input
-            .filter_settings
-            .clear_if_not_available_anymore(input.affected_kinds, &filter_items);
         let preset_collection = self.build_preset_collection(
             &input.filter_settings,
             search_criteria,
             &input.filter_exclude_list,
         )?;
-        let preset_query_duration = preset_start_time.elapsed();
-        // Put everything together
-        let stats = Stats {
-            filter_query_duration,
-            preset_query_duration,
-        };
-        let outcome = InnerBuildOutput {
-            filter_item_collections: filter_items,
-            preset_collection,
-            stats,
-        };
-        Ok(outcome)
+        Ok(preset_collection)
     }
 
     fn build_preset_collection(

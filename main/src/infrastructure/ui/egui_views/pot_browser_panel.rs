@@ -8,7 +8,7 @@ use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
     vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, Modifiers,
-    RichText, ScrollArea, TextStyle, TopBottomPanel, Ui, Widget,
+    RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
@@ -16,6 +16,7 @@ use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use std::mem;
 use std::time::Duration;
 use swell_ui::Window;
 
@@ -29,31 +30,50 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
-    let mut focus_search_field = false;
     // Keyboard control
     enum KeyAction {
         NavigateWithinPresets(i32),
         LoadPreset,
-        FocusSearchField,
+        ClearSearchExpression,
+        ClearLastSearchExpressionChar,
+        ExtendSearchExpression(String),
     }
-    let key_action = if ctx.wants_keyboard_input() {
-        None
-    } else {
-        ctx.input_mut(|input| {
-            let a = if input.count_and_consume_key(Default::default(), Key::ArrowUp) > 0 {
-                KeyAction::NavigateWithinPresets(-1)
-            } else if input.count_and_consume_key(Default::default(), Key::ArrowDown) > 0 {
-                KeyAction::NavigateWithinPresets(1)
-            } else if input.count_and_consume_key(Default::default(), Key::Enter) > 0 {
-                KeyAction::LoadPreset
-            } else if input.count_and_consume_key(Modifiers::COMMAND, Key::F) > 0 {
-                KeyAction::FocusSearchField
-            } else {
-                return None;
-            };
-            Some(a)
-        })
-    };
+    // ctx.memory_mut(|mem| {
+    //     mem.lock_focus()
+    // });
+    let key_action = ctx.input_mut(|input| {
+        let mut action = None;
+        input.events.retain_mut(|event| match event {
+            Event::Key {
+                key,
+                pressed,
+                modifiers,
+                ..
+            } => {
+                if *pressed {
+                    match key {
+                        Key::ArrowUp => action = Some(KeyAction::NavigateWithinPresets(-1)),
+                        Key::ArrowDown => action = Some(KeyAction::NavigateWithinPresets(1)),
+                        Key::Enter => action = Some(KeyAction::LoadPreset),
+                        Key::Backspace if modifiers.command => {
+                            action = Some(KeyAction::ClearSearchExpression)
+                        }
+                        Key::Backspace if !modifiers.command => {
+                            action = Some(KeyAction::ClearLastSearchExpressionChar)
+                        }
+                        _ => {}
+                    }
+                }
+                false
+            }
+            Event::Text(text) => {
+                action = Some(KeyAction::ExtendSearchExpression(mem::take(text)));
+                false
+            }
+            _ => true,
+        });
+        action
+    });
     if let Some(key_action) = key_action {
         match key_action {
             KeyAction::NavigateWithinPresets(amount) => {
@@ -79,8 +99,29 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     );
                 }
             }
-            KeyAction::FocusSearchField => {
-                focus_search_field = true;
+            KeyAction::ClearLastSearchExpressionChar => {
+                pot_unit.runtime_state.search_expression.pop();
+                pot_unit.rebuild_collections(
+                    state.pot_unit.clone(),
+                    Some(ChangeHint::SearchExpression),
+                );
+            }
+            KeyAction::ClearSearchExpression => {
+                pot_unit.runtime_state.search_expression.clear();
+                pot_unit.rebuild_collections(
+                    state.pot_unit.clone(),
+                    Some(ChangeHint::SearchExpression),
+                );
+            }
+            KeyAction::ExtendSearchExpression(text) => {
+                pot_unit
+                    .runtime_state
+                    .search_expression
+                    .extend(text.chars());
+                pot_unit.rebuild_collections(
+                    state.pot_unit.clone(),
+                    Some(ChangeHint::SearchExpression),
+                );
             }
         }
     }
@@ -158,6 +199,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .show_inside(ui, |ui| {
                     // General controls
                     ui.horizontal(|ui| {
+                        if ui.button("🔃")
+                            .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
+                            .clicked() {
+                            pot_unit.refresh_pot(state.pot_unit.clone());
+                        }
                         ui.checkbox(&mut state.paint_continuously, "Paint continuously")
                             .on_hover_text(
                                 "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
@@ -343,13 +389,13 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 // Search
                 ui.horizontal(|ui| {
                     ui.strong("Search:");
-                    let response = ui.text_edit_singleline(&mut pot_unit.runtime_state.search_expression);
-                    if focus_search_field {
-                        response.request_focus();
-                    }
-                    if response.changed() {
-                        pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
-                    }
+                    // let text = RichText::new(&pot_unit.runtime_state.search_expression).monospace();
+                    // ui.label(text);
+                    let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
+                        .hint_text("Type anywhere to search!")
+                        .font(TextStyle::Monospace);
+                    ui.add_enabled(false, text_edit)
+                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character.");
                     ui.label(format!("➡ {preset_count} presets"));
                 });
                 // Stats
@@ -359,7 +405,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         let total_duration = background_task_elapsed.unwrap_or(pot_unit.stats.total_query_duration());
                         ui.label(format!("{}ms", total_duration.as_millis()));
                         if background_task_elapsed.is_none() {
-                            ui.label(format!("(= {}ms + {}ms)", pot_unit.stats.filter_query_duration.as_millis(), pot_unit.stats.preset_query_duration.as_millis()));
+                            let text = format!(
+                                "(= {} + {} + {} + {})",
+                                pot_unit.stats.filter_query_duration.as_millis(),
+                                pot_unit.stats.preset_query_duration.as_millis(),
+                                pot_unit.stats.sort_duration.as_millis(),
+                                pot_unit.stats.index_duration.as_millis(),
+                            );
+                            ui.label(text);
                         }
                         ui.strong("Wasted runs/time: ");
                         ui.label(format!("{}/{}ms", pot_unit.wasted_runs, pot_unit.wasted_duration.as_millis()));
@@ -470,7 +523,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .resizable(true)
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
-                    .column(Column::initial(60.0).at_least(40.0).clip(true))
+                    .column(Column::auto())
                     .column(Column::remainder().at_least(40.0))
                     .min_scrolled_height(0.0);
 
@@ -498,33 +551,49 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .body(|body| {
                         body.rows(text_height, preset_count as usize, |row_index, mut row| {
                             let preset_id = pot_unit.find_preset_id_at_index(row_index as u32).unwrap();
-                            let preset = pot_db().find_preset_by_id(preset_id).unwrap();
+                            // We just try to get a mutex lock because this is called very often.
+                            // If we would insist on getting the lock, the GUI could freeze while
+                            // the pot database has a write lock, which can happen during refresh.
+                            let preset = pot_db().try_find_preset_by_id(preset_id);
                             row.col(|ui| {
-                                let mut button = Button::new(&preset.name).small();
+                                let text = match preset.as_ref() {
+                                    Err(_) => "⏳",
+                                    Ok(None) => "<Preset gone>",
+                                    Ok(Some(p)) => &p.name,
+                                };
+                                let mut button = Button::new(text).small();
                                 if Some(preset_id) == pot_unit.preset_id() {
                                     button = button.fill(Color32::LIGHT_BLUE);
                                 }
                                 let button = ui.add_sized(ui.available_size(), button);
-                                if button.clicked() {
-                                    if state.auto_preview {
-                                        let _ = pot_unit.play_preview(preset_id);
+                                if let Ok(Some(preset)) = preset.as_ref() {
+                                    if button.clicked() {
+                                        if state.auto_preview {
+                                            let _ = pot_unit.play_preview(preset_id);
+                                        }
+                                        pot_unit.set_preset_id(Some(preset_id));
                                     }
-                                    pot_unit.set_preset_id(Some(preset_id));
-                                }
-                                if button.double_clicked() {
-                                    load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                    if button.double_clicked() {
+                                        load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                    }
                                 }
                             });
                             row.col(|ui| {
-                                ui.label(&preset.file_ext);
-                            });
-                            row.col(|ui| {
-                                if ui.small_button("Load").clicked() {
-                                    load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                let text = match preset.as_ref() {
+                                    Ok(Some(p)) => &p.file_ext,
+                                    _ => "-"
                                 };
-                                if !state.auto_preview {
-                                    if ui.small_button("Preview").clicked() {
-                                        process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
+                                ui.label(text);
+                            });
+                            row.col(|ui| {
+                                if let Ok(Some(preset)) = preset.as_ref() {
+                                    if ui.small_button("Load").clicked() {
+                                        load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                    }
+                                    if !state.auto_preview {
+                                        if ui.small_button("Preview").clicked() {
+                                            process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
+                                        }
                                     }
                                 }
                             });
