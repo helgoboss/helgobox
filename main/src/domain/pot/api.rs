@@ -1,3 +1,4 @@
+use crate::domain::pot::plugins::ProductKind;
 use crate::domain::pot::provider_database::DatabaseId;
 use crate::domain::pot::{FilterItem, PluginId, Preset};
 use enum_iterator::IntoEnumIterator;
@@ -6,7 +7,7 @@ use enumset::EnumSet;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashSet;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PresetId {
     pub database_id: DatabaseId,
     pub preset_id: InnerPresetId,
@@ -24,21 +25,43 @@ impl PresetId {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct InnerPresetId(pub u32);
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct FilterItemId(pub Option<Fil>);
 
 impl FilterItemId {
     pub const NONE: Self = Self(None);
 }
 
-/// Different kind of filter values.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+/// Filter value.
+///
+/// These can be understood as possible types of a filter item kind. Not all types make sense
+/// for a particular filter item kind.
+///
+/// Many of these types are not suitable for persistence because their values are not stable.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Fil {
-    // TODO-high CONTINUE Add DB ID
-    ProviderSpecific(u32),
+    /// A typical integer filter value to refer to a filter item in a specific Komplete database.
+    ///
+    /// This needs a pot filter item kind and a specific Komplete database to make full sense.
+    /// The integers are not suited for being persisted because different Komplete scans can yield
+    /// different integers! So they should only be used at runtime and translated to something
+    /// more stable for persistence.
+    Komplete(u32),
+    /// Refers to a specific plug-in.
+    ///
+    /// Suitable for persistence.
     Plugin(PluginId),
+    /// Refers to a specific pot database.
+    ///
+    /// Only valid at runtime, not suitable for persistence.
+    Database(DatabaseId),
+    /// Refers to something that can be true of false, e.g. "favorite" or "not favorite"
+    /// or "available" or "not available".
+    ///
+    /// Suitable for persistence.
+    Boolean(bool),
+    /// Refers to a kind of product.
+    ProductKind(ProductKind),
 }
 
 #[derive(Debug, Default)]
@@ -84,7 +107,7 @@ impl Filters {
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {
         if let Some(FilterItemId(Some(filter_db_id))) = self.get(PotFilterItemKind::Database) {
-            Fil::ProviderSpecific(db_id.0) == filter_db_id
+            Fil::Komplete(db_id.0) == filter_db_id
         } else {
             true
         }
@@ -186,7 +209,7 @@ impl PotFilterExcludeList {
     pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
         self.contains(
             PotFilterItemKind::Database,
-            FilterItemId(Some(Fil::ProviderSpecific(db_id.0))),
+            FilterItemId(Some(Fil::Komplete(db_id.0))),
         )
     }
 

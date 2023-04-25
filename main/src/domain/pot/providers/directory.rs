@@ -100,16 +100,10 @@ impl Database for DirectoryDatabase {
             use PotFilterItemKind::*;
             let matches = match kind {
                 NksContentType => {
-                    filter
-                        != Some(FilterItemId(Some(Fil::ProviderSpecific(
-                            CONTENT_TYPE_FACTORY_ID,
-                        ))))
+                    filter != Some(FilterItemId(Some(Fil::Komplete(CONTENT_TYPE_FACTORY_ID))))
                 }
                 NksFavorite => {
-                    filter
-                        != Some(FilterItemId(Some(Fil::ProviderSpecific(
-                            FAVORITE_FAVORITE_ID,
-                        ))))
+                    filter != Some(FilterItemId(Some(Fil::Komplete(FAVORITE_FAVORITE_ID))))
                 }
                 NksProductType | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode => {
                     matches!(filter, None | Some(FilterItemId::NONE))

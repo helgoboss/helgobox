@@ -160,7 +160,7 @@ impl PotDatabase {
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
-                    id: FilterItemId(Some(Fil::ProviderSpecific(db_id.0))),
+                    id: FilterItemId(Some(Fil::Komplete(db_id.0))),
                     parent_name: None,
                     name: Some(db.filter_item_name()),
                     icon: None,

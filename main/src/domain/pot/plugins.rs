@@ -54,10 +54,12 @@ impl PluginKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum ProductKind {
     Effect,
     Instrument,
+    Loop,
+    OneShot,
     Other,
 }
 

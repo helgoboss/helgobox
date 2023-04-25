@@ -3,9 +3,7 @@ use crate::domain::pot::{BuildInput, FilterItemCollections, InnerPresetId, Prese
 use std::error::Error;
 use std::path::PathBuf;
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct DatabaseId(pub u32);
 
 pub trait Database {

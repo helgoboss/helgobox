@@ -755,7 +755,7 @@ impl FilterItem {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
-            id: FilterItemId(Some(Fil::ProviderSpecific(id))),
+            id: FilterItemId(Some(Fil::Komplete(id))),
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),
@@ -1144,7 +1144,7 @@ impl LoadPresetWindowBehavior {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum PluginId {
     Vst2 { vst_magic_number: u32 },
     Vst3 { vst_uid: [u32; 4] },
