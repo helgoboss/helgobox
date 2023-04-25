@@ -14,6 +14,7 @@ use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
+use std::error::Error;
 use std::fs;
 
 use itertools::Itertools;
@@ -372,7 +373,7 @@ impl RuntimePotUnit {
         PersistentState::default()
     }
 
-    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
+    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), Box<dyn Error>> {
         let preview_file = pot_db()
             .find_preview_file_by_preset_id(preset_id)
             .ok_or("couldn't find preset or build preset preview file")?;
@@ -394,7 +395,7 @@ impl RuntimePotUnit {
         &mut self,
         preset: &Preset,
         options: LoadPresetOptions,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), Box<dyn Error>> {
         let build_destination = |pot_unit: &mut Self| {
             let dest = match pot_unit.resolve_destination()? {
                 DestinationInstruction::Existing(d) => d,
@@ -429,7 +430,7 @@ impl RuntimePotUnit {
         preset: &Preset,
         options: LoadPresetOptions,
         build_destination: impl FnOnce(&mut Self) -> Result<Destination, &'static str>,
-    ) -> Result<Fx, &'static str> {
+    ) -> Result<Fx, Box<dyn Error>> {
         let outcome = match &preset.kind {
             PresetKind::FileBased(k) => match k.file_ext.to_lowercase().as_str() {
                 "wav" | "aif" | "ogg" | "mp3" => {
@@ -448,7 +449,7 @@ impl RuntimePotUnit {
                     let dest = build_destination(self)?;
                     load_track_template_preset(&k.path, &dest, options)?
                 }
-                _ => return Err("unsupported preset format"),
+                _ => return Err(format!("unsupported preset format \"{}\"", &k.file_ext).into()),
             },
             PresetKind::Internal(k) => {
                 let dest = build_destination(self)?;
@@ -820,7 +821,7 @@ fn load_nks_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
-) -> Result<LoadPresetOutcome, &'static str> {
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let nks_file = NksFile::load(path)?;
     let nks_content = nks_file.content()?;
     let existing_fx = destination.resolve();
@@ -916,7 +917,7 @@ fn load_internal_preset(
     preset_name: &str,
     destination: &Destination,
     options: LoadPresetOptions,
-) -> Result<LoadPresetOutcome, &'static str> {
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let existing_fx = destination.resolve();
     let fx_was_open_before = existing_fx
         .as_ref()
@@ -938,7 +939,7 @@ fn load_audio_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
-) -> Result<LoadPresetOutcome, &'static str> {
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     const RS5K_VST_ID: u32 = 1920167789;
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
@@ -993,7 +994,7 @@ fn ensure_fx_has_correct_type(
     plugin_id: PluginId,
     destination: &Destination,
     existing_fx: Option<Fx>,
-) -> Result<FxEnsureOutput, &'static str> {
+) -> Result<FxEnsureOutput, Box<dyn Error>> {
     let output = match existing_fx {
         None => {
             let fx = insert_fx_by_plugin_id(plugin_id, destination)?;
@@ -1026,7 +1027,7 @@ fn ensure_fx_has_correct_type(
 fn insert_fx_by_plugin_id(
     plugin_id: PluginId,
     destination: &Destination,
-) -> Result<Fx, &'static str> {
+) -> Result<Fx, Box<dyn Error>> {
     // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
     // otherwise loading by VST2 magic number doesn't work.
     let name = format!(
@@ -1034,10 +1035,11 @@ fn insert_fx_by_plugin_id(
         plugin_id.reaper_prefix(),
         plugin_id.formatted_for_reaper()
     );
-    destination
+    let fx = destination
         .chain
-        .insert_fx_by_name(destination.fx_index, name)
-        .ok_or("couldn't insert FX by VST magic number")
+        .insert_fx_by_name(destination.fx_index, name.as_str())
+        .ok_or_else(|| format!("Couldn't add FX via name \"{name}\""))?;
+    Ok(fx)
 }
 
 fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
@@ -1127,13 +1129,12 @@ impl PluginId {
 
     pub fn formatted_for_reaper(&self) -> String {
         match self {
-            PluginId::Vst2 { vst_magic_number } => {
-                format!("i7zh34z<{vst_magic_number}")
-            }
+            PluginId::Vst2 { vst_magic_number } => vst_magic_number.to_string(),
             PluginId::Vst3 { vst_uid } => {
+                // D39D5B69 D6AF42FA 12345678 534D4433
                 format!(
-                    "i7zh34z{{{:X}{:X}{:X}{:X}",
-                    vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3]
+                    "{:X}{:X}{:X}{:X}",
+                    vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3],
                 )
             }
         }

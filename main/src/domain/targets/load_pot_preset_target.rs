@@ -71,13 +71,15 @@ impl RealearnTarget for LoadPotPresetTarget {
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
-        pot_unit.load_preset_at(&preset, options, |_| {
-            let dest = Destination {
-                chain: self.fx.chain().clone(),
-                fx_index,
-            };
-            Ok(dest)
-        })?;
+        pot_unit
+            .load_preset_at(&preset, options, |_| {
+                let dest = Destination {
+                    chain: self.fx.chain().clone(),
+                    fx_index,
+                };
+                Ok(dest)
+            })
+            .map_err(|_| "couldn't load preset")?;
         Ok(HitResponse::processed_with_effect())
     }
 

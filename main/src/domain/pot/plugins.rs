@@ -34,8 +34,8 @@ impl PluginKind {
             },
             PluginKind::Vst3 { uid, .. } => {
                 fn parse_component(text: &str, i: usize) -> Result<u32, &'static str> {
-                    let from = i * 4;
-                    let until = from + 4;
+                    let from = i * 8;
+                    let until = from + 8;
                     let parsed = u32::from_str_radix(&text[from..until], 16)
                         .map_err(|_| "couldn't pare VST3 uid component")?;
                     Ok(parsed)

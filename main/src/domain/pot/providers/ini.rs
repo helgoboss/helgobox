@@ -55,16 +55,38 @@ impl Database for IniDatabase {
                     return None;
                 }
                 let file_name = entry.file_name().to_str()?;
+                // Example file names:
+                // - vst-Zebra2.ini
+                // - vst3-FM8-1168312232-builtin.ini
+                // - vst-TDR Nova-builtin.ini
+                // - vst-reacomp.ini
+                // - vst3-Massive.ini
                 let captures = file_name_regex.captures(file_name)?;
                 let plugin_type = captures.get(1)?.as_str();
                 let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;
                 }
+                let (plugin_name, shell_qualifier) = match plugin_identifier.rsplit_once('-') {
+                    // Example: vst3-Zebra2-959560201.ini
+                    // (interpret the number behind the dash as shell qualifier)
+                    Some((left, right))
+                        if right.len() >= 5 && right.chars().any(|ch| ch.is_digit(10)) =>
+                    {
+                        (left, Some(right))
+                    }
+                    // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
+                    _ => (plugin_identifier, None),
+                };
                 let plugin = context.plugins.iter().find(|p| {
                     let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
-                    let safe_plugin_identifier = unsafe_char_regex.replace(plugin_identifier, "_");
-                    if !p.safe_file_name.starts_with(&*safe_plugin_identifier) {
+                    let safe_plugin_name = unsafe_char_regex.replace(plugin_name, "_");
+                    let file_name_prefix = format!("{safe_plugin_name}.");
+                    if !p.safe_file_name.starts_with(&file_name_prefix) {
+                        return false;
+                    }
+                    let plugin_shell_qualifier = p.shell_qualifier.as_ref().map(|q| q.as_str());
+                    if shell_qualifier != plugin_shell_qualifier {
                         return false;
                     }
                     match plugin_type {

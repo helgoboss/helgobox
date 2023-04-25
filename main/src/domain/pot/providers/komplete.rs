@@ -171,6 +171,7 @@ impl NksFile {
 struct PlidChunkContent {
     #[serde(rename = "VST.magic")]
     vst_magic: u32,
+    // 4 * u32 (5 byte) = 128 bit (8 byte)
     #[serde(rename = "VST3.uid")]
     vst3_uid: Option<[u32; 4]>,
 }

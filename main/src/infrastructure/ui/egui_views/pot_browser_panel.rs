@@ -16,6 +16,7 @@ use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use std::error::Error;
 use std::mem;
 use std::time::Duration;
 use swell_ui::Window;
@@ -924,8 +925,8 @@ fn load_preset_and_regain_focus(
     os_window.focus_first_child();
 }
 
-fn process_potential_error(result: &Result<(), &'static str>, toasts: &mut Toasts) {
+fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toasts) {
     if let Err(e) = result.as_ref() {
-        toasts.error(*e, Duration::from_secs(1));
+        toasts.error(e.to_string(), Duration::from_secs(1));
     }
 }
