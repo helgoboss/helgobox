@@ -1,5 +1,5 @@
 use crate::domain::pot::PluginId;
-use ini::{Ini, Properties};
+use ini::Ini;
 use std::path::Path;
 
 #[derive(Debug)]

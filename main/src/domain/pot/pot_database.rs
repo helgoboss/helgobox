@@ -7,10 +7,10 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    BuildInput, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
+    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
 };
 
-use crate::domain::pot::plugins::{crawl_plugins, Plugin};
+use crate::domain::pot::plugins::crawl_plugins;
 use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -160,7 +160,7 @@ impl PotDatabase {
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
-                    id: FilterItemId(Some(db_id.0)),
+                    id: FilterItemId(Some(Fil::ProviderSpecific(db_id.0))),
                     parent_name: None,
                     name: Some(db.filter_item_name()),
                     icon: None,

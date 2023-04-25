@@ -2,8 +2,8 @@ use crate::domain::pot::provider_database::{
     Database, ProviderContext, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
 };
 use crate::domain::pot::{
-    BuildInput, FiledBasedPresetKind, FilterItemCollections, FilterItemId, InnerPresetId, Preset,
-    PresetCommon, PresetKind,
+    BuildInput, Fil, FiledBasedPresetKind, FilterItemCollections, FilterItemId, InnerPresetId,
+    Preset, PresetCommon, PresetKind,
 };
 
 use realearn_api::persistence::PotFilterItemKind;
@@ -99,8 +99,18 @@ impl Database for DirectoryDatabase {
         for (kind, filter) in input.filter_settings.iter() {
             use PotFilterItemKind::*;
             let matches = match kind {
-                NksContentType => filter != Some(FilterItemId(Some(CONTENT_TYPE_FACTORY_ID))),
-                NksFavorite => filter != Some(FilterItemId(Some(FAVORITE_FAVORITE_ID))),
+                NksContentType => {
+                    filter
+                        != Some(FilterItemId(Some(Fil::ProviderSpecific(
+                            CONTENT_TYPE_FACTORY_ID,
+                        ))))
+                }
+                NksFavorite => {
+                    filter
+                        != Some(FilterItemId(Some(Fil::ProviderSpecific(
+                            FAVORITE_FAVORITE_ID,
+                        ))))
+                }
                 NksProductType | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode => {
                     matches!(filter, None | Some(FilterItemId::NONE))
                 }

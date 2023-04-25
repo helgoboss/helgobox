@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
 use crate::domain::pot::provider_database::{Database, ProviderContext, SortablePresetId};
 use crate::domain::pot::{
-    BuildInput, FiledBasedPresetKind, InnerPresetId, MacroParamBank, Preset, PresetCommon,
+    BuildInput, Fil, FiledBasedPresetKind, InnerPresetId, MacroParamBank, Preset, PresetCommon,
     PresetKind,
 };
 use crate::domain::pot::{
@@ -12,7 +12,6 @@ use enum_iterator::IntoEnumIterator;
 use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterItemKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
-use rusqlite::types::{ToSqlOutput, Value};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
@@ -446,7 +445,7 @@ impl PresetDb {
             sql.order_by(v);
         }
         // Filter on content type (= factory or user)
-        if let Some(FilterItemId(Some(content_type))) =
+        if let Some(FilterItemId(Some(Fil::ProviderSpecific(content_type)))) =
             filter_settings.get_ref(PotFilterItemKind::NksContentType)
         {
             sql.from_more(CONTENT_PATH_JOIN);
@@ -456,14 +455,22 @@ impl PresetDb {
         let empty_device_type_flags = 0;
         if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
             // We chose the filter item IDs so they correspond to the device type flags.
-            let device_type_flags = product_type.0.as_ref().unwrap_or(&empty_device_type_flags);
-            sql.where_and_with_param("i.device_type_flags = ?", device_type_flags);
+            let device_type_flags = match product_type.0.as_ref() {
+                None => Some(&empty_device_type_flags),
+                Some(Fil::ProviderSpecific(f)) => Some(f),
+                _ => None,
+            };
+            if let Some(flags) = device_type_flags {
+                sql.where_and_with_param("i.device_type_flags = ?", flags);
+            } else {
+                sql.where_and_false();
+            }
         };
         // Filter on favorite or not
         if let Some(FilterItemId(Some(favorite))) =
             filter_settings.get_ref(PotFilterItemKind::NksFavorite)
         {
-            let is_favorite = *favorite == 1;
+            let is_favorite = *favorite == Fil::ProviderSpecific(1);
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
                     // The IN query is vastly superior compared to the other two (EXISTS and JOIN)!
@@ -488,20 +495,32 @@ impl PresetDb {
                 None => {
                     sql.where_and("i.bank_chain_id IS NULL");
                 }
-                Some(id) => {
+                Some(Fil::ProviderSpecific(id)) => {
                     sql.where_and_with_param("i.bank_chain_id = ?", id);
+                }
+                _ => {
+                    sql.where_and_false();
                 }
             }
         } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::NksBank) {
-            sql.where_and_with_param(
-                r#"
-                i.bank_chain_id IN (
-                    SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
-                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
-                    ) 
-                )"#,
-                bank_id,
-            );
+            match &bank_id.0 {
+                None => unreachable!("effective_sub_bank() should have prevented this"),
+                Some(Fil::ProviderSpecific(id)) => {
+                    sql.where_and_with_param(
+                        r#"
+                        i.bank_chain_id IN (
+                            SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
+                                SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
+                            ) 
+                        )
+                        "#,
+                        id,
+                    );
+                }
+                _ => {
+                    sql.where_and_false();
+                }
+            }
         }
         // Filter on category and sub category (= "Type" and "Sub type")
         if let Some(sub_category_id) = filter_settings.effective_sub_category() {
@@ -509,31 +528,45 @@ impl PresetDb {
                 None => {
                     sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_category)")
                 }
-                Some(id) => {
+                Some(Fil::ProviderSpecific(id)) => {
                     sql.from_more(CATEGORY_JOIN);
                     sql.where_and_with_param("ic.category_id = ?", id);
                 }
+                _ => {
+                    sql.where_and_false();
+                }
             }
         } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::NksCategory) {
-            // At this point, category_id cannot be <None> anymore (see effective_sub_category)
-            sql.from_more(CATEGORY_JOIN);
-            sql.where_and_with_param(
-                r#"
-                ic.category_id IN (
-                    SELECT child.id FROM k_category child WHERE child.category = (
-                        SELECT parent.category FROM k_category parent WHERE parent.id = ?
-                    )
-                )"#,
-                category_id,
-            );
+            match &category_id.0 {
+                None => unreachable!("effective_sub_category() should have prevented this"),
+                Some(Fil::ProviderSpecific(id)) => {
+                    sql.from_more(CATEGORY_JOIN);
+                    sql.where_and_with_param(
+                        r#"
+                        ic.category_id IN (
+                            SELECT child.id FROM k_category child WHERE child.category = (
+                                SELECT parent.category FROM k_category parent WHERE parent.id = ?
+                            )
+                        )
+                        "#,
+                        id,
+                    );
+                }
+                _ => {
+                    sql.where_and_false();
+                }
+            }
         }
         // Filter on mode (= "Character")
         if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::NksMode) {
             match &mode_id.0 {
                 None => sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_mode)"),
-                Some(id) => {
+                Some(Fil::ProviderSpecific(id)) => {
                     sql.from_more(MODE_JOIN);
                     sql.where_and_with_param("im.mode_id = ?", id);
+                }
+                _ => {
+                    sql.where_and_false();
                 }
             }
         }
@@ -576,7 +609,9 @@ impl PresetDb {
                 sql.where_and(format!("{selector} IS NOT NULL"));
             }
             for exclude in exclude_list.normal_excludes_by_kind(kind) {
-                sql.where_and_with_param(format!("{selector} <> ?"), exclude);
+                if let Fil::ProviderSpecific(id) = exclude {
+                    sql.where_and_with_param(format!("{selector} <> ?"), id);
+                }
             }
         }
         // Put it all together
@@ -673,16 +708,21 @@ impl PresetDb {
         include_none_filter: bool,
     ) -> rusqlite::Result<Vec<FilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
-        let rows = if let Some(parent_filter) = parent_filter {
-            statement.query([parent_filter])?
-        } else {
-            statement.query([])?
-        };
+        let rows =
+            if let Some(FilterItemId(Some(Fil::ProviderSpecific(parent_filter)))) = parent_filter {
+                statement.query([parent_filter])?
+            } else {
+                statement.query([])?
+            };
         let existing_filter_items = rows.map(|row| {
             let name: Option<String> = row.get(2)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
-                id: FilterItemId(row.get(0)?),
+                id: {
+                    let id: Option<u32> = row.get(0)?;
+                    let fil = id.map(Fil::ProviderSpecific);
+                    FilterItemId(fil)
+                },
                 name,
                 parent_name: row.get(1)?,
                 icon: None,
@@ -708,16 +748,8 @@ fn path_to_main_and_favorites_db() -> Result<(PathBuf, PathBuf), &'static str> {
 
 fn optional_filter_item_id(row: &Row) -> Result<FilterItemId, rusqlite::Error> {
     let id: Option<u32> = row.get(0)?;
-    Ok(FilterItemId(id))
-}
-
-impl ToSql for FilterItemId {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match self.0 {
-            None => Ok(ToSqlOutput::Owned(Value::Null)),
-            Some(id) => Ok(ToSqlOutput::Owned(Value::Integer(id as _))),
-        }
-    }
+    let fil = id.map(Fil::ProviderSpecific);
+    Ok(FilterItemId(fil))
 }
 
 #[derive(Default)]
@@ -762,6 +794,10 @@ impl<'a> Sql<'a> {
 
     pub fn where_and(&mut self, value: impl Into<Cow<'a, str>>) {
         self.where_conjunctions.push(value.into());
+    }
+
+    pub fn where_and_false(&mut self) {
+        self.where_and("false");
     }
 
     pub fn order_by(&mut self, value: impl Into<Cow<'a, str>>) {

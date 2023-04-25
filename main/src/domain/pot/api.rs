@@ -1,5 +1,5 @@
 use crate::domain::pot::provider_database::DatabaseId;
-use crate::domain::pot::{FilterItem, Preset};
+use crate::domain::pot::{FilterItem, PluginId, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
@@ -27,10 +27,18 @@ pub struct InnerPresetId(pub u32);
 #[derive(
     Copy, Clone, Eq, PartialEq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
-pub struct FilterItemId(pub Option<u32>);
+pub struct FilterItemId(pub Option<Fil>);
 
 impl FilterItemId {
     pub const NONE: Self = Self(None);
+}
+
+/// Different kind of filter values.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum Fil {
+    // TODO-high CONTINUE Add DB ID
+    ProviderSpecific(u32),
+    Plugin(PluginId),
 }
 
 #[derive(Debug, Default)]
@@ -76,7 +84,7 @@ impl Filters {
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {
         if let Some(FilterItemId(Some(filter_db_id))) = self.get(PotFilterItemKind::Database) {
-            db_id.0 == filter_db_id
+            Fil::ProviderSpecific(db_id.0) == filter_db_id
         } else {
             true
         }
@@ -176,13 +184,16 @@ impl PotFilterExcludeList {
     }
 
     pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
-        self.contains(PotFilterItemKind::Database, FilterItemId(Some(db_id.0)))
+        self.contains(
+            PotFilterItemKind::Database,
+            FilterItemId(Some(Fil::ProviderSpecific(db_id.0))),
+        )
     }
 
     pub fn normal_excludes_by_kind(
         &self,
         kind: PotFilterItemKind,
-    ) -> impl Iterator<Item = &u32> + '_ {
+    ) -> impl Iterator<Item = &Fil> + '_ {
         self.exluded_items[kind]
             .iter()
             .filter_map(|id| Some(id.0.as_ref()?))
