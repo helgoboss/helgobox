@@ -1,8 +1,8 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, ProviderContext, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
-    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID,
-    PRODUCT_TYPE_INSTRUMENT_ID, PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
+    Database, DatabaseId, ProviderContext, FIL_CONTENT_TYPE_FACTORY, FIL_CONTENT_TYPE_USER,
+    FIL_FAVORITE_FAVORITE, FIL_FAVORITE_NOT_FAVORITE, FIL_PRODUCT_KIND_EFFECT,
+    FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
 };
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
@@ -105,42 +105,36 @@ impl PotDatabase {
         // Build constant filter collections
         let mut total_output = BuildOutput::default();
         measure_duration(&mut total_output.stats.filter_query_duration, || {
-            if input
-                .affected_kinds
-                .contains(PotFilterItemKind::NksContentType)
-            {
+            if input.affected_kinds.contains(PotFilterItemKind::IsUser) {
                 total_output.filter_item_collections.set(
-                    PotFilterItemKind::NksContentType,
+                    PotFilterItemKind::IsUser,
                     vec![
-                        FilterItem::simple(CONTENT_TYPE_USER_ID, "User", '🕵'),
-                        FilterItem::simple(CONTENT_TYPE_FACTORY_ID, "Factory", '🏭'),
+                        FilterItem::simple(FIL_CONTENT_TYPE_USER, "User", '🕵'),
+                        FilterItem::simple(FIL_CONTENT_TYPE_FACTORY, "Factory", '🏭'),
                     ],
                 );
             }
             if input
                 .affected_kinds
-                .contains(PotFilterItemKind::NksProductType)
+                .contains(PotFilterItemKind::ProductKind)
             {
                 total_output.filter_item_collections.set(
-                    PotFilterItemKind::NksProductType,
+                    PotFilterItemKind::ProductKind,
                     vec![
                         FilterItem::none(),
-                        FilterItem::simple(PRODUCT_TYPE_INSTRUMENT_ID, "Instrument", '🎹'),
-                        FilterItem::simple(PRODUCT_TYPE_EFFECT_ID, "Effect", '✨'),
-                        FilterItem::simple(PRODUCT_TYPE_LOOP_ID, "Loop", '➿'),
-                        FilterItem::simple(PRODUCT_TYPE_ONE_SHOT_ID, "One shot", '💥'),
+                        FilterItem::simple(FIL_PRODUCT_KIND_INSTRUMENT, "Instrument", '🎹'),
+                        FilterItem::simple(FIL_PRODUCT_KIND_EFFECT, "Effect", '✨'),
+                        FilterItem::simple(FIL_PRODUCT_KIND_LOOP, "Loop", '➿'),
+                        FilterItem::simple(FIL_PRODUCT_KIND_ONE_SHOT, "One shot", '💥'),
                     ],
                 );
             }
-            if input
-                .affected_kinds
-                .contains(PotFilterItemKind::NksFavorite)
-            {
+            if input.affected_kinds.contains(PotFilterItemKind::IsFavorite) {
                 total_output.filter_item_collections.set(
-                    PotFilterItemKind::NksFavorite,
+                    PotFilterItemKind::IsFavorite,
                     vec![
-                        FilterItem::simple(FAVORITE_FAVORITE_ID, "Favorite", '★'),
-                        FilterItem::simple(FAVORITE_NOT_FAVORITE_ID, "Not favorite", '☆'),
+                        FilterItem::simple(FIL_FAVORITE_FAVORITE, "Favorite", '★'),
+                        FilterItem::simple(FIL_FAVORITE_NOT_FAVORITE, "Not favorite", '☆'),
                     ],
                 );
             }
@@ -160,7 +154,7 @@ impl PotDatabase {
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
-                    id: FilterItemId(Some(Fil::Komplete(db_id.0))),
+                    id: FilterItemId(Some(Fil::Database(*db_id))),
                     parent_name: None,
                     name: Some(db.filter_item_name()),
                     icon: None,

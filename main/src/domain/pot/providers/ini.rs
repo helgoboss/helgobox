@@ -1,9 +1,9 @@
 use crate::domain::pot::provider_database::{
-    Database, ProviderContext, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
+    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
 };
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind,
-    PluginId, Preset, PresetCommon, PresetKind,
+    BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind, PluginId,
+    Preset, PresetCommon, PresetKind,
 };
 
 use crate::domain::pot::plugins::PluginKind;
@@ -141,13 +141,9 @@ impl Database for IniDatabase {
         for (kind, filter) in input.filter_settings.iter() {
             use PotFilterItemKind::*;
             let matches = match kind {
-                NksContentType => {
-                    filter != Some(FilterItemId(Some(Fil::Komplete(CONTENT_TYPE_FACTORY_ID))))
-                }
-                NksFavorite => {
-                    filter != Some(FilterItemId(Some(Fil::Komplete(FAVORITE_FAVORITE_ID))))
-                }
-                NksProductType | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode => {
+                IsUser => filter != Some(FilterItemId(Some(FIL_CONTENT_TYPE_FACTORY))),
+                IsFavorite => filter != Some(FilterItemId(Some(FIL_FAVORITE_FAVORITE))),
+                ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
                     matches!(filter, None | Some(FilterItemId::NONE))
                 }
                 _ => true,

@@ -229,14 +229,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
-                                PotFilterItemKind::NksContentType,
+                                PotFilterItemKind::IsUser,
                                 ui,
                             );
                             ui.separator();
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
-                                PotFilterItemKind::NksFavorite,
+                                PotFilterItemKind::IsFavorite,
                                 ui,
                             );
                         });
@@ -267,19 +267,19 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     add_filter_view_content(
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::NksProductType,
+                        PotFilterItemKind::ProductKind,
                         ui,
                         false
                     );
                     // Add dependent filter views
                     ui.separator();
                     let show_sub_banks = !state.auto_hide_sub_filters
-                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::NksBank)
-                        || pot_unit.get_filter(PotFilterItemKind::NksSubBank).is_some());
+                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::Bank)
+                        || pot_unit.get_filter(PotFilterItemKind::SubBank).is_some());
                     let show_sub_categories = !state.auto_hide_sub_filters
-                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::NksCategory)
+                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::Category)
                         || pot_unit
-                        .get_filter(PotFilterItemKind::NksSubCategory)
+                        .get_filter(PotFilterItemKind::SubCategory)
                         .is_some());
                     let mut remaining_kind_count = 5;
                     if !show_sub_banks {
@@ -294,7 +294,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         filter_view_height,
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::NksBank,
+                        PotFilterItemKind::Bank,
                         false,
                         false,
                     );
@@ -304,7 +304,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             filter_view_height,
                             &state.pot_unit,
                             pot_unit,
-                            PotFilterItemKind::NksSubBank,
+                            PotFilterItemKind::SubBank,
                             true,
                             true,
                         );
@@ -314,7 +314,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         filter_view_height,
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::NksCategory,
+                        PotFilterItemKind::Category,
                         true,
                         false,
                     );
@@ -324,7 +324,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             filter_view_height,
                             &state.pot_unit,
                             pot_unit,
-                            PotFilterItemKind::NksSubCategory,
+                            PotFilterItemKind::SubCategory,
                             true,
                             true,
                         );
@@ -334,7 +334,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         filter_view_height,
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::NksMode,
+                        PotFilterItemKind::Mode,
                         true,
                         false,
                     );

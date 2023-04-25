@@ -14,7 +14,7 @@ pub struct Plugin {
     pub shell_qualifier: Option<String>,
     pub checksum: String,
     pub kind: PluginKind,
-    pub product_kind: ProductKind,
+    pub product_kind: Option<ProductKind>,
     pub name: String,
 }
 
@@ -60,7 +60,22 @@ pub enum ProductKind {
     Instrument,
     Loop,
     OneShot,
-    Other,
+}
+
+impl ProductKind {
+    pub fn komplete_id(&self) -> &'static u32 {
+        const INSTRUMENT: u32 = 1;
+        const EFFECT: u32 = 2;
+        const LOOP: u32 = 4;
+        const ONE_SHOT: u32 = 8;
+        use ProductKind::*;
+        match self {
+            Effect => &EFFECT,
+            Instrument => &INSTRUMENT,
+            Loop => &LOOP,
+            OneShot => &ONE_SHOT,
+        }
+    }
 }
 
 pub fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
@@ -106,11 +121,14 @@ fn crawl_plugins_in_ini_file(path: &Path) -> Vec<Plugin> {
                 },
             };
             let (name, product_kind) = match plugin_name_kind_expression.split_once("!!!") {
-                None => (plugin_name_kind_expression.to_string(), ProductKind::Effect),
+                None => (
+                    plugin_name_kind_expression.to_string(),
+                    Some(ProductKind::Effect),
+                ),
                 Some((left, right)) => {
                     let kind = match right {
-                        "VSTi" => ProductKind::Instrument,
-                        _ => ProductKind::Other,
+                        "VSTi" => Some(ProductKind::Instrument),
+                        _ => None,
                     };
                     (left.to_string(), kind)
                 }

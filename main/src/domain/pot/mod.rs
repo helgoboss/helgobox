@@ -751,11 +751,11 @@ impl FilterItem {
         }
     }
 
-    pub fn simple(id: u32, name: &str, icon: char) -> Self {
+    pub fn simple(fil: Fil, name: &str, icon: char) -> Self {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
-            id: FilterItemId(Some(Fil::Komplete(id))),
+            id: FilterItemId(Some(fil)),
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),

@@ -1,5 +1,5 @@
-use crate::domain::pot::plugins::Plugin;
-use crate::domain::pot::{BuildInput, FilterItemCollections, InnerPresetId, Preset};
+use crate::domain::pot::plugins::{Plugin, ProductKind};
+use crate::domain::pot::{BuildInput, Fil, FilterItemCollections, InnerPresetId, Preset};
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -41,11 +41,19 @@ pub struct ProviderContext<'a> {
     pub plugins: &'a [Plugin],
 }
 
-pub const CONTENT_TYPE_USER_ID: u32 = 1;
-pub const CONTENT_TYPE_FACTORY_ID: u32 = 2;
-pub const FAVORITE_FAVORITE_ID: u32 = 1;
-pub const FAVORITE_NOT_FAVORITE_ID: u32 = 2;
-pub const PRODUCT_TYPE_INSTRUMENT_ID: u32 = 1;
-pub const PRODUCT_TYPE_EFFECT_ID: u32 = 2;
-pub const PRODUCT_TYPE_LOOP_ID: u32 = 4;
-pub const PRODUCT_TYPE_ONE_SHOT_ID: u32 = 8;
+/// Komplete ID = 1
+pub const FIL_CONTENT_TYPE_USER: Fil = Fil::Boolean(true);
+/// Komplete ID = 2
+pub const FIL_CONTENT_TYPE_FACTORY: Fil = Fil::Boolean(false);
+/// Komplete ID = 1
+pub const FIL_FAVORITE_FAVORITE: Fil = Fil::Boolean(true);
+/// Komplete ID = 2
+pub const FIL_FAVORITE_NOT_FAVORITE: Fil = Fil::Boolean(false);
+/// Komplete ID = 1
+pub const FIL_PRODUCT_KIND_INSTRUMENT: Fil = Fil::ProductKind(ProductKind::Instrument);
+/// Komplete ID = 2
+pub const FIL_PRODUCT_KIND_EFFECT: Fil = Fil::ProductKind(ProductKind::Effect);
+/// Komplete ID = 4
+pub const FIL_PRODUCT_KIND_LOOP: Fil = Fil::ProductKind(ProductKind::Loop);
+/// Komplete ID = 8
+pub const FIL_PRODUCT_KIND_ONE_SHOT: Fil = Fil::ProductKind(ProductKind::OneShot);

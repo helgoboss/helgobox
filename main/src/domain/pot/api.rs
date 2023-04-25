@@ -107,7 +107,7 @@ impl Filters {
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {
         if let Some(FilterItemId(Some(filter_db_id))) = self.get(PotFilterItemKind::Database) {
-            Fil::Komplete(db_id.0) == filter_db_id
+            Fil::Database(db_id) == filter_db_id
         } else {
             true
         }
@@ -131,7 +131,7 @@ impl Filters {
     }
 
     pub fn effective_sub_bank(&self) -> &OptFilter {
-        self.effective_sub_item(PotFilterItemKind::NksBank, PotFilterItemKind::NksSubBank)
+        self.effective_sub_item(PotFilterItemKind::Bank, PotFilterItemKind::SubBank)
     }
 
     pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludeList) {
@@ -164,10 +164,7 @@ impl Filters {
     }
 
     pub fn effective_sub_category(&self) -> &OptFilter {
-        self.effective_sub_item(
-            PotFilterItemKind::NksCategory,
-            PotFilterItemKind::NksSubCategory,
-        )
+        self.effective_sub_item(PotFilterItemKind::Category, PotFilterItemKind::SubCategory)
     }
 
     fn effective_sub_item(

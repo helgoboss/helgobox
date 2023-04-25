@@ -1,6 +1,8 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::{Database, ProviderContext, SortablePresetId};
+use crate::domain::pot::provider_database::{
+    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_USER, FIL_FAVORITE_FAVORITE,
+};
 use crate::domain::pot::{
     BuildInput, Fil, FiledBasedPresetKind, InnerPresetId, MacroParamBank, Preset, PresetCommon,
     PresetKind,
@@ -291,38 +293,36 @@ impl PresetDb {
             input.affected_kinds.into_iter(),
             &input.filter_exclude_list,
         );
-        let banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksBank);
-        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::NksSubBank);
+        let banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::Bank);
+        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::SubBank);
         if banks_are_affected || sub_banks_are_affected {
             let non_empty_banks =
                 self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
             if banks_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::NksBank, &non_empty_banks);
+                filter_items.narrow_down(PotFilterItemKind::Bank, &non_empty_banks);
             }
             if sub_banks_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::NksSubBank, &non_empty_banks);
+                filter_items.narrow_down(PotFilterItemKind::SubBank, &non_empty_banks);
             }
         }
-        let categories_are_affected = input
-            .affected_kinds
-            .contains(PotFilterItemKind::NksCategory);
+        let categories_are_affected = input.affected_kinds.contains(PotFilterItemKind::Category);
         let sub_categories_are_affected = input
             .affected_kinds
-            .contains(PotFilterItemKind::NksSubCategory);
+            .contains(PotFilterItemKind::SubCategory);
         if categories_are_affected || sub_categories_are_affected {
             let non_empty_categories =
                 self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
             if categories_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::NksCategory, &non_empty_categories);
+                filter_items.narrow_down(PotFilterItemKind::Category, &non_empty_categories);
             }
             if sub_categories_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::NksSubCategory, &non_empty_categories);
+                filter_items.narrow_down(PotFilterItemKind::SubCategory, &non_empty_categories);
             }
         }
-        if input.affected_kinds.contains(PotFilterItemKind::NksMode) {
+        if input.affected_kinds.contains(PotFilterItemKind::Mode) {
             let non_empty_modes =
                 self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
-            filter_items.narrow_down(PotFilterItemKind::NksMode, &non_empty_modes);
+            filter_items.narrow_down(PotFilterItemKind::Mode, &non_empty_modes);
         }
         Ok(filter_items)
     }
@@ -370,11 +370,11 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.set(PotFilterItemKind::NksBank, None);
-        filters.set(PotFilterItemKind::NksSubBank, None);
-        filters.set(PotFilterItemKind::NksCategory, None);
-        filters.set(PotFilterItemKind::NksSubCategory, None);
-        filters.set(PotFilterItemKind::NksMode, None);
+        filters.set(PotFilterItemKind::Bank, None);
+        filters.set(PotFilterItemKind::SubBank, None);
+        filters.set(PotFilterItemKind::Category, None);
+        filters.set(PotFilterItemKind::SubCategory, None);
+        filters.set(PotFilterItemKind::Mode, None);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -391,9 +391,9 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.set(PotFilterItemKind::NksCategory, None);
-        filters.set(PotFilterItemKind::NksSubCategory, None);
-        filters.set(PotFilterItemKind::NksMode, None);
+        filters.set(PotFilterItemKind::Category, None);
+        filters.set(PotFilterItemKind::SubCategory, None);
+        filters.set(PotFilterItemKind::Mode, None);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -410,7 +410,7 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.set(PotFilterItemKind::NksMode, None);
+        filters.set(PotFilterItemKind::Mode, None);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -445,19 +445,21 @@ impl PresetDb {
             sql.order_by(v);
         }
         // Filter on content type (= factory or user)
-        if let Some(FilterItemId(Some(Fil::Komplete(content_type)))) =
-            filter_settings.get_ref(PotFilterItemKind::NksContentType)
-        {
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterItemKind::IsUser) {
+            let content_type = if fil == FIL_CONTENT_TYPE_USER {
+                &ONE
+            } else {
+                &TWO
+            };
             sql.from_more(CONTENT_PATH_JOIN);
             sql.where_and_with_param("cp.content_type = ?", content_type);
         }
         // Filter on product/device type (= instrument, effect, loop or one shot)
-        let empty_device_type_flags = 0;
-        if let Some(product_type) = filter_settings.get_ref(PotFilterItemKind::NksProductType) {
+        if let Some(product_type) = filter_settings.get(PotFilterItemKind::ProductKind) {
             // We chose the filter item IDs so they correspond to the device type flags.
             let device_type_flags = match product_type.0.as_ref() {
-                None => Some(&empty_device_type_flags),
-                Some(Fil::Komplete(f)) => Some(f),
+                None => Some(&ZERO),
+                Some(Fil::ProductKind(k)) => Some(k.komplete_id()),
                 _ => None,
             };
             if let Some(flags) = device_type_flags {
@@ -467,10 +469,8 @@ impl PresetDb {
             }
         };
         // Filter on favorite or not
-        if let Some(FilterItemId(Some(favorite))) =
-            filter_settings.get_ref(PotFilterItemKind::NksFavorite)
-        {
-            let is_favorite = *favorite == Fil::Komplete(1);
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterItemKind::IsFavorite) {
+            let is_favorite = fil == FIL_FAVORITE_FAVORITE;
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
                     // The IN query is vastly superior compared to the other two (EXISTS and JOIN)!
@@ -502,7 +502,7 @@ impl PresetDb {
                     sql.where_and_false();
                 }
             }
-        } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::NksBank) {
+        } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::Bank) {
             match &bank_id.0 {
                 None => unreachable!("effective_sub_bank() should have prevented this"),
                 Some(Fil::Komplete(id)) => {
@@ -536,7 +536,7 @@ impl PresetDb {
                     sql.where_and_false();
                 }
             }
-        } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::NksCategory) {
+        } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::Category) {
             match &category_id.0 {
                 None => unreachable!("effective_sub_category() should have prevented this"),
                 Some(Fil::Komplete(id)) => {
@@ -558,7 +558,7 @@ impl PresetDb {
             }
         }
         // Filter on mode (= "Character")
-        if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::NksMode) {
+        if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::Mode) {
             match &mode_id.0 {
                 None => sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_mode)"),
                 Some(Fil::Komplete(id)) => {
@@ -594,12 +594,12 @@ impl PresetDb {
             }
             use PotFilterItemKind::*;
             let selector = match kind {
-                NksBank | NksSubBank => "i.bank_chain_id",
-                NksCategory | NksSubCategory => {
+                Bank | SubBank => "i.bank_chain_id",
+                Category | SubCategory => {
                     sql.from_more(CATEGORY_JOIN);
                     "ic.category_id"
                 }
-                NksMode => {
+                Mode => {
                     sql.from_more(MODE_JOIN);
                     "im.mode_id"
                 }
@@ -649,35 +649,35 @@ impl PresetDb {
     ) -> Vec<FilterItem> {
         use PotFilterItemKind::*;
         match kind {
-            NksBank => self.select_nks_filter_items(
+            Bank => self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
                 true,
             ),
-            NksSubBank => {
+            SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
-                let parent_bank_filter = settings.get(PotFilterItemKind::NksBank);
+                let parent_bank_filter = settings.get(PotFilterItemKind::Bank);
                 if parent_bank_filter.is_some() {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
                 self.select_nks_filter_items(&sql, parent_bank_filter, false)
             }
-            NksCategory => self.select_nks_filter_items(
+            Category => self.select_nks_filter_items(
                 "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
                 None,
                 true,
             ),
-            NksSubCategory => {
+            SubCategory => {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
-                let parent_category_filter = settings.get(PotFilterItemKind::NksCategory);
+                let parent_category_filter = settings.get(PotFilterItemKind::Category);
                 if parent_category_filter.is_some() {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
                 self.select_nks_filter_items(&sql, parent_category_filter, false)
             }
-            NksMode => self.select_nks_filter_items(
+            Mode => self.select_nks_filter_items(
                 "SELECT id, '', name FROM k_mode ORDER BY name",
                 None,
                 true,
@@ -834,3 +834,6 @@ impl<'a> Display for Sql<'a> {
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
 const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
 const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
+const ZERO: u32 = 0;
+const ONE: u32 = 1;
+const TWO: u32 = 2;

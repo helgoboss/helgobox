@@ -1172,23 +1172,31 @@ pub enum PotFilterItemKind {
     Database,
     /// Factory or User
     #[display(fmt = "Content types")]
-    NksContentType,
+    #[serde(alias = "NksContentType")]
+    IsUser,
     /// Instrument, Effect, Loop, One Shot
     #[display(fmt = "Product types")]
-    NksProductType,
+    #[serde(alias = "NksProductType")]
+    ProductKind,
     /// Favorite
     #[display(fmt = "Favorite")]
-    NksFavorite,
+    #[serde(alias = "NksFavorite")]
+    IsFavorite,
     #[display(fmt = "Product")]
-    NksBank,
+    #[serde(alias = "NksBank")]
+    Bank,
     #[display(fmt = "Bank")]
-    NksSubBank,
+    #[serde(alias = "NksSubBank")]
+    SubBank,
     #[display(fmt = "Type")]
-    NksCategory,
+    #[serde(alias = "NksCategory")]
+    Category,
     #[display(fmt = "Sub type")]
-    NksSubCategory,
+    #[serde(alias = "NksSubCategory")]
+    SubCategory,
     #[display(fmt = "Character")]
-    NksMode,
+    #[serde(alias = "NksMode")]
+    Mode,
 }
 
 impl PotFilterItemKind {
@@ -1202,14 +1210,14 @@ impl PotFilterItemKind {
         use PotFilterItemKind::*;
         matches!(
             self,
-            Database | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode
+            Database | Bank | SubBank | Category | SubCategory | Mode
         )
     }
 
     pub fn parent(&self) -> Option<Self> {
         match self {
-            PotFilterItemKind::NksSubBank => Some(PotFilterItemKind::NksBank),
-            PotFilterItemKind::NksSubCategory => Some(PotFilterItemKind::NksCategory),
+            PotFilterItemKind::SubBank => Some(PotFilterItemKind::Bank),
+            PotFilterItemKind::SubCategory => Some(PotFilterItemKind::Category),
             _ => None,
         }
     }
@@ -1223,12 +1231,12 @@ impl PotFilterItemKind {
         use PotFilterItemKind::*;
         match self {
             Database => 0,
-            NksContentType | NksProductType | NksFavorite => 1,
-            NksBank => 2,
-            NksSubBank => 3,
-            NksCategory => 4,
-            NksSubCategory => 5,
-            NksMode => 6,
+            IsUser | ProductKind | IsFavorite => 1,
+            Bank => 2,
+            SubBank => 3,
+            Category => 4,
+            SubCategory => 5,
+            Mode => 6,
         }
     }
 }
