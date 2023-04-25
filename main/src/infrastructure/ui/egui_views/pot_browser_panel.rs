@@ -358,8 +358,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         &mut state.show_stats,
                         "Stats",
                     ).on_hover_text("Show query statistics");
-                    // Auto-preview
-                    ui.checkbox(&mut state.auto_preview, "Auto-preview")
+                    // Preview
+                    ui.checkbox(&mut state.auto_preview, "Preview")
                         .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
                     // Preview volume
                     let old_volume = pot_unit.preview_volume();
@@ -525,7 +525,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
                     .column(Column::auto())
-                    .column(Column::auto())
                     .column(Column::remainder().at_least(40.0))
                     .min_scrolled_height(0.0);
 
@@ -544,13 +543,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.strong("Name");
                         });
                         header.col(|ui| {
-                            ui.strong("Product");
-                        });
-                        header.col(|ui| {
                             ui.strong("Extension");
                         });
                         header.col(|ui| {
-                            ui.strong("Actions");
+                            ui.strong("Product");
                         });
                     })
                     .body(|body| {
@@ -587,11 +583,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                return;
                             };
                             row.col(|ui| {
-                                if let Some(n) = preset.common.product_name.as_ref() {
-                                    ui.label(n);
-                                }
-                            });
-                            row.col(|ui| {
                                 let text = match &preset.kind {
                                     PresetKind::FileBased(k) => &k.file_ext,
                                     PresetKind::Internal(_) => "",
@@ -599,13 +590,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 ui.label(text);
                             });
                             row.col(|ui| {
-                                if ui.small_button("Load").clicked() {
-                                    load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
-                                }
-                                if !state.auto_preview {
-                                    if ui.small_button("Preview").clicked() {
-                                        process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
-                                    }
+                                if let Some(n) = preset.common.product_name.as_ref() {
+                                    ui.label(n);
                                 }
                             });
                         });
