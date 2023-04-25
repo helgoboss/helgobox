@@ -15,6 +15,7 @@ use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
+use std::ffi::CString;
 use std::fs;
 
 use itertools::Itertools;
@@ -969,18 +970,22 @@ fn load_audio_preset(
         .map(|fx| fx.window_is_open())
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
-    // Make sure RS5k has focus
-    let window_is_open_now = output.fx.window_is_open();
-    if window_is_open_now {
-        if !output.fx.window_has_focus() {
-            output.fx.hide_floating_window();
+    // First try it the modern way ...
+    if load_media_in_specific_rs5k_modern(&output.fx, path).is_err() {
+        // ... and if this didn't work, try it the old-school way.
+        // Make sure RS5k has focus
+        let window_is_open_now = output.fx.window_is_open();
+        if window_is_open_now {
+            if !output.fx.window_has_focus() {
+                output.fx.hide_floating_window();
+                output.fx.show_in_floating_window();
+            }
+        } else {
             output.fx.show_in_floating_window();
         }
-    } else {
-        output.fx.show_in_floating_window();
+        // Load into RS5k
+        load_media_in_last_focused_rs5k(path)?;
     }
-    // Load into RS5k
-    load_media_in_last_focused_rs5k(path)?;
     // Remainder
     options
         .window_behavior
@@ -1059,6 +1064,13 @@ fn insert_fx_by_plugin_id(
         .insert_fx_by_name(destination.fx_index, name.as_str())
         .ok_or_else(|| format!("Couldn't add FX via name \"{name}\""))?;
     Ok(fx)
+}
+
+fn load_media_in_specific_rs5k_modern(fx: &Fx, path: &Path) -> Result<(), Box<dyn Error>> {
+    let path_str = path.to_str().ok_or("path not UTF8-compatible")?;
+    let path_c_string = CString::new(path_str)?;
+    fx.set_named_config_param("FILE", path_c_string.as_bytes_with_nul())?;
+    Ok(())
 }
 
 fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
