@@ -2,6 +2,7 @@ use crate::domain::pot::PluginId;
 use ini::Ini;
 use std::path::Path;
 
+/// TODO-high CONTINUE Also scan JS plug-ins!
 #[derive(Debug)]
 pub struct Plugin {
     /// Safe means: Each space and special character is replaced with an underscore.
@@ -37,7 +38,7 @@ impl PluginKind {
                     let from = i * 8;
                     let until = from + 8;
                     let parsed = u32::from_str_radix(&text[from..until], 16)
-                        .map_err(|_| "couldn't pare VST3 uid component")?;
+                        .map_err(|_| "couldn't parse VST3 uid component")?;
                     Ok(parsed)
                 }
                 PluginId::Vst3 {
@@ -110,6 +111,10 @@ fn crawl_plugins_in_ini_file(path: &Path) -> Vec<Plugin> {
             let mut value_iter = value.splitn(3, ',');
             let checksum = value_iter.next()?.to_string();
             let plugin_id_expression = value_iter.next()?;
+            if plugin_id_expression == "0" {
+                // Must be a plug-in shell, not an actual plug-in.
+                return None;
+            }
             let plugin_name_kind_expression = value_iter.next()?;
             let kind = match plugin_id_expression.split_once('{') {
                 None => PluginKind::Vst2 {

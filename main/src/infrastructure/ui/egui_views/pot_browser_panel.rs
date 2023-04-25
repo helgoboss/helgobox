@@ -586,6 +586,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 let text = match &preset.kind {
                                     PresetKind::FileBased(k) => &k.file_ext,
                                     PresetKind::Internal(_) => "",
+                                    PresetKind::Default(_) => "",
                                 };
                                 ui.label(text);
                             });

@@ -11,6 +11,7 @@ use crate::domain::pot::{
 };
 
 use crate::domain::pot::plugins::crawl_plugins;
+use crate::domain::pot::providers::defaults::DefaultsDatabase;
 use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
@@ -70,11 +71,13 @@ impl PotDatabase {
             DirectoryDatabase::open(config)
         };
         let ini_db = IniDatabase::open(resource_path.join("presets"));
+        let defaults_db = DefaultsDatabase::open();
         let databases = [
             box_db(komplete_db),
             box_db(rfx_chain_db),
             box_db(track_template_db),
             box_db(ini_db),
+            box_db(Ok(defaults_db)),
         ];
         let databases = databases
             .into_iter()

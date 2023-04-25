@@ -19,6 +19,7 @@ pub struct DirectoryDatabase {
     valid_extensions: HashSet<&'static OsStr>,
     name: &'static str,
     publish_relative_path: bool,
+    // TODO-high CONTINUE Using a vec is enough!
     entries: HashMap<InnerPresetId, PresetEntry>,
 }
 

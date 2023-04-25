@@ -464,6 +464,10 @@ impl RuntimePotUnit {
                     return Err("plug-in for internal preset couldn't be found".into());
                 }
             }
+            PresetKind::Default(plugin_id) => {
+                let dest = build_destination(self)?;
+                load_default_preset(*plugin_id, &dest, options)?
+            }
         };
         let current_preset = CurrentPreset {
             preset: preset.clone(),
@@ -807,6 +811,7 @@ pub struct PresetCommon {
 pub enum PresetKind {
     FileBased(FiledBasedPresetKind),
     Internal(InternalPresetKind),
+    Default(PluginId),
 }
 
 /// The kind of preset that's saved in a separate file.
@@ -945,6 +950,28 @@ fn load_internal_preset(
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
     output.fx.activate_preset_by_name(preset_name)?;
+    options
+        .window_behavior
+        .open_or_close(&output.fx, fx_was_open_before, output.op);
+    let outcome = LoadPresetOutcome {
+        fx: output.fx,
+        banks: vec![],
+    };
+    Ok(outcome)
+}
+
+// TODO-high CONTINUE Less code duplication
+fn load_default_preset(
+    plugin_id: PluginId,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    let existing_fx = destination.resolve();
+    let fx_was_open_before = existing_fx
+        .as_ref()
+        .map(|fx| fx.window_is_open())
+        .unwrap_or(false);
+    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
     options
         .window_behavior
         .open_or_close(&output.fx, fx_was_open_before, output.op);
@@ -1151,6 +1178,13 @@ pub enum PluginId {
 }
 
 impl PluginId {
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            PluginId::Vst2 { .. } => "VST",
+            PluginId::Vst3 { .. } => "VST3",
+        }
+    }
+
     pub fn reaper_prefix(&self) -> char {
         match self {
             PluginId::Vst2 { .. } => '<',

@@ -1,5 +1,6 @@
 use crate::domain::pot::provider_database::{
-    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
+    build_product_name_from_plugin_info, Database, ProviderContext, SortablePresetId,
+    FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
 };
 use crate::domain::pot::{
     BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind, PluginId,
@@ -15,8 +16,10 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 use wildmatch::WildMatch;
 
+/// TODO-high CONTINUE Also scan JS presets!
 pub struct IniDatabase {
     root_dir: PathBuf,
+    // TODO-high CONTINUE Using a vec is enough!
     entries: HashMap<InnerPresetId, PresetEntry>,
 }
 
@@ -184,7 +187,10 @@ impl Database for IniDatabase {
             common: PresetCommon {
                 favorite_id: "".to_string(),
                 name: preset_entry.preset_name.clone(),
-                product_name: preset_entry.plugin_info.as_ref().map(|i| i.name.clone()),
+                product_name: preset_entry
+                    .plugin_info
+                    .as_ref()
+                    .map(|i| build_product_name_from_plugin_info(&i.name, i.id)),
             },
             kind: PresetKind::Internal(InternalPresetKind {
                 plugin_id: preset_entry.plugin_info.as_ref().map(|i| i.id),
