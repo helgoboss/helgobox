@@ -34,8 +34,13 @@ impl IniDatabase {
 }
 
 struct PresetEntry {
-    plugin_id: PluginId,
+    plugin_info: Option<PluginInfo>,
     preset_name: String,
+}
+
+struct PluginInfo {
+    id: PluginId,
+    name: String,
 }
 
 impl Database for IniDatabase {
@@ -94,7 +99,7 @@ impl Database for IniDatabase {
                         "vst3" => matches!(p.kind, PluginKind::Vst3 { .. }),
                         _ => false,
                     }
-                })?;
+                });
                 let ini_file = Ini::load_from_file(entry.path()).ok()?;
                 let general_section = ini_file.section(Some("General"))?;
                 let nb_presets = general_section.get("NbPresets")?;
@@ -104,7 +109,13 @@ impl Database for IniDatabase {
                     let section = ini_file.section(Some(section_name))?;
                     let name = section.get("Name")?;
                     let preset_entry = PresetEntry {
-                        plugin_id: plugin.kind.plugin_id().ok()?,
+                        plugin_info: plugin.and_then(|p| {
+                            let info = PluginInfo {
+                                id: p.kind.plugin_id().ok()?,
+                                name: p.name.clone(),
+                            };
+                            Some(info)
+                        }),
                         preset_name: name.to_string(),
                     };
                     Some(preset_entry)
@@ -173,9 +184,10 @@ impl Database for IniDatabase {
             common: PresetCommon {
                 favorite_id: "".to_string(),
                 name: preset_entry.preset_name.clone(),
+                product_name: preset_entry.plugin_info.as_ref().map(|i| i.name.clone()),
             },
             kind: PresetKind::Internal(InternalPresetKind {
-                plugin_id: preset_entry.plugin_id,
+                plugin_id: preset_entry.plugin_info.as_ref().map(|i| i.id),
             }),
         };
         Some(preset)

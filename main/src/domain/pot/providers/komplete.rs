@@ -258,12 +258,17 @@ impl PresetDb {
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         self.connection
             .query_row(
-                "SELECT name, file_name, file_ext, favorite_id FROM k_sound_info WHERE id = ?",
+                r#"
+                SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1
+                FROM k_sound_info i LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
+                WHERE i.id = ?
+                "#,
                 [id.0],
                 |row| {
                     let common = PresetCommon {
                         favorite_id: row.get(3)?,
                         name: row.get(0)?,
+                        product_name: row.get(4)?,
                     };
                     let kind = FiledBasedPresetKind {
                         path: {

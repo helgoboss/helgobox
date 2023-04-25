@@ -525,6 +525,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
                     .column(Column::auto())
+                    .column(Column::auto())
                     .column(Column::remainder().at_least(40.0))
                     .min_scrolled_height(0.0);
 
@@ -541,6 +542,9 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .header(20.0, |mut header| {
                         header.col(|ui| {
                             ui.strong("Name");
+                        });
+                        header.col(|ui| {
+                            ui.strong("Product");
                         });
                         header.col(|ui| {
                             ui.strong("Extension");
@@ -579,25 +583,28 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     }
                                 }
                             });
+                            let Ok(Some(preset)) = preset.as_ref() else {
+                               return;
+                            };
                             row.col(|ui| {
-                                let text = match preset.as_ref() {
-                                    Ok(Some(p)) => match &p.kind {
-                                        PresetKind::FileBased(k) => &k.file_ext,
-                                        PresetKind::Internal(_) => "",
-                                    },
-                                    _ => "-"
+                                if let Some(n) = preset.common.product_name.as_ref() {
+                                    ui.label(n);
+                                }
+                            });
+                            row.col(|ui| {
+                                let text = match &preset.kind {
+                                    PresetKind::FileBased(k) => &k.file_ext,
+                                    PresetKind::Internal(_) => "",
                                 };
                                 ui.label(text);
                             });
                             row.col(|ui| {
-                                if let Ok(Some(preset)) = preset.as_ref() {
-                                    if ui.small_button("Load").clicked() {
-                                        load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
-                                    }
-                                    if !state.auto_preview {
-                                        if ui.small_button("Preview").clicked() {
-                                            process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
-                                        }
+                                if ui.small_button("Load").clicked() {
+                                    load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                }
+                                if !state.auto_preview {
+                                    if ui.small_button("Preview").clicked() {
+                                        process_potential_error(&pot_unit.play_preview(preset_id), &mut toasts);
                                     }
                                 }
                             });

@@ -143,6 +143,7 @@ impl Database for DirectoryDatabase {
             common: PresetCommon {
                 favorite_id: preset_entry.relative_path.clone(),
                 name: preset_entry.preset_name.clone(),
+                product_name: None,
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
                 file_ext: relative_path

@@ -449,11 +449,19 @@ impl RuntimePotUnit {
                     let dest = build_destination(self)?;
                     load_track_template_preset(&k.path, &dest, options)?
                 }
-                _ => return Err(format!("unsupported preset format \"{}\"", &k.file_ext).into()),
+                _ => {
+                    return Err(
+                        format!("unsupported file-based preset format \"{}\"", &k.file_ext).into(),
+                    )
+                }
             },
             PresetKind::Internal(k) => {
-                let dest = build_destination(self)?;
-                load_internal_preset(k.plugin_id, preset.name(), &dest, options)?
+                if let Some(plugin_id) = k.plugin_id {
+                    let dest = build_destination(self)?;
+                    load_internal_preset(plugin_id, preset.name(), &dest, options)?
+                } else {
+                    return Err("plug-in for internal preset couldn't be found".into());
+                }
             }
         };
         let current_preset = CurrentPreset {
@@ -784,6 +792,14 @@ impl Preset {
 pub struct PresetCommon {
     pub favorite_id: String,
     pub name: String,
+    /// Meaning depends on the database.
+    ///
+    /// - In case of Komplete, this sometimes corresponds to the name of a plug-in (albeit not
+    ///   necessarily the accurate name), e.g. FM8 as far as REAPER's plug-in scan is concerned.
+    ///   At other times it corresponds to an instrument within a plug-in, e.g. in case
+    ///   of "Abbey Road 50s Drummer" being an instrument within Kontakt.
+    /// - In case of other databases, this usually corresponds to the accurate plug-in name.
+    pub product_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -792,15 +808,18 @@ pub enum PresetKind {
     Internal(InternalPresetKind),
 }
 
+/// The kind of preset that's saved in a separate file.
 #[derive(Clone, Debug)]
 pub struct FiledBasedPresetKind {
     pub path: PathBuf,
     pub file_ext: String,
 }
 
+/// The kind of preset that's saved together with the plug-in in REAPER's plug-in GUI, not exported
+/// to a separate file.
 #[derive(Clone, Debug)]
 pub struct InternalPresetKind {
-    pub plugin_id: PluginId,
+    pub plugin_id: Option<PluginId>,
 }
 
 #[derive(serde::Deserialize)]
