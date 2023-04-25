@@ -2,13 +2,13 @@ use crate::application::get_track_label;
 use crate::base::blocking_lock;
 use crate::domain::pot::{
     pot_db, ChangeHint, CurrentPreset, DestinationTrackDescriptor, LoadPresetOptions,
-    LoadPresetWindowBehavior, MacroParam, Preset, RuntimePotUnit, SharedRuntimePotUnit,
+    LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, Modifiers,
-    RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
+    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, RichText,
+    ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
@@ -141,7 +141,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .min_height(50.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
-                        ui.heading(&current_preset.preset().name);
+                        ui.heading(current_preset.preset().name());
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if current_preset.has_params() {
                                 // Bank picker
@@ -559,7 +559,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 let text = match preset.as_ref() {
                                     Err(_) => "⏳",
                                     Ok(None) => "<Preset gone>",
-                                    Ok(Some(p)) => &p.name,
+                                    Ok(Some(p)) => p.name(),
                                 };
                                 let mut button = Button::new(text).small();
                                 if Some(preset_id) == pot_unit.preset_id() {
@@ -580,7 +580,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             });
                             row.col(|ui| {
                                 let text = match preset.as_ref() {
-                                    Ok(Some(p)) => &p.file_ext,
+                                    Ok(Some(p)) => match &p.kind {
+                                        PresetKind::FileBased(k) => &k.file_ext,
+                                        PresetKind::Internal(_) => "",
+                                    },
                                     _ => "-"
                                 };
                                 ui.label(text);

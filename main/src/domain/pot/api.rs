@@ -191,8 +191,8 @@ impl PotFilterExcludeList {
 
 #[derive(Debug)]
 pub struct CurrentPreset {
-    preset: Preset,
-    macro_param_banks: Vec<MacroParamBank>,
+    pub preset: Preset,
+    pub macro_param_banks: Vec<MacroParamBank>,
 }
 
 #[derive(Debug)]
@@ -239,20 +239,6 @@ pub struct MacroParam {
 }
 
 impl CurrentPreset {
-    pub fn without_parameters(preset: Preset) -> Self {
-        Self {
-            preset,
-            macro_param_banks: Default::default(),
-        }
-    }
-
-    pub fn with_parameters(preset: Preset, macro_param_banks: Vec<MacroParamBank>) -> Self {
-        Self {
-            preset,
-            macro_param_banks,
-        }
-    }
-
     pub fn preset(&self) -> &Preset {
         &self.preset
     }

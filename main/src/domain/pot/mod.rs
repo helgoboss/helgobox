@@ -28,6 +28,7 @@ mod pot_database;
 use crate::domain::pot::providers::komplete::NksFile;
 pub use pot_database::*;
 
+mod plugins;
 mod provider_database;
 mod providers;
 mod worker;
@@ -413,7 +414,7 @@ impl RuntimePotUnit {
         let fx = self.load_preset_at(preset, options, build_destination)?;
         if self.name_track_after_preset {
             if let Some(track) = fx.track() {
-                track.set_name(preset.name.as_str());
+                track.set_name(preset.name());
             }
         }
         Ok(())
@@ -429,28 +430,38 @@ impl RuntimePotUnit {
         options: LoadPresetOptions,
         build_destination: impl FnOnce(&mut Self) -> Result<Destination, &'static str>,
     ) -> Result<Fx, &'static str> {
-        let outcome = match preset.file_ext.to_lowercase().as_str() {
-            "wav" | "aif" | "ogg" | "mp3" => {
+        let outcome = match &preset.kind {
+            PresetKind::FileBased(k) => match k.file_ext.to_lowercase().as_str() {
+                "wav" | "aif" | "ogg" | "mp3" => {
+                    let dest = build_destination(self)?;
+                    load_audio_preset(&k.path, &dest, options)?
+                }
+                "nksf" | "nksfx" => {
+                    let dest = build_destination(self)?;
+                    load_nks_preset(&k.path, &dest, options)?
+                }
+                "rfxchain" => {
+                    let dest = build_destination(self)?;
+                    load_rfx_chain_preset(&k.path, &dest, options)?
+                }
+                "rtracktemplate" => {
+                    let dest = build_destination(self)?;
+                    load_track_template_preset(&k.path, &dest, options)?
+                }
+                _ => return Err("unsupported preset format"),
+            },
+            PresetKind::Internal(k) => {
                 let dest = build_destination(self)?;
-                load_audio_preset(&preset, &dest, options)?
+                load_internal_preset(k.plugin_id, preset.name(), &dest, options)?
             }
-            "nksf" | "nksfx" => {
-                let dest = build_destination(self)?;
-                load_nks_preset(&preset, &dest, options)?
-            }
-            "rfxchain" => {
-                let dest = build_destination(self)?;
-                load_rfx_chain_preset(&preset, &dest, options)?
-            }
-            "rtracktemplate" => {
-                let dest = build_destination(self)?;
-                load_track_template_preset(&preset, &dest, options)?
-            }
-            _ => return Err("Unsupported preset format"),
+        };
+        let current_preset = CurrentPreset {
+            preset: preset.clone(),
+            macro_param_banks: outcome.banks,
         };
         BackboneState::target_state()
             .borrow_mut()
-            .set_current_fx_preset(outcome.fx.clone(), outcome.current_preset);
+            .set_current_fx_preset(outcome.fx.clone(), current_preset);
         Ok(outcome.fx)
     }
 
@@ -754,10 +765,41 @@ impl FilterItem {
 
 #[derive(Clone, Debug)]
 pub struct Preset {
+    pub common: PresetCommon,
+    pub kind: PresetKind,
+}
+
+impl Preset {
+    pub fn new(common: PresetCommon, kind: PresetKind) -> Self {
+        Self { common, kind }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.common.name
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PresetCommon {
     pub favorite_id: String,
     pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub enum PresetKind {
+    FileBased(FiledBasedPresetKind),
+    Internal(InternalPresetKind),
+}
+
+#[derive(Clone, Debug)]
+pub struct FiledBasedPresetKind {
     pub path: PathBuf,
     pub file_ext: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct InternalPresetKind {
+    pub plugin_id: PluginId,
 }
 
 #[derive(serde::Deserialize)]
@@ -775,11 +817,11 @@ struct ParamAssignment {
 }
 
 fn load_nks_preset(
-    preset: &Preset,
+    path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
-    let nks_file = NksFile::load(&preset.path)?;
+    let nks_file = NksFile::load(path)?;
     let nks_content = nks_file.content()?;
     let existing_fx = destination.resolve();
     let fx_was_open_before = existing_fx
@@ -793,16 +835,13 @@ fn load_nks_preset(
         .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
         fx: output.fx,
-        current_preset: CurrentPreset::with_parameters(
-            preset.clone(),
-            nks_content.macro_param_banks,
-        ),
+        banks: nks_content.macro_param_banks,
     };
     Ok(outcome)
 }
 
 fn load_rfx_chain_preset(
-    preset: &Preset,
+    path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
@@ -818,7 +857,7 @@ fn load_rfx_chain_preset(
         }
         destination.chain.remove_fx(&fx)?;
     }
-    let preset_file_name = preset.path.to_string_lossy().to_string();
+    let preset_file_name = path.to_string_lossy().to_string();
     let fx = destination
         .chain
         .add_fx_by_original_name(preset_file_name)
@@ -828,15 +867,12 @@ fn load_rfx_chain_preset(
             .window_behavior
             .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
     }
-    let outcome = LoadPresetOutcome {
-        fx,
-        current_preset: CurrentPreset::without_parameters(preset.clone()),
-    };
+    let outcome = LoadPresetOutcome { fx, banks: vec![] };
     Ok(outcome)
 }
 
 fn load_track_template_preset(
-    preset: &Preset,
+    path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
@@ -851,8 +887,7 @@ fn load_track_template_preset(
             fx_was_open_before = true;
         }
     }
-    let rxml =
-        fs::read_to_string(&preset.path).map_err(|_| "couldn't read track template as string")?;
+    let rxml = fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
     // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
     let rxml: String = rxml.lines().map(|l| l.trim()).join("\n");
     let track_chunk = Chunk::new(rxml);
@@ -871,13 +906,36 @@ fn load_track_template_preset(
             .chain
             .first_fx()
             .ok_or("couldn't get hold of first FX on chain")?,
-        current_preset: CurrentPreset::without_parameters(preset.clone()),
+        banks: vec![],
+    };
+    Ok(outcome)
+}
+
+fn load_internal_preset(
+    plugin_id: PluginId,
+    preset_name: &str,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, &'static str> {
+    let existing_fx = destination.resolve();
+    let fx_was_open_before = existing_fx
+        .as_ref()
+        .map(|fx| fx.window_is_open())
+        .unwrap_or(false);
+    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
+    output.fx.activate_preset_by_name(preset_name)?;
+    options
+        .window_behavior
+        .open_or_close(&output.fx, fx_was_open_before, output.op);
+    let outcome = LoadPresetOutcome {
+        fx: output.fx,
+        banks: vec![],
     };
     Ok(outcome)
 }
 
 fn load_audio_preset(
-    preset: &Preset,
+    path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, &'static str> {
@@ -902,21 +960,21 @@ fn load_audio_preset(
         output.fx.show_in_floating_window();
     }
     // Load into RS5k
-    load_media_in_last_focused_rs5k(&preset.path)?;
+    load_media_in_last_focused_rs5k(path)?;
     // Remainder
     options
         .window_behavior
         .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
         fx: output.fx,
-        current_preset: CurrentPreset::without_parameters(preset.clone()),
+        banks: vec![],
     };
     Ok(outcome)
 }
 
 struct LoadPresetOutcome {
     fx: Fx,
-    current_preset: CurrentPreset,
+    banks: Vec<MacroParamBank>,
 }
 
 pub struct FxEnsureOutput {

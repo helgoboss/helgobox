@@ -1,13 +1,16 @@
 use crate::domain::pot::provider_database::{
-    Database, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
+    Database, ProviderContext, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
 };
-use crate::domain::pot::{BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, Preset};
+use crate::domain::pot::{
+    BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind, PluginId,
+    Preset, PresetCommon, PresetKind,
+};
 
+use crate::domain::pot::plugins::PluginKind;
 use ini::Ini;
 use realearn_api::persistence::PotFilterItemKind;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
-use std::ffi::OsStr;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use wildmatch::WildMatch;
@@ -31,8 +34,7 @@ impl IniDatabase {
 }
 
 struct PresetEntry {
-    plugin_type: String,
-    plugin_identifier: String,
+    plugin_id: PluginId,
     preset_name: String,
 }
 
@@ -41,7 +43,7 @@ impl Database for IniDatabase {
         "FX presets".to_string()
     }
 
-    fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
+    fn refresh(&mut self, context: &ProviderContext) -> Result<(), Box<dyn Error>> {
         let file_name_regex = regex!(r#"(?i)(.*?)-(.*).ini"#);
         let preset_entries = WalkDir::new(&self.root_dir)
             .max_depth(1)
@@ -54,11 +56,23 @@ impl Database for IniDatabase {
                 }
                 let file_name = entry.file_name().to_str()?;
                 let captures = file_name_regex.captures(file_name)?;
-                let plugin_type = captures.get(1)?.as_str().to_string();
-                let plugin_identifier = captures.get(2)?.as_str().to_string();
+                let plugin_type = captures.get(1)?.as_str();
+                let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;
                 }
+                let plugin = context.plugins.iter().find(|p| {
+                    let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
+                    let safe_plugin_identifier = unsafe_char_regex.replace(plugin_identifier, "_");
+                    if !p.safe_file_name.starts_with(&*safe_plugin_identifier) {
+                        return false;
+                    }
+                    match plugin_type {
+                        "vst" => matches!(p.kind, PluginKind::Vst2 { .. }),
+                        "vst3" => matches!(p.kind, PluginKind::Vst3 { .. }),
+                        _ => false,
+                    }
+                })?;
                 let ini_file = Ini::load_from_file(entry.path()).ok()?;
                 let general_section = ini_file.section(Some("General"))?;
                 let nb_presets = general_section.get("NbPresets")?;
@@ -68,8 +82,7 @@ impl Database for IniDatabase {
                     let section = ini_file.section(Some(section_name))?;
                     let name = section.get("Name")?;
                     let preset_entry = PresetEntry {
-                        plugin_type: plugin_type.clone(),
-                        plugin_identifier: plugin_identifier.clone(),
+                        plugin_id: plugin.kind.plugin_id().ok()?,
                         preset_name: name.to_string(),
                     };
                     Some(preset_entry)
@@ -135,10 +148,13 @@ impl Database for IniDatabase {
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_entry = self.entries.get(&preset_id)?;
         let preset = Preset {
-            favorite_id: "".to_string(),
-            name: preset_entry.preset_name.clone(),
-            file_ext: "ini".to_string(),
-            path: Default::default(),
+            common: PresetCommon {
+                favorite_id: "".to_string(),
+                name: preset_entry.preset_name.clone(),
+            },
+            kind: PresetKind::Internal(InternalPresetKind {
+                plugin_id: preset_entry.plugin_id,
+            }),
         };
         Some(preset)
     }

@@ -1,3 +1,4 @@
+use crate::domain::pot::plugins::Plugin;
 use crate::domain::pot::{BuildInput, FilterItemCollections, InnerPresetId, Preset};
 use std::error::Error;
 use std::path::PathBuf;
@@ -10,7 +11,7 @@ pub struct DatabaseId(pub u32);
 pub trait Database {
     fn filter_item_name(&self) -> String;
 
-    fn refresh(&mut self) -> Result<(), Box<dyn Error>>;
+    fn refresh(&mut self, context: &ProviderContext) -> Result<(), Box<dyn Error>>;
 
     fn query_filter_collections(
         &self,
@@ -36,6 +37,10 @@ impl SortablePresetId {
             preset_name,
         }
     }
+}
+
+pub struct ProviderContext<'a> {
+    pub plugins: &'a [Plugin],
 }
 
 pub const CONTENT_TYPE_USER_ID: u32 = 1;

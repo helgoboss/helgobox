@@ -106,7 +106,7 @@ impl RealearnTarget for FxPresetTarget {
             None => FxPresetRef::FactoryPreset,
             Some(i) => FxPresetRef::Preset(i),
         };
-        self.fx.activate_preset(preset_ref);
+        self.fx.activate_preset(preset_ref)?;
         Ok(HitResponse::processed_with_effect())
     }
 

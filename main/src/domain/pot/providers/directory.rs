@@ -1,7 +1,10 @@
 use crate::domain::pot::provider_database::{
-    Database, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
+    Database, ProviderContext, SortablePresetId, CONTENT_TYPE_FACTORY_ID, FAVORITE_FAVORITE_ID,
 };
-use crate::domain::pot::{BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, Preset};
+use crate::domain::pot::{
+    BuildInput, FiledBasedPresetKind, FilterItemCollections, FilterItemId, InnerPresetId, Preset,
+    PresetCommon, PresetKind,
+};
 
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::{HashMap, HashSet};
@@ -56,7 +59,7 @@ impl Database for DirectoryDatabase {
         self.name.to_string()
     }
 
-    fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
+    fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
         let preset_entries = WalkDir::new(&self.root_dir)
             .follow_links(true)
             .into_iter()
@@ -137,18 +140,22 @@ impl Database for DirectoryDatabase {
         let preset_entry = self.entries.get(&preset_id)?;
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
-            favorite_id: preset_entry.relative_path.clone(),
-            name: preset_entry.preset_name.clone(),
-            file_ext: relative_path
-                .extension()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-            path: if self.publish_relative_path {
-                relative_path
-            } else {
-                self.root_dir.join(relative_path)
+            common: PresetCommon {
+                favorite_id: preset_entry.relative_path.clone(),
+                name: preset_entry.preset_name.clone(),
             },
+            kind: PresetKind::FileBased(FiledBasedPresetKind {
+                file_ext: relative_path
+                    .extension()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string(),
+                path: if self.publish_relative_path {
+                    relative_path
+                } else {
+                    self.root_dir.join(relative_path)
+                },
+            }),
         };
         Some(preset)
     }

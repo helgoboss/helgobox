@@ -1,8 +1,8 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID, FAVORITE_FAVORITE_ID,
-    FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID, PRODUCT_TYPE_INSTRUMENT_ID,
-    PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
+    Database, DatabaseId, ProviderContext, CONTENT_TYPE_FACTORY_ID, CONTENT_TYPE_USER_ID,
+    FAVORITE_FAVORITE_ID, FAVORITE_NOT_FAVORITE_ID, PRODUCT_TYPE_EFFECT_ID,
+    PRODUCT_TYPE_INSTRUMENT_ID, PRODUCT_TYPE_LOOP_ID, PRODUCT_TYPE_ONE_SHOT_ID,
 };
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
@@ -10,9 +10,9 @@ use crate::domain::pot::{
     BuildInput, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
 };
 
+use crate::domain::pot::plugins::{crawl_plugins, Plugin};
 use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
-use itertools::Itertools;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::Reaper;
 use std::collections::BTreeMap;
@@ -87,12 +87,17 @@ impl PotDatabase {
     }
 
     pub fn refresh(&self) {
+        // Build provider context
+        let resource_path = Reaper::get().resource_path();
+        let plugins = crawl_plugins(&resource_path);
+        let provider_context = ProviderContext { plugins: &plugins };
+        // Refresh databases
         for db in self.databases.values() {
             let mut db = blocking_write_lock(db, "pot db build_collections");
             let Some(db) = db.as_mut().ok() else {
                 continue;
             };
-            let _ = db.refresh();
+            let _ = db.refresh(&provider_context);
         }
     }
 

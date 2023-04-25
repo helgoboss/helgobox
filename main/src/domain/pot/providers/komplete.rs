@@ -1,7 +1,10 @@
 use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
-use crate::domain::pot::provider_database::{Database, SortablePresetId};
-use crate::domain::pot::{BuildInput, InnerPresetId, MacroParamBank, Preset};
+use crate::domain::pot::provider_database::{Database, ProviderContext, SortablePresetId};
+use crate::domain::pot::{
+    BuildInput, FiledBasedPresetKind, InnerPresetId, MacroParamBank, Preset, PresetCommon,
+    PresetKind,
+};
 use crate::domain::pot::{
     FilterItem, FilterItemCollections, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
 };
@@ -47,7 +50,7 @@ impl Database for KompleteDatabase {
         "Komplete".to_string()
     }
 
-    fn refresh(&mut self) -> Result<(), Box<dyn Error>> {
+    fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 
@@ -69,7 +72,8 @@ impl Database for KompleteDatabase {
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_db = blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
-        preset_db.find_preset_by_id(preset_id)
+        let (common, kind) = preset_db.find_preset_by_id(preset_id)?;
+        Some(Preset::new(common, PresetKind::FileBased(kind)))
     }
 
     fn find_preview_by_preset_id(&self, preset_id: InnerPresetId) -> Option<PathBuf> {
@@ -225,12 +229,12 @@ impl PresetDb {
     }
 
     pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
-        let preset = self.find_preset_by_id(id)?;
-        match preset.file_ext.as_str() {
-            "wav" | "aif" => Some(preset.path),
+        let (_, kind) = self.find_preset_by_id(id)?;
+        match kind.file_ext.as_str() {
+            "wav" | "aif" => Some(kind.path),
             _ => {
-                let preview_dir = preset.path.parent()?.join(".previews");
-                let pure_file_name = preset.path.file_name()?;
+                let preview_dir = kind.path.parent()?.join(".previews");
+                let pure_file_name = kind.path.file_name()?;
                 let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
                 Some(preview_dir.join(preview_file_name))
             }
@@ -247,22 +251,27 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn find_preset_by_id(&self, id: InnerPresetId) -> Option<Preset> {
+    pub fn find_preset_by_id(
+        &self,
+        id: InnerPresetId,
+    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         self.connection
             .query_row(
                 "SELECT name, file_name, file_ext, favorite_id FROM k_sound_info WHERE id = ?",
                 [id.0],
                 |row| {
-                    let preset = Preset {
+                    let common = PresetCommon {
                         favorite_id: row.get(3)?,
                         name: row.get(0)?,
+                    };
+                    let kind = FiledBasedPresetKind {
                         path: {
                             let s: String = row.get(1)?;
                             s.into()
                         },
                         file_ext: row.get(2)?,
                     };
-                    Ok(preset)
+                    Ok((common, kind))
                 },
             )
             .ok()

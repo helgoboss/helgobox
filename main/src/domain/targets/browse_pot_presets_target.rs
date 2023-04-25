@@ -163,7 +163,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
             None => return Some("<Not found>".into()),
             Some(p) => p,
         };
-        Some(preset.name.into())
+        Some(preset.common.name.into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
