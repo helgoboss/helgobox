@@ -175,6 +175,10 @@ impl PotFilterExcludeList {
         !self.exluded_items[kind].is_empty()
     }
 
+    pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
+        self.contains(PotFilterItemKind::Database, FilterItemId(Some(db_id.0)))
+    }
+
     pub fn normal_excludes_by_kind(
         &self,
         kind: PotFilterItemKind,

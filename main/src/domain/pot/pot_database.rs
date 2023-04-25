@@ -147,11 +147,16 @@ impl PotDatabase {
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
             for (db_id, db) in &self.databases {
+                // If the database is on the exclude list, we don't even want it to appear in the
+                // database list.
+                if input.filter_exclude_list.excludes_database(*db_id) {
+                    continue;
+                }
                 // Acquire database access
                 let db = blocking_read_lock(db, "pot db build_collections 1");
                 let Ok(db) = db.as_ref() else {
-                continue
-            };
+                    continue
+                };
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
@@ -161,14 +166,15 @@ impl PotDatabase {
                     icon: None,
                 };
                 database_filter_items.push(filter_item);
-                // Don't continue if database doesn't match
+                // Don't continue if database doesn't match filter
+                // (but it should appear on the list)
                 if !input.filter_settings.database_matches(*db_id) {
                     continue;
                 }
                 // Build and accumulate filters collections
                 let Ok(filter_collections) = db.query_filter_collections(&input) else {
-                continue;
-            };
+                    continue;
+                };
                 for (kind, items) in filter_collections.into_iter() {
                     total_output
                         .filter_item_collections
@@ -193,7 +199,10 @@ impl PotDatabase {
             measure_duration(&mut total_output.stats.preset_query_duration, || {
                 self.databases
                     .iter()
-                    .filter(|(db_id, _)| input.filter_settings.database_matches(**db_id))
+                    .filter(|(db_id, _)| {
+                        input.filter_settings.database_matches(**db_id)
+                            && !input.filter_exclude_list.excludes_database(**db_id)
+                    })
                     .filter_map(|(db_id, db)| {
                         // Acquire database access
                         let db = blocking_read_lock(db, "pot db build_collections 2");

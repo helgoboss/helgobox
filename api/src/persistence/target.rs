@@ -1202,7 +1202,7 @@ impl PotFilterItemKind {
         use PotFilterItemKind::*;
         matches!(
             self,
-            NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode
+            Database | NksBank | NksSubBank | NksCategory | NksSubCategory | NksMode
         )
     }
 
