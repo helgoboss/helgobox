@@ -11,7 +11,7 @@ pub type SmallAsciiString = LimitedAsciiString<32>;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct LimitedAsciiString<const N: usize> {
     length: u8,
-    content: [u8; SmallAsciiString::MAX_LENGTH],
+    content: [u8; N],
 }
 
 impl<const N: usize> LimitedAsciiString<N> {
@@ -26,7 +26,7 @@ impl<const N: usize> LimitedAsciiString<N> {
 
     /// Returns an error if the given string is too long.
     pub fn try_from_ascii_str(ascii_str: &AsciiStr) -> Result<Self, &'static str> {
-        if ascii_str.len() > SmallAsciiString::MAX_LENGTH {
+        if ascii_str.len() > Self::MAX_LENGTH {
             return Err("ASCII string too large");
         }
         Ok(Self::from_ascii_str(ascii_str))
@@ -34,7 +34,7 @@ impl<const N: usize> LimitedAsciiString<N> {
 
     /// Panics if the given string is too long.
     fn from_ascii_str(ascii_str: &AsciiStr) -> Self {
-        let mut content = [0u8; SmallAsciiString::MAX_LENGTH];
+        let mut content = [0u8; N];
         content[..ascii_str.len()].copy_from_slice(ascii_str.as_bytes());
         Self {
             content,

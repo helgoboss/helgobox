@@ -1,10 +1,33 @@
 use crate::domain::pot::PluginId;
+use crate::domain::LimitedAsciiString;
+use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
 use std::path::Path;
+use walkdir::WalkDir;
 
 /// TODO-high CONTINUE Also scan JS plug-ins!
 #[derive(Debug)]
 pub struct Plugin {
+    pub kind: PluginKind,
+    pub product_kind: Option<ProductKind>,
+    pub name: String,
+}
+
+#[derive(Debug)]
+pub enum PluginKind {
+    Vst(VstPlugin),
+    Clap(ClapPlugin),
+}
+
+#[derive(Debug)]
+pub struct ClapPlugin {
+    pub file_name: String,
+    pub checksum: String,
+    pub id: String,
+}
+
+#[derive(Debug)]
+pub struct VstPlugin {
     /// Safe means: Each space and special character is replaced with an underscore.
     pub safe_file_name: String,
     /// A value which identifies the actual plug-in within a shell file.
@@ -14,26 +37,33 @@ pub struct Plugin {
     /// equal to the magic number / uid_hash.
     pub shell_qualifier: Option<String>,
     pub checksum: String,
-    pub kind: PluginKind,
-    pub product_kind: Option<ProductKind>,
-    pub name: String,
+    pub kind: VstPluginKind,
 }
 
 #[derive(Debug)]
-pub enum PluginKind {
+pub enum VstPluginKind {
     Vst2 { magic_number: String },
     Vst3 { uid_hash: String, uid: String },
 }
 
 impl PluginKind {
     pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
+        match self {
+            PluginKind::Vst(vst) => vst.kind.plugin_id(),
+            PluginKind::Clap(clap) => clap.plugin_id(),
+        }
+    }
+}
+
+impl VstPluginKind {
+    pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
         let id = match self {
-            PluginKind::Vst2 { magic_number } => PluginId::Vst2 {
+            VstPluginKind::Vst2 { magic_number } => PluginId::Vst2 {
                 vst_magic_number: magic_number
                     .parse()
                     .map_err(|_| "couldn't parse VST2 magic number")?,
             },
-            PluginKind::Vst3 { uid, .. } => {
+            VstPluginKind::Vst3 { uid, .. } => {
                 fn parse_component(text: &str, i: usize) -> Result<u32, &'static str> {
                     let from = i * 8;
                     let until = from + 8;
@@ -50,6 +80,18 @@ impl PluginKind {
                     ],
                 }
             }
+        };
+        Ok(id)
+    }
+}
+
+impl ClapPlugin {
+    pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
+        let ascii_string: Result<AsciiString, _> =
+            self.id.chars().map(|c| c.to_ascii_char()).collect();
+        let ascii_string = ascii_string.map_err(|_| "CLAP plug-in ID not ASCII")?;
+        let id = PluginId::Clap {
+            clap_id: LimitedAsciiString::try_from_ascii_str(&ascii_string)?,
         };
         Ok(id)
     }
@@ -80,24 +122,73 @@ impl ProductKind {
 }
 
 pub fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
-    let file_names = [
-        "reaper-vstplugins.ini",
-        "reaper-vstplugins64.ini",
-        "reaper-vstplugins_arm64.ini",
-    ];
-    file_names
-        .iter()
-        .flat_map(|file_name| {
-            let file_path = reaper_resource_dir.join(file_name);
-            crawl_plugins_in_ini_file(&file_path).into_iter()
+    WalkDir::new(reaper_resource_dir)
+        .max_depth(1)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if !entry.file_type().is_file() {
+                return None;
+            }
+            let file_name = entry.file_name().to_str()?;
+            enum PlugType {
+                Vst,
+                Clap,
+            }
+            let plug_type = if file_name.starts_with("reaper-vstplugins") {
+                PlugType::Vst
+            } else if file_name.starts_with("reaper-clap-") {
+                PlugType::Clap
+            } else {
+                return None;
+            };
+            let ini = Ini::load_from_file(entry.path()).ok()?;
+            let plugins = match plug_type {
+                PlugType::Vst => crawl_vst_plugins_in_ini_file(ini),
+                PlugType::Clap => crawl_clap_plugins_in_ini_file(ini),
+            };
+            Some(plugins)
         })
+        .flatten()
         .collect()
 }
 
-fn crawl_plugins_in_ini_file(path: &Path) -> Vec<Plugin> {
-    let Ok(ini) = Ini::load_from_file(path) else {
-        return vec![];
-    };
+fn crawl_clap_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
+    ini.iter()
+        .filter_map(|(section, props)| {
+            let file_name = section?;
+            let checksum = props.get("_")?;
+            let plugins: Vec<_> = props
+                .iter()
+                .filter_map(|(key, value)| {
+                    if key == "_" {
+                        return None;
+                    }
+                    let (product_kind_id, plugin_name) = value.split_once('|')?;
+                    let plugin = Plugin {
+                        kind: PluginKind::Clap(ClapPlugin {
+                            file_name: file_name.to_string(),
+                            checksum: checksum.to_string(),
+                            id: key.to_string(),
+                        }),
+                        product_kind: match product_kind_id {
+                            "0" => Some(ProductKind::Effect),
+                            "1" => Some(ProductKind::Instrument),
+                            _ => None,
+                        },
+                        name: plugin_name.to_string(),
+                    };
+                    Some(plugin)
+                })
+                .collect();
+            Some(plugins)
+        })
+        .flatten()
+        .collect()
+}
+
+fn crawl_vst_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
     let Some(section) = ini.section(Some("vstcache")) else {
         return vec![];
     };
@@ -116,11 +207,11 @@ fn crawl_plugins_in_ini_file(path: &Path) -> Vec<Plugin> {
                 return None;
             }
             let plugin_name_kind_expression = value_iter.next()?;
-            let kind = match plugin_id_expression.split_once('{') {
-                None => PluginKind::Vst2 {
+            let vst_kind = match plugin_id_expression.split_once('{') {
+                None => VstPluginKind::Vst2 {
                     magic_number: plugin_id_expression.to_string(),
                 },
-                Some((left, right)) => PluginKind::Vst3 {
+                Some((left, right)) => VstPluginKind::Vst3 {
                     uid_hash: left.to_string(),
                     uid: right.to_string(),
                 },
@@ -139,10 +230,12 @@ fn crawl_plugins_in_ini_file(path: &Path) -> Vec<Plugin> {
                 }
             };
             let plugin = Plugin {
-                safe_file_name,
-                shell_qualifier,
-                checksum,
-                kind,
+                kind: PluginKind::Vst(VstPlugin {
+                    safe_file_name,
+                    shell_qualifier,
+                    checksum,
+                    kind: vst_kind,
+                }),
                 product_kind,
                 name,
             };

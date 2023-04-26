@@ -6,13 +6,15 @@
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 
-use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
+use crate::domain::{
+    BackboneState, InstanceStateChanged, LimitedAsciiString, PotStateChangedEvent, SoundPlayer,
+};
 
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
-use reaper_medium::{InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
+use reaper_medium::{FxPresetRef, InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
 use std::ffi::CString;
@@ -849,92 +851,49 @@ fn load_nks_preset(
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let nks_file = NksFile::load(path)?;
     let nks_content = nks_file.content()?;
-    let existing_fx = destination.resolve();
-    let fx_was_open_before = existing_fx
-        .as_ref()
-        .map(|fx| fx.window_is_open())
-        .unwrap_or(false);
-    let output = ensure_fx_has_correct_type(nks_content.plugin_id, destination, existing_fx)?;
-    output.fx.set_vst_chunk(nks_content.vst_chunk)?;
-    options
-        .window_behavior
-        .open_or_close(&output.fx, fx_was_open_before, output.op);
-    let outcome = LoadPresetOutcome {
-        fx: output.fx,
-        banks: nks_content.macro_param_banks,
-    };
-    Ok(outcome)
+    load_preset_single_fx(nks_content.plugin_id, destination, options, |fx| {
+        fx.set_vst_chunk(nks_content.vst_chunk)?;
+        Ok(nks_content.macro_param_banks)
+    })
 }
 
 fn load_rfx_chain_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
-) -> Result<LoadPresetOutcome, &'static str> {
-    let mut fx_was_open_before = false;
-    for fx in destination
-        .chain
-        .fxs()
-        .skip(destination.fx_index as _)
-        .rev()
-    {
-        if fx.window_is_open() {
-            fx_was_open_before = true;
-        }
-        destination.chain.remove_fx(&fx)?;
-    }
-    let preset_file_name = path.to_string_lossy().to_string();
-    let fx = destination
-        .chain
-        .add_fx_by_original_name(preset_file_name)
-        .ok_or("couldn't load FX chain file")?;
-    for fx in destination.chain.fxs().skip(destination.fx_index as _) {
-        options
-            .window_behavior
-            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
-    }
-    let outcome = LoadPresetOutcome { fx, banks: vec![] };
-    Ok(outcome)
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    load_preset_multi_fx(destination, options, true, || {
+        let preset_file_name = path.to_string_lossy().to_string();
+        let fx = destination
+            .chain
+            .add_fx_by_original_name(preset_file_name)
+            .ok_or("couldn't load FX chain file")?;
+        Ok(fx)
+    })
 }
 
 fn load_track_template_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
-) -> Result<LoadPresetOutcome, &'static str> {
-    let mut fx_was_open_before = false;
-    for fx in destination
-        .chain
-        .fxs()
-        .skip(destination.fx_index as _)
-        .rev()
-    {
-        if fx.window_is_open() {
-            fx_was_open_before = true;
-        }
-    }
-    let rxml = fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
-    // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
-    let rxml: String = rxml.lines().map(|l| l.trim()).join("\n");
-    let track_chunk = Chunk::new(rxml);
-    let fx_chain_region = track_chunk
-        .region()
-        .find_first_tag_named(0, "FXCHAIN")
-        .ok_or("track template doesn't have FX chain")?;
-    destination.chain.set_chunk(&fx_chain_region.content())?;
-    for fx in destination.chain.fxs() {
-        options
-            .window_behavior
-            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
-    }
-    let outcome = LoadPresetOutcome {
-        fx: destination
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    load_preset_multi_fx(destination, options, false, || {
+        let rxml =
+            fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
+        // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
+        let rxml: String = rxml.lines().map(|l| l.trim()).join("\n");
+        let track_chunk = Chunk::new(rxml);
+        let fx_chain_region = track_chunk
+            .region()
+            .find_first_tag_named(0, "FXCHAIN")
+            .ok_or("track template doesn't have FX chain")?;
+        destination.chain.set_chunk(&fx_chain_region.content())?;
+        let first_fx = destination
             .chain
             .first_fx()
-            .ok_or("couldn't get hold of first FX on chain")?,
-        banks: vec![],
-    };
-    Ok(outcome)
+            .ok_or("couldn't get hold of first FX on chain")?;
+        Ok(first_fx)
+    })
 }
 
 fn load_internal_preset(
@@ -943,43 +902,21 @@ fn load_internal_preset(
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    let existing_fx = destination.resolve();
-    let fx_was_open_before = existing_fx
-        .as_ref()
-        .map(|fx| fx.window_is_open())
-        .unwrap_or(false);
-    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
-    output.fx.activate_preset_by_name(preset_name)?;
-    options
-        .window_behavior
-        .open_or_close(&output.fx, fx_was_open_before, output.op);
-    let outcome = LoadPresetOutcome {
-        fx: output.fx,
-        banks: vec![],
-    };
-    Ok(outcome)
+    load_preset_single_fx(plugin_id, destination, options, |fx| {
+        fx.activate_preset_by_name(preset_name)?;
+        Ok(vec![])
+    })
 }
 
-// TODO-high CONTINUE Less code duplication
 fn load_default_preset(
     plugin_id: PluginId,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    let existing_fx = destination.resolve();
-    let fx_was_open_before = existing_fx
-        .as_ref()
-        .map(|fx| fx.window_is_open())
-        .unwrap_or(false);
-    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
-    options
-        .window_behavior
-        .open_or_close(&output.fx, fx_was_open_before, output.op);
-    let outcome = LoadPresetOutcome {
-        fx: output.fx,
-        banks: vec![],
-    };
-    Ok(outcome)
+    load_preset_single_fx(plugin_id, destination, options, |fx| {
+        fx.activate_preset(FxPresetRef::FactoryPreset)?;
+        Ok(vec![])
+    })
 }
 
 fn load_audio_preset(
@@ -991,36 +928,77 @@ fn load_audio_preset(
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
     };
+    load_preset_single_fx(plugin_id, destination, options, |fx| {
+        // First try it the modern way ...
+        if load_media_in_specific_rs5k_modern(fx, path).is_err() {
+            // ... and if this didn't work, try it the old-school way.
+            // Make sure RS5k has focus
+            let window_is_open_now = fx.window_is_open();
+            if window_is_open_now {
+                if !fx.window_has_focus() {
+                    fx.hide_floating_window();
+                    fx.show_in_floating_window();
+                }
+            } else {
+                fx.show_in_floating_window();
+            }
+            // Load into RS5k
+            load_media_in_last_focused_rs5k(path)?;
+        }
+        Ok(vec![])
+    })
+}
+
+fn load_preset_single_fx(
+    plugin_id: PluginId,
+    destination: &Destination,
+    options: LoadPresetOptions,
+    f: impl FnOnce(&Fx) -> Result<Vec<MacroParamBank>, Box<dyn Error>>,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let existing_fx = destination.resolve();
     let fx_was_open_before = existing_fx
         .as_ref()
         .map(|fx| fx.window_is_open())
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
-    // First try it the modern way ...
-    if load_media_in_specific_rs5k_modern(&output.fx, path).is_err() {
-        // ... and if this didn't work, try it the old-school way.
-        // Make sure RS5k has focus
-        let window_is_open_now = output.fx.window_is_open();
-        if window_is_open_now {
-            if !output.fx.window_has_focus() {
-                output.fx.hide_floating_window();
-                output.fx.show_in_floating_window();
-            }
-        } else {
-            output.fx.show_in_floating_window();
-        }
-        // Load into RS5k
-        load_media_in_last_focused_rs5k(path)?;
-    }
-    // Remainder
+    let banks = f(&output.fx)?;
     options
         .window_behavior
         .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
         fx: output.fx,
-        banks: vec![],
+        banks,
     };
+    Ok(outcome)
+}
+
+fn load_preset_multi_fx(
+    destination: &Destination,
+    options: LoadPresetOptions,
+    remove_existing_fx_manually: bool,
+    f: impl FnOnce() -> Result<Fx, Box<dyn Error>>,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    let mut fx_was_open_before = false;
+    for fx in destination
+        .chain
+        .fxs()
+        .skip(destination.fx_index as _)
+        .rev()
+    {
+        if fx.window_is_open() {
+            fx_was_open_before = true;
+        }
+        if remove_existing_fx_manually {
+            destination.chain.remove_fx(&fx)?;
+        }
+    }
+    let fx = f()?;
+    for fx in destination.chain.fxs() {
+        options
+            .window_behavior
+            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+    }
+    let outcome = LoadPresetOutcome { fx, banks: vec![] };
     Ok(outcome)
 }
 
@@ -1079,10 +1057,9 @@ fn insert_fx_by_plugin_id(
     plugin_id: PluginId,
     destination: &Destination,
 ) -> Result<Fx, Box<dyn Error>> {
-    // Need to put some random string in front of "<" due to bug in REAPER < 6.69,
-    // otherwise loading by VST2 magic number doesn't work.
     let name = format!(
-        "i7zh34z{}{}",
+        "{}{}{}",
+        plugin_id.add_by_name_prefix_fix(),
         plugin_id.reaper_prefix(),
         plugin_id.formatted_for_reaper()
     );
@@ -1175,6 +1152,7 @@ impl LoadPresetWindowBehavior {
 pub enum PluginId {
     Vst2 { vst_magic_number: u32 },
     Vst3 { vst_uid: [u32; 4] },
+    Clap { clap_id: LimitedAsciiString<64> },
 }
 
 impl PluginId {
@@ -1182,18 +1160,30 @@ impl PluginId {
         match self {
             PluginId::Vst2 { .. } => "VST",
             PluginId::Vst3 { .. } => "VST3",
+            PluginId::Clap { .. } => "CLAP",
         }
     }
 
-    pub fn reaper_prefix(&self) -> char {
+    /// Need to put some random string in front of "<" due to bug in REAPER < 6.69,
+    /// otherwise loading by VST2 magic number doesn't work.
+    pub fn add_by_name_prefix_fix(&self) -> &'static str {
         match self {
-            PluginId::Vst2 { .. } => '<',
-            PluginId::Vst3 { .. } => '{',
+            PluginId::Vst2 { .. } | PluginId::Vst3 { .. } => "i7zh34z",
+            PluginId::Clap { .. } => "",
+        }
+    }
+
+    pub fn reaper_prefix(&self) -> &'static str {
+        match self {
+            PluginId::Vst2 { .. } => "<",
+            PluginId::Vst3 { .. } => "{",
+            PluginId::Clap { .. } => "",
         }
     }
 
     pub fn formatted_for_reaper(&self) -> String {
         match self {
+            PluginId::Clap { clap_id } => clap_id.to_string(),
             PluginId::Vst2 { vst_magic_number } => vst_magic_number.to_string(),
             PluginId::Vst3 { vst_uid } => {
                 // D39D5B69 D6AF42FA 12345678 534D4433

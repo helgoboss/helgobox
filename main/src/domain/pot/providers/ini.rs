@@ -7,7 +7,7 @@ use crate::domain::pot::{
     Preset, PresetCommon, PresetKind,
 };
 
-use crate::domain::pot::plugins::PluginKind;
+use crate::domain::pot::plugins::{PluginKind, VstPlugin, VstPluginKind};
 use ini::Ini;
 use realearn_api::persistence::PotFilterItemKind;
 use std::collections::HashMap;
@@ -69,38 +69,57 @@ impl Database for IniDatabase {
                 // - vst-TDR Nova-builtin.ini
                 // - vst-reacomp.ini
                 // - vst3-Massive.ini
+                // - clap-org_surge-synth-team_surge-xt.ini
                 let captures = file_name_regex.captures(file_name)?;
-                let plugin_type = captures.get(1)?.as_str();
+                let plugin_kind = captures.get(1)?.as_str();
                 let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;
                 }
-                let (plugin_name, shell_qualifier) = match plugin_identifier.rsplit_once('-') {
-                    // Example: vst3-Zebra2-959560201.ini
-                    // (interpret the number behind the dash as shell qualifier)
-                    Some((left, right))
-                        if right.len() >= 5 && right.chars().any(|ch| ch.is_digit(10)) =>
-                    {
-                        (left, Some(right))
+                let (main_plugin_identifier, shell_qualifier) =
+                    match plugin_identifier.rsplit_once('-') {
+                        // Example: vst3-Zebra2-959560201.ini
+                        // (interpret the number behind the dash as shell qualifier)
+                        Some((left, right))
+                            if right.len() >= 5 && right.chars().all(|ch| ch.is_digit(10)) =>
+                        {
+                            (left, Some(right))
+                        }
+                        // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
+                        _ => (plugin_identifier, None),
+                    };
+                let plugin = context.plugins.iter().find(|p| match &p.kind {
+                    PluginKind::Vst(p) => {
+                        let matches_kind = match plugin_kind {
+                            "vst" => matches!(p.kind, VstPluginKind::Vst2 { .. }),
+                            "vst3" => matches!(p.kind, VstPluginKind::Vst3 { .. }),
+                            _ => false,
+                        };
+                        if !matches_kind {
+                            return false;
+                        }
+                        let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
+                        let safe_main_plugin_identifier =
+                            unsafe_char_regex.replace(main_plugin_identifier, "_");
+                        let file_name_prefix = format!("{safe_main_plugin_identifier}.");
+                        if !p.safe_file_name.starts_with(&file_name_prefix) {
+                            return false;
+                        }
+                        let plugin_shell_qualifier = p.shell_qualifier.as_ref().map(|q| q.as_str());
+                        if shell_qualifier != plugin_shell_qualifier {
+                            return false;
+                        }
+                        true
                     }
-                    // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
-                    _ => (plugin_identifier, None),
-                };
-                let plugin = context.plugins.iter().find(|p| {
-                    let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
-                    let safe_plugin_name = unsafe_char_regex.replace(plugin_name, "_");
-                    let file_name_prefix = format!("{safe_plugin_name}.");
-                    if !p.safe_file_name.starts_with(&file_name_prefix) {
-                        return false;
-                    }
-                    let plugin_shell_qualifier = p.shell_qualifier.as_ref().map(|q| q.as_str());
-                    if shell_qualifier != plugin_shell_qualifier {
-                        return false;
-                    }
-                    match plugin_type {
-                        "vst" => matches!(p.kind, PluginKind::Vst2 { .. }),
-                        "vst3" => matches!(p.kind, PluginKind::Vst3 { .. }),
-                        _ => false,
+                    PluginKind::Clap(p) => {
+                        if plugin_kind != "clap" {
+                            return false;
+                        }
+                        let safe_plugin_id = p.id.replace('.', "_");
+                        if plugin_identifier != &safe_plugin_id {
+                            return false;
+                        }
+                        true
                     }
                 });
                 let ini_file = Ini::load_from_file(entry.path()).ok()?;

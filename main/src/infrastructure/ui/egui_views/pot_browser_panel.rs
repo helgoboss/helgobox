@@ -481,7 +481,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     // FX descriptor
                     {
                         if let Ok(t) = resolved_track.as_ref() {
-                            ui.label("at slot");
+                            ui.label("at");
                             let chain = t.normal_fx_chain();
                             let fx_count = chain.fx_count();
                             // If configured FX index too high, set it to "new FX at end of chain".
@@ -525,7 +525,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
                     .column(Column::auto())
-                    .column(Column::remainder().at_least(40.0))
+                    .column(Column::remainder())
                     .min_scrolled_height(0.0);
 
                 if pot_unit.preset_id() != state.last_preset_id {
@@ -543,10 +543,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.strong("Name");
                         });
                         header.col(|ui| {
-                            ui.strong("Extension");
+                            ui.strong("Product");
                         });
                         header.col(|ui| {
-                            ui.strong("Product");
+                            ui.strong("Extension");
                         });
                     })
                     .body(|body| {
@@ -583,17 +583,17 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                return;
                             };
                             row.col(|ui| {
+                                if let Some(n) = preset.common.product_name.as_ref() {
+                                    ui.label(n);
+                                }
+                            });
+                            row.col(|ui| {
                                 let text = match &preset.kind {
                                     PresetKind::FileBased(k) => &k.file_ext,
                                     PresetKind::Internal(_) => "",
                                     PresetKind::Default(_) => "",
                                 };
                                 ui.label(text);
-                            });
-                            row.col(|ui| {
-                                if let Some(n) = preset.common.product_name.as_ref() {
-                                    ui.label(n);
-                                }
                             });
                         });
                     });
