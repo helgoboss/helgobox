@@ -203,7 +203,10 @@ pub struct Stats {
 
 impl Stats {
     pub fn total_query_duration(&self) -> Duration {
-        self.filter_query_duration + self.preset_query_duration
+        self.filter_query_duration
+            + self.preset_query_duration
+            + self.sort_duration
+            + self.index_duration
     }
 }
 
