@@ -10,7 +10,7 @@ use crate::domain::pot::{
     BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
 };
 
-use crate::domain::pot::plugins::crawl_plugins;
+use crate::domain::pot::plugins::PluginDatabase;
 use crate::domain::pot::providers::defaults::DefaultsDatabase;
 use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
@@ -92,8 +92,10 @@ impl PotDatabase {
     pub fn refresh(&self) {
         // Build provider context
         let resource_path = Reaper::get().resource_path();
-        let plugins = crawl_plugins(&resource_path);
-        let provider_context = ProviderContext { plugins: &plugins };
+        let plugin_db = PluginDatabase::crawl(&resource_path);
+        let provider_context = ProviderContext {
+            plugin_db: &plugin_db,
+        };
         // Refresh databases
         for db in self.databases.values() {
             let mut db = blocking_write_lock(db, "pot db build_collections");

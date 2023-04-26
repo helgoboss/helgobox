@@ -88,7 +88,7 @@ impl Database for IniDatabase {
                         // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
                         _ => (plugin_identifier, None),
                     };
-                let plugin = context.plugins.iter().find(|p| match &p.kind {
+                let plugin = context.plugin_db.plugins().find(|p| match &p.kind {
                     PluginKind::Vst(p) => {
                         let matches_kind = match plugin_kind {
                             "vst" => matches!(p.kind, VstPluginKind::Vst2 { .. }),

@@ -1,4 +1,4 @@
-use crate::domain::pot::plugins::{Plugin, ProductKind};
+use crate::domain::pot::plugins::{Plugin, PluginDatabase, ProductKind};
 use crate::domain::pot::{BuildInput, Fil, FilterItemCollections, InnerPresetId, PluginId, Preset};
 use std::error::Error;
 use std::path::PathBuf;
@@ -38,7 +38,7 @@ impl SortablePresetId {
 }
 
 pub struct ProviderContext<'a> {
-    pub plugins: &'a [Plugin],
+    pub plugin_db: &'a PluginDatabase,
 }
 
 /// Komplete ID = 1

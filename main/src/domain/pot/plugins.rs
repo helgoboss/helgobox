@@ -2,8 +2,34 @@ use crate::domain::pot::PluginId;
 use crate::domain::LimitedAsciiString;
 use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
+use std::collections::HashMap;
 use std::path::Path;
 use walkdir::WalkDir;
+
+#[derive(Debug)]
+pub struct PluginDatabase {
+    plugins: HashMap<PluginId, Plugin>,
+}
+
+impl PluginDatabase {
+    pub fn crawl(reaper_resource_dir: &Path) -> Self {
+        let plugins = crawl_plugins(reaper_resource_dir);
+        Self {
+            plugins: plugins
+                .into_iter()
+                .filter_map(|p| Some((p.kind.plugin_id().ok()?, p)))
+                .collect(),
+        }
+    }
+
+    pub fn plugins(&self) -> impl Iterator<Item = &Plugin> {
+        self.plugins.values()
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = (&PluginId, &Plugin)> {
+        self.plugins.iter()
+    }
+}
 
 /// TODO-high CONTINUE Also scan JS plug-ins!
 #[derive(Debug)]
@@ -121,7 +147,7 @@ impl ProductKind {
     }
 }
 
-pub fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
+fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
     WalkDir::new(reaper_resource_dir)
         .max_depth(1)
         .follow_links(false)

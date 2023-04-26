@@ -30,8 +30,8 @@ impl Database for DefaultsDatabase {
 
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
         self.presets = ctx
-            .plugins
-            .iter()
+            .plugin_db
+            .plugins()
             .filter_map(|p| {
                 let plugin_id = p.kind.plugin_id().ok()?;
                 let preset = Preset {
