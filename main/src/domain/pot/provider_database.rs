@@ -29,9 +29,9 @@ pub struct SortablePresetId {
 }
 
 impl SortablePresetId {
-    pub fn new(inner_preset_id: InnerPresetId, preset_name: String) -> Self {
+    pub fn new(i: u32, preset_name: String) -> Self {
         Self {
-            inner_preset_id,
+            inner_preset_id: InnerPresetId(i),
             preset_name,
         }
     }

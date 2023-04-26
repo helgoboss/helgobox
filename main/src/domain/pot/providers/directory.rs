@@ -12,7 +12,6 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use wildmatch::WildMatch;
 
 pub struct DirectoryDatabase {
     root_dir: PathBuf,
@@ -107,31 +106,16 @@ impl Database for DirectoryDatabase {
                 return Ok(vec![]);
             }
         }
-        let lowercase_search_expression = input.search_expression.trim().to_lowercase();
-        let wild_match = WildMatch::new(&lowercase_search_expression);
         let preset_ids = self
             .entries
             .iter()
             .enumerate()
             .filter_map(|(i, preset_entry)| {
-                let matches = if lowercase_search_expression.is_empty() {
-                    true
-                } else {
-                    let lowercase_preset_name = preset_entry.preset_name.to_lowercase();
-                    if input.use_wildcard_search {
-                        wild_match.matches(&lowercase_preset_name)
-                    } else {
-                        lowercase_preset_name.contains(&lowercase_search_expression)
-                    }
-                };
-                if matches {
-                    Some(SortablePresetId::new(
-                        InnerPresetId(i as _),
-                        preset_entry.preset_name.clone(),
-                    ))
-                } else {
-                    None
+                if !input.search_evaluator.matches(&preset_entry.preset_name) {
+                    return None;
                 }
+                let preset_id = SortablePresetId::new(i as _, preset_entry.preset_name.clone());
+                Some(preset_id)
             })
             .collect();
         Ok(preset_ids)

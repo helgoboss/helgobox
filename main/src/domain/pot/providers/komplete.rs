@@ -332,8 +332,8 @@ impl PresetDb {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let search_criteria = SearchCriteria {
-            expression: &input.search_expression,
-            use_wildcards: input.use_wildcard_search,
+            expression: input.search_evaluator.processed_search_expression(),
+            use_wildcards: input.search_evaluator.use_wildcards(),
         };
         let preset_collection = self.build_preset_collection(
             &input.filter_settings,
@@ -356,12 +356,7 @@ impl PresetDb {
             None,
             exclude_list,
             None,
-            |row| {
-                Ok(SortablePresetId::new(
-                    InnerPresetId(row.get(0)?),
-                    row.get(1)?,
-                ))
-            },
+            |row| Ok(SortablePresetId::new(row.get(0)?, row.get(1)?)),
         )
     }
 

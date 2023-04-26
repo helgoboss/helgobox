@@ -24,7 +24,7 @@ impl DefaultsDatabase {
 
 impl Database for DefaultsDatabase {
     fn filter_item_name(&self) -> String {
-        "FX default presets".to_string()
+        "FX defaults".to_string()
     }
 
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
@@ -54,9 +54,11 @@ impl Database for DefaultsDatabase {
                 return Ok(vec![]);
             }
         }
-        // TODO-high CONTINUE Do the usual search expression matching
+        if !input.search_evaluator.matches(PRESET_NAME) {
+            return Ok(vec![]);
+        }
         let preset_ids = (0..self.plugins.len())
-            .map(|i| SortablePresetId::new(InnerPresetId(i as _), PRESET_NAME.to_string()))
+            .map(|i| SortablePresetId::new(i as _, PRESET_NAME.to_string()))
             .collect();
         Ok(preset_ids)
     }
@@ -66,7 +68,7 @@ impl Database for DefaultsDatabase {
         let preset = Preset {
             common: PresetCommon {
                 favorite_id: "".to_string(),
-                name: "<Default>".to_string(),
+                name: PRESET_NAME.to_string(),
                 product_name: Some(plugin.to_string()),
             },
             kind: PresetKind::DefaultFactory(plugin.id),
@@ -79,4 +81,4 @@ impl Database for DefaultsDatabase {
     }
 }
 
-const PRESET_NAME: &str = "<Factory>";
+const PRESET_NAME: &str = "<Default>";

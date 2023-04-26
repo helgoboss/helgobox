@@ -24,6 +24,7 @@ use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use wildmatch::WildMatch;
 
 mod api;
 pub use api::*;
@@ -214,9 +215,47 @@ impl Stats {
 pub struct BuildInput {
     pub affected_kinds: EnumSet<PotFilterItemKind>,
     pub filter_settings: Filters,
-    pub search_expression: String,
-    pub use_wildcard_search: bool,
     pub filter_exclude_list: PotFilterExcludeList,
+    pub search_evaluator: SearchEvaluator,
+}
+
+#[derive(Clone)]
+pub struct SearchEvaluator {
+    processed_search_expression: String,
+    wild_match: Option<WildMatch>,
+}
+
+impl SearchEvaluator {
+    pub fn new(raw_search_expression: &str, use_wildcards: bool) -> Self {
+        let processed_search_expression = raw_search_expression.trim().to_lowercase();
+        Self {
+            wild_match: if use_wildcards {
+                Some(WildMatch::new(&processed_search_expression))
+            } else {
+                None
+            },
+            processed_search_expression,
+        }
+    }
+
+    pub fn processed_search_expression(&self) -> &str {
+        &self.processed_search_expression
+    }
+
+    pub fn use_wildcards(&self) -> bool {
+        self.wild_match.is_some()
+    }
+
+    pub fn matches(&self, text: &str) -> bool {
+        if self.processed_search_expression.is_empty() {
+            return true;
+        }
+        let lowercase_text = text.to_lowercase();
+        match &self.wild_match {
+            None => lowercase_text.contains(&self.processed_search_expression),
+            Some(wild_match) => wild_match.matches(&lowercase_text),
+        }
+    }
 }
 
 fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterItemKind> {
@@ -566,8 +605,10 @@ impl RuntimePotUnit {
         let build_input = BuildInput {
             affected_kinds,
             filter_settings: self.runtime_state.filter_settings.clone(),
-            search_expression: self.runtime_state.search_expression.clone(),
-            use_wildcard_search: self.runtime_state.use_wildcard_search,
+            search_evaluator: SearchEvaluator::new(
+                &self.runtime_state.search_expression,
+                self.runtime_state.use_wildcard_search,
+            ),
             filter_exclude_list: if self.show_excluded_filter_items {
                 PotFilterExcludeList::default()
             } else {
