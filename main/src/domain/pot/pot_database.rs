@@ -215,7 +215,10 @@ impl PotDatabase {
             });
         // Sort presets
         measure_duration(&mut total_output.stats.sort_duration, || {
-            sortable_preset_ids.sort_by(|(_, p1), (_, p2)| p1.preset_name.cmp(&p2.preset_name));
+            sortable_preset_ids.sort_by(|(_, p1), (_, p2)| {
+                lexical_sort::lexical_cmp(&p1.preset_name, &p2.preset_name)
+                // lexical_sort::cmp(&p1.preset_name, &p2.preset_name)
+            });
         });
         // Index presets
         measure_duration(&mut total_output.stats.index_duration, || {
