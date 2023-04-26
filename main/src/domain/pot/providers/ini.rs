@@ -1,16 +1,14 @@
 use crate::domain::pot::provider_database::{
-    build_product_name_from_plugin_info, Database, ProviderContext, SortablePresetId,
-    FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
+    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
 };
 use crate::domain::pot::{
     BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind, PluginId,
-    Preset, PresetCommon, PresetKind,
+    Preset, PresetCommon, PresetKind, SimplePluginKind,
 };
 
-use crate::domain::pot::plugins::{PluginKind, VstPlugin, VstPluginKind};
+use crate::domain::pot::plugins::{PluginDatabase, PluginKind};
 use ini::Ini;
 use realearn_api::persistence::PotFilterItemKind;
-use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -19,8 +17,8 @@ use wildmatch::WildMatch;
 /// TODO-high CONTINUE Also scan JS presets!
 pub struct IniDatabase {
     root_dir: PathBuf,
-    // TODO-high CONTINUE Using a vec is enough!
-    entries: HashMap<InnerPresetId, PresetEntry>,
+    entries: Vec<PresetEntry>,
+    plugin_db: PluginDatabase,
 }
 
 impl IniDatabase {
@@ -31,19 +29,16 @@ impl IniDatabase {
         let db = Self {
             entries: Default::default(),
             root_dir,
+            plugin_db: Default::default(),
         };
         Ok(db)
     }
 }
 
 struct PresetEntry {
-    plugin_info: Option<PluginInfo>,
     preset_name: String,
-}
-
-struct PluginInfo {
-    id: PluginId,
-    name: String,
+    plugin_identifier: String,
+    plugin_id: Option<PluginId>,
 }
 
 impl Database for IniDatabase {
@@ -52,8 +47,9 @@ impl Database for IniDatabase {
     }
 
     fn refresh(&mut self, context: &ProviderContext) -> Result<(), Box<dyn Error>> {
+        self.plugin_db = context.plugin_db.clone();
         let file_name_regex = regex!(r#"(?i)(.*?)-(.*).ini"#);
-        let preset_entries = WalkDir::new(&self.root_dir)
+        self.entries = WalkDir::new(&self.root_dir)
             .max_depth(1)
             .follow_links(true)
             .into_iter()
@@ -71,7 +67,12 @@ impl Database for IniDatabase {
                 // - vst3-Massive.ini
                 // - clap-org_surge-synth-team_surge-xt.ini
                 let captures = file_name_regex.captures(file_name)?;
-                let plugin_kind = captures.get(1)?.as_str();
+                let simple_plugin_kind = match captures.get(1)?.as_str() {
+                    "vst" => SimplePluginKind::Vst2,
+                    "vst3" => SimplePluginKind::Vst3,
+                    "clap" => SimplePluginKind::Clap,
+                    _ => return None,
+                };
                 let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;
@@ -88,66 +89,54 @@ impl Database for IniDatabase {
                         // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
                         _ => (plugin_identifier, None),
                     };
-                let plugin = context.plugin_db.plugins().find(|p| match &p.kind {
-                    PluginKind::Vst(p) => {
-                        let matches_kind = match plugin_kind {
-                            "vst" => matches!(p.kind, VstPluginKind::Vst2 { .. }),
-                            "vst3" => matches!(p.kind, VstPluginKind::Vst3 { .. }),
-                            _ => false,
-                        };
-                        if !matches_kind {
-                            return false;
-                        }
-                        let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
-                        let safe_main_plugin_identifier =
-                            unsafe_char_regex.replace(main_plugin_identifier, "_");
-                        let file_name_prefix = format!("{safe_main_plugin_identifier}.");
-                        if !p.safe_file_name.starts_with(&file_name_prefix) {
-                            return false;
-                        }
-                        let plugin_shell_qualifier = p.shell_qualifier.as_ref().map(|q| q.as_str());
-                        if shell_qualifier != plugin_shell_qualifier {
-                            return false;
-                        }
-                        true
+                let plugin = context.plugin_db.plugins().find(|p| {
+                    if p.common.id.simple_kind() != simple_plugin_kind {
+                        return false;
                     }
-                    PluginKind::Clap(p) => {
-                        if plugin_kind != "clap" {
-                            return false;
+                    match &p.kind {
+                        PluginKind::Vst(k) => {
+                            let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
+                            let safe_main_plugin_identifier =
+                                unsafe_char_regex.replace(main_plugin_identifier, "_");
+                            let file_name_prefix = format!("{safe_main_plugin_identifier}.");
+                            if !k.safe_file_name.starts_with(&file_name_prefix) {
+                                return false;
+                            }
+                            let plugin_shell_qualifier =
+                                k.shell_qualifier.as_ref().map(|q| q.as_str());
+                            if shell_qualifier != plugin_shell_qualifier {
+                                return false;
+                            }
+                            true
                         }
-                        let safe_plugin_id = p.id.replace('.', "_");
-                        if plugin_identifier != &safe_plugin_id {
-                            return false;
+                        PluginKind::Clap(k) => {
+                            let safe_plugin_id = k.id.replace('.', "_");
+                            if plugin_identifier != &safe_plugin_id {
+                                return false;
+                            }
+                            true
                         }
-                        true
                     }
                 });
                 let ini_file = Ini::load_from_file(entry.path()).ok()?;
                 let general_section = ini_file.section(Some("General"))?;
                 let nb_presets = general_section.get("NbPresets")?;
                 let preset_count: u32 = nb_presets.parse().ok()?;
+                let plugin_identifier = plugin_identifier.to_string();
                 let iter = (0..preset_count).filter_map(move |i| {
                     let section_name = format!("Preset{i}");
                     let section = ini_file.section(Some(section_name))?;
                     let name = section.get("Name")?;
                     let preset_entry = PresetEntry {
-                        plugin_info: plugin.and_then(|p| {
-                            let info = PluginInfo {
-                                id: p.kind.plugin_id().ok()?,
-                                name: p.name.clone(),
-                            };
-                            Some(info)
-                        }),
                         preset_name: name.to_string(),
+                        plugin_identifier: plugin_identifier.clone(),
+                        plugin_id: plugin.map(|p| p.common.id),
                     };
                     Some(preset_entry)
                 });
                 Some(iter)
             })
-            .flatten();
-        self.entries = preset_entries
-            .enumerate()
-            .map(|(i, entry)| (InnerPresetId(i as _), entry))
+            .flatten()
             .collect();
         Ok(())
     }
@@ -179,7 +168,8 @@ impl Database for IniDatabase {
         let preset_ids = self
             .entries
             .iter()
-            .filter_map(|(id, preset_entry)| {
+            .enumerate()
+            .filter_map(|(i, preset_entry)| {
                 let matches = if lowercase_search_expression.is_empty() {
                     true
                 } else {
@@ -191,7 +181,10 @@ impl Database for IniDatabase {
                     }
                 };
                 if matches {
-                    Some(SortablePresetId::new(*id, preset_entry.preset_name.clone()))
+                    Some(SortablePresetId::new(
+                        InnerPresetId(i as _),
+                        preset_entry.preset_name.clone(),
+                    ))
                 } else {
                     None
                 }
@@ -201,18 +194,25 @@ impl Database for IniDatabase {
     }
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
-        let preset_entry = self.entries.get(&preset_id)?;
+        let preset_entry = self.entries.get(preset_id.0 as usize)?;
+        let plugin = preset_entry
+            .plugin_id
+            .as_ref()
+            .and_then(|pid| self.plugin_db.find_plugin_by_id(pid));
         let preset = Preset {
             common: PresetCommon {
                 favorite_id: "".to_string(),
                 name: preset_entry.preset_name.clone(),
-                product_name: preset_entry
-                    .plugin_info
-                    .as_ref()
-                    .map(|i| build_product_name_from_plugin_info(&i.name, i.id)),
+                product_name: {
+                    let name = match plugin {
+                        None => preset_entry.plugin_identifier.to_string(),
+                        Some(p) => p.common.to_string(),
+                    };
+                    Some(name)
+                },
             },
             kind: PresetKind::Internal(InternalPresetKind {
-                plugin_id: preset_entry.plugin_info.as_ref().map(|i| i.id),
+                plugin_id: preset_entry.plugin_id,
             }),
         };
         Some(preset)

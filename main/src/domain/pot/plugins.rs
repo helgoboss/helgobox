@@ -3,10 +3,12 @@ use crate::domain::LimitedAsciiString;
 use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 use walkdir::WalkDir;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PluginDatabase {
     plugins: HashMap<PluginId, Plugin>,
 }
@@ -15,10 +17,7 @@ impl PluginDatabase {
     pub fn crawl(reaper_resource_dir: &Path) -> Self {
         let plugins = crawl_plugins(reaper_resource_dir);
         Self {
-            plugins: plugins
-                .into_iter()
-                .filter_map(|p| Some((p.kind.plugin_id().ok()?, p)))
-                .collect(),
+            plugins: plugins.into_iter().map(|p| (p.common.id, p)).collect(),
         }
     }
 
@@ -26,33 +25,57 @@ impl PluginDatabase {
         self.plugins.values()
     }
 
-    pub fn entries(&self) -> impl Iterator<Item = (&PluginId, &Plugin)> {
-        self.plugins.iter()
+    pub fn find_plugin_by_id(&self, plugin_id: &PluginId) -> Option<&Plugin> {
+        self.plugins.get(plugin_id)
     }
 }
 
 /// TODO-high CONTINUE Also scan JS plug-ins!
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Plugin {
+    /// Contains data relevant for all kinds of plug-ins.
+    pub common: PluginCommon,
+    /// Contains data specific to certain kinds of plug-ins.
     pub kind: PluginKind,
-    pub product_kind: Option<ProductKind>,
-    pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub struct PluginCommon {
+    /// Uniquely identifies the plug-in in a rather cheap way (copyable).
+    pub id: PluginId,
+    /// Full name of the plug-in (for display purposes mainly).
+    pub name: String,
+    /// If we have an effect or an instrument or unknown.
+    pub product_kind: Option<ProductKind>,
+}
+
+impl Display for PluginCommon {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str(&self.id.kind_name())?;
+        if let Some(ProductKind::Instrument) = self.product_kind {
+            f.write_str("i")?;
+        }
+        write!(f, ": {}", &self.name)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum PluginKind {
     Vst(VstPlugin),
     Clap(ClapPlugin),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ClapPlugin {
+    /// Real file name, no characters replaced.
     pub file_name: String,
+    /// Checksum looks different than in VST plug-in INI files.
     pub checksum: String,
     pub id: String,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VstPlugin {
     /// Safe means: Each space and special character is replaced with an underscore.
     pub safe_file_name: String,
@@ -66,19 +89,10 @@ pub struct VstPlugin {
     pub kind: VstPluginKind,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum VstPluginKind {
     Vst2 { magic_number: String },
     Vst3 { uid_hash: String, uid: String },
-}
-
-impl PluginKind {
-    pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
-        match self {
-            PluginKind::Vst(vst) => vst.kind.plugin_id(),
-            PluginKind::Clap(clap) => clap.plugin_id(),
-        }
-    }
 }
 
 impl VstPluginKind {
@@ -111,16 +125,14 @@ impl VstPluginKind {
     }
 }
 
-impl ClapPlugin {
-    pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
-        let ascii_string: Result<AsciiString, _> =
-            self.id.chars().map(|c| c.to_ascii_char()).collect();
-        let ascii_string = ascii_string.map_err(|_| "CLAP plug-in ID not ASCII")?;
-        let id = PluginId::Clap {
-            clap_id: LimitedAsciiString::try_from_ascii_str(&ascii_string)?,
-        };
-        Ok(id)
-    }
+fn build_clap_plugin_id(id_expression: &str) -> Result<PluginId, &'static str> {
+    let ascii_string: Result<AsciiString, _> =
+        id_expression.chars().map(|c| c.to_ascii_char()).collect();
+    let ascii_string = ascii_string.map_err(|_| "CLAP plug-in ID not ASCII")?;
+    let id = PluginId::Clap {
+        clap_id: LimitedAsciiString::try_from_ascii_str(&ascii_string)?,
+    };
+    Ok(id)
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -193,17 +205,20 @@ fn crawl_clap_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
                     }
                     let (product_kind_id, plugin_name) = value.split_once('|')?;
                     let plugin = Plugin {
+                        common: PluginCommon {
+                            id: build_clap_plugin_id(key).ok()?,
+                            name: plugin_name.to_string(),
+                            product_kind: match product_kind_id {
+                                "0" => Some(ProductKind::Effect),
+                                "1" => Some(ProductKind::Instrument),
+                                _ => None,
+                            },
+                        },
                         kind: PluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
                             checksum: checksum.to_string(),
                             id: key.to_string(),
                         }),
-                        product_kind: match product_kind_id {
-                            "0" => Some(ProductKind::Effect),
-                            "1" => Some(ProductKind::Instrument),
-                            _ => None,
-                        },
-                        name: plugin_name.to_string(),
                     };
                     Some(plugin)
                 })
@@ -256,14 +271,17 @@ fn crawl_vst_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
                 }
             };
             let plugin = Plugin {
+                common: PluginCommon {
+                    id: vst_kind.plugin_id().ok()?,
+                    name,
+                    product_kind,
+                },
                 kind: PluginKind::Vst(VstPlugin {
                     safe_file_name,
                     shell_qualifier,
                     checksum,
                     kind: vst_kind,
                 }),
-                product_kind,
-                name,
             };
             Some(plugin)
         })

@@ -1,5 +1,5 @@
-use crate::domain::pot::plugins::{Plugin, PluginDatabase, ProductKind};
-use crate::domain::pot::{BuildInput, Fil, FilterItemCollections, InnerPresetId, PluginId, Preset};
+use crate::domain::pot::plugins::{PluginDatabase, ProductKind};
+use crate::domain::pot::{BuildInput, Fil, FilterItemCollections, InnerPresetId, Preset};
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -57,8 +57,3 @@ pub const FIL_PRODUCT_KIND_EFFECT: Fil = Fil::ProductKind(ProductKind::Effect);
 pub const FIL_PRODUCT_KIND_LOOP: Fil = Fil::ProductKind(ProductKind::Loop);
 /// Komplete ID = 8
 pub const FIL_PRODUCT_KIND_ONE_SHOT: Fil = Fil::ProductKind(ProductKind::OneShot);
-
-// TODO-high CONTINUE Also integrate info if instrument or effect, best use struct PluginInfo in Preset directly
-pub fn build_product_name_from_plugin_info(plugin_name: &str, plugin_id: PluginId) -> String {
-    format!("{}: {}", plugin_id.kind_name(), plugin_name)
-}

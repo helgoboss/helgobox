@@ -466,9 +466,9 @@ impl RuntimePotUnit {
                     return Err("plug-in for internal preset couldn't be found".into());
                 }
             }
-            PresetKind::Default(plugin_id) => {
+            PresetKind::DefaultFactory(plugin_id) => {
                 let dest = build_destination(self)?;
-                load_default_preset(*plugin_id, &dest, options)?
+                load_default_factory_preset(*plugin_id, &dest, options)?
             }
         };
         let current_preset = CurrentPreset {
@@ -813,7 +813,7 @@ pub struct PresetCommon {
 pub enum PresetKind {
     FileBased(FiledBasedPresetKind),
     Internal(InternalPresetKind),
-    Default(PluginId),
+    DefaultFactory(PluginId),
 }
 
 /// The kind of preset that's saved in a separate file.
@@ -908,7 +908,7 @@ fn load_internal_preset(
     })
 }
 
-fn load_default_preset(
+fn load_default_factory_preset(
     plugin_id: PluginId,
     destination: &Destination,
     options: LoadPresetOptions,
@@ -1194,4 +1194,19 @@ impl PluginId {
             }
         }
     }
+
+    pub fn simple_kind(&self) -> SimplePluginKind {
+        match self {
+            PluginId::Vst2 { .. } => SimplePluginKind::Vst2,
+            PluginId::Vst3 { .. } => SimplePluginKind::Vst3,
+            PluginId::Clap { .. } => SimplePluginKind::Clap,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum SimplePluginKind {
+    Vst2,
+    Vst3,
+    Clap,
 }
