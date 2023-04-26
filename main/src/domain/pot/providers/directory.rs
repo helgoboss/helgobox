@@ -7,7 +7,7 @@ use crate::domain::pot::{
 };
 
 use realearn_api::persistence::PotFilterItemKind;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -19,8 +19,7 @@ pub struct DirectoryDatabase {
     valid_extensions: HashSet<&'static OsStr>,
     name: &'static str,
     publish_relative_path: bool,
-    // TODO-high CONTINUE Using a vec is enough!
-    entries: HashMap<InnerPresetId, PresetEntry>,
+    entries: Vec<PresetEntry>,
 }
 
 pub struct DirectoryDbConfig {
@@ -61,7 +60,7 @@ impl Database for DirectoryDatabase {
     }
 
     fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
-        let preset_entries = WalkDir::new(&self.root_dir)
+        self.entries = WalkDir::new(&self.root_dir)
             .follow_links(true)
             .into_iter()
             .filter_map(|entry| {
@@ -81,10 +80,7 @@ impl Database for DirectoryDatabase {
                     relative_path: relative_path.to_str()?.to_string(),
                 };
                 Some(preset_entry)
-            });
-        self.entries = preset_entries
-            .enumerate()
-            .map(|(i, entry)| (InnerPresetId(i as _), entry))
+            })
             .collect();
         Ok(())
     }
@@ -116,7 +112,8 @@ impl Database for DirectoryDatabase {
         let preset_ids = self
             .entries
             .iter()
-            .filter_map(|(id, preset_entry)| {
+            .enumerate()
+            .filter_map(|(i, preset_entry)| {
                 let matches = if lowercase_search_expression.is_empty() {
                     true
                 } else {
@@ -128,7 +125,10 @@ impl Database for DirectoryDatabase {
                     }
                 };
                 if matches {
-                    Some(SortablePresetId::new(*id, preset_entry.preset_name.clone()))
+                    Some(SortablePresetId::new(
+                        InnerPresetId(i as _),
+                        preset_entry.preset_name.clone(),
+                    ))
                 } else {
                     None
                 }
@@ -138,7 +138,7 @@ impl Database for DirectoryDatabase {
     }
 
     fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
-        let preset_entry = self.entries.get(&preset_id)?;
+        let preset_entry = self.entries.get(preset_id.0 as usize)?;
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
             common: PresetCommon {
