@@ -28,7 +28,7 @@ use helgoboss_learn::{
 };
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
-    MidiScriptKind, MonitoringMode, MouseButton, PotFilterItemKind, SeekBehavior, TrackToolAction,
+    MidiScriptKind, MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -4723,7 +4723,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowsePotFilterItems => {
                     combo.show();
-                    combo.fill_combo_box_indexed(PotFilterItemKind::into_enum_iter());
+                    combo.fill_combo_box_indexed(PotFilterKind::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.pot_filter_item_kind().into(),

@@ -19,7 +19,7 @@ use playtime_clip_engine::base::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
@@ -713,7 +713,7 @@ impl InstanceStateChanged {
 #[derive(Clone, Debug)]
 pub enum PotStateChangedEvent {
     FilterItemChanged {
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         filter: OptFilter,
     },
     PresetChanged {

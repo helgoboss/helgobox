@@ -12,7 +12,7 @@ use crate::domain::{
 
 use enumset::EnumSet;
 use indexmap::IndexSet;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{FxPresetRef, InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
@@ -116,6 +116,7 @@ impl PotUnit {
 pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub filter_item_collections: FilterItemCollections,
+    pub supported_filter_kinds: EnumSet<PotFilterKind>,
     pub preset_collection: PresetCollection,
     pub wasted_runs: u32,
     pub wasted_duration: Duration,
@@ -213,7 +214,7 @@ impl Stats {
 
 #[derive(Clone)]
 pub struct BuildInput {
-    pub affected_kinds: EnumSet<PotFilterItemKind>,
+    pub affected_kinds: EnumSet<PotFilterKind>,
     pub filter_settings: Filters,
     pub filter_exclude_list: PotFilterExcludeList,
     pub search_evaluator: SearchEvaluator,
@@ -258,7 +259,7 @@ impl SearchEvaluator {
     }
 }
 
-fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterItemKind> {
+fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterKind> {
     match change_hint {
         None | Some(ChangeHint::TotalRefresh) => EnumSet::all(),
         Some(ChangeHint::SearchExpression) => EnumSet::empty(),
@@ -270,14 +271,14 @@ fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterItemKind>
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ChangeHint {
     TotalRefresh,
-    Filter(PotFilterItemKind),
+    Filter(PotFilterKind),
     SearchExpression,
     FilterExclude,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeState {
-    pub filter_settings: Filters,
+    pub filters: Filters,
     pub search_expression: String,
     pub use_wildcard_search: bool,
     preset_id: Option<PresetId>,
@@ -324,7 +325,7 @@ impl RuntimeState {
         //     }
         // })
         let state = Self {
-            filter_settings: Default::default(),
+            filters: Default::default(),
             search_expression: "".to_string(),
             use_wildcard_search: false,
             preset_id: None,
@@ -355,6 +356,7 @@ impl RuntimePotUnit {
         let unit = Self {
             runtime_state: RuntimeState::load(state)?,
             filter_item_collections: Default::default(),
+            supported_filter_kinds: Default::default(),
             preset_collection: Default::default(),
             wasted_runs: 0,
             wasted_duration: Default::default(),
@@ -539,12 +541,16 @@ impl RuntimePotUnit {
             ));
     }
 
-    pub fn get_filter(&self, kind: PotFilterItemKind) -> OptFilter {
-        self.runtime_state.filter_settings.get(kind)
+    pub fn filters(&self) -> &Filters {
+        &self.runtime_state.filters
     }
 
-    pub fn filter_is_set_to_non_none(&self, kind: PotFilterItemKind) -> bool {
-        matches!(self.get_filter(kind), Some(FilterItemId(Some(_))))
+    pub fn supports_filter_kind(&self, kind: PotFilterKind) -> bool {
+        self.supported_filter_kinds.contains(kind)
+    }
+
+    pub fn get_filter(&self, kind: PotFilterKind) -> OptFilter {
+        self.runtime_state.filters.get(kind)
     }
 
     pub fn show_excluded_filter_items(&self) -> bool {
@@ -562,7 +568,7 @@ impl RuntimePotUnit {
 
     pub fn include_filter_item(
         &mut self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         id: FilterItemId,
         include: bool,
         shared_self: SharedRuntimePotUnit,
@@ -580,11 +586,11 @@ impl RuntimePotUnit {
 
     pub fn set_filter(
         &mut self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         id: OptFilter,
         shared_self: SharedRuntimePotUnit,
     ) {
-        self.runtime_state.filter_settings.set(kind, id);
+        self.runtime_state.filters.set(kind, id);
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
@@ -604,7 +610,7 @@ impl RuntimePotUnit {
         let affected_kinds = affected_kinds(change_hint);
         let build_input = BuildInput {
             affected_kinds,
-            filter_settings: self.runtime_state.filter_settings.clone(),
+            filter_settings: self.runtime_state.filters.clone(),
             search_evaluator: SearchEvaluator::new(
                 &self.runtime_state.search_expression,
                 self.runtime_state.use_wildcard_search,
@@ -618,7 +624,7 @@ impl RuntimePotUnit {
         let mut runtime_state = self.runtime_state.clone();
         // Here we already have enough knowledge to fix some filter settings.
         runtime_state
-            .filter_settings
+            .filters
             .clear_excluded_ones(&build_input.filter_exclude_list);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.change_counter += 1;
@@ -663,9 +669,10 @@ impl RuntimePotUnit {
     fn notify_build_outcome_ready(
         &mut self,
         build_output: BuildOutput,
-        affected_kinds: EnumSet<PotFilterItemKind>,
+        affected_kinds: EnumSet<PotFilterKind>,
     ) {
         self.background_task_start_time = None;
+        self.supported_filter_kinds = build_output.supported_filter_kinds;
         self.preset_collection = build_output.preset_collection;
         for (kind, collection) in build_output.filter_item_collections.into_iter() {
             if affected_kinds.contains(kind) {
@@ -673,7 +680,7 @@ impl RuntimePotUnit {
             }
         }
         self.runtime_state
-            .filter_settings
+            .filters
             .clear_if_not_available_anymore(affected_kinds, &self.filter_item_collections);
         self.stats = build_output.stats;
         self.sender
@@ -682,7 +689,7 @@ impl RuntimePotUnit {
             ));
     }
 
-    pub fn count_filter_items(&self, kind: PotFilterItemKind) -> u32 {
+    pub fn count_filter_items(&self, kind: PotFilterKind) -> u32 {
         self.filter_item_collections.get(kind).len() as u32
     }
 
@@ -731,7 +738,7 @@ impl RuntimePotUnit {
 
     pub fn find_filter_item_id_at_index(
         &self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         index: u32,
     ) -> Option<FilterItemId> {
         Some(self.find_filter_item_at_index(kind, index)?.id)
@@ -739,23 +746,19 @@ impl RuntimePotUnit {
 
     pub fn find_filter_item_at_index(
         &self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         index: u32,
     ) -> Option<&FilterItem> {
         self.filter_item_collections.get(kind).get(index as usize)
     }
 
-    pub fn find_index_of_filter_item(
-        &self,
-        kind: PotFilterItemKind,
-        id: FilterItemId,
-    ) -> Option<u32> {
+    pub fn find_index_of_filter_item(&self, kind: PotFilterKind, id: FilterItemId) -> Option<u32> {
         Some(self.find_filter_item_and_index_by_id(kind, id)?.0)
     }
 
     pub fn find_filter_item_by_id(
         &self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         id: FilterItemId,
     ) -> Option<&FilterItem> {
         Some(self.find_filter_item_and_index_by_id(kind, id)?.1)
@@ -763,7 +766,7 @@ impl RuntimePotUnit {
 
     fn find_filter_item_and_index_by_id(
         &self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         id: FilterItemId,
     ) -> Option<(u32, &FilterItem)> {
         fn find(items: &[FilterItem], id: FilterItemId) -> Option<(u32, &FilterItem)> {

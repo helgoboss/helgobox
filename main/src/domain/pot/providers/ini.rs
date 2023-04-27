@@ -9,9 +9,10 @@ use crate::domain::pot::{
 
 use crate::domain::pot::plugins::PluginKind;
 use either::Either;
+use enumset::{enum_set, EnumSet};
 use ini::Ini;
 use itertools::Itertools;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::iter;
 use std::path::PathBuf;
@@ -40,7 +41,7 @@ impl IniDatabase {
         input: &'a BuildInput,
     ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
         for (kind, filter) in input.filter_settings.iter() {
-            use PotFilterItemKind::*;
+            use PotFilterKind::*;
             let matches = match kind {
                 IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
                 IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),
@@ -81,6 +82,10 @@ struct PluginEntry {
 impl Database for IniDatabase {
     fn filter_item_name(&self) -> String {
         "FX presets".to_string()
+    }
+
+    fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
+        enum_set!(PotFilterKind::Bank)
     }
 
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
@@ -192,7 +197,7 @@ impl Database for IniDatabase {
             .map(InnerFilterItem::Product)
             .collect();
         let mut collections = InnerFilterItemCollections::empty();
-        collections.set(PotFilterItemKind::Bank, product_items);
+        collections.set(PotFilterKind::Bank, product_items);
         Ok(collections)
     }
 

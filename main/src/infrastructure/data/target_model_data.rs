@@ -34,7 +34,7 @@ use realearn_api::persistence::{
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
     ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModificationKind,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    PotFilterItemKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
+    PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -484,7 +484,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub pot_filter_item_kind: PotFilterItemKind,
+    pub pot_filter_item_kind: PotFilterKind,
     /// New since ReaLearn v2.15.0-pre.1
     #[serde(
         default,

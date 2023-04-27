@@ -1130,7 +1130,7 @@ pub struct BrowsePotFilterItemsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub item_kind: Option<PotFilterItemKind>,
+    pub item_kind: Option<PotFilterKind>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -1167,7 +1167,7 @@ pub struct LoadPotPresetTarget {
     enumset::EnumSetType,
 )]
 #[repr(usize)]
-pub enum PotFilterItemKind {
+pub enum PotFilterKind {
     #[display(fmt = "Database")]
     Database,
     /// Factory or User
@@ -1199,7 +1199,7 @@ pub enum PotFilterItemKind {
     Mode,
 }
 
-impl PotFilterItemKind {
+impl PotFilterKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
@@ -1207,7 +1207,7 @@ impl PotFilterItemKind {
     }
 
     pub fn allows_excludes(&self) -> bool {
-        use PotFilterItemKind::*;
+        use PotFilterKind::*;
         matches!(
             self,
             Database | Bank | SubBank | Category | SubCategory | Mode
@@ -1216,19 +1216,19 @@ impl PotFilterItemKind {
 
     pub fn parent(&self) -> Option<Self> {
         match self {
-            PotFilterItemKind::SubBank => Some(PotFilterItemKind::Bank),
-            PotFilterItemKind::SubCategory => Some(PotFilterItemKind::Category),
+            PotFilterKind::SubBank => Some(PotFilterKind::Bank),
+            PotFilterKind::SubCategory => Some(PotFilterKind::Category),
             _ => None,
         }
     }
 
-    pub fn dependent_kinds(&self) -> impl Iterator<Item = PotFilterItemKind> {
+    pub fn dependent_kinds(&self) -> impl Iterator<Item = PotFilterKind> {
         let dep_pos = self.dependency_position();
         Self::into_enum_iter().filter(move |k| k.dependency_position() > dep_pos)
     }
 
     pub fn dependency_position(&self) -> u32 {
-        use PotFilterItemKind::*;
+        use PotFilterKind::*;
         match self {
             Database => 0,
             IsUser | ProductKind | IsFavorite => 1,
@@ -1241,7 +1241,7 @@ impl PotFilterItemKind {
     }
 }
 
-impl Default for PotFilterItemKind {
+impl Default for PotFilterKind {
     fn default() -> Self {
         Self::Database
     }

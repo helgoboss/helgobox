@@ -6,7 +6,7 @@ use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use std::collections::HashSet;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -73,7 +73,7 @@ pub struct ProductId(pub u32);
 pub type FilterItemCollections = GenericFilterItemCollections<FilterItem>;
 
 #[derive(Debug)]
-pub struct GenericFilterItemCollections<T>(EnumMap<PotFilterItemKind, Vec<T>>);
+pub struct GenericFilterItemCollections<T>(EnumMap<PotFilterKind, Vec<T>>);
 
 pub trait HasFilterItemId {
     fn id(&self) -> FilterItemId;
@@ -96,29 +96,29 @@ impl<T> GenericFilterItemCollections<T> {
         Default::default()
     }
 
-    pub fn get(&self, kind: PotFilterItemKind) -> &[T] {
+    pub fn get(&self, kind: PotFilterKind) -> &[T] {
         &self.0[kind]
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (PotFilterItemKind, &mut Vec<T>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (PotFilterKind, &mut Vec<T>)> {
         self.0.iter_mut()
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (PotFilterItemKind, Vec<T>)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (PotFilterKind, Vec<T>)> {
         self.0.into_iter()
     }
 
-    pub fn set(&mut self, kind: PotFilterItemKind, items: Vec<T>) {
+    pub fn set(&mut self, kind: PotFilterKind, items: Vec<T>) {
         self.0[kind] = items;
     }
 
-    pub fn extend(&mut self, kind: PotFilterItemKind, items: impl Iterator<Item = T>) {
+    pub fn extend(&mut self, kind: PotFilterKind, items: impl Iterator<Item = T>) {
         self.0[kind].extend(items);
     }
 }
 
 impl<T: HasFilterItemId> GenericFilterItemCollections<T> {
-    pub fn narrow_down(&mut self, kind: PotFilterItemKind, includes: &HashSet<FilterItemId>) {
+    pub fn narrow_down(&mut self, kind: PotFilterKind, includes: &HashSet<FilterItemId>) {
         self.0[kind].retain(|item| includes.contains(&item.id()))
     }
 }
@@ -128,7 +128,7 @@ impl<T: HasFilterItemId> GenericFilterItemCollections<T> {
 pub type OptFilter = Option<FilterItemId>;
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Filters(EnumMap<PotFilterItemKind, OptFilter>);
+pub struct Filters(EnumMap<PotFilterKind, OptFilter>);
 
 impl Filters {
     pub fn empty() -> Self {
@@ -136,31 +136,29 @@ impl Filters {
     }
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {
-        self.matches(PotFilterItemKind::Database, Fil::Database(db_id))
+        self.matches(PotFilterKind::Database, Fil::Database(db_id))
     }
 
     pub fn product_matches(&self, product_id: ProductId) -> bool {
-        self.matches_optional(PotFilterItemKind::Bank, Some(Fil::Product(product_id)))
+        self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(product_id)))
     }
 
     pub fn wants_user_presets_only(&self) -> bool {
-        self.wants_only(PotFilterItemKind::IsUser, FIL_IS_USER_PRESET_TRUE)
+        self.wants_only(PotFilterKind::IsUser, FIL_IS_USER_PRESET_TRUE)
     }
 
     pub fn wants_favorites_only(&self) -> bool {
-        self.wants_only(PotFilterItemKind::IsFavorite, FIL_IS_FAVORITE_TRUE)
+        self.wants_only(PotFilterKind::IsFavorite, FIL_IS_FAVORITE_TRUE)
     }
 
-    /// Advanced filters are those below bank.
-    pub fn advanced_filters_are_set_to_concrete_value(&self) -> bool {
-        PotFilterItemKind::Bank
-            .dependent_kinds()
-            .any(|k| matches!(self.get(k), Some(FilterItemId(Some(_)))))
+    pub fn any_filter_below_is_set_to_concrete_value(&self, kind: PotFilterKind) -> bool {
+        kind.dependent_kinds()
+            .any(|k| self.is_set_to_concrete_value(k))
     }
 
     /// To be used with filter kinds where <None> is **not** a valid filter value. In this case,
     /// <None> is considered an invalid value and it never matches (no reason to panic but almost).
-    fn matches(&self, kind: PotFilterItemKind, fil: Fil) -> bool {
+    fn matches(&self, kind: PotFilterKind, fil: Fil) -> bool {
         match self.get(kind) {
             None => true,
             Some(FilterItemId(None)) => false,
@@ -169,40 +167,40 @@ impl Filters {
     }
 
     /// To be used with filter kinds where <None> is a valid filter value.
-    fn matches_optional(&self, kind: PotFilterItemKind, fil: Option<Fil>) -> bool {
+    fn matches_optional(&self, kind: PotFilterKind, fil: Option<Fil>) -> bool {
         match self.get(kind) {
             None => true,
             Some(FilterItemId(wanted_fil)) => fil == wanted_fil,
         }
     }
 
-    fn wants_only(&self, kind: PotFilterItemKind, fil: Fil) -> bool {
+    fn wants_only(&self, kind: PotFilterKind, fil: Fil) -> bool {
         self.get(kind) == Some(FilterItemId(Some(fil)))
     }
 
     /// Returns `false` if set to `None`
-    pub fn is_set_to_concrete_value(&self, kind: PotFilterItemKind) -> bool {
+    pub fn is_set_to_concrete_value(&self, kind: PotFilterKind) -> bool {
         matches!(self.0[kind], Some(FilterItemId(Some(_))))
     }
 
-    pub fn get(&self, kind: PotFilterItemKind) -> OptFilter {
+    pub fn get(&self, kind: PotFilterKind) -> OptFilter {
         self.0[kind]
     }
 
-    pub fn get_ref(&self, kind: PotFilterItemKind) -> &OptFilter {
+    pub fn get_ref(&self, kind: PotFilterKind) -> &OptFilter {
         &self.0[kind]
     }
 
-    pub fn set(&mut self, kind: PotFilterItemKind, value: OptFilter) {
+    pub fn set(&mut self, kind: PotFilterKind, value: OptFilter) {
         self.0[kind] = value;
     }
 
     pub fn effective_sub_bank(&self) -> &OptFilter {
-        self.effective_sub_item(PotFilterItemKind::Bank, PotFilterItemKind::SubBank)
+        self.effective_sub_item(PotFilterKind::Bank, PotFilterKind::SubBank)
     }
 
     pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludeList) {
-        for kind in PotFilterItemKind::into_enum_iter() {
+        for kind in PotFilterKind::into_enum_iter() {
             if let Some(id) = self.0[kind] {
                 if exclude_list.contains(kind, id) {
                     self.0[kind] = None;
@@ -213,7 +211,7 @@ impl Filters {
 
     pub fn clear_if_not_available_anymore(
         &mut self,
-        affected_kinds: EnumSet<PotFilterItemKind>,
+        affected_kinds: EnumSet<PotFilterKind>,
         collections: &FilterItemCollections,
     ) {
         for kind in affected_kinds {
@@ -226,15 +224,15 @@ impl Filters {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (PotFilterItemKind, OptFilter)> {
+    pub fn iter(&self) -> impl Iterator<Item = (PotFilterKind, OptFilter)> {
         self.0.into_iter()
     }
 
     pub fn effective_sub_category(&self) -> &OptFilter {
-        self.effective_sub_item(PotFilterItemKind::Category, PotFilterItemKind::SubCategory)
+        self.effective_sub_item(PotFilterKind::Category, PotFilterKind::SubCategory)
     }
 
-    pub fn clear_this_and_dependent_filters(&mut self, kind: PotFilterItemKind) {
+    pub fn clear_this_and_dependent_filters(&mut self, kind: PotFilterKind) {
         self.set(kind, None);
         for dependent_kind in kind.dependent_kinds() {
             self.set(dependent_kind, None);
@@ -243,8 +241,8 @@ impl Filters {
 
     fn effective_sub_item(
         &self,
-        parent_kind: PotFilterItemKind,
-        sub_kind: PotFilterItemKind,
+        parent_kind: PotFilterKind,
+        sub_kind: PotFilterKind,
     ) -> &OptFilter {
         let category = &self.0[parent_kind];
         if category == &Some(FilterItemId::NONE) {
@@ -257,43 +255,40 @@ impl Filters {
 
 #[derive(Clone, Debug, Default)]
 pub struct PotFilterExcludeList {
-    exluded_items: EnumMap<PotFilterItemKind, HashSet<FilterItemId>>,
+    exluded_items: EnumMap<PotFilterKind, HashSet<FilterItemId>>,
 }
 
 impl PotFilterExcludeList {
-    pub fn contains(&self, kind: PotFilterItemKind, id: FilterItemId) -> bool {
+    pub fn contains(&self, kind: PotFilterKind, id: FilterItemId) -> bool {
         self.exluded_items[kind].contains(&id)
     }
 
-    pub fn include(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
+    pub fn include(&mut self, kind: PotFilterKind, id: FilterItemId) {
         self.exluded_items[kind].remove(&id);
     }
 
-    pub fn exclude(&mut self, kind: PotFilterItemKind, id: FilterItemId) {
+    pub fn exclude(&mut self, kind: PotFilterKind, id: FilterItemId) {
         self.exluded_items[kind].insert(id);
     }
 
-    pub fn has_excludes(&self, kind: PotFilterItemKind) -> bool {
+    pub fn has_excludes(&self, kind: PotFilterKind) -> bool {
         !self.exluded_items[kind].is_empty()
     }
 
     pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
         self.contains(
-            PotFilterItemKind::Database,
+            PotFilterKind::Database,
             FilterItemId(Some(Fil::Database(db_id))),
         )
     }
 
-    pub fn normal_excludes_by_kind(
-        &self,
-        kind: PotFilterItemKind,
-    ) -> impl Iterator<Item = &Fil> + '_ {
+    pub fn normal_excludes_by_kind(&self, kind: PotFilterKind) -> impl Iterator<Item = &Fil> + '_ {
         self.exluded_items[kind]
             .iter()
             .filter_map(|id| Some(id.0.as_ref()?))
     }
 
-    pub fn contains_none(&self, kind: PotFilterItemKind) -> bool {
+    pub fn contains_none(&self, kind: PotFilterKind) -> bool {
         self.exluded_items[kind].contains(&FilterItemId::NONE)
     }
 }

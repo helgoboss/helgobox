@@ -3,6 +3,8 @@ use crate::domain::pot::{
     BuildInput, Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId,
     InnerPresetId, Preset, ProductId,
 };
+use enumset::{enum_set, EnumSet};
+use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -11,6 +13,12 @@ pub struct DatabaseId(pub u32);
 
 pub trait Database {
     fn filter_item_name(&self) -> String;
+
+    /// Advanced filter kinds are those except the constant ones (database, is-favorite, is-user
+    /// and product type).
+    fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
+        enum_set!()
+    }
 
     fn refresh(&mut self, context: &ProviderContext) -> Result<(), Box<dyn Error>>;
 

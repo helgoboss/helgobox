@@ -11,7 +11,7 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub struct UnresolvedBrowsePotFilterItemsTarget {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PotFilterItemsTargetSettings {
-    pub kind: PotFilterItemKind,
+    pub kind: PotFilterKind,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedBrowsePotFilterItemsTarget {

@@ -12,8 +12,9 @@ use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
 };
 use enum_iterator::IntoEnumIterator;
+use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
@@ -50,6 +51,16 @@ impl KompleteDatabase {
 impl Database for KompleteDatabase {
     fn filter_item_name(&self) -> String {
         "Komplete".to_string()
+    }
+
+    fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
+        enum_set!(
+            PotFilterKind::Bank
+                | PotFilterKind::SubBank
+                | PotFilterKind::Category
+                | PotFilterKind::SubCategory
+                | PotFilterKind::Mode
+        )
     }
 
     fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
@@ -303,36 +314,34 @@ impl PresetDb {
             input.affected_kinds.into_iter(),
             &input.filter_exclude_list,
         );
-        let banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::Bank);
-        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterItemKind::SubBank);
+        let banks_are_affected = input.affected_kinds.contains(PotFilterKind::Bank);
+        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterKind::SubBank);
         if banks_are_affected || sub_banks_are_affected {
             let non_empty_banks =
                 self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
             if banks_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::Bank, &non_empty_banks);
+                filter_items.narrow_down(PotFilterKind::Bank, &non_empty_banks);
             }
             if sub_banks_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::SubBank, &non_empty_banks);
+                filter_items.narrow_down(PotFilterKind::SubBank, &non_empty_banks);
             }
         }
-        let categories_are_affected = input.affected_kinds.contains(PotFilterItemKind::Category);
-        let sub_categories_are_affected = input
-            .affected_kinds
-            .contains(PotFilterItemKind::SubCategory);
+        let categories_are_affected = input.affected_kinds.contains(PotFilterKind::Category);
+        let sub_categories_are_affected = input.affected_kinds.contains(PotFilterKind::SubCategory);
         if categories_are_affected || sub_categories_are_affected {
             let non_empty_categories =
                 self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
             if categories_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::Category, &non_empty_categories);
+                filter_items.narrow_down(PotFilterKind::Category, &non_empty_categories);
             }
             if sub_categories_are_affected {
-                filter_items.narrow_down(PotFilterItemKind::SubCategory, &non_empty_categories);
+                filter_items.narrow_down(PotFilterKind::SubCategory, &non_empty_categories);
             }
         }
-        if input.affected_kinds.contains(PotFilterItemKind::Mode) {
+        if input.affected_kinds.contains(PotFilterKind::Mode) {
             let non_empty_modes =
                 self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
-            filter_items.narrow_down(PotFilterItemKind::Mode, &non_empty_modes);
+            filter_items.narrow_down(PotFilterKind::Mode, &non_empty_modes);
         }
         Ok(filter_items)
     }
@@ -375,7 +384,7 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.clear_this_and_dependent_filters(PotFilterItemKind::Bank);
+        filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -392,7 +401,7 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.clear_this_and_dependent_filters(PotFilterItemKind::Category);
+        filters.clear_this_and_dependent_filters(PotFilterKind::Category);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -409,7 +418,7 @@ impl PresetDb {
         mut filters: Filters,
         exclude_list: &PotFilterExcludeList,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
-        filters.clear_this_and_dependent_filters(PotFilterItemKind::Mode);
+        filters.clear_this_and_dependent_filters(PotFilterKind::Mode);
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -444,7 +453,7 @@ impl PresetDb {
             sql.order_by(v);
         }
         // Filter on content type (= factory or user)
-        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterItemKind::IsUser) {
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsUser) {
             let content_type = if fil == FIL_IS_USER_PRESET_TRUE {
                 &ONE
             } else {
@@ -454,7 +463,7 @@ impl PresetDb {
             sql.where_and_with_param("cp.content_type = ?", content_type);
         }
         // Filter on product/device type (= instrument, effect, loop or one shot)
-        if let Some(product_type) = filter_settings.get(PotFilterItemKind::ProductKind) {
+        if let Some(product_type) = filter_settings.get(PotFilterKind::ProductKind) {
             // We chose the filter item IDs so they correspond to the device type flags.
             let device_type_flags = match product_type.0.as_ref() {
                 None => Some(&ZERO),
@@ -468,7 +477,7 @@ impl PresetDb {
             }
         };
         // Filter on favorite or not
-        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterItemKind::IsFavorite) {
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsFavorite) {
             let is_favorite = fil == FIL_IS_FAVORITE_TRUE;
             if self.ensure_favorites_db_is_attached().is_ok() {
                 if is_favorite {
@@ -501,7 +510,7 @@ impl PresetDb {
                     sql.where_and_false();
                 }
             }
-        } else if let Some(bank_id) = filter_settings.get_ref(PotFilterItemKind::Bank) {
+        } else if let Some(bank_id) = filter_settings.get_ref(PotFilterKind::Bank) {
             match &bank_id.0 {
                 None => unreachable!("effective_sub_bank() should have prevented this"),
                 Some(Fil::Komplete(id)) => {
@@ -535,7 +544,7 @@ impl PresetDb {
                     sql.where_and_false();
                 }
             }
-        } else if let Some(category_id) = filter_settings.get_ref(PotFilterItemKind::Category) {
+        } else if let Some(category_id) = filter_settings.get_ref(PotFilterKind::Category) {
             match &category_id.0 {
                 None => unreachable!("effective_sub_category() should have prevented this"),
                 Some(Fil::Komplete(id)) => {
@@ -557,7 +566,7 @@ impl PresetDb {
             }
         }
         // Filter on mode (= "Character")
-        if let Some(mode_id) = filter_settings.get_ref(PotFilterItemKind::Mode) {
+        if let Some(mode_id) = filter_settings.get_ref(PotFilterKind::Mode) {
             match &mode_id.0 {
                 None => sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_mode)"),
                 Some(Fil::Komplete(id)) => {
@@ -587,11 +596,11 @@ impl PresetDb {
             sql.where_and_with_param("i.name LIKE ?", &like_expression);
         }
         // Exclude filters
-        for kind in PotFilterItemKind::into_enum_iter() {
+        for kind in PotFilterKind::into_enum_iter() {
             if !exclude_list.has_excludes(kind) {
                 continue;
             }
-            use PotFilterItemKind::*;
+            use PotFilterKind::*;
             let selector = match kind {
                 Bank | SubBank => "i.bank_chain_id",
                 Category | SubCategory => {
@@ -629,7 +638,7 @@ impl PresetDb {
     pub fn build_filter_items(
         &self,
         settings: &Filters,
-        kinds: impl Iterator<Item = PotFilterItemKind>,
+        kinds: impl Iterator<Item = PotFilterKind>,
         exclude_list: &PotFilterExcludeList,
     ) -> InnerFilterItemCollections {
         let mut collections = InnerFilterItemCollections::empty();
@@ -643,10 +652,10 @@ impl PresetDb {
 
     fn build_filter_items_of_kind(
         &self,
-        kind: PotFilterItemKind,
+        kind: PotFilterKind,
         settings: &Filters,
     ) -> Vec<InnerFilterItem> {
-        use PotFilterItemKind::*;
+        use PotFilterKind::*;
         match kind {
             Bank => self.select_nks_filter_items(
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
@@ -655,7 +664,7 @@ impl PresetDb {
             ),
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
-                let parent_bank_filter = settings.get(PotFilterItemKind::Bank);
+                let parent_bank_filter = settings.get(PotFilterKind::Bank);
                 if parent_bank_filter.is_some() {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
@@ -669,7 +678,7 @@ impl PresetDb {
             ),
             SubCategory => {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
-                let parent_category_filter = settings.get(PotFilterItemKind::Category);
+                let parent_category_filter = settings.get(PotFilterKind::Category);
                 if parent_category_filter.is_some() {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }

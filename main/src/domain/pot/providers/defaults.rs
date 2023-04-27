@@ -1,15 +1,13 @@
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
 };
-use crate::domain::pot::{
-    BuildInput, FilterItemId, Filters, InnerPresetId, Preset, PresetCommon, PresetKind,
-};
+use crate::domain::pot::{BuildInput, Filters, InnerPresetId, Preset, PresetCommon, PresetKind};
 
 use crate::domain::pot::plugins::PluginCommon;
 use either::Either;
+use enumset::{enum_set, EnumSet};
 use itertools::Itertools;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::iter;
 use std::path::PathBuf;
@@ -31,7 +29,7 @@ impl DefaultsDatabase {
         // Check a few filters before we start do do anything.
         let matches = !filters.wants_user_presets_only()
             && !filters.wants_favorites_only()
-            && !filters.advanced_filters_are_set_to_concrete_value();
+            && !filters.any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
         if !matches {
             return Either::Left(iter::empty());
         }
@@ -49,6 +47,10 @@ impl Database for DefaultsDatabase {
         "FX defaults".to_string()
     }
 
+    fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
+        enum_set!(PotFilterKind::Bank)
+    }
+
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
         // We clone the plug-in list so we can create own own order and maintain stable IDs.
         self.plugins = ctx.plugin_db.plugins().map(|p| p.common.clone()).collect();
@@ -61,7 +63,7 @@ impl Database for DefaultsDatabase {
         input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_settings = input.filter_settings;
-        filter_settings.clear_this_and_dependent_filters(PotFilterItemKind::Bank);
+        filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
             .query_presets_internal(&filter_settings)
             .filter_map(|(_, plugin)| Some(plugin.product_id))
@@ -69,7 +71,7 @@ impl Database for DefaultsDatabase {
             .map(InnerFilterItem::Product)
             .collect();
         let mut collections = InnerFilterItemCollections::empty();
-        collections.set(PotFilterItemKind::Bank, product_items);
+        collections.set(PotFilterKind::Bank, product_items);
         Ok(collections)
     }
 

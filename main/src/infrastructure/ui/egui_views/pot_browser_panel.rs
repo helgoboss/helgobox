@@ -13,7 +13,7 @@ use egui::{
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
 use egui_toast::Toasts;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::error::Error;
@@ -229,14 +229,14 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
-                                PotFilterItemKind::IsUser,
+                                PotFilterKind::IsUser,
                                 ui,
                             );
                             ui.separator();
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
-                                PotFilterItemKind::IsFavorite,
+                                PotFilterKind::IsFavorite,
                                 ui,
                             );
                         });
@@ -253,7 +253,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     add_filter_view_content(
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::Database,
+                        PotFilterKind::Database,
                         ui,
                         false
                     );
@@ -267,77 +267,107 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     add_filter_view_content(
                         &state.pot_unit,
                         pot_unit,
-                        PotFilterItemKind::ProductKind,
+                        PotFilterKind::ProductKind,
                         ui,
                         false
                     );
                     // Add dependent filter views
                     ui.separator();
-                    let show_sub_banks = !state.auto_hide_sub_filters
-                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::Bank)
-                        || pot_unit.get_filter(PotFilterItemKind::SubBank).is_some());
-                    let show_sub_categories = !state.auto_hide_sub_filters
-                        || (pot_unit.filter_is_set_to_non_none(PotFilterItemKind::Category)
-                        || pot_unit
-                        .get_filter(PotFilterItemKind::SubCategory)
-                        .is_some());
+                    let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);
+                    let show_sub_banks = show_banks
+                        && pot_unit.supports_filter_kind(PotFilterKind::SubBank)
+                        && (
+                            !state.auto_hide_sub_filters
+                            || (
+                                    pot_unit.filters().is_set_to_concrete_value(PotFilterKind::Bank)
+                                    || pot_unit.get_filter(PotFilterKind::SubBank).is_some()
+                                )
+                        );
+                    let show_categories = pot_unit.supports_filter_kind(PotFilterKind::Category);
+                    let show_sub_categories = show_categories
+                        && pot_unit.supports_filter_kind(PotFilterKind::SubCategory)
+                        && (
+                            !state.auto_hide_sub_filters
+                            || (
+                                pot_unit.filters().is_set_to_concrete_value(PotFilterKind::Category)
+                                || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()
+                            )
+                        );
+                    let show_modes = pot_unit.supports_filter_kind(PotFilterKind::Mode);
                     let mut remaining_kind_count = 5;
+                    if !show_banks {
+                        remaining_kind_count -= 1;
+                    }
                     if !show_sub_banks {
+                        remaining_kind_count -= 1;
+                    }
+                    if !show_categories {
                         remaining_kind_count -= 1;
                     }
                     if !show_sub_categories {
                         remaining_kind_count -= 1;
                     }
-                    let filter_view_height = ui.available_height() / remaining_kind_count as f32;
-                    add_filter_view(
-                        ui,
-                        filter_view_height,
-                        &state.pot_unit,
-                        pot_unit,
-                        PotFilterItemKind::Bank,
-                        false,
-                        false,
-                    );
-                    if show_sub_banks {
-                        add_filter_view(
-                            ui,
-                            filter_view_height,
-                            &state.pot_unit,
-                            pot_unit,
-                            PotFilterItemKind::SubBank,
-                            true,
-                            true,
-                        );
+                    if !show_modes {
+                        remaining_kind_count -= 1;
                     }
-                    add_filter_view(
-                        ui,
-                        filter_view_height,
-                        &state.pot_unit,
-                        pot_unit,
-                        PotFilterItemKind::Category,
-                        true,
-                        false,
-                    );
-                    if show_sub_categories {
-                        add_filter_view(
-                            ui,
-                            filter_view_height,
-                            &state.pot_unit,
-                            pot_unit,
-                            PotFilterItemKind::SubCategory,
-                            true,
-                            true,
-                        );
+                    if remaining_kind_count > 0 {
+                        let filter_view_height = ui.available_height() / remaining_kind_count as f32;
+                        if show_banks {
+                            add_filter_view(
+                                ui,
+                                filter_view_height,
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterKind::Bank,
+                                false,
+                                false,
+                            );
+                        }
+                        if show_sub_banks {
+                            add_filter_view(
+                                ui,
+                                filter_view_height,
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterKind::SubBank,
+                                true,
+                                true,
+                            );
+                        }
+                        if show_categories {
+                            add_filter_view(
+                                ui,
+                                filter_view_height,
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterKind::Category,
+                                true,
+                                false,
+                            );
+                        }
+                        if show_sub_categories {
+                            add_filter_view(
+                                ui,
+                                filter_view_height,
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterKind::SubCategory,
+                                true,
+                                true,
+                            );
+                        }
+                        if show_modes {
+                            add_filter_view(
+                                ui,
+                                filter_view_height,
+                                &state.pot_unit,
+                                pot_unit,
+                                PotFilterKind::Mode,
+                                true,
+                                false,
+                            );
+                        }
                     }
-                    add_filter_view(
-                        ui,
-                        filter_view_height,
-                        &state.pot_unit,
-                        pot_unit,
-                        PotFilterItemKind::Mode,
-                        true,
-                        false,
-                    );
                 });
             // Right panel
             let preset_count = pot_unit.preset_count();
@@ -746,7 +776,7 @@ fn add_filter_view(
     max_height: f32,
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
-    kind: PotFilterItemKind,
+    kind: PotFilterKind,
     add_separator: bool,
     indent: bool,
 ) {
@@ -806,12 +836,12 @@ fn add_filter_view(
 fn add_filter_view_content(
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
-    kind: PotFilterItemKind,
+    kind: PotFilterKind,
     ui: &mut Ui,
     wrapped: bool,
 ) {
     enum UiAction {
-        InOrExcludeFilter(PotFilterItemKind, FilterItemId, bool),
+        InOrExcludeFilter(PotFilterKind, FilterItemId, bool),
     }
     let mut action = None;
     let old_filter_item_id = pot_unit.get_filter(kind);
@@ -880,7 +910,7 @@ fn add_filter_view_content(
 fn add_filter_view_content_as_icons(
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
-    kind: PotFilterItemKind,
+    kind: PotFilterKind,
     ui: &mut Ui,
 ) {
     let old_filter_item_id = pot_unit.get_filter(kind);

@@ -6,7 +6,7 @@ use crate::domain::pot::{
     BuildInput, FiledBasedPresetKind, FilterItemId, InnerPresetId, Preset, PresetCommon, PresetKind,
 };
 
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
@@ -98,7 +98,7 @@ impl Database for DirectoryDatabase {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         for (kind, filter) in input.filter_settings.iter() {
-            use PotFilterItemKind::*;
+            use PotFilterKind::*;
             let matches = match kind {
                 IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
                 IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),

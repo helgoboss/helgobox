@@ -68,7 +68,7 @@ use realearn_api::persistence::{
     ClipTransportAction, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
     LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
-    MonitoringMode, MouseAction, MouseButton, PotFilterItemKind, SeekBehavior,
+    MonitoringMode, MouseAction, MouseButton, PotFilterKind, SeekBehavior,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
     TrackFxChain, TrackScope, TrackToolAction,
 };
@@ -171,7 +171,7 @@ pub enum TargetCommand {
     SetMappingSnapshotTypeForTake(MappingSnapshotTypeForTake),
     SetMappingSnapshotId(Option<MappingSnapshotId>),
     SetMappingSnapshotDefaultValue(Option<AbsoluteValue>),
-    SetPotFilterItemKind(PotFilterItemKind),
+    SetPotFilterItemKind(PotFilterKind),
     SetMappingModificationKind(MappingModificationKind),
     SetMappingRef(MappingRefModel),
     SetLearnableTargetKinds(HashSet<LearnableTargetKind>),
@@ -802,7 +802,7 @@ pub struct TargetModel {
     mapping_modification_kind: MappingModificationKind,
     mapping_ref: MappingRefModel,
     // # For Pot targets
-    pot_filter_item_kind: PotFilterItemKind,
+    pot_filter_item_kind: PotFilterKind,
     // # For targets that deal with target learning/touching
     included_targets: HashSet<LearnableTargetKind>,
     touch_cause: TargetTouchCause,
@@ -2688,7 +2688,7 @@ impl TargetModel {
         }
     }
 
-    pub fn pot_filter_item_kind(&self) -> PotFilterItemKind {
+    pub fn pot_filter_item_kind(&self) -> PotFilterKind {
         self.pot_filter_item_kind
     }
 

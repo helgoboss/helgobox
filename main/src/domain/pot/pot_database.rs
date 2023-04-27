@@ -14,8 +14,9 @@ use crate::domain::pot::{
 use crate::domain::pot::plugins::PluginDatabase;
 use crate::domain::pot::providers::defaults::DefaultsDatabase;
 use crate::domain::pot::providers::ini::IniDatabase;
+use enumset::{enum_set, EnumSet};
 use indexmap::IndexSet;
-use realearn_api::persistence::PotFilterItemKind;
+use realearn_api::persistence::PotFilterKind;
 use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
@@ -128,26 +129,28 @@ impl PotDatabase {
         let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
         let mut total_output = BuildOutput::default();
+        total_output.supported_filter_kinds = enum_set!(
+            PotFilterKind::Database
+                | PotFilterKind::IsUser
+                | PotFilterKind::IsFavorite
+                | PotFilterKind::ProductKind
+        );
         measure_duration(&mut total_output.stats.filter_query_duration, || {
-            if input.affected_kinds.contains(PotFilterItemKind::IsUser) {
+            if input.affected_kinds.contains(PotFilterKind::IsUser) {
                 total_output
                     .filter_item_collections
-                    .set(PotFilterItemKind::IsUser, create_filter_items_is_user());
+                    .set(PotFilterKind::IsUser, create_filter_items_is_user());
             }
-            if input
-                .affected_kinds
-                .contains(PotFilterItemKind::ProductKind)
-            {
+            if input.affected_kinds.contains(PotFilterKind::ProductKind) {
                 total_output.filter_item_collections.set(
-                    PotFilterItemKind::ProductKind,
+                    PotFilterKind::ProductKind,
                     create_filter_items_product_kind(),
                 );
             }
-            if input.affected_kinds.contains(PotFilterItemKind::IsFavorite) {
-                total_output.filter_item_collections.set(
-                    PotFilterItemKind::IsFavorite,
-                    create_filter_items_is_favorite(),
-                );
+            if input.affected_kinds.contains(PotFilterKind::IsFavorite) {
+                total_output
+                    .filter_item_collections
+                    .set(PotFilterKind::IsFavorite, create_filter_items_is_favorite());
             }
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
@@ -176,6 +179,8 @@ impl PotDatabase {
                 if !input.filter_settings.database_matches(*db_id) {
                     continue;
                 }
+                // Add supported filter kinds
+                total_output.supported_filter_kinds |= db.supported_advanced_filter_kinds();
                 // Build and accumulate filters collections
                 let Ok(filter_collections) = db.query_filter_collections(&provider_context, &input) else {
                     continue;
@@ -208,10 +213,10 @@ impl PotDatabase {
                 }
             }
             // Add database filter items
-            if input.affected_kinds.contains(PotFilterItemKind::Database) {
+            if input.affected_kinds.contains(PotFilterKind::Database) {
                 total_output
                     .filter_item_collections
-                    .set(PotFilterItemKind::Database, database_filter_items);
+                    .set(PotFilterKind::Database, database_filter_items);
             }
             // Important: At this point, some previously selected filters might not exist anymore.
             // So we should reset them and not let them influence the preset query anymore!
@@ -303,6 +308,7 @@ impl PotDatabase {
 
 #[derive(Default)]
 pub struct BuildOutput {
+    pub supported_filter_kinds: EnumSet<PotFilterKind>,
     pub filter_item_collections: FilterItemCollections,
     pub preset_collection: IndexSet<PresetId>,
     pub stats: Stats,

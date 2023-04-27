@@ -2,7 +2,7 @@ use crate::domain::pot::{PluginId, ProductId};
 use crate::domain::LimitedAsciiString;
 use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
-use regex::{Captures, Match};
+use regex::Match;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
