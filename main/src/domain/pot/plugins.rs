@@ -1,4 +1,4 @@
-use crate::domain::pot::PluginId;
+use crate::domain::pot::{PluginId, ProductId};
 use crate::domain::LimitedAsciiString;
 use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
@@ -11,13 +11,46 @@ use walkdir::WalkDir;
 #[derive(Clone, Debug, Default)]
 pub struct PluginDatabase {
     plugins: HashMap<PluginId, Plugin>,
+    products: Vec<Product>,
+}
+
+#[derive(Default)]
+struct ProductAccumulator {
+    products: Vec<Product>,
+}
+
+impl ProductAccumulator {
+    pub fn get_or_add_product(&mut self, name: &str) -> ProductId {
+        let existing_product = self
+            .products
+            .iter()
+            .enumerate()
+            .find(|(_, product)| product.name == name);
+        let i = match existing_product {
+            None => {
+                let new_product = Product {
+                    name: name.to_string(),
+                };
+                self.products.push(new_product);
+                self.products.len() - 1
+            }
+            Some((i, _)) => i,
+        };
+        ProductId(i as u32)
+    }
+
+    pub fn into_products(self) -> Vec<Product> {
+        self.products
+    }
 }
 
 impl PluginDatabase {
     pub fn crawl(reaper_resource_dir: &Path) -> Self {
-        let plugins = crawl_plugins(reaper_resource_dir);
+        let mut product_accumulator = ProductAccumulator::default();
+        let plugins = crawl_plugins(&mut product_accumulator, reaper_resource_dir);
         Self {
             plugins: plugins.into_iter().map(|p| (p.common.id, p)).collect(),
+            products: product_accumulator.into_products(),
         }
     }
 
@@ -28,6 +61,20 @@ impl PluginDatabase {
     pub fn find_plugin_by_id(&self, plugin_id: &PluginId) -> Option<&Plugin> {
         self.plugins.get(plugin_id)
     }
+
+    pub fn find_product_by_id(&self, product_id: &ProductId) -> Option<&Product> {
+        self.products.get(product_id.0 as usize)
+    }
+}
+
+/// A product - an abstraction over related plug-ins.
+///
+/// Example: The product "Zebra2 (u-he)". This ignores architecture and plug-in framework.
+/// So this product stands for all of: "Zebra VSTi", "Zebra VST3i", "Zebra CLAPi",
+/// "Zebra VST (x86_64)", and so on.
+#[derive(Clone, Debug)]
+pub struct Product {
+    pub name: String,
 }
 
 /// TODO-high CONTINUE Also scan JS plug-ins!
@@ -45,8 +92,10 @@ pub struct PluginCommon {
     pub id: PluginId,
     /// Full name of the plug-in (for display purposes mainly).
     pub name: String,
-    /// If we have an effect or an instrument or unknown.
+    /// Whether we have an effect or an instrument or unknown.
     pub product_kind: Option<ProductKind>,
+    /// What product this plug-in belongs to.
+    pub product_id: ProductId,
 }
 
 impl Display for PluginCommon {
@@ -159,7 +208,10 @@ impl ProductKind {
     }
 }
 
-fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
+fn crawl_plugins(
+    product_accumulator: &mut ProductAccumulator,
+    reaper_resource_dir: &Path,
+) -> Vec<Plugin> {
     WalkDir::new(reaper_resource_dir)
         .max_depth(1)
         .follow_links(false)
@@ -183,8 +235,8 @@ fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
             };
             let ini = Ini::load_from_file(entry.path()).ok()?;
             let plugins = match plug_type {
-                PlugType::Vst => crawl_vst_plugins_in_ini_file(ini),
-                PlugType::Clap => crawl_clap_plugins_in_ini_file(ini),
+                PlugType::Vst => crawl_vst_plugins_in_ini_file(product_accumulator, ini),
+                PlugType::Clap => crawl_clap_plugins_in_ini_file(product_accumulator, ini),
             };
             Some(plugins)
         })
@@ -192,7 +244,10 @@ fn crawl_plugins(reaper_resource_dir: &Path) -> Vec<Plugin> {
         .collect()
 }
 
-fn crawl_clap_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
+fn crawl_clap_plugins_in_ini_file(
+    product_accumulator: &mut ProductAccumulator,
+    ini: Ini,
+) -> Vec<Plugin> {
     ini.iter()
         .filter_map(|(section, props)| {
             let file_name = section?;
@@ -213,6 +268,7 @@ fn crawl_clap_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
                                 "1" => Some(ProductKind::Instrument),
                                 _ => None,
                             },
+                            product_id: product_accumulator.get_or_add_product(plugin_name),
                         },
                         kind: PluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
@@ -229,7 +285,10 @@ fn crawl_clap_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
         .collect()
 }
 
-fn crawl_vst_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
+fn crawl_vst_plugins_in_ini_file(
+    product_accumulator: &mut ProductAccumulator,
+    ini: Ini,
+) -> Vec<Plugin> {
     let Some(section) = ini.section(Some("vstcache")) else {
         return vec![];
     };
@@ -273,6 +332,7 @@ fn crawl_vst_plugins_in_ini_file(ini: Ini) -> Vec<Plugin> {
             let plugin = Plugin {
                 common: PluginCommon {
                     id: vst_kind.plugin_id().ok()?,
+                    product_id: product_accumulator.get_or_add_product(name.as_str()),
                     name,
                     product_kind,
                 },

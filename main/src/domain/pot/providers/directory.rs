@@ -1,9 +1,9 @@
 use crate::domain::pot::provider_database::{
-    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
+    Database, InnerFilterItemCollections, ProviderContext, SortablePresetId, FIL_IS_FAVORITE_TRUE,
+    FIL_IS_USER_PRESET_FALSE,
 };
 use crate::domain::pot::{
-    BuildInput, FiledBasedPresetKind, FilterItemCollections, FilterItemId, InnerPresetId, Preset,
-    PresetCommon, PresetKind,
+    BuildInput, FiledBasedPresetKind, FilterItemId, InnerPresetId, Preset, PresetCommon, PresetKind,
 };
 
 use realearn_api::persistence::PotFilterItemKind;
@@ -86,17 +86,22 @@ impl Database for DirectoryDatabase {
 
     fn query_filter_collections(
         &self,
+        _: &ProviderContext,
         _: &BuildInput,
-    ) -> Result<FilterItemCollections, Box<dyn Error>> {
-        Ok(FilterItemCollections::empty())
+    ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
+        Ok(Default::default())
     }
 
-    fn query_presets(&self, input: &BuildInput) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
+    fn query_presets(
+        &self,
+        _: &ProviderContext,
+        input: &BuildInput,
+    ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         for (kind, filter) in input.filter_settings.iter() {
             use PotFilterItemKind::*;
             let matches = match kind {
-                IsUser => filter != Some(FilterItemId(Some(FIL_CONTENT_TYPE_FACTORY))),
-                IsFavorite => filter != Some(FilterItemId(Some(FIL_FAVORITE_FAVORITE))),
+                IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
+                IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),
                 ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
                     matches!(filter, None | Some(FilterItemId::NONE))
                 }
@@ -121,7 +126,7 @@ impl Database for DirectoryDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
@@ -146,7 +151,11 @@ impl Database for DirectoryDatabase {
         Some(preset)
     }
 
-    fn find_preview_by_preset_id(&self, _preset_id: InnerPresetId) -> Option<PathBuf> {
+    fn find_preview_by_preset_id(
+        &self,
+        _: &ProviderContext,
+        _preset_id: InnerPresetId,
+    ) -> Option<PathBuf> {
         None
     }
 }

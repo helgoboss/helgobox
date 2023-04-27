@@ -1,6 +1,8 @@
 use crate::domain::pot::plugins::ProductKind;
-use crate::domain::pot::provider_database::DatabaseId;
-use crate::domain::pot::{FilterItem, PluginId, Preset};
+use crate::domain::pot::provider_database::{
+    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+};
+use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
@@ -47,10 +49,6 @@ pub enum Fil {
     /// different integers! So they should only be used at runtime and translated to something
     /// more stable for persistence.
     Komplete(u32),
-    /// Refers to a specific plug-in.
-    ///
-    /// Suitable for persistence.
-    Plugin(PluginId),
     /// Refers to a specific pot database.
     ///
     /// Only valid at runtime, not suitable for persistence.
@@ -62,34 +60,66 @@ pub enum Fil {
     Boolean(bool),
     /// Refers to a kind of product.
     ProductKind(ProductKind),
+    /// Refers to a product.
+    ///
+    /// Not suitable for persistence because the product IDs are created at runtime.
+    Product(ProductId),
 }
 
-#[derive(Debug, Default)]
-pub struct FilterItemCollections(EnumMap<PotFilterItemKind, Vec<FilterItem>>);
+/// Id for a [`Product`].
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct ProductId(pub u32);
 
-impl FilterItemCollections {
+pub type FilterItemCollections = GenericFilterItemCollections<FilterItem>;
+
+#[derive(Debug)]
+pub struct GenericFilterItemCollections<T>(EnumMap<PotFilterItemKind, Vec<T>>);
+
+pub trait HasFilterItemId {
+    fn id(&self) -> FilterItemId;
+}
+
+impl HasFilterItemId for FilterItem {
+    fn id(&self) -> FilterItemId {
+        self.id
+    }
+}
+
+impl<T> Default for GenericFilterItemCollections<T> {
+    fn default() -> Self {
+        Self(enum_map::enum_map! { _ => vec![] })
+    }
+}
+
+impl<T> GenericFilterItemCollections<T> {
     pub fn empty() -> Self {
-        Self::default()
+        Default::default()
     }
 
-    pub fn get(&self, kind: PotFilterItemKind) -> &[FilterItem] {
+    pub fn get(&self, kind: PotFilterItemKind) -> &[T] {
         &self.0[kind]
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (PotFilterItemKind, Vec<FilterItem>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (PotFilterItemKind, &mut Vec<T>)> {
+        self.0.iter_mut()
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (PotFilterItemKind, Vec<T>)> {
         self.0.into_iter()
     }
 
-    pub fn set(&mut self, kind: PotFilterItemKind, items: Vec<FilterItem>) {
+    pub fn set(&mut self, kind: PotFilterItemKind, items: Vec<T>) {
         self.0[kind] = items;
     }
 
-    pub fn extend(&mut self, kind: PotFilterItemKind, items: impl Iterator<Item = FilterItem>) {
+    pub fn extend(&mut self, kind: PotFilterItemKind, items: impl Iterator<Item = T>) {
         self.0[kind].extend(items);
     }
+}
 
+impl<T: HasFilterItemId> GenericFilterItemCollections<T> {
     pub fn narrow_down(&mut self, kind: PotFilterItemKind, includes: &HashSet<FilterItemId>) {
-        self.0[kind].retain(|item| includes.contains(&item.id))
+        self.0[kind].retain(|item| includes.contains(&item.id()))
     }
 }
 
@@ -106,11 +136,48 @@ impl Filters {
     }
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {
-        if let Some(FilterItemId(Some(filter_db_id))) = self.get(PotFilterItemKind::Database) {
-            Fil::Database(db_id) == filter_db_id
-        } else {
-            true
+        self.matches(PotFilterItemKind::Database, Fil::Database(db_id))
+    }
+
+    pub fn product_matches(&self, product_id: ProductId) -> bool {
+        self.matches_optional(PotFilterItemKind::Bank, Some(Fil::Product(product_id)))
+    }
+
+    pub fn wants_user_presets_only(&self) -> bool {
+        self.wants_only(PotFilterItemKind::IsUser, FIL_IS_USER_PRESET_TRUE)
+    }
+
+    pub fn wants_favorites_only(&self) -> bool {
+        self.wants_only(PotFilterItemKind::IsFavorite, FIL_IS_FAVORITE_TRUE)
+    }
+
+    /// Advanced filters are those below bank.
+    pub fn advanced_filters_are_set_to_concrete_value(&self) -> bool {
+        PotFilterItemKind::Bank
+            .dependent_kinds()
+            .any(|k| matches!(self.get(k), Some(FilterItemId(Some(_)))))
+    }
+
+    /// To be used with filter kinds where <None> is **not** a valid filter value. In this case,
+    /// <None> is considered an invalid value and it never matches (no reason to panic but almost).
+    fn matches(&self, kind: PotFilterItemKind, fil: Fil) -> bool {
+        match self.get(kind) {
+            None => true,
+            Some(FilterItemId(None)) => false,
+            Some(FilterItemId(Some(wanted_fil))) => fil == wanted_fil,
         }
+    }
+
+    /// To be used with filter kinds where <None> is a valid filter value.
+    fn matches_optional(&self, kind: PotFilterItemKind, fil: Option<Fil>) -> bool {
+        match self.get(kind) {
+            None => true,
+            Some(FilterItemId(wanted_fil)) => fil == wanted_fil,
+        }
+    }
+
+    fn wants_only(&self, kind: PotFilterItemKind, fil: Fil) -> bool {
+        self.get(kind) == Some(FilterItemId(Some(fil)))
     }
 
     /// Returns `false` if set to `None`
@@ -167,6 +234,13 @@ impl Filters {
         self.effective_sub_item(PotFilterItemKind::Category, PotFilterItemKind::SubCategory)
     }
 
+    pub fn clear_this_and_dependent_filters(&mut self, kind: PotFilterItemKind) {
+        self.set(kind, None);
+        for dependent_kind in kind.dependent_kinds() {
+            self.set(dependent_kind, None);
+        }
+    }
+
     fn effective_sub_item(
         &self,
         parent_kind: PotFilterItemKind,
@@ -206,7 +280,7 @@ impl PotFilterExcludeList {
     pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
         self.contains(
             PotFilterItemKind::Database,
-            FilterItemId(Some(Fil::Komplete(db_id.0))),
+            FilterItemId(Some(Fil::Database(db_id))),
         )
     }
 

@@ -821,6 +821,16 @@ impl FilterItem {
             Some(n) => n.into(),
         }
     }
+
+    pub fn sort_name(&self) -> &str {
+        match &self.name {
+            None => match &self.parent_name {
+                None => "".into(),
+                Some(n) => n,
+            },
+            Some(n) => n,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -1,8 +1,9 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, ProviderContext, FIL_CONTENT_TYPE_FACTORY, FIL_CONTENT_TYPE_USER,
-    FIL_FAVORITE_FAVORITE, FIL_FAVORITE_NOT_FAVORITE, FIL_PRODUCT_KIND_EFFECT,
-    FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
+    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_IS_FAVORITE_FALSE,
+    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+    FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP,
+    FIL_PRODUCT_KIND_ONE_SHOT,
 };
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
@@ -16,7 +17,7 @@ use crate::domain::pot::providers::ini::IniDatabase;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterItemKind;
 use reaper_high::Reaper;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -32,7 +33,20 @@ pub fn pot_db() -> &'static PotDatabase {
 type BoxedDatabase = Box<dyn Database + Send + Sync>;
 type DatabaseOpeningResult = Result<BoxedDatabase, PotDatabaseError>;
 
+// By having the RwLocks around the provider databases and not around the pot database, we
+// can have "more" concurrent access. E.g. find_preset_by_id, a function which can be called very
+// often by the GUI, only read-locks one particular database, not all. So if another database
+// is currently written to, it doesn't matter. It's just more flexible and also simplifies
+// usage of PotDatabase from a consumer perspective, because we can easily obtain a static reference
+// to it. Also, in future we might want to use some fork-join approach to refresh/search
+// concurrently multiple databases. This would require having a RwLock around the database itself
+// because we would need to pass the database reference to the async code with an Arc, but an Arc
+// alone doesn't allow mutation of its contents. That's true even if the async database access would
+// be read-only. The synchronous refresh would still need mutable access but we wouldn't be able to
+// get one directly within an Arc.
+
 pub struct PotDatabase {
+    plugin_db: RwLock<PluginDatabase>,
     databases: BTreeMap<DatabaseId, RwLock<DatabaseOpeningResult>>,
 }
 
@@ -84,7 +98,10 @@ impl PotDatabase {
             .enumerate()
             .map(|(i, db)| (DatabaseId(i as _), RwLock::new(db)))
             .collect();
-        let pot_database = Self { databases };
+        let pot_database = Self {
+            plugin_db: Default::default(),
+            databases,
+        };
         pot_database.refresh();
         pot_database
     }
@@ -93,31 +110,29 @@ impl PotDatabase {
         // Build provider context
         let resource_path = Reaper::get().resource_path();
         let plugin_db = PluginDatabase::crawl(&resource_path);
-        let provider_context = ProviderContext {
-            plugin_db: &plugin_db,
-        };
+        let provider_context = ProviderContext::new(&plugin_db);
         // Refresh databases
         for db in self.databases.values() {
-            let mut db = blocking_write_lock(db, "pot db build_collections");
+            let mut db = blocking_write_lock(db, "pot db refresh provider db");
             let Some(db) = db.as_mut().ok() else {
                 continue;
             };
             let _ = db.refresh(&provider_context);
         }
+        // Memorize plug-ins
+        *blocking_write_lock(&self.plugin_db, "pot db refresh plugin db") = plugin_db;
     }
 
     pub fn build_collections(&self, mut input: BuildInput) -> BuildOutput {
+        let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
+        let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
         let mut total_output = BuildOutput::default();
         measure_duration(&mut total_output.stats.filter_query_duration, || {
             if input.affected_kinds.contains(PotFilterItemKind::IsUser) {
-                total_output.filter_item_collections.set(
-                    PotFilterItemKind::IsUser,
-                    vec![
-                        FilterItem::simple(FIL_CONTENT_TYPE_USER, "User", '🕵'),
-                        FilterItem::simple(FIL_CONTENT_TYPE_FACTORY, "Factory", '🏭'),
-                    ],
-                );
+                total_output
+                    .filter_item_collections
+                    .set(PotFilterItemKind::IsUser, create_filter_items_is_user());
             }
             if input
                 .affected_kinds
@@ -125,22 +140,13 @@ impl PotDatabase {
             {
                 total_output.filter_item_collections.set(
                     PotFilterItemKind::ProductKind,
-                    vec![
-                        FilterItem::none(),
-                        FilterItem::simple(FIL_PRODUCT_KIND_INSTRUMENT, "Instrument", '🎹'),
-                        FilterItem::simple(FIL_PRODUCT_KIND_EFFECT, "Effect", '✨'),
-                        FilterItem::simple(FIL_PRODUCT_KIND_LOOP, "Loop", '➿'),
-                        FilterItem::simple(FIL_PRODUCT_KIND_ONE_SHOT, "One shot", '💥'),
-                    ],
+                    create_filter_items_product_kind(),
                 );
             }
             if input.affected_kinds.contains(PotFilterItemKind::IsFavorite) {
                 total_output.filter_item_collections.set(
                     PotFilterItemKind::IsFavorite,
-                    vec![
-                        FilterItem::simple(FIL_FAVORITE_FAVORITE, "Favorite", '★'),
-                        FilterItem::simple(FIL_FAVORITE_NOT_FAVORITE, "Not favorite", '☆'),
-                    ],
+                    create_filter_items_is_favorite(),
                 );
             }
             // Let all databases build filter collections and accumulate them
@@ -171,13 +177,34 @@ impl PotDatabase {
                     continue;
                 }
                 // Build and accumulate filters collections
-                let Ok(filter_collections) = db.query_filter_collections(&input) else {
+                let Ok(filter_collections) = db.query_filter_collections(&provider_context, &input) else {
                     continue;
                 };
                 for (kind, items) in filter_collections.into_iter() {
+                    let mut used_product_ids = HashSet::new();
+                    let final_filter_items = items.into_iter().filter_map(|i| match i {
+                        InnerFilterItem::Unique(i) => Some(i),
+                        InnerFilterItem::Product(pid) => {
+                            used_product_ids.insert(pid);
+                            None
+                        }
+                    });
                     total_output
                         .filter_item_collections
-                        .extend(kind, items.into_iter());
+                        .extend(kind, final_filter_items);
+                    let product_filter_items = used_product_ids.into_iter().filter_map(|pid| {
+                        let filter_item = FilterItem {
+                            persistent_id: "".to_string(),
+                            id: FilterItemId(Some(Fil::Product(pid))),
+                            parent_name: None,
+                            name: Some(plugin_db.find_product_by_id(&pid)?.name.clone()),
+                            icon: None,
+                        };
+                        Some(filter_item)
+                    });
+                    total_output
+                        .filter_item_collections
+                        .extend(kind, product_filter_items);
                 }
             }
             // Add database filter items
@@ -207,20 +234,24 @@ impl PotDatabase {
                         let db = blocking_read_lock(db, "pot db build_collections 2");
                         let db = db.as_ref().ok()?;
                         // Let database build presets
-                        let preset_ids = db.query_presets(&input).ok()?;
+                        let preset_ids = db.query_presets(&provider_context, &input).ok()?;
                         Some((*db_id, preset_ids))
                     })
                     .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
                     .collect()
             });
-        // Sort presets
+        // Sort filter items and presets
         measure_duration(&mut total_output.stats.sort_duration, || {
+            for (_, collection) in total_output.filter_item_collections.iter_mut() {
+                collection
+                    .sort_by(|i1, i2| lexical_sort::lexical_cmp(i1.sort_name(), i2.sort_name()));
+            }
             sortable_preset_ids.sort_by(|(_, p1), (_, p2)| {
                 lexical_sort::lexical_cmp(&p1.preset_name, &p2.preset_name)
-                // lexical_sort::cmp(&p1.preset_name, &p2.preset_name)
             });
         });
-        // Index presets
+        // Index presets. Because later, we look up the preset index by the preset ID and vice versa
+        // and we want that to happen without complexity O(n)! There can be tons of presets!
         measure_duration(&mut total_output.stats.index_duration, || {
             total_output.preset_collection = sortable_preset_ids
                 .into_iter()
@@ -231,30 +262,42 @@ impl PotDatabase {
     }
 
     pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
+        let plugin_db = blocking_read_lock(&self.plugin_db, "pot db find_preset_by_id 0");
+        let provider_context = ProviderContext::new(&plugin_db);
         let db = self.databases.get(&preset_id.database_id)?;
-        let db = blocking_read_lock(db, "pot db find_preset_by_id");
+        let db = blocking_read_lock(db, "pot db find_preset_by_id 1");
         let db = db.as_ref().ok()?;
-        db.find_preset_by_id(preset_id.preset_id)
+        db.find_preset_by_id(&provider_context, preset_id.preset_id)
     }
 
     pub fn try_find_preset_by_id(
         &self,
         preset_id: PresetId,
     ) -> Result<Option<Preset>, &'static str> {
+        let plugin_db = self
+            .plugin_db
+            .try_read()
+            .map_err(|_| "couldn't acquire plugin db lock")?;
+        let provider_context = ProviderContext::new(&plugin_db);
         let db = self
             .databases
             .get(&preset_id.database_id)
             .ok_or("database not found")?;
-        let db = db.try_read().map_err(|_| "couldn't acquire lock")?;
-        let db = db.as_ref().map_err(|_| "database not opened")?;
-        Ok(db.find_preset_by_id(preset_id.preset_id))
+        let db = db
+            .try_read()
+            .map_err(|_| "couldn't acquire provider db lock")?;
+        let db = db.as_ref().map_err(|_| "provider database not opened")?;
+        Ok(db.find_preset_by_id(&provider_context, preset_id.preset_id))
     }
 
     pub fn find_preview_file_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
+        let plugin_db =
+            blocking_read_lock(&self.plugin_db, "pot db find_preview_file_by_preset_id 0");
+        let provider_context = ProviderContext::new(&plugin_db);
         let db = self.databases.get(&preset_id.database_id)?;
-        let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id");
+        let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id 1");
         let db = db.as_ref().ok()?;
-        db.find_preview_by_preset_id(preset_id.preset_id)
+        db.find_preview_by_preset_id(&provider_context, preset_id.preset_id)
     }
 }
 
@@ -270,4 +313,28 @@ fn measure_duration<R>(duration: &mut Duration, f: impl FnOnce() -> R) -> R {
     let r = f();
     *duration = start.elapsed();
     r
+}
+
+fn create_filter_items_is_favorite() -> Vec<FilterItem> {
+    vec![
+        FilterItem::simple(FIL_IS_FAVORITE_TRUE, "Favorite", '★'),
+        FilterItem::simple(FIL_IS_FAVORITE_FALSE, "Not favorite", '☆'),
+    ]
+}
+
+fn create_filter_items_product_kind() -> Vec<FilterItem> {
+    vec![
+        FilterItem::none(),
+        FilterItem::simple(FIL_PRODUCT_KIND_INSTRUMENT, "Instrument", '🎹'),
+        FilterItem::simple(FIL_PRODUCT_KIND_EFFECT, "Effect", '✨'),
+        FilterItem::simple(FIL_PRODUCT_KIND_LOOP, "Loop", '➿'),
+        FilterItem::simple(FIL_PRODUCT_KIND_ONE_SHOT, "One shot", '💥'),
+    ]
+}
+
+fn create_filter_items_is_user() -> Vec<FilterItem> {
+    vec![
+        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User", '🕵'),
+        FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory", '🏭'),
+    ]
 }

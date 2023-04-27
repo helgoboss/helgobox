@@ -1,15 +1,19 @@
 use crate::domain::pot::provider_database::{
-    Database, ProviderContext, SortablePresetId, FIL_CONTENT_TYPE_FACTORY, FIL_FAVORITE_FAVORITE,
+    Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
+    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
 };
 use crate::domain::pot::{
-    BuildInput, FilterItemCollections, FilterItemId, InnerPresetId, InternalPresetKind, PluginId,
-    Preset, PresetCommon, PresetKind, SimplePluginKind,
+    BuildInput, FilterItemId, InnerPresetId, InternalPresetKind, PluginId, Preset, PresetCommon,
+    PresetKind, ProductId, SimplePluginKind,
 };
 
-use crate::domain::pot::plugins::{PluginDatabase, PluginKind};
+use crate::domain::pot::plugins::PluginKind;
+use either::Either;
 use ini::Ini;
+use itertools::Itertools;
 use realearn_api::persistence::PotFilterItemKind;
 use std::error::Error;
+use std::iter;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -17,7 +21,6 @@ use walkdir::WalkDir;
 pub struct IniDatabase {
     root_dir: PathBuf,
     entries: Vec<PresetEntry>,
-    plugin_db: PluginDatabase,
 }
 
 impl IniDatabase {
@@ -28,16 +31,51 @@ impl IniDatabase {
         let db = Self {
             entries: Default::default(),
             root_dir,
-            plugin_db: Default::default(),
         };
         Ok(db)
+    }
+
+    fn query_presets_internal<'a>(
+        &'a self,
+        input: &'a BuildInput,
+    ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
+        for (kind, filter) in input.filter_settings.iter() {
+            use PotFilterItemKind::*;
+            let matches = match kind {
+                IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
+                IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),
+                ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
+                    matches!(filter, None | Some(FilterItemId::NONE))
+                }
+                _ => true,
+            };
+            if !matches {
+                return Either::Left(iter::empty());
+            }
+        }
+        let right = self
+            .entries
+            .iter()
+            .enumerate()
+            .filter_map(|(i, preset_entry)| {
+                if !input.search_evaluator.matches(&preset_entry.preset_name) {
+                    return None;
+                }
+                Some((i, preset_entry))
+            });
+        Either::Right(right)
     }
 }
 
 struct PresetEntry {
     preset_name: String,
     plugin_identifier: String,
-    plugin_id: Option<PluginId>,
+    plugin: Option<PluginEntry>,
+}
+
+struct PluginEntry {
+    plugin_id: PluginId,
+    product_id: ProductId,
 }
 
 impl Database for IniDatabase {
@@ -45,8 +83,7 @@ impl Database for IniDatabase {
         "FX presets".to_string()
     }
 
-    fn refresh(&mut self, context: &ProviderContext) -> Result<(), Box<dyn Error>> {
-        self.plugin_db = context.plugin_db.clone();
+    fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
         let file_name_regex = regex!(r#"(?i)(.*?)-(.*).ini"#);
         self.entries = WalkDir::new(&self.root_dir)
             .max_depth(1)
@@ -88,7 +125,7 @@ impl Database for IniDatabase {
                         // Examples: "vst-Tritik-Irid.ini", "vst-Zebra2.ini"
                         _ => (plugin_identifier, None),
                     };
-                let plugin = context.plugin_db.plugins().find(|p| {
+                let plugin = ctx.plugin_db.plugins().find(|p| {
                     if p.common.id.simple_kind() != simple_plugin_kind {
                         return false;
                     }
@@ -129,7 +166,10 @@ impl Database for IniDatabase {
                     let preset_entry = PresetEntry {
                         preset_name: name.to_string(),
                         plugin_identifier: plugin_identifier.clone(),
-                        plugin_id: plugin.map(|p| p.common.id),
+                        plugin: plugin.map(|p| PluginEntry {
+                            plugin_id: p.common.id,
+                            product_id: p.common.product_id,
+                        }),
                     };
                     Some(preset_entry)
                 });
@@ -142,47 +182,40 @@ impl Database for IniDatabase {
 
     fn query_filter_collections(
         &self,
-        _: &BuildInput,
-    ) -> Result<FilterItemCollections, Box<dyn Error>> {
-        Ok(FilterItemCollections::empty())
+        _: &ProviderContext,
+        input: &BuildInput,
+    ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
+        let product_items = self
+            .query_presets_internal(input)
+            .filter_map(|(_, entry)| Some(entry.plugin.as_ref()?.product_id))
+            .unique()
+            .map(InnerFilterItem::Product)
+            .collect();
+        let mut collections = InnerFilterItemCollections::empty();
+        collections.set(PotFilterItemKind::Bank, product_items);
+        Ok(collections)
     }
 
-    fn query_presets(&self, input: &BuildInput) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        for (kind, filter) in input.filter_settings.iter() {
-            use PotFilterItemKind::*;
-            let matches = match kind {
-                IsUser => filter != Some(FilterItemId(Some(FIL_CONTENT_TYPE_FACTORY))),
-                IsFavorite => filter != Some(FilterItemId(Some(FIL_FAVORITE_FAVORITE))),
-                ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
-                    matches!(filter, None | Some(FilterItemId::NONE))
-                }
-                _ => true,
-            };
-            if !matches {
-                return Ok(vec![]);
-            }
-        }
+    fn query_presets(
+        &self,
+        _: &ProviderContext,
+        input: &BuildInput,
+    ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter_map(|(i, preset_entry)| {
-                if !input.search_evaluator.matches(&preset_entry.preset_name) {
-                    return None;
-                }
-                let preset_id = SortablePresetId::new(i as _, preset_entry.preset_name.clone());
-                Some(preset_id)
+            .query_presets_internal(input)
+            .map(|(i, preset_entry)| {
+                SortablePresetId::new(i as _, preset_entry.preset_name.clone())
             })
             .collect();
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
         let plugin = preset_entry
-            .plugin_id
+            .plugin
             .as_ref()
-            .and_then(|pid| self.plugin_db.find_plugin_by_id(pid));
+            .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.plugin_id));
         let preset = Preset {
             common: PresetCommon {
                 favorite_id: "".to_string(),
@@ -196,13 +229,17 @@ impl Database for IniDatabase {
                 },
             },
             kind: PresetKind::Internal(InternalPresetKind {
-                plugin_id: preset_entry.plugin_id,
+                plugin_id: preset_entry.plugin.as_ref().map(|p| p.plugin_id),
             }),
         };
         Some(preset)
     }
 
-    fn find_preview_by_preset_id(&self, _preset_id: InnerPresetId) -> Option<PathBuf> {
+    fn find_preview_by_preset_id(
+        &self,
+        _: &ProviderContext,
+        _preset_id: InnerPresetId,
+    ) -> Option<PathBuf> {
         None
     }
 }
