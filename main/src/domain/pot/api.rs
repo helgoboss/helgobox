@@ -1,6 +1,6 @@
 use crate::domain::pot::plugins::ProductKind;
 use crate::domain::pot::provider_database::{
-    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;

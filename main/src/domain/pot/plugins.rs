@@ -2,6 +2,7 @@ use crate::domain::pot::{PluginId, ProductId};
 use crate::domain::LimitedAsciiString;
 use ascii::{AsciiString, ToAsciiChar};
 use ini::Ini;
+use regex::{Captures, Match};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -20,7 +21,16 @@ struct ProductAccumulator {
 }
 
 impl ProductAccumulator {
-    pub fn get_or_add_product(&mut self, name: &str, kind: Option<ProductKind>) -> ProductId {
+    pub fn get_or_add_product(
+        &mut self,
+        name_expression: &str,
+        kind: Option<ProductKind>,
+    ) -> ProductId {
+        let name = if let Some(name) = ProductName::parse(name_expression) {
+            name.main
+        } else {
+            name_expression
+        };
         let existing_product = self
             .products
             .iter()
@@ -350,4 +360,117 @@ fn crawl_vst_plugins_in_ini_file(
             Some(plugin)
         })
         .collect()
+}
+
+#[derive(Eq, PartialEq, Debug)]
+struct ProductName<'a> {
+    main: &'a str,
+    arch: Option<&'a str>,
+    company: &'a str,
+    channels: Option<&'a str>,
+}
+
+impl<'a> ProductName<'a> {
+    pub fn parse(name_expression: &'a str) -> Option<Self> {
+        let four_part_regex = regex!(r#"(.*) \((.*)\) \((.*)\) \((.*)\)"#);
+        let three_part_regex = regex!(r#"(.*) \((.*)\) \((.*)\)"#);
+        let two_part_regex = regex!(r#"(.*) \((.*)\)"#);
+
+        if let Some(captures) = four_part_regex.captures(name_expression) {
+            return Some(ProductName {
+                main: s(captures.get(1)),
+                arch: Some(s(captures.get(2))),
+                company: s(captures.get(3)),
+                channels: Some(s(captures.get(4))),
+            });
+        }
+        if let Some(captures) = three_part_regex.captures(name_expression) {
+            let name = if &captures[2] == "x86_64" {
+                ProductName {
+                    main: s(captures.get(1)),
+                    arch: Some(s(captures.get(2))),
+                    company: s(captures.get(3)),
+                    channels: None,
+                }
+            } else {
+                ProductName {
+                    main: s(captures.get(1)),
+                    arch: None,
+                    company: s(captures.get(2)),
+                    channels: Some(s(captures.get(3))),
+                }
+            };
+            return Some(name);
+        }
+        if let Some(captures) = two_part_regex.captures(name_expression) {
+            return Some(ProductName {
+                main: s(captures.get(1)),
+                arch: None,
+                company: s(captures.get(2)),
+                channels: None,
+            });
+        }
+        None
+    }
+}
+
+fn s(m: Option<Match>) -> &str {
+    m.unwrap().as_str()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::pot::plugins::ProductName;
+
+    #[test]
+    pub fn product_name_parsing_2() {
+        assert_eq!(
+            ProductName::parse("TDR Nova (Tokyo Dawn Labs)"),
+            Some(ProductName {
+                main: "TDR Nova",
+                arch: None,
+                company: "Tokyo Dawn Labs",
+                channels: None,
+            })
+        );
+    }
+
+    #[test]
+    pub fn product_name_parsing_3_arch() {
+        assert_eq!(
+            ProductName::parse("VC 76 (x86_64) (Native Instruments GmbH)"),
+            Some(ProductName {
+                main: "VC 76",
+                arch: Some("x86_64"),
+                company: "Native Instruments GmbH",
+                channels: None,
+            })
+        );
+    }
+
+    #[test]
+    pub fn product_name_parsing_3_ch() {
+        assert_eq!(
+            ProductName::parse("Surge XT (Surge Synth Team) (2->6ch)"),
+            Some(ProductName {
+                main: "Surge XT",
+                arch: None,
+                company: "Surge Synth Team",
+                channels: Some("2->6ch"),
+            })
+        );
+    }
+
+    #[test]
+    pub fn product_name_parsing_4() {
+        assert_eq!(
+            ProductName::parse("Sitala (x86_64) (Decomposer) (32 out)"),
+            Some(ProductName {
+                main: "Sitala",
+                arch: Some("x86_64"),
+                company: "Decomposer",
+                channels: Some("32 out"),
+            })
+        );
+    }
 }
