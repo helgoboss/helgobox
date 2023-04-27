@@ -20,16 +20,17 @@ struct ProductAccumulator {
 }
 
 impl ProductAccumulator {
-    pub fn get_or_add_product(&mut self, name: &str) -> ProductId {
+    pub fn get_or_add_product(&mut self, name: &str, kind: Option<ProductKind>) -> ProductId {
         let existing_product = self
             .products
             .iter()
             .enumerate()
-            .find(|(_, product)| product.name == name);
+            .find(|(_, product)| product.name == name && product.kind == kind);
         let i = match existing_product {
             None => {
                 let new_product = Product {
                     name: name.to_string(),
+                    kind,
                 };
                 self.products.push(new_product);
                 self.products.len() - 1
@@ -75,6 +76,7 @@ impl PluginDatabase {
 #[derive(Clone, Debug)]
 pub struct Product {
     pub name: String,
+    pub kind: Option<ProductKind>,
 }
 
 /// TODO-high CONTINUE Also scan JS plug-ins!
@@ -259,16 +261,18 @@ fn crawl_clap_plugins_in_ini_file(
                         return None;
                     }
                     let (product_kind_id, plugin_name) = value.split_once('|')?;
+                    let product_kind = match product_kind_id {
+                        "0" => Some(ProductKind::Effect),
+                        "1" => Some(ProductKind::Instrument),
+                        _ => None,
+                    };
                     let plugin = Plugin {
                         common: PluginCommon {
                             id: build_clap_plugin_id(key).ok()?,
                             name: plugin_name.to_string(),
-                            product_kind: match product_kind_id {
-                                "0" => Some(ProductKind::Effect),
-                                "1" => Some(ProductKind::Instrument),
-                                _ => None,
-                            },
-                            product_id: product_accumulator.get_or_add_product(plugin_name),
+                            product_kind,
+                            product_id: product_accumulator
+                                .get_or_add_product(plugin_name, product_kind),
                         },
                         kind: PluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
@@ -332,7 +336,7 @@ fn crawl_vst_plugins_in_ini_file(
             let plugin = Plugin {
                 common: PluginCommon {
                     id: vst_kind.plugin_id().ok()?,
-                    product_id: product_accumulator.get_or_add_product(name.as_str()),
+                    product_id: product_accumulator.get_or_add_product(name.as_str(), product_kind),
                     name,
                     product_kind,
                 },
