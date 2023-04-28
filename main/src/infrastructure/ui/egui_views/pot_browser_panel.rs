@@ -200,39 +200,43 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .show_inside(ui, |ui| {
                     // General controls
                     ui.horizontal(|ui| {
-                        if ui.button("🔃")
+                        if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
                             .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
                             .clicked() {
                             pot_unit.refresh_pot(state.pot_unit.clone());
                         }
-                        ui.checkbox(&mut state.paint_continuously, "Paint continuously")
-                            .on_hover_text(
-                                "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
-                            );
-                        ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
-                            .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
-                        {
-                            let old = pot_unit.show_excluded_filter_items();
-                            let mut new = pot_unit.show_excluded_filter_items();
-                            ui.checkbox(&mut new, "Show excluded filters")
-                                .on_hover_text("Shows all previously excluded filters again, so you can include them again if you want.");
-                            if new != old {
-                                pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
+                        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+                            ui.checkbox(&mut state.paint_continuously, "Paint continuously")
+                                .on_hover_text(
+                                    "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
+                                );
+                            ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
+                                .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
+                            {
+                                let old = pot_unit.show_excluded_filter_items();
+                                let mut new = pot_unit.show_excluded_filter_items();
+                                ui.checkbox(&mut new, "Show excluded filters")
+                                    .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
+                                if new != old {
+                                    pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
+                                }
                             }
-                        }
+                        });
                         // Spinner
                         if background_task_elapsed.is_some() {
                             ui.spinner();
                         }
                         // Mini filters
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            add_filter_view_content_as_icons(
+                            let shown = add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
                                 PotFilterKind::IsUser,
                                 ui,
                             );
-                            ui.separator();
+                            if shown {
+                                ui.separator();
+                            }
                             add_filter_view_content_as_icons(
                                 &state.pot_unit,
                                 pot_unit,
@@ -244,6 +248,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     // Add independent filter views
                     let heading_height = ui.text_style_height(&TextStyle::Heading);
                     // Database
+                    ui.separator();
                     ui
                         .label(
                             RichText::new("Database")
@@ -258,6 +263,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         false
                     );
                     // Product type
+                    ui.separator();
                     ui
                         .label(
                             RichText::new("Product type")
@@ -269,7 +275,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         pot_unit,
                         PotFilterKind::ProductKind,
                         ui,
-                        false
+                        true
                     );
                     // Add dependent filter views
                     ui.separator();
@@ -374,59 +380,61 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             CentralPanel::default().frame(panel_frame).show_inside(ui, |ui| {
                 // Settings
                 ui.horizontal(|ui| {
-                    let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
-                    // Wildcards
-                    ui.checkbox(
-                        &mut pot_unit.runtime_state.use_wildcard_search,
-                        "Wildcards",
-                    ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
-                    if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
-                        pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
-                    }
-                    // Stats
-                    ui.checkbox(
-                        &mut state.show_stats,
-                        "Stats",
-                    ).on_hover_text("Show query statistics");
-                    // Preview
-                    ui.checkbox(&mut state.auto_preview, "Preview")
-                        .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
-                    // Preview volume
-                    let old_volume = pot_unit.preview_volume();
-                    let mut new_volume_raw = old_volume.get();
-                    egui::DragValue::new(&mut new_volume_raw)
-                        .speed(0.01)
-                        .custom_formatter(|v, _| {
-                            Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
-                        })
-                        .clamp_range(0.0..=1.0)
-                        .ui(ui)
-                        .on_hover_text("Change volume of the sound previews");
-                    let new_volume = ReaperVolumeValue::new(new_volume_raw);
-                    if new_volume != old_volume {
-                        pot_unit.set_preview_volume(new_volume);
-                    }
-                    // Always show newly added FX
-                    let mut show_if_newly_added = state.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
-                    ui.checkbox(&mut show_if_newly_added, "Show newly added FX");
-                    state.load_preset_window_behavior = if show_if_newly_added {
-                        LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
-                    } else {
-                        LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
-                    };
-                    // Name track after preset
-                    ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset");
-                });
-                // Search
-                ui.horizontal(|ui| {
-                    ui.strong("Search:");
-                    // let text = RichText::new(&pot_unit.runtime_state.search_expression).monospace();
-                    // ui.label(text);
+                    // Options
+                    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+                        // Wildcards
+                        let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
+                        ui.checkbox(
+                            &mut pot_unit.runtime_state.use_wildcard_search,
+                            "Wildcards",
+                        ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
+                        if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
+                            pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+                        }
+                        // Stats
+                        ui.checkbox(
+                            &mut state.show_stats,
+                            "Display stats",
+                        ).on_hover_text("Show query statistics");
+                        // Preview
+                        ui.horizontal(|ui| {
+                            ui.checkbox(&mut state.auto_preview, "Preview")
+                                .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
+                            // Preview volume
+                            let old_volume = pot_unit.preview_volume();
+                            let mut new_volume_raw = old_volume.get();
+                            egui::DragValue::new(&mut new_volume_raw)
+                                .speed(0.01)
+                                .custom_formatter(|v, _| {
+                                    Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
+                                })
+                                .clamp_range(0.0..=1.0)
+                                .ui(ui)
+                                .on_hover_text("Change volume of the sound previews");
+                            let new_volume = ReaperVolumeValue::new(new_volume_raw);
+                            if new_volume != old_volume {
+                                pot_unit.set_preview_volume(new_volume);
+                            }
+                        });
+                        // Always show newly added FX
+                        let mut show_if_newly_added = state.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
+                        ui.checkbox(&mut show_if_newly_added, "Show newly added FX");
+                        state.load_preset_window_behavior = if show_if_newly_added {
+                            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
+                        } else {
+                            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
+                        };
+                        // Name track after preset
+                        ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset");
+                    });
+                    // Search
                     let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
+                        .min_size(vec2(0.0, TOOLBAR_SIZE))
                         .hint_text("Type anywhere to search!")
                         .font(TextStyle::Monospace);
                     ui.add_enabled(false, text_edit)
-                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character.");
+                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand Ctrl/Cmd+Backspace to clear all.");
+                    // Preset count
                     ui.label(format!("➡ {preset_count} presets"));
                 });
                 // Stats
@@ -909,17 +917,18 @@ fn add_filter_view_content(
     }
 }
 
+/// Returns true if at least one filter was displayed.
 fn add_filter_view_content_as_icons(
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
     kind: PotFilterKind,
     ui: &mut Ui,
-) {
+) -> bool {
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
     for filter_item in pot_unit.filter_item_collections.get(kind) {
         let currently_selected = old_filter_item_id == Some(filter_item.id);
-        let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(18.0);
+        let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(TOOLBAR_SIZE);
         if !currently_selected {
             text = text.weak();
         }
@@ -937,6 +946,7 @@ fn add_filter_view_content_as_icons(
     if new_filter_item_id != old_filter_item_id {
         pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
     }
+    !pot_unit.filter_item_collections.get(kind).is_empty()
 }
 
 fn load_preset_and_regain_focus(
@@ -956,3 +966,5 @@ fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toa
         toasts.error(e.to_string(), Duration::from_secs(1));
     }
 }
+
+const TOOLBAR_SIZE: f32 = 15.0;
