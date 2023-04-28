@@ -128,9 +128,8 @@ impl Database for KompleteDatabase {
         let translated_filters = self.translate_filters(input.filters);
         let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
             if kind == PotFilterKind::Bank {
-                // let product_id = self.nks_product_id_by_bank_id.get(&id)?;
-                // Some(InnerFilterItem::Product(*product_id))
-                None
+                let product_id = self.nks_product_id_by_bank_id.get(&id)?;
+                Some(InnerFilterItem::Product(*product_id))
             } else {
                 None
             }
@@ -381,12 +380,8 @@ impl PresetDb {
         filter_exclude_list: &PotFilterExcludeList,
         translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut filter_items = self.build_filter_items(
-            filters,
-            affected_kinds.into_iter(),
-            filter_exclude_list,
-            translate,
-        );
+        let mut filter_items =
+            self.build_filter_items(filters, affected_kinds.into_iter(), filter_exclude_list);
         let banks_are_affected = affected_kinds.contains(PotFilterKind::Bank);
         let sub_banks_are_affected = affected_kinds.contains(PotFilterKind::SubBank);
         if banks_are_affected || sub_banks_are_affected {
@@ -413,6 +408,19 @@ impl PresetDb {
         if affected_kinds.contains(PotFilterKind::Mode) {
             let non_empty_modes = self.find_non_empty_modes(*filters, filter_exclude_list)?;
             filter_items.narrow_down(PotFilterKind::Mode, &non_empty_modes);
+        }
+        // Translate some Komplete-specific filter items to shared filter items. It's important that
+        // we do this at the end, otherwise above narrow-down logic doesn't work correctly.
+        for (kind, filter_items) in filter_items.iter_mut() {
+            for filter_item in filter_items {
+                if let InnerFilterItem::Unique(it) = filter_item {
+                    if let FilterItemId(Some(Fil::Komplete(id))) = it.id {
+                        if let Some(translated) = translate(kind, id) {
+                            *filter_item = translated;
+                        }
+                    }
+                }
+            }
         }
         Ok(filter_items)
     }
@@ -710,12 +718,10 @@ impl PresetDb {
         settings: &Filters,
         kinds: impl Iterator<Item = PotFilterKind>,
         exclude_list: &PotFilterExcludeList,
-        translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> InnerFilterItemCollections {
         let mut collections = InnerFilterItemCollections::empty();
         for kind in kinds {
-            let mut filter_items =
-                self.build_filter_items_of_kind(kind, settings, |id| translate(kind, id));
+            let mut filter_items = self.build_filter_items_of_kind(kind, settings);
             filter_items.retain(|i| !exclude_list.contains(kind, i.id()));
             collections.set(kind, filter_items);
         }
@@ -726,7 +732,6 @@ impl PresetDb {
         &self,
         kind: PotFilterKind,
         settings: &Filters,
-        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> Vec<InnerFilterItem> {
         use PotFilterKind::*;
         match kind {
@@ -734,7 +739,6 @@ impl PresetDb {
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
                 true,
-                translate,
             ),
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
@@ -743,13 +747,12 @@ impl PresetDb {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_filter, false, translate)
+                self.select_nks_filter_items(&sql, parent_bank_filter, false)
             }
             Category => self.select_nks_filter_items(
                 "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
                 None,
                 true,
-                translate,
             ),
             SubCategory => {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
@@ -758,13 +761,12 @@ impl PresetDb {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_filter, false, translate)
+                self.select_nks_filter_items(&sql, parent_category_filter, false)
             }
             Mode => self.select_nks_filter_items(
                 "SELECT id, '', name FROM k_mode ORDER BY name",
                 None,
                 true,
-                translate,
             ),
             _ => vec![],
         }
@@ -775,14 +777,8 @@ impl PresetDb {
         query: &str,
         parent_filter: OptFilter,
         include_none_filter: bool,
-        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> Vec<InnerFilterItem> {
-        match self.select_nks_filter_items_internal(
-            query,
-            parent_filter,
-            include_none_filter,
-            translate,
-        ) {
+        match self.select_nks_filter_items_internal(query, parent_filter, include_none_filter) {
             Ok(items) => items,
             Err(e) => {
                 tracing::error!("Error when selecting NKS filter items: {}", e);
@@ -802,7 +798,6 @@ impl PresetDb {
         query: &str,
         parent_filter: OptFilter,
         include_none_filter: bool,
-        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> rusqlite::Result<Vec<InnerFilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
         let rows = if let Some(FilterItemId(Some(Fil::Komplete(parent_filter)))) = parent_filter {
@@ -812,9 +807,6 @@ impl PresetDb {
         };
         let existing_filter_items = rows.map(|row| {
             let id: u32 = row.get(0)?;
-            if let Some(it) = translate(id) {
-                return Ok(it);
-            }
             let name: Option<String> = row.get(2)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
