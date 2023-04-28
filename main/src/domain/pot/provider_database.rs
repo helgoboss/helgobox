@@ -12,7 +12,9 @@ use std::path::PathBuf;
 pub struct DatabaseId(pub u32);
 
 pub trait Database {
-    fn filter_item_name(&self) -> String;
+    fn name(&self) -> String;
+
+    fn description(&self) -> String;
 
     /// Advanced filter kinds are those except the constant ones (database, is-favorite, is-user
     /// and product type).

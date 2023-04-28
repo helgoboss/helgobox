@@ -41,8 +41,12 @@ impl DefaultsDatabase {
 }
 
 impl Database for DefaultsDatabase {
-    fn filter_item_name(&self) -> String {
+    fn name(&self) -> String {
         "FX defaults".to_string()
+    }
+
+    fn description(&self) -> String {
+        "Default factory presets for all of your plug-ins".to_string()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {

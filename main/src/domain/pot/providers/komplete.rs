@@ -49,8 +49,12 @@ impl KompleteDatabase {
 }
 
 impl Database for KompleteDatabase {
-    fn filter_item_name(&self) -> String {
+    fn name(&self) -> String {
         "Komplete".to_string()
+    }
+
+    fn description(&self) -> String {
+        "All presets in your local Native Instruments Komplete database.\nPreset files only show up here after you have scanned them using the Komplete Kontrol software!".to_string()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
@@ -733,6 +737,7 @@ impl PresetDb {
                 name,
                 parent_name: row.get(1)?,
                 icon: None,
+                more_info: None,
             };
             Ok(InnerFilterItem::Unique(item))
         });

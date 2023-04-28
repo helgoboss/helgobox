@@ -17,6 +17,7 @@ pub struct DirectoryDatabase {
     root_dir: PathBuf,
     valid_extensions: HashSet<&'static OsStr>,
     name: &'static str,
+    description: &'static str,
     publish_relative_path: bool,
     entries: Vec<PresetEntry>,
 }
@@ -25,6 +26,7 @@ pub struct DirectoryDbConfig {
     pub root_dir: PathBuf,
     pub valid_extensions: &'static [&'static str],
     pub name: &'static str,
+    pub description: &'static str,
     pub publish_relative_path: bool,
 }
 
@@ -43,6 +45,7 @@ impl DirectoryDatabase {
                 .map(OsStr::new)
                 .collect(),
             publish_relative_path: config.publish_relative_path,
+            description: config.description,
         };
         Ok(db)
     }
@@ -54,8 +57,12 @@ struct PresetEntry {
 }
 
 impl Database for DirectoryDatabase {
-    fn filter_item_name(&self) -> String {
+    fn name(&self) -> String {
         self.name.to_string()
+    }
+
+    fn description(&self) -> String {
+        self.description.to_string()
     }
 
     fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {

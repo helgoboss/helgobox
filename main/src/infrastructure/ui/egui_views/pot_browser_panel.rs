@@ -855,7 +855,9 @@ fn add_filter_view_content(
                 text = text.weak();
             };
             let mut resp = ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
-            if let Some(parent_kind) = kind.parent() {
+            if let Some(more_info) = filter_item.more_info.as_ref() {
+                resp = resp.on_hover_text(more_info);
+            } else if let Some(parent_kind) = kind.parent() {
                 if let Some(parent_name) = filter_item.parent_name.as_ref() {
                     if !parent_name.is_empty() {
                         resp = resp.on_hover_ui(|ui| {

@@ -80,8 +80,12 @@ struct PluginEntry {
 }
 
 impl Database for IniDatabase {
-    fn filter_item_name(&self) -> String {
+    fn name(&self) -> String {
         "FX presets".to_string()
+    }
+
+    fn description(&self) -> String {
+        "All FX presets that you saved via \"Save preset...\" in REAPER's FX window".to_string()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {

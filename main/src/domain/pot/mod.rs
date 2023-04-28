@@ -790,6 +790,7 @@ pub struct FilterItem {
     /// top-level filter, so to say.
     pub name: Option<String>,
     pub icon: Option<char>,
+    pub more_info: Option<String>,
 }
 
 impl FilterItem {
@@ -801,6 +802,7 @@ impl FilterItem {
             parent_name: None,
             name: Some("<None>".to_string()),
             icon: None,
+            more_info: None,
         }
     }
 
@@ -812,6 +814,7 @@ impl FilterItem {
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),
+            more_info: None,
         }
     }
 

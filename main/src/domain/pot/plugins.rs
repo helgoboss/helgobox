@@ -196,7 +196,7 @@ fn build_clap_plugin_id(id_expression: &str) -> Result<PluginId, &'static str> {
     Ok(id)
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, derive_more::Display)]
 pub enum ProductKind {
     Effect,
     Instrument,

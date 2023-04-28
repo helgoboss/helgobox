@@ -72,6 +72,7 @@ impl PotDatabase {
                 root_dir: resource_path.join("FXChains"),
                 valid_extensions: &["RfxChain"],
                 name: "FX chains",
+                description: "All the RfxChain files in your FXChains directory",
                 publish_relative_path: true,
             };
             DirectoryDatabase::open(config)
@@ -81,6 +82,7 @@ impl PotDatabase {
                 root_dir: resource_path.join("TrackTemplates"),
                 valid_extensions: &["RTrackTemplate"],
                 name: "Track templates",
+                description: "All the RTrackTemplate files in your TrackTemplates directory.\nDoesn't load the complete track, only its FX chain!",
                 publish_relative_path: false,
             };
             DirectoryDatabase::open(config)
@@ -170,8 +172,9 @@ impl PotDatabase {
                     persistent_id: "".to_string(),
                     id: FilterItemId(Some(Fil::Database(*db_id))),
                     parent_name: None,
-                    name: Some(db.filter_item_name()),
+                    name: Some(db.name()),
                     icon: None,
+                    more_info: Some(db.description()),
                 };
                 database_filter_items.push(filter_item);
                 // Don't continue if database doesn't match filter
@@ -198,12 +201,14 @@ impl PotDatabase {
                         .filter_item_collections
                         .extend(kind, final_filter_items);
                     let product_filter_items = used_product_ids.into_iter().filter_map(|pid| {
+                        let product = plugin_db.find_product_by_id(&pid)?;
                         let filter_item = FilterItem {
                             persistent_id: "".to_string(),
                             id: FilterItemId(Some(Fil::Product(pid))),
                             parent_name: None,
-                            name: Some(plugin_db.find_product_by_id(&pid)?.name.clone()),
+                            name: Some(product.name.clone()),
                             icon: None,
+                            more_info: product.kind.map(|k| k.to_string()),
                         };
                         Some(filter_item)
                     });
