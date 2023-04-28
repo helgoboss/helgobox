@@ -33,11 +33,9 @@ impl DefaultsDatabase {
         if !matches {
             return Either::Left(iter::empty());
         }
-        let iter = self
-            .plugins
-            .iter()
-            .enumerate()
-            .filter(|(_, p)| filters.product_matches(p.product_id));
+        let iter = self.plugins.iter().enumerate().filter(|(_, p)| {
+            filters.product_kind_matches(p.product_kind) && filters.product_matches(p.product_id)
+        });
         Either::Right(iter)
     }
 }

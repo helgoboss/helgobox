@@ -143,6 +143,13 @@ impl Filters {
         self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(product_id)))
     }
 
+    pub fn product_kind_matches(&self, product_kind: Option<ProductKind>) -> bool {
+        self.matches_optional(
+            PotFilterKind::ProductKind,
+            product_kind.map(Fil::ProductKind),
+        )
+    }
+
     pub fn wants_user_presets_only(&self) -> bool {
         self.wants_only(PotFilterKind::IsUser, FIL_IS_USER_PRESET_TRUE)
     }

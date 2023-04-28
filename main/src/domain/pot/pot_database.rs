@@ -340,7 +340,7 @@ fn create_filter_items_product_kind() -> Vec<FilterItem> {
 
 fn create_filter_items_is_user() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User", '🕵'),
-        FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory", '🏭'),
+        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵'),
+        FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory preset", '🏭'),
     ]
 }
