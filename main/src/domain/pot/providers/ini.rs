@@ -175,7 +175,7 @@ impl Database for IniDatabase {
         _: &ProviderContext,
         input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut filter_settings = input.filter_settings;
+        let mut filter_settings = input.filters;
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
             .query_presets_internal(&filter_settings, &input.filter_exclude_list)
@@ -194,7 +194,7 @@ impl Database for IniDatabase {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
-            .query_presets_internal(&input.filter_settings, &input.filter_exclude_list)
+            .query_presets_internal(&input.filters, &input.filter_exclude_list)
             .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();

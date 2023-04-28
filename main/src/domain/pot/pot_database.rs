@@ -179,7 +179,7 @@ impl PotDatabase {
                 database_filter_items.push(filter_item);
                 // Don't continue if database doesn't match filter
                 // (but it should appear on the list)
-                if !input.filter_settings.database_matches(*db_id) {
+                if !input.filters.database_matches(*db_id) {
                     continue;
                 }
                 // Add supported filter kinds
@@ -189,6 +189,7 @@ impl PotDatabase {
                     continue;
                 };
                 for (kind, items) in filter_collections.into_iter() {
+                    // TODO-high Dedup product IDs among databases!
                     let mut used_product_ids = HashSet::new();
                     let final_filter_items = items.into_iter().filter_map(|i| match i {
                         InnerFilterItem::Unique(i) => Some(i),
@@ -225,7 +226,7 @@ impl PotDatabase {
             }
             // Important: At this point, some previously selected filters might not exist anymore.
             // So we should reset them and not let them influence the preset query anymore!
-            input.filter_settings.clear_if_not_available_anymore(
+            input.filters.clear_if_not_available_anymore(
                 input.affected_kinds,
                 &total_output.filter_item_collections,
             );
@@ -236,7 +237,7 @@ impl PotDatabase {
                 self.databases
                     .iter()
                     .filter(|(db_id, _)| {
-                        input.filter_settings.database_matches(**db_id)
+                        input.filters.database_matches(**db_id)
                             && !input.filter_exclude_list.excludes_database(**db_id)
                     })
                     .filter_map(|(db_id, db)| {

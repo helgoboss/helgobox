@@ -104,7 +104,7 @@ impl Database for DirectoryDatabase {
         _: &ProviderContext,
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        for (kind, filter) in input.filter_settings.iter() {
+        for (kind, filter) in input.filters.iter() {
             use PotFilterKind::*;
             let matches = match kind {
                 IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),

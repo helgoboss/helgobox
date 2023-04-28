@@ -215,7 +215,7 @@ impl Stats {
 #[derive(Clone)]
 pub struct BuildInput {
     pub affected_kinds: EnumSet<PotFilterKind>,
-    pub filter_settings: Filters,
+    pub filters: Filters,
     pub filter_exclude_list: PotFilterExcludeList,
     pub search_evaluator: SearchEvaluator,
 }
@@ -610,7 +610,7 @@ impl RuntimePotUnit {
         let affected_kinds = affected_kinds(change_hint);
         let build_input = BuildInput {
             affected_kinds,
-            filter_settings: self.runtime_state.filters.clone(),
+            filters: self.runtime_state.filters.clone(),
             search_evaluator: SearchEvaluator::new(
                 &self.runtime_state.search_expression,
                 self.runtime_state.use_wildcard_search,

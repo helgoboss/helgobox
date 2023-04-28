@@ -69,6 +69,13 @@ impl PluginDatabase {
         self.plugins.values()
     }
 
+    pub fn products(&self) -> impl Iterator<Item = (ProductId, &Product)> {
+        self.products
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (ProductId(i as _), p))
+    }
+
     pub fn find_plugin_by_id(&self, plugin_id: &PluginId) -> Option<&Plugin> {
         self.plugins.get(plugin_id)
     }

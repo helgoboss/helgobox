@@ -6,7 +6,7 @@ use crate::domain::pot::provider_database::{
 };
 use crate::domain::pot::{
     BuildInput, Fil, FiledBasedPresetKind, HasFilterItemId, InnerPresetId, MacroParamBank, Preset,
-    PresetCommon, PresetKind,
+    PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
@@ -18,7 +18,7 @@ use realearn_api::persistence::PotFilterKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter;
@@ -27,6 +27,8 @@ use std::sync::Mutex;
 
 pub struct KompleteDatabase {
     primary_preset_db: Mutex<PresetDb>,
+    nks_bank_id_by_product_id: HashMap<ProductId, u32>,
+    nks_product_id_by_bank_id: HashMap<u32, ProductId>,
     /// This returns a second connection to the preset database.
     ///
     /// At the moment, the UI thread continuously queries the database for the currently visible rows.
@@ -42,9 +44,26 @@ impl KompleteDatabase {
     pub fn open() -> Result<Self, Box<dyn Error>> {
         let db = Self {
             primary_preset_db: PresetDb::open()?,
+            nks_bank_id_by_product_id: Default::default(),
+            nks_product_id_by_bank_id: Default::default(),
             secondary_preset_db: PresetDb::open()?,
         };
         Ok(db)
+    }
+
+    /// Translates any neutral (NKS-independent) product filter (representing one of the
+    /// installed plug-ins) into an NKS bank filter. That enables magic of merging NKS and own
+    /// banks.
+    fn translate_filters(&self, mut filters: Filters) -> Filters {
+        if let Some(FilterItemId(Some(Fil::Product(pid)))) = filters.get(PotFilterKind::Bank) {
+            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(&pid) {
+                filters.set(
+                    PotFilterKind::Bank,
+                    Some(FilterItemId(Some(Fil::Komplete(*bank_id)))),
+                );
+            }
+        }
+        filters
     }
 }
 
@@ -67,7 +86,33 @@ impl Database for KompleteDatabase {
         )
     }
 
-    fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
+    fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
+        let preset_db = blocking_lock(
+            &self.primary_preset_db,
+            "Komplete DB query_filter_collections",
+        );
+        // Obtain all NKS banks and find installed products (= groups of similar plug-ins) that
+        // match the bank name. They will be treated as the same in terms of filtering.
+        self.nks_bank_id_by_product_id = preset_db
+            .select_nks_banks()?
+            .into_iter()
+            .filter_map(|(id, name)| {
+                let product_id = ctx.plugin_db.products().find_map(|(i, p)| {
+                    if &name == &p.name {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })?;
+                Some((product_id, id))
+            })
+            .collect();
+        // Make fast reverse lookup possible as well
+        self.nks_product_id_by_bank_id = self
+            .nks_bank_id_by_product_id
+            .iter()
+            .map(|(k, v)| (*v, *k))
+            .collect();
         Ok(())
     }
 
@@ -80,7 +125,22 @@ impl Database for KompleteDatabase {
             &self.primary_preset_db,
             "Komplete DB query_filter_collections",
         );
-        preset_db.query_filter_collections(input)
+        let translated_filters = self.translate_filters(input.filters);
+        let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
+            if kind == PotFilterKind::Bank {
+                // let product_id = self.nks_product_id_by_bank_id.get(&id)?;
+                // Some(InnerFilterItem::Product(*product_id))
+                None
+            } else {
+                None
+            }
+        };
+        preset_db.query_filter_collections(
+            &translated_filters,
+            input.affected_kinds,
+            &input.filter_exclude_list,
+            translate,
+        )
     }
 
     fn query_presets(
@@ -89,7 +149,12 @@ impl Database for KompleteDatabase {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
-        preset_db.query_presets(input)
+        let translated_filters = self.translate_filters(input.filters);
+        preset_db.query_presets(
+            &translated_filters,
+            &input.search_evaluator,
+            &input.filter_exclude_list,
+        )
     }
 
     fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
@@ -311,18 +376,21 @@ impl PresetDb {
 
     pub fn query_filter_collections(
         &mut self,
-        input: &BuildInput,
+        filters: &Filters,
+        affected_kinds: EnumSet<PotFilterKind>,
+        filter_exclude_list: &PotFilterExcludeList,
+        translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_items = self.build_filter_items(
-            &input.filter_settings,
-            input.affected_kinds.into_iter(),
-            &input.filter_exclude_list,
+            filters,
+            affected_kinds.into_iter(),
+            filter_exclude_list,
+            translate,
         );
-        let banks_are_affected = input.affected_kinds.contains(PotFilterKind::Bank);
-        let sub_banks_are_affected = input.affected_kinds.contains(PotFilterKind::SubBank);
+        let banks_are_affected = affected_kinds.contains(PotFilterKind::Bank);
+        let sub_banks_are_affected = affected_kinds.contains(PotFilterKind::SubBank);
         if banks_are_affected || sub_banks_are_affected {
-            let non_empty_banks =
-                self.find_non_empty_banks(input.filter_settings, &input.filter_exclude_list)?;
+            let non_empty_banks = self.find_non_empty_banks(*filters, filter_exclude_list)?;
             if banks_are_affected {
                 filter_items.narrow_down(PotFilterKind::Bank, &non_empty_banks);
             }
@@ -330,11 +398,11 @@ impl PresetDb {
                 filter_items.narrow_down(PotFilterKind::SubBank, &non_empty_banks);
             }
         }
-        let categories_are_affected = input.affected_kinds.contains(PotFilterKind::Category);
-        let sub_categories_are_affected = input.affected_kinds.contains(PotFilterKind::SubCategory);
+        let categories_are_affected = affected_kinds.contains(PotFilterKind::Category);
+        let sub_categories_are_affected = affected_kinds.contains(PotFilterKind::SubCategory);
         if categories_are_affected || sub_categories_are_affected {
             let non_empty_categories =
-                self.find_non_empty_categories(input.filter_settings, &input.filter_exclude_list)?;
+                self.find_non_empty_categories(*filters, filter_exclude_list)?;
             if categories_are_affected {
                 filter_items.narrow_down(PotFilterKind::Category, &non_empty_categories);
             }
@@ -342,9 +410,8 @@ impl PresetDb {
                 filter_items.narrow_down(PotFilterKind::SubCategory, &non_empty_categories);
             }
         }
-        if input.affected_kinds.contains(PotFilterKind::Mode) {
-            let non_empty_modes =
-                self.find_non_empty_modes(input.filter_settings, &input.filter_exclude_list)?;
+        if affected_kinds.contains(PotFilterKind::Mode) {
+            let non_empty_modes = self.find_non_empty_modes(*filters, filter_exclude_list)?;
             filter_items.narrow_down(PotFilterKind::Mode, &non_empty_modes);
         }
         Ok(filter_items)
@@ -352,17 +419,16 @@ impl PresetDb {
 
     pub fn query_presets(
         &mut self,
-        input: &BuildInput,
+        filters: &Filters,
+        search_evaluator: &SearchEvaluator,
+        exclude_list: &PotFilterExcludeList,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let search_criteria = SearchCriteria {
-            expression: input.search_evaluator.processed_search_expression(),
-            use_wildcards: input.search_evaluator.use_wildcards(),
+            expression: search_evaluator.processed_search_expression(),
+            use_wildcards: search_evaluator.use_wildcards(),
         };
-        let preset_collection = self.build_preset_collection(
-            &input.filter_settings,
-            search_criteria,
-            &input.filter_exclude_list,
-        )?;
+        let preset_collection =
+            self.build_preset_collection(filters, search_criteria, exclude_list)?;
         Ok(preset_collection)
     }
 
@@ -492,7 +558,7 @@ impl PresetDb {
                     //     "EXISTS (SELECT 1 FROM favorites_db.favorites f WHERE f.id = i.favorite_id)",
                     // );
                 } else {
-                    // NOT EXISTS is in the same ballpark ... takes long. Fortunately,  this filter
+                    // NOT EXISTS is in the same ballpark ... takes long. Fortunately, this filter
                     // is not popular.
                     sql.where_and("i.favorite_id NOT IN (SELECT id FROM favorites_db.favorites)");
                 }
@@ -644,10 +710,12 @@ impl PresetDb {
         settings: &Filters,
         kinds: impl Iterator<Item = PotFilterKind>,
         exclude_list: &PotFilterExcludeList,
+        translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> InnerFilterItemCollections {
         let mut collections = InnerFilterItemCollections::empty();
         for kind in kinds {
-            let mut filter_items = self.build_filter_items_of_kind(kind, settings);
+            let mut filter_items =
+                self.build_filter_items_of_kind(kind, settings, |id| translate(kind, id));
             filter_items.retain(|i| !exclude_list.contains(kind, i.id()));
             collections.set(kind, filter_items);
         }
@@ -658,6 +726,7 @@ impl PresetDb {
         &self,
         kind: PotFilterKind,
         settings: &Filters,
+        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> Vec<InnerFilterItem> {
         use PotFilterKind::*;
         match kind {
@@ -665,6 +734,7 @@ impl PresetDb {
                 "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
                 None,
                 true,
+                translate,
             ),
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
@@ -673,12 +743,13 @@ impl PresetDb {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_filter, false)
+                self.select_nks_filter_items(&sql, parent_bank_filter, false, translate)
             }
             Category => self.select_nks_filter_items(
                 "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
                 None,
                 true,
+                translate,
             ),
             SubCategory => {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
@@ -687,12 +758,13 @@ impl PresetDb {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
                 }
                 sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_filter, false)
+                self.select_nks_filter_items(&sql, parent_category_filter, false, translate)
             }
             Mode => self.select_nks_filter_items(
                 "SELECT id, '', name FROM k_mode ORDER BY name",
                 None,
                 true,
+                translate,
             ),
             _ => vec![],
         }
@@ -703,8 +775,14 @@ impl PresetDb {
         query: &str,
         parent_filter: OptFilter,
         include_none_filter: bool,
+        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> Vec<InnerFilterItem> {
-        match self.select_nks_filter_items_internal(query, parent_filter, include_none_filter) {
+        match self.select_nks_filter_items_internal(
+            query,
+            parent_filter,
+            include_none_filter,
+            translate,
+        ) {
             Ok(items) => items,
             Err(e) => {
                 tracing::error!("Error when selecting NKS filter items: {}", e);
@@ -713,11 +791,18 @@ impl PresetDb {
         }
     }
 
+    fn select_nks_banks(&self) -> rusqlite::Result<Vec<(u32, String)>> {
+        let mut statement = self.connection.prepare_cached(BANK_SQL_QUERY)?;
+        let rows = statement.query([])?;
+        rows.map(|row| Ok((row.get(0)?, row.get(2)?))).collect()
+    }
+
     fn select_nks_filter_items_internal(
         &self,
         query: &str,
         parent_filter: OptFilter,
         include_none_filter: bool,
+        translate: impl Fn(u32) -> Option<InnerFilterItem>,
     ) -> rusqlite::Result<Vec<InnerFilterItem>> {
         let mut statement = self.connection.prepare_cached(query)?;
         let rows = if let Some(FilterItemId(Some(Fil::Komplete(parent_filter)))) = parent_filter {
@@ -726,14 +811,14 @@ impl PresetDb {
             statement.query([])?
         };
         let existing_filter_items = rows.map(|row| {
+            let id: u32 = row.get(0)?;
+            if let Some(it) = translate(id) {
+                return Ok(it);
+            }
             let name: Option<String> = row.get(2)?;
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
-                id: {
-                    let id: Option<u32> = row.get(0)?;
-                    let fil = id.map(Fil::Komplete);
-                    FilterItemId(fil)
-                },
+                id: FilterItemId(Some(Fil::Komplete(id))),
                 name,
                 parent_name: row.get(1)?,
                 icon: None,
@@ -844,6 +929,8 @@ impl<'a> Display for Sql<'a> {
     }
 }
 
+const BANK_SQL_QUERY: &str =
+    "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1";
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
 const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
 const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
