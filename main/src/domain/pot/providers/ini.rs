@@ -2,8 +2,8 @@ use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    BuildInput, Filters, InnerPresetId, InternalPresetKind, Preset, PresetCommon, PresetKind,
-    SimplePluginKind,
+    BuildInput, Filters, InnerPresetId, InternalPresetKind, PotFilterExcludeList, Preset,
+    PresetCommon, PresetKind, SimplePluginKind,
 };
 
 use crate::domain::pot::plugins::{PluginCore, PluginKind};
@@ -38,6 +38,7 @@ impl IniDatabase {
     fn query_presets_internal<'a>(
         &'a self,
         filters: &'a Filters,
+        excludes: &'a PotFilterExcludeList,
     ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
         let matches = !filters.wants_factory_presets_only()
             && !filters.wants_favorites_only()
@@ -47,7 +48,7 @@ impl IniDatabase {
         }
         let iter = self.entries.iter().enumerate().filter(|(_, e)| {
             if let Some(core) = &e.plugin {
-                filters.plugin_core_matches(core)
+                filters.plugin_core_matches(core, excludes)
             } else {
                 false
             }
@@ -177,7 +178,7 @@ impl Database for IniDatabase {
         let mut filter_settings = input.filter_settings;
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
-            .query_presets_internal(&filter_settings)
+            .query_presets_internal(&filter_settings, &input.filter_exclude_list)
             .filter_map(|(_, entry)| Some(entry.plugin.as_ref()?.product_id))
             .unique()
             .map(InnerFilterItem::Product)
@@ -193,7 +194,7 @@ impl Database for IniDatabase {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
-            .query_presets_internal(&input.filter_settings)
+            .query_presets_internal(&input.filter_settings, &input.filter_exclude_list)
             .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();

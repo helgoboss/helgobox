@@ -139,11 +139,12 @@ impl Filters {
         self.matches(PotFilterKind::Database, Fil::Database(db_id))
     }
 
-    pub fn plugin_core_matches(&self, core: &PluginCore) -> bool {
+    pub fn plugin_core_matches(&self, core: &PluginCore, excludes: &PotFilterExcludeList) -> bool {
         self.matches_optional(
             PotFilterKind::ProductKind,
             core.product_kind.map(Fil::ProductKind),
         ) && self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(core.product_id)))
+            && !excludes.excludes_product(core.product_id)
     }
 
     pub fn wants_user_presets_only(&self) -> bool {
@@ -286,6 +287,13 @@ impl PotFilterExcludeList {
         self.contains(
             PotFilterKind::Database,
             FilterItemId(Some(Fil::Database(db_id))),
+        )
+    }
+
+    pub fn excludes_product(&self, product_id: ProductId) -> bool {
+        self.contains(
+            PotFilterKind::Bank,
+            FilterItemId(Some(Fil::Product(product_id))),
         )
     }
 

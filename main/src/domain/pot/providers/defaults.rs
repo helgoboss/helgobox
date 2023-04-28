@@ -1,7 +1,9 @@
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
-use crate::domain::pot::{BuildInput, Filters, InnerPresetId, Preset, PresetCommon, PresetKind};
+use crate::domain::pot::{
+    BuildInput, Filters, InnerPresetId, PotFilterExcludeList, Preset, PresetCommon, PresetKind,
+};
 
 use crate::domain::pot::plugins::PluginCommon;
 use either::Either;
@@ -25,6 +27,7 @@ impl DefaultsDatabase {
     fn query_presets_internal<'a>(
         &'a self,
         filters: &'a Filters,
+        excludes: &'a PotFilterExcludeList,
     ) -> impl Iterator<Item = (usize, &PluginCommon)> + 'a {
         let matches = !filters.wants_user_presets_only()
             && !filters.wants_favorites_only()
@@ -36,7 +39,7 @@ impl DefaultsDatabase {
             .plugins
             .iter()
             .enumerate()
-            .filter(|(_, p)| filters.plugin_core_matches(&p.core));
+            .filter(|(_, p)| filters.plugin_core_matches(&p.core, excludes));
         Either::Right(iter)
     }
 }
@@ -69,7 +72,7 @@ impl Database for DefaultsDatabase {
         // TODO-high Respect global exclusions
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
-            .query_presets_internal(&filter_settings)
+            .query_presets_internal(&filter_settings, &input.filter_exclude_list)
             .filter_map(|(_, plugin)| Some(plugin.core.product_id))
             .unique()
             .map(InnerFilterItem::Product)
@@ -88,7 +91,7 @@ impl Database for DefaultsDatabase {
             return Ok(vec![]);
         }
         let preset_ids = self
-            .query_presets_internal(&input.filter_settings)
+            .query_presets_internal(&input.filter_settings, &input.filter_exclude_list)
             .map(|(i, _)| SortablePresetId::new(i as _, PRESET_NAME.to_string()))
             .collect();
         Ok(preset_ids)
