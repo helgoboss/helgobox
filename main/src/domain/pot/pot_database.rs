@@ -156,6 +156,7 @@ impl PotDatabase {
             }
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
+            let mut used_product_ids = HashSet::new();
             for (db_id, db) in &self.databases {
                 // If the database is on the exclude list, we don't even want it to appear in the
                 // database list.
@@ -188,9 +189,9 @@ impl PotDatabase {
                 let Ok(filter_collections) = db.query_filter_collections(&provider_context, &input) else {
                     continue;
                 };
+                // Add unique filter items directly to the list of filters. Gather shared filter
+                // items so we can deduplicate them later.
                 for (kind, items) in filter_collections.into_iter() {
-                    // TODO-high Dedup product IDs among databases!
-                    let mut used_product_ids = HashSet::new();
                     let final_filter_items = items.into_iter().filter_map(|i| match i {
                         InnerFilterItem::Unique(i) => Some(i),
                         InnerFilterItem::Product(pid) => {
@@ -201,23 +202,24 @@ impl PotDatabase {
                     total_output
                         .filter_item_collections
                         .extend(kind, final_filter_items);
-                    let product_filter_items = used_product_ids.into_iter().filter_map(|pid| {
-                        let product = plugin_db.find_product_by_id(&pid)?;
-                        let filter_item = FilterItem {
-                            persistent_id: "".to_string(),
-                            id: FilterItemId(Some(Fil::Product(pid))),
-                            parent_name: None,
-                            name: Some(product.name.clone()),
-                            icon: None,
-                            more_info: product.kind.map(|k| k.to_string()),
-                        };
-                        Some(filter_item)
-                    });
-                    total_output
-                        .filter_item_collections
-                        .extend(kind, product_filter_items);
                 }
             }
+            // Process shared filter items
+            let product_filter_items = used_product_ids.into_iter().filter_map(|pid| {
+                let product = plugin_db.find_product_by_id(&pid)?;
+                let filter_item = FilterItem {
+                    persistent_id: "".to_string(),
+                    id: FilterItemId(Some(Fil::Product(pid))),
+                    parent_name: None,
+                    name: Some(product.name.clone()),
+                    icon: None,
+                    more_info: product.kind.map(|k| k.to_string()),
+                };
+                Some(filter_item)
+            });
+            total_output
+                .filter_item_collections
+                .extend(PotFilterKind::Bank, product_filter_items);
             // Add database filter items
             if input.affected_kinds.contains(PotFilterKind::Database) {
                 total_output
