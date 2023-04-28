@@ -205,7 +205,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             .clicked() {
                             pot_unit.refresh_pot(state.pot_unit.clone());
                         }
-                        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+                        ui.menu_button(RichText::new("Menu").size(TOOLBAR_SIZE), |ui| {
                             ui.checkbox(&mut state.paint_continuously, "Paint continuously")
                                 .on_hover_text(
                                     "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
@@ -381,7 +381,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 // Settings
                 ui.horizontal(|ui| {
                     // Options
-                    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+                    ui.menu_button(RichText::new("Menu").size(TOOLBAR_SIZE), |ui| {
                         // Wildcards
                         let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
                         ui.checkbox(
@@ -439,6 +439,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 });
                 // Stats
                 if state.show_stats {
+                    ui.separator();
                     ui.horizontal(|ui| {
                         ui.strong("Last query: ");
                         let total_duration = background_task_elapsed.unwrap_or(pot_unit.stats.total_query_duration());
