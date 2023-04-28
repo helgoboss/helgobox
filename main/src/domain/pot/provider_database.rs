@@ -5,6 +5,7 @@ use crate::domain::pot::{
 };
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
+use std::borrow::Cow;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -12,9 +13,9 @@ use std::path::PathBuf;
 pub struct DatabaseId(pub u32);
 
 pub trait Database {
-    fn name(&self) -> String;
+    fn name(&self) -> Cow<str>;
 
-    fn description(&self) -> String;
+    fn description(&self) -> Cow<str>;
 
     /// Advanced filter kinds are those except the constant ones (database, is-favorite, is-user
     /// and product type).

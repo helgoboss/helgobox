@@ -5,6 +5,7 @@ use crate::domain::pot::{
     BuildInput, Filters, InnerPresetId, InternalPresetKind, PotFilterExcludeList, Preset,
     PresetCommon, PresetKind, SimplePluginKind,
 };
+use std::borrow::Cow;
 
 use crate::domain::pot::plugins::{PluginCore, PluginKind};
 use either::Either;
@@ -64,12 +65,12 @@ struct PresetEntry {
 }
 
 impl Database for IniDatabase {
-    fn name(&self) -> String {
-        "FX presets".to_string()
+    fn name(&self) -> Cow<str> {
+        "FX presets".into()
     }
 
-    fn description(&self) -> String {
-        "All FX presets that you saved via \"Save preset...\" in REAPER's FX window".to_string()
+    fn description(&self) -> Cow<str> {
+        "All FX presets that you saved via \"Save preset...\" in REAPER's FX window".into()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {

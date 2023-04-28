@@ -173,9 +173,9 @@ impl PotDatabase {
                     persistent_id: "".to_string(),
                     id: FilterItemId(Some(Fil::Database(*db_id))),
                     parent_name: None,
-                    name: Some(db.name()),
+                    name: Some(db.name().to_string()),
                     icon: None,
-                    more_info: Some(db.description()),
+                    more_info: Some(db.description().to_string()),
                 };
                 database_filter_items.push(filter_item);
                 // Don't continue if database doesn't match filter
@@ -281,6 +281,20 @@ impl PotDatabase {
         let db = blocking_read_lock(db, "pot db find_preset_by_id 1");
         let db = db.as_ref().ok()?;
         db.find_preset_by_id(&provider_context, preset_id.preset_id)
+    }
+
+    pub fn try_with_db<R>(
+        &self,
+        db_id: DatabaseId,
+        f: impl FnOnce(&dyn Database) -> R,
+    ) -> Result<R, &'static str> {
+        let db = self.databases.get(&db_id).ok_or("database not found")?;
+        let db = db
+            .try_read()
+            .map_err(|_| "couldn't acquire provider db lock")?;
+        let db = db.as_ref().map_err(|_| "provider database not opened")?;
+        let r = f(&**db);
+        Ok(r)
     }
 
     pub fn try_find_preset_by_id(

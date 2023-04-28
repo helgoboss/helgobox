@@ -5,6 +5,7 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::{
     BuildInput, FiledBasedPresetKind, FilterItemId, InnerPresetId, Preset, PresetCommon, PresetKind,
 };
+use std::borrow::Cow;
 
 use realearn_api::persistence::PotFilterKind;
 use std::collections::HashSet;
@@ -57,12 +58,12 @@ struct PresetEntry {
 }
 
 impl Database for DirectoryDatabase {
-    fn name(&self) -> String {
-        self.name.to_string()
+    fn name(&self) -> Cow<str> {
+        self.name.into()
     }
 
-    fn description(&self) -> String {
-        self.description.to_string()
+    fn description(&self) -> Cow<str> {
+        self.description.into()
     }
 
     fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {

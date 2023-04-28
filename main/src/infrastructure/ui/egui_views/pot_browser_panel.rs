@@ -566,6 +566,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
                     .column(Column::auto())
+                    .column(Column::auto().at_most(150.0))
                     .column(Column::remainder())
                     .min_scrolled_height(0.0);
 
@@ -582,6 +583,9 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .header(20.0, |mut header| {
                         header.col(|ui| {
                             ui.strong("Name");
+                        });
+                        header.col(|ui| {
+                            ui.strong("Database");
                         });
                         header.col(|ui| {
                             ui.strong("Product");
@@ -619,6 +623,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                         load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
                                     }
                                 }
+                            });
+                            row.col(|ui| {
+                                let _ = pot_db().try_with_db(preset_id.database_id, |db| {
+                                    ui.label(db.name());
+                                });
                             });
                             let Ok(Some(preset)) = preset.as_ref() else {
                                return;

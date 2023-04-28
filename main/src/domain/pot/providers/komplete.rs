@@ -68,12 +68,12 @@ impl KompleteDatabase {
 }
 
 impl Database for KompleteDatabase {
-    fn name(&self) -> String {
-        "Komplete".to_string()
+    fn name(&self) -> Cow<str> {
+        "Komplete".into()
     }
 
-    fn description(&self) -> String {
-        "All presets in your local Native Instruments Komplete database.\nPreset files only show up here after you have scanned them using the Komplete Kontrol software!".to_string()
+    fn description(&self) -> Cow<str> {
+        "All presets in your local Native Instruments Komplete database.\nPreset files only show up here after you have scanned them using the Komplete Kontrol software!".into()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {

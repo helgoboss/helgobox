@@ -4,6 +4,7 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::{
     BuildInput, Filters, InnerPresetId, PotFilterExcludeList, Preset, PresetCommon, PresetKind,
 };
+use std::borrow::Cow;
 
 use crate::domain::pot::plugins::PluginCommon;
 use either::Either;
@@ -45,12 +46,12 @@ impl DefaultsDatabase {
 }
 
 impl Database for DefaultsDatabase {
-    fn name(&self) -> String {
-        "FX defaults".to_string()
+    fn name(&self) -> Cow<str> {
+        "FX defaults".into()
     }
 
-    fn description(&self) -> String {
-        "Default factory presets for all of your plug-ins".to_string()
+    fn description(&self) -> Cow<str> {
+        "Default factory presets for all of your plug-ins".into()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
