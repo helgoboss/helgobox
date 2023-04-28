@@ -418,14 +418,16 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         });
                         // Always show newly added FX
                         let mut show_if_newly_added = state.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
-                        ui.checkbox(&mut show_if_newly_added, "Show newly added FX");
+                        ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
+                            .on_hover_text("When enabled, pot browser will always open the FX window when adding a new FX.");
                         state.load_preset_window_behavior = if show_if_newly_added {
                             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
                         } else {
                             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
                         };
                         // Name track after preset
-                        ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset");
+                        ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset")
+                            .on_hover_text("When enabled, pot browser will rename the track to reflect the name of the preset.");
                     });
                     // Search
                     let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)

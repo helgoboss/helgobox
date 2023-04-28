@@ -60,7 +60,7 @@ impl PluginDatabase {
         let mut product_accumulator = ProductAccumulator::default();
         let plugins = crawl_plugins(&mut product_accumulator, reaper_resource_dir);
         Self {
-            plugins: plugins.into_iter().map(|p| (p.common.id, p)).collect(),
+            plugins: plugins.into_iter().map(|p| (p.common.core.id, p)).collect(),
             products: product_accumulator.into_products(),
         }
     }
@@ -100,10 +100,15 @@ pub struct Plugin {
 
 #[derive(Clone, Debug)]
 pub struct PluginCommon {
-    /// Uniquely identifies the plug-in in a rather cheap way (copyable).
-    pub id: PluginId,
     /// Full name of the plug-in (for display purposes mainly).
     pub name: String,
+    pub core: PluginCore,
+}
+
+#[derive(Clone, Debug)]
+pub struct PluginCore {
+    /// Uniquely identifies the plug-in in a rather cheap way (copyable).
+    pub id: PluginId,
     /// Whether we have an effect or an instrument or unknown.
     pub product_kind: Option<ProductKind>,
     /// What product this plug-in belongs to.
@@ -112,8 +117,8 @@ pub struct PluginCommon {
 
 impl Display for PluginCommon {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.id.kind_name())?;
-        if let Some(ProductKind::Instrument) = self.product_kind {
+        f.write_str(&self.core.id.kind_name())?;
+        if let Some(ProductKind::Instrument) = self.core.product_kind {
             f.write_str("i")?;
         }
         write!(f, ": {}", &self.name)?;
@@ -278,11 +283,13 @@ fn crawl_clap_plugins_in_ini_file(
                     };
                     let plugin = Plugin {
                         common: PluginCommon {
-                            id: build_clap_plugin_id(key).ok()?,
+                            core: PluginCore {
+                                id: build_clap_plugin_id(key).ok()?,
+                                product_kind,
+                                product_id: product_accumulator
+                                    .get_or_add_product(plugin_name, product_kind),
+                            },
                             name: plugin_name.to_string(),
-                            product_kind,
-                            product_id: product_accumulator
-                                .get_or_add_product(plugin_name, product_kind),
                         },
                         kind: PluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
@@ -345,10 +352,13 @@ fn crawl_vst_plugins_in_ini_file(
             };
             let plugin = Plugin {
                 common: PluginCommon {
-                    id: vst_kind.plugin_id().ok()?,
-                    product_id: product_accumulator.get_or_add_product(name.as_str(), product_kind),
+                    core: PluginCore {
+                        id: vst_kind.plugin_id().ok()?,
+                        product_id: product_accumulator
+                            .get_or_add_product(name.as_str(), product_kind),
+                        product_kind,
+                    },
                     name,
-                    product_kind,
                 },
                 kind: PluginKind::Vst(VstPlugin {
                     safe_file_name,

@@ -1,6 +1,6 @@
-use crate::domain::pot::plugins::ProductKind;
+use crate::domain::pot::plugins::{PluginCore, ProductKind};
 use crate::domain::pot::provider_database::{
-    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
+    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
@@ -139,19 +139,19 @@ impl Filters {
         self.matches(PotFilterKind::Database, Fil::Database(db_id))
     }
 
-    pub fn product_matches(&self, product_id: ProductId) -> bool {
-        self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(product_id)))
-    }
-
-    pub fn product_kind_matches(&self, product_kind: Option<ProductKind>) -> bool {
+    pub fn plugin_core_matches(&self, core: &PluginCore) -> bool {
         self.matches_optional(
             PotFilterKind::ProductKind,
-            product_kind.map(Fil::ProductKind),
-        )
+            core.product_kind.map(Fil::ProductKind),
+        ) && self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(core.product_id)))
     }
 
     pub fn wants_user_presets_only(&self) -> bool {
         self.wants_only(PotFilterKind::IsUser, FIL_IS_USER_PRESET_TRUE)
+    }
+
+    pub fn wants_factory_presets_only(&self) -> bool {
+        self.wants_only(PotFilterKind::IsUser, FIL_IS_USER_PRESET_FALSE)
     }
 
     pub fn wants_favorites_only(&self) -> bool {

@@ -1,13 +1,12 @@
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
 };
 use crate::domain::pot::{
-    BuildInput, FilterItemId, InnerPresetId, InternalPresetKind, PluginId, Preset, PresetCommon,
-    PresetKind, ProductId, SimplePluginKind,
+    BuildInput, Filters, InnerPresetId, InternalPresetKind, Preset, PresetCommon, PresetKind,
+    SimplePluginKind,
 };
 
-use crate::domain::pot::plugins::PluginKind;
+use crate::domain::pot::plugins::{PluginCore, PluginKind};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use ini::Ini;
@@ -38,45 +37,29 @@ impl IniDatabase {
 
     fn query_presets_internal<'a>(
         &'a self,
-        input: &'a BuildInput,
+        filters: &'a Filters,
     ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
-        for (kind, filter) in input.filter_settings.iter() {
-            use PotFilterKind::*;
-            let matches = match kind {
-                IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
-                IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),
-                ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
-                    matches!(filter, None | Some(FilterItemId::NONE))
-                }
-                _ => true,
-            };
-            if !matches {
-                return Either::Left(iter::empty());
-            }
+        let matches = !filters.wants_factory_presets_only()
+            && !filters.wants_favorites_only()
+            && !filters.any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
+        if !matches {
+            return Either::Left(iter::empty());
         }
-        let right = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter_map(|(i, preset_entry)| {
-                if !input.search_evaluator.matches(&preset_entry.preset_name) {
-                    return None;
-                }
-                Some((i, preset_entry))
-            });
-        Either::Right(right)
+        let iter = self.entries.iter().enumerate().filter(|(_, e)| {
+            if let Some(core) = &e.plugin {
+                filters.plugin_core_matches(core)
+            } else {
+                false
+            }
+        });
+        Either::Right(iter)
     }
 }
 
 struct PresetEntry {
     preset_name: String,
     plugin_identifier: String,
-    plugin: Option<PluginEntry>,
-}
-
-struct PluginEntry {
-    plugin_id: PluginId,
-    product_id: ProductId,
+    plugin: Option<PluginCore>,
 }
 
 impl Database for IniDatabase {
@@ -135,7 +118,7 @@ impl Database for IniDatabase {
                         _ => (plugin_identifier, None),
                     };
                 let plugin = ctx.plugin_db.plugins().find(|p| {
-                    if p.common.id.simple_kind() != simple_plugin_kind {
+                    if p.common.core.id.simple_kind() != simple_plugin_kind {
                         return false;
                     }
                     match &p.kind {
@@ -175,10 +158,7 @@ impl Database for IniDatabase {
                     let preset_entry = PresetEntry {
                         preset_name: name.to_string(),
                         plugin_identifier: plugin_identifier.clone(),
-                        plugin: plugin.map(|p| PluginEntry {
-                            plugin_id: p.common.id,
-                            product_id: p.common.product_id,
-                        }),
+                        plugin: plugin.map(|p| p.common.core.clone()),
                     };
                     Some(preset_entry)
                 });
@@ -194,8 +174,10 @@ impl Database for IniDatabase {
         _: &ProviderContext,
         input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
+        let mut filter_settings = input.filter_settings;
+        filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
-            .query_presets_internal(input)
+            .query_presets_internal(&filter_settings)
             .filter_map(|(_, entry)| Some(entry.plugin.as_ref()?.product_id))
             .unique()
             .map(InnerFilterItem::Product)
@@ -211,10 +193,9 @@ impl Database for IniDatabase {
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
-            .query_presets_internal(input)
-            .map(|(i, preset_entry)| {
-                SortablePresetId::new(i as _, preset_entry.preset_name.clone())
-            })
+            .query_presets_internal(&input.filter_settings)
+            .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
+            .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();
         Ok(preset_ids)
     }
@@ -224,7 +205,7 @@ impl Database for IniDatabase {
         let plugin = preset_entry
             .plugin
             .as_ref()
-            .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.plugin_id));
+            .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.id));
         let preset = Preset {
             common: PresetCommon {
                 favorite_id: "".to_string(),
@@ -238,7 +219,7 @@ impl Database for IniDatabase {
                 },
             },
             kind: PresetKind::Internal(InternalPresetKind {
-                plugin_id: preset_entry.plugin.as_ref().map(|p| p.plugin_id),
+                plugin_id: preset_entry.plugin.as_ref().map(|p| p.id),
             }),
         };
         Some(preset)

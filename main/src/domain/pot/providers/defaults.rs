@@ -26,16 +26,17 @@ impl DefaultsDatabase {
         &'a self,
         filters: &'a Filters,
     ) -> impl Iterator<Item = (usize, &PluginCommon)> + 'a {
-        // Check a few filters before we start do do anything.
         let matches = !filters.wants_user_presets_only()
             && !filters.wants_favorites_only()
             && !filters.any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
         if !matches {
             return Either::Left(iter::empty());
         }
-        let iter = self.plugins.iter().enumerate().filter(|(_, p)| {
-            filters.product_kind_matches(p.product_kind) && filters.product_matches(p.product_id)
-        });
+        let iter = self
+            .plugins
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| filters.plugin_core_matches(&p.core));
         Either::Right(iter)
     }
 }
@@ -65,10 +66,11 @@ impl Database for DefaultsDatabase {
         input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_settings = input.filter_settings;
+        // TODO-high Respect global exclusions
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
             .query_presets_internal(&filter_settings)
-            .filter_map(|(_, plugin)| Some(plugin.product_id))
+            .filter_map(|(_, plugin)| Some(plugin.core.product_id))
             .unique()
             .map(InnerFilterItem::Product)
             .collect();
@@ -100,7 +102,7 @@ impl Database for DefaultsDatabase {
                 name: PRESET_NAME.to_string(),
                 product_name: Some(plugin.to_string()),
             },
-            kind: PresetKind::DefaultFactory(plugin.id),
+            kind: PresetKind::DefaultFactory(plugin.core.id),
         };
         Some(preset)
     }
