@@ -226,35 +226,41 @@ impl Window {
 
     #[cfg(target_os = "linux")]
     pub fn get_xlib_handle(&self) -> Result<raw_window_handle::XlibHandle, &'static str> {
-        let swell = Swell::get();
-        swell.pointers().SWELL_GetOSWindow.ok_or(
-            "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
-        )?;
-        let gdk_window = unsafe {
-            swell.SWELL_GetOSWindow(
-                self.raw,
-                reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
-            )
-        } as *mut gdk_sys::GdkWindow;
-        if gdk_window.is_null() {
-            return Err("Couldn't get OS window from SWELL window");
-        }
-        let gdk_display = unsafe { gdk_sys::gdk_window_get_display(gdk_window) };
-        if gdk_display.is_null() {
-            return Err("Couldn't get GDK display from SWELL OS window");
-        }
-        let x_display = unsafe { gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _) };
-        if x_display.is_null() {
-            return Err("Couldn't get X display from GDK display");
-        }
-        let x_window = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _) };
-        if x_window == 0 {
-            return Err("Couldn't get X window from GDK window");
-        }
-        let mut handle = raw_window_handle::XlibHandle::empty();
-        handle.window = x_window as _;
-        handle.display = x_display as _;
-        Ok(handle)
+        // This function actually works correctly we don't have egui enabled on Linux currently
+        // anyway (full-text search for "wonky" to get an explanation). We could have just let
+        // this function unused, but I had to comment out gdk_sys crate dependencies because
+        // cross v2.5 uses Ubuntu < v20, which has an old glib that's not compatible with the
+        // gdk_sys dependencies. So it wouldn't compile anymore, that's why I commented it out.
+        todo!()
+        // let swell = Swell::get();
+        // swell.pointers().SWELL_GetOSWindow.ok_or(
+        //     "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
+        // )?;
+        // let gdk_window = unsafe {
+        //     swell.SWELL_GetOSWindow(
+        //         self.raw,
+        //         reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
+        //     )
+        // } as *mut gdk_sys::GdkWindow;
+        // if gdk_window.is_null() {
+        //     return Err("Couldn't get OS window from SWELL window");
+        // }
+        // let gdk_display = unsafe { gdk_sys::gdk_window_get_display(gdk_window) };
+        // if gdk_display.is_null() {
+        //     return Err("Couldn't get GDK display from SWELL OS window");
+        // }
+        // let x_display = unsafe { gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _) };
+        // if x_display.is_null() {
+        //     return Err("Couldn't get X display from GDK display");
+        // }
+        // let x_window = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _) };
+        // if x_window == 0 {
+        //     return Err("Couldn't get X window from GDK window");
+        // }
+        // let mut handle = raw_window_handle::XlibHandle::empty();
+        // handle.window = x_window as _;
+        // handle.display = x_display as _;
+        // Ok(handle)
     }
 
     pub fn set_checked(self, is_checked: bool) {

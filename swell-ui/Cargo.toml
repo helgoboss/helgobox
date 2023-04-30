@@ -21,9 +21,12 @@ libloading = "0.7"
 objc2 = "0.3.0-beta.3"
 
 
-[target.'cfg(target_os = "linux")'.dependencies]
-gdk-sys = "0.17.0"
-gdkx11-sys = "0.17.0"
+# Disabled until we get egui to work nicely (search for "wonky"). It's also important to use cross v0.3.0 then
+# (once it's released) because cross v2.5 uses Ubuntu < v20, which has an old glib that's not compatible with the
+# glib crate (gdk-sys dependency).
+# [target.'cfg(target_os = "linux")'.dependencies]
+# gdk-sys = "0.17.0"
+# gdkx11-sys = "0.17.0"
 
 [build-dependencies]
 bindgen = "0.60.1"
