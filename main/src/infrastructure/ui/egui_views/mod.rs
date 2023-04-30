@@ -1,6 +1,6 @@
 use egui::{Context, Visuals};
 use reaper_low::firewall;
-use swell_ui::Window;
+use swell_ui::{SwellWindow, Window};
 
 pub mod advanced_script_editor;
 pub mod pot_browser_panel;
@@ -54,15 +54,15 @@ pub fn open<S: Send + 'static>(
     );
 }
 
-fn get_egui_parent_window(window: Window) -> Window {
+fn get_egui_parent_window(window: Window) -> SwellWindow {
     #[cfg(target_os = "linux")]
     {
         let x_bridge_window = swell_ui::XBridgeWindow::create(window).unwrap();
-        swell_ui::SwellWindow::XBridge(x_bridge_window)
+        SwellWindow::XBridge(x_bridge_window)
     }
     #[cfg(not(target_os = "linux"))]
     {
-        window
+        SwellWindow::Normal(window)
     }
 }
 

@@ -876,17 +876,17 @@ unsafe impl HasRawWindowHandle for XBridgeWindow {
     }
 }
 
-#[cfg(target_os = "linux")]
 pub enum SwellWindow {
     Normal(Window),
+    #[cfg(target_os = "linux")]
     XBridge(XBridgeWindow),
 }
 
-#[cfg(target_os = "linux")]
 unsafe impl HasRawWindowHandle for SwellWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {
         match self {
             SwellWindow::Normal(w) => w.raw_window_handle(),
+            #[cfg(target_os = "linux")]
             SwellWindow::XBridge(w) => w.raw_window_handle(),
         }
     }
