@@ -455,7 +455,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         .hint_text("Type anywhere to search!")
                         .font(TextStyle::Monospace);
                     ui.add_enabled(false, text_edit)
-                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand Ctrl/Cmd+Backspace to clear all.");
+                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.");
                     // Preset count
                     ui.label(format!("➡ {preset_count} presets"));
                 });
@@ -1010,5 +1010,5 @@ const HELP: &[(&str, &str)] = &[
     ("Up/down arrays", "Navigate in preset list"),
     ("Enter", "Load currently selected preset"),
     ("Type letters", "Enter search text"),
-    ("Ctrl/Cmd + Backspace", "Clear search expression"),
+    ("(Ctrl+Alt)/(Cmd) + Backspace", "Clear search expression"),
 ];
