@@ -200,11 +200,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .show_inside(ui, |ui| {
                     // General controls
                     ui.horizontal(|ui| {
-                        if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
-                            .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
-                            .clicked() {
-                            pot_unit.refresh_pot(state.pot_unit.clone());
-                        }
                         ui.menu_button(RichText::new("Menu").size(TOOLBAR_SIZE), |ui| {
                             ui.checkbox(&mut state.paint_continuously, "Paint continuously")
                                 .on_hover_text(
@@ -222,6 +217,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 }
                             }
                         });
+                        if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
+                            .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
+                            .clicked() {
+                            pot_unit.refresh_pot(state.pot_unit.clone());
+                        }
                         // Spinner
                         if background_task_elapsed.is_some() {
                             ui.spinner();
@@ -565,9 +565,9 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .resizable(true)
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     // Preset name
-                    .column(Column::auto())
+                    .column(Column::auto().at_most(200.0))
                     // Plug-in or product
-                    .column(Column::initial(100.0).clip(true).at_least(100.0))
+                    .column(Column::initial(200.0).clip(true).at_least(100.0))
                     // Extension
                     .column(Column::remainder())
                     .min_scrolled_height(0.0);

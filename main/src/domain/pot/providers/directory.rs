@@ -10,9 +10,10 @@ use std::borrow::Cow;
 use crate::domain::pot::plugins::{PluginCore, PluginDatabase};
 use either::Either;
 use enumset::{enum_set, EnumSet};
+use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -78,7 +79,7 @@ impl DirectoryDatabase {
 struct PresetEntry {
     preset_name: String,
     relative_path: String,
-    plugin_cores: HashMap<PluginId, PluginCore>,
+    plugin_cores: IndexMap<PluginId, PluginCore>,
 }
 
 impl Database for DirectoryDatabase {
@@ -153,14 +154,22 @@ impl Database for DirectoryDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
             common: PresetCommon {
                 favorite_id: preset_entry.relative_path.clone(),
                 name: preset_entry.preset_name.clone(),
-                product_name: None,
+                product_name: if preset_entry.plugin_cores.len() > 1 {
+                    Some("<Multiple>".to_string())
+                } else if let Some(first) = preset_entry.plugin_cores.values().next() {
+                    ctx.plugin_db
+                        .find_plugin_by_id(&first.id)
+                        .map(|p| p.common.to_string())
+                } else {
+                    None
+                },
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
                 file_ext: relative_path
@@ -197,7 +206,7 @@ impl Database for DirectoryDatabase {
 fn find_used_plugins(
     path: &Path,
     plugin_db: &PluginDatabase,
-) -> Result<HashMap<PluginId, PluginCore>, Box<dyn Error>> {
+) -> Result<IndexMap<PluginId, PluginCore>, Box<dyn Error>> {
     // TODO-high-pot It would be better to look for the unique plug-in ID.
     let regex = regex!(r#"(?m)^\s*<(VST|CLAP) "(.*?)""#);
     let content = fs::read_to_string(path)?;

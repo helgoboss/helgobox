@@ -332,6 +332,7 @@ impl PresetDb {
         }
     }
 
+    #[allow(dead_code)]
     pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<InnerPresetId> {
         self.connection
             .query_row(
