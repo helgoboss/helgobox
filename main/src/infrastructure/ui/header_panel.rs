@@ -1490,7 +1490,14 @@ impl HeaderPanel {
                 .preset_infos()
                 .into_iter()
                 .enumerate()
-                .map(|(i, info)| (i as isize, format!("{} ({})", info.name, info.id))),
+                .map(|(i, info)| {
+                    let label = if info.name == info.id {
+                        info.name
+                    } else {
+                        format!("{} ({})", info.name, info.id)
+                    };
+                    (i as isize, label)
+                }),
         );
         combo.fill_combo_box_with_data_small(all_entries);
     }
