@@ -1,6 +1,6 @@
 use egui::{Context, Visuals};
 use reaper_low::firewall;
-use swell_ui::Window;
+use swell_ui::{SwellWindow, Window, XBridgeWindow};
 
 pub mod advanced_script_editor;
 pub mod pot_browser_panel;
@@ -36,6 +36,8 @@ pub fn open<S: Send + 'static>(
         scale,
         gl_config: Some(Default::default()),
     };
+    let x_bridge_window = XBridgeWindow::create(window).unwrap();
+    let window = SwellWindow::XBridge(x_bridge_window);
     egui_baseview::EguiWindow::open_parented(
         &window,
         settings,

@@ -171,6 +171,7 @@ unsafe extern "C" fn view_dialog_proc(
             if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
                 return result;
             }
+            const KEYBOARD_MSG_FOR_X_BRIDGE: u32 = raw::WM_USER + 100;
             match msg {
                 raw::WM_INITDIALOG => {
                     view.view_context().window.replace(Some(window));
@@ -188,6 +189,13 @@ unsafe extern "C" fn view_dialog_proc(
                     ViewManager::get().borrow_mut().unregister_view(hwnd);
                     1
                 }
+                // This is called on Linux when receiving a keyboard message via SendMessage.
+                // The only time we do this is when we want to forward keyboard interaction from
+                // the RealearnAccelerator to egui. egui runs in an XBridge window - a sort
+                // of child window of the SWELL window. Returning 0 here makes sure that the
+                // messages are passed through to the XBridge window. This is SWELL functionality
+                // (check the SWELL code).
+                KEYBOARD_MSG_FOR_X_BRIDGE => 0,
                 raw::WM_SIZE => view.resized().into(),
                 raw::WM_COMMAND => {
                     let resource_id = loword(wparam);

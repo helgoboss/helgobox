@@ -93,16 +93,10 @@ where
                     TranslateAccelResult::NotOurWindow
                 }
             }
-            #[cfg(target_os = "windows")]
+            #[cfg(not(target_os = "macos"))]
             {
                 w.process_raw_message(msg.raw());
                 TranslateAccelResult::Eat
-            }
-            #[cfg(target_os = "linux")]
-            {
-                // On Linux, we didn't really figure it out yet in detail.
-                let _ = w;
-                TranslateAccelResult::NotOurWindow
             }
         } else {
             // A non-ReaLearn window is focused. Act normally.

@@ -2,7 +2,8 @@ use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, Sw
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
-use std::ffi::CString;
+use reaper_medium::reaper_str;
+use std::ffi::{c_ulong, c_void, CString};
 use std::fmt::Display;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
@@ -92,12 +93,17 @@ impl Window {
     }
 
     pub fn size(self) -> Dimensions<Pixels> {
-        let mut rect = RECT::default();
-        unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
+        let rect = self.rect();
         Dimensions::new(
             Pixels(rect.right as u32 - rect.left as u32),
             Pixels(rect.bottom as u32 - rect.top as u32),
         )
+    }
+
+    pub fn rect(self) -> raw::RECT {
+        let mut rect = RECT::default();
+        unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
+        rect
     }
 
     pub fn raw_non_null(self) -> NonNull<raw::HWND__> {
@@ -210,6 +216,46 @@ impl Window {
             winapi::um::winuser::TranslateMessage(&msg as *const _ as _);
             Swell::get().SendMessage(self.raw, msg.message, msg.wParam, msg.lParam);
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn process_raw_message(self, msg: raw::MSG) {
+        unsafe {
+            Swell::get().SendMessage(self.raw, msg.message, msg.wParam, msg.lParam);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn get_xlib_handle(&self) -> Result<raw_window_handle::XlibHandle, &'static str> {
+        let swell = Swell::get();
+        swell.pointers().SWELL_GetOSWindow.ok_or(
+            "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
+        )?;
+        let gdk_window = unsafe {
+            swell.SWELL_GetOSWindow(
+                self.raw,
+                reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
+            )
+        } as *mut gdk_sys::GdkWindow;
+        if gdk_window.is_null() {
+            return Err("Couldn't get OS window from SWELL window");
+        }
+        let gdk_display = unsafe { gdk_sys::gdk_window_get_display(gdk_window) };
+        if gdk_display.is_null() {
+            return Err("Couldn't get GDK display from SWELL OS window");
+        }
+        let x_display = unsafe { gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _) };
+        if x_display.is_null() {
+            return Err("Couldn't get X display from GDK display");
+        }
+        let x_window = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _) };
+        if x_window == 0 {
+            return Err("Couldn't get X window from GDK window");
+        }
+        let mut handle = raw_window_handle::XlibHandle::empty();
+        handle.window = x_window as _;
+        handle.display = x_display as _;
+        Ok(handle)
     }
 
     pub fn set_checked(self, is_checked: bool) {
@@ -753,36 +799,91 @@ unsafe impl HasRawWindowHandle for Window {
             RawWindowHandle::Win32(handle)
         }
         #[cfg(target_os = "linux")]
-        unsafe {
-            let swell = Swell::get();
-            if swell.pointers().SWELL_GetOSWindow.is_none() {
-                panic!("Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!");
-            }
-            let gdk_window = unsafe {
-                swell.SWELL_GetOSWindow(
-                    self.raw,
-                    reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
-                )
-            } as *mut gdk_sys::GdkWindow;
-            if gdk_window.is_null() {
-                panic!("Couldn't get OS window from SWELL window");
-            }
-            let gdk_display = gdk_sys::gdk_window_get_display(gdk_window);
-            if gdk_display.is_null() {
-                panic!("Couldn't get GDK display from SWELL OS window");
-            }
-            let x_display = gdk_x11_sys::gdk_x11_display_get_xdisplay(gdk_display as _);
-            if x_display.is_null() {
-                panic!("Couldn't get X display from GDK display");
-            }
-            let x_window = gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _);
-            if x_window == 0 {
-                panic!("Couldn't get X window from GDK window");
-            }
-            let mut handle = raw_window_handle::XlibHandle::empty();
-            handle.window = x_window as _;
-            handle.display = x_display as _;
+        {
+            let handle = self.get_xlib_handle().expect("couldn't get xlib handle");
             RawWindowHandle::Xlib(handle)
+        }
+    }
+}
+
+/// We use this on Linux to create a parented baseview/egui window (OpenGL) inside.
+pub struct XBridgeWindow {
+    /// Our parent. A normal SWELL window as we have many in ReaLearn. Usually an empty window.
+    parent_window: Window,
+    /// This is a SWELL window created by SWELL_CreateXBridgeWindow, but it's not the X window!
+    /// Plus, it's not a normal SWELL window, it's a *special* one. E.g. it can't
+    /// give us a GdkWindow when queried via GetOSWindow()! The parent window needs to be used
+    /// for that.
+    _bridge_window: Window,
+    /// ID of the X window. This is what it is all about! This is the X window inside which we
+    /// fire up the OpenGL context.
+    x_window_id: c_ulong,
+}
+
+impl XBridgeWindow {
+    /// Creates an X bridge window inside the given parent window.
+    ///
+    /// The parent window must be a normal SWELL window as we have many of them in ReaLearn.
+    /// Usually an empty window.
+    pub fn create(parent_window: Window) -> Result<Self, &'static str> {
+        let mut x_window_id: c_ulong = 0;
+        let rect = parent_window.rect();
+        let x_bridge_hwnd = unsafe {
+            Swell::get().SWELL_CreateXBridgeWindow(
+                parent_window.raw(),
+                &mut x_window_id as *mut c_ulong as *mut *mut c_void,
+                &rect as *const _,
+            )
+        };
+        let bridge_window =
+            Window::new(x_bridge_hwnd).ok_or("SWELL_CreateXBridgeWindow returned null")?;
+        if x_window_id == 0 {
+            return Err("SWELL_CreateXBridgeWindow didn't assign the X window ref");
+        }
+        unsafe {
+            let prop_key = reaper_str!("SWELL_XBRIDGE_KBHOOK_CHECK");
+            let msg = raw::WM_USER as i32 + 100;
+            Swell::get().SetProp(
+                bridge_window.raw(),
+                prop_key.as_c_str().as_ptr(),
+                msg as *mut c_void,
+            );
+        }
+        let x_bridge_window = Self {
+            parent_window,
+            _bridge_window: bridge_window,
+            x_window_id,
+        };
+        Ok(x_bridge_window)
+    }
+}
+
+unsafe impl HasRawWindowHandle for XBridgeWindow {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        let mut handle = raw_window_handle::XlibHandle::empty();
+        // It's important to get the X display from the parent. The bridge_window itself is a
+        // special SWELL window which doesn't give us the GdkWindow and therefore we can't obtain
+        // the xlib handle from it and as a consequence also no the X display.
+        let parent_xlib_handle = self
+            .parent_window
+            .get_xlib_handle()
+            .expect("couldn't get xlib handle of x bridge parent");
+        handle.window = self.x_window_id;
+        handle.display = parent_xlib_handle.display;
+        RawWindowHandle::Xlib(handle)
+    }
+}
+
+pub enum SwellWindow {
+    Normal(Window),
+    XBridge(XBridgeWindow),
+}
+
+unsafe impl HasRawWindowHandle for SwellWindow {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        match self {
+            SwellWindow::Normal(w) => w.raw_window_handle(),
+            SwellWindow::XBridge(w) => w.raw_window_handle(),
         }
     }
 }
