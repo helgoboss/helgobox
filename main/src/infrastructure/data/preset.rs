@@ -1,6 +1,6 @@
 use crate::application::{Preset, PresetManager};
 
-use crate::base::notification;
+use crate::base::{file_util, notification};
 use crate::infrastructure::plugin::App;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
@@ -62,7 +62,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             .follow_links(true)
             .max_depth(2)
             .into_iter()
-            .filter_entry(|e| !is_hidden(e))
+            .filter_entry(|e| !file_util::is_hidden(e))
             .filter_map(|entry| {
                 let entry = entry.ok()?;
                 if !entry.file_type().is_file() {
@@ -186,14 +186,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         }
         data.to_model(id)
     }
-}
-
-fn is_hidden(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| s.starts_with('.'))
-        .unwrap_or(false)
 }
 
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {

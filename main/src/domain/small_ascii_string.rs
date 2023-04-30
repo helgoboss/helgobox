@@ -24,6 +24,14 @@ impl<const N: usize> LimitedAsciiString<N> {
         Self::from_ascii_str(&short)
     }
 
+    /// Returns an error if the given string is not completely ASCII or is too long.
+    pub fn try_from_str(value: &str) -> Result<Self, &'static str> {
+        let ascii_string: Result<AsciiString, _> =
+            value.chars().map(|c| c.to_ascii_char()).collect();
+        let ascii_string = ascii_string.map_err(|_| "value contains non-ASCII characters")?;
+        Self::try_from_ascii_str(&ascii_string)
+    }
+
     /// Returns an error if the given string is too long.
     pub fn try_from_ascii_str(ascii_str: &AsciiStr) -> Result<Self, &'static str> {
         if ascii_str.len() > Self::MAX_LENGTH {

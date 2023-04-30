@@ -1,9 +1,12 @@
+use crate::base::file_util;
 use crate::domain::pot::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use ini::Ini;
 use regex::Match;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use walkdir::WalkDir;
 
@@ -19,7 +22,13 @@ struct ProductAccumulator {
 }
 
 impl ProductAccumulator {
-    pub fn get_or_add_product(
+    pub fn add_js_product(&mut self, name: String, kind: Option<ProductKind>) -> ProductId {
+        let product = Product { name, kind };
+        self.products.push(product);
+        ProductId(self.products.len() as u32 - 1)
+    }
+
+    pub fn get_or_add_shared_library_product(
         &mut self,
         name_expression: &str,
         kind: Option<ProductKind>,
@@ -56,9 +65,17 @@ impl ProductAccumulator {
 impl PluginDatabase {
     pub fn crawl(reaper_resource_dir: &Path) -> Self {
         let mut product_accumulator = ProductAccumulator::default();
-        let plugins = crawl_plugins(&mut product_accumulator, reaper_resource_dir);
+        let shared_library_plugins =
+            crawl_shared_library_plugins(&mut product_accumulator, reaper_resource_dir);
+        let js_root_dir = reaper_resource_dir.join("Effects");
+        let js_plugins = crawl_js_plugins(&mut product_accumulator, &js_root_dir);
+        let plugin_map = shared_library_plugins
+            .into_iter()
+            .chain(js_plugins.into_iter())
+            .map(|p| (p.common.core.id, p))
+            .collect();
         Self {
-            plugins: plugins.into_iter().map(|p| (p.common.core.id, p)).collect(),
+            plugins: plugin_map,
             products: product_accumulator.into_products(),
         }
     }
@@ -94,7 +111,6 @@ pub struct Product {
     pub kind: Option<ProductKind>,
 }
 
-/// TODO-high CONTINUE Also scan JS plug-ins!
 #[derive(Clone, Debug)]
 pub struct Plugin {
     /// Contains data relevant for all kinds of plug-ins.
@@ -137,6 +153,7 @@ impl Display for PluginCommon {
 pub enum PluginKind {
     Vst(VstPlugin),
     Clap(ClapPlugin),
+    Js(JsPlugin),
 }
 
 #[derive(Clone, Debug)]
@@ -146,6 +163,12 @@ pub struct ClapPlugin {
     /// Checksum looks different than in VST plug-in INI files.
     pub checksum: String,
     pub id: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct JsPlugin {
+    /// Relative path from JS root dir.
+    pub path: String,
 }
 
 #[derive(Clone, Debug)]
@@ -205,8 +228,43 @@ impl ProductKind {
         }
     }
 }
+fn crawl_js_plugins(
+    product_accumulator: &mut ProductAccumulator,
+    js_root_dir: &Path,
+) -> Vec<Plugin> {
+    WalkDir::new(js_root_dir)
+        .follow_links(true)
+        .into_iter()
+        .filter_entry(|e| !file_util::is_hidden(e))
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if !entry.file_type().is_file() {
+                return None;
+            }
+            let relative_path = entry.path().strip_prefix(js_root_dir).ok()?;
+            let relative_path = relative_path.to_str()?;
+            let product_kind = Some(ProductKind::Effect);
+            let js_desc = read_js_desc_from_file(entry.path())?;
+            let plugin = Plugin {
+                common: PluginCommon {
+                    name: js_desc.clone(),
+                    core: PluginCore {
+                        id: PluginId::js(relative_path).ok()?,
+                        product_kind,
+                        product_id: product_accumulator
+                            .add_js_product(js_desc.to_string(), product_kind),
+                    },
+                },
+                kind: PluginKind::Js(JsPlugin {
+                    path: relative_path.to_string(),
+                }),
+            };
+            Some(plugin)
+        })
+        .collect()
+}
 
-fn crawl_plugins(
+fn crawl_shared_library_plugins(
     product_accumulator: &mut ProductAccumulator,
     reaper_resource_dir: &Path,
 ) -> Vec<Plugin> {
@@ -268,7 +326,7 @@ fn crawl_clap_plugins_in_ini_file(
                                 id: PluginId::clap(key).ok()?,
                                 product_kind,
                                 product_id: product_accumulator
-                                    .get_or_add_product(plugin_name, product_kind),
+                                    .get_or_add_shared_library_product(plugin_name, product_kind),
                             },
                             name: plugin_name.to_string(),
                         },
@@ -336,7 +394,7 @@ fn crawl_vst_plugins_in_ini_file(
                     core: PluginCore {
                         id: vst_kind.plugin_id().ok()?,
                         product_id: product_accumulator
-                            .get_or_add_product(name.as_str(), product_kind),
+                            .get_or_add_shared_library_product(name.as_str(), product_kind),
                         product_kind,
                     },
                     name,
@@ -407,6 +465,25 @@ impl<'a> ProductName<'a> {
 
 fn s(m: Option<Match>) -> &str {
     m.unwrap().as_str()
+}
+
+fn read_js_desc_from_file(path: &Path) -> Option<String> {
+    let file = File::open(path).ok()?;
+    let mut buffer = String::new();
+    let mut reader = BufReader::new(&file);
+    while let Ok(count) = reader.read_line(&mut buffer) {
+        if count == 0 {
+            // EOF
+            break;
+        }
+        let line = buffer.trim();
+        if let Some((left, right)) = line.split_once(":") {
+            if left == "desc" {
+                return Some(right.trim().to_string());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

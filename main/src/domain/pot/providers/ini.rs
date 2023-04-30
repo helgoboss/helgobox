@@ -18,7 +18,6 @@ use std::iter;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-/// TODO-high CONTINUE Also scan JS presets!
 pub struct IniDatabase {
     root_dir: PathBuf,
     entries: Vec<PresetEntry>,
@@ -96,11 +95,13 @@ impl Database for IniDatabase {
                 // - vst-reacomp.ini
                 // - vst3-Massive.ini
                 // - clap-org_surge-synth-team_surge-xt.ini
+                // - js-analysis_hund.ini
                 let captures = file_name_regex.captures(file_name)?;
                 let simple_plugin_kind = match captures.get(1)?.as_str() {
                     "vst" => SimplePluginKind::Vst2,
                     "vst3" => SimplePluginKind::Vst3,
                     "clap" => SimplePluginKind::Clap,
+                    "js" => SimplePluginKind::Js,
                     _ => return None,
                 };
                 let plugin_identifier = captures.get(2)?.as_str();
@@ -142,6 +143,13 @@ impl Database for IniDatabase {
                         PluginKind::Clap(k) => {
                             let safe_plugin_id = k.id.replace('.', "_");
                             if plugin_identifier != &safe_plugin_id {
+                                return false;
+                            }
+                            true
+                        }
+                        PluginKind::Js(k) => {
+                            let safe_path = k.path.replace('/', "_");
+                            if plugin_identifier != &safe_path {
                                 return false;
                             }
                             true

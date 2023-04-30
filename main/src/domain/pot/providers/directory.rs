@@ -18,8 +18,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::iter;
 use std::path::{Path, PathBuf};
-use std::{fs, iter};
 use walkdir::WalkDir;
 
 pub struct DirectoryDatabase {
@@ -231,7 +231,7 @@ fn detect_plugin_from_rxml_line<'a, 'b>(
     plugin_db: &'a PluginDatabase,
     line: &'b str,
 ) -> Option<&'a Plugin> {
-    let is_fx_line = ["<VST ", "<CLAP "]
+    let is_fx_line = ["<VST ", "<CLAP ", "<JS "]
         .into_iter()
         .any(|suffix| line.starts_with(suffix));
     if !is_fx_line {

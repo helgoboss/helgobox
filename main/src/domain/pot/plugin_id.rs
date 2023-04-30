@@ -1,11 +1,11 @@
 use crate::domain::LimitedAsciiString;
-use ascii::{AsciiString, ToAsciiChar};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum PluginId {
     Vst2 { vst_magic_number: u32 },
     Vst3 { vst_uid: [u32; 4] },
     Clap { clap_id: LimitedAsciiString<64> },
+    Js { js_id: LimitedAsciiString<64> },
 }
 
 impl PluginId {
@@ -18,11 +18,15 @@ impl PluginId {
     }
 
     pub fn clap(id_expression: &str) -> Result<Self, &'static str> {
-        let ascii_string: Result<AsciiString, _> =
-            id_expression.chars().map(|c| c.to_ascii_char()).collect();
-        let ascii_string = ascii_string.map_err(|_| "CLAP plug-in ID not ASCII")?;
         let id = Self::Clap {
-            clap_id: LimitedAsciiString::try_from_ascii_str(&ascii_string)?,
+            clap_id: LimitedAsciiString::try_from_str(id_expression)?,
+        };
+        Ok(id)
+    }
+
+    pub fn js(id_expression: &str) -> Result<Self, &'static str> {
+        let id = Self::Js {
+            js_id: LimitedAsciiString::try_from_str(id_expression)?,
         };
         Ok(id)
     }
@@ -63,6 +67,11 @@ impl PluginId {
                 let id_expression = tokens.next().ok_or("missing CLAP ID expression")?;
                 Self::clap(id_expression)
             }
+            "<JS" => {
+                // Example: <JS analysis/hund ""
+                let id_expression = tokens.next().ok_or("missing JS ID expression")?;
+                Self::js(id_expression)
+            }
             _ => Err("unknown FX tag opener"),
         }
     }
@@ -72,6 +81,7 @@ impl PluginId {
             PluginId::Vst2 { .. } => "VST",
             PluginId::Vst3 { .. } => "VST3",
             PluginId::Clap { .. } => "CLAP",
+            PluginId::Js { .. } => "JS",
         }
     }
 
@@ -80,7 +90,7 @@ impl PluginId {
     pub fn add_by_name_prefix_fix(&self) -> &'static str {
         match self {
             PluginId::Vst2 { .. } | PluginId::Vst3 { .. } => "i7zh34z",
-            PluginId::Clap { .. } => "",
+            PluginId::Clap { .. } | PluginId::Js { .. } => "",
         }
     }
 
@@ -88,13 +98,14 @@ impl PluginId {
         match self {
             PluginId::Vst2 { .. } => "<",
             PluginId::Vst3 { .. } => "{",
-            PluginId::Clap { .. } => "",
+            PluginId::Clap { .. } | PluginId::Js { .. } => "",
         }
     }
 
     pub fn formatted_for_reaper(&self) -> String {
         match self {
             PluginId::Clap { clap_id } => clap_id.to_string(),
+            PluginId::Js { js_id } => js_id.to_string(),
             PluginId::Vst2 { vst_magic_number } => vst_magic_number.to_string(),
             PluginId::Vst3 { vst_uid } => {
                 // D39D5B69 D6AF42FA 12345678 534D4433
@@ -111,6 +122,7 @@ impl PluginId {
             PluginId::Vst2 { .. } => SimplePluginKind::Vst2,
             PluginId::Vst3 { .. } => SimplePluginKind::Vst3,
             PluginId::Clap { .. } => SimplePluginKind::Clap,
+            PluginId::Js { .. } => SimplePluginKind::Js,
         }
     }
 }
@@ -120,6 +132,7 @@ pub enum SimplePluginKind {
     Vst2,
     Vst3,
     Clap,
+    Js,
 }
 
 /// "1397572658" => 1397572658
@@ -180,6 +193,14 @@ mod tests {
                 r#"<CLAP "CLAPi: Surge XT (Surge Synth Team)" org.surge-synth-team.surge-xt Surgi"#
             ),
             Ok(PluginId::clap("org.surge-synth-team.surge-xt").unwrap())
+        );
+    }
+
+    #[test]
+    pub fn js() {
+        assert_eq!(
+            PluginId::parse_from_rxml_line(r#"<JS analysis/hund """#),
+            Ok(PluginId::js("analysis/hund").unwrap())
         );
     }
 }
