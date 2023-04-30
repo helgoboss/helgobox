@@ -2,8 +2,7 @@ use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, Sw
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
-use reaper_medium::reaper_str;
-use std::ffi::{c_ulong, c_void, CString};
+use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
@@ -807,6 +806,7 @@ unsafe impl HasRawWindowHandle for Window {
 }
 
 /// We use this on Linux to create a parented baseview/egui window (OpenGL) inside.
+#[cfg(target_os = "linux")]
 pub struct XBridgeWindow {
     /// Our parent. A normal SWELL window as we have many in ReaLearn. Usually an empty window.
     parent_window: Window,
@@ -817,21 +817,22 @@ pub struct XBridgeWindow {
     _bridge_window: Window,
     /// ID of the X window. This is what it is all about! This is the X window inside which we
     /// fire up the OpenGL context.
-    x_window_id: c_ulong,
+    x_window_id: core::ffi::c_ulong,
 }
 
+#[cfg(target_os = "linux")]
 impl XBridgeWindow {
     /// Creates an X bridge window inside the given parent window.
     ///
     /// The parent window must be a normal SWELL window as we have many of them in ReaLearn.
     /// Usually an empty window.
     pub fn create(parent_window: Window) -> Result<Self, &'static str> {
-        let mut x_window_id: c_ulong = 0;
+        let mut x_window_id: core::ffi::c_ulong = 0;
         let rect = parent_window.rect();
         let x_bridge_hwnd = unsafe {
             Swell::get().SWELL_CreateXBridgeWindow(
                 parent_window.raw(),
-                &mut x_window_id as *mut c_ulong as *mut *mut c_void,
+                &mut x_window_id as *mut core::ffi::c_ulong as *mut *mut core::ffi::c_void,
                 &rect as *const _,
             )
         };
@@ -841,12 +842,12 @@ impl XBridgeWindow {
             return Err("SWELL_CreateXBridgeWindow didn't assign the X window ref");
         }
         unsafe {
-            let prop_key = reaper_str!("SWELL_XBRIDGE_KBHOOK_CHECK");
+            let prop_key = reaper_medium::reaper_str!("SWELL_XBRIDGE_KBHOOK_CHECK");
             let msg = raw::WM_USER as i32 + 100;
             Swell::get().SetProp(
                 bridge_window.raw(),
                 prop_key.as_c_str().as_ptr(),
-                msg as *mut c_void,
+                msg as *mut core::ffi::c_void,
             );
         }
         let x_bridge_window = Self {
@@ -858,6 +859,7 @@ impl XBridgeWindow {
     }
 }
 
+#[cfg(target_os = "linux")]
 unsafe impl HasRawWindowHandle for XBridgeWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {
         let mut handle = raw_window_handle::XlibHandle::empty();
@@ -874,11 +876,13 @@ unsafe impl HasRawWindowHandle for XBridgeWindow {
     }
 }
 
+#[cfg(target_os = "linux")]
 pub enum SwellWindow {
     Normal(Window),
     XBridge(XBridgeWindow),
 }
 
+#[cfg(target_os = "linux")]
 unsafe impl HasRawWindowHandle for SwellWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {
         match self {
