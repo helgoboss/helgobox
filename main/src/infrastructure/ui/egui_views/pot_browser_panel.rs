@@ -220,13 +220,13 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             pot_unit.refresh_pot(state.pot_unit.clone());
                         }
                         if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE)).clicked() {
-                            let style = ui.style_mut();
-                            let new_visuals = if style.visuals.dark_mode {
+                            let mut style: egui::Style = (*ctx.style()).clone();
+                            style.visuals = if style.visuals.dark_mode {
                                 Visuals::light()
                             }  else {
                                 Visuals::dark()
                             };
-                            style.visuals = new_visuals;
+                            ctx.set_style(style);
                         }
                         let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
                         let help_id = ui.make_persistent_id("help");
