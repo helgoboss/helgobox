@@ -4104,6 +4104,7 @@ dependencies = [
  "slog-stdlog",
  "slug",
  "smallvec",
+ "splitty",
  "strum",
  "strum_macros",
  "swell-ui",
@@ -4922,6 +4923,12 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "splitty"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dae68aa5bd5dc2d3a2137b0f6bcdd8255dce1983dc155fe0246572e179c9c3a"
 
 [[package]]
 name = "static_assertions"

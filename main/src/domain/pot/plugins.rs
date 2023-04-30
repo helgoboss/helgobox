@@ -1,6 +1,4 @@
-use crate::domain::pot::{PluginId, ProductId};
-use crate::domain::LimitedAsciiString;
-use ascii::{AsciiString, ToAsciiChar};
+use crate::domain::pot::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use ini::Ini;
 use regex::Match;
 use std::collections::HashMap;
@@ -174,40 +172,14 @@ impl VstPluginKind {
     pub fn plugin_id(&self) -> Result<PluginId, &'static str> {
         let id = match self {
             VstPluginKind::Vst2 { magic_number } => PluginId::Vst2 {
-                vst_magic_number: magic_number
-                    .parse()
-                    .map_err(|_| "couldn't parse VST2 magic number")?,
+                vst_magic_number: parse_vst2_magic_number(magic_number)?,
             },
-            VstPluginKind::Vst3 { uid, .. } => {
-                fn parse_component(text: &str, i: usize) -> Result<u32, &'static str> {
-                    let from = i * 8;
-                    let until = from + 8;
-                    let parsed = u32::from_str_radix(&text[from..until], 16)
-                        .map_err(|_| "couldn't parse VST3 uid component")?;
-                    Ok(parsed)
-                }
-                PluginId::Vst3 {
-                    vst_uid: [
-                        parse_component(uid, 0)?,
-                        parse_component(uid, 1)?,
-                        parse_component(uid, 2)?,
-                        parse_component(uid, 3)?,
-                    ],
-                }
-            }
+            VstPluginKind::Vst3 { uid, .. } => PluginId::Vst3 {
+                vst_uid: parse_vst3_uid(uid)?,
+            },
         };
         Ok(id)
     }
-}
-
-fn build_clap_plugin_id(id_expression: &str) -> Result<PluginId, &'static str> {
-    let ascii_string: Result<AsciiString, _> =
-        id_expression.chars().map(|c| c.to_ascii_char()).collect();
-    let ascii_string = ascii_string.map_err(|_| "CLAP plug-in ID not ASCII")?;
-    let id = PluginId::Clap {
-        clap_id: LimitedAsciiString::try_from_ascii_str(&ascii_string)?,
-    };
-    Ok(id)
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, derive_more::Display)]
@@ -293,7 +265,7 @@ fn crawl_clap_plugins_in_ini_file(
                     let plugin = Plugin {
                         common: PluginCommon {
                             core: PluginCore {
-                                id: build_clap_plugin_id(key).ok()?,
+                                id: PluginId::clap(key).ok()?,
                                 product_kind,
                                 product_id: product_accumulator
                                     .get_or_add_product(plugin_name, product_kind),

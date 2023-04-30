@@ -7,7 +7,7 @@ use crate::domain::pot::{
 };
 use std::borrow::Cow;
 
-use crate::domain::pot::plugins::{PluginCore, PluginDatabase};
+use crate::domain::pot::plugins::{Plugin, PluginCore, PluginDatabase};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexMap;
@@ -16,6 +16,8 @@ use realearn_api::persistence::PotFilterKind;
 use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::{fs, iter};
 use walkdir::WalkDir;
@@ -207,20 +209,34 @@ fn find_used_plugins(
     path: &Path,
     plugin_db: &PluginDatabase,
 ) -> Result<IndexMap<PluginId, PluginCore>, Box<dyn Error>> {
-    // TODO-high-pot It would be better to look for the unique plug-in ID.
-    let regex = regex!(r#"(?m)^\s*<(VST|CLAP) "(.*?)""#);
-    let content = fs::read_to_string(path)?;
-    let map = regex
-        .captures_iter(&content)
-        .filter_map(|captures| {
-            let name = captures.get(2)?.as_str();
-            let plugin = plugin_db.plugins().find(|p| {
-                // TODO-medium Testing containment is not very good. Also, we don't consider the
-                //  plug-in framework. Really, we should extract plug-in IDs!
-                name.contains(&p.common.name)
-            })?;
-            Some((plugin.common.core.id, plugin.common.core.clone()))
-        })
-        .collect();
+    let file = File::open(path)?;
+    let mut map = IndexMap::new();
+    let mut buffer = String::new();
+    let mut reader = BufReader::new(&file);
+    while let Ok(count) = reader.read_line(&mut buffer) {
+        if count == 0 {
+            // EOF
+            break;
+        }
+        let line = buffer.trim();
+        if let Some(plugin) = detect_plugin_from_rxml_line(plugin_db, line) {
+            map.insert(plugin.common.core.id, plugin.common.core.clone());
+        }
+        buffer.clear();
+    }
     Ok(map)
+}
+
+fn detect_plugin_from_rxml_line<'a, 'b>(
+    plugin_db: &'a PluginDatabase,
+    line: &'b str,
+) -> Option<&'a Plugin> {
+    let is_fx_line = ["<VST ", "<CLAP "]
+        .into_iter()
+        .any(|suffix| line.starts_with(suffix));
+    if !is_fx_line {
+        return None;
+    }
+    let plugin_id = PluginId::parse_from_rxml_line(line).ok()?;
+    plugin_db.find_plugin_by_id(&plugin_id)
 }

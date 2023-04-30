@@ -186,6 +186,8 @@ enumset = "1.0.12"
 rust-ini = "0.18.0"
 # For Pot target
 lexical-sort = "0.3.1"
+# For Pot target
+splitty = "1.0.1"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 

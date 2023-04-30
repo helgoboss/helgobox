@@ -6,9 +6,7 @@
 
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 
-use crate::domain::{
-    BackboneState, InstanceStateChanged, LimitedAsciiString, PotStateChangedEvent, SoundPlayer,
-};
+use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
 
 use enumset::EnumSet;
 use indexmap::IndexSet;
@@ -33,7 +31,9 @@ mod pot_database;
 use crate::domain::pot::providers::komplete::NksFile;
 pub use pot_database::*;
 
+mod plugin_id;
 mod plugins;
+pub use plugin_id::*;
 mod provider_database;
 mod providers;
 mod worker;
@@ -1206,67 +1206,4 @@ impl LoadPresetWindowBehavior {
             }
         }
     }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum PluginId {
-    Vst2 { vst_magic_number: u32 },
-    Vst3 { vst_uid: [u32; 4] },
-    Clap { clap_id: LimitedAsciiString<64> },
-}
-
-impl PluginId {
-    pub fn kind_name(&self) -> &'static str {
-        match self {
-            PluginId::Vst2 { .. } => "VST",
-            PluginId::Vst3 { .. } => "VST3",
-            PluginId::Clap { .. } => "CLAP",
-        }
-    }
-
-    /// Need to put some random string in front of "<" due to bug in REAPER < 6.69,
-    /// otherwise loading by VST2 magic number doesn't work.
-    pub fn add_by_name_prefix_fix(&self) -> &'static str {
-        match self {
-            PluginId::Vst2 { .. } | PluginId::Vst3 { .. } => "i7zh34z",
-            PluginId::Clap { .. } => "",
-        }
-    }
-
-    pub fn reaper_prefix(&self) -> &'static str {
-        match self {
-            PluginId::Vst2 { .. } => "<",
-            PluginId::Vst3 { .. } => "{",
-            PluginId::Clap { .. } => "",
-        }
-    }
-
-    pub fn formatted_for_reaper(&self) -> String {
-        match self {
-            PluginId::Clap { clap_id } => clap_id.to_string(),
-            PluginId::Vst2 { vst_magic_number } => vst_magic_number.to_string(),
-            PluginId::Vst3 { vst_uid } => {
-                // D39D5B69 D6AF42FA 12345678 534D4433
-                format!(
-                    "{:X}{:X}{:X}{:X}",
-                    vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3],
-                )
-            }
-        }
-    }
-
-    pub fn simple_kind(&self) -> SimplePluginKind {
-        match self {
-            PluginId::Vst2 { .. } => SimplePluginKind::Vst2,
-            PluginId::Vst3 { .. } => SimplePluginKind::Vst3,
-            PluginId::Clap { .. } => SimplePluginKind::Clap,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum SimplePluginKind {
-    Vst2,
-    Vst3,
-    Clap,
 }

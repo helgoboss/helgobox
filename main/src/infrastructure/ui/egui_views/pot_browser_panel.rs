@@ -228,7 +228,6 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.memory_mut(|mem| mem.toggle_popup(help_id));
                         }
                         popup_below_widget(ui, help_id, &help_button, |ui| {
-                            let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
                             TableBuilder::new(ui)
                                 .column(Column::auto().at_least(200.0))
                                 .column(Column::remainder())
