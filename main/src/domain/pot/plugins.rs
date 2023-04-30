@@ -108,6 +108,8 @@ pub struct Plugin {
 #[derive(Clone, Debug)]
 pub struct PluginCommon {
     /// Full name of the plug-in (for display purposes mainly).
+    ///
+    /// E.g. "Zebra2 (u-he)"
     pub name: String,
     pub core: PluginCore,
 }

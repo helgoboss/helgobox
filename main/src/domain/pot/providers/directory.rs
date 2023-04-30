@@ -1,17 +1,22 @@
 use crate::domain::pot::provider_database::{
-    Database, InnerFilterItemCollections, ProviderContext, SortablePresetId, FIL_IS_FAVORITE_TRUE,
-    FIL_IS_USER_PRESET_FALSE,
+    Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    BuildInput, FiledBasedPresetKind, FilterItemId, InnerPresetId, Preset, PresetCommon, PresetKind,
+    BuildInput, FiledBasedPresetKind, Filters, InnerPresetId, PluginId, PotFilterExcludeList,
+    Preset, PresetCommon, PresetKind,
 };
 use std::borrow::Cow;
 
+use crate::domain::pot::plugins::{PluginCore, PluginDatabase};
+use either::Either;
+use enumset::{enum_set, EnumSet};
+use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::{fs, iter};
 use walkdir::WalkDir;
 
 pub struct DirectoryDatabase {
@@ -50,11 +55,30 @@ impl DirectoryDatabase {
         };
         Ok(db)
     }
+    fn query_presets_internal<'a>(
+        &'a self,
+        filters: &'a Filters,
+        excludes: &'a PotFilterExcludeList,
+    ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
+        let matches = !filters.wants_factory_presets_only()
+            && !filters.wants_favorites_only()
+            && !filters.any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
+        if !matches {
+            return Either::Left(iter::empty());
+        }
+        let iter = self.entries.iter().enumerate().filter(|(_, e)| {
+            e.plugin_cores
+                .values()
+                .any(|core| filters.plugin_core_matches(core, excludes))
+        });
+        Either::Right(iter)
+    }
 }
 
 struct PresetEntry {
     preset_name: String,
     relative_path: String,
+    plugin_cores: HashMap<PluginId, PluginCore>,
 }
 
 impl Database for DirectoryDatabase {
@@ -66,7 +90,11 @@ impl Database for DirectoryDatabase {
         self.description.into()
     }
 
-    fn refresh(&mut self, _: &ProviderContext) -> Result<(), Box<dyn Error>> {
+    fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
+        enum_set!(PotFilterKind::Bank)
+    }
+
+    fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
         self.entries = WalkDir::new(&self.root_dir)
             .follow_links(true)
             .into_iter()
@@ -85,6 +113,8 @@ impl Database for DirectoryDatabase {
                 let preset_entry = PresetEntry {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
                     relative_path: relative_path.to_str()?.to_string(),
+                    plugin_cores: find_used_plugins(entry.path(), ctx.plugin_db)
+                        .unwrap_or_default(),
                 };
                 Some(preset_entry)
             })
@@ -95,9 +125,19 @@ impl Database for DirectoryDatabase {
     fn query_filter_collections(
         &self,
         _: &ProviderContext,
-        _: &BuildInput,
+        input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        Ok(Default::default())
+        let mut filter_settings = input.filters;
+        filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
+        let product_items = self
+            .query_presets_internal(&filter_settings, &input.filter_exclude_list)
+            .flat_map(|(_, entry)| entry.plugin_cores.values().map(|core| core.product_id))
+            .unique()
+            .map(InnerFilterItem::Product)
+            .collect();
+        let mut collections = InnerFilterItemCollections::empty();
+        collections.set(PotFilterKind::Bank, product_items);
+        Ok(collections)
     }
 
     fn query_presets(
@@ -105,31 +145,10 @@ impl Database for DirectoryDatabase {
         _: &ProviderContext,
         input: &BuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        for (kind, filter) in input.filters.iter() {
-            use PotFilterKind::*;
-            let matches = match kind {
-                IsUser => filter != Some(FilterItemId(Some(FIL_IS_USER_PRESET_FALSE))),
-                IsFavorite => filter != Some(FilterItemId(Some(FIL_IS_FAVORITE_TRUE))),
-                ProductKind | Bank | SubBank | Category | SubCategory | Mode => {
-                    matches!(filter, None | Some(FilterItemId::NONE))
-                }
-                _ => true,
-            };
-            if !matches {
-                return Ok(vec![]);
-            }
-        }
         let preset_ids = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter_map(|(i, preset_entry)| {
-                if !input.search_evaluator.matches(&preset_entry.preset_name) {
-                    return None;
-                }
-                let preset_id = SortablePresetId::new(i as _, preset_entry.preset_name.clone());
-                Some(preset_id)
-            })
+            .query_presets_internal(&input.filters, &input.filter_exclude_list)
+            .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
+            .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();
         Ok(preset_ids)
     }
@@ -166,4 +185,34 @@ impl Database for DirectoryDatabase {
     ) -> Option<PathBuf> {
         None
     }
+}
+
+/// Finds used plug-ins in a REAPER-XML-like text file (e.g. RPP, RfxChain, RTrackTemplate).
+///
+/// Examples entries:
+///
+///     <VST "VSTi: Zebra2 (u-he)" Zebra2.vst 0 Schmackes 1397572658<565354534D44327A6562726132000000> ""
+///     <VST "VSTi: ReaSamplOmatic5000 (Cockos)"
+///     <CLAP "CLAPi: Surge XT (Surge Synth Team)"
+fn find_used_plugins(
+    path: &Path,
+    plugin_db: &PluginDatabase,
+) -> Result<HashMap<PluginId, PluginCore>, Box<dyn Error>> {
+    // TODO-high It would be better to look for the unique plug-in ID.
+    let regex = regex!(r#"(?m)^\s*<(VST|CLAP) "(.*?)""#);
+    let content = fs::read_to_string(path)?;
+    let map = regex
+        .captures_iter(&content)
+        .filter_map(|captures| {
+            let name = captures.get(2)?.as_str();
+            let plugin = plugin_db.plugins().find(|p| {
+                // TODO-medium Testing containment is not very good. Also, we don't consider the
+                //  plug-in framework. Really, we should extract plug-in IDs!
+                name.contains(&p.common.name)
+            })?;
+            dbg!(&plugin.common.name);
+            Some((plugin.common.core.id, plugin.common.core.clone()))
+        })
+        .collect();
+    Ok(map)
 }
