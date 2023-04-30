@@ -7,8 +7,8 @@ use crate::domain::pot::{
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
-    vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key, Layout, RichText,
-    ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
+    popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key,
+    Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
@@ -200,7 +200,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .show_inside(ui, |ui| {
                     // General controls
                     ui.horizontal(|ui| {
-                        ui.menu_button(RichText::new("Menu").size(TOOLBAR_SIZE), |ui| {
+                        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
                             ui.checkbox(&mut state.paint_continuously, "Paint continuously")
                                 .on_hover_text(
                                     "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
@@ -222,6 +222,30 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             .clicked() {
                             pot_unit.refresh_pot(state.pot_unit.clone());
                         }
+                        let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
+                        let help_id = ui.make_persistent_id("help");
+                        if help_button.clicked() {
+                            ui.memory_mut(|mem| mem.toggle_popup(help_id));
+                        }
+                        popup_below_widget(ui, help_id, &help_button, |ui| {
+                            let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+                            TableBuilder::new(ui)
+                                .column(Column::auto().at_least(200.0))
+                                .column(Column::remainder())
+                                .cell_layout(Layout::left_to_right(Align::Center))
+                                .body(|mut body| {
+                                    for (interaction, reaction) in HELP.iter() {
+                                        body.row(30.0, |mut row| {
+                                            row.col(|ui| {
+                                                ui.strong(format!("{interaction}:"));
+                                            });
+                                            row.col(|ui| {
+                                                ui.label(*reaction);
+                                            });
+                                        });
+                                    }
+                                });
+                        });
                         // Spinner
                         if background_task_elapsed.is_some() {
                             ui.spinner();
@@ -381,7 +405,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 // Settings
                 ui.horizontal(|ui| {
                     // Options
-                    ui.menu_button(RichText::new("Menu").size(TOOLBAR_SIZE), |ui| {
+                    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
                         // Wildcards
                         let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
                         ui.checkbox(
@@ -614,7 +638,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 let button = ui.add_sized(ui.available_size(), button)
                                     .on_hover_ui(|ui| {
                                         let _ = pot_db().try_with_db(preset_id.database_id, |db| {
-                                            ui.label(format!("Database: {}", db.name()));
+                                            ui.label(format!("from database \"{}\"", db.name()));
                                         });
                                     });
                                 if let Ok(Some(preset)) = preset.as_ref() {
@@ -983,3 +1007,12 @@ fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toa
 }
 
 const TOOLBAR_SIZE: f32 = 15.0;
+
+const HELP: &[(&str, &str)] = &[
+    ("Click preset", "Select it (and preview it if enabled)"),
+    ("Double-click preset", "Load it"),
+    ("Up/down arrays", "Navigate in preset list"),
+    ("Enter", "Load currently selected preset"),
+    ("Type letters", "Enter search text"),
+    ("Ctrl/Cmd + Backspace", "Clear search expression"),
+];
