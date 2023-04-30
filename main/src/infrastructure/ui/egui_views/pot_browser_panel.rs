@@ -564,9 +564,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     .striped(true)
                     .resizable(true)
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                    // Preset name
                     .column(Column::auto())
-                    .column(Column::auto())
-                    .column(Column::auto().at_most(150.0))
+                    // Plug-in or product
+                    .column(Column::initial(100.0).clip(true).at_least(100.0))
+                    // Extension
                     .column(Column::remainder())
                     .min_scrolled_height(0.0);
 
@@ -585,13 +587,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             ui.strong("Name");
                         });
                         header.col(|ui| {
-                            ui.strong("Database");
+                            ui.strong("Plug-in/product");
                         });
                         header.col(|ui| {
-                            ui.strong("Product");
-                        });
-                        header.col(|ui| {
-                            ui.strong("Extension");
+                            ui.strong("Ext");
                         });
                     })
                     .body(|body| {
@@ -601,6 +600,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             // If we would insist on getting the lock, the GUI could freeze while
                             // the pot database has a write lock, which can happen during refresh.
                             let preset = pot_db().try_find_preset_by_id(preset_id);
+                            // Name
                             row.col(|ui| {
                                 let text = match preset.as_ref() {
                                     Err(_) => "⏳",
@@ -611,7 +611,12 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 if Some(preset_id) == pot_unit.preset_id() {
                                     button = button.fill(Color32::LIGHT_BLUE);
                                 }
-                                let button = ui.add_sized(ui.available_size(), button);
+                                let button = ui.add_sized(ui.available_size(), button)
+                                    .on_hover_ui(|ui| {
+                                        let _ = pot_db().try_with_db(preset_id.database_id, |db| {
+                                            ui.label(format!("Database: {}", db.name()));
+                                        });
+                                    });
                                 if let Ok(Some(preset)) = preset.as_ref() {
                                     if button.clicked() {
                                         if state.auto_preview {
@@ -624,19 +629,17 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     }
                                 }
                             });
-                            row.col(|ui| {
-                                let _ = pot_db().try_with_db(preset_id.database_id, |db| {
-                                    ui.label(db.name());
-                                });
-                            });
                             let Ok(Some(preset)) = preset.as_ref() else {
                                return;
                             };
+                            // Product
                             row.col(|ui| {
                                 if let Some(n) = preset.common.product_name.as_ref() {
-                                    ui.label(n);
+                                    ui.label(n)
+                                        .on_hover_text(n);
                                 }
                             });
+                            // Extension
                             row.col(|ui| {
                                 let text = match &preset.kind {
                                     PresetKind::FileBased(k) => &k.file_ext,

@@ -198,7 +198,7 @@ fn find_used_plugins(
     path: &Path,
     plugin_db: &PluginDatabase,
 ) -> Result<HashMap<PluginId, PluginCore>, Box<dyn Error>> {
-    // TODO-high It would be better to look for the unique plug-in ID.
+    // TODO-high-pot It would be better to look for the unique plug-in ID.
     let regex = regex!(r#"(?m)^\s*<(VST|CLAP) "(.*?)""#);
     let content = fs::read_to_string(path)?;
     let map = regex
@@ -210,7 +210,6 @@ fn find_used_plugins(
                 //  plug-in framework. Really, we should extract plug-in IDs!
                 name.contains(&p.common.name)
             })?;
-            dbg!(&plugin.common.name);
             Some((plugin.common.core.id, plugin.common.core.clone()))
         })
         .collect();

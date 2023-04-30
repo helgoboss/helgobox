@@ -70,7 +70,6 @@ impl Database for DefaultsDatabase {
         input: &BuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_settings = input.filters;
-        // TODO-high Respect global exclusions
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
             .query_presets_internal(&filter_settings, &input.filter_exclude_list)
