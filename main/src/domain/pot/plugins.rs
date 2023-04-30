@@ -140,7 +140,7 @@ pub struct PluginCore {
 
 impl Display for PluginCommon {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.core.id.kind_name())?;
+        f.write_str(self.core.id.kind_name())?;
         if let Some(ProductKind::Instrument) = self.core.product_kind {
             f.write_str("i")?;
         }
@@ -251,8 +251,7 @@ fn crawl_js_plugins(
                     core: PluginCore {
                         id: PluginId::js(relative_path).ok()?,
                         product_kind,
-                        product_id: product_accumulator
-                            .add_js_product(js_desc.to_string(), product_kind),
+                        product_id: product_accumulator.add_js_product(js_desc, product_kind),
                     },
                 },
                 kind: PluginKind::Js(JsPlugin {
@@ -477,7 +476,7 @@ fn read_js_desc_from_file(path: &Path) -> Option<String> {
             break;
         }
         let line = buffer.trim();
-        if let Some((left, right)) = line.split_once(":") {
+        if let Some((left, right)) = line.split_once(':') {
             if left == "desc" {
                 return Some(right.trim().to_string());
             }

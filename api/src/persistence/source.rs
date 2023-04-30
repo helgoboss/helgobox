@@ -6,11 +6,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use virt::*;
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 #[allow(clippy::enum_variant_names)]
 pub enum Source {
     // None
+    #[default]
     #[serde(rename = "None")]
     NoneSource,
     // REAPER
@@ -45,12 +46,6 @@ pub enum Source {
     Key(KeySource),
     // Virtual
     Virtual(VirtualSource),
-}
-
-impl Default for Source {
-    fn default() -> Self {
-        Source::NoneSource
-    }
 }
 
 // Only makes sense for sources that support both control *and* feedback.
@@ -204,6 +199,7 @@ mod midi {
         Debug,
         PartialEq,
         Eq,
+        Default,
         Serialize,
         Deserialize,
         IntoEnumIterator,
@@ -214,6 +210,7 @@ mod midi {
     )]
     #[repr(usize)]
     pub enum MidiScriptKind {
+        #[default]
         #[serde(rename = "eel")]
         #[display(fmt = "EEL")]
         Eel,
@@ -222,14 +219,9 @@ mod midi {
         Lua,
     }
 
-    impl Default for MidiScriptKind {
-        fn default() -> Self {
-            MidiScriptKind::Eel
-        }
-    }
-
-    #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
     pub enum SourceCharacter {
+        #[default]
         Range,
         Button,
         // 127 = decrement;  0 = none;  1 = increment
@@ -241,23 +233,12 @@ mod midi {
         StatefulButton,
     }
 
-    impl Default for SourceCharacter {
-        fn default() -> Self {
-            SourceCharacter::Range
-        }
-    }
-
-    #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
     pub enum MidiClockTransportMessage {
+        #[default]
         Start,
         Continue,
         Stop,
-    }
-
-    impl Default for MidiClockTransportMessage {
-        fn default() -> Self {
-            MidiClockTransportMessage::Start
-        }
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -294,21 +275,16 @@ mod midi {
         pub scope: Option<MackieSevenSegmentDisplayScope>,
     }
 
-    #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
     pub enum MackieSevenSegmentDisplayScope {
         All,
+        #[default]
         Assignment,
         Tc,
         TcHoursBars,
         TcMinutesBeats,
         TcSecondsSub,
         TcFramesTicks,
-    }
-
-    impl Default for MackieSevenSegmentDisplayScope {
-        fn default() -> Self {
-            MackieSevenSegmentDisplayScope::Assignment
-        }
     }
 
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -948,6 +948,7 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -959,6 +960,7 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
 pub enum ActionInvocationType {
     #[display(fmt = "Trigger")]
     Trigger = 0,
+    #[default]
     #[display(fmt = "Absolute 14-bit")]
     Absolute14Bit = 1,
     #[display(fmt = "Relative")]
@@ -973,18 +975,13 @@ impl ActionInvocationType {
     }
 }
 
-impl Default for ActionInvocationType {
-    fn default() -> Self {
-        ActionInvocationType::Absolute14Bit
-    }
-}
-
 #[derive(
     Copy,
     Clone,
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -994,6 +991,7 @@ impl Default for ActionInvocationType {
 )]
 #[repr(usize)]
 pub enum TransportAction {
+    #[default]
     #[serde(rename = "playStop")]
     #[display(fmt = "Play/stop")]
     PlayStop,
@@ -1012,12 +1010,6 @@ pub enum TransportAction {
     #[serde(rename = "repeat")]
     #[display(fmt = "Repeat")]
     Repeat,
-}
-
-impl Default for TransportAction {
-    fn default() -> Self {
-        TransportAction::PlayStop
-    }
 }
 
 impl TransportAction {
@@ -1187,6 +1179,7 @@ pub fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -1196,6 +1189,9 @@ pub fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
 )]
 #[repr(usize)]
 pub enum SoloBehavior {
+    // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
+    // initial idea of being the number one tool for very project-specific mappings.
+    #[default]
     #[display(fmt = "Solo in place")]
     InPlace,
     #[display(fmt = "Solo (ignore routing)")]
@@ -1266,14 +1262,6 @@ impl Default for TrackGangBehavior {
     }
 }
 
-impl Default for SoloBehavior {
-    fn default() -> Self {
-        // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
-        // initial idea of being the number one tool for very project-specific mappings.
-        SoloBehavior::InPlace
-    }
-}
-
 /// Returns if "Mouse click on volume/pan faders and track buttons changes track selection"
 /// is enabled in the REAPER preferences.
 fn track_sel_on_mouse_is_enabled() -> bool {
@@ -1307,6 +1295,7 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
     PartialEq,
     Eq,
     Hash,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -1316,6 +1305,7 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
 )]
 #[repr(usize)]
 pub enum TrackExclusivity {
+    #[default]
     #[display(fmt = "No")]
     NonExclusive,
     #[display(fmt = "Within project")]
@@ -1326,12 +1316,6 @@ pub enum TrackExclusivity {
     ExclusiveWithinProjectOnOnly,
     #[display(fmt = "Within folder (on only)")]
     ExclusiveWithinFolderOnOnly,
-}
-
-impl Default for TrackExclusivity {
-    fn default() -> Self {
-        TrackExclusivity::NonExclusive
-    }
 }
 
 impl TrackExclusivity {
@@ -1351,6 +1335,7 @@ impl TrackExclusivity {
     PartialEq,
     Eq,
     Hash,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -1360,18 +1345,13 @@ impl TrackExclusivity {
 )]
 #[repr(usize)]
 pub enum Exclusivity {
+    #[default]
     #[display(fmt = "Non-exclusive")]
     NonExclusive,
     #[display(fmt = "Exclusive")]
     Exclusive,
     #[display(fmt = "Exclusive (on only)")]
     ExclusiveOnOnly,
-}
-
-impl Default for Exclusivity {
-    fn default() -> Self {
-        Exclusivity::NonExclusive
-    }
 }
 
 #[derive(
@@ -1381,6 +1361,7 @@ impl Default for Exclusivity {
     PartialEq,
     Eq,
     Hash,
+    Default,
     IntoEnumIterator,
     TryFromPrimitive,
     IntoPrimitive,
@@ -1388,16 +1369,11 @@ impl Default for Exclusivity {
 )]
 #[repr(usize)]
 pub enum SimpleExclusivity {
+    #[default]
     #[display(fmt = "Non-exclusive")]
     NonExclusive,
     #[display(fmt = "Exclusive")]
     Exclusive,
-}
-
-impl Default for SimpleExclusivity {
-    fn default() -> Self {
-        SimpleExclusivity::NonExclusive
-    }
 }
 
 impl From<Exclusivity> for SimpleExclusivity {

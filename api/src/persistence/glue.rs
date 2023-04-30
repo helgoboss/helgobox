@@ -70,19 +70,14 @@ pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
     pub value: HashMap<K, V>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub enum AbsoluteMode {
+    #[default]
     Normal,
     IncrementalButton,
     ToggleButton,
     MakeRelative,
     PerformanceControl,
-}
-
-impl Default for AbsoluteMode {
-    fn default() -> Self {
-        AbsoluteMode::Normal
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

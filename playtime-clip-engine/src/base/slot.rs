@@ -841,11 +841,12 @@ impl Slot {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 enum SlotState {
     /// Either empty or filled.
     ///
     /// Can be overdubbing (check play state).
+    #[default]
     Normal,
     /// Used to prevent double invocation during overdubbing acknowledgement phase.
     RequestedOverdubbing,
@@ -870,12 +871,6 @@ struct RecordingState {
 impl SlotState {
     pub fn is_pretty_much_recording(&self) -> bool {
         !matches!(self, Self::Normal)
-    }
-}
-
-impl Default for SlotState {
-    fn default() -> Self {
-        SlotState::Normal
     }
 }
 

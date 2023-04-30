@@ -48,11 +48,7 @@ impl DirectoryDatabase {
             name: config.name,
             entries: Default::default(),
             root_dir: config.root_dir,
-            valid_extensions: config
-                .valid_extensions
-                .into_iter()
-                .map(OsStr::new)
-                .collect(),
+            valid_extensions: config.valid_extensions.iter().map(OsStr::new).collect(),
             publish_relative_path: config.publish_relative_path,
             description: config.description,
         };
@@ -227,9 +223,9 @@ fn find_used_plugins(
     Ok(map)
 }
 
-fn detect_plugin_from_rxml_line<'a, 'b>(
+fn detect_plugin_from_rxml_line<'a>(
     plugin_db: &'a PluginDatabase,
-    line: &'b str,
+    line: &str,
 ) -> Option<&'a Plugin> {
     let is_fx_line = ["<VST ", "<CLAP ", "<JS "]
         .into_iter()

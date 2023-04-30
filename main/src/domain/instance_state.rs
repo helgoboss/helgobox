@@ -285,7 +285,7 @@ impl InstanceState {
     ///
     /// Returns an error if the necessary pot database is not available.
     pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
-        Ok(self.pot_unit.loaded(&self.instance_feedback_event_sender)?)
+        self.pot_unit.loaded(&self.instance_feedback_event_sender)
     }
 
     /// Restores a pot unit state from persistent data.

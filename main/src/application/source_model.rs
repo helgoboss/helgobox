@@ -941,6 +941,7 @@ pub const KEY_UNDEFINED_LABEL: &str = "<Key undefined>";
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -953,6 +954,7 @@ pub enum SourceCategory {
     #[serde(rename = "never")]
     #[display(fmt = "None")]
     Never,
+    #[default]
     #[serde(rename = "midi")]
     #[display(fmt = "MIDI")]
     Midi,
@@ -995,12 +997,6 @@ impl SourceCategory {
     }
 }
 
-impl Default for SourceCategory {
-    fn default() -> Self {
-        SourceCategory::Midi
-    }
-}
-
 /// Type of a MIDI source
 #[derive(
     Clone,
@@ -1008,6 +1004,7 @@ impl Default for SourceCategory {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -1017,6 +1014,7 @@ impl Default for SourceCategory {
 )]
 #[repr(usize)]
 pub enum MidiSourceType {
+    #[default]
     #[display(fmt = "CC value")]
     ControlChangeValue = 0,
     #[display(fmt = "Note velocity")]
@@ -1045,12 +1043,6 @@ pub enum MidiSourceType {
     Display = 12,
     #[display(fmt = "Specific program change")]
     SpecificProgramChange = 13,
-}
-
-impl Default for MidiSourceType {
-    fn default() -> Self {
-        MidiSourceType::ControlChangeValue
-    }
 }
 
 impl MidiSourceType {
@@ -1150,6 +1142,7 @@ impl MidiSourceType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -1159,18 +1152,13 @@ impl MidiSourceType {
 )]
 #[repr(usize)]
 pub enum VirtualControlElementType {
+    #[default]
     #[serde(rename = "multi")]
     #[display(fmt = "Multi")]
     Multi,
     #[serde(rename = "button")]
     #[display(fmt = "Button")]
     Button,
-}
-
-impl Default for VirtualControlElementType {
-    fn default() -> Self {
-        VirtualControlElementType::Multi
-    }
 }
 
 impl VirtualControlElementType {
@@ -1206,6 +1194,7 @@ impl VirtualControlElementType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -1215,6 +1204,7 @@ impl VirtualControlElementType {
 )]
 #[repr(usize)]
 pub enum ReaperSourceType {
+    #[default]
     #[serde(rename = "midi-device-changes")]
     #[display(fmt = "MIDI device changes")]
     MidiDeviceChanges,
@@ -1230,12 +1220,6 @@ pub enum ReaperSourceType {
     #[serde(rename = "speech")]
     #[display(fmt = "Speech (feedback only, no Linux)")]
     Speech,
-}
-
-impl Default for ReaperSourceType {
-    fn default() -> Self {
-        ReaperSourceType::MidiDeviceChanges
-    }
 }
 
 impl ReaperSourceType {

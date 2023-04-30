@@ -153,6 +153,7 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     PartialEq,
     Eq,
     Hash,
+    Default,
     serde_repr::Serialize_repr,
     serde_repr::Deserialize_repr,
     enum_iterator::IntoEnumIterator,
@@ -162,15 +163,10 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
 )]
 #[repr(usize)]
 pub enum TouchedTrackParameterType {
+    #[default]
     Volume,
     Pan,
     Width,
-}
-
-impl Default for TouchedTrackParameterType {
-    fn default() -> Self {
-        TouchedTrackParameterType::Volume
-    }
 }
 
 impl TouchedTrackParameterType {

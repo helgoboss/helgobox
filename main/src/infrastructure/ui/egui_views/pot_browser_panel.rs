@@ -115,10 +115,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 );
             }
             KeyAction::ExtendSearchExpression(text) => {
-                pot_unit
-                    .runtime_state
-                    .search_expression
-                    .extend(text.chars());
+                pot_unit.runtime_state.search_expression.push_str(&text);
                 pot_unit.rebuild_collections(
                     state.pot_unit.clone(),
                     Some(ChangeHint::SearchExpression),
@@ -648,7 +645,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                         pot_unit.set_preset_id(Some(preset_id));
                                     }
                                     if button.double_clicked() {
-                                        load_preset_and_regain_focus(&preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
+                                        load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
                                     }
                                 }
                             });

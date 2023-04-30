@@ -73,7 +73,7 @@ impl Database for DefaultsDatabase {
         filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
             .query_presets_internal(&filter_settings, &input.filter_exclude_list)
-            .filter_map(|(_, plugin)| Some(plugin.core.product_id))
+            .map(|(_, plugin)| plugin.core.product_id)
             .unique()
             .map(InnerFilterItem::Product)
             .collect();

@@ -3495,6 +3495,7 @@ pub fn get_non_present_bookmark_label(
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -3504,6 +3505,7 @@ pub fn get_non_present_bookmark_label(
 )]
 #[repr(usize)]
 pub enum TargetCategory {
+    #[default]
     #[serde(rename = "reaper")]
     #[display(fmt = "Real")]
     Reaper,
@@ -3530,12 +3532,6 @@ impl TargetCategory {
                 Virtual => false,
             },
         }
-    }
-}
-
-impl Default for TargetCategory {
-    fn default() -> Self {
-        TargetCategory::Reaper
     }
 }
 

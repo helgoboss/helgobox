@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -19,6 +20,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[repr(usize)]
 pub enum ActivationType {
+    #[default]
     #[serde(rename = "always")]
     #[display(fmt = "Always")]
     Always,
@@ -37,12 +39,6 @@ pub enum ActivationType {
     #[serde(rename = "target-value")]
     #[display(fmt = "When target value met")]
     TargetValue,
-}
-
-impl Default for ActivationType {
-    fn default() -> Self {
-        ActivationType::Always
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Default)]

@@ -27,8 +27,8 @@ use std::time::{Duration, Instant};
 
 pub fn pot_db() -> &'static PotDatabase {
     use once_cell::sync::Lazy;
-    static POT_DB: Lazy<PotDatabase> = Lazy::new(|| PotDatabase::open());
-    &*POT_DB
+    static POT_DB: Lazy<PotDatabase> = Lazy::new(PotDatabase::open);
+    &POT_DB
 }
 
 type BoxedDatabase = Box<dyn Database + Send + Sync>;
@@ -130,13 +130,15 @@ impl PotDatabase {
         let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
         let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
-        let mut total_output = BuildOutput::default();
-        total_output.supported_filter_kinds = enum_set!(
-            PotFilterKind::Database
-                | PotFilterKind::IsUser
-                | PotFilterKind::IsFavorite
-                | PotFilterKind::ProductKind
-        );
+        let mut total_output = BuildOutput {
+            supported_filter_kinds: enum_set!(
+                PotFilterKind::Database
+                    | PotFilterKind::IsUser
+                    | PotFilterKind::IsFavorite
+                    | PotFilterKind::ProductKind
+            ),
+            ..Default::default()
+        };
         measure_duration(&mut total_output.stats.filter_query_duration, || {
             if input.affected_kinds.contains(PotFilterKind::IsUser) {
                 total_output

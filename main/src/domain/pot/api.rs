@@ -254,7 +254,7 @@ impl Filters {
     ) -> &OptFilter {
         let category = &self.0[parent_kind];
         if category == &Some(FilterItemId::NONE) {
-            &category
+            category
         } else {
             &self.0[sub_kind]
         }
@@ -300,7 +300,7 @@ impl PotFilterExcludeList {
     pub fn normal_excludes_by_kind(&self, kind: PotFilterKind) -> impl Iterator<Item = &Fil> + '_ {
         self.exluded_items[kind]
             .iter()
-            .filter_map(|id| Some(id.0.as_ref()?))
+            .filter_map(|id| id.0.as_ref())
     }
 
     pub fn contains_none(&self, kind: PotFilterKind) -> bool {
@@ -387,6 +387,6 @@ impl CurrentPreset {
     }
 
     pub fn has_params(&self) -> bool {
-        self.macro_param_banks.len() > 0
+        !self.macro_param_banks.is_empty()
     }
 }

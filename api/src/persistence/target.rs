@@ -1154,6 +1154,10 @@ pub struct LoadPotPresetTarget {
 }
 
 #[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
     Hash,
     Debug,
     Serialize,
@@ -1166,6 +1170,7 @@ pub struct LoadPotPresetTarget {
     enum_map::Enum,
     enumset::EnumSetType,
 )]
+#[enumset(no_super_impls)]
 #[repr(usize)]
 pub enum PotFilterKind {
     #[display(fmt = "Database")]
@@ -1651,17 +1656,12 @@ pub enum TrackArea {
     Mcp,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub enum SoloBehavior {
+    #[default]
     InPlace,
     IgnoreRouting,
     ReaperPreference,
-}
-
-impl Default for SoloBehavior {
-    fn default() -> Self {
-        SoloBehavior::InPlace
-    }
 }
 
 #[derive(
@@ -1670,6 +1670,7 @@ impl Default for SoloBehavior {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -1680,18 +1681,13 @@ impl Default for SoloBehavior {
 )]
 #[repr(usize)]
 pub enum SeekBehavior {
+    #[default]
     #[display(fmt = "Immediate")]
     Immediate,
     #[display(fmt = "Smooth")]
     Smooth,
     #[display(fmt = "Use REAPER preference")]
     ReaperPreference,
-}
-
-impl Default for SeekBehavior {
-    fn default() -> Self {
-        SeekBehavior::Immediate
-    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

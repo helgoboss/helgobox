@@ -610,7 +610,7 @@ impl RuntimePotUnit {
         let affected_kinds = affected_kinds(change_hint);
         let build_input = BuildInput {
             affected_kinds,
-            filters: self.runtime_state.filters.clone(),
+            filters: self.runtime_state.filters,
             search_evaluator: SearchEvaluator::new(
                 &self.runtime_state.search_expression,
                 self.runtime_state.use_wildcard_search,
@@ -831,7 +831,7 @@ impl FilterItem {
     pub fn sort_name(&self) -> &str {
         match &self.name {
             None => match &self.parent_name {
-                None => "".into(),
+                None => "",
                 Some(n) => n,
             },
             Some(n) => n,

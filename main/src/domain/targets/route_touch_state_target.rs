@@ -134,6 +134,7 @@ pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     PartialEq,
     Eq,
     Hash,
+    Default,
     serde::Serialize,
     serde::Deserialize,
     enum_iterator::IntoEnumIterator,
@@ -143,12 +144,7 @@ pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
 )]
 #[repr(usize)]
 pub enum TouchedRouteParameterType {
+    #[default]
     Volume,
     Pan,
-}
-
-impl Default for TouchedRouteParameterType {
-    fn default() -> Self {
-        TouchedRouteParameterType::Volume
-    }
 }

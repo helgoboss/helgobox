@@ -585,6 +585,7 @@ pub struct HitInstructionContext<'a> {
     PartialEq,
     Eq,
     Hash,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
@@ -641,6 +642,7 @@ pub enum ReaperTargetType {
 
     // FX parameter targets
     FxParameterTouchState = 47,
+    #[default]
     FxParameterValue = 1,
 
     // Pot targets
@@ -690,12 +692,6 @@ pub enum ReaperTargetType {
 impl Display for ReaperTargetType {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.write_str(self.definition().name())
-    }
-}
-
-impl Default for ReaperTargetType {
-    fn default() -> Self {
-        ReaperTargetType::FxParameterValue
     }
 }
 

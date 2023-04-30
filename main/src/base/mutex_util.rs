@@ -33,7 +33,7 @@ pub fn blocking_lock_arc<'a, T>(
     mutex: &'a Arc<Mutex<T>>,
     description: &'static str,
 ) -> MutexGuard<'a, T> {
-    blocking_lock(&*mutex, description)
+    blocking_lock(&**mutex, description)
 }
 
 /// Locks the given mutex.

@@ -98,7 +98,7 @@ impl Database for KompleteDatabase {
             .into_iter()
             .filter_map(|(id, name)| {
                 let product_id = ctx.plugin_db.products().find_map(|(i, p)| {
-                    if &name == &p.name {
+                    if name == p.name {
                         Some(i)
                     } else {
                         None
@@ -509,6 +509,7 @@ impl PresetDb {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn execute_preset_query<C, R>(
         &mut self,
         filter_settings: &Filters,
@@ -526,7 +527,7 @@ impl PresetDb {
         sql.select(select_clause);
         sql.from("k_sound_info i");
         if let Some(v) = from_more {
-            sql.from_more(v);
+            sql.more_from(v);
         }
         if let Some(v) = order_by {
             sql.order_by(v);
@@ -538,7 +539,7 @@ impl PresetDb {
             } else {
                 &TWO
             };
-            sql.from_more(CONTENT_PATH_JOIN);
+            sql.more_from(CONTENT_PATH_JOIN);
             sql.where_and_with_param("cp.content_type = ?", content_type);
         }
         // Filter on product/device type (= instrument, effect, loop or one shot)
@@ -616,7 +617,7 @@ impl PresetDb {
                     sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_category)")
                 }
                 Some(Fil::Komplete(id)) => {
-                    sql.from_more(CATEGORY_JOIN);
+                    sql.more_from(CATEGORY_JOIN);
                     sql.where_and_with_param("ic.category_id = ?", id);
                 }
                 _ => {
@@ -627,7 +628,7 @@ impl PresetDb {
             match &category_id.0 {
                 None => unreachable!("effective_sub_category() should have prevented this"),
                 Some(Fil::Komplete(id)) => {
-                    sql.from_more(CATEGORY_JOIN);
+                    sql.more_from(CATEGORY_JOIN);
                     sql.where_and_with_param(
                         r#"
                         ic.category_id IN (
@@ -649,7 +650,7 @@ impl PresetDb {
             match &mode_id.0 {
                 None => sql.where_and("i.id NOT IN (SELECT sound_info_id FROM k_sound_info_mode)"),
                 Some(Fil::Komplete(id)) => {
-                    sql.from_more(MODE_JOIN);
+                    sql.more_from(MODE_JOIN);
                     sql.where_and_with_param("im.mode_id = ?", id);
                 }
                 _ => {
@@ -683,11 +684,11 @@ impl PresetDb {
             let selector = match kind {
                 Bank | SubBank => "i.bank_chain_id",
                 Category | SubCategory => {
-                    sql.from_more(CATEGORY_JOIN);
+                    sql.more_from(CATEGORY_JOIN);
                     "ic.category_id"
                 }
                 Mode => {
-                    sql.from_more(MODE_JOIN);
+                    sql.more_from(MODE_JOIN);
                     "im.mode_id"
                 }
                 _ => continue,
@@ -873,7 +874,7 @@ impl<'a> Sql<'a> {
         self.from_main = value.into();
     }
 
-    pub fn from_more(&mut self, value: impl Into<Cow<'a, str>>) {
+    pub fn more_from(&mut self, value: impl Into<Cow<'a, str>>) {
         self.from_joins.insert(value.into());
     }
 

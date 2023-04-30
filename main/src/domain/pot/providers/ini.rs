@@ -113,7 +113,7 @@ impl Database for IniDatabase {
                         // Example: vst3-Zebra2-959560201.ini
                         // (interpret the number behind the dash as shell qualifier)
                         Some((left, right))
-                            if right.len() >= 5 && right.chars().all(|ch| ch.is_digit(10)) =>
+                            if right.len() >= 5 && right.chars().all(|ch| ch.is_ascii_digit()) =>
                         {
                             (left, Some(right))
                         }
@@ -133,8 +133,7 @@ impl Database for IniDatabase {
                             if !k.safe_file_name.starts_with(&file_name_prefix) {
                                 return false;
                             }
-                            let plugin_shell_qualifier =
-                                k.shell_qualifier.as_ref().map(|q| q.as_str());
+                            let plugin_shell_qualifier = k.shell_qualifier.as_deref();
                             if shell_qualifier != plugin_shell_qualifier {
                                 return false;
                             }
@@ -142,14 +141,14 @@ impl Database for IniDatabase {
                         }
                         PluginKind::Clap(k) => {
                             let safe_plugin_id = k.id.replace('.', "_");
-                            if plugin_identifier != &safe_plugin_id {
+                            if plugin_identifier != safe_plugin_id {
                                 return false;
                             }
                             true
                         }
                         PluginKind::Js(k) => {
                             let safe_path = k.path.replace('/', "_");
-                            if plugin_identifier != &safe_path {
+                            if plugin_identifier != safe_path {
                                 return false;
                             }
                             true
