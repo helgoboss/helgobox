@@ -12,6 +12,20 @@ pub fn open<S: Send + 'static>(
     state: S,
     run_ui: impl Fn(&egui::Context, &mut S) + Send + Sync + 'static,
 ) {
+    if cfg!(target_os = "linux") {
+        // Made some progress with egui on Linux, but it's wonky. Flickering. Keyboard input
+        // needs window to be refocused to work at all. And the worst: baseview makes the
+        // window code run in a new thread. On macOS and Windows, the run_ui code all runs
+        // in the main thread. Which is very convenient because it allows us to call REAPER
+        // functions. I think we need to bypass baseview on Linux and write our own little
+        // egui integration.
+        window.alert(
+            "ReaLearn",
+            "This feature is currently not supported on Linux",
+        );
+        window.close();
+        return;
+    }
     let title = title.into();
     window.set_text(title.as_str());
     let window_size = window.size();

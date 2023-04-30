@@ -1065,7 +1065,10 @@ impl MappingPanel {
                 None,
             );
         };
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         self.edit_script_in_advanced_editor(engine, help_url, get_value, set_value);
+        #[cfg(target_os = "linux")]
+        self.edit_script_in_simple_editor(engine, help_url, get_value, set_value);
     }
 
     fn edit_feedback_transformation_or_text_expression(&self) {
@@ -1163,6 +1166,7 @@ impl MappingPanel {
         self.open_extra_panel(editor);
     }
 
+    #[allow(dead_code)]
     fn edit_script_in_advanced_editor(
         &self,
         engine: Box<dyn ScriptEngine>,
