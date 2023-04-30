@@ -50,7 +50,7 @@ jobs:
             strip-cmd: strip
             profile: release
           - artifact: linux-aarch64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
             target: aarch64-unknown-linux-gnu
@@ -58,7 +58,7 @@ jobs:
             strip-cmd: aarch64-linux-gnu-strip
             profile: release
           - artifact: linux-armv7
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
             target: armv7-unknown-linux-gnueabihf
@@ -83,7 +83,7 @@ jobs:
       - run: rustup component add rustfmt
       # Install OS dependencies (Linux/macOS only)
       - name: Install native Linux dependencies
-        if: matrix.os == 'ubuntu-20.04'
+        if: startsWith(matrix.os, 'ubuntu-')
         run: |
           sudo apt-get update
           sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev libgtk-3-dev
@@ -112,7 +112,7 @@ jobs:
       # Strip debug symbols (Linux and macOS)
       # TODO-medium We could replace this with Cargo's recent built-in strip function
       - name: Strip debug symbols from Linux binary
-        if: matrix.os == 'ubuntu-20.04'
+        if: startsWith(matrix.os, 'ubuntu-')
         run: |
           cp target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }} target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
           ${{ matrix.strip-cmd }} target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
@@ -140,7 +140,7 @@ jobs:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/deps/librealearn.dylib.dSYM/
       - name: Upload Linux debug symbols to artifact
-        if: matrix.os == 'ubuntu-20.04'
+        if: startsWith(matrix.os, 'ubuntu-')
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
@@ -149,7 +149,7 @@ jobs:
   create-release:
     name: Publish release
     needs: build-release-artifacts
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Get tag name
         id: get_tag_name

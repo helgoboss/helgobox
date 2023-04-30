@@ -8,7 +8,7 @@ use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
 use egui::{
     popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key,
-    Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Widget,
+    Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Visuals, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, TableBuilder};
@@ -218,6 +218,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
                             .clicked() {
                             pot_unit.refresh_pot(state.pot_unit.clone());
+                        }
+                        if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE)).clicked() {
+                            let style = ui.style_mut();
+                            let new_visuals = if style.visuals.dark_mode {
+                                Visuals::light()
+                            }  else {
+                                Visuals::dark()
+                            };
+                            style.visuals = new_visuals;
                         }
                         let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
                         let help_id = ui.make_persistent_id("help");

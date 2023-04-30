@@ -9,7 +9,9 @@ rustflags = ["-Ctarget-feature=+crt-static"]
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-Ctarget-feature=+crt-static"]
 
+# This was an attempt to be compatible with older Linux versions (older libc).
 # Doesn't work for now because of: https://github.com/rust-lang/rust/issues/78210
+# Also see https://github.com/helgoboss/realearn/issues/829 for latest ideas.
 # TODO-medium Try again later. Not urgent.
 #[target.aarch64-unknown-linux-gnu]
 #rustflags = ["-Ctarget-feature=+crt-static"]
