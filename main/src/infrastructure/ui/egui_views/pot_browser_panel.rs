@@ -16,6 +16,7 @@ use egui_toast::Toasts;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use std::borrow::Cow;
 use std::error::Error;
 use std::mem;
 use std::time::Duration;
@@ -489,102 +490,114 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                         ui.label(format!("{}/{}ms", pot_unit.wasted_runs, pot_unit.wasted_duration.as_millis()));
                     });
                 }
+                // Info about selected preset
+                if let Some(preset) = pot_unit.preset() {
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.strong("Selected preset:");
+                        ui.label(preset.name());
+                    });
+                }
                 // Destination info
                 ui.separator();
-                ui.horizontal_wrapped(|ui| {
-                    // Track descriptor
-                    let current_project = Reaper::get().current_project();
-                    {
-                        const SPECIAL_TRACK_COUNT: usize = 2;
-                        ui.strong("Load into");
-                        let track_count = current_project.track_count();
-                        let old_track_code = match &mut pot_unit.destination_descriptor.track {
-                            DestinationTrackDescriptor::SelectedTrack => 0usize,
-                            DestinationTrackDescriptor::MasterTrack => 1usize,
-                            DestinationTrackDescriptor::Track(i) => {
-                                // If configured track index too high, set it to 
-                                // "new track at end of project".
-                                *i = (*i).min(track_count);
-                                *i as usize + SPECIAL_TRACK_COUNT
-                            }
-                        };
-                        let mut new_track_code = old_track_code;
-                        egui::ComboBox::from_id_source("tracks").show_index(
-                            ui,
-                            &mut new_track_code,
-                            SPECIAL_TRACK_COUNT + track_count as usize + 1,
-                            |code| {
-                                match code {
-                                    0 => "<Selected track>".to_string(),
-                                    1 => "<Master track>".to_string(),
-                                    _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
-                                        get_track_label(&track)
-                                    } else {
-                                        "<New track>".to_string()
-                                    }
+                ui.horizontal(|ui| {
+                    ScrollArea::horizontal().id_source("destination").show(ui, |ui| {
+                        // Track descriptor
+                        let current_project = Reaper::get().current_project();
+                        {
+                            const SPECIAL_TRACK_COUNT: usize = 2;
+                            ui.strong("Load into");
+                            let track_count = current_project.track_count();
+                            let old_track_code = match &mut pot_unit.destination_descriptor.track {
+                                DestinationTrackDescriptor::SelectedTrack => 0usize,
+                                DestinationTrackDescriptor::MasterTrack => 1usize,
+                                DestinationTrackDescriptor::Track(i) => {
+                                    // If configured track index too high, set it to 
+                                    // "new track at end of project".
+                                    *i = (*i).min(track_count);
+                                    *i as usize + SPECIAL_TRACK_COUNT
                                 }
-                            },
-                        );
-                        if new_track_code != old_track_code {
-                            let track_desc = match new_track_code {
-                                0 => DestinationTrackDescriptor::SelectedTrack,
-                                1 => DestinationTrackDescriptor::MasterTrack,
-                                c => DestinationTrackDescriptor::Track(c as u32 - SPECIAL_TRACK_COUNT as u32),
                             };
-                            pot_unit.destination_descriptor.track = track_desc;
-                        }
-                    }
-                    // Resolved track (if displaying it makes sense)
-                    let resolved_track = pot_unit.destination_descriptor.track.resolve(current_project);
-                    if pot_unit.destination_descriptor.track.is_dynamic() {
-                        ui.label("=");
-                        let track_label = match resolved_track.as_ref() {
-                            Ok(t) => {
-                                format!("\"{}\"", get_track_label(t))
-                            }
-                            Err(_) => {
-                                "None (add new)".to_string()
-                            }
-                        };
-                        ui.label(track_label);
-                    }
-                    // FX descriptor
-                    {
-                        if let Ok(t) = resolved_track.as_ref() {
-                            ui.label("at");
-                            let chain = t.normal_fx_chain();
-                            let fx_count = chain.fx_count();
-                            // If configured FX index too high, set it to "new FX at end of chain".
-                            pot_unit.destination_descriptor.fx_index =
-                                pot_unit.destination_descriptor.fx_index.min(fx_count);
-                            let mut fx_code = pot_unit.destination_descriptor.fx_index as usize;
-                            egui::ComboBox::from_id_source("fxs").show_index(
+                            let mut new_track_code = old_track_code;
+                            egui::ComboBox::from_id_source("tracks").show_index(
                                 ui,
-                                &mut fx_code,
-                                fx_count as usize + 1,
+                                &mut new_track_code,
+                                SPECIAL_TRACK_COUNT + track_count as usize + 1,
                                 |code| {
-                                    match chain.fx_by_index(code as _) {
-                                        None => {
-                                            "<New FX>".to_string()
-                                        }
-                                        Some(fx) => {
-                                            format!("{}. {}", code + 1, fx.name())
+                                    match code {
+                                        0 => "<Selected track>".to_string(),
+                                        1 => "<Master track>".to_string(),
+                                        _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
+                                            get_track_label(&track)
+                                        } else {
+                                            "<New track>".to_string()
                                         }
                                     }
                                 },
                             );
-                            pot_unit.destination_descriptor.fx_index = fx_code as _;
+                            if new_track_code != old_track_code {
+                                let track_desc = match new_track_code {
+                                    0 => DestinationTrackDescriptor::SelectedTrack,
+                                    1 => DestinationTrackDescriptor::MasterTrack,
+                                    c => DestinationTrackDescriptor::Track(c as u32 - SPECIAL_TRACK_COUNT as u32),
+                                };
+                                pot_unit.destination_descriptor.track = track_desc;
+                            }
                         }
-                    }
-                    // Resolved
-                    if let Some(fx) = &current_fx {
-                        if ui.small_button("Show FX").clicked() {
-                            fx.show_in_floating_window();
+                        // Resolved track (if displaying it makes sense)
+                        let resolved_track = pot_unit.destination_descriptor.track.resolve(current_project);
+                        if pot_unit.destination_descriptor.track.is_dynamic() {
+                            ui.label("=");
+                            let caption = match resolved_track.as_ref() {
+                                Ok(t) => {
+                                    format!("\"{}\"", get_track_label(t))
+                                }
+                                Err(_) => {
+                                    "None (add new)".to_string()
+                                }
+                            };
+                            let short_caption = shorten(caption.as_str().into(), 14);
+                            ui.label(short_caption).on_hover_text(caption);
                         }
-                        if ui.small_button("Show chain").clicked() {
-                            fx.show_in_chain();
+                        // FX descriptor
+                        {
+                            if let Ok(t) = resolved_track.as_ref() {
+                                ui.label("at");
+                                let chain = t.normal_fx_chain();
+                                let fx_count = chain.fx_count();
+                                // If configured FX index too high, set it to "new FX at end of chain".
+                                pot_unit.destination_descriptor.fx_index =
+                                    pot_unit.destination_descriptor.fx_index.min(fx_count);
+                                let mut fx_code = pot_unit.destination_descriptor.fx_index as usize;
+                                egui::ComboBox::from_id_source("fxs")
+                                    .show_index(
+                                        ui,
+                                        &mut fx_code,
+                                        fx_count as usize + 1,
+                                        |code| {
+                                            match chain.fx_by_index(code as _) {
+                                                None => {
+                                                    "<New FX>".to_string()
+                                                }
+                                                Some(fx) => {
+                                                    format!("{}. {}", code + 1, fx.name())
+                                                }
+                                            }
+                                        },
+                                    );
+                                pot_unit.destination_descriptor.fx_index = fx_code as _;
+                            }
                         }
-                    }
+                        // Resolved
+                        if let Some(fx) = &current_fx {
+                            if ui.small_button("Chain").on_hover_text("Shows the FX chain").clicked() {
+                                fx.show_in_chain();
+                            }
+                            if ui.small_button("FX").on_hover_text("Shows the FX").clicked() {
+                                fx.show_in_floating_window();
+                            }
+                        }
+                    });
                 });
                 // Preset table
                 ui.separator();
@@ -1021,3 +1034,26 @@ const HELP: &[(&str, &str)] = &[
     ("Type letters", "Enter search text"),
     ("(Ctrl+Alt)/(Cmd) + Backspace", "Clear search expression"),
 ];
+
+fn shorten(text: Cow<str>, max_len: usize) -> Cow<str> {
+    if text.len() > max_len {
+        let mut s = text.into_owned();
+        truncate_in_place(&mut s, max_len);
+        s.push('…');
+        s.into()
+    } else {
+        text
+    }
+}
+
+fn truncate_in_place(s: &mut String, max_chars: usize) {
+    let bytes = truncate(&s, max_chars).len();
+    s.truncate(bytes);
+}
+
+fn truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        None => s,
+        Some((idx, _)) => &s[..idx],
+    }
+}
