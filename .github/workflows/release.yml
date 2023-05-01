@@ -96,7 +96,8 @@ jobs:
       - name: Set MACOSX_DEPLOYMENT_TARGET
         if: matrix.target == 'aarch64-apple-darwin'
         run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
-      # Generate dialogs outside of Docker containers in cross builds because PHP is not available in container
+      # Generate dialogs outside of Docker containers in cross builds because PHP is not available in container.
+      # TODO-high-performance Update: Actually, now it is ... I added it to Cross.toml. So I guess we can remove this.
       - name: cargo test (for generating dialogs with php)
         if: matrix.use-cross == true
         uses: actions-rs/cargo@v1
