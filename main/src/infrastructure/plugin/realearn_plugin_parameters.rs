@@ -1,4 +1,7 @@
-use crate::base::{notification, NamedChannelSender, SendOrSyncWhatever, SenderToNormalThread};
+use crate::base::{
+    blocking_read_lock, blocking_write_lock, notification, NamedChannelSender, SendOrSyncWhatever,
+    SenderToNormalThread,
+};
 
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
@@ -140,11 +143,11 @@ impl RealearnPluginParameters {
     }
 
     pub fn params(&self) -> RwLockReadGuard<PluginParams> {
-        self.params.read().expect("reader should never panic")
+        blocking_read_lock(&self.params, "RealearnPluginParameters params")
     }
 
     fn params_mut(&self) -> RwLockWriteGuard<PluginParams> {
-        self.params.write().expect("writer should never panic")
+        blocking_write_lock(&self.params, "RealearnPluginParameters params_mut")
     }
 }
 
