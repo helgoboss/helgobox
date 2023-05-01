@@ -58,7 +58,10 @@ const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
-const PARAMETER_TASK_BULK_SIZE: usize = 32;
+// I raised this from 32 to the max channel size because of
+// https://github.com/helgoboss/realearn/issues/847 (otherwise it can easily happen with lots of
+// parameter modulation that the channel runs full)
+const PARAMETER_TASK_BULK_SIZE: usize = 500;
 
 pub type SharedMainProcessors<EH> = Rc<RefCell<Vec<MainProcessor<EH>>>>;
 
@@ -956,6 +959,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_parameter_tasks(&mut self) {
+        // In theory, this could be optimized by reducing the number of changes. E.g. if we
+        // find that we have multiple changes of one parameter, we could choose to just process
+        // the last one. I wanted to do that as part of
+        // https://github.com/helgoboss/realearn/issues/847 but chose to not do it ... because
+        // this optimization could potentially change control behavior if that parameter is used
+        // for control. Imagine a toggle mode ... then the number of invocations is relevant.
         let mut count = 0;
         while let Ok(task) = self.basics.channels.parameter_task_receiver.try_recv() {
             use ParameterMainTask::*;

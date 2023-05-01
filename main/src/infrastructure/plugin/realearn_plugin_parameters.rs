@@ -286,8 +286,9 @@ impl ParamContainer for Arc<RealearnPluginParameters> {
         let compartment_params = plugin_params.compartment_params_mut(compartment);
         *compartment_params = params;
         // Propagate
+        // send_if_space wegen https://github.com/helgoboss/realearn/issues/847
         self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateAllParams(plugin_params.clone()));
+            .send_if_space(ParameterMainTask::UpdateAllParams(plugin_params.clone()));
     }
 }
 
