@@ -3,7 +3,7 @@ use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
 use derivative::Derivative;
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
-use egui::{CentralPanel, Color32, RichText, Ui};
+use egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
     TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
@@ -80,15 +80,20 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 }
                 ui.hyperlink_to("Help", state.toolbox.help_url).clicked();
             });
-            let response = {
-                let mut content =
-                    blocking_lock(&state.shared_value, "AdvancedScriptEditor run_ui 2");
-                let text_edit = TextEdit::multiline(&mut *content).code_editor();
-                ui.add_sized(ui.available_size(), text_edit)
-            };
-            if response.changed() {
-                state.invalidate_and_send();
-            }
+            ScrollArea::vertical().show(ui, |ui| {
+                let response = {
+                    let mut content =
+                        blocking_lock(&state.shared_value, "AdvancedScriptEditor run_ui 2");
+                    let text_edit = TextEdit::multiline(&mut *content)
+                        .code_editor()
+                        // .desired_rows(10)
+                        .lock_focus(true);
+                    ui.add_sized(ui.available_size(), text_edit)
+                };
+                if response.changed() {
+                    state.invalidate_and_send();
+                }
+            });
         });
     CentralPanel::default().show(ctx, |ui| {
         if let Some(template_in_preview) = &state.template_in_preview {
