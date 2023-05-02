@@ -82,28 +82,20 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             150.0,
                             // Left: Toolbar
                             |ui, pot_unit| {
-                                ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
-                                    ui.checkbox(&mut state.paint_continuously, "Paint continuously")
-                                        .on_hover_text(
-                                            "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
-                                        );
-                                    ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
-                                        .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
-                                    {
-                                        let old = pot_unit.show_excluded_filter_items();
-                                        let mut new = pot_unit.show_excluded_filter_items();
-                                        ui.checkbox(&mut new, "Show excluded filters")
-                                            .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
-                                        if new != old {
-                                            pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
-                                        }
-                                    }
-                                });
+                                // Main options
+                                MainOptionsDropdown {
+                                    pot_unit,
+                                    auto_hide_sub_filters: &mut state.auto_hide_sub_filters,
+                                    paint_continuously: &mut state.paint_continuously,
+                                    shared_pot_unit: &state.pot_unit,
+                                }.show(ui);
+                                // Refresh button
                                 if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
                                     .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
                                     .clicked() {
                                     pot_unit.refresh_pot(state.pot_unit.clone());
                                 }
+                                // Theme button
                                 if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE))
                                     .on_hover_text("Switches between light and dark theme")
                                     .clicked() {
@@ -115,29 +107,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     };
                                     ctx.set_style(style);
                                 }
-                                let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
-                                let help_id = ui.make_persistent_id("help");
-                                if help_button.clicked() {
-                                    ui.memory_mut(|mem| mem.toggle_popup(help_id));
-                                }
-                                popup_below_widget(ui, help_id, &help_button, |ui| {
-                                    TableBuilder::new(ui)
-                                        .column(Column::auto().at_least(200.0))
-                                        .column(Column::remainder())
-                                        .cell_layout(Layout::left_to_right(Align::Center))
-                                        .body(|mut body| {
-                                            for (interaction, reaction) in HELP.iter() {
-                                                body.row(30.0, |mut row| {
-                                                    row.col(|ui| {
-                                                        ui.strong(format!("{interaction}:"));
-                                                    });
-                                                    row.col(|ui| {
-                                                        ui.label(*reaction);
-                                                    });
-                                                });
-                                            }
-                                        });
-                                });
+                                // Help button
+                                add_help_button(ui);
                                 // Spinner
                                 if background_task_elapsed.is_some() {
                                     ui.spinner();
@@ -146,21 +117,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             // Right: Mini filters
                             |ui, pot_unit| {
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                    let shown = add_filter_view_content_as_icons(
-                                        &state.pot_unit,
-                                        pot_unit,
-                                        PotFilterKind::IsUser,
-                                        ui,
-                                    );
-                                    if shown {
-                                        ui.separator();
-                                    }
-                                    add_filter_view_content_as_icons(
-                                        &state.pot_unit,
-                                        pot_unit,
-                                        PotFilterKind::IsFavorite,
-                                        ui,
-                                    );
+                                    add_mini_filters(&state.pot_unit, pot_unit, ui);
                                 });
                             }
                         );
@@ -638,6 +595,73 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
+}
+
+fn add_mini_filters(
+    shared_unit: &SharedRuntimePotUnit,
+    pot_unit: &mut MutexGuard<RuntimePotUnit>,
+    ui: &mut Ui,
+) {
+    let shown = add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsUser, ui);
+    if shown {
+        ui.separator();
+    }
+    add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsFavorite, ui);
+}
+
+fn add_help_button(ui: &mut Ui) {
+    let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
+    let help_id = ui.make_persistent_id("help");
+    if help_button.clicked() {
+        ui.memory_mut(|mem| mem.toggle_popup(help_id));
+    }
+    popup_below_widget(ui, help_id, &help_button, |ui| {
+        TableBuilder::new(ui)
+            .column(Column::auto().at_least(200.0))
+            .column(Column::remainder())
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .body(|mut body| {
+                for (interaction, reaction) in HELP.iter() {
+                    body.row(30.0, |mut row| {
+                        row.col(|ui| {
+                            ui.strong(format!("{interaction}:"));
+                        });
+                        row.col(|ui| {
+                            ui.label(*reaction);
+                        });
+                    });
+                }
+            });
+    });
+}
+
+struct MainOptionsDropdown<'a> {
+    pot_unit: &'a mut RuntimePotUnit,
+    auto_hide_sub_filters: &'a mut bool,
+    paint_continuously: &'a mut bool,
+    shared_pot_unit: &'a SharedRuntimePotUnit,
+}
+
+impl<'a> MainOptionsDropdown<'a> {
+    fn show(&mut self, ui: &mut Ui) {
+        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+            ui.checkbox(&mut self.paint_continuously, "Paint continuously")
+                .on_hover_text(
+                    "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
+                );
+            ui.checkbox(&mut self.auto_hide_sub_filters, "Auto-hide sub filters")
+                .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
+            {
+                let old = self.pot_unit.show_excluded_filter_items();
+                let mut new = self.pot_unit.show_excluded_filter_items();
+                ui.checkbox(&mut new, "Show excluded filters")
+                    .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
+                if new != old {
+                    self.pot_unit.set_show_excluded_filter_items(new, self.shared_pot_unit.clone());
+                }
+            }
+        });
+    }
 }
 
 fn show_current_preset_panel(
