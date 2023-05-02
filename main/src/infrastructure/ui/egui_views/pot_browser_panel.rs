@@ -232,93 +232,15 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 });
                 // Preset table
                 ui.separator();
-                let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
-                let preset_count = pot_unit.preset_count();
-                let mut table = TableBuilder::new(ui)
-                    .striped(true)
-                    .resizable(true)
-                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                    // Preset name
-                    .column(Column::auto().at_most(200.0))
-                    // Plug-in or product
-                    .column(Column::initial(200.0).clip(true).at_least(100.0))
-                    // Extension
-                    .column(Column::remainder())
-                    .min_scrolled_height(0.0);
-
-                if pot_unit.preset_id() != state.last_preset_id {
-                    let scroll_index = match pot_unit.preset_id() {
-                        None => 0,
-                        Some(id) => {
-                            pot_unit.find_index_of_preset(id).unwrap_or(0)
-                        }
-                    };
-                    table = table.scroll_to_row(scroll_index as usize, None);
-                }
-                table
-                    .header(20.0, |mut header| {
-                        header.col(|ui| {
-                            ui.strong("Name");
-                        });
-                        header.col(|ui| {
-                            ui.strong("Plug-in/product");
-                        });
-                        header.col(|ui| {
-                            ui.strong("Ext");
-                        });
-                    })
-                    .body(|body| {
-                        body.rows(text_height, preset_count as usize, |row_index, mut row| {
-                            let preset_id = pot_unit.find_preset_id_at_index(row_index as u32).unwrap();
-                            // We just try to get a mutex lock because this is called very often.
-                            // If we would insist on getting the lock, the GUI could freeze while
-                            // the pot database has a write lock, which can happen during refresh.
-                            let preset = pot_db().try_find_preset_by_id(preset_id);
-                            // Name
-                            row.col(|ui| {
-                                let text = match preset.as_ref() {
-                                    Err(_) => "⏳",
-                                    Ok(None) => "<Preset gone>",
-                                    Ok(Some(p)) => p.name(),
-                                };
-                                let mut button = Button::new(text).small();
-                                if Some(preset_id) == pot_unit.preset_id() {
-                                    button = button.fill(Color32::LIGHT_BLUE);
-                                }
-                                let button = ui.add_sized(ui.available_size(), button);
-                                if let Ok(Some(preset)) = preset.as_ref() {
-                                    if button.clicked() {
-                                        if state.auto_preview {
-                                            let _ = pot_unit.play_preview(preset_id);
-                                        }
-                                        pot_unit.set_preset_id(Some(preset_id));
-                                    }
-                                    if button.double_clicked() {
-                                        load_preset_and_regain_focus(preset, state.os_window, pot_unit, &mut toasts, state.load_preset_window_behavior);
-                                    }
-                                }
-                            });
-                            let Ok(Some(preset)) = preset.as_ref() else {
-                               return;
-                            };
-                            // Product
-                            row.col(|ui| {
-                                if let Some(n) = preset.common.product_name.as_ref() {
-                                    ui.label(n)
-                                        .on_hover_text(n);
-                                }
-                            });
-                            // Extension
-                            row.col(|ui| {
-                                let text = match &preset.kind {
-                                    PresetKind::FileBased(k) => &k.file_ext,
-                                    PresetKind::Internal(_) => "",
-                                    PresetKind::DefaultFactory(_) => "",
-                                };
-                                ui.label(text);
-                            });
-                        });
-                    });
+                let input = PresetTableInput {
+                    pot_unit,
+                    toasts: &mut toasts,
+                    last_preset_id: state.last_preset_id,
+                    auto_preview: state.auto_preview,
+                    os_window: state.os_window,
+                    load_preset_window_behavior: state.load_preset_window_behavior,
+                };
+                add_preset_table(input, ui);
             });
         });
     // Other stuff
@@ -331,6 +253,111 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
+}
+
+struct PresetTableInput<'a> {
+    pot_unit: &'a mut RuntimePotUnit,
+    toasts: &'a mut Toasts,
+    last_preset_id: Option<PresetId>,
+    auto_preview: bool,
+    os_window: Window,
+    load_preset_window_behavior: LoadPresetWindowBehavior,
+}
+
+fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
+    let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+    let preset_count = input.pot_unit.preset_count();
+    let mut table = TableBuilder::new(ui)
+        .striped(true)
+        .resizable(true)
+        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+        // Preset name
+        .column(Column::auto().at_most(200.0))
+        // Plug-in or product
+        .column(Column::initial(200.0).clip(true).at_least(100.0))
+        // Extension
+        .column(Column::remainder())
+        .min_scrolled_height(0.0);
+
+    if input.pot_unit.preset_id() != input.last_preset_id {
+        let scroll_index = match input.pot_unit.preset_id() {
+            None => 0,
+            Some(id) => input.pot_unit.find_index_of_preset(id).unwrap_or(0),
+        };
+        table = table.scroll_to_row(scroll_index as usize, None);
+    }
+    table
+        .header(20.0, |mut header| {
+            header.col(|ui| {
+                ui.strong("Name");
+            });
+            header.col(|ui| {
+                ui.strong("Plug-in/product");
+            });
+            header.col(|ui| {
+                ui.strong("Ext");
+            });
+        })
+        .body(|body| {
+            body.rows(text_height, preset_count as usize, |row_index, mut row| {
+                let preset_id = input
+                    .pot_unit
+                    .find_preset_id_at_index(row_index as u32)
+                    .unwrap();
+                // We just try to get a mutex lock because this is called very often.
+                // If we would insist on getting the lock, the GUI could freeze while
+                // the pot database has a write lock, which can happen during refresh.
+                let preset = pot_db().try_find_preset_by_id(preset_id);
+                // Name
+                row.col(|ui| {
+                    let text = match preset.as_ref() {
+                        Err(_) => "⏳",
+                        Ok(None) => "<Preset gone>",
+                        Ok(Some(p)) => p.name(),
+                    };
+                    let mut button = Button::new(text).small();
+                    if Some(preset_id) == input.pot_unit.preset_id() {
+                        button = button.fill(Color32::LIGHT_BLUE);
+                    }
+                    let button = ui.add_sized(ui.available_size(), button);
+                    if let Ok(Some(preset)) = preset.as_ref() {
+                        if button.clicked() {
+                            if input.auto_preview {
+                                let _ = input.pot_unit.play_preview(preset_id);
+                            }
+                            input.pot_unit.set_preset_id(Some(preset_id));
+                        }
+                        if button.double_clicked() {
+                            load_preset_and_regain_focus(
+                                preset,
+                                input.os_window,
+                                input.pot_unit,
+                                input.toasts,
+                                input.load_preset_window_behavior,
+                            );
+                        }
+                    }
+                });
+                let Ok(Some(preset)) = preset.as_ref() else {
+                    return;
+                };
+                // Product
+                row.col(|ui| {
+                    if let Some(n) = preset.common.product_name.as_ref() {
+                        ui.label(n).on_hover_text(n);
+                    }
+                });
+                // Extension
+                row.col(|ui| {
+                    let text = match &preset.kind {
+                        PresetKind::FileBased(k) => &k.file_ext,
+                        PresetKind::Internal(_) => "",
+                        PresetKind::DefaultFactory(_) => "",
+                    };
+                    ui.label(text);
+                });
+            });
+        });
 }
 
 fn add_destination_info_panel(ui: &mut Ui, pot_unit: &mut RuntimePotUnit) {
