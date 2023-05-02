@@ -188,6 +188,8 @@ rust-ini = "0.18.0"
 lexical-sort = "0.3.1"
 # For Pot target
 splitty = "1.0.1"
+# For Pot target
+lru = "0.10.0"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 

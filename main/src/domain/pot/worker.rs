@@ -11,7 +11,7 @@ static POT_WORKER_RUNTIME: Lazy<std::io::Result<Runtime>> = Lazy::new(|| {
         .build()
 });
 
-pub fn spawn(f: impl Future<Output = Result<(), Box<dyn Error>>> + Send + 'static) {
+pub fn spawn_in_pot_worker(f: impl Future<Output = Result<(), Box<dyn Error>>> + Send + 'static) {
     POT_WORKER_RUNTIME.as_ref().unwrap().spawn(async {
         f.await.unwrap();
     });

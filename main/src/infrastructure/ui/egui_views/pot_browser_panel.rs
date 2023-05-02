@@ -1,11 +1,13 @@
 use crate::application::get_track_label;
-use crate::base::{blocking_lock, blocking_write_lock};
+use crate::base::{blocking_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
 use crate::domain::pot::{
-    pot_db, ChangeHint, CurrentPreset, DestinationTrackDescriptor, LoadPresetOptions,
-    LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
+    pot_db, spawn_in_pot_worker, ChangeHint, CurrentPreset, DestinationTrackDescriptor,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit,
+    SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState};
+use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
     popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
@@ -15,12 +17,14 @@ use egui::{
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
+use lru::LruCache;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
 use std::mem;
+use std::num::NonZeroUsize;
 use std::sync::MutexGuard;
 use std::time::Duration;
 use swell_ui::Window;
@@ -58,6 +62,22 @@ pub struct MainState {
     last_preset_id: Option<PresetId>,
     bank_index: u32,
     load_preset_window_behavior: LoadPresetWindowBehavior,
+    preset_cache: PresetCache,
+}
+
+type PresetCacheMessage = (PresetId, Option<PresetData>);
+
+#[derive(Debug)]
+enum PresetCacheEntry {
+    Requested,
+    NotFound,
+    Found(PresetData),
+}
+
+#[derive(Debug)]
+struct PresetData {
+    preset: Preset,
+    has_preview: bool,
 }
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
@@ -115,6 +135,10 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
     // Query commonly used stuff
     let background_task_elapsed = pot_unit.background_task_elapsed();
+    // Integrate cache worker results into local cache
+    while let Ok(message) = state.preset_cache.receiver.try_recv() {
+        state.preset_cache.process_message(message);
+    }
     // Prepare toasts
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
@@ -252,10 +276,18 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     });
                 }
                 // Info about selected preset
-                if let Some((preset_id, preset)) = pot_unit.preset_and_id() {
+                let current_preset_id = pot_unit.preset_id();
+                let current_preset_id_and_data = current_preset_id.and_then(|id| {
+                    match state.preset_cache.find_preset(id) {
+                        PresetCacheEntry::Requested => None,
+                        PresetCacheEntry::NotFound => None,
+                        PresetCacheEntry::Found(data) => Some((id, data))
+                    }
+                });
+                if let Some((preset_id, preset_data)) = current_preset_id_and_data {
                     ui.separator();
-                    let id = ui.make_persistent_id("selected-preset");
-                    CollapsingState::load_with_default_open(ui.ctx(), id, false)
+                    let widget_id = ui.make_persistent_id("selected-preset");
+                    CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
                         .show_header(ui, |ui| {
                             left_right(
                                 ui,
@@ -265,12 +297,12 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 // Left side of preset info
                                 |ui, _| {
                                     ui.strong("Selected preset:");
-                                    ui.label(preset.name());
+                                    ui.label(preset_data.preset.name());
                                     let _ = pot_db().try_with_db(preset_id.database_id, |db| {
                                         ui.strong("from");
                                         ui.label(db.name());
                                     });
-                                    if let Some(product_name) = &preset.common.product_name {
+                                    if let Some(product_name) = &preset_data.preset.common.product_name {
                                         ui.strong("for");
                                         ui.label(product_name);
                                     }
@@ -334,7 +366,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     os_window: state.os_window,
                     load_preset_window_behavior: state.load_preset_window_behavior,
                 };
-                add_preset_table(input, ui);
+                add_preset_table(input, ui, &mut state.preset_cache);
             });
         });
     // Other stuff
@@ -358,7 +390,7 @@ struct PresetTableInput<'a> {
     load_preset_window_behavior: LoadPresetWindowBehavior,
 }
 
-fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
+fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
     let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
     let preset_count = input.pot_unit.preset_count();
     let mut table = TableBuilder::new(ui)
@@ -398,23 +430,20 @@ fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
                     .pot_unit
                     .find_preset_id_at_index(row_index as u32)
                     .unwrap();
-                // We just try to get a mutex lock because this is called very often.
-                // If we would insist on getting the lock, the GUI could freeze while
-                // the pot database has a write lock, which can happen during refresh.
-                let preset = pot_db().try_find_preset_by_id(preset_id);
+                let cache_entry = preset_cache.find_preset(preset_id);
                 // Name
                 row.col(|ui| {
-                    let text = match preset.as_ref() {
-                        Err(_) => "⏳",
-                        Ok(None) => "<Preset gone>",
-                        Ok(Some(p)) => p.name(),
+                    let text = match cache_entry {
+                        PresetCacheEntry::Requested => "⏳",
+                        PresetCacheEntry::NotFound => "<Preset not found>",
+                        PresetCacheEntry::Found(d) => d.preset.name(),
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
                     if Some(preset_id) == input.pot_unit.preset_id() {
                         button = button.fill(ui.style().visuals.selection.bg_fill);
                     }
                     let button = ui.add_sized(ui.available_size(), button);
-                    if let Ok(Some(preset)) = preset.as_ref() {
+                    if let PresetCacheEntry::Found(data) = cache_entry {
                         if button.clicked() {
                             if input.auto_preview {
                                 let _ = input.pot_unit.play_preview(preset_id);
@@ -423,7 +452,7 @@ fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
                         }
                         if button.double_clicked() {
                             load_preset_and_regain_focus(
-                                preset,
+                                &data.preset,
                                 input.os_window,
                                 input.pot_unit,
                                 input.toasts,
@@ -432,9 +461,10 @@ fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
                         }
                     }
                 });
-                let Ok(Some(preset)) = preset.as_ref() else {
+                let PresetCacheEntry::Found(data) = cache_entry else {
                     return;
                 };
+                let preset = &data.preset;
                 // Product
                 row.col(|ui| {
                     if let Some(n) = preset.common.product_name.as_ref() {
@@ -1050,7 +1080,52 @@ impl MainState {
             last_preset_id: None,
             bank_index: 0,
             load_preset_window_behavior: Default::default(),
+            preset_cache: PresetCache::new(),
         }
+    }
+}
+
+#[derive(Debug)]
+struct PresetCache {
+    lru_cache: LruCache<PresetId, PresetCacheEntry>,
+    sender: SenderToNormalThread<PresetCacheMessage>,
+    receiver: Receiver<PresetCacheMessage>,
+}
+
+impl PresetCache {
+    pub fn new() -> Self {
+        let (sender, receiver) =
+            SenderToNormalThread::new_unbounded_channel("pot browser preset cache");
+        Self {
+            lru_cache: LruCache::new(NonZeroUsize::new(500).unwrap()),
+            sender,
+            receiver,
+        }
+    }
+
+    pub fn find_preset(&mut self, preset_id: PresetId) -> &PresetCacheEntry {
+        self.lru_cache.get_or_insert(preset_id, || {
+            let sender = self.sender.clone();
+            spawn_in_pot_worker(async move {
+                let preset = pot_db().try_find_preset_by_id(preset_id)?;
+                let entry = preset.map(|p| PresetData {
+                    preset: p,
+                    has_preview: false,
+                });
+                let message = (preset_id, entry);
+                sender.send_complaining(message);
+                Ok(())
+            });
+            PresetCacheEntry::Requested
+        })
+    }
+
+    pub fn process_message(&mut self, (preset_id, preset_data): PresetCacheMessage) {
+        let entry = match preset_data {
+            None => PresetCacheEntry::NotFound,
+            Some(e) => PresetCacheEntry::Found(e),
+        };
+        self.lru_cache.put(preset_id, entry);
     }
 }
 

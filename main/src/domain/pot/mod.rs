@@ -41,6 +41,7 @@ pub use plugin_id::*;
 mod provider_database;
 mod providers;
 mod worker;
+pub use worker::*;
 
 // - We have a global list of databases
 // - A pot unit doesn't own those databases but it will access them.
@@ -688,7 +689,7 @@ impl RuntimePotUnit {
         self.change_counter += 1;
         self.background_task_start_time = Some(Instant::now());
         let last_change_counter = self.change_counter;
-        worker::spawn(async move {
+        spawn_in_pot_worker(async move {
             if change_hint == Some(ChangeHint::TotalRefresh) {
                 pot_db().refresh();
             }
