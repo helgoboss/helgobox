@@ -8,9 +8,9 @@ use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState};
 use egui::collapsing_header::CollapsingState;
 use egui::{
-    popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame,
-    InputState, Key, Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui,
-    Visuals, Widget,
+    popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
+    FontFamily, FontId, Frame, InputState, Key, Layout, RichText, ScrollArea, TextEdit, TextStyle,
+    TopBottomPanel, Ui, Visuals, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -25,7 +25,93 @@ use std::sync::MutexGuard;
 use std::time::Duration;
 use swell_ui::Window;
 
+#[derive(Debug)]
+pub struct State {
+    page: Page,
+    main_state: MainState,
+}
+
+impl State {
+    pub fn new(pot_unit: SharedRuntimePotUnit, os_window: Window) -> Self {
+        Self {
+            page: Default::default(),
+            main_state: MainState::new(pot_unit, os_window),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+enum Page {
+    #[default]
+    Warning,
+    Main,
+}
+
+#[derive(Debug)]
+pub struct MainState {
+    pot_unit: SharedRuntimePotUnit,
+    os_window: Window,
+    auto_preview: bool,
+    auto_hide_sub_filters: bool,
+    show_stats: bool,
+    paint_continuously: bool,
+    last_preset_id: Option<PresetId>,
+    bank_index: u32,
+    load_preset_window_behavior: LoadPresetWindowBehavior,
+}
+
 pub fn run_ui(ctx: &Context, state: &mut State) {
+    match state.page {
+        Page::Warning => {
+            run_warning_ui(ctx, state);
+        }
+        Page::Main => run_main_ui(ctx, &mut state.main_state),
+    }
+}
+
+fn run_warning_ui(ctx: &Context, state: &mut State) {
+    CentralPanel::default().show(ctx, |_| {
+        egui::Window::new("A word of caution")
+            .resizable(false)
+            .collapsible(false)
+            .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+            .show(ctx, |ui| {
+                ui.style_mut().text_styles = {
+                    use FontFamily as F;
+                    use TextStyle as T;
+                    [
+                        (T::Heading, FontId::new(30.0, F::Proportional)),
+                        (T::Body, FontId::new(15.0, F::Proportional)),
+                        (T::Monospace, FontId::new(14.0, F::Proportional)),
+                        (T::Button, FontId::new(20.0, F::Proportional)),
+                        (T::Small, FontId::new(10.0, F::Proportional)),
+                    ]
+                    .into()
+                };
+                ui.vertical_centered(|ui| {
+                    ui.label(
+                        "Pot browser is in an early stage of development. \
+                    None of its settings will be saved yet.",
+                    );
+                    ui.add_space(20.0);
+                    ui.label(
+                        RichText::new(
+                            "Don't invest much time into marking favorites, excluding \
+                         filter items or adjusting other configuration!",
+                        )
+                        .strong(),
+                    );
+                    ui.add_space(20.0);
+                    let button = Button::new("I understood. Really!");
+                    if ui.add(button).clicked() {
+                        state.page = Page::Main;
+                    }
+                })
+            });
+    });
+}
+
+fn run_main_ui(ctx: &Context, state: &mut MainState) {
     let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
     // Query commonly used stuff
     let background_task_elapsed = pot_unit.background_task_elapsed();
@@ -74,11 +160,16 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .frame(panel_frame)
                 .default_width(ctx.available_rect().width() * 0.5)
                 .show_inside(ui, |ui| {
+                    ui.style_mut().text_styles.insert(
+                        TextStyle::Heading,
+                        FontId::new(15.0, FontFamily::Proportional)
+                    );
                     // Toolbar
                     ui.horizontal(|ui| {
                         left_right(
                             ui,
                             pot_unit,
+                            TOOLBAR_HEIGHT_WITH_MARGIN,
                             150.0,
                             // Left side of toolbar: Toolbar
                             |ui, pot_unit| {
@@ -91,13 +182,13 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 };
                                 add_left_options_dropdown(input, ui);
                                 // Refresh button
-                                if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
+                                if ui.button(RichText::new("🔃").size(TOOLBAR_HEIGHT))
                                     .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
                                     .clicked() {
                                     pot_unit.refresh_pot(state.pot_unit.clone());
                                 }
                                 // Theme button
-                                if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE))
+                                if ui.button(RichText::new("🌙").size(TOOLBAR_HEIGHT))
                                     .on_hover_text("Switches between light and dark theme")
                                     .clicked() {
                                     let mut style: egui::Style = (*ctx.style()).clone();
@@ -130,6 +221,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             CentralPanel::default().frame(panel_frame).show_inside(ui, |ui| {
                 // Toolbar
                 ui.horizontal(|ui| {
+                    ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
                     // Options
                     let input = RightOptionsDropdownInput {
                         pot_unit,
@@ -168,6 +260,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             left_right(
                                 ui,
                                 pot_unit,
+                                ui.available_height(),
                                 20.0,
                                 // Left side of preset info
                                 |ui, _| {
@@ -212,6 +305,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     left_right(
                         ui,
                         pot_unit,
+                        ui.available_height(),
                         75.0,
                         // Left side of destination info
                         |ui, pot_unit| {
@@ -315,9 +409,9 @@ fn add_preset_table(input: PresetTableInput, ui: &mut Ui) {
                         Ok(None) => "<Preset gone>",
                         Ok(Some(p)) => p.name(),
                     };
-                    let mut button = Button::new(text).small();
+                    let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
                     if Some(preset_id) == input.pot_unit.preset_id() {
-                        button = button.fill(Color32::LIGHT_BLUE);
+                        button = button.fill(ui.style().visuals.selection.bg_fill);
                     }
                     let button = ui.add_sized(ui.available_size(), button);
                     if let Ok(Some(preset)) = preset.as_ref() {
@@ -482,7 +576,7 @@ struct RightOptionsDropdownInput<'a> {
 }
 
 fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
-    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+    ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
         // Wildcards
         let old_wildcard_setting = input.pot_unit.runtime_state.use_wildcard_search;
         ui.checkbox(
@@ -541,19 +635,11 @@ fn add_filter_panels(
     let heading_height = ui.text_style_height(&TextStyle::Heading);
     // Database
     ui.separator();
-    ui.label(
-        RichText::new("Database")
-            .text_style(TextStyle::Heading)
-            .size(heading_height),
-    );
+    ui.label(RichText::new("Database").heading().size(heading_height));
     add_filter_view_content(shared_unit, pot_unit, PotFilterKind::Database, ui, false);
     // Product type
     ui.separator();
-    ui.label(
-        RichText::new("Product type")
-            .text_style(TextStyle::Heading)
-            .size(heading_height),
-    );
+    ui.label(RichText::new("Product type").heading().size(heading_height));
     add_filter_view_content(shared_unit, pot_unit, PotFilterKind::ProductKind, ui, true);
     // Add dependent filter views
     ui.separator();
@@ -663,7 +749,7 @@ fn add_mini_filters(
 }
 
 fn add_help_button(ui: &mut Ui) {
-    let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
+    let help_button = ui.button(RichText::new("❓").size(TOOLBAR_HEIGHT));
     let help_id = ui.make_persistent_id("help");
     if help_button.clicked() {
         ui.memory_mut(|mem| mem.toggle_popup(help_id));
@@ -696,7 +782,7 @@ struct LeftOptionsDropdownInput<'a> {
 }
 
 fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
-    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+    ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
             ui.checkbox(&mut input.paint_continuously, "Paint continuously")
                 .on_hover_text(
                     "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
@@ -952,20 +1038,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
     });
 }
 
-#[derive(Debug)]
-pub struct State {
-    pot_unit: SharedRuntimePotUnit,
-    auto_preview: bool,
-    auto_hide_sub_filters: bool,
-    show_stats: bool,
-    paint_continuously: bool,
-    os_window: Window,
-    last_preset_id: Option<PresetId>,
-    bank_index: u32,
-    load_preset_window_behavior: LoadPresetWindowBehavior,
-}
-
-impl State {
+impl MainState {
     pub fn new(pot_unit: SharedRuntimePotUnit, os_window: Window) -> Self {
         Self {
             pot_unit,
@@ -1130,7 +1203,7 @@ fn add_filter_view_content_as_icons(
     let mut new_filter_item_id = old_filter_item_id;
     for filter_item in pot_unit.filter_item_collections.get(kind) {
         let currently_selected = old_filter_item_id == Some(filter_item.id);
-        let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(TOOLBAR_SIZE);
+        let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(TOOLBAR_HEIGHT);
         if !currently_selected {
             text = text.weak();
         }
@@ -1169,7 +1242,8 @@ fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toa
     }
 }
 
-const TOOLBAR_SIZE: f32 = 15.0;
+const TOOLBAR_HEIGHT: f32 = 15.0;
+const TOOLBAR_HEIGHT_WITH_MARGIN: f32 = TOOLBAR_HEIGHT + 5.0;
 
 const HELP: &[(&str, &str)] = &[
     ("Click preset", "Select it (and preview it if enabled)"),
@@ -1206,21 +1280,20 @@ fn truncate(s: &str, max_chars: usize) -> &str {
 fn left_right<A>(
     ui: &mut Ui,
     arg: &mut A,
+    height: f32,
     right_width: f32,
     left: impl FnOnce(&mut Ui, &mut A),
     right: impl FnOnce(&mut Ui, &mut A),
 ) {
     // At first, we need to add a vertical strip in order to not take infinity height.
-    let height = ui.available_height();
     StripBuilder::new(ui)
         .size(Size::exact(height))
-        .clip(false)
+        .clip(true)
         .vertical(|mut strip| {
-            strip.cell(|ui| {
-                StripBuilder::new(ui)
+            strip.strip(|strip| {
+                strip
                     .size(Size::remainder())
                     .size(Size::exact(right_width))
-                    .clip(true)
                     .horizontal(|mut strip| {
                         // Left strip
                         strip.cell(|ui| {
