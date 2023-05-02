@@ -186,7 +186,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 .show_inside(ui, |ui| {
                     ui.style_mut().text_styles.insert(
                         TextStyle::Heading,
-                        FontId::new(15.0, FontFamily::Proportional)
+                        FontId::new(15.0, FontFamily::Proportional),
                     );
                     // Toolbar
                     ui.horizontal(|ui| {
@@ -206,15 +206,22 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 };
                                 add_left_options_dropdown(input, ui);
                                 // Refresh button
-                                if ui.button(RichText::new("🔃").size(TOOLBAR_HEIGHT))
-                                    .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
-                                    .clicked() {
+                                if ui
+                                    .button(RichText::new("🔃").size(TOOLBAR_HEIGHT))
+                                    .on_hover_text(
+                                        "Refreshes all databases (e.g. picks up new \
+                                    files on disk)",
+                                    )
+                                    .clicked()
+                                {
                                     pot_unit.refresh_pot(state.pot_unit.clone());
                                 }
                                 // Theme button
-                                if ui.button(RichText::new("🌙").size(TOOLBAR_HEIGHT))
+                                if ui
+                                    .button(RichText::new("🌙").size(TOOLBAR_HEIGHT))
                                     .on_hover_text("Switches between light and dark theme")
-                                    .clicked() {
+                                    .clicked()
+                                {
                                     let mut style: egui::Style = (*ctx.style()).clone();
                                     style.visuals = if style.visuals.dark_mode {
                                         Visuals::light()
@@ -235,139 +242,162 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     add_mini_filters(&state.pot_unit, pot_unit, ui);
                                 });
-                            }
+                            },
                         );
                     });
                     // Filter panels
                     add_filter_panels(&state.pot_unit, pot_unit, state.auto_hide_sub_filters, ui);
                 });
             // Right pane
-            CentralPanel::default().frame(panel_frame).show_inside(ui, |ui| {
-                // Toolbar
-                ui.horizontal(|ui| {
-                    ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
-                    // Options
-                    let input = RightOptionsDropdownInput {
-                        pot_unit,
-                        shared_pot_unit: &state.pot_unit,
-                        show_stats: &mut state.show_stats,
-                        auto_preview: &mut state.auto_preview,
-                        load_preset_window_behavior: &mut state.load_preset_window_behavior,
-                    };
-                    add_right_options_dropdown(input, ui);
-                    // Search field
-                    let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
-                        // .min_size(vec2(0.0, TOOLBAR_SIZE))
-                        .desired_width(140.0)
-                        .clip_text(false)
-                        .hint_text("Enter search text!")
-                        .font(TextStyle::Monospace);
-                    ui.add_enabled(false, text_edit)
-                        .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.");
-                    // Preset count
-                    let preset_count = pot_unit.preset_count();
-                    ui.label(format!("➡ {preset_count} presets"));
-                });
-                // Stats
-                if state.show_stats {
+            CentralPanel::default()
+                .frame(panel_frame)
+                .show_inside(ui, |ui| {
+                    // Toolbar
+                    ui.horizontal(|ui| {
+                        ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
+                        // Options
+                        let input = RightOptionsDropdownInput {
+                            pot_unit,
+                            shared_pot_unit: &state.pot_unit,
+                            show_stats: &mut state.show_stats,
+                            auto_preview: &mut state.auto_preview,
+                            load_preset_window_behavior: &mut state.load_preset_window_behavior,
+                        };
+                        add_right_options_dropdown(input, ui);
+                        // Search field
+                        let text_edit =
+                            TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
+                                // .min_size(vec2(0.0, TOOLBAR_SIZE))
+                                .desired_width(140.0)
+                                .clip_text(false)
+                                .hint_text("Enter search text!")
+                                .font(TextStyle::Monospace);
+                        ui.add_enabled(false, text_edit).on_disabled_hover_text(
+                            "Type anywhere to search!\nUse backspace to clear \
+                        the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.",
+                        );
+                        // Preset count
+                        let preset_count = pot_unit.preset_count();
+                        ui.label(format!("➡ {preset_count} presets"));
+                    });
+                    // Stats
+                    if state.show_stats {
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            add_stats_panel(pot_unit, background_task_elapsed, ui);
+                        });
+                    }
+                    // Info about selected preset
+                    let current_preset_id = pot_unit.preset_id();
+                    let current_preset_id_and_data =
+                        current_preset_id.and_then(|id| match state.preset_cache.find_preset(id) {
+                            PresetCacheEntry::Requested => None,
+                            PresetCacheEntry::NotFound => None,
+                            PresetCacheEntry::Found(data) => Some((id, data)),
+                        });
+                    if let Some((preset_id, preset_data)) = current_preset_id_and_data {
+                        ui.separator();
+                        let widget_id = ui.make_persistent_id("selected-preset");
+                        CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
+                            .show_header(ui, |ui| {
+                                left_right(
+                                    ui,
+                                    pot_unit,
+                                    ui.available_height(),
+                                    40.0,
+                                    // Left side of preset info
+                                    |ui, _| {
+                                        ui.strong("Selected preset:");
+                                        ui.label(preset_data.preset.name());
+                                        let _ = pot_db().try_with_db(preset_id.database_id, |db| {
+                                            ui.strong("from");
+                                            ui.label(db.name());
+                                        });
+                                        if let Some(product_name) =
+                                            &preset_data.preset.common.product_name
+                                        {
+                                            ui.strong("for");
+                                            ui.label(product_name);
+                                        }
+                                    },
+                                    // Right side of preset info
+                                    |ui, pot_unit| {
+                                        // Favorite button
+                                        let favorites =
+                                            &AnyThreadBackboneState::get().pot_favorites;
+                                        let toggle = if let Ok(favorites) = favorites.try_read() {
+                                            let mut is_favorite = favorites.is_favorite(preset_id);
+                                            let icon = if is_favorite { "★" } else { "☆" };
+                                            ui.toggle_value(&mut is_favorite, icon).changed()
+                                        } else {
+                                            false
+                                        };
+                                        if toggle {
+                                            blocking_write_lock(favorites, "favorite toggle")
+                                                .toggle_favorite(preset_id);
+                                        }
+                                        // Preview button
+                                        let preview_button = Button::new("🔊");
+                                        let preview_button_response =
+                                            ui.add_enabled(preset_data.has_preview, preview_button);
+                                        if preview_button_response
+                                            .on_hover_text("Play preset preview")
+                                            .on_disabled_hover_text("Preset preview not available")
+                                            .clicked()
+                                        {
+                                            let result = pot_unit.play_preview(preset_id);
+                                            process_potential_error(&result, &mut toasts);
+                                        }
+                                    },
+                                );
+                            })
+                            .body(|ui| ui.label("..."));
+                    }
+                    // Destination info
                     ui.separator();
                     ui.horizontal(|ui| {
-                        add_stats_panel(pot_unit, background_task_elapsed, ui);
+                        left_right(
+                            ui,
+                            pot_unit,
+                            ui.available_height(),
+                            75.0,
+                            // Left side of destination info
+                            |ui, pot_unit| {
+                                add_destination_info_panel(ui, pot_unit);
+                            },
+                            // Right side of destination info
+                            |ui, _| {
+                                if let Some(fx) = &current_fx {
+                                    if ui
+                                        .small_button("Chain")
+                                        .on_hover_text("Shows the FX chain")
+                                        .clicked()
+                                    {
+                                        fx.show_in_chain();
+                                    }
+                                    if ui
+                                        .small_button("FX")
+                                        .on_hover_text("Shows the FX")
+                                        .clicked()
+                                    {
+                                        fx.show_in_floating_window();
+                                    }
+                                }
+                            },
+                        );
                     });
-                }
-                // Info about selected preset
-                let current_preset_id = pot_unit.preset_id();
-                let current_preset_id_and_data = current_preset_id.and_then(|id| {
-                    match state.preset_cache.find_preset(id) {
-                        PresetCacheEntry::Requested => None,
-                        PresetCacheEntry::NotFound => None,
-                        PresetCacheEntry::Found(data) => Some((id, data))
-                    }
-                });
-                if let Some((preset_id, preset_data)) = current_preset_id_and_data {
+                    // Preset table
                     ui.separator();
-                    let widget_id = ui.make_persistent_id("selected-preset");
-                    CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
-                        .show_header(ui, |ui| {
-                            left_right(
-                                ui,
-                                pot_unit,
-                                ui.available_height(),
-                                20.0,
-                                // Left side of preset info
-                                |ui, _| {
-                                    ui.strong("Selected preset:");
-                                    ui.label(preset_data.preset.name());
-                                    let _ = pot_db().try_with_db(preset_id.database_id, |db| {
-                                        ui.strong("from");
-                                        ui.label(db.name());
-                                    });
-                                    if let Some(product_name) = &preset_data.preset.common.product_name {
-                                        ui.strong("for");
-                                        ui.label(product_name);
-                                    }
-                                },
-                                // Right side of preset info
-                                |ui, _| {
-                                    let favorites = &AnyThreadBackboneState::get().pot_favorites;
-                                    let toggle = if let Ok(favorites) = favorites.try_read() {
-                                        let mut is_favorite = favorites.is_favorite(preset_id);
-                                        let icon = if is_favorite {
-                                            "★"
-                                        } else {
-                                            "☆"
-                                        };
-                                        ui.toggle_value(&mut is_favorite, icon).changed()
-                                    } else {
-                                        false
-                                    };
-                                    if toggle {
-                                        blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
-                                    }
-                                }
-                            );
-                        })
-                        .body(|ui| {
-                            ui.label("...")
-                        });
-                }
-                // Destination info
-                ui.separator();
-                ui.horizontal(|ui| {
-                    left_right(
-                        ui,
+                    let input = PresetTableInput {
                         pot_unit,
-                        ui.available_height(),
-                        75.0,
-                        // Left side of destination info
-                        |ui, pot_unit| {
-                            add_destination_info_panel(ui, pot_unit);
-                        },
-                        // Right side of destination info
-                        |ui, _| {
-                            if let Some(fx) = &current_fx {
-                                if ui.small_button("Chain").on_hover_text("Shows the FX chain").clicked() {
-                                    fx.show_in_chain();
-                                }
-                                if ui.small_button("FX").on_hover_text("Shows the FX").clicked() {
-                                    fx.show_in_floating_window();
-                                }
-                            }
-                        },
-                    );
+                        toasts: &mut toasts,
+                        last_preset_id: state.last_preset_id,
+                        auto_preview: state.auto_preview,
+                        os_window: state.os_window,
+                        load_preset_window_behavior: state.load_preset_window_behavior,
+                    };
+                    add_preset_table(input, ui, &mut state.preset_cache);
                 });
-                // Preset table
-                ui.separator();
-                let input = PresetTableInput {
-                    pot_unit,
-                    toasts: &mut toasts,
-                    last_preset_id: state.last_preset_id,
-                    auto_preview: state.auto_preview,
-                    os_window: state.os_window,
-                    load_preset_window_behavior: state.load_preset_window_behavior,
-                };
-                add_preset_table(input, ui, &mut state.preset_cache);
-            });
         });
     // Other stuff
     toasts.show(ctx);
@@ -612,19 +642,25 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
         ui.checkbox(
             &mut input.pot_unit.runtime_state.use_wildcard_search,
             "Wildcards",
-        ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
+        )
+        .on_hover_text(
+            "Allows more accurate search by enabling wildcards: Use * to match any \
+        string and ? to match any letter!",
+        );
         if input.pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
-            input.pot_unit.rebuild_collections(input.shared_pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            input.pot_unit.rebuild_collections(
+                input.shared_pot_unit.clone(),
+                Some(ChangeHint::SearchExpression),
+            );
         }
         // Stats
-        ui.checkbox(
-            input.show_stats,
-            "Display stats",
-        ).on_hover_text("Show query statistics");
+        ui.checkbox(input.show_stats, "Display stats")
+            .on_hover_text("Show query statistics");
         // Preview
         ui.horizontal(|ui| {
-            ui.checkbox(input.auto_preview, "Preview")
-                .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
+            ui.checkbox(input.auto_preview, "Preview").on_hover_text(
+                "Automatically previews a sound when it's selected via mouse or keyboard",
+            );
             // Preview volume
             let old_volume = input.pot_unit.preview_volume();
             let mut new_volume_raw = old_volume.get();
@@ -642,17 +678,27 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             }
         });
         // Always show newly added FX
-        let mut show_if_newly_added = *input.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
+        let mut show_if_newly_added = *input.load_preset_window_behavior
+            == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
         ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
-            .on_hover_text("When enabled, pot browser will always open the FX window when adding a new FX.");
+            .on_hover_text(
+                "When enabled, pot browser will always open the FX window when adding a \
+            new FX.",
+            );
         *input.load_preset_window_behavior = if show_if_newly_added {
             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
         } else {
             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
         };
         // Name track after preset
-        ui.checkbox(&mut input.pot_unit.name_track_after_preset, "Name track after preset")
-            .on_hover_text("When enabled, pot browser will rename the track to reflect the name of the preset.");
+        ui.checkbox(
+            &mut input.pot_unit.name_track_after_preset,
+            "Name track after preset",
+        )
+        .on_hover_text(
+            "When enabled, pot browser will rename the track to reflect the name of \
+            the preset.",
+        );
     });
 }
 
@@ -813,22 +859,31 @@ struct LeftOptionsDropdownInput<'a> {
 
 fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
     ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
-            ui.checkbox(&mut input.paint_continuously, "Paint continuously")
+        ui.checkbox(&mut input.paint_continuously, "Paint continuously")
+            .on_hover_text(
+                "Necessary to automatically display changes made by external controllers (via \
+                    ReaLearn pot targets)",
+            );
+        ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
+            .on_hover_text(
+                "Makes sure you are not confronted with dozens of child filters if \
+                the corresponding top-level filter is set to <Any>",
+            );
+        {
+            let old = input.pot_unit.show_excluded_filter_items();
+            let mut new = input.pot_unit.show_excluded_filter_items();
+            ui.checkbox(&mut new, "Show excluded filters")
                 .on_hover_text(
-                    "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
+                    "Shows all previously excluded filters again (via right click on \
+                    filter item), so you can include them again if you want.",
                 );
-            ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
-                .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
-            {
-                let old = input.pot_unit.show_excluded_filter_items();
-                let mut new = input.pot_unit.show_excluded_filter_items();
-                ui.checkbox(&mut new, "Show excluded filters")
-                    .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
-                if new != old {
-                    input.pot_unit.set_show_excluded_filter_items(new, input.shared_pot_unit.clone());
-                }
+            if new != old {
+                input
+                    .pot_unit
+                    .set_show_excluded_filter_items(new, input.shared_pot_unit.clone());
             }
-        });
+        }
+    });
 }
 
 fn show_current_preset_panel(
@@ -1107,10 +1162,15 @@ impl PresetCache {
         self.lru_cache.get_or_insert(preset_id, || {
             let sender = self.sender.clone();
             spawn_in_pot_worker(async move {
-                let preset = pot_db().try_find_preset_by_id(preset_id)?;
-                let entry = preset.map(|p| PresetData {
-                    preset: p,
-                    has_preview: false,
+                let pot_db = pot_db();
+                let preset = pot_db.try_find_preset_by_id(preset_id)?;
+                let entry = preset.map(|p| {
+                    let preview_file = pot_db.find_preview_file_by_preset_id(preset_id);
+                    let has_preview = preview_file.map(|f| f.exists()).unwrap_or(false);
+                    PresetData {
+                        preset: p,
+                        has_preview,
+                    }
                 });
                 let message = (preset_id, entry);
                 sender.send_complaining(message);
