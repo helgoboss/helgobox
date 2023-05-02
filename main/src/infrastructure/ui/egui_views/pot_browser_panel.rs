@@ -65,30 +65,31 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 });
         }
     }
-    // Lower panel (the rest)
+    // Main panel
     CentralPanel::default()
         .frame(Frame::none())
         .show(ctx, |ui| {
-            // Left panel
+            // Left pane
             SidePanel::left("left-panel")
                 .frame(panel_frame)
                 .default_width(ctx.available_rect().width() * 0.5)
                 .show_inside(ui, |ui| {
-                    // General controls
+                    // Toolbar
                     ui.horizontal(|ui| {
                         left_right(
                             ui,
                             pot_unit,
                             150.0,
-                            // Left: Toolbar
+                            // Left side of toolbar: Toolbar
                             |ui, pot_unit| {
                                 // Main options
-                                MainOptionsDropdown {
+                                let input = LeftOptionsDropdownInput {
                                     pot_unit,
                                     auto_hide_sub_filters: &mut state.auto_hide_sub_filters,
                                     paint_continuously: &mut state.paint_continuously,
                                     shared_pot_unit: &state.pot_unit,
-                                }.show(ui);
+                                };
+                                add_left_options_dropdown(input, ui);
                                 // Refresh button
                                 if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
                                     .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
@@ -114,7 +115,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     ui.spinner();
                                 }
                             },
-                            // Right: Mini filters
+                            // Right side of toolbar: Mini filters
                             |ui, pot_unit| {
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     add_mini_filters(&state.pot_unit, pot_unit, ui);
@@ -122,191 +123,23 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             }
                         );
                     });
-                    // Add independent filter views
-                    let heading_height = ui.text_style_height(&TextStyle::Heading);
-                    // Database
-                    ui.separator();
-                    ui
-                        .label(
-                            RichText::new("Database")
-                                .text_style(TextStyle::Heading)
-                                .size(heading_height),
-                        );
-                    add_filter_view_content(
-                        &state.pot_unit,
-                        pot_unit,
-                        PotFilterKind::Database,
-                        ui,
-                        false
-                    );
-                    // Product type
-                    ui.separator();
-                    ui
-                        .label(
-                            RichText::new("Product type")
-                                .text_style(TextStyle::Heading)
-                                .size(heading_height),
-                        );
-                    add_filter_view_content(
-                        &state.pot_unit,
-                        pot_unit,
-                        PotFilterKind::ProductKind,
-                        ui,
-                        true
-                    );
-                    // Add dependent filter views
-                    ui.separator();
-                    let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);
-                    let show_sub_banks = show_banks
-                        && pot_unit.supports_filter_kind(PotFilterKind::SubBank)
-                        && (
-                            !state.auto_hide_sub_filters
-                            || (
-                                    pot_unit.filters().is_set_to_concrete_value(PotFilterKind::Bank)
-                                    || pot_unit.get_filter(PotFilterKind::SubBank).is_some()
-                                )
-                        );
-                    let show_categories = pot_unit.supports_filter_kind(PotFilterKind::Category);
-                    let show_sub_categories = show_categories
-                        && pot_unit.supports_filter_kind(PotFilterKind::SubCategory)
-                        && (
-                            !state.auto_hide_sub_filters
-                            || (
-                                pot_unit.filters().is_set_to_concrete_value(PotFilterKind::Category)
-                                || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()
-                            )
-                        );
-                    let show_modes = pot_unit.supports_filter_kind(PotFilterKind::Mode);
-                    let mut remaining_kind_count = 5;
-                    if !show_banks {
-                        remaining_kind_count -= 1;
-                    }
-                    if !show_sub_banks {
-                        remaining_kind_count -= 1;
-                    }
-                    if !show_categories {
-                        remaining_kind_count -= 1;
-                    }
-                    if !show_sub_categories {
-                        remaining_kind_count -= 1;
-                    }
-                    if !show_modes {
-                        remaining_kind_count -= 1;
-                    }
-                    if remaining_kind_count > 0 {
-                        let filter_view_height = ui.available_height() / remaining_kind_count as f32;
-                        if show_banks {
-                            add_filter_view(
-                                ui,
-                                filter_view_height,
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::Bank,
-                                false,
-                                false,
-                            );
-                        }
-                        if show_sub_banks {
-                            add_filter_view(
-                                ui,
-                                filter_view_height,
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::SubBank,
-                                true,
-                                true,
-                            );
-                        }
-                        if show_categories {
-                            add_filter_view(
-                                ui,
-                                filter_view_height,
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::Category,
-                                true,
-                                false,
-                            );
-                        }
-                        if show_sub_categories {
-                            add_filter_view(
-                                ui,
-                                filter_view_height,
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::SubCategory,
-                                true,
-                                true,
-                            );
-                        }
-                        if show_modes {
-                            add_filter_view(
-                                ui,
-                                filter_view_height,
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::Mode,
-                                true,
-                                false,
-                            );
-                        }
-                    }
+                    // Filter panels
+                    add_filter_panels(&state.pot_unit, pot_unit, state.auto_hide_sub_filters, ui);
                 });
-            // Right panel
-            let preset_count = pot_unit.preset_count();
+            // Right pane
             CentralPanel::default().frame(panel_frame).show_inside(ui, |ui| {
-                // Settings
+                // Toolbar
                 ui.horizontal(|ui| {
                     // Options
-                    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
-                        // Wildcards
-                        let old_wildcard_setting = pot_unit.runtime_state.use_wildcard_search;
-                        ui.checkbox(
-                            &mut pot_unit.runtime_state.use_wildcard_search,
-                            "Wildcards",
-                        ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
-                        if pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
-                            pot_unit.rebuild_collections(state.pot_unit.clone(), Some(ChangeHint::SearchExpression));
-                        }
-                        // Stats
-                        ui.checkbox(
-                            &mut state.show_stats,
-                            "Display stats",
-                        ).on_hover_text("Show query statistics");
-                        // Preview
-                        ui.horizontal(|ui| {
-                            ui.checkbox(&mut state.auto_preview, "Preview")
-                                .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
-                            // Preview volume
-                            let old_volume = pot_unit.preview_volume();
-                            let mut new_volume_raw = old_volume.get();
-                            egui::DragValue::new(&mut new_volume_raw)
-                                .speed(0.01)
-                                .custom_formatter(|v, _| {
-                                    Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
-                                })
-                                .clamp_range(0.0..=1.0)
-                                .ui(ui)
-                                .on_hover_text("Change volume of the sound previews");
-                            let new_volume = ReaperVolumeValue::new(new_volume_raw);
-                            if new_volume != old_volume {
-                                pot_unit.set_preview_volume(new_volume);
-                            }
-                        });
-                        // Always show newly added FX
-                        let mut show_if_newly_added = state.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
-                        ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
-                            .on_hover_text("When enabled, pot browser will always open the FX window when adding a new FX.");
-                        state.load_preset_window_behavior = if show_if_newly_added {
-                            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
-                        } else {
-                            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
-                        };
-                        // Name track after preset
-                        ui.checkbox(&mut pot_unit.name_track_after_preset, "Name track after preset")
-                            .on_hover_text("When enabled, pot browser will rename the track to reflect the name of the preset.");
-                    });
-                    // Search
+                    let input = RightOptionsDropdownInput {
+                        pot_unit,
+                        shared_pot_unit: &state.pot_unit,
+                        show_stats: &mut state.show_stats,
+                        auto_preview: &mut state.auto_preview,
+                        load_preset_window_behavior: &mut state.load_preset_window_behavior,
+                    };
+                    add_right_options_dropdown(input, ui);
+                    // Search field
                     let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
                         // .min_size(vec2(0.0, TOOLBAR_SIZE))
                         .desired_width(140.0)
@@ -316,6 +149,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     ui.add_enabled(false, text_edit)
                         .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.");
                     // Preset count
+                    let preset_count = pot_unit.preset_count();
                     ui.label(format!("➡ {preset_count} presets"));
                 });
                 // Stats
@@ -498,6 +332,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 // Preset table
                 ui.separator();
                 let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+                let preset_count = pot_unit.preset_count();
                 let mut table = TableBuilder::new(ui)
                     .striped(true)
                     .resizable(true)
@@ -597,6 +432,183 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     state.last_preset_id = pot_unit.preset_id();
 }
 
+struct RightOptionsDropdownInput<'a> {
+    pot_unit: &'a mut RuntimePotUnit,
+    shared_pot_unit: &'a SharedRuntimePotUnit,
+    show_stats: &'a mut bool,
+    auto_preview: &'a mut bool,
+    load_preset_window_behavior: &'a mut LoadPresetWindowBehavior,
+}
+
+fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
+    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+        // Wildcards
+        let old_wildcard_setting = input.pot_unit.runtime_state.use_wildcard_search;
+        ui.checkbox(
+            &mut input.pot_unit.runtime_state.use_wildcard_search,
+            "Wildcards",
+        ).on_hover_text("Allows more accurate search by enabling wildcards: Use * to match any string and ? to match any letter!");
+        if input.pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
+            input.pot_unit.rebuild_collections(input.shared_pot_unit.clone(), Some(ChangeHint::SearchExpression));
+        }
+        // Stats
+        ui.checkbox(
+            input.show_stats,
+            "Display stats",
+        ).on_hover_text("Show query statistics");
+        // Preview
+        ui.horizontal(|ui| {
+            ui.checkbox(input.auto_preview, "Preview")
+                .on_hover_text("Automatically previews a sound when it's selected via mouse or keyboard");
+            // Preview volume
+            let old_volume = input.pot_unit.preview_volume();
+            let mut new_volume_raw = old_volume.get();
+            egui::DragValue::new(&mut new_volume_raw)
+                .speed(0.01)
+                .custom_formatter(|v, _| {
+                    Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
+                })
+                .clamp_range(0.0..=1.0)
+                .ui(ui)
+                .on_hover_text("Change volume of the sound previews");
+            let new_volume = ReaperVolumeValue::new(new_volume_raw);
+            if new_volume != old_volume {
+                input.pot_unit.set_preview_volume(new_volume);
+            }
+        });
+        // Always show newly added FX
+        let mut show_if_newly_added = *input.load_preset_window_behavior == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
+        ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
+            .on_hover_text("When enabled, pot browser will always open the FX window when adding a new FX.");
+        *input.load_preset_window_behavior = if show_if_newly_added {
+            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
+        } else {
+            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
+        };
+        // Name track after preset
+        ui.checkbox(&mut input.pot_unit.name_track_after_preset, "Name track after preset")
+            .on_hover_text("When enabled, pot browser will rename the track to reflect the name of the preset.");
+    });
+}
+
+fn add_filter_panels(
+    shared_unit: &SharedRuntimePotUnit,
+    pot_unit: &mut RuntimePotUnit,
+    auto_hide_sub_filters: bool,
+    ui: &mut Ui,
+) {
+    let heading_height = ui.text_style_height(&TextStyle::Heading);
+    // Database
+    ui.separator();
+    ui.label(
+        RichText::new("Database")
+            .text_style(TextStyle::Heading)
+            .size(heading_height),
+    );
+    add_filter_view_content(shared_unit, pot_unit, PotFilterKind::Database, ui, false);
+    // Product type
+    ui.separator();
+    ui.label(
+        RichText::new("Product type")
+            .text_style(TextStyle::Heading)
+            .size(heading_height),
+    );
+    add_filter_view_content(shared_unit, pot_unit, PotFilterKind::ProductKind, ui, true);
+    // Add dependent filter views
+    ui.separator();
+    let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);
+    let show_sub_banks = show_banks
+        && pot_unit.supports_filter_kind(PotFilterKind::SubBank)
+        && (!auto_hide_sub_filters
+            || (pot_unit
+                .filters()
+                .is_set_to_concrete_value(PotFilterKind::Bank)
+                || pot_unit.get_filter(PotFilterKind::SubBank).is_some()));
+    let show_categories = pot_unit.supports_filter_kind(PotFilterKind::Category);
+    let show_sub_categories = show_categories
+        && pot_unit.supports_filter_kind(PotFilterKind::SubCategory)
+        && (!auto_hide_sub_filters
+            || (pot_unit
+                .filters()
+                .is_set_to_concrete_value(PotFilterKind::Category)
+                || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()));
+    let show_modes = pot_unit.supports_filter_kind(PotFilterKind::Mode);
+    let mut remaining_kind_count = 5;
+    if !show_banks {
+        remaining_kind_count -= 1;
+    }
+    if !show_sub_banks {
+        remaining_kind_count -= 1;
+    }
+    if !show_categories {
+        remaining_kind_count -= 1;
+    }
+    if !show_sub_categories {
+        remaining_kind_count -= 1;
+    }
+    if !show_modes {
+        remaining_kind_count -= 1;
+    }
+    if remaining_kind_count > 0 {
+        let filter_view_height = ui.available_height() / remaining_kind_count as f32;
+        if show_banks {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::Bank,
+                false,
+                false,
+            );
+        }
+        if show_sub_banks {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::SubBank,
+                true,
+                true,
+            );
+        }
+        if show_categories {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::Category,
+                true,
+                false,
+            );
+        }
+        if show_sub_categories {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::SubCategory,
+                true,
+                true,
+            );
+        }
+        if show_modes {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::Mode,
+                true,
+                false,
+            );
+        }
+    }
+}
+
 fn add_mini_filters(
     shared_unit: &SharedRuntimePotUnit,
     pot_unit: &mut MutexGuard<RuntimePotUnit>,
@@ -635,33 +647,31 @@ fn add_help_button(ui: &mut Ui) {
     });
 }
 
-struct MainOptionsDropdown<'a> {
+struct LeftOptionsDropdownInput<'a> {
     pot_unit: &'a mut RuntimePotUnit,
     auto_hide_sub_filters: &'a mut bool,
     paint_continuously: &'a mut bool,
     shared_pot_unit: &'a SharedRuntimePotUnit,
 }
 
-impl<'a> MainOptionsDropdown<'a> {
-    fn show(&mut self, ui: &mut Ui) {
-        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
-            ui.checkbox(&mut self.paint_continuously, "Paint continuously")
+fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
+    ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+            ui.checkbox(&mut input.paint_continuously, "Paint continuously")
                 .on_hover_text(
                     "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
                 );
-            ui.checkbox(&mut self.auto_hide_sub_filters, "Auto-hide sub filters")
+            ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
                 .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
             {
-                let old = self.pot_unit.show_excluded_filter_items();
-                let mut new = self.pot_unit.show_excluded_filter_items();
+                let old = input.pot_unit.show_excluded_filter_items();
+                let mut new = input.pot_unit.show_excluded_filter_items();
                 ui.checkbox(&mut new, "Show excluded filters")
                     .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
                 if new != old {
-                    self.pot_unit.set_show_excluded_filter_items(new, self.shared_pot_unit.clone());
+                    input.pot_unit.set_show_excluded_filter_items(new, input.shared_pot_unit.clone());
                 }
             }
         });
-    }
 }
 
 fn show_current_preset_panel(
