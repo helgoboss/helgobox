@@ -745,7 +745,10 @@ impl PresetDb {
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
                 let parent_bank_filter = settings.get(PotFilterKind::Bank);
-                if parent_bank_filter.is_some() {
+                if matches!(
+                    parent_bank_filter,
+                    Some(FilterItemId(Some(Fil::Komplete(_))))
+                ) {
                     sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
                 }
                 sql += " ORDER BY entry2";
