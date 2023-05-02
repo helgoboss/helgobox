@@ -14,6 +14,7 @@ use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
 use reaper_medium::{FxPresetRef, InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::CString;
 use std::fs;
@@ -33,7 +34,10 @@ pub use pot_database::*;
 
 mod plugin_id;
 mod plugins;
+use crate::domain::pot::plugins::PluginCore;
+use crate::domain::pot::provider_database::DatabaseId;
 pub use plugin_id::*;
+
 mod provider_database;
 mod providers;
 mod worker;
@@ -216,8 +220,61 @@ impl Stats {
 pub struct BuildInput {
     pub affected_kinds: EnumSet<PotFilterKind>,
     pub filters: Filters,
-    pub filter_exclude_list: PotFilterExcludeList,
+    pub filter_excludes: PotFilterExcludes,
     pub search_evaluator: SearchEvaluator,
+}
+
+#[derive(Copy, Clone)]
+pub struct InnerBuildInput<'a> {
+    pub affected_kinds: EnumSet<PotFilterKind>,
+    pub filter_input: FilterInput<'a>,
+    pub search_evaluator: &'a SearchEvaluator,
+}
+
+impl<'a> InnerBuildInput<'a> {
+    pub fn new(
+        input: &'a BuildInput,
+        favorites: &'a PotFavorites,
+        db_id: DatabaseId,
+    ) -> InnerBuildInput<'a> {
+        InnerBuildInput {
+            affected_kinds: input.affected_kinds,
+            filter_input: FilterInput {
+                filters: &input.filters,
+                excludes: &input.filter_excludes,
+                db_favorites: favorites.db_favorites(db_id),
+            },
+            search_evaluator: &input.search_evaluator,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct FilterInput<'a> {
+    pub filters: &'a Filters,
+    pub excludes: &'a PotFilterExcludes,
+    pub db_favorites: &'a HashSet<InnerPresetId>,
+}
+
+impl<'a> FilterInput<'a> {
+    pub fn everything_matches(&self, core: &PluginCore, preset_id: InnerPresetId) -> bool {
+        self.filters.matches_optional(
+            PotFilterKind::ProductKind,
+            core.product_kind.map(Fil::ProductKind),
+        ) && self
+            .filters
+            .matches_optional(PotFilterKind::Bank, Some(Fil::Product(core.product_id)))
+            && !self.excludes.excludes_product(core.product_id)
+            && self.filters.favorite_matches(self.db_favorites, preset_id)
+    }
+
+    pub fn with_filters(&self, filters: &'a Filters) -> Self {
+        Self {
+            filters,
+            excludes: self.excludes,
+            db_favorites: self.db_favorites,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -616,8 +673,8 @@ impl RuntimePotUnit {
                 &self.runtime_state.search_expression,
                 self.runtime_state.use_wildcard_search,
             ),
-            filter_exclude_list: if self.show_excluded_filter_items {
-                PotFilterExcludeList::default()
+            filter_excludes: if self.show_excluded_filter_items {
+                PotFilterExcludes::default()
             } else {
                 BackboneState::get().pot_filter_exclude_list().clone()
             },
@@ -626,7 +683,7 @@ impl RuntimePotUnit {
         // Here we already have enough knowledge to fix some filter settings.
         runtime_state
             .filters
-            .clear_excluded_ones(&build_input.filter_exclude_list);
+            .clear_excluded_ones(&build_input.filter_excludes);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.change_counter += 1;
         self.background_task_start_time = Some(Instant::now());

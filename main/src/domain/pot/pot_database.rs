@@ -8,12 +8,14 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Preset, PresetId, Stats,
+    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput, Preset,
+    PresetId, Stats,
 };
 
 use crate::domain::pot::plugins::PluginDatabase;
 use crate::domain::pot::providers::defaults::DefaultsDatabase;
 use crate::domain::pot::providers::ini::IniDatabase;
+use crate::domain::AnyThreadBackboneState;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
@@ -127,6 +129,12 @@ impl PotDatabase {
     }
 
     pub fn build_collections(&self, mut input: BuildInput) -> BuildOutput {
+        // Preparation
+        let any_thread_backbone_state = AnyThreadBackboneState::get();
+        let favorites = blocking_read_lock(
+            &any_thread_backbone_state.pot_favorites,
+            "favorites build collections",
+        );
         let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
         let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
@@ -162,7 +170,7 @@ impl PotDatabase {
             for (db_id, db) in &self.databases {
                 // If the database is on the exclude list, we don't even want it to appear in the
                 // database list.
-                if input.filter_exclude_list.excludes_database(*db_id) {
+                if input.filter_excludes.excludes_database(*db_id) {
                     continue;
                 }
                 // Acquire database access
@@ -188,7 +196,8 @@ impl PotDatabase {
                 // Add supported filter kinds
                 total_output.supported_filter_kinds |= db.supported_advanced_filter_kinds();
                 // Build and accumulate filters collections
-                let Ok(filter_collections) = db.query_filter_collections(&provider_context, &input) else {
+                let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
+                let Ok(filter_collections) = db.query_filter_collections(&provider_context, inner_input) else {
                     continue;
                 };
                 // Add unique filter items directly to the list of filters. Gather shared filter
@@ -242,14 +251,15 @@ impl PotDatabase {
                     .iter()
                     .filter(|(db_id, _)| {
                         input.filters.database_matches(**db_id)
-                            && !input.filter_exclude_list.excludes_database(**db_id)
+                            && !input.filter_excludes.excludes_database(**db_id)
                     })
                     .filter_map(|(db_id, db)| {
                         // Acquire database access
                         let db = blocking_read_lock(db, "pot db build_collections 2");
                         let db = db.as_ref().ok()?;
                         // Let database build presets
-                        let preset_ids = db.query_presets(&provider_context, &input).ok()?;
+                        let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
+                        let preset_ids = db.query_presets(&provider_context, inner_input).ok()?;
                         Some((*db_id, preset_ids))
                     })
                     .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))

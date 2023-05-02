@@ -1,12 +1,12 @@
 use crate::base::blocking_lock;
-use crate::domain::pot::api::{OptFilter, PotFilterExcludeList};
+use crate::domain::pot::api::{OptFilter, PotFilterExcludes};
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
     FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
-    BuildInput, Fil, FiledBasedPresetKind, HasFilterItemId, InnerPresetId, MacroParamBank, Preset,
-    PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
+    Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
@@ -119,13 +119,13 @@ impl Database for KompleteDatabase {
     fn query_filter_collections(
         &self,
         _: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB query_filter_collections",
         );
-        let translated_filters = self.translate_filters(input.filters);
+        let translated_filters = self.translate_filters(*input.filter_input.filters);
         let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
             if kind == PotFilterKind::Bank {
                 let product_id = self.nks_product_id_by_bank_id.get(&id)?;
@@ -137,7 +137,7 @@ impl Database for KompleteDatabase {
         preset_db.query_filter_collections(
             &translated_filters,
             input.affected_kinds,
-            &input.filter_exclude_list,
+            &input.filter_input.excludes,
             translate,
         )
     }
@@ -145,14 +145,14 @@ impl Database for KompleteDatabase {
     fn query_presets(
         &self,
         _: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
-        let translated_filters = self.translate_filters(input.filters);
+        let translated_filters = self.translate_filters(*input.filter_input.filters);
         preset_db.query_presets(
             &translated_filters,
             &input.search_evaluator,
-            &input.filter_exclude_list,
+            &input.filter_input.excludes,
         )
     }
 
@@ -378,7 +378,7 @@ impl PresetDb {
         &mut self,
         filters: &Filters,
         affected_kinds: EnumSet<PotFilterKind>,
-        filter_exclude_list: &PotFilterExcludeList,
+        filter_exclude_list: &PotFilterExcludes,
         translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_items =
@@ -430,7 +430,7 @@ impl PresetDb {
         &mut self,
         filters: &Filters,
         search_evaluator: &SearchEvaluator,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let search_criteria = SearchCriteria {
             expression: search_evaluator.processed_search_expression(),
@@ -445,7 +445,7 @@ impl PresetDb {
         &mut self,
         filter_settings: &Filters,
         search_criteria: SearchCriteria,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         self.execute_preset_query(
             filter_settings,
@@ -461,7 +461,7 @@ impl PresetDb {
     fn find_non_empty_banks(
         &mut self,
         mut filters: Filters,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
         self.execute_preset_query(
@@ -478,7 +478,7 @@ impl PresetDb {
     fn find_non_empty_categories(
         &mut self,
         mut filters: Filters,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Category);
         self.execute_preset_query(
@@ -495,7 +495,7 @@ impl PresetDb {
     fn find_non_empty_modes(
         &mut self,
         mut filters: Filters,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Mode);
         self.execute_preset_query(
@@ -516,7 +516,7 @@ impl PresetDb {
         search_criteria: SearchCriteria,
         select_clause: &str,
         from_more: Option<&str>,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
         order_by: Option<&str>,
         row_mapper: impl Fn(&Row) -> Result<R, rusqlite::Error>,
     ) -> Result<C, Box<dyn Error>>
@@ -719,7 +719,7 @@ impl PresetDb {
         &self,
         settings: &Filters,
         kinds: impl Iterator<Item = PotFilterKind>,
-        exclude_list: &PotFilterExcludeList,
+        exclude_list: &PotFilterExcludes,
     ) -> InnerFilterItemCollections {
         let mut collections = InnerFilterItemCollections::empty();
         for kind in kinds {

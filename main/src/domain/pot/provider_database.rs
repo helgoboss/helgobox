@@ -1,6 +1,6 @@
 use crate::domain::pot::plugins::{PluginDatabase, ProductKind};
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId,
+    Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
     InnerPresetId, Preset, ProductId,
 };
 use enumset::{enum_set, EnumSet};
@@ -28,13 +28,13 @@ pub trait Database {
     fn query_filter_collections(
         &self,
         context: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>>;
 
     fn query_presets(
         &self,
         context: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>>;
 
     fn find_preset_by_id(

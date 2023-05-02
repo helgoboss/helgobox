@@ -1,4 +1,4 @@
-use crate::domain::pot::plugins::{PluginCore, ProductKind};
+use crate::domain::pot::plugins::ProductKind;
 use crate::domain::pot::provider_database::{
     DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
 };
@@ -140,14 +140,6 @@ impl Filters {
         self.matches(PotFilterKind::Database, Fil::Database(db_id))
     }
 
-    pub fn plugin_core_matches(&self, core: &PluginCore, excludes: &PotFilterExcludeList) -> bool {
-        self.matches_optional(
-            PotFilterKind::ProductKind,
-            core.product_kind.map(Fil::ProductKind),
-        ) && self.matches_optional(PotFilterKind::Bank, Some(Fil::Product(core.product_id)))
-            && !excludes.excludes_product(core.product_id)
-    }
-
     pub fn wants_user_presets_only(&self) -> bool {
         self.wants_only(PotFilterKind::IsUser, FIL_IS_USER_PRESET_TRUE)
     }
@@ -165,7 +157,7 @@ impl Filters {
             .any(|k| self.is_set_to_concrete_value(k))
     }
 
-    /// To be used with filter kinds where <None> is **not** a valid filter value. In this case,
+    /// To be used with filter kinds where `<None>` is **not** a valid filter value. In this case,
     /// <None> is considered an invalid value and it never matches (no reason to panic but almost).
     fn matches(&self, kind: PotFilterKind, fil: Fil) -> bool {
         match self.get(kind) {
@@ -175,8 +167,26 @@ impl Filters {
         }
     }
 
-    /// To be used with filter kinds where <None> is a valid filter value.
-    fn matches_optional(&self, kind: PotFilterKind, fil: Option<Fil>) -> bool {
+    pub fn favorite_matches(
+        &self,
+        favorites: &HashSet<InnerPresetId>,
+        preset_id: InnerPresetId,
+    ) -> bool {
+        match self.get(PotFilterKind::IsFavorite) {
+            None => true,
+            Some(FilterItemId(None)) => false,
+            Some(FilterItemId(Some(fil))) => {
+                if fil == FIL_IS_FAVORITE_TRUE {
+                    favorites.contains(&preset_id)
+                } else {
+                    !favorites.contains(&preset_id)
+                }
+            }
+        }
+    }
+
+    /// To be used with filter kinds where `<None>` is a valid filter value.
+    pub fn matches_optional(&self, kind: PotFilterKind, fil: Option<Fil>) -> bool {
         match self.get(kind) {
             None => true,
             Some(FilterItemId(wanted_fil)) => fil == wanted_fil,
@@ -208,7 +218,7 @@ impl Filters {
         self.effective_sub_item(PotFilterKind::Bank, PotFilterKind::SubBank)
     }
 
-    pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludeList) {
+    pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludes) {
         for kind in PotFilterKind::into_enum_iter() {
             if let Some(id) = self.0[kind] {
                 if exclude_list.contains(kind, id) {
@@ -292,11 +302,11 @@ impl PotFavorites {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct PotFilterExcludeList {
+pub struct PotFilterExcludes {
     exluded_items: EnumMap<PotFilterKind, HashSet<FilterItemId>>,
 }
 
-impl PotFilterExcludeList {
+impl PotFilterExcludes {
     pub fn contains(&self, kind: PotFilterKind, id: FilterItemId) -> bool {
         self.exluded_items[kind].contains(&id)
     }

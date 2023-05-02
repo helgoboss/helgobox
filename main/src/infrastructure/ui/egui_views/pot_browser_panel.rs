@@ -5,7 +5,7 @@ use crate::domain::pot::{
     LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
-use crate::domain::BackboneState;
+use crate::domain::{AnyThreadBackboneState, BackboneState};
 use egui::collapsing_header::CollapsingState;
 use egui::{
     popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key,
@@ -516,7 +516,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 pot_unit,
                                 20.0,
                                 // Left
-                                |ui, pot_unit| {
+                                |ui, _| {
                                     ui.strong("Selected preset:");
                                     ui.label(preset.name());
                                     let _ = pot_db().try_with_db(preset_id.database_id, |db| {
@@ -529,8 +529,8 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                     }
                                 },
                                 // Right
-                                |ui, pot_unit| {
-                                    let favorites = BackboneState::get().pot_favorites();
+                                |ui, _| {
+                                    let favorites = &AnyThreadBackboneState::get().pot_favorites;
                                     let toggle = if let Ok(favorites) = favorites.try_read() {
                                         let mut is_favorite = favorites.is_favorite(preset_id);
                                         let icon = if is_favorite {
@@ -649,7 +649,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             }
                         },
                         // Right
-                        |ui, pot_unit| {
+                        |ui, _| {
                             if let Some(fx) = &current_fx {
                                 if ui.small_button("Chain").on_hover_text("Shows the FX chain").clicked() {
                                     fx.show_in_chain();

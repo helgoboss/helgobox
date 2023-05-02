@@ -2,8 +2,8 @@ use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    BuildInput, FiledBasedPresetKind, Filters, InnerPresetId, PluginId, PotFilterExcludeList,
-    Preset, PresetCommon, PresetKind,
+    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PluginId, Preset,
+    PresetCommon, PresetKind,
 };
 use std::borrow::Cow;
 
@@ -54,21 +54,23 @@ impl DirectoryDatabase {
         };
         Ok(db)
     }
+
     fn query_presets_internal<'a>(
         &'a self,
-        filters: &'a Filters,
-        excludes: &'a PotFilterExcludeList,
+        filter_input: &'a FilterInput,
     ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
-        let matches = !filters.wants_factory_presets_only()
-            && !filters.wants_favorites_only()
-            && !filters.any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
+        let matches = !filter_input.filters.wants_factory_presets_only()
+            && !filter_input
+                .filters
+                .any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
         if !matches {
             return Either::Left(iter::empty());
         }
-        let iter = self.entries.iter().enumerate().filter(|(_, e)| {
+        let iter = self.entries.iter().enumerate().filter(|(id, e)| {
+            let id = InnerPresetId(*id as _);
             e.plugin_cores
                 .values()
-                .any(|core| filters.plugin_core_matches(core, excludes))
+                .any(|core| filter_input.everything_matches(core, id))
         });
         Either::Right(iter)
     }
@@ -124,12 +126,12 @@ impl Database for DirectoryDatabase {
     fn query_filter_collections(
         &self,
         _: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut filter_settings = input.filters;
-        filter_settings.clear_this_and_dependent_filters(PotFilterKind::Bank);
+        let mut new_filters = *input.filter_input.filters;
+        new_filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
         let product_items = self
-            .query_presets_internal(&filter_settings, &input.filter_exclude_list)
+            .query_presets_internal(&input.filter_input.with_filters(&new_filters))
             .flat_map(|(_, entry)| entry.plugin_cores.values().map(|core| core.product_id))
             .unique()
             .map(InnerFilterItem::Product)
@@ -142,10 +144,10 @@ impl Database for DirectoryDatabase {
     fn query_presets(
         &self,
         _: &ProviderContext,
-        input: &BuildInput,
+        input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
-            .query_presets_internal(&input.filters, &input.filter_exclude_list)
+            .query_presets_internal(&input.filter_input)
             .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();

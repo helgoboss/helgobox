@@ -1,6 +1,6 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 
-use crate::domain::pot::{PotFavorites, PotFilterExcludeList};
+use crate::domain::pot::{PotFavorites, PotFilterExcludes};
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
@@ -10,6 +10,7 @@ use crate::domain::{
 };
 use enum_iterator::IntoEnumIterator;
 
+use once_cell::sync::Lazy;
 use playtime_clip_engine::rt::WeakMatrix;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Reaper, Track};
@@ -38,8 +39,23 @@ pub struct BackboneState {
     /// control the same clip matrix from different controllers.
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
-    global_pot_filter_exclude_list: RefCell<PotFilterExcludeList>,
-    pot_favorites: RwLock<PotFavorites>,
+    global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
+}
+
+#[derive(Debug, Default)]
+pub struct AnyThreadBackboneState {
+    /// Thread-safe because we need to access the favorites both from the main thread (e.g. for
+    /// display purposes) and from the pot worker (for building the collections). Alternative would
+    /// be to clone the favorites whenever we build the collections.
+    pub pot_favorites: RwLock<PotFavorites>,
+}
+
+impl AnyThreadBackboneState {
+    pub fn get() -> &'static AnyThreadBackboneState {
+        static INSTANCE: Lazy<AnyThreadBackboneState> =
+            Lazy::new(|| AnyThreadBackboneState::default());
+        &INSTANCE
+    }
 }
 
 struct LastTouchedTargetsContainer {
@@ -137,19 +153,14 @@ impl BackboneState {
             instance_states: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
-            pot_favorites: Default::default(),
         }
     }
 
-    pub fn pot_favorites(&self) -> &RwLock<PotFavorites> {
-        &self.pot_favorites
-    }
-
-    pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludeList> {
+    pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludes> {
         self.global_pot_filter_exclude_list.borrow()
     }
 
-    pub fn pot_filter_exclude_list_mut(&self) -> RefMut<PotFilterExcludeList> {
+    pub fn pot_filter_exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
         self.global_pot_filter_exclude_list.borrow_mut()
     }
 
@@ -181,7 +192,6 @@ impl BackboneState {
     /// If this static reference is passed to other user threads and used there, we are done.
     pub unsafe fn main_thread_lua() -> &'static SafeLua {
         Reaper::get().require_main_thread();
-        use once_cell::sync::Lazy;
         struct SingleThreadLua(SafeLua);
         unsafe impl Send for SingleThreadLua {}
         unsafe impl Sync for SingleThreadLua {}
