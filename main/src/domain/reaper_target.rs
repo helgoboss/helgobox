@@ -402,7 +402,13 @@ impl ReaperTarget {
                 FxParameter(FxParameterTarget {
                     is_real_time_ready: false,
                     param: e.parameter,
-                    poll_for_feedback: true,
+                    // This must be false (#849) because this target will be picked up by
+                    // "Global: Last touched". UnresolvedLastTouchedTarget doesn't take care of
+                    // putting the corresponding mapping into the set of polled mappings, so
+                    // polling won't work. It also wouldn't be useful to do so because mappings
+                    // which need polling for feedback wouldn't be picked up by "Global: Last
+                    // touched" anyway!
+                    poll_for_feedback: false,
                     retrigger: false,
                 })
             }
@@ -458,7 +464,7 @@ impl ReaperTarget {
                 let t = FxParameterTarget {
                     is_real_time_ready: false,
                     param,
-                    poll_for_feedback: true,
+                    poll_for_feedback: false,
                     retrigger: false,
                 };
                 Some(FxParameter(t).into())
