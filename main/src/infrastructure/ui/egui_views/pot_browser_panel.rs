@@ -52,7 +52,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .and_then(|inst| inst.get_existing().and_then(|dest| dest.resolve()));
     // UI
     let panel_frame = Frame::central_panel(&ctx.style());
-    // Top/bottom panel
+    // Upper panel (currently loaded preset with macro controls)
     if let Some(fx) = &current_fx {
         let target_state = BackboneState::target_state().borrow();
         if let Some(current_preset) = target_state.current_fx_preset(fx) {
@@ -61,55 +61,11 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .frame(panel_frame)
                 .min_height(50.0)
                 .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading(current_preset.preset().name());
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if current_preset.has_params() {
-                                // Bank picker
-                                let mut new_bank_index = state.bank_index as usize;
-                                egui::ComboBox::from_id_source("banks").show_index(
-                                    ui,
-                                    &mut new_bank_index,
-                                    current_preset.macro_param_bank_count() as usize,
-                                    |i| {
-                                        if let Some(bank) =
-                                            current_preset.find_macro_param_bank_at(i as _)
-                                        {
-                                            format!("{}. {}", i + 1, bank.name())
-                                        } else {
-                                            format!("Bank {} (doesn't exist)", i + 1)
-                                        }
-                                    },
-                                );
-                                let new_bank_index = new_bank_index as u32;
-                                if new_bank_index != state.bank_index {
-                                    state.bank_index = new_bank_index;
-                                }
-                                // ui.strong("Parameter bank:");
-                            }
-                        })
-                    });
-                    // Actual macro param display
-                    if current_preset.has_params() {
-                        show_macro_params(ui, fx, current_preset, state.bank_index);
-                        // Scroll handler. This must come at the end, otherwise ui_contains_pointer
-                        // works with a zero-sized UI!
-                        if ui.ui_contains_pointer() {
-                            let vertical_scroll = ui.input(|i| {
-                                i.events.iter().find_map(|e| match e {
-                                    Event::Scroll(s) if s.y != 0.0 => Some(s.y),
-                                    _ => None,
-                                })
-                            });
-                            if let Some(s) = vertical_scroll {
-                                let amount = -s.signum() as i32;
-                                state.bank_index = state.bank_index.saturating_add_signed(amount);
-                            }
-                        }
-                    }
+                    show_current_preset_panel(&mut state.bank_index, fx, current_preset, ui);
                 });
         }
     }
+    // Lower panel (the rest)
     CentralPanel::default()
         .frame(Frame::none())
         .show(ctx, |ui| {
@@ -682,6 +638,58 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
+}
+
+fn show_current_preset_panel(
+    bank_index: &mut u32,
+    fx: &Fx,
+    current_preset: &CurrentPreset,
+    ui: &mut Ui,
+) {
+    ui.horizontal(|ui| {
+        ui.heading(current_preset.preset().name());
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if current_preset.has_params() {
+                // Bank picker
+                let mut new_bank_index = *bank_index as usize;
+                egui::ComboBox::from_id_source("banks").show_index(
+                    ui,
+                    &mut new_bank_index,
+                    current_preset.macro_param_bank_count() as usize,
+                    |i| {
+                        if let Some(bank) = current_preset.find_macro_param_bank_at(i as _) {
+                            format!("{}. {}", i + 1, bank.name())
+                        } else {
+                            format!("Bank {} (doesn't exist)", i + 1)
+                        }
+                    },
+                );
+                let new_bank_index = new_bank_index as u32;
+                if new_bank_index != *bank_index {
+                    *bank_index = new_bank_index;
+                }
+                // ui.strong("Parameter bank:");
+            }
+        })
+    });
+    // Actual macro param display
+    if current_preset.has_params() {
+        show_macro_params(ui, fx, current_preset, *bank_index);
+        // Scroll handler. This must come at the end, otherwise ui_contains_pointer
+        // works with a zero-sized UI!
+        if ui.ui_contains_pointer() {
+            let vertical_scroll = ui.input(|i| {
+                i.events.iter().find_map(|e| match e {
+                    Event::Scroll(s) if s.y != 0.0 => Some(s.y),
+                    _ => None,
+                })
+            });
+            if let Some(s) = vertical_scroll {
+                let amount = -s.signum() as i32;
+                *bank_index = bank_index.saturating_add_signed(amount);
+            }
+        }
+    }
 }
 
 struct KeyContext {
