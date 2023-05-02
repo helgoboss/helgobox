@@ -8,8 +8,9 @@ use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState};
 use egui::collapsing_header::CollapsingState;
 use egui::{
-    popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key,
-    Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Visuals, Widget,
+    popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame,
+    InputState, Key, Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui,
+    Visuals, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -20,6 +21,7 @@ use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
 use std::mem;
+use std::sync::MutexGuard;
 use std::time::Duration;
 use swell_ui::Window;
 
@@ -33,97 +35,16 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
-    // Keyboard control
-    enum KeyAction {
-        NavigateWithinPresets(i32),
-        LoadPreset,
-        ClearSearchExpression,
-        ClearLastSearchExpressionChar,
-        ExtendSearchExpression(String),
-    }
-    // ctx.memory_mut(|mem| {
-    //     mem.lock_focus()
-    // });
-    let key_action = ctx.input_mut(|input| {
-        let mut action = None;
-        input.events.retain_mut(|event| match event {
-            Event::Key {
-                key,
-                pressed,
-                modifiers,
-                ..
-            } => {
-                if *pressed {
-                    match key {
-                        Key::ArrowUp => action = Some(KeyAction::NavigateWithinPresets(-1)),
-                        Key::ArrowDown => action = Some(KeyAction::NavigateWithinPresets(1)),
-                        Key::Enter => action = Some(KeyAction::LoadPreset),
-                        Key::Backspace if modifiers.command => {
-                            action = Some(KeyAction::ClearSearchExpression)
-                        }
-                        Key::Backspace if !modifiers.command => {
-                            action = Some(KeyAction::ClearLastSearchExpressionChar)
-                        }
-                        _ => {}
-                    }
-                }
-                false
-            }
-            Event::Text(text) => {
-                action = Some(KeyAction::ExtendSearchExpression(mem::take(text)));
-                false
-            }
-            _ => true,
-        });
-        action
-    });
+    // Process keyboard
+    let key_action = ctx.input_mut(|input| determine_key_action(input));
     if let Some(key_action) = key_action {
-        match key_action {
-            KeyAction::NavigateWithinPresets(amount) => {
-                if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount) {
-                    if let Some(next_preset_id) =
-                        pot_unit.find_preset_id_at_index(next_preset_index)
-                    {
-                        pot_unit.set_preset_id(Some(next_preset_id));
-                        if state.auto_preview {
-                            let _ = pot_unit.play_preview(next_preset_id);
-                        }
-                    }
-                }
-            }
-            KeyAction::LoadPreset => {
-                if let Some((_, preset)) = pot_unit.preset_and_id() {
-                    load_preset_and_regain_focus(
-                        &preset,
-                        state.os_window,
-                        pot_unit,
-                        &mut toasts,
-                        state.load_preset_window_behavior,
-                    );
-                }
-            }
-            KeyAction::ClearLastSearchExpressionChar => {
-                pot_unit.runtime_state.search_expression.pop();
-                pot_unit.rebuild_collections(
-                    state.pot_unit.clone(),
-                    Some(ChangeHint::SearchExpression),
-                );
-            }
-            KeyAction::ClearSearchExpression => {
-                pot_unit.runtime_state.search_expression.clear();
-                pot_unit.rebuild_collections(
-                    state.pot_unit.clone(),
-                    Some(ChangeHint::SearchExpression),
-                );
-            }
-            KeyAction::ExtendSearchExpression(text) => {
-                pot_unit.runtime_state.search_expression.push_str(&text);
-                pot_unit.rebuild_collections(
-                    state.pot_unit.clone(),
-                    Some(ChangeHint::SearchExpression),
-                );
-            }
-        }
+        let ctx = KeyContext {
+            auto_preview: state.auto_preview,
+            os_window: state.os_window,
+            load_preset_window_behavior: state.load_preset_window_behavior,
+            pot_unit: state.pot_unit.clone(),
+        };
+        execute_key_action(ctx, pot_unit, &mut toasts, key_action);
     }
     let current_fx = pot_unit
         .resolve_destination()
@@ -763,6 +684,90 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
     state.last_preset_id = pot_unit.preset_id();
 }
 
+struct KeyContext {
+    auto_preview: bool,
+    os_window: Window,
+    load_preset_window_behavior: LoadPresetWindowBehavior,
+    pot_unit: SharedRuntimePotUnit,
+}
+
+fn execute_key_action(
+    ctx: KeyContext,
+    pot_unit: &mut MutexGuard<RuntimePotUnit>,
+    mut toasts: &mut Toasts,
+    key_action: KeyAction,
+) {
+    match key_action {
+        KeyAction::NavigateWithinPresets(amount) => {
+            if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount) {
+                if let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index) {
+                    pot_unit.set_preset_id(Some(next_preset_id));
+                    if ctx.auto_preview {
+                        let _ = pot_unit.play_preview(next_preset_id);
+                    }
+                }
+            }
+        }
+        KeyAction::LoadPreset => {
+            if let Some((_, preset)) = pot_unit.preset_and_id() {
+                load_preset_and_regain_focus(
+                    &preset,
+                    ctx.os_window,
+                    pot_unit,
+                    &mut toasts,
+                    ctx.load_preset_window_behavior,
+                );
+            }
+        }
+        KeyAction::ClearLastSearchExpressionChar => {
+            pot_unit.runtime_state.search_expression.pop();
+            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+        }
+        KeyAction::ClearSearchExpression => {
+            pot_unit.runtime_state.search_expression.clear();
+            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+        }
+        KeyAction::ExtendSearchExpression(text) => {
+            pot_unit.runtime_state.search_expression.push_str(&text);
+            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+        }
+    }
+}
+
+fn determine_key_action(input: &mut InputState) -> Option<KeyAction> {
+    let mut action = None;
+    input.events.retain_mut(|event| match event {
+        Event::Key {
+            key,
+            pressed,
+            modifiers,
+            ..
+        } => {
+            if *pressed {
+                match key {
+                    Key::ArrowUp => action = Some(KeyAction::NavigateWithinPresets(-1)),
+                    Key::ArrowDown => action = Some(KeyAction::NavigateWithinPresets(1)),
+                    Key::Enter => action = Some(KeyAction::LoadPreset),
+                    Key::Backspace if modifiers.command => {
+                        action = Some(KeyAction::ClearSearchExpression)
+                    }
+                    Key::Backspace if !modifiers.command => {
+                        action = Some(KeyAction::ClearLastSearchExpressionChar)
+                    }
+                    _ => {}
+                }
+            }
+            false
+        }
+        Event::Text(text) => {
+            action = Some(KeyAction::ExtendSearchExpression(mem::take(text)));
+            false
+        }
+        _ => true,
+    });
+    action
+}
+
 fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_index: u32) {
     // Added this UI just to not get duplicate table IDs
     ui.vertical(|ui| {
@@ -1149,4 +1154,12 @@ fn left_right<A>(
                     });
             });
         });
+}
+
+enum KeyAction {
+    NavigateWithinPresets(i32),
+    LoadPreset,
+    ClearSearchExpression,
+    ClearLastSearchExpressionChar,
+    ExtendSearchExpression(String),
 }
