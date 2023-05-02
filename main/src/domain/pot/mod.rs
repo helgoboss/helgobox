@@ -433,9 +433,10 @@ impl RuntimePotUnit {
         self.sound_player.stop()
     }
 
-    pub fn preset(&self) -> Option<Preset> {
+    pub fn preset_and_id(&self) -> Option<(PresetId, Preset)> {
         let preset_id = self.preset_id()?;
-        pot_db().find_preset_by_id(preset_id)
+        let preset = pot_db().find_preset_by_id(preset_id)?;
+        Some((preset_id, preset))
     }
 
     pub fn load_preset(

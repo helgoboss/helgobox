@@ -6,8 +6,9 @@ use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
+use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PresetId {
@@ -258,6 +259,44 @@ impl Filters {
         } else {
             &self.0[sub_kind]
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct PotFavorites {
+    favorites: HashMap<DatabaseId, HashSet<InnerPresetId>>,
+}
+
+impl PotFavorites {
+    pub fn is_favorite(&self, preset_id: PresetId) -> bool {
+        if let Some(db_favorites) = self.favorites.get(&preset_id.database_id) {
+            db_favorites.contains(&preset_id.preset_id)
+        } else {
+            false
+        }
+    }
+
+    pub fn set_favorite(&mut self, preset_id: PresetId, favorite: bool) {
+        let db_favorites = self.favorites.entry(preset_id.database_id).or_default();
+        if favorite {
+            db_favorites.insert(preset_id.preset_id);
+        } else {
+            db_favorites.remove(&preset_id.preset_id);
+        }
+    }
+
+    pub fn toggle_favorite(&mut self, preset_id: PresetId) {
+        let db_favorites = self.favorites.entry(preset_id.database_id).or_default();
+        if db_favorites.contains(&preset_id.preset_id) {
+            db_favorites.remove(&preset_id.preset_id);
+        } else {
+            db_favorites.insert(preset_id.preset_id);
+        }
+    }
+
+    pub fn db_favorites(&self, db_id: DatabaseId) -> &HashSet<InnerPresetId> {
+        static EMPTY_HASH_SET: Lazy<HashSet<InnerPresetId>> = Lazy::new(HashSet::new);
+        self.favorites.get(&db_id).unwrap_or(&EMPTY_HASH_SET)
     }
 }
 

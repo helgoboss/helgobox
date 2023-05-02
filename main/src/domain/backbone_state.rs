@@ -1,6 +1,6 @@
 use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 
-use crate::domain::pot::PotFilterExcludeList;
+use crate::domain::pot::{PotFavorites, PotFilterExcludeList};
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
@@ -17,6 +17,7 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
+use std::sync::RwLock;
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
 
@@ -38,6 +39,7 @@ pub struct BackboneState {
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludeList>,
+    pot_favorites: RwLock<PotFavorites>,
 }
 
 struct LastTouchedTargetsContainer {
@@ -135,7 +137,12 @@ impl BackboneState {
             instance_states: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
+            pot_favorites: Default::default(),
         }
+    }
+
+    pub fn pot_favorites(&self) -> &RwLock<PotFavorites> {
+        &self.pot_favorites
     }
 
     pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludeList> {

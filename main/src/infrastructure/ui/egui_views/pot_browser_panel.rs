@@ -1,11 +1,12 @@
 use crate::application::get_track_label;
-use crate::base::blocking_lock;
+use crate::base::{blocking_lock, blocking_write_lock};
 use crate::domain::pot::{
     pot_db, ChangeHint, CurrentPreset, DestinationTrackDescriptor, LoadPresetOptions,
     LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::BackboneState;
+use egui::collapsing_header::CollapsingState;
 use egui::{
     popup_below_widget, vec2, Align, Button, CentralPanel, Color32, DragValue, Event, Frame, Key,
     Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui, Visuals, Widget,
@@ -91,7 +92,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 }
             }
             KeyAction::LoadPreset => {
-                if let Some(preset) = pot_unit.preset() {
+                if let Some((_, preset)) = pot_unit.preset_and_id() {
                     load_preset_and_regain_focus(
                         &preset,
                         state.os_window,
@@ -220,7 +221,9 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                             .clicked() {
                             pot_unit.refresh_pot(state.pot_unit.clone());
                         }
-                        if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE)).clicked() {
+                        if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE))
+                            .on_hover_text("Switches between light and dark theme")
+                            .clicked() {
                             let mut style: egui::Style = (*ctx.style()).clone();
                             style.visuals = if style.visuals.dark_mode {
                                 Visuals::light()
@@ -491,12 +494,42 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     });
                 }
                 // Info about selected preset
-                if let Some(preset) = pot_unit.preset() {
+                if let Some((preset_id, preset)) = pot_unit.preset_and_id() {
                     ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.strong("Selected preset:");
-                        ui.label(preset.name());
-                    });
+                    let id = ui.make_persistent_id("selected-preset");
+                    CollapsingState::load_with_default_open(ui.ctx(), id, false)
+                        .show_header(ui, |ui| {
+                            ui.strong("Selected preset:");
+                            ui.label(preset.name());
+                            let _ = pot_db().try_with_db(preset_id.database_id, |db| {
+                                ui.strong("from");
+                                ui.label(db.name());
+                            });
+                            if let Some(product_name) = &preset.common.product_name {
+                                ui.strong("for");
+                                ui.label(product_name);
+                            }
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                let favorites = BackboneState::get().pot_favorites();
+                                let toggle = if let Ok(favorites) = favorites.try_read() {
+                                    let mut is_favorite = favorites.is_favorite(preset_id);
+                                    let icon = if is_favorite {
+                                        "★"
+                                    } else {
+                                        "☆"
+                                    };
+                                    ui.toggle_value(&mut is_favorite, icon).changed()
+                                } else {
+                                    false
+                                };
+                                if toggle {
+                                    blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
+                                }
+                            });
+                        })
+                        .body(|ui| {
+                            ui.label("...")
+                        });
                 }
                 // Destination info
                 ui.separator();
@@ -653,12 +686,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                                 if Some(preset_id) == pot_unit.preset_id() {
                                     button = button.fill(Color32::LIGHT_BLUE);
                                 }
-                                let button = ui.add_sized(ui.available_size(), button)
-                                    .on_hover_ui(|ui| {
-                                        let _ = pot_db().try_with_db(preset_id.database_id, |db| {
-                                            ui.label(format!("from database \"{}\"", db.name()));
-                                        });
-                                    });
+                                let button = ui.add_sized(ui.available_size(), button);
                                 if let Ok(Some(preset)) = preset.as_ref() {
                                     if button.clicked() {
                                         if state.auto_preview {
@@ -751,8 +779,8 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                                 return;
                             };
                             ui.vertical(|ui| {
-                                ui.label(&param.macro_param.section_name);
-                                let resp = ui.strong(&param.macro_param.name);
+                                ui.strong(&param.macro_param.section_name);
+                                let resp = ui.label(&param.macro_param.name);
                                 resp.on_hover_ui(|ui| {
                                     let hover_text = if let Some(fx_param) = &param.fx_param {
                                         fx_param.name().into_string()
@@ -1047,7 +1075,7 @@ fn shorten(text: Cow<str>, max_len: usize) -> Cow<str> {
 }
 
 fn truncate_in_place(s: &mut String, max_chars: usize) {
-    let bytes = truncate(&s, max_chars).len();
+    let bytes = truncate(s, max_chars).len();
     s.truncate(bytes);
 }
 
