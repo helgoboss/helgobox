@@ -199,84 +199,94 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 .show_inside(ui, |ui| {
                     // General controls
                     ui.horizontal(|ui| {
-                        ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
-                            ui.checkbox(&mut state.paint_continuously, "Paint continuously")
-                                .on_hover_text(
-                                    "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
-                                );
-                            ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
-                                .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
-                            {
-                                let old = pot_unit.show_excluded_filter_items();
-                                let mut new = pot_unit.show_excluded_filter_items();
-                                ui.checkbox(&mut new, "Show excluded filters")
-                                    .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
-                                if new != old {
-                                    pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
-                                }
-                            }
-                        });
-                        if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
-                            .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
-                            .clicked() {
-                            pot_unit.refresh_pot(state.pot_unit.clone());
-                        }
-                        if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE))
-                            .on_hover_text("Switches between light and dark theme")
-                            .clicked() {
-                            let mut style: egui::Style = (*ctx.style()).clone();
-                            style.visuals = if style.visuals.dark_mode {
-                                Visuals::light()
-                            }  else {
-                                Visuals::dark()
-                            };
-                            ctx.set_style(style);
-                        }
-                        let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
-                        let help_id = ui.make_persistent_id("help");
-                        if help_button.clicked() {
-                            ui.memory_mut(|mem| mem.toggle_popup(help_id));
-                        }
-                        popup_below_widget(ui, help_id, &help_button, |ui| {
-                            TableBuilder::new(ui)
-                                .column(Column::auto().at_least(200.0))
-                                .column(Column::remainder())
-                                .cell_layout(Layout::left_to_right(Align::Center))
-                                .body(|mut body| {
-                                    for (interaction, reaction) in HELP.iter() {
-                                        body.row(30.0, |mut row| {
-                                            row.col(|ui| {
-                                                ui.strong(format!("{interaction}:"));
-                                            });
-                                            row.col(|ui| {
-                                                ui.label(*reaction);
-                                            });
-                                        });
+                        left_right(
+                            ui,
+                            pot_unit,
+                            150.0,
+                            // Left: Toolbar
+                            |ui, pot_unit| {
+                                ui.menu_button(RichText::new("Options").size(TOOLBAR_SIZE), |ui| {
+                                    ui.checkbox(&mut state.paint_continuously, "Paint continuously")
+                                        .on_hover_text(
+                                            "Necessary to automatically display changes made by external controllers (via ReaLearn pot targets)",
+                                        );
+                                    ui.checkbox(&mut state.auto_hide_sub_filters, "Auto-hide sub filters")
+                                        .on_hover_text("Makes sure you are not confronted with dozens of child filters if the corresponding top-level filter is set to <Any>");
+                                    {
+                                        let old = pot_unit.show_excluded_filter_items();
+                                        let mut new = pot_unit.show_excluded_filter_items();
+                                        ui.checkbox(&mut new, "Show excluded filters")
+                                            .on_hover_text("Shows all previously excluded filters again (via right click on filter item), so you can include them again if you want.");
+                                        if new != old {
+                                            pot_unit.set_show_excluded_filter_items(new, state.pot_unit.clone());
+                                        }
                                     }
                                 });
-                        });
-                        // Spinner
-                        if background_task_elapsed.is_some() {
-                            ui.spinner();
-                        }
-                        // Mini filters
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            let shown = add_filter_view_content_as_icons(
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::IsUser,
-                                ui,
-                            );
-                            if shown {
-                                ui.separator();
+                                if ui.button(RichText::new("🔃").size(TOOLBAR_SIZE))
+                                    .on_hover_text("Refreshes all databases (e.g. picks up new files on disk)")
+                                    .clicked() {
+                                    pot_unit.refresh_pot(state.pot_unit.clone());
+                                }
+                                if ui.button(RichText::new("🌙").size(TOOLBAR_SIZE))
+                                    .on_hover_text("Switches between light and dark theme")
+                                    .clicked() {
+                                    let mut style: egui::Style = (*ctx.style()).clone();
+                                    style.visuals = if style.visuals.dark_mode {
+                                        Visuals::light()
+                                    } else {
+                                        Visuals::dark()
+                                    };
+                                    ctx.set_style(style);
+                                }
+                                let help_button = ui.button(RichText::new("❓").size(TOOLBAR_SIZE));
+                                let help_id = ui.make_persistent_id("help");
+                                if help_button.clicked() {
+                                    ui.memory_mut(|mem| mem.toggle_popup(help_id));
+                                }
+                                popup_below_widget(ui, help_id, &help_button, |ui| {
+                                    TableBuilder::new(ui)
+                                        .column(Column::auto().at_least(200.0))
+                                        .column(Column::remainder())
+                                        .cell_layout(Layout::left_to_right(Align::Center))
+                                        .body(|mut body| {
+                                            for (interaction, reaction) in HELP.iter() {
+                                                body.row(30.0, |mut row| {
+                                                    row.col(|ui| {
+                                                        ui.strong(format!("{interaction}:"));
+                                                    });
+                                                    row.col(|ui| {
+                                                        ui.label(*reaction);
+                                                    });
+                                                });
+                                            }
+                                        });
+                                });
+                                // Spinner
+                                if background_task_elapsed.is_some() {
+                                    ui.spinner();
+                                }
+                            },
+                            // Right: Mini filters
+                            |ui, pot_unit| {
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    let shown = add_filter_view_content_as_icons(
+                                        &state.pot_unit,
+                                        pot_unit,
+                                        PotFilterKind::IsUser,
+                                        ui,
+                                    );
+                                    if shown {
+                                        ui.separator();
+                                    }
+                                    add_filter_view_content_as_icons(
+                                        &state.pot_unit,
+                                        pot_unit,
+                                        PotFilterKind::IsFavorite,
+                                        ui,
+                                    );
+                                });
                             }
-                            add_filter_view_content_as_icons(
-                                &state.pot_unit,
-                                pot_unit,
-                                PotFilterKind::IsFavorite,
-                                ui,
-                            );
-                        });
+                        );
                     });
                     // Add independent filter views
                     let heading_height = ui.text_style_height(&TextStyle::Heading);
@@ -464,8 +474,10 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     });
                     // Search
                     let text_edit = TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
-                        .min_size(vec2(0.0, TOOLBAR_SIZE))
-                        .hint_text("Type anywhere to search!")
+                        // .min_size(vec2(0.0, TOOLBAR_SIZE))
+                        .desired_width(140.0)
+                        .clip_text(false)
+                        .hint_text("Enter search text!")
                         .font(TextStyle::Monospace);
                     ui.add_enabled(false, text_edit)
                         .on_disabled_hover_text("Type anywhere to search!\nUse backspace to clear the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.");
@@ -499,52 +511,42 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                     let id = ui.make_persistent_id("selected-preset");
                     CollapsingState::load_with_default_open(ui.ctx(), id, false)
                         .show_header(ui, |ui| {
-                            let height = ui.available_height();
-                            StripBuilder::new(ui)
-                                .size(Size::exact(height))
-                                .clip(true)
-                                .vertical(|mut strip| {
-                                    strip.strip(|strip| {
-                                        strip
-                                            .size(Size::relative(0.9))
-                                            .size(Size::remainder())
-                                            .horizontal(|mut strip| {
-                                                strip.cell(|ui| {
-                                                    ui.horizontal(|ui| {
-                                                        ui.strong("Selected preset:");
-                                                        ui.label(preset.name());
-                                                        let _ = pot_db().try_with_db(preset_id.database_id, |db| {
-                                                            ui.strong("from");
-                                                            ui.label(db.name());
-                                                        });
-                                                        if let Some(product_name) = &preset.common.product_name {
-                                                            ui.strong("for");
-                                                            ui.label(product_name);
-                                                        }
-                                                    });
-                                                });
-                                                strip.cell(|ui| {
-                                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                                        let favorites = BackboneState::get().pot_favorites();
-                                                        let toggle = if let Ok(favorites) = favorites.try_read() {
-                                                            let mut is_favorite = favorites.is_favorite(preset_id);
-                                                            let icon = if is_favorite {
-                                                                "★"
-                                                            } else {
-                                                                "☆"
-                                                            };
-                                                            ui.toggle_value(&mut is_favorite, icon).changed()
-                                                        } else {
-                                                            false
-                                                        };
-                                                        if toggle {
-                                                            blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
-                                                        }
-                                                    });
-                                                });
-                                            });
+                            left_right(
+                                ui,
+                                pot_unit,
+                                20.0,
+                                // Left
+                                |ui, pot_unit| {
+                                    ui.strong("Selected preset:");
+                                    ui.label(preset.name());
+                                    let _ = pot_db().try_with_db(preset_id.database_id, |db| {
+                                        ui.strong("from");
+                                        ui.label(db.name());
                                     });
-                                });
+                                    if let Some(product_name) = &preset.common.product_name {
+                                        ui.strong("for");
+                                        ui.label(product_name);
+                                    }
+                                },
+                                // Right
+                                |ui, pot_unit| {
+                                    let favorites = BackboneState::get().pot_favorites();
+                                    let toggle = if let Ok(favorites) = favorites.try_read() {
+                                        let mut is_favorite = favorites.is_favorite(preset_id);
+                                        let icon = if is_favorite {
+                                            "★"
+                                        } else {
+                                            "☆"
+                                        };
+                                        ui.toggle_value(&mut is_favorite, icon).changed()
+                                    } else {
+                                        false
+                                    };
+                                    if toggle {
+                                        blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
+                                    }
+                                }
+                            );
                         })
                         .body(|ui| {
                             ui.label("...")
@@ -553,103 +555,111 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
                 // Destination info
                 ui.separator();
                 ui.horizontal(|ui| {
-                    ScrollArea::horizontal().id_source("destination").show(ui, |ui| {
-                        // Track descriptor
-                        let current_project = Reaper::get().current_project();
-                        {
-                            const SPECIAL_TRACK_COUNT: usize = 2;
-                            ui.strong("Load into");
-                            let track_count = current_project.track_count();
-                            let old_track_code = match &mut pot_unit.destination_descriptor.track {
-                                DestinationTrackDescriptor::SelectedTrack => 0usize,
-                                DestinationTrackDescriptor::MasterTrack => 1usize,
-                                DestinationTrackDescriptor::Track(i) => {
-                                    // If configured track index too high, set it to 
-                                    // "new track at end of project".
-                                    *i = (*i).min(track_count);
-                                    *i as usize + SPECIAL_TRACK_COUNT
-                                }
-                            };
-                            let mut new_track_code = old_track_code;
-                            egui::ComboBox::from_id_source("tracks").show_index(
-                                ui,
-                                &mut new_track_code,
-                                SPECIAL_TRACK_COUNT + track_count as usize + 1,
-                                |code| {
-                                    match code {
-                                        0 => "<Selected track>".to_string(),
-                                        1 => "<Master track>".to_string(),
-                                        _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
-                                            get_track_label(&track)
-                                        } else {
-                                            "<New track>".to_string()
-                                        }
+                    left_right(
+                        ui,
+                        pot_unit,
+                        75.0,
+                        // Left
+                        |ui, pot_unit| {
+                            // Track descriptor
+                            let current_project = Reaper::get().current_project();
+                            {
+                                const SPECIAL_TRACK_COUNT: usize = 2;
+                                ui.strong("Load into");
+                                let track_count = current_project.track_count();
+                                let old_track_code = match &mut pot_unit.destination_descriptor.track {
+                                    DestinationTrackDescriptor::SelectedTrack => 0usize,
+                                    DestinationTrackDescriptor::MasterTrack => 1usize,
+                                    DestinationTrackDescriptor::Track(i) => {
+                                        // If configured track index too high, set it to 
+                                        // "new track at end of project".
+                                        *i = (*i).min(track_count);
+                                        *i as usize + SPECIAL_TRACK_COUNT
                                     }
-                                },
-                            );
-                            if new_track_code != old_track_code {
-                                let track_desc = match new_track_code {
-                                    0 => DestinationTrackDescriptor::SelectedTrack,
-                                    1 => DestinationTrackDescriptor::MasterTrack,
-                                    c => DestinationTrackDescriptor::Track(c as u32 - SPECIAL_TRACK_COUNT as u32),
                                 };
-                                pot_unit.destination_descriptor.track = track_desc;
-                            }
-                        }
-                        // Resolved track (if displaying it makes sense)
-                        let resolved_track = pot_unit.destination_descriptor.track.resolve(current_project);
-                        if pot_unit.destination_descriptor.track.is_dynamic() {
-                            ui.label("=");
-                            let caption = match resolved_track.as_ref() {
-                                Ok(t) => {
-                                    format!("\"{}\"", get_track_label(t))
-                                }
-                                Err(_) => {
-                                    "None (add new)".to_string()
-                                }
-                            };
-                            let short_caption = shorten(caption.as_str().into(), 14);
-                            ui.label(short_caption).on_hover_text(caption);
-                        }
-                        // FX descriptor
-                        {
-                            if let Ok(t) = resolved_track.as_ref() {
-                                ui.label("at");
-                                let chain = t.normal_fx_chain();
-                                let fx_count = chain.fx_count();
-                                // If configured FX index too high, set it to "new FX at end of chain".
-                                pot_unit.destination_descriptor.fx_index =
-                                    pot_unit.destination_descriptor.fx_index.min(fx_count);
-                                let mut fx_code = pot_unit.destination_descriptor.fx_index as usize;
-                                egui::ComboBox::from_id_source("fxs")
-                                    .show_index(
-                                        ui,
-                                        &mut fx_code,
-                                        fx_count as usize + 1,
-                                        |code| {
-                                            match chain.fx_by_index(code as _) {
-                                                None => {
-                                                    "<New FX>".to_string()
-                                                }
-                                                Some(fx) => {
-                                                    format!("{}. {}", code + 1, fx.name())
-                                                }
+                                let mut new_track_code = old_track_code;
+                                egui::ComboBox::from_id_source("tracks").show_index(
+                                    ui,
+                                    &mut new_track_code,
+                                    SPECIAL_TRACK_COUNT + track_count as usize + 1,
+                                    |code| {
+                                        match code {
+                                            0 => "<Selected track>".to_string(),
+                                            1 => "<Master track>".to_string(),
+                                            _ => if let Some(track) = current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32) {
+                                                get_track_label(&track)
+                                            } else {
+                                                "<New track>".to_string()
                                             }
-                                        },
-                                    );
-                                pot_unit.destination_descriptor.fx_index = fx_code as _;
+                                        }
+                                    },
+                                );
+                                if new_track_code != old_track_code {
+                                    let track_desc = match new_track_code {
+                                        0 => DestinationTrackDescriptor::SelectedTrack,
+                                        1 => DestinationTrackDescriptor::MasterTrack,
+                                        c => DestinationTrackDescriptor::Track(c as u32 - SPECIAL_TRACK_COUNT as u32),
+                                    };
+                                    pot_unit.destination_descriptor.track = track_desc;
+                                }
                             }
-                        }
-                        // Resolved
-                        if let Some(fx) = &current_fx {
-                            if ui.small_button("Chain").on_hover_text("Shows the FX chain").clicked() {
-                                fx.show_in_chain();
+                            // Resolved track (if displaying it makes sense)
+                            let resolved_track = pot_unit.destination_descriptor.track.resolve(current_project);
+                            if pot_unit.destination_descriptor.track.is_dynamic() {
+                                ui.label("=");
+                                let caption = match resolved_track.as_ref() {
+                                    Ok(t) => {
+                                        format!("\"{}\"", get_track_label(t))
+                                    }
+                                    Err(_) => {
+                                        "None (add new)".to_string()
+                                    }
+                                };
+                                let short_caption = shorten(caption.as_str().into(), 14);
+                                ui.label(short_caption).on_hover_text(caption);
                             }
-                            if ui.small_button("FX").on_hover_text("Shows the FX").clicked() {
-                                fx.show_in_floating_window();
+                            // FX descriptor
+                            {
+                                if let Ok(t) = resolved_track.as_ref() {
+                                    ui.label("at");
+                                    let chain = t.normal_fx_chain();
+                                    let fx_count = chain.fx_count();
+                                    // If configured FX index too high, set it to "new FX at end of chain".
+                                    pot_unit.destination_descriptor.fx_index =
+                                        pot_unit.destination_descriptor.fx_index.min(fx_count);
+                                    let mut fx_code = pot_unit.destination_descriptor.fx_index as usize;
+                                    egui::ComboBox::from_id_source("fxs")
+                                        .show_index(
+                                            ui,
+                                            &mut fx_code,
+                                            fx_count as usize + 1,
+                                            |code| {
+                                                match chain.fx_by_index(code as _) {
+                                                    None => {
+                                                        "<New FX>".to_string()
+                                                    }
+                                                    Some(fx) => {
+                                                        format!("{}. {}", code + 1, fx.name())
+                                                    }
+                                                }
+                                            },
+                                        );
+                                    pot_unit.destination_descriptor.fx_index = fx_code as _;
+                                }
                             }
-                        }
-                    });
+                        },
+                        // Right
+                        |ui, pot_unit| {
+                            if let Some(fx) = &current_fx {
+                                if ui.small_button("Chain").on_hover_text("Shows the FX chain").clicked() {
+                                    fx.show_in_chain();
+                                }
+                                if ui.small_button("FX").on_hover_text("Shows the FX").clicked() {
+                                    fx.show_in_floating_window();
+                                }
+                            }
+                        },
+                    );
                 });
                 // Preset table
                 ui.separator();
@@ -1103,4 +1113,40 @@ fn truncate(s: &str, max_chars: usize) -> &str {
         None => s,
         Some((idx, _)) => &s[..idx],
     }
+}
+
+fn left_right<A>(
+    ui: &mut Ui,
+    arg: &mut A,
+    right_width: f32,
+    left: impl FnOnce(&mut Ui, &mut A),
+    right: impl FnOnce(&mut Ui, &mut A),
+) {
+    // At first, we need to add a vertical strip in order to not take infinity height.
+    let height = ui.available_height();
+    StripBuilder::new(ui)
+        .size(Size::exact(height))
+        .clip(false)
+        .vertical(|mut strip| {
+            strip.cell(|ui| {
+                StripBuilder::new(ui)
+                    .size(Size::remainder())
+                    .size(Size::exact(right_width))
+                    .clip(true)
+                    .horizontal(|mut strip| {
+                        // Left strip
+                        strip.cell(|ui| {
+                            ui.horizontal(|ui| {
+                                left(ui, arg);
+                            });
+                        });
+                        // Right strip
+                        strip.cell(|ui| {
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                right(ui, arg);
+                            });
+                        });
+                    });
+            });
+        });
 }

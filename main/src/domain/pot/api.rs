@@ -276,15 +276,6 @@ impl PotFavorites {
         }
     }
 
-    pub fn set_favorite(&mut self, preset_id: PresetId, favorite: bool) {
-        let db_favorites = self.favorites.entry(preset_id.database_id).or_default();
-        if favorite {
-            db_favorites.insert(preset_id.preset_id);
-        } else {
-            db_favorites.remove(&preset_id.preset_id);
-        }
-    }
-
     pub fn toggle_favorite(&mut self, preset_id: PresetId) {
         let db_favorites = self.favorites.entry(preset_id.database_id).or_default();
         if db_favorites.contains(&preset_id.preset_id) {
