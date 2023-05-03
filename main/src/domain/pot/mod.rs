@@ -42,6 +42,7 @@ mod provider_database;
 mod providers;
 mod worker;
 pub use worker::*;
+pub mod preset_crawler;
 
 // - We have a global list of databases
 // - A pot unit doesn't own those databases but it will access them.

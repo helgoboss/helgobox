@@ -10,6 +10,8 @@ pub struct EnigoMouse {
     device_state: DeviceState,
 }
 
+unsafe impl Send for EnigoMouse {}
+
 impl Clone for EnigoMouse {
     fn clone(&self) -> Self {
         Default::default()

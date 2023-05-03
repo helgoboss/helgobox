@@ -1,12 +1,18 @@
 use crate::application::get_track_label;
-use crate::base::{blocking_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
+use crate::base::{
+    blocking_lock, blocking_lock_arc, blocking_write_lock, NamedChannelSender, SenderToNormalThread,
+};
+use crate::domain::enigo::EnigoMouse;
+use crate::domain::pot::preset_crawler::{
+    import_crawled_presets, PresetCrawlingState, SharedPresetCrawlingState,
+};
 use crate::domain::pot::{
-    pot_db, spawn_in_pot_worker, ChangeHint, CurrentPreset, DestinationTrackDescriptor,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset, PresetKind, RuntimePotUnit,
-    SharedRuntimePotUnit,
+    pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
+    DestinationTrackDescriptor, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset,
+    PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
-use crate::domain::{AnyThreadBackboneState, BackboneState};
+use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
@@ -26,7 +32,7 @@ use std::error::Error;
 use std::mem;
 use std::num::NonZeroUsize;
 use std::sync::MutexGuard;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use swell_ui::Window;
 
 #[derive(Debug)]
@@ -63,6 +69,62 @@ pub struct MainState {
     bank_index: u32,
     load_preset_window_behavior: LoadPresetWindowBehavior,
     preset_cache: PresetCache,
+    dialog: Option<Dialog>,
+    mouse: EnigoMouse,
+}
+
+#[derive(Clone, Debug)]
+enum Dialog {
+    CrawlPresetsIntro,
+    CrawlPresetsMouse {
+        creation_time: Instant,
+    },
+    CrawlPresetsReady {
+        fx: Fx,
+        cursor_pos: MouseCursorPosition,
+    },
+    CrawlPresetsFailure {
+        short_msg: Cow<'static, str>,
+        detail_msg: Cow<'static, str>,
+    },
+    CrawlPresetsOngoing {
+        fx: Fx,
+        crawling_state: SharedPresetCrawlingState,
+    },
+    CrawlPresetsFinished {
+        fx: Fx,
+        crawling_state: SharedPresetCrawlingState,
+    },
+}
+
+impl Dialog {
+    fn crawl_presets_mouse() -> Self {
+        Self::CrawlPresetsMouse {
+            creation_time: Instant::now(),
+        }
+    }
+
+    fn crawl_presets_ready(fx: Fx, cursor_pos: MouseCursorPosition) -> Self {
+        Self::CrawlPresetsReady { fx, cursor_pos }
+    }
+
+    fn crawl_presets_failure(
+        short_msg: impl Into<Cow<'static, str>>,
+        detail_msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self::CrawlPresetsFailure {
+            short_msg: short_msg.into(),
+            detail_msg: detail_msg.into(),
+        }
+    }
+
+    fn crawl_presets_ongoing(fx: Fx, crawling_state: SharedPresetCrawlingState) -> Self {
+        Self::CrawlPresetsOngoing { fx, crawling_state }
+    }
+
+    fn crawl_presets_finished(fx: Fx, crawling_state: SharedPresetCrawlingState) -> Self {
+        Self::CrawlPresetsFinished { fx, crawling_state }
+    }
 }
 
 type PresetCacheMessage = (PresetId, Option<PresetData>);
@@ -131,6 +193,9 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
     });
 }
 
+const CRAWL_PRESETS_TITLE: &str = "Crawl presets";
+const CRAWL_PRESETS_COUNTDOWN_SECS: u64 = 10;
+
 fn run_main_ui(ctx: &Context, state: &mut MainState) {
     let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
     // Query commonly used stuff
@@ -145,6 +210,188 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
+    // Process dialogs
+    let mut change_dialog = None;
+    if let Some(dialog) = &mut state.dialog {
+        match dialog {
+            Dialog::CrawlPresetsIntro => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                &mut change_dialog,
+                |ui, _| {
+                    ui.label("Welcome to the preset crawler!");
+                },
+                |ui, change_dialog| {
+                    if ui.button("Cancel").clicked() {
+                        *change_dialog = Some(None);
+                    };
+                    if ui.button("Continue").clicked() {
+                        *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                    }
+                },
+            ),
+            Dialog::CrawlPresetsMouse { creation_time } => match state.mouse.cursor_position() {
+                // Capturing current cursor position successful
+                Ok(p) => show_dialog(
+                    ctx,
+                    CRAWL_PRESETS_TITLE,
+                    &mut change_dialog,
+                    |ui, change_dialog| {
+                        let elapsed_secs = creation_time.elapsed().as_secs();
+                        ui.horizontal(|ui| {
+                            ui.strong("Current mouse cursor position:");
+                            ui.label(fmt_mouse_cursor_pos(p));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.strong("Countdown:");
+                            let countdown =
+                                CRAWL_PRESETS_COUNTDOWN_SECS.saturating_sub(elapsed_secs);
+                            ui.label(format!("{countdown}s"));
+                        });
+                        if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
+                            // Countdown finished
+                            if let Some(fx) = Reaper::get().focused_fx() {
+                                *change_dialog = Some(Some(Dialog::crawl_presets_ready(fx.fx, p)));
+                            } else {
+                                *change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                                    "Couldn't identify the corresponding FX",
+                                    "",
+                                )));
+                            }
+                        }
+                    },
+                    |ui, change_dialog| {
+                        if ui.button("Cancel").clicked() {
+                            *change_dialog = Some(None);
+                        };
+                    },
+                ),
+                // Capturing current cursor position failed
+                Err(e) => {
+                    change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                        "Sorry, capturing the mouse position failed.",
+                        e,
+                    )));
+                }
+            },
+            Dialog::CrawlPresetsFailure {
+                short_msg,
+                detail_msg,
+            } => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                &mut change_dialog,
+                |ui, _| {
+                    ui.label(&**short_msg);
+                    if !detail_msg.is_empty() {
+                        ui.label(&**detail_msg);
+                    }
+                },
+                |ui, change_dialog| {
+                    if ui.button("Cancel").clicked() {
+                        *change_dialog = Some(None);
+                    };
+                },
+            ),
+            Dialog::CrawlPresetsReady { fx, cursor_pos } => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                &mut change_dialog,
+                |ui, _| {
+                    ui.horizontal(|ui| {
+                        ui.strong("FX:");
+                        ui.label(fx.name().to_str());
+                    });
+                    ui.horizontal(|ui| {
+                        ui.strong("Final cursor position:");
+                        ui.label(fmt_mouse_cursor_pos(*cursor_pos));
+                    });
+                },
+                |ui, change_dialog| {
+                    if ui.button("Cancel").clicked() {
+                        *change_dialog = Some(None);
+                    };
+                    if ui.button("Start crawling!").clicked() {
+                        let crawling_state = PresetCrawlingState::new();
+                        preset_crawler::crawl_presets(
+                            fx.clone(),
+                            *cursor_pos,
+                            crawling_state.clone(),
+                        );
+                        *change_dialog = Some(Some(Dialog::crawl_presets_ongoing(
+                            fx.clone(),
+                            crawling_state,
+                        )));
+                    }
+                },
+            ),
+            Dialog::CrawlPresetsOngoing { fx, crawling_state } => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                &mut change_dialog,
+                |ui, change_dialog| {
+                    ui.strong("Crawling in process...");
+                    let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
+                    ui.horizontal(|ui| {
+                        ui.strong("Presets crawled so far:");
+                        ui.label(state.preset_count().to_string());
+                    });
+                    ui.horizontal(|ui| {
+                        ui.strong("Last crawled preset:");
+                        let text = if let Some(p) = state.last_crawled_preset() {
+                            p.name()
+                        } else {
+                            "-"
+                        };
+                        ui.label(text);
+                    });
+                    if state.crawling_is_finished() {
+                        *change_dialog = Some(Some(Dialog::crawl_presets_finished(
+                            fx.clone(),
+                            crawling_state.clone(),
+                        )));
+                    }
+                },
+                |ui, change_dialog| {
+                    if ui.button("Cancel").clicked() {
+                        *change_dialog = Some(None);
+                    };
+                },
+            ),
+            Dialog::CrawlPresetsFinished { fx, crawling_state } => {
+                let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
+                show_dialog(
+                    ctx,
+                    CRAWL_PRESETS_TITLE,
+                    &mut change_dialog,
+                    |ui, _| {
+                        ui.strong("Crawling finished!");
+                        ui.horizontal(|ui| {
+                            ui.strong("Presets still left to be imported:");
+                            ui.label(state.preset_count().to_string());
+                        });
+                    },
+                    |ui, change_dialog| {
+                        if ui.button("Import!").clicked() {
+                            let result = import_crawled_presets(fx.clone(), crawling_state.clone());
+                            process_potential_error(&result, &mut toasts);
+                        };
+                        let text = if state.preset_count() == 0 {
+                            "Close"
+                        } else {
+                            "Cancel"
+                        };
+                        if ui.button(text).clicked() {
+                            *change_dialog = Some(None);
+                        };
+                    },
+                )
+            }
+        }
+    }
+    if let Some(d) = change_dialog {
+        state.dialog = d;
+    }
     // Process keyboard
     let key_action = ctx.input_mut(|input| determine_key_action(input));
     if let Some(key_action) = key_action {
@@ -255,6 +502,12 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     // Toolbar
                     ui.horizontal(|ui| {
                         ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
+                        // Actions
+                        ui.menu_button(RichText::new("Actions").size(TOOLBAR_HEIGHT), |ui| {
+                            if ui.button("Crawl presets...").clicked() {
+                                state.dialog = Some(Dialog::CrawlPresetsIntro);
+                            }
+                        });
                         // Options
                         let input = RightOptionsDropdownInput {
                             pot_unit,
@@ -304,7 +557,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                     ui,
                                     pot_unit,
                                     ui.available_height(),
-                                    40.0,
+                                    50.0,
                                     // Left side of preset info
                                     |ui, _| {
                                         ui.strong("Selected preset:");
@@ -469,7 +722,13 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         PresetCacheEntry::Found(d) => d.preset.name(),
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
+                    if let PresetCacheEntry::Found(data) = cache_entry {
+                        if data.has_preview {
+                            button = button.shortcut_text("🔊");
+                        }
+                    };
                     if Some(preset_id) == input.pot_unit.preset_id() {
+                        // Preset is selected
                         button = button.fill(ui.style().visuals.selection.bg_fill);
                     }
                     let button = ui.add_sized(ui.available_size(), button);
@@ -491,7 +750,10 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         }
                     }
                 });
+                // Make other columns empty if preset info not available yet
                 let PresetCacheEntry::Found(data) = cache_entry else {
+                    row.col(|_| {});
+                    row.col(|_| {});
                     return;
                 };
                 let preset = &data.preset;
@@ -861,8 +1123,8 @@ fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
     ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
         ui.checkbox(&mut input.paint_continuously, "Paint continuously")
             .on_hover_text(
-                "Necessary to automatically display changes made by external controllers (via \
-                    ReaLearn pot targets)",
+                "Necessary, for example, to automatically display changes made by external \
+                controllers (via ReaLearn pot targets)",
             );
         ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
             .on_hover_text(
@@ -1136,6 +1398,8 @@ impl MainState {
             bank_index: 0,
             load_preset_window_behavior: Default::default(),
             preset_cache: PresetCache::new(),
+            dialog: Default::default(),
+            mouse: Default::default(),
         }
     }
 }
@@ -1453,4 +1717,43 @@ enum KeyAction {
     ClearSearchExpression,
     ClearLastSearchExpressionChar,
     ExtendSearchExpression(String),
+}
+
+fn show_dialog<V>(
+    ctx: &Context,
+    title: &str,
+    value: &mut V,
+    content: impl FnOnce(&mut Ui, &mut V),
+    buttons: impl FnOnce(&mut Ui, &mut V),
+) {
+    egui::Window::new(title)
+        .resizable(false)
+        .collapsible(false)
+        .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.set_min_width(500.0);
+                // Top margin
+                ui.add_space(20.0);
+                // Content
+                content(ui, value);
+                // Space between content and buttons
+                ui.add_space(20.0);
+                // Buttons
+                ui.horizontal(|ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        // Right margin
+                        ui.add_space(20.0);
+                        // Buttons
+                        buttons(ui, value);
+                    });
+                });
+                // Bottom margin
+                ui.add_space(20.0);
+            })
+        });
+}
+
+fn fmt_mouse_cursor_pos(pos: MouseCursorPosition) -> String {
+    format!("{}, {}", pos.x, pos.y)
 }
