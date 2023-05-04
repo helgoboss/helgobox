@@ -164,7 +164,7 @@ impl Filters {
 
     /// To be used with filter kinds where `<None>` is **not** a valid filter value. In this case,
     /// <None> is considered an invalid value and it never matches (no reason to panic but almost).
-    fn matches(&self, kind: PotFilterKind, fil: Fil) -> bool {
+    pub fn matches(&self, kind: PotFilterKind, fil: Fil) -> bool {
         match self.get(kind) {
             None => true,
             Some(FilterItemId(None)) => false,
@@ -193,7 +193,9 @@ impl Filters {
     /// To be used with filter kinds where `<None>` is a valid filter value.
     pub fn matches_optional(&self, kind: PotFilterKind, fil: Option<Fil>) -> bool {
         match self.get(kind) {
+            // <Any>
             None => true,
+            // <None> or a specific value
             Some(FilterItemId(wanted_fil)) => fil == wanted_fil,
         }
     }
@@ -335,10 +337,10 @@ impl PotFilterExcludes {
         )
     }
 
-    pub fn excludes_product(&self, product_id: ProductId) -> bool {
+    pub fn excludes_product(&self, product_id: Option<ProductId>) -> bool {
         self.contains(
             PotFilterKind::Bank,
-            FilterItemId(Some(Fil::Product(product_id))),
+            FilterItemId(product_id.map(Fil::Product)),
         )
     }
 

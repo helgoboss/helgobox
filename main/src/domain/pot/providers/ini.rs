@@ -48,11 +48,7 @@ impl IniDatabase {
         }
         let iter = self.entries.iter().enumerate().filter(|(i, e)| {
             let id = InnerPresetId(*i as _);
-            if let Some(core) = &e.plugin {
-                filter_input.everything_matches(core, id)
-            } else {
-                false
-            }
+            filter_input.everything_matches(e.plugin.as_ref(), id)
         });
         Either::Right(iter)
     }
@@ -61,6 +57,7 @@ impl IniDatabase {
 struct PresetEntry {
     preset_name: String,
     plugin_identifier: String,
+    /// If `None`, it means the corresponding plug-in is not installed/scanned.
     plugin: Option<PluginCore>,
 }
 

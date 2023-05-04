@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludes};
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
@@ -532,6 +532,16 @@ impl PresetDb {
         if let Some(v) = order_by {
             sql.order_by(v);
         }
+        // Filter on state (= available or not)
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsAvailable) {
+            let state = if fil == FIL_IS_AVAILABLE_TRUE {
+                &ONE
+            } else {
+                &FOUR
+            };
+            sql.more_from(CONTENT_PATH_JOIN);
+            sql.where_and_with_param("cp.state = ?", state);
+        }
         // Filter on content type (= factory or user)
         if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsUser) {
             let content_type = if fil == FIL_IS_USER_PRESET_TRUE {
@@ -934,3 +944,4 @@ const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
 const ZERO: u32 = 0;
 const ONE: u32 = 1;
 const TWO: u32 = 2;
+const FOUR: u32 = 4;

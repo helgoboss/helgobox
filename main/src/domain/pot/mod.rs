@@ -35,7 +35,9 @@ pub use pot_database::*;
 mod plugin_id;
 mod plugins;
 use crate::domain::pot::plugins::PluginCore;
-use crate::domain::pot::provider_database::DatabaseId;
+use crate::domain::pot::provider_database::{
+    DatabaseId, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
+};
 pub use plugin_id::*;
 
 mod provider_database;
@@ -261,15 +263,49 @@ pub struct FilterInput<'a> {
 }
 
 impl<'a> FilterInput<'a> {
-    pub fn everything_matches(&self, core: &PluginCore, preset_id: InnerPresetId) -> bool {
-        self.filters.matches_optional(
-            PotFilterKind::ProductKind,
-            core.product_kind.map(Fil::ProductKind),
-        ) && self
-            .filters
-            .matches_optional(PotFilterKind::Bank, Some(Fil::Product(core.product_id)))
-            && !self.excludes.excludes_product(core.product_id)
-            && self.filters.favorite_matches(self.db_favorites, preset_id)
+    /// This is a useful method for databases that filter in-memory and map their presets to
+    /// existing scanned REAPER plug-ins. The following kinds of filters is checked:
+    ///
+    /// - Availability
+    /// - Product kind
+    /// - Product (also makes sure it's not excluded)
+    /// - Favorite
+    pub fn everything_matches(
+        &self,
+        plugin: Option<&PluginCore>,
+        preset_id: InnerPresetId,
+    ) -> bool {
+        let availability_matches = || {
+            let fil = if plugin.is_some() {
+                FIL_IS_AVAILABLE_TRUE
+            } else {
+                FIL_IS_AVAILABLE_FALSE
+            };
+            self.filters.matches(PotFilterKind::IsAvailable, fil)
+        };
+        let product_kind_matches = || {
+            // If we don't have plug-in info, we also don't have product kind info.
+            let fil = plugin.and_then(|p| p.product_kind).map(Fil::ProductKind);
+            self.filters
+                .matches_optional(PotFilterKind::ProductKind, fil)
+        };
+        let product_matches = || {
+            // If we don't have plug-in info, we also don't have product info.
+            let fil = plugin.map(|p| Fil::Product(p.product_id));
+            self.filters.matches_optional(PotFilterKind::Bank, fil)
+        };
+        let product_is_included = || {
+            // If we don't have plug-in, we *can* be excluded via product ... if <None> is excluded.
+            let product_id = plugin.map(|p| p.product_id);
+            !self.excludes.excludes_product(product_id)
+        };
+        let favorite_matches = || self.filters.favorite_matches(self.db_favorites, preset_id);
+        // Combine
+        availability_matches()
+            && product_kind_matches()
+            && product_matches()
+            && favorite_matches()
+            && product_is_included()
     }
 
     pub fn with_filters(&self, filters: &'a Filters) -> Self {
@@ -867,7 +903,7 @@ impl FilterItem {
         }
     }
 
-    pub fn simple(fil: Fil, name: &str, icon: char) -> Self {
+    pub fn simple(fil: Fil, name: &str, icon: char, more: &str) -> Self {
         Self {
             // TODO-high-pot Persistence
             persistent_id: "".to_string(),
@@ -875,7 +911,11 @@ impl FilterItem {
             parent_name: None,
             name: Some(name.to_string()),
             icon: Some(icon),
-            more_info: None,
+            more_info: if more.is_empty() {
+                None
+            } else {
+                Some(more.to_string())
+            },
         }
     }
 

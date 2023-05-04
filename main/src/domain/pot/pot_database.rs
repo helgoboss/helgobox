@@ -376,38 +376,38 @@ fn add_constant_filter_items(
 
 fn create_filter_items_is_available() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_AVAILABLE_FALSE, "Not available", '❌'),
-        FilterItem::simple(FIL_IS_AVAILABLE_TRUE, "Available", '✔'),
+        FilterItem::simple(FIL_IS_AVAILABLE_FALSE, "Not available", '❌', ""),
+        FilterItem::simple(FIL_IS_AVAILABLE_TRUE, "Available", '✔', "Usually means that the corresponding plug-in has been scanned before by REAPER.\nFor Komplete, it means that the preset file itself is available."),
     ]
 }
 
 fn create_filter_items_is_supported() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_SUPPORTED_FALSE, "Not supported", '☹'),
-        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺'),
+        FilterItem::simple(FIL_IS_SUPPORTED_FALSE, "Not supported", '☹', ""),
+        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺', ""),
     ]
 }
 
 fn create_filter_items_is_favorite() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_FAVORITE_FALSE, "Not favorite", '☆'),
-        FilterItem::simple(FIL_IS_FAVORITE_TRUE, "Favorite", '★'),
+        FilterItem::simple(FIL_IS_FAVORITE_FALSE, "Not favorite", '☆', ""),
+        FilterItem::simple(FIL_IS_FAVORITE_TRUE, "Favorite", '★', ""),
     ]
 }
 
 fn create_filter_items_product_kind() -> Vec<FilterItem> {
     vec![
         FilterItem::none(),
-        FilterItem::simple(FIL_PRODUCT_KIND_INSTRUMENT, "Instrument", '🎹'),
-        FilterItem::simple(FIL_PRODUCT_KIND_EFFECT, "Effect", '✨'),
-        FilterItem::simple(FIL_PRODUCT_KIND_LOOP, "Loop", '➿'),
-        FilterItem::simple(FIL_PRODUCT_KIND_ONE_SHOT, "One shot", '💥'),
+        FilterItem::simple(FIL_PRODUCT_KIND_INSTRUMENT, "Instrument", '🎹', ""),
+        FilterItem::simple(FIL_PRODUCT_KIND_EFFECT, "Effect", '✨', ""),
+        FilterItem::simple(FIL_PRODUCT_KIND_LOOP, "Loop", '➿', ""),
+        FilterItem::simple(FIL_PRODUCT_KIND_ONE_SHOT, "One shot", '💥', ""),
     ]
 }
 
 fn create_filter_items_is_user() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory preset", '🏭'),
-        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵'),
+        FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory preset", '🏭', ""),
+        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵', ""),
     ]
 }

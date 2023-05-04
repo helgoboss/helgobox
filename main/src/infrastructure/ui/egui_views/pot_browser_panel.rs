@@ -1744,7 +1744,13 @@ fn add_filter_view_content_as_icons(
             text = text.weak();
         }
         let resp = ui.button(text).on_hover_ui(|ui| {
-            ui.label(filter_item.effective_leaf_name());
+            let name = filter_item.effective_leaf_name();
+            let tooltip: Cow<str> = if let Some(more) = &filter_item.more_info {
+                format!("{name}: {more}").into()
+            } else {
+                name
+            };
+            ui.label(tooltip);
         });
         if resp.clicked() {
             new_filter_item_id = if currently_selected {

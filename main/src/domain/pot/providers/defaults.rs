@@ -38,7 +38,7 @@ impl DefaultsDatabase {
         }
         let iter = self.plugins.iter().enumerate().filter(|(i, p)| {
             let id = InnerPresetId(*i as _);
-            filter_input.everything_matches(&p.core, id)
+            filter_input.everything_matches(Some(&p.core), id)
         });
         Either::Right(iter)
     }

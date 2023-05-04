@@ -70,7 +70,7 @@ impl DirectoryDatabase {
             let id = InnerPresetId(*id as _);
             e.plugin_cores
                 .values()
-                .any(|core| filter_input.everything_matches(core, id))
+                .any(|core| filter_input.everything_matches(Some(core), id))
         });
         Either::Right(iter)
     }
