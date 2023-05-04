@@ -6,9 +6,11 @@ use indexmap::{IndexMap, IndexSet};
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, Reaper};
 use std::error::Error;
-use std::fs;
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Seek, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::{fs, io};
 
 pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 
@@ -140,17 +142,18 @@ impl PresetCrawlingState {
             self.duplicate_preset_names.insert(preset.name);
         } else {
             // Add preset
-            self.bytes_crawled += preset.fx_chunk.len();
+            self.bytes_crawled += preset.size_in_bytes;
             self.crawled_presets.insert(preset.name.clone(), preset);
         }
         true
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub struct CrawledPreset {
     name: String,
-    fx_chunk: String,
+    file: File,
+    size_in_bytes: usize,
 }
 
 impl CrawledPreset {
@@ -183,10 +186,17 @@ pub fn crawl_presets(
                 .into_string();
             // Query chunk and save it in temporary file
             let fx_chunk = fx.chunk()?;
+            let mut file = tempfile::tempfile()?;
+            let fx_chunk_content = fx_chunk.content();
+            let fx_chunk_bytes = fx_chunk_content.as_bytes();
+            file.write_all(fx_chunk_bytes)?;
+            file.flush()?;
+            file.rewind()?;
             // Build crawled preset
             let crawled_preset = CrawledPreset {
                 name,
-                fx_chunk: fx_chunk.to_string(),
+                file,
+                size_in_bytes: fx_chunk_bytes.len(),
             };
             if !blocking_lock_arc(&state, "crawl_presets 2").add_preset(crawled_preset) {
                 // Finished
@@ -222,7 +232,11 @@ pub fn import_crawled_presets(
             let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
             fs::create_dir_all(&dest_dir_path)?;
             let dest_file_path = dest_dir_path.join(file_name);
-            fs::write(dest_file_path, p.fx_chunk)?;
+            let dest_file = fs::File::create(dest_file_path)?;
+            let mut src_file_buffered = BufReader::new(p.file);
+            let mut dest_file_buffered = BufWriter::new(dest_file);
+            io::copy(&mut src_file_buffered, &mut dest_file_buffered)?;
+            dest_file_buffered.flush()?;
         }
         Ok(())
     });
