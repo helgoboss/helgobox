@@ -66,7 +66,7 @@ impl PresetCrawlingState {
 #[derive(Debug)]
 pub struct CrawledPreset {
     name: String,
-    file: File,
+    fx_chunk: String,
 }
 
 impl CrawledPreset {
@@ -91,12 +91,11 @@ pub fn crawl_presets(
                 .into_string();
             // Query chunk and save it in temporary file
             let fx_chunk = fx.chunk()?;
-            let mut file = tempfile::tempfile()?;
-            file.write_all(fx_chunk.content().as_bytes())?;
-            file.flush()?;
-            file.rewind()?;
             // Build crawled preset
-            let crawled_preset = CrawledPreset { name, file };
+            let crawled_preset = CrawledPreset {
+                name,
+                fx_chunk: fx_chunk.to_string(),
+            };
             if !blocking_lock_arc(&state, "crawl_presets").add_preset(crawled_preset) {
                 // Finished
                 bring_focus_back_to_crawler();
@@ -131,11 +130,7 @@ pub fn import_crawled_presets(
             let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
             fs::create_dir_all(&dest_dir_path)?;
             let dest_file_path = dest_dir_path.join(file_name);
-            let dest_file = fs::File::create(dest_file_path)?;
-            let mut src_file_buffered = BufReader::new(p.file);
-            let mut dest_file_buffered = BufWriter::new(dest_file);
-            io::copy(&mut src_file_buffered, &mut dest_file_buffered)?;
-            dest_file_buffered.flush()?;
+            fs::write(dest_file_path, p.fx_chunk)?;
         }
         Ok(())
     });
