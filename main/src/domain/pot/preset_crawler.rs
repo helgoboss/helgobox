@@ -59,16 +59,18 @@ impl PresetCrawlingState {
     fn add_preset(&mut self, preset: CrawledPreset) -> bool {
         // Give stop signal if we reached the end of the list or are at its beginning again.
         if let Some((_, last_preset)) = self.crawled_presets.last() {
-            if &preset == last_preset {
-                // Same like last crawled preset. Either the "Next preset" button doesn't
+            // I also tried to take the chunk into account but it's not deterministic. Getting the
+            // chunk for one preset multiple times can yield different results!
+            if preset.name == last_preset.name {
+                // Same name like last crawled preset. Either the "Next preset" button doesn't
                 // work at all or we have reached the end of the preset list.
                 self.crawling_finished = true;
                 return false;
             }
             if self.crawled_presets.len() > 1 {
                 let (_, first_preset) = self.crawled_presets.first().expect("must exist");
-                if &preset == first_preset {
-                    // Same like first crawled preset. We are back at the first preset again,
+                if preset.name == first_preset.name {
+                    // Same name like first crawled preset. We are back at the first preset again,
                     // no need to crawl more.
                     self.crawling_finished = true;
                     return false;
