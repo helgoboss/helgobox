@@ -17,6 +17,7 @@ pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
     status: PresetCrawlingStatus,
     duplicate_preset_names: IndexSet<String>,
+    same_preset_name: Option<String>,
     same_preset_name_attempts: u32,
     bytes_crawled: usize,
 }
@@ -33,6 +34,7 @@ impl PresetCrawlingState {
             crawled_presets: Default::default(),
             status: PresetCrawlingStatus::Ongoing,
             duplicate_preset_names: Default::default(),
+            same_preset_name: None,
             same_preset_name_attempts: 0,
             bytes_crawled: 0,
         };
@@ -78,12 +80,12 @@ impl PresetCrawlingState {
             if preset.name == last_preset.name {
                 // Same name like last crawled preset
                 if self.same_preset_name_attempts <= MAX_SAME_PRESET_NAME_ATTEMPTS {
-                    // Let's treat this as a duplicate name right now but still continue crawling.
+                    // Let's tolerate that right now and still continue crawling.
                     // It's possible that the plug-in crops the preset name and therefore
                     // presets that seemingly have the same name, in fact have different ones
                     // but have the same prefix. This happened with Zebra2 VSTi, for example.
                     self.same_preset_name_attempts += 1;
-                    self.duplicate_preset_names.insert(preset.name);
+                    self.same_preset_name = Some(preset.name);
                     return true;
                 } else {
                     // More than max same preset names in a row! That either means we the
@@ -116,7 +118,14 @@ impl PresetCrawlingState {
                 }
             }
         }
+        // Reset "same preset name attempts" logic
         self.same_preset_name_attempts = 0;
+        if let Some(last_same_preset_name) = self.same_preset_name.take() {
+            // Turns out that the last discovered same preset name was actually not the end
+            // of the preset list but just an intermediate duplicate. Treat it as such!
+            self.duplicate_preset_names.insert(last_same_preset_name);
+        }
+        // Add or skip
         if self.crawled_presets.contains_key(&preset.name) {
             // Duplicate name. Skip preset!
             self.duplicate_preset_names.insert(preset.name);
