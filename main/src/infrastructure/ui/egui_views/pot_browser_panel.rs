@@ -4,7 +4,8 @@ use crate::base::{
 };
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
-    import_crawled_presets, PresetCrawlingState, PresetCrawlingStatus, SharedPresetCrawlingState,
+    import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
+    SharedPresetCrawlingState,
 };
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
@@ -82,6 +83,7 @@ enum Dialog {
     CrawlPresetsReady {
         fx: Fx,
         cursor_pos: MouseCursorPosition,
+        stop_if_destination_exists: bool,
     },
     CrawlPresetsFailure {
         short_msg: Cow<'static, str>,
@@ -112,7 +114,11 @@ impl Dialog {
     }
 
     fn crawl_presets_ready(fx: Fx, cursor_pos: MouseCursorPosition) -> Self {
-        Self::CrawlPresetsReady { fx, cursor_pos }
+        Self::CrawlPresetsReady {
+            fx,
+            cursor_pos,
+            stop_if_destination_exists: false,
+        }
     }
 
     fn crawl_presets_failure(
@@ -609,11 +615,15 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
-        Dialog::CrawlPresetsReady { fx, cursor_pos } => show_dialog(
+        Dialog::CrawlPresetsReady {
+            fx,
+            cursor_pos,
+            stop_if_destination_exists,
+        } => show_dialog(
             ctx,
             CRAWL_PRESETS_TITLE,
-            input.change_dialog,
-            |ui, _| {
+            &mut (input.change_dialog, stop_if_destination_exists),
+            |ui, (_, stop_if_destination_exists)| {
                 ui.horizontal(|ui| {
                     ui.strong("FX:");
                     ui.label(fx.name().to_str());
@@ -622,23 +632,26 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     ui.strong("Final cursor position:");
                     ui.label(fmt_mouse_cursor_pos(*cursor_pos));
                 });
+                ui.checkbox(stop_if_destination_exists, "Stop if destination exists");
             },
-            |ui, change_dialog| {
+            |ui, (change_dialog, stop_if_destination_exists)| {
                 if ui.button("Cancel").clicked() {
-                    *change_dialog = Some(None);
+                    **change_dialog = Some(None);
                 };
                 if ui.button("Start crawling!").clicked() {
                     let crawling_state = PresetCrawlingState::new();
                     let os_window = input.os_window;
-                    preset_crawler::crawl_presets(
-                        fx.clone(),
-                        *cursor_pos,
-                        crawling_state.clone(),
-                        move || {
+                    let args = CrawlPresetArgs {
+                        fx: fx.clone(),
+                        next_preset_cursor_pos: *cursor_pos,
+                        state: crawling_state.clone(),
+                        stop_if_destination_exists: **stop_if_destination_exists,
+                        bring_focus_back_to_crawler: move || {
                             os_window.focus_first_child();
                         },
-                    );
-                    *change_dialog = Some(Some(Dialog::crawl_presets_ongoing(crawling_state)));
+                    };
+                    preset_crawler::crawl_presets(args);
+                    **change_dialog = Some(Some(Dialog::crawl_presets_ongoing(crawling_state)));
                 }
             },
         ),

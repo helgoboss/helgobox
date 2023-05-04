@@ -78,6 +78,12 @@ impl PresetCrawlingState {
         &self.duplicate_preset_names
     }
 
+    pub fn mark_destination_file_exists(&mut self) {
+        self.status = PresetCrawlingStatus::Stopped {
+            reason: "Found existing destination file".to_string(),
+        };
+    }
+
     pub fn mark_interrupted(&mut self) {
         self.status = PresetCrawlingStatus::Stopped {
             reason: "Interrupted".to_string(),
@@ -172,62 +178,84 @@ impl CrawledPreset {
     }
 }
 
-pub fn crawl_presets(
-    fx: Fx,
-    next_preset_cursor_pos: MouseCursorPosition,
-    state: SharedPresetCrawlingState,
-    bring_focus_back_to_crawler: impl Fn() + 'static,
-) {
+pub struct CrawlPresetArgs<F> {
+    pub fx: Fx,
+    pub next_preset_cursor_pos: MouseCursorPosition,
+    pub state: SharedPresetCrawlingState,
+    pub stop_if_destination_exists: bool,
+    pub bring_focus_back_to_crawler: F,
+}
+
+pub fn crawl_presets<F>(args: CrawlPresetArgs<F>)
+where
+    F: Fn() + 'static,
+{
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
-        let fx_info = fx.info()?;
-        let mut mouse = EnigoMouse::default();
-        let escape_catcher = EscapeCatcher::new();
-        loop {
-            // Check if escape has been pressed
-            if escape_catcher.escape_was_pressed() {
-                // Interrupted
-                blocking_lock_arc(&state, "crawl_presets 1").mark_interrupted();
-                bring_focus_back_to_crawler();
-                break;
-            }
-            // Get preset name
-            let name = fx
-                .preset_name()
-                .ok_or("couldn't get preset name")?
-                .into_string();
-            // Query chunk and save it in temporary file
-            let fx_chunk = fx.chunk()?;
-            let mut file = tempfile::tempfile()?;
-            let fx_chunk_content = fx_chunk.content();
-            let fx_chunk_bytes = fx_chunk_content.as_bytes();
-            file.write_all(fx_chunk_bytes)?;
-            file.flush()?;
-            file.rewind()?;
-            // Determine where on the disk the RfxChain file should end up
-            // Build crawled preset
-            let crawled_preset = CrawledPreset {
-                destination: determine_preset_file_destination(&fx_chain_dir, &fx_info, &name),
-                name,
-                file,
-                size_in_bytes: fx_chunk_bytes.len(),
-            };
-            if !blocking_lock_arc(&state, "crawl_presets 2").add_preset(crawled_preset) {
-                // Finished
-                bring_focus_back_to_crawler();
-                break;
-            }
-            // Click "Next preset" button
-            fx.show_in_floating_window();
-            mouse.set_cursor_position(next_preset_cursor_pos)?;
-            moment().await;
-            mouse.press(MouseButton::Left)?;
-            moment().await;
-            mouse.release(MouseButton::Left)?;
-            a_bit_longer().await;
-        }
+        crawl_presets_async(args).await?;
         Ok(())
     });
+}
+
+async fn crawl_presets_async<F>(args: CrawlPresetArgs<F>) -> Result<(), Box<dyn Error>>
+where
+    F: Fn() + 'static,
+{
+    let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
+    let fx_info = args.fx.info()?;
+    let mut mouse = EnigoMouse::default();
+    let escape_catcher = EscapeCatcher::new();
+    loop {
+        // Check if escape has been pressed
+        if escape_catcher.escape_was_pressed() {
+            // Interrupted
+            blocking_lock_arc(&args.state, "crawl_presets 1").mark_interrupted();
+            (args.bring_focus_back_to_crawler)();
+            break;
+        }
+        // Get preset name
+        let name = args
+            .fx
+            .preset_name()
+            .ok_or("couldn't get preset name")?
+            .into_string();
+        // Query chunk and save it in temporary file
+        let fx_chunk = args.fx.chunk()?;
+        let mut file = tempfile::tempfile()?;
+        let fx_chunk_content = fx_chunk.content();
+        let fx_chunk_bytes = fx_chunk_content.as_bytes();
+        file.write_all(fx_chunk_bytes)?;
+        file.flush()?;
+        file.rewind()?;
+        // Determine where on the disk the RfxChain file should end up
+        let destination = determine_preset_file_destination(&fx_chain_dir, &fx_info, &name);
+        if args.stop_if_destination_exists && destination.exists() {
+            // Finished
+            blocking_lock_arc(&args.state, "crawl_presets 2").mark_destination_file_exists();
+            (args.bring_focus_back_to_crawler)();
+            break;
+        }
+        // Build crawled preset
+        let crawled_preset = CrawledPreset {
+            destination,
+            name,
+            file,
+            size_in_bytes: fx_chunk_bytes.len(),
+        };
+        if !blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset) {
+            // Finished
+            (args.bring_focus_back_to_crawler)();
+            break;
+        }
+        // Click "Next preset" button
+        args.fx.show_in_floating_window();
+        mouse.set_cursor_position(args.next_preset_cursor_pos)?;
+        moment().await;
+        mouse.press(MouseButton::Left)?;
+        moment().await;
+        mouse.release(MouseButton::Left)?;
+        a_bit_longer().await;
+    }
+    Ok(())
 }
 
 fn determine_preset_file_destination(

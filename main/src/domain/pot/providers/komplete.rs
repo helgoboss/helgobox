@@ -14,7 +14,6 @@ use crate::domain::pot::{
 use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
-use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
