@@ -4,10 +4,11 @@ use crate::domain::pot::{spawn_in_pot_worker, EscapeCatcher};
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
-use reaper_high::{Fx, Reaper};
+use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek, Write};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs, io};
@@ -154,6 +155,7 @@ pub struct CrawledPreset {
     name: String,
     file: File,
     size_in_bytes: usize,
+    destination: PathBuf,
 }
 
 impl CrawledPreset {
@@ -169,6 +171,8 @@ pub fn crawl_presets(
     bring_focus_back_to_crawler: impl Fn() + 'static,
 ) {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+        let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
+        let fx_info = fx.info()?;
         let mut mouse = EnigoMouse::default();
         let escape_catcher = EscapeCatcher::new();
         loop {
@@ -192,8 +196,10 @@ pub fn crawl_presets(
             file.write_all(fx_chunk_bytes)?;
             file.flush()?;
             file.rewind()?;
+            // Determine where on the disk the RfxChain file should end up
             // Build crawled preset
             let crawled_preset = CrawledPreset {
+                destination: determine_preset_file_destination(&fx_chain_dir, &fx_info, &name),
                 name,
                 file,
                 size_in_bytes: fx_chunk_bytes.len(),
@@ -216,22 +222,26 @@ pub fn crawl_presets(
     });
 }
 
-pub fn import_crawled_presets(
-    fx: Fx,
-    state: SharedPresetCrawlingState,
-) -> Result<(), Box<dyn Error>> {
-    let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
-    let fx_info = fx.info()?;
+fn determine_preset_file_destination(
+    fx_chain_dir: &Path,
+    fx_info: &FxInfo,
+    preset_name: &str,
+) -> PathBuf {
+    let file_name = format!("{}.RfxChain", &preset_name);
+    let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
+    dest_dir_path.join(file_name)
+}
+
+pub fn import_crawled_presets(state: SharedPresetCrawlingState) -> Result<(), Box<dyn Error>> {
     spawn_in_pot_worker(async move {
         loop {
             let p = blocking_lock_arc(&state, "import_crawled_presets").pop_crawled_preset();
             let Some(p) = p else {
                 break;
             };
-            let file_name = format!("{}.RfxChain", p.name);
-            let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
-            fs::create_dir_all(&dest_dir_path)?;
-            let dest_file_path = dest_dir_path.join(file_name);
+            let dest_file_path = &p.destination;
+            let dest_dir_path = p.destination.parent().ok_or("destination without parent")?;
+            fs::create_dir_all(dest_dir_path)?;
             let dest_file = fs::File::create(dest_file_path)?;
             let mut src_file_buffered = BufReader::new(p.file);
             let mut dest_file_buffered = BufWriter::new(dest_file);

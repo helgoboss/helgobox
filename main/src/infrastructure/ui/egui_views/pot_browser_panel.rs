@@ -92,7 +92,6 @@ enum Dialog {
         crawling_state: SharedPresetCrawlingState,
     },
     CrawlPresetsStopped {
-        fx: Fx,
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
     },
@@ -125,12 +124,10 @@ impl Dialog {
     }
 
     fn crawl_presets_stopped(
-        fx: Fx,
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
     ) -> Self {
         Self::CrawlPresetsStopped {
-            fx,
             crawling_state,
             stop_reason,
         }
@@ -370,7 +367,6 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     });
                     if let PresetCrawlingStatus::Stopped { reason } = state.status() {
                         *change_dialog = Some(Some(Dialog::crawl_presets_stopped(
-                            fx.clone(),
                             crawling_state.clone(),
                             reason.clone(),
                         )));
@@ -383,7 +379,6 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 },
             ),
             Dialog::CrawlPresetsStopped {
-                fx,
                 crawling_state,
                 stop_reason,
             } => {
@@ -410,8 +405,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         },
                         |ui, change_dialog| {
                             if ui.button("Import!").clicked() {
-                                let result =
-                                    import_crawled_presets(fx.clone(), crawling_state.clone());
+                                let result = import_crawled_presets(crawling_state.clone());
                                 process_potential_error(&result, &mut toasts);
                             };
                             if ui.button("Discard crawl results").clicked() {
