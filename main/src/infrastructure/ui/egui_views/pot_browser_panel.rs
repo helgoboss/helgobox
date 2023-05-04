@@ -809,7 +809,7 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
         .resizable(true)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
         // Preset name
-        .column(Column::auto().at_most(200.0))
+        .column(Column::auto())
         // Plug-in or product
         .column(Column::initial(200.0).clip(true).at_least(100.0))
         // Extension
@@ -844,10 +844,13 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                 let cache_entry = preset_cache.find_preset(preset_id);
                 // Name
                 row.col(|ui| {
-                    let text = match cache_entry {
-                        PresetCacheEntry::Requested => "⏳",
-                        PresetCacheEntry::NotFound => "<Preset not found>",
-                        PresetCacheEntry::Found(d) => d.preset.name(),
+                    const MAX_PRESET_NAME_LENGTH: usize = 40;
+                    let text: Cow<str> = match cache_entry {
+                        PresetCacheEntry::Requested => "⏳".into(),
+                        PresetCacheEntry::NotFound => "<Preset not found>".into(),
+                        PresetCacheEntry::Found(d) => {
+                            shorten(d.preset.name().into(), MAX_PRESET_NAME_LENGTH)
+                        }
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
                     if let PresetCacheEntry::Found(data) = cache_entry {
@@ -859,7 +862,10 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         // Preset is selected
                         button = button.fill(ui.style().visuals.selection.bg_fill);
                     }
-                    let button = ui.add_sized(ui.available_size(), button);
+                    let mut button = ui.add_sized(ui.available_size(), button);
+                    if let PresetCacheEntry::Found(d) = cache_entry {
+                        button = button.on_hover_text(d.preset.name());
+                    }
                     if let PresetCacheEntry::Found(data) = cache_entry {
                         if button.clicked() {
                             if input.auto_preview {
