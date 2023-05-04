@@ -8,7 +8,7 @@ use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, Reaper};
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{BufReader, BufWriter, Seek, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs, io};
@@ -79,6 +79,7 @@ pub fn crawl_presets(
     fx: Fx,
     next_preset_cursor_pos: MouseCursorPosition,
     state: SharedPresetCrawlingState,
+    bring_focus_back_to_crawler: impl Fn() + 'static,
 ) {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
         let mut mouse = EnigoMouse::default();
@@ -98,11 +99,11 @@ pub fn crawl_presets(
             let crawled_preset = CrawledPreset { name, file };
             if !blocking_lock_arc(&state, "crawl_presets").add_preset(crawled_preset) {
                 // Finished
+                bring_focus_back_to_crawler();
                 break;
             }
             // Click "Next preset" button
             fx.show_in_floating_window();
-            moment().await;
             mouse.set_cursor_position(next_preset_cursor_pos)?;
             moment().await;
             mouse.press(MouseButton::Left)?;
@@ -123,7 +124,7 @@ pub fn import_crawled_presets(
     spawn_in_pot_worker(async move {
         loop {
             let p = blocking_lock_arc(&state, "import_crawled_presets").pop_crawled_preset();
-            let Some(mut p) = p else {
+            let Some(p) = p else {
                 break;
             };
             let file_name = format!("{}.RfxChain", p.name);

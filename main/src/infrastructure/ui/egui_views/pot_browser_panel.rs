@@ -250,6 +250,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         });
                         if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
                             // Countdown finished
+                            state.os_window.focus_first_child();
                             if let Some(fx) = Reaper::get().focused_fx() {
                                 *change_dialog = Some(Some(Dialog::crawl_presets_ready(fx.fx, p)));
                             } else {
@@ -313,10 +314,14 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     };
                     if ui.button("Start crawling!").clicked() {
                         let crawling_state = PresetCrawlingState::new();
+                        let os_window = state.os_window;
                         preset_crawler::crawl_presets(
                             fx.clone(),
                             *cursor_pos,
                             crawling_state.clone(),
+                            move || {
+                                os_window.focus_first_child();
+                            },
                         );
                         *change_dialog = Some(Some(Dialog::crawl_presets_ongoing(
                             fx.clone(),
@@ -367,8 +372,13 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     |ui, _| {
                         ui.strong("Crawling finished!");
                         ui.horizontal(|ui| {
-                            ui.strong("Presets still left to be imported:");
-                            ui.label(state.preset_count().to_string());
+                            let preset_count = state.preset_count();
+                            if preset_count == 0 {
+                                ui.label("All crawled presets successfully imported.");
+                            } else {
+                                ui.strong("Crawled presets still left to be imported:");
+                                ui.label(preset_count.to_string());
+                            }
                         });
                     },
                     |ui, change_dialog| {
