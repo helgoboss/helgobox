@@ -88,7 +88,6 @@ enum Dialog {
         detail_msg: Cow<'static, str>,
     },
     CrawlPresetsOngoing {
-        fx: Fx,
         crawling_state: SharedPresetCrawlingState,
     },
     CrawlPresetsStopped {
@@ -119,8 +118,8 @@ impl Dialog {
         }
     }
 
-    fn crawl_presets_ongoing(fx: Fx, crawling_state: SharedPresetCrawlingState) -> Self {
-        Self::CrawlPresetsOngoing { fx, crawling_state }
+    fn crawl_presets_ongoing(crawling_state: SharedPresetCrawlingState) -> Self {
+        Self::CrawlPresetsOngoing { crawling_state }
     }
 
     fn crawl_presets_stopped(
@@ -219,216 +218,17 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         .align_to_end(true);
     // Process dialogs
     let mut change_dialog = None;
-    if let Some(dialog) = &mut state.dialog {
-        match dialog {
-            Dialog::CrawlPresetsIntro => show_dialog(
-                ctx,
-                CRAWL_PRESETS_TITLE,
-                &mut change_dialog,
-                |ui, _| {
-                    ui.label("Welcome to the preset crawler!");
-                },
-                |ui, change_dialog| {
-                    if ui.button("Cancel").clicked() {
-                        *change_dialog = Some(None);
-                    };
-                    if ui.button("Continue").clicked() {
-                        *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
-                    }
-                },
-            ),
-            Dialog::CrawlPresetsMouse { creation_time } => match state.mouse.cursor_position() {
-                // Capturing current cursor position successful
-                Ok(p) => show_dialog(
-                    ctx,
-                    CRAWL_PRESETS_TITLE,
-                    &mut change_dialog,
-                    |ui, change_dialog| {
-                        let elapsed_secs = creation_time.elapsed().as_secs();
-                        ui.horizontal(|ui| {
-                            ui.strong("Current mouse cursor position:");
-                            ui.label(fmt_mouse_cursor_pos(p));
-                        });
-                        ui.horizontal(|ui| {
-                            ui.strong("Countdown:");
-                            let countdown =
-                                CRAWL_PRESETS_COUNTDOWN_SECS.saturating_sub(elapsed_secs);
-                            ui.label(format!("{countdown}s"));
-                        });
-                        if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
-                            // Countdown finished
-                            state.os_window.focus_first_child();
-                            if let Some(fx) = Reaper::get().focused_fx() {
-                                *change_dialog = Some(Some(Dialog::crawl_presets_ready(fx.fx, p)));
-                            } else {
-                                *change_dialog = Some(Some(Dialog::crawl_presets_failure(
-                                    "Couldn't identify the corresponding FX",
-                                    "",
-                                )));
-                            }
-                        }
-                    },
-                    |ui, change_dialog| {
-                        if ui.button("Cancel").clicked() {
-                            *change_dialog = Some(None);
-                        };
-                        if ui.button("Try again").clicked() {
-                            *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
-                        };
-                    },
-                ),
-                // Capturing current cursor position failed
-                Err(e) => {
-                    change_dialog = Some(Some(Dialog::crawl_presets_failure(
-                        "Sorry, capturing the mouse position failed.",
-                        e,
-                    )));
-                }
-            },
-            Dialog::CrawlPresetsFailure {
-                short_msg,
-                detail_msg,
-            } => show_dialog(
-                ctx,
-                CRAWL_PRESETS_TITLE,
-                &mut change_dialog,
-                |ui, _| {
-                    ui.label(&**short_msg);
-                    if !detail_msg.is_empty() {
-                        ui.label(&**detail_msg);
-                    }
-                },
-                |ui, change_dialog| {
-                    if ui.button("Cancel").clicked() {
-                        *change_dialog = Some(None);
-                    };
-                },
-            ),
-            Dialog::CrawlPresetsReady { fx, cursor_pos } => show_dialog(
-                ctx,
-                CRAWL_PRESETS_TITLE,
-                &mut change_dialog,
-                |ui, _| {
-                    ui.horizontal(|ui| {
-                        ui.strong("FX:");
-                        ui.label(fx.name().to_str());
-                    });
-                    ui.horizontal(|ui| {
-                        ui.strong("Final cursor position:");
-                        ui.label(fmt_mouse_cursor_pos(*cursor_pos));
-                    });
-                },
-                |ui, change_dialog| {
-                    if ui.button("Cancel").clicked() {
-                        *change_dialog = Some(None);
-                    };
-                    if ui.button("Start crawling!").clicked() {
-                        let crawling_state = PresetCrawlingState::new();
-                        let os_window = state.os_window;
-                        preset_crawler::crawl_presets(
-                            fx.clone(),
-                            *cursor_pos,
-                            crawling_state.clone(),
-                            move || {
-                                os_window.focus_first_child();
-                            },
-                        );
-                        *change_dialog = Some(Some(Dialog::crawl_presets_ongoing(
-                            fx.clone(),
-                            crawling_state,
-                        )));
-                    }
-                },
-            ),
-            Dialog::CrawlPresetsOngoing { fx, crawling_state } => show_dialog(
-                ctx,
-                CRAWL_PRESETS_TITLE,
-                &mut change_dialog,
-                |ui, change_dialog| {
-                    ui.strong("Crawling in process...");
-                    let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
-                    ui.horizontal(|ui| {
-                        ui.strong("Presets crawled so far:");
-                        let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
-                        ui.label(format!("{} ({fmt_size})", state.preset_count()));
-                    });
-                    ui.horizontal(|ui| {
-                        ui.strong("Skipped so far (because duplicate name):");
-                        ui.label(state.duplicate_preset_name_count().to_string());
-                    });
-                    ui.horizontal(|ui| {
-                        ui.strong("Last crawled preset:");
-                        let text = if let Some(p) = state.last_crawled_preset() {
-                            p.name()
-                        } else {
-                            "-"
-                        };
-                        ui.label(text);
-                    });
-                    if let PresetCrawlingStatus::Stopped { reason } = state.status() {
-                        *change_dialog = Some(Some(Dialog::crawl_presets_stopped(
-                            crawling_state.clone(),
-                            reason.clone(),
-                        )));
-                    }
-                },
-                |ui, change_dialog| {
-                    if ui.button("Cancel").clicked() {
-                        *change_dialog = Some(None);
-                    };
-                },
-            ),
-            Dialog::CrawlPresetsStopped {
-                crawling_state,
-                stop_reason,
-            } => {
-                let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
-                let preset_count = cs.preset_count();
-                if preset_count == 0 {
-                    // When the preset count is 0, there's no preset left for import anymore.
-                    pot_unit.refresh_pot(state.pot_unit.clone());
-                    change_dialog = Some(Some(Dialog::CrawlImportFinished));
-                } else {
-                    show_dialog(
-                        ctx,
-                        CRAWL_PRESETS_TITLE,
-                        &mut change_dialog,
-                        |ui, _| {
-                            ui.strong("Crawling stopped! Reason:");
-                            ui.label(stop_reason.as_str());
-                            ui.horizontal(|ui| {
-                                ui.strong("Crawled presets still to be imported:");
-                                ui.label(preset_count.to_string());
-                            });
-                            ui.strong("Skipped duplicate names:");
-                            show_as_list(ui, cs.duplicate_preset_names());
-                        },
-                        |ui, change_dialog| {
-                            if ui.button("Import!").clicked() {
-                                let result = import_crawled_presets(crawling_state.clone());
-                                process_potential_error(&result, &mut toasts);
-                            };
-                            if ui.button("Discard crawl results").clicked() {
-                                *change_dialog = Some(None);
-                            }
-                        },
-                    )
-                }
-            }
-            Dialog::CrawlImportFinished => show_dialog(
-                ctx,
-                CRAWL_PRESETS_TITLE,
-                &mut change_dialog,
-                |ui, _| {
-                    ui.strong("Import done!");
-                },
-                |ui, change_dialog| {
-                    if ui.button("Close").clicked() {
-                        *change_dialog = Some(None);
-                    }
-                },
-            ),
-        }
+    if let Some(dialog) = state.dialog.as_mut() {
+        let input = ProcessDialogsInput {
+            shared_pot_unit: &state.pot_unit,
+            pot_unit,
+            toasts: &mut toasts,
+            dialog,
+            mouse: &state.mouse,
+            os_window: state.os_window,
+            change_dialog: &mut change_dialog,
+        };
+        process_dialogs(input, ctx);
     }
     if let Some(d) = change_dialog {
         state.dialog = d;
@@ -703,6 +503,224 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
+}
+
+struct ProcessDialogsInput<'a> {
+    shared_pot_unit: &'a SharedRuntimePotUnit,
+    pot_unit: &'a mut RuntimePotUnit,
+    toasts: &'a mut Toasts,
+    dialog: &'a mut Dialog,
+    mouse: &'a EnigoMouse,
+    os_window: Window,
+    change_dialog: &'a mut Option<Option<Dialog>>,
+}
+
+fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
+    match input.dialog {
+        Dialog::CrawlPresetsIntro => show_dialog(
+            ctx,
+            CRAWL_PRESETS_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.label("Welcome to the preset crawler!");
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                }
+            },
+        ),
+        Dialog::CrawlPresetsMouse { creation_time } => match input.mouse.cursor_position() {
+            // Capturing current cursor position successful
+            Ok(p) => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                input.change_dialog,
+                |ui, change_dialog| {
+                    let elapsed_secs = creation_time.elapsed().as_secs();
+                    ui.horizontal(|ui| {
+                        ui.strong("Current mouse cursor position:");
+                        ui.label(fmt_mouse_cursor_pos(p));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.strong("Countdown:");
+                        let countdown = CRAWL_PRESETS_COUNTDOWN_SECS.saturating_sub(elapsed_secs);
+                        ui.label(format!("{countdown}s"));
+                    });
+                    if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
+                        // Countdown finished
+                        input.os_window.focus_first_child();
+                        if let Some(fx) = Reaper::get().focused_fx() {
+                            *change_dialog = Some(Some(Dialog::crawl_presets_ready(fx.fx, p)));
+                        } else {
+                            *change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                                "Couldn't identify the corresponding FX",
+                                "",
+                            )));
+                        }
+                    }
+                },
+                |ui, change_dialog| {
+                    if ui.button("Cancel").clicked() {
+                        *change_dialog = Some(None);
+                    };
+                    if ui.button("Try again").clicked() {
+                        *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                    };
+                },
+            ),
+            // Capturing current cursor position failed
+            Err(e) => {
+                *input.change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                    "Sorry, capturing the mouse position failed.",
+                    e,
+                )));
+            }
+        },
+        Dialog::CrawlPresetsFailure {
+            short_msg,
+            detail_msg,
+        } => show_dialog(
+            ctx,
+            CRAWL_PRESETS_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.label(&**short_msg);
+                if !detail_msg.is_empty() {
+                    ui.label(&**detail_msg);
+                }
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+            },
+        ),
+        Dialog::CrawlPresetsReady { fx, cursor_pos } => show_dialog(
+            ctx,
+            CRAWL_PRESETS_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.horizontal(|ui| {
+                    ui.strong("FX:");
+                    ui.label(fx.name().to_str());
+                });
+                ui.horizontal(|ui| {
+                    ui.strong("Final cursor position:");
+                    ui.label(fmt_mouse_cursor_pos(*cursor_pos));
+                });
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+                if ui.button("Start crawling!").clicked() {
+                    let crawling_state = PresetCrawlingState::new();
+                    let os_window = input.os_window;
+                    preset_crawler::crawl_presets(
+                        fx.clone(),
+                        *cursor_pos,
+                        crawling_state.clone(),
+                        move || {
+                            os_window.focus_first_child();
+                        },
+                    );
+                    *change_dialog = Some(Some(Dialog::crawl_presets_ongoing(crawling_state)));
+                }
+            },
+        ),
+        Dialog::CrawlPresetsOngoing { crawling_state } => show_dialog(
+            ctx,
+            CRAWL_PRESETS_TITLE,
+            input.change_dialog,
+            |ui, change_dialog| {
+                ui.strong("Crawling in process...");
+                let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
+                ui.horizontal(|ui| {
+                    ui.strong("Presets crawled so far:");
+                    let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
+                    ui.label(format!("{} ({fmt_size})", state.preset_count()));
+                });
+                ui.horizontal(|ui| {
+                    ui.strong("Skipped so far (because duplicate name):");
+                    ui.label(state.duplicate_preset_name_count().to_string());
+                });
+                ui.horizontal(|ui| {
+                    ui.strong("Last crawled preset:");
+                    let text = if let Some(p) = state.last_crawled_preset() {
+                        p.name()
+                    } else {
+                        "-"
+                    };
+                    ui.label(text);
+                });
+                if let PresetCrawlingStatus::Stopped { reason } = state.status() {
+                    *change_dialog = Some(Some(Dialog::crawl_presets_stopped(
+                        crawling_state.clone(),
+                        reason.clone(),
+                    )));
+                }
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+            },
+        ),
+        Dialog::CrawlPresetsStopped {
+            crawling_state,
+            stop_reason,
+        } => {
+            let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
+            let preset_count = cs.preset_count();
+            if preset_count == 0 {
+                // When the preset count is 0, there's no preset left for import anymore.
+                input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
+                *input.change_dialog = Some(Some(Dialog::CrawlImportFinished));
+            } else {
+                show_dialog(
+                    ctx,
+                    CRAWL_PRESETS_TITLE,
+                    input.change_dialog,
+                    |ui, _| {
+                        ui.strong("Crawling stopped! Reason:");
+                        ui.label(stop_reason.as_str());
+                        ui.horizontal(|ui| {
+                            ui.strong("Crawled presets still to be imported:");
+                            ui.label(preset_count.to_string());
+                        });
+                        ui.strong("Skipped duplicate names:");
+                        show_as_list(ui, cs.duplicate_preset_names());
+                    },
+                    |ui, change_dialog| {
+                        if ui.button("Import!").clicked() {
+                            let result = import_crawled_presets(crawling_state.clone());
+                            process_potential_error(&result, input.toasts);
+                        };
+                        if ui.button("Discard crawl results").clicked() {
+                            *change_dialog = Some(None);
+                        }
+                    },
+                )
+            }
+        }
+        Dialog::CrawlImportFinished => show_dialog(
+            ctx,
+            CRAWL_PRESETS_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.strong("Import done!");
+            },
+            |ui, change_dialog| {
+                if ui.button("Close").clicked() {
+                    *change_dialog = Some(None);
+                }
+            },
+        ),
+    }
 }
 
 struct PresetTableInput<'a> {
