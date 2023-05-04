@@ -42,7 +42,9 @@ mod provider_database;
 mod providers;
 mod worker;
 pub use worker::*;
+mod escape_catcher;
 pub mod preset_crawler;
+pub use escape_catcher::*;
 
 // - We have a global list of databases
 // - A pot unit doesn't own those databases but it will access them.

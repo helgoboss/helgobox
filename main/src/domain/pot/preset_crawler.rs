@@ -1,6 +1,6 @@
 use crate::base::{blocking_lock_arc, Global};
 use crate::domain::enigo::EnigoMouse;
-use crate::domain::pot::spawn_in_pot_worker;
+use crate::domain::pot::{spawn_in_pot_worker, EscapeCatcher};
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::{IndexMap, IndexSet};
 use realearn_api::persistence::MouseButton;
@@ -71,6 +71,12 @@ impl PresetCrawlingState {
         &self.duplicate_preset_names
     }
 
+    pub fn mark_interrupted(&mut self) {
+        self.status = PresetCrawlingStatus::Stopped {
+            reason: "Interrupted".to_string(),
+        };
+    }
+
     /// Returns `false` if crawling should stop.
     fn add_preset(&mut self, preset: CrawledPreset) -> bool {
         // Give stop signal if we reached the end of the list or are at its beginning again.
@@ -85,6 +91,9 @@ impl PresetCrawlingState {
                     // presets that seemingly have the same name, in fact have different ones
                     // but have the same prefix. This happened with Zebra2 VSTi, for example.
                     self.same_preset_name_attempts += 1;
+                    // Don't add it to the list of duplicates right away because it might just be
+                    // the end of the preset list! If it turns out it isn't, we still add it to
+                    // the list of duplicates a bit further down.
                     self.same_preset_name = Some(preset.name);
                     return true;
                 } else {
@@ -158,7 +167,15 @@ pub fn crawl_presets(
 ) {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
         let mut mouse = EnigoMouse::default();
+        let escape_catcher = EscapeCatcher::new();
         loop {
+            // Check if escape has been pressed
+            if escape_catcher.escape_was_pressed() {
+                // Interrupted
+                blocking_lock_arc(&state, "crawl_presets 1").mark_interrupted();
+                bring_focus_back_to_crawler();
+                break;
+            }
             // Get preset name
             let name = fx
                 .preset_name()
@@ -171,7 +188,7 @@ pub fn crawl_presets(
                 name,
                 fx_chunk: fx_chunk.to_string(),
             };
-            if !blocking_lock_arc(&state, "crawl_presets").add_preset(crawled_preset) {
+            if !blocking_lock_arc(&state, "crawl_presets 2").add_preset(crawled_preset) {
                 // Finished
                 bring_focus_back_to_crawler();
                 break;
