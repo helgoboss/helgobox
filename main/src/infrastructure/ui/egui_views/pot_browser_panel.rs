@@ -95,6 +95,7 @@ enum Dialog {
         fx: Fx,
         crawling_state: SharedPresetCrawlingState,
     },
+    CrawlImportFinished,
 }
 
 impl Dialog {
@@ -364,39 +365,51 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 },
             ),
             Dialog::CrawlPresetsFinished { fx, crawling_state } => {
-                let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
-                show_dialog(
-                    ctx,
-                    CRAWL_PRESETS_TITLE,
-                    &mut change_dialog,
-                    |ui, _| {
-                        ui.strong("Crawling finished!");
-                        ui.horizontal(|ui| {
-                            let preset_count = state.preset_count();
-                            if preset_count == 0 {
-                                ui.label("All crawled presets successfully imported.");
-                            } else {
-                                ui.strong("Crawled presets still left to be imported:");
+                let preset_count =
+                    blocking_lock_arc(crawling_state, "run_main_ui crawling state 2")
+                        .preset_count();
+                if preset_count == 0 {
+                    // When the preset count is 0, there's no preset left for import anymore.
+                    pot_unit.refresh_pot(state.pot_unit.clone());
+                    change_dialog = Some(Some(Dialog::CrawlImportFinished));
+                } else {
+                    show_dialog(
+                        ctx,
+                        CRAWL_PRESETS_TITLE,
+                        &mut change_dialog,
+                        |ui, _| {
+                            ui.strong("Crawling finished!");
+                            ui.horizontal(|ui| {
+                                ui.strong("Crawled presets still to be imported:");
                                 ui.label(preset_count.to_string());
+                            });
+                        },
+                        |ui, change_dialog| {
+                            if ui.button("Import!").clicked() {
+                                let result =
+                                    import_crawled_presets(fx.clone(), crawling_state.clone());
+                                process_potential_error(&result, &mut toasts);
+                            };
+                            if ui.button("Discard crawl results").clicked() {
+                                *change_dialog = Some(None);
                             }
-                        });
-                    },
-                    |ui, change_dialog| {
-                        if ui.button("Import!").clicked() {
-                            let result = import_crawled_presets(fx.clone(), crawling_state.clone());
-                            process_potential_error(&result, &mut toasts);
-                        };
-                        let text = if state.preset_count() == 0 {
-                            "Close"
-                        } else {
-                            "Cancel"
-                        };
-                        if ui.button(text).clicked() {
-                            *change_dialog = Some(None);
-                        };
-                    },
-                )
+                        },
+                    )
+                }
             }
+            Dialog::CrawlImportFinished => show_dialog(
+                ctx,
+                CRAWL_PRESETS_TITLE,
+                &mut change_dialog,
+                |ui, _| {
+                    ui.strong("Import done!");
+                },
+                |ui, change_dialog| {
+                    if ui.button("Close").clicked() {
+                        *change_dialog = Some(None);
+                    }
+                },
+            ),
         }
     }
     if let Some(d) = change_dialog {
