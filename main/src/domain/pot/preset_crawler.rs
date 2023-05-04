@@ -79,15 +79,15 @@ impl PresetCrawlingState {
     }
 
     pub fn mark_destination_file_exists(&mut self) {
-        self.status = PresetCrawlingStatus::Stopped {
-            reason: "Found existing destination file".to_string(),
-        };
+        self.mark("Found existing destination file".to_string());
+    }
+
+    pub fn mark(&mut self, reason: String) {
+        self.status = PresetCrawlingStatus::Stopped { reason };
     }
 
     pub fn mark_interrupted(&mut self) {
-        self.status = PresetCrawlingStatus::Stopped {
-            reason: "Interrupted".to_string(),
-        };
+        self.mark("Interrupted".to_string());
     }
 
     /// Returns `false` if crawling should stop.
@@ -113,13 +113,11 @@ impl PresetCrawlingState {
                     // More than max same preset names in a row! That either means we the
                     // "Next preset" button doesn't work at all or we have reached the end of the
                     // preset list.
-                    self.status = PresetCrawlingStatus::Stopped {
-                        reason: format!(
-                            "Preset name doesn't seem to change anymore. Maybe reached end of the \
+                    self.mark(format!(
+                        "Preset name doesn't seem to change anymore. Maybe reached end of the \
                         preset list? Last reported preset name: \"{}\" ",
-                            &preset.name
-                        ),
-                    };
+                        &preset.name
+                    ));
                     return false;
                 }
             }
@@ -128,14 +126,12 @@ impl PresetCrawlingState {
                 if preset.name == first_preset.name {
                     // Same name like first crawled preset. We are back at the first preset again,
                     // no need to crawl anymore.
-                    self.status = PresetCrawlingStatus::Stopped {
-                        reason: format!(
-                            "Current preset seems to have the same name as the first crawled \
+                    self.mark(format!(
+                        "Current preset seems to have the same name as the first crawled \
                             preset. This usually indicates that we have crawled all presets. \
                             Last reported preset name: \"{}\" ",
-                            &preset.name
-                        ),
-                    };
+                        &preset.name
+                    ));
                     return false;
                 }
             }
@@ -191,7 +187,10 @@ where
     F: Fn() + 'static,
 {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        crawl_presets_async(args).await?;
+        let state = args.state.clone();
+        if let Err(e) = crawl_presets_async(args).await {
+            blocking_lock_arc(&state, "crawl_presets 0").mark(e.to_string());
+        }
         Ok(())
     });
 }
