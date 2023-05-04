@@ -62,6 +62,10 @@ impl PresetCrawlingState {
         self.bytes_crawled
     }
 
+    pub fn crawled_presets(&self) -> &IndexMap<String, CrawledPreset> {
+        &self.crawled_presets
+    }
+
     pub fn preset_count(&self) -> u32 {
         self.crawled_presets.len() as _
     }
@@ -161,6 +165,10 @@ pub struct CrawledPreset {
 impl CrawledPreset {
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn destination(&self) -> &Path {
+        &self.destination
     }
 }
 

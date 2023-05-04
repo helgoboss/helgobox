@@ -73,7 +73,7 @@ pub struct MainState {
     mouse: EnigoMouse,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum Dialog {
     CrawlPresetsIntro,
     CrawlPresetsMouse {
@@ -93,8 +93,15 @@ enum Dialog {
     CrawlPresetsStopped {
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
+        page: CrawlPresetsStoppedPage,
     },
     CrawlImportFinished,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum CrawlPresetsStoppedPage {
+    Presets,
+    Duplicates,
 }
 
 impl Dialog {
@@ -129,6 +136,7 @@ impl Dialog {
         Self::CrawlPresetsStopped {
             crawling_state,
             stop_reason,
+            page: CrawlPresetsStoppedPage::Presets,
         }
     }
 }
@@ -673,6 +681,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::CrawlPresetsStopped {
             crawling_state,
             stop_reason,
+            page,
         } => {
             let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
             let preset_count = cs.preset_count();
@@ -686,14 +695,13 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     CRAWL_PRESETS_TITLE,
                     input.change_dialog,
                     |ui, _| {
-                        ui.strong("Crawling stopped! Reason:");
-                        ui.label(stop_reason.as_str());
-                        ui.horizontal(|ui| {
-                            ui.strong("Crawled presets still to be imported:");
-                            ui.label(preset_count.to_string());
-                        });
-                        ui.strong("Skipped duplicate names:");
-                        show_as_list(ui, cs.duplicate_preset_names());
+                        add_crawl_presets_stopped_dialog_contents(
+                            stop_reason.as_str(),
+                            &cs,
+                            preset_count,
+                            page,
+                            ui,
+                        );
                     },
                     |ui, change_dialog| {
                         if ui.button("Import!").clicked() {
@@ -720,6 +728,65 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 }
             },
         ),
+    }
+}
+
+fn add_crawl_presets_stopped_dialog_contents(
+    stop_reason: &str,
+    cs: &PresetCrawlingState,
+    preset_count: u32,
+    page: &mut CrawlPresetsStoppedPage,
+    ui: &mut Ui,
+) {
+    ui.strong("Crawling stopped! Reason:");
+    ui.label(stop_reason);
+    ui.horizontal(|ui| {
+        ui.strong("Crawled presets ready for import:");
+        ui.label(preset_count.to_string());
+    });
+    ui.horizontal(|ui| {
+        ui.strong("Show:");
+        ui.selectable_value(page, CrawlPresetsStoppedPage::Presets, "Presets");
+        ui.selectable_value(page, CrawlPresetsStoppedPage::Duplicates, "Duplicates");
+    });
+    let table_height = 400.0;
+    match *page {
+        CrawlPresetsStoppedPage::Presets => {
+            let text_height = get_text_height(ui);
+            TableBuilder::new(ui)
+                .striped(true)
+                .resizable(true)
+                .max_scroll_height(table_height)
+                .min_scrolled_height(table_height)
+                .cell_layout(Layout::left_to_right(Align::Center))
+                .column(Column::auto())
+                .column(Column::remainder())
+                .header(text_height, |mut header| {
+                    header.col(|ui| {
+                        ui.strong("Name");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Destination");
+                    });
+                })
+                .body(|body| {
+                    body.rows(text_height, preset_count as usize, |row_index, mut row| {
+                        let entry = cs.crawled_presets().get_index(row_index);
+                        if let Some((_, preset)) = entry {
+                            row.col(|ui| {
+                                ui.label(preset.name());
+                            });
+                            row.col(|ui| {
+                                let dest = preset.destination().to_string_lossy();
+                                ui.label(&*dest).on_hover_text(&*dest);
+                            });
+                        }
+                    });
+                });
+        }
+        CrawlPresetsStoppedPage::Duplicates => {
+            show_as_list(ui, cs.duplicate_preset_names(), table_height);
+        }
     }
 }
 
@@ -1821,11 +1888,13 @@ fn get_text_height(ui: &Ui) -> f32 {
     TextStyle::Body.resolve(ui.style()).size
 }
 
-fn show_as_list(ui: &mut Ui, entries: &[impl AsRef<str>]) {
+fn show_as_list(ui: &mut Ui, entries: &[impl AsRef<str>], height: f32) {
     let text_height = get_text_height(ui);
     TableBuilder::new(ui)
         .striped(true)
         .resizable(false)
+        .min_scrolled_height(height)
+        .max_scroll_height(height)
         .column(Column::remainder())
         .body(|body| {
             body.rows(text_height, entries.len(), |i, mut row| {
