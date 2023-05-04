@@ -23,7 +23,6 @@ use egui::{
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
-use itertools::Itertools;
 use lru::LruCache;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
@@ -276,6 +275,9 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         if ui.button("Cancel").clicked() {
                             *change_dialog = Some(None);
                         };
+                        if ui.button("Try again").clicked() {
+                            *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                        };
                     },
                 ),
                 // Capturing current cursor position failed
@@ -355,7 +357,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Skipped so far (because duplicate name):");
-                        ui.label(state.duplicate_name_count().to_string());
+                        ui.label(state.duplicate_preset_name_count().to_string());
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Last crawled preset:");
@@ -385,8 +387,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 crawling_state,
                 stop_reason,
             } => {
-                let s = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
-                let preset_count = s.preset_count();
+                let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
+                let preset_count = cs.preset_count();
                 if preset_count == 0 {
                     // When the preset count is 0, there's no preset left for import anymore.
                     pot_unit.refresh_pot(state.pot_unit.clone());
@@ -403,11 +405,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 ui.strong("Crawled presets still to be imported:");
                                 ui.label(preset_count.to_string());
                             });
-                            ui.horizontal(|ui| {
-                                ui.strong("Skipped duplicate names:");
-                                let csv = s.duplicate_names().iter().join(", ");
-                                ui.label(csv);
-                            });
+                            ui.strong("Skipped duplicate names:");
+                            show_as_list(ui, cs.duplicate_preset_names());
                         },
                         |ui, change_dialog| {
                             if ui.button("Import!").clicked() {
@@ -722,7 +721,7 @@ struct PresetTableInput<'a> {
 }
 
 fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
-    let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+    let text_height = get_text_height(ui);
     let preset_count = input.pot_unit.preset_count();
     let mut table = TableBuilder::new(ui)
         .striped(true)
@@ -1336,7 +1335,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
     // Added this UI just to not get duplicate table IDs
     ui.vertical(|ui| {
         if let Some(bank) = current_preset.find_macro_param_bank_at(bank_index) {
-            let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+            let text_height = get_text_height(ui);
             let table = TableBuilder::new(ui)
                 .striped(false)
                 .resizable(false)
@@ -1804,4 +1803,23 @@ fn show_dialog<V>(
 
 fn fmt_mouse_cursor_pos(pos: MouseCursorPosition) -> String {
     format!("{}, {}", pos.x, pos.y)
+}
+
+fn get_text_height(ui: &Ui) -> f32 {
+    TextStyle::Body.resolve(ui.style()).size
+}
+
+fn show_as_list(ui: &mut Ui, entries: &[impl AsRef<str>]) {
+    let text_height = get_text_height(ui);
+    TableBuilder::new(ui)
+        .striped(true)
+        .resizable(false)
+        .column(Column::remainder())
+        .body(|body| {
+            body.rows(text_height, entries.len(), |i, mut row| {
+                row.col(|ui| {
+                    ui.label(entries[i].as_ref());
+                });
+            });
+        });
 }

@@ -2,7 +2,7 @@ use crate::base::{blocking_lock_arc, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{spawn_in_pot_worker, EscapeCatcher};
 use crate::domain::{Mouse, MouseCursorPosition};
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, Reaper};
 use std::error::Error;
@@ -18,7 +18,7 @@ pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
     status: PresetCrawlingStatus,
-    duplicate_preset_names: IndexSet<String>,
+    duplicate_preset_names: Vec<String>,
     same_preset_name: Option<String>,
     same_preset_name_attempts: u32,
     bytes_crawled: usize,
@@ -65,11 +65,11 @@ impl PresetCrawlingState {
         self.crawled_presets.len() as _
     }
 
-    pub fn duplicate_name_count(&self) -> u32 {
+    pub fn duplicate_preset_name_count(&self) -> u32 {
         self.duplicate_preset_names.len() as _
     }
 
-    pub fn duplicate_names(&self) -> &IndexSet<String> {
+    pub fn duplicate_preset_names(&self) -> &[String] {
         &self.duplicate_preset_names
     }
 
@@ -134,12 +134,12 @@ impl PresetCrawlingState {
         if let Some(last_same_preset_name) = self.same_preset_name.take() {
             // Turns out that the last discovered same preset name was actually not the end
             // of the preset list but just an intermediate duplicate. Treat it as such!
-            self.duplicate_preset_names.insert(last_same_preset_name);
+            self.duplicate_preset_names.push(last_same_preset_name);
         }
         // Add or skip
         if self.crawled_presets.contains_key(&preset.name) {
             // Duplicate name. Skip preset!
-            self.duplicate_preset_names.insert(preset.name);
+            self.duplicate_preset_names.push(preset.name);
         } else {
             // Add preset
             self.bytes_crawled += preset.size_in_bytes;
