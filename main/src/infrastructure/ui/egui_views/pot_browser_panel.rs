@@ -4,7 +4,7 @@ use crate::base::{
 };
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
-    import_crawled_presets, PresetCrawlingState, SharedPresetCrawlingState,
+    import_crawled_presets, PresetCrawlingState, PresetCrawlingStatus, SharedPresetCrawlingState,
 };
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
@@ -92,9 +92,10 @@ enum Dialog {
         fx: Fx,
         crawling_state: SharedPresetCrawlingState,
     },
-    CrawlPresetsFinished {
+    CrawlPresetsStopped {
         fx: Fx,
         crawling_state: SharedPresetCrawlingState,
+        stop_reason: String,
     },
     CrawlImportFinished,
 }
@@ -124,8 +125,16 @@ impl Dialog {
         Self::CrawlPresetsOngoing { fx, crawling_state }
     }
 
-    fn crawl_presets_finished(fx: Fx, crawling_state: SharedPresetCrawlingState) -> Self {
-        Self::CrawlPresetsFinished { fx, crawling_state }
+    fn crawl_presets_stopped(
+        fx: Fx,
+        crawling_state: SharedPresetCrawlingState,
+        stop_reason: String,
+    ) -> Self {
+        Self::CrawlPresetsStopped {
+            fx,
+            crawling_state,
+            stop_reason,
+        }
     }
 }
 
@@ -341,7 +350,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
                     ui.horizontal(|ui| {
                         ui.strong("Presets crawled so far:");
-                        ui.label(state.preset_count().to_string());
+                        let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
+                        ui.label(format!("{} ({fmt_size})", state.preset_count()));
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Skipped so far (because duplicate name):");
@@ -356,10 +366,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         };
                         ui.label(text);
                     });
-                    if state.crawling_is_finished() {
-                        *change_dialog = Some(Some(Dialog::crawl_presets_finished(
+                    if let PresetCrawlingStatus::Stopped { reason } = state.status() {
+                        *change_dialog = Some(Some(Dialog::crawl_presets_stopped(
                             fx.clone(),
                             crawling_state.clone(),
+                            reason.clone(),
                         )));
                     }
                 },
@@ -369,7 +380,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     };
                 },
             ),
-            Dialog::CrawlPresetsFinished { fx, crawling_state } => {
+            Dialog::CrawlPresetsStopped {
+                fx,
+                crawling_state,
+                stop_reason,
+            } => {
                 let s = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
                 let preset_count = s.preset_count();
                 if preset_count == 0 {
@@ -382,7 +397,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         CRAWL_PRESETS_TITLE,
                         &mut change_dialog,
                         |ui, _| {
-                            ui.strong("Crawling finished!");
+                            ui.strong("Crawling stopped! Reason:");
+                            ui.label(stop_reason.as_str());
                             ui.horizontal(|ui| {
                                 ui.strong("Crawled presets still to be imported:");
                                 ui.label(preset_count.to_string());

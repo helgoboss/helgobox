@@ -15,16 +15,26 @@ pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 #[derive(Debug)]
 pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
-    crawling_finished: bool,
+    status: PresetCrawlingStatus,
     duplicate_preset_names: IndexSet<String>,
+    same_preset_name_attempts: u32,
+    bytes_crawled: usize,
+}
+
+#[derive(Debug)]
+pub enum PresetCrawlingStatus {
+    Ongoing,
+    Stopped { reason: String },
 }
 
 impl PresetCrawlingState {
     pub fn new() -> SharedPresetCrawlingState {
         let state = Self {
             crawled_presets: Default::default(),
-            crawling_finished: false,
+            status: PresetCrawlingStatus::Ongoing,
             duplicate_preset_names: Default::default(),
+            same_preset_name_attempts: 0,
+            bytes_crawled: 0,
         };
         Arc::new(Mutex::new(state))
     }
@@ -39,8 +49,12 @@ impl PresetCrawlingState {
         Some(last.1)
     }
 
-    pub fn crawling_is_finished(&self) -> bool {
-        self.crawling_finished
+    pub fn status(&self) -> &PresetCrawlingStatus {
+        &self.status
+    }
+
+    pub fn bytes_crawled(&self) -> usize {
+        self.bytes_crawled
     }
 
     pub fn preset_count(&self) -> u32 {
@@ -62,26 +76,53 @@ impl PresetCrawlingState {
             // I also tried to take the chunk into account but it's not deterministic. Getting the
             // chunk for one preset multiple times can yield different results!
             if preset.name == last_preset.name {
-                // Same name like last crawled preset. Either the "Next preset" button doesn't
-                // work at all or we have reached the end of the preset list.
-                self.crawling_finished = true;
-                return false;
+                // Same name like last crawled preset
+                if self.same_preset_name_attempts <= MAX_SAME_PRESET_NAME_ATTEMPTS {
+                    // Let's treat this as a duplicate name right now but still continue crawling.
+                    // It's possible that the plug-in crops the preset name and therefore
+                    // presets that seemingly have the same name, in fact have different ones
+                    // but have the same prefix. This happened with Zebra2 VSTi, for example.
+                    self.same_preset_name_attempts += 1;
+                    self.duplicate_preset_names.insert(preset.name);
+                    return true;
+                } else {
+                    // More than max same preset names in a row! That either means we the
+                    // "Next preset" button doesn't work at all or we have reached the end of the
+                    // preset list.
+                    self.status = PresetCrawlingStatus::Stopped {
+                        reason: format!(
+                            "Preset name doesn't seem to change anymore. Maybe reached end of the \
+                        preset list? Last reported preset name: \"{}\" ",
+                            &preset.name
+                        ),
+                    };
+                    return false;
+                }
             }
             if self.crawled_presets.len() > 1 {
                 let (_, first_preset) = self.crawled_presets.first().expect("must exist");
                 if preset.name == first_preset.name {
                     // Same name like first crawled preset. We are back at the first preset again,
-                    // no need to crawl more.
-                    self.crawling_finished = true;
+                    // no need to crawl anymore.
+                    self.status = PresetCrawlingStatus::Stopped {
+                        reason: format!(
+                            "Current preset seems to have the same name as the first crawled \
+                            preset. This usually indicates that we have crawled all presets. \
+                            Last reported preset name: \"{}\" ",
+                            &preset.name
+                        ),
+                    };
                     return false;
                 }
             }
         }
+        self.same_preset_name_attempts = 0;
         if self.crawled_presets.contains_key(&preset.name) {
             // Duplicate name. Skip preset!
             self.duplicate_preset_names.insert(preset.name);
         } else {
             // Add preset
+            self.bytes_crawled += preset.fx_chunk.len();
             self.crawled_presets.insert(preset.name.clone(), preset);
         }
         true
@@ -133,7 +174,7 @@ pub fn crawl_presets(
             mouse.press(MouseButton::Left)?;
             moment().await;
             mouse.release(MouseButton::Left)?;
-            moment().await;
+            a_bit_longer().await;
         }
         Ok(())
     });
@@ -162,10 +203,16 @@ pub fn import_crawled_presets(
     Ok(())
 }
 
+async fn a_bit_longer() {
+    millis(100).await;
+}
+
 async fn moment() {
-    millis(200).await;
+    millis(50).await;
 }
 
 async fn millis(amount: u64) {
     futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
+
+const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
