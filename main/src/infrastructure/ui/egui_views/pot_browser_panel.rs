@@ -23,6 +23,7 @@ use egui::{
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
+use itertools::Itertools;
 use lru::LruCache;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
@@ -343,6 +344,10 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         ui.label(state.preset_count().to_string());
                     });
                     ui.horizontal(|ui| {
+                        ui.strong("Skipped so far (because duplicate name):");
+                        ui.label(state.duplicate_name_count().to_string());
+                    });
+                    ui.horizontal(|ui| {
                         ui.strong("Last crawled preset:");
                         let text = if let Some(p) = state.last_crawled_preset() {
                             p.name()
@@ -365,9 +370,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 },
             ),
             Dialog::CrawlPresetsFinished { fx, crawling_state } => {
-                let preset_count =
-                    blocking_lock_arc(crawling_state, "run_main_ui crawling state 2")
-                        .preset_count();
+                let s = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
+                let preset_count = s.preset_count();
                 if preset_count == 0 {
                     // When the preset count is 0, there's no preset left for import anymore.
                     pot_unit.refresh_pot(state.pot_unit.clone());
@@ -382,6 +386,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             ui.horizontal(|ui| {
                                 ui.strong("Crawled presets still to be imported:");
                                 ui.label(preset_count.to_string());
+                            });
+                            ui.horizontal(|ui| {
+                                ui.strong("Skipped duplicate names:");
+                                let csv = s.duplicate_names().iter().join(", ");
+                                ui.label(csv);
                             });
                         },
                         |ui, change_dialog| {

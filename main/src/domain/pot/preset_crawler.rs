@@ -2,16 +2,13 @@ use crate::base::{blocking_lock_arc, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::spawn_in_pot_worker;
 use crate::domain::{Mouse, MouseCursorPosition};
-use indexmap::map::Entry;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, Reaper};
 use std::error::Error;
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Seek, Write};
+use std::fs;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::{fs, io};
 
 pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 
@@ -19,6 +16,7 @@ pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
     crawling_finished: bool,
+    duplicate_preset_names: IndexSet<String>,
 }
 
 impl PresetCrawlingState {
@@ -26,6 +24,7 @@ impl PresetCrawlingState {
         let state = Self {
             crawled_presets: Default::default(),
             crawling_finished: false,
+            duplicate_preset_names: Default::default(),
         };
         Arc::new(Mutex::new(state))
     }
@@ -48,22 +47,46 @@ impl PresetCrawlingState {
         self.crawled_presets.len() as _
     }
 
-    /// Returns `false` if finished.
+    pub fn duplicate_name_count(&self) -> u32 {
+        self.duplicate_preset_names.len() as _
+    }
+
+    pub fn duplicate_names(&self) -> &IndexSet<String> {
+        &self.duplicate_preset_names
+    }
+
+    /// Returns `false` if crawling should stop.
     fn add_preset(&mut self, preset: CrawledPreset) -> bool {
-        match self.crawled_presets.entry(preset.name.clone()) {
-            Entry::Occupied(_) => {
+        // Give stop signal if we reached the end of the list or are at its beginning again.
+        if let Some((_, last_preset)) = self.crawled_presets.last() {
+            if &preset == last_preset {
+                // Same like last crawled preset. Either the "Next preset" button doesn't
+                // work at all or we have reached the end of the preset list.
                 self.crawling_finished = true;
-                false
+                return false;
             }
-            Entry::Vacant(e) => {
-                e.insert(preset);
-                true
+            if self.crawled_presets.len() > 1 {
+                let (_, first_preset) = self.crawled_presets.first().expect("must exist");
+                if &preset == first_preset {
+                    // Same like first crawled preset. We are back at the first preset again,
+                    // no need to crawl more.
+                    self.crawling_finished = true;
+                    return false;
+                }
             }
         }
+        if self.crawled_presets.contains_key(&preset.name) {
+            // Duplicate name. Skip preset!
+            self.duplicate_preset_names.insert(preset.name);
+        } else {
+            // Add preset
+            self.crawled_presets.insert(preset.name.clone(), preset);
+        }
+        true
     }
 }
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct CrawledPreset {
     name: String,
     fx_chunk: String,
