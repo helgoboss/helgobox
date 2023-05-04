@@ -2,7 +2,7 @@ use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludes};
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_TRUE,
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
@@ -14,6 +14,7 @@ use crate::domain::pot::{
 use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
+use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
@@ -542,6 +543,16 @@ impl PresetDb {
             sql.more_from(CONTENT_PATH_JOIN);
             sql.where_and_with_param("cp.state = ?", state);
         }
+        // Filter on support (= supported by us to load or not)
+        if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsSupported) {
+            let op = if fil == FIL_IS_SUPPORTED_TRUE {
+                "IN"
+            } else {
+                "NOT IN"
+            };
+            let file_ext_csv = SUPPORTED_FILE_EXTENSIONS.join(r#"', '"#);
+            sql.where_and(format!("i.file_ext {op} ('{}')", file_ext_csv));
+        }
         // Filter on content type (= factory or user)
         if let Some(FilterItemId(Some(fil))) = filter_settings.get(PotFilterKind::IsUser) {
             let content_type = if fil == FIL_IS_USER_PRESET_TRUE {
@@ -945,3 +956,5 @@ const ZERO: u32 = 0;
 const ONE: u32 = 1;
 const TWO: u32 = 2;
 const FOUR: u32 = 4;
+
+const SUPPORTED_FILE_EXTENSIONS: &[&str] = &["wav", "aif", "ogg", "mp3", "nksf", "nksfx"];

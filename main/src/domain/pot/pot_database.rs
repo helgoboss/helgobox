@@ -384,7 +384,7 @@ fn create_filter_items_is_available() -> Vec<FilterItem> {
 fn create_filter_items_is_supported() -> Vec<FilterItem> {
     vec![
         FilterItem::simple(FIL_IS_SUPPORTED_FALSE, "Not supported", '☹', ""),
-        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺', ""),
+        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺', "Means that Pot Browser can automatically load the preset into the corresponding plug-in."),
     ]
 }
 
