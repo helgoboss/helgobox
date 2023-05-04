@@ -1175,7 +1175,13 @@ pub struct LoadPotPresetTarget {
 pub enum PotFilterKind {
     #[display(fmt = "Database")]
     Database,
-    /// Factory or User
+    /// Is available or not
+    #[display(fmt = "Availability")]
+    IsAvailable,
+    /// Is supported or not
+    #[display(fmt = "Support")]
+    IsSupported,
+    /// Is user preset or factory preset
     #[display(fmt = "Content types")]
     #[serde(alias = "NksContentType")]
     IsUser,
@@ -1183,7 +1189,7 @@ pub enum PotFilterKind {
     #[display(fmt = "Product types")]
     #[serde(alias = "NksProductType")]
     ProductKind,
-    /// Favorite
+    /// Is favorite or not
     #[display(fmt = "Favorite")]
     #[serde(alias = "NksFavorite")]
     IsFavorite,
@@ -1213,6 +1219,11 @@ impl PotFilterKind {
 
     pub fn allows_excludes(&self) -> bool {
         use PotFilterKind::*;
+        matches!(self, Database | Bank | SubBank)
+    }
+
+    pub fn wants_sorting(&self) -> bool {
+        use PotFilterKind::*;
         matches!(
             self,
             Database | Bank | SubBank | Category | SubCategory | Mode
@@ -1236,7 +1247,7 @@ impl PotFilterKind {
         use PotFilterKind::*;
         match self {
             Database => 0,
-            IsUser | ProductKind | IsFavorite => 1,
+            IsAvailable | IsSupported | IsUser | ProductKind | IsFavorite => 1,
             Bank => 2,
             SubBank => 3,
             Category => 4,

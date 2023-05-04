@@ -322,10 +322,9 @@ impl SearchEvaluator {
 
 fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterKind> {
     match change_hint {
-        None | Some(ChangeHint::TotalRefresh) => EnumSet::all(),
+        None | Some(ChangeHint::TotalRefresh | ChangeHint::FilterExclude) => EnumSet::all(),
         Some(ChangeHint::SearchExpression) => EnumSet::empty(),
         Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
-        Some(ChangeHint::FilterExclude) => EnumSet::all(),
     }
 }
 

@@ -94,19 +94,23 @@ impl<'a> ProviderContext<'a> {
     }
 }
 
-/// Komplete ID = 1
-pub const FIL_IS_USER_PRESET_TRUE: Fil = Fil::Boolean(true);
-/// Komplete ID = 2
-pub const FIL_IS_USER_PRESET_FALSE: Fil = Fil::Boolean(false);
-/// Komplete ID = 1
+/// Komplete content path state ID = 1
+pub const FIL_IS_AVAILABLE_TRUE: Fil = Fil::Boolean(true);
+/// Komplete content path state ID = 4
+pub const FIL_IS_AVAILABLE_FALSE: Fil = Fil::Boolean(false);
+pub const FIL_IS_SUPPORTED_TRUE: Fil = Fil::Boolean(true);
+pub const FIL_IS_SUPPORTED_FALSE: Fil = Fil::Boolean(false);
 pub const FIL_IS_FAVORITE_TRUE: Fil = Fil::Boolean(true);
-/// Komplete ID = 2
 pub const FIL_IS_FAVORITE_FALSE: Fil = Fil::Boolean(false);
-/// Komplete ID = 1
+/// Komplete content type ID = 1
+pub const FIL_IS_USER_PRESET_TRUE: Fil = Fil::Boolean(true);
+/// Komplete content type ID = 2
+pub const FIL_IS_USER_PRESET_FALSE: Fil = Fil::Boolean(false);
+/// Komplete product type ID = 1
 pub const FIL_PRODUCT_KIND_INSTRUMENT: Fil = Fil::ProductKind(ProductKind::Instrument);
-/// Komplete ID = 2
+/// Komplete product type ID = 2
 pub const FIL_PRODUCT_KIND_EFFECT: Fil = Fil::ProductKind(ProductKind::Effect);
-/// Komplete ID = 4
+/// Komplete product type ID = 4
 pub const FIL_PRODUCT_KIND_LOOP: Fil = Fil::ProductKind(ProductKind::Loop);
-/// Komplete ID = 8
+/// Komplete product type ID = 8
 pub const FIL_PRODUCT_KIND_ONE_SHOT: Fil = Fil::ProductKind(ProductKind::OneShot);

@@ -116,6 +116,11 @@ impl<T> GenericFilterItemCollections<T> {
     pub fn extend(&mut self, kind: PotFilterKind, items: impl Iterator<Item = T>) {
         self.0[kind].extend(items);
     }
+
+    pub fn are_filled_already(&self) -> bool {
+        // Just take any of of the constant filters that should be filled.
+        !self.get(PotFilterKind::IsFavorite).is_empty()
+    }
 }
 
 impl<T: HasFilterItemId> GenericFilterItemCollections<T> {

@@ -1,7 +1,8 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_IS_FAVORITE_FALSE,
-    FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_IS_AVAILABLE_FALSE,
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE,
+    FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
     FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP,
     FIL_PRODUCT_KIND_ONE_SHOT,
 };
@@ -148,22 +149,7 @@ impl PotDatabase {
             ..Default::default()
         };
         measure_duration(&mut total_output.stats.filter_query_duration, || {
-            if input.affected_kinds.contains(PotFilterKind::IsUser) {
-                total_output
-                    .filter_item_collections
-                    .set(PotFilterKind::IsUser, create_filter_items_is_user());
-            }
-            if input.affected_kinds.contains(PotFilterKind::ProductKind) {
-                total_output.filter_item_collections.set(
-                    PotFilterKind::ProductKind,
-                    create_filter_items_product_kind(),
-                );
-            }
-            if input.affected_kinds.contains(PotFilterKind::IsFavorite) {
-                total_output
-                    .filter_item_collections
-                    .set(PotFilterKind::IsFavorite, create_filter_items_is_favorite());
-            }
+            add_constant_filter_items(&mut input, &mut total_output.filter_item_collections);
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
             let mut used_product_ids = HashSet::new();
@@ -267,9 +253,12 @@ impl PotDatabase {
             });
         // Sort filter items and presets
         measure_duration(&mut total_output.stats.sort_duration, || {
-            for (_, collection) in total_output.filter_item_collections.iter_mut() {
-                collection
-                    .sort_by(|i1, i2| lexical_sort::lexical_cmp(i1.sort_name(), i2.sort_name()));
+            for (kind, collection) in total_output.filter_item_collections.iter_mut() {
+                if kind.wants_sorting() {
+                    collection.sort_by(|i1, i2| {
+                        lexical_sort::lexical_cmp(i1.sort_name(), i2.sort_name())
+                    });
+                }
             }
             sortable_preset_ids.sort_by(|(_, p1), (_, p2)| {
                 lexical_sort::lexical_cmp(&p1.preset_name, &p2.preset_name)
@@ -355,10 +344,54 @@ fn measure_duration<R>(duration: &mut Duration, f: impl FnOnce() -> R) -> R {
     r
 }
 
+fn add_constant_filter_items(
+    input: &mut BuildInput,
+    filter_item_collections: &mut FilterItemCollections,
+) {
+    if input.affected_kinds.contains(PotFilterKind::IsAvailable) {
+        filter_item_collections.set(
+            PotFilterKind::IsAvailable,
+            create_filter_items_is_available(),
+        );
+    }
+    if input.affected_kinds.contains(PotFilterKind::IsSupported) {
+        filter_item_collections.set(
+            PotFilterKind::IsSupported,
+            create_filter_items_is_supported(),
+        );
+    }
+    if input.affected_kinds.contains(PotFilterKind::IsFavorite) {
+        filter_item_collections.set(PotFilterKind::IsFavorite, create_filter_items_is_favorite());
+    }
+    if input.affected_kinds.contains(PotFilterKind::IsUser) {
+        filter_item_collections.set(PotFilterKind::IsUser, create_filter_items_is_user());
+    }
+    if input.affected_kinds.contains(PotFilterKind::ProductKind) {
+        filter_item_collections.set(
+            PotFilterKind::ProductKind,
+            create_filter_items_product_kind(),
+        );
+    }
+}
+
+fn create_filter_items_is_available() -> Vec<FilterItem> {
+    vec![
+        FilterItem::simple(FIL_IS_AVAILABLE_FALSE, "Not available", '❌'),
+        FilterItem::simple(FIL_IS_AVAILABLE_TRUE, "Available", '✔'),
+    ]
+}
+
+fn create_filter_items_is_supported() -> Vec<FilterItem> {
+    vec![
+        FilterItem::simple(FIL_IS_SUPPORTED_FALSE, "Not supported", '☹'),
+        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺'),
+    ]
+}
+
 fn create_filter_items_is_favorite() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_FAVORITE_TRUE, "Favorite", '★'),
         FilterItem::simple(FIL_IS_FAVORITE_FALSE, "Not favorite", '☆'),
+        FilterItem::simple(FIL_IS_FAVORITE_TRUE, "Favorite", '★'),
     ]
 }
 
@@ -374,7 +407,7 @@ fn create_filter_items_product_kind() -> Vec<FilterItem> {
 
 fn create_filter_items_is_user() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵'),
         FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory preset", '🏭'),
+        FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵'),
     ]
 }

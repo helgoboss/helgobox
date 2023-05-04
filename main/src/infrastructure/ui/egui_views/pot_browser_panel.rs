@@ -290,7 +290,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             ui,
                             pot_unit,
                             TOOLBAR_HEIGHT_WITH_MARGIN,
-                            150.0,
+                            300.0,
                             // Left side of toolbar: Toolbar
                             |ui, pot_unit| {
                                 // Main options
@@ -335,9 +335,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             },
                             // Right side of toolbar: Mini filters
                             |ui, pot_unit| {
-                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                    add_mini_filters(&state.pot_unit, pot_unit, ui);
-                                });
+                                if pot_unit.filter_item_collections.are_filled_already() {
+                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                        add_mini_filters(&state.pot_unit, pot_unit, ui);
+                                    });
+                                }
                             },
                         );
                     });
@@ -1205,11 +1207,13 @@ fn add_mini_filters(
     pot_unit: &mut MutexGuard<RuntimePotUnit>,
     ui: &mut Ui,
 ) {
-    let shown = add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsUser, ui);
-    if shown {
-        ui.separator();
-    }
+    add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsUser, ui);
+    ui.separator();
     add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsFavorite, ui);
+    ui.separator();
+    add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsSupported, ui);
+    ui.separator();
+    add_filter_view_content_as_icons(shared_unit, pot_unit, PotFilterKind::IsAvailable, ui);
 }
 
 fn add_help_button(ui: &mut Ui) {
@@ -1723,10 +1727,11 @@ fn add_filter_view_content_as_icons(
     pot_unit: &mut RuntimePotUnit,
     kind: PotFilterKind,
     ui: &mut Ui,
-) -> bool {
+) {
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
-    for filter_item in pot_unit.filter_item_collections.get(kind) {
+    // Reverse because we use right-to-left order
+    for filter_item in pot_unit.filter_item_collections.get(kind).iter().rev() {
         let currently_selected = old_filter_item_id == Some(filter_item.id);
         let mut text = RichText::new(filter_item.icon.unwrap_or('-')).size(TOOLBAR_HEIGHT);
         if !currently_selected {
@@ -1746,7 +1751,6 @@ fn add_filter_view_content_as_icons(
     if new_filter_item_id != old_filter_item_id {
         pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
     }
-    !pot_unit.filter_item_collections.get(kind).is_empty()
 }
 
 fn load_preset_and_regain_focus(
