@@ -30,6 +30,7 @@ use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
+use std::fs::File;
 use std::mem;
 use std::num::NonZeroUsize;
 use std::sync::MutexGuard;
@@ -96,6 +97,7 @@ enum Dialog {
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
         page: CrawlPresetsStoppedPage,
+        chunks_file: Option<File>,
     },
     CrawlImportFinished,
 }
@@ -138,11 +140,13 @@ impl Dialog {
     fn crawl_presets_stopped(
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
+        chunks_file: File,
     ) -> Self {
         Self::CrawlPresetsStopped {
             crawling_state,
             stop_reason,
             page: CrawlPresetsStoppedPage::Presets,
+            chunks_file: Some(chunks_file),
         }
     }
 }
@@ -661,7 +665,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             input.change_dialog,
             |ui, change_dialog| {
                 ui.strong("Crawling in process...");
-                let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
+                let mut state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
                 ui.horizontal(|ui| {
                     ui.strong("Presets crawled so far:");
                     let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
@@ -680,11 +684,24 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     };
                     ui.label(text);
                 });
-                if let PresetCrawlingStatus::Stopped { reason } = state.status() {
-                    *change_dialog = Some(Some(Dialog::crawl_presets_stopped(
-                        crawling_state.clone(),
-                        reason.clone(),
-                    )));
+                if let PresetCrawlingStatus::Stopped {
+                    chunks_file,
+                    reason,
+                } = state.status()
+                {
+                    let next_dialog = if let Some(chunks_file) = chunks_file.take() {
+                        Dialog::crawl_presets_stopped(
+                            crawling_state.clone(),
+                            reason.clone(),
+                            chunks_file,
+                        )
+                    } else {
+                        Dialog::CrawlPresetsFailure {
+                            short_msg: "Failure while crawling".into(),
+                            detail_msg: reason.clone().into(),
+                        }
+                    };
+                    *change_dialog = Some(Some(next_dialog));
                 }
             },
             |ui, change_dialog| {
@@ -697,6 +714,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             crawling_state,
             stop_reason,
             page,
+            chunks_file,
         } => {
             let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
             let preset_count = cs.preset_count();
@@ -719,9 +737,17 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         );
                     },
                     |ui, change_dialog| {
-                        if ui.button("Import!").clicked() {
-                            let result = import_crawled_presets(crawling_state.clone());
-                            process_potential_error(&result, input.toasts);
+                        *chunks_file = if let Some(chunks_file) = chunks_file.take() {
+                            if ui.button("Import!").clicked() {
+                                let result =
+                                    import_crawled_presets(crawling_state.clone(), chunks_file);
+                                process_potential_error(&result, input.toasts);
+                                None
+                            } else {
+                                Some(chunks_file)
+                            }
+                        } else {
+                            None
                         };
                         if ui.button("Discard crawl results").clicked() {
                             *change_dialog = Some(None);

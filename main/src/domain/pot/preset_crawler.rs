@@ -9,12 +9,12 @@ use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;
+use std::fs;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Seek, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::{fs, io};
 
 pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 
@@ -25,13 +25,20 @@ pub struct PresetCrawlingState {
     duplicate_preset_names: Vec<String>,
     same_preset_name: Option<String>,
     same_preset_name_attempts: u32,
-    bytes_crawled: usize,
+    total_bytes_crawled: usize,
 }
 
 #[derive(Debug)]
 pub enum PresetCrawlingStatus {
     Ongoing,
-    Stopped { reason: String },
+    Stopped {
+        /// One temporary file that holds the chunks of all FXs when crawling finished.
+        /// Will be copied to separate destination files at a later stage.
+        /// If not set when stopped, this means at first it's a failure. Later we take the
+        /// file out of here for processing, in that case it's also `None`.
+        chunks_file: Option<File>,
+        reason: String,
+    },
 }
 
 impl PresetCrawlingState {
@@ -42,7 +49,7 @@ impl PresetCrawlingState {
             duplicate_preset_names: Default::default(),
             same_preset_name: None,
             same_preset_name_attempts: 0,
-            bytes_crawled: 0,
+            total_bytes_crawled: 0,
         };
         Arc::new(Mutex::new(state))
     }
@@ -57,12 +64,12 @@ impl PresetCrawlingState {
         Some(last.1)
     }
 
-    pub fn status(&self) -> &PresetCrawlingStatus {
-        &self.status
+    pub fn status(&mut self) -> &mut PresetCrawlingStatus {
+        &mut self.status
     }
 
     pub fn bytes_crawled(&self) -> usize {
-        self.bytes_crawled
+        self.total_bytes_crawled
     }
 
     pub fn crawled_presets(&self) -> &IndexMap<String, CrawledPreset> {
@@ -81,20 +88,21 @@ impl PresetCrawlingState {
         &self.duplicate_preset_names
     }
 
-    pub fn mark_destination_file_exists(&mut self) {
-        self.mark("Found existing destination file".to_string());
+    pub fn stop(&mut self, chunks_file: File, reason: String) {
+        self.status = PresetCrawlingStatus::Stopped {
+            chunks_file: Some(chunks_file),
+            reason: reason.to_string(),
+        };
     }
 
-    pub fn mark(&mut self, reason: String) {
-        self.status = PresetCrawlingStatus::Stopped { reason };
+    pub fn fail(&mut self, reason: String) {
+        self.status = PresetCrawlingStatus::Stopped {
+            chunks_file: None,
+            reason: reason.to_string(),
+        };
     }
 
-    pub fn mark_interrupted(&mut self) {
-        self.mark("Interrupted".to_string());
-    }
-
-    /// Returns `false` if crawling should stop.
-    fn add_preset(&mut self, preset: CrawledPreset) -> bool {
+    fn add_preset(&mut self, preset: CrawledPreset) -> NextCrawlStep {
         // Give stop signal if we reached the end of the list or are at its beginning again.
         if let Some((_, last_preset)) = self.crawled_presets.last() {
             // I also tried to take the chunk into account but it's not deterministic. Getting the
@@ -111,17 +119,16 @@ impl PresetCrawlingState {
                     // the end of the preset list! If it turns out it isn't, we still add it to
                     // the list of duplicates a bit further down.
                     self.same_preset_name = Some(preset.name);
-                    return true;
+                    return NextCrawlStep::Continue;
                 } else {
                     // More than max same preset names in a row! That either means we the
                     // "Next preset" button doesn't work at all or we have reached the end of the
                     // preset list.
-                    self.mark(format!(
+                    return NextCrawlStep::Stop(format!(
                         "Preset name doesn't seem to change anymore. Maybe reached end of the \
                         preset list? Last reported preset name: \"{}\" ",
                         &preset.name
                     ));
-                    return false;
                 }
             }
             if self.crawled_presets.len() > 1 {
@@ -129,13 +136,12 @@ impl PresetCrawlingState {
                 if preset.name == first_preset.name {
                     // Same name like first crawled preset. We are back at the first preset again,
                     // no need to crawl anymore.
-                    self.mark(format!(
+                    return NextCrawlStep::Stop(format!(
                         "Current preset seems to have the same name as the first crawled \
                             preset. This usually indicates that we have crawled all presets. \
                             Last reported preset name: \"{}\" ",
                         &preset.name
                     ));
-                    return false;
                 }
             }
         }
@@ -152,17 +158,22 @@ impl PresetCrawlingState {
             self.duplicate_preset_names.push(preset.name);
         } else {
             // Add preset
-            self.bytes_crawled += preset.size_in_bytes;
+            self.total_bytes_crawled += preset.size_in_bytes;
             self.crawled_presets.insert(preset.name.clone(), preset);
         }
-        true
+        NextCrawlStep::Continue
     }
+}
+
+enum NextCrawlStep {
+    Continue,
+    Stop(String),
 }
 
 #[derive(Debug)]
 pub struct CrawledPreset {
     name: String,
-    file: File,
+    offset: u64,
     size_in_bytes: usize,
     destination: PathBuf,
 }
@@ -192,7 +203,7 @@ where
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
         let state = args.state.clone();
         if let Err(e) = crawl_presets_async(args).await {
-            blocking_lock_arc(&state, "crawl_presets 0").mark(e.to_string());
+            blocking_lock_arc(&state, "crawl_presets 0").fail(e.to_string());
         }
         Ok(())
     });
@@ -210,12 +221,16 @@ where
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
     let mut mouse = EnigoMouse::default();
     let escape_catcher = EscapeCatcher::new();
+    let mut chunks_file = tempfile::tempfile()?;
+    let mut current_file_offset = 0u64;
+    let stop = |chunks_file: File, reason: String| {
+        blocking_lock_arc(&args.state, "crawl_presets stop").stop(chunks_file, reason);
+        (args.bring_focus_back_to_crawler)();
+    };
     loop {
         // Check if escape has been pressed
         if escape_catcher.escape_was_pressed() {
-            // Interrupted
-            blocking_lock_arc(&args.state, "crawl_presets 1").mark_interrupted();
-            (args.bring_focus_back_to_crawler)();
+            stop(chunks_file, "Interrupted".to_string());
             break;
         }
         // Get preset name
@@ -226,12 +241,10 @@ where
             .into_string();
         // Query chunk and save it in temporary file
         let fx_chunk = args.fx.chunk()?;
-        let mut file = tempfile::tempfile()?;
         let fx_chunk_content = fx_chunk.content();
         let fx_chunk_bytes = fx_chunk_content.as_bytes();
-        file.write_all(fx_chunk_bytes)?;
-        file.flush()?;
-        file.rewind()?;
+        chunks_file.write_all(fx_chunk_bytes)?;
+        chunks_file.flush()?;
         // Determine where on the disk the RfxChain file should end up
         let destination = determine_preset_file_destination(
             &fx_chain_sub_dir,
@@ -240,22 +253,23 @@ where
             plugin_id.as_ref(),
         );
         if args.stop_if_destination_exists && destination.exists() {
-            // Finished
-            blocking_lock_arc(&args.state, "crawl_presets 2").mark_destination_file_exists();
-            (args.bring_focus_back_to_crawler)();
+            stop(chunks_file, "Destination file exists".to_string());
             break;
         }
         // Build crawled preset
         let crawled_preset = CrawledPreset {
             destination,
             name,
-            file,
+            offset: current_file_offset,
             size_in_bytes: fx_chunk_bytes.len(),
         };
-        if !blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset) {
-            // Finished
-            (args.bring_focus_back_to_crawler)();
-            break;
+        current_file_offset += fx_chunk_bytes.len() as u64;
+        match blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset) {
+            NextCrawlStep::Stop(reason) => {
+                stop(chunks_file, reason);
+                break;
+            }
+            NextCrawlStep::Continue => {}
         }
         // Click "Next preset" button
         args.fx.show_in_floating_window();
@@ -315,7 +329,10 @@ fn get_plugin_id_from_fx_info(fx_info: &FxInfo) -> Option<PluginId> {
     Some(plugin_id)
 }
 
-pub fn import_crawled_presets(state: SharedPresetCrawlingState) -> Result<(), Box<dyn Error>> {
+pub fn import_crawled_presets(
+    state: SharedPresetCrawlingState,
+    mut chunks_file: File,
+) -> Result<(), Box<dyn Error>> {
     spawn_in_pot_worker(async move {
         loop {
             let p = blocking_lock_arc(&state, "import_crawled_presets").pop_crawled_preset();
@@ -325,11 +342,10 @@ pub fn import_crawled_presets(state: SharedPresetCrawlingState) -> Result<(), Bo
             let dest_file_path = &p.destination;
             let dest_dir_path = p.destination.parent().ok_or("destination without parent")?;
             fs::create_dir_all(dest_dir_path)?;
-            let dest_file = fs::File::create(dest_file_path)?;
-            let mut src_file_buffered = BufReader::new(p.file);
-            let mut dest_file_buffered = BufWriter::new(dest_file);
-            io::copy(&mut src_file_buffered, &mut dest_file_buffered)?;
-            dest_file_buffered.flush()?;
+            chunks_file.seek(SeekFrom::Start(p.offset))?;
+            let mut buf = vec![0; p.size_in_bytes];
+            chunks_file.read_exact(&mut buf)?;
+            fs::write(dest_file_path, buf)?;
         }
         Ok(())
     });
