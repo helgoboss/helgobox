@@ -205,6 +205,8 @@ where
     let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
     let shim_dir = Reaper::get().resource_path().join("Helgoboss/Pot/Shims");
     let fx_info = args.fx.info()?;
+    let sanitized_effect_name = sanitize_filename::sanitize(&fx_info.effect_name);
+    let fx_chain_sub_dir = fx_chain_dir.join(sanitized_effect_name);
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
     let mut mouse = EnigoMouse::default();
     let escape_catcher = EscapeCatcher::new();
@@ -232,9 +234,8 @@ where
         file.rewind()?;
         // Determine where on the disk the RfxChain file should end up
         let destination = determine_preset_file_destination(
-            &fx_chain_dir,
+            &fx_chain_sub_dir,
             &shim_dir,
-            &fx_info,
             &name,
             plugin_id.as_ref(),
         );
@@ -269,9 +270,8 @@ where
 }
 
 fn determine_preset_file_destination(
-    fx_chain_dir: &Path,
+    fx_chain_sub_dir: &Path,
     shim_dir: &Path,
-    fx_info: &FxInfo,
     preset_name: &str,
     plugin_id: Option<&PluginId>,
 ) -> PathBuf {
@@ -286,8 +286,8 @@ fn determine_preset_file_destination(
     } else {
         // No match with existing unsupported preset
         let file_name = format!("{}.RfxChain", &preset_name);
-        let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
-        dest_dir_path.join(file_name)
+        let sanitized_file_name = sanitize_filename::sanitize(file_name);
+        fx_chain_sub_dir.join(sanitized_file_name)
     }
 }
 

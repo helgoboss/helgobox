@@ -190,6 +190,8 @@ lexical-sort = "0.3.1"
 splitty = "1.0.1"
 # For Pot target
 lru = "0.10.0"
+# For Pot target
+sanitize-filename = "0.4.0"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 
