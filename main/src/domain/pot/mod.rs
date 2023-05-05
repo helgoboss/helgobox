@@ -286,7 +286,7 @@ impl<'a> FilterInput<'a> {
             self.filters.matches(PotFilterKind::IsAvailable, fil)
         };
         let support_matches = || {
-            self.filters.get(PotFilterKind::IsAvailable)
+            self.filters.get(PotFilterKind::IsSupported)
                 != Some(FilterItemId(Some(FIL_IS_AVAILABLE_FALSE)))
         };
         let product_kind_matches = || {
@@ -546,7 +546,7 @@ impl RuntimePotUnit {
         &mut self,
         preset: &Preset,
         options: LoadPresetOptions,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), LoadPresetError> {
         let build_destination = |pot_unit: &mut Self| {
             let dest = match pot_unit.resolve_destination()? {
                 DestinationInstruction::Existing(d) => d,
@@ -581,24 +581,34 @@ impl RuntimePotUnit {
         preset: &Preset,
         options: LoadPresetOptions,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
-    ) -> Result<Fx, Box<dyn Error>> {
+    ) -> Result<Fx, LoadPresetError> {
         match self.load_preset_at_internal(preset, options, build_destination) {
             Ok(fx) => Ok(fx),
-            Err(LoadPresetError::UnsupportedFormat(extension)) => {
+            Err(LoadPresetError::UnsupportedPresetFormat { file_extension, .. }) => {
                 // Unsupported format. But maybe we have a shim file?
                 let reaper_resource_dir = Reaper::get().resource_path();
                 let shim_file_path = get_shim_file_path(&reaper_resource_dir, preset);
                 if !shim_file_path.exists() {
-                    return Err(format!("Unsupported preset format {extension}").into());
+                    // Give up
+                    return Err(LoadPresetError::UnsupportedPresetFormat {
+                        file_extension,
+                        is_shim_preset: false,
+                    });
                 }
-                let outcome =
-                    load_file_based_preset(self, &shim_file_path, build_destination, options)?;
+                let outcome = load_file_based_preset(
+                    self,
+                    &shim_file_path,
+                    build_destination,
+                    options,
+                    true,
+                )?;
                 Ok(self.process_preset_load_outcome(preset, outcome))
             }
-            Err(LoadPresetError::Other(e)) => Err(e),
+            e => e,
         }
     }
 
+    /// Doesn't try to load a shim preset yet.
     fn load_preset_at_internal(
         &mut self,
         preset: &Preset,
@@ -607,7 +617,7 @@ impl RuntimePotUnit {
     ) -> Result<Fx, LoadPresetError> {
         let outcome = match &preset.kind {
             PresetKind::FileBased(k) => {
-                load_file_based_preset(self, &k.path, build_destination, options)?
+                load_file_based_preset(self, &k.path, build_destination, options, false)?
             }
             PresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
@@ -616,7 +626,7 @@ impl RuntimePotUnit {
                         .map_err(LoadPresetError::Other)?
                 } else {
                     return Err(LoadPresetError::Other(
-                        "plug-in for internal preset couldn't be found".into(),
+                        "Plug-in for internal preset couldn't be found".into(),
                     ));
                 }
             }
@@ -1337,7 +1347,13 @@ impl LoadPresetWindowBehavior {
 
 #[derive(Debug, derive_more::Display)]
 pub enum LoadPresetError {
-    UnsupportedFormat(String),
+    #[display(fmt = "Unsupported preset format")]
+    UnsupportedPresetFormat {
+        file_extension: String,
+        /// `true` if a shim preset file was found but even its format is not supported.
+        /// That would be weird.
+        is_shim_preset: bool,
+    },
     Other(Box<dyn Error>),
 }
 
@@ -1360,11 +1376,14 @@ fn load_file_based_preset(
     preset_file: &Path,
     build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     options: LoadPresetOptions,
+    is_shim_preset: bool,
 ) -> Result<LoadPresetOutcome, LoadPresetError> {
-    let ext = preset_file
-        .extension()
-        .and_then(|e| e.to_str())
-        .ok_or(LoadPresetError::UnsupportedFormat("".to_string()))?;
+    let ext = preset_file.extension().and_then(|e| e.to_str()).ok_or(
+        LoadPresetError::UnsupportedPresetFormat {
+            file_extension: "".to_string(),
+            is_shim_preset,
+        },
+    )?;
     let outcome = match ext.to_lowercase().as_str() {
         "wav" | "aif" | "ogg" | "mp3" => {
             let dest = build_destination(pot_unit)?;
@@ -1383,7 +1402,10 @@ fn load_file_based_preset(
             load_track_template_preset(preset_file, &dest, options)?
         }
         x => {
-            return Err(LoadPresetError::UnsupportedFormat(x.to_string()));
+            return Err(LoadPresetError::UnsupportedPresetFormat {
+                file_extension: x.to_string(),
+                is_shim_preset,
+            });
         }
     };
     Ok(outcome)

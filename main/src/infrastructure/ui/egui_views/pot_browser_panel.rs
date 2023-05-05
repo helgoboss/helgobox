@@ -9,8 +9,8 @@ use crate::domain::pot::preset_crawler::{
 };
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
-    DestinationTrackDescriptor, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, Preset,
-    PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
+    DestinationTrackDescriptor, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
+    MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -100,6 +100,10 @@ enum Dialog {
         chunks_file: Option<File>,
     },
     CrawlImportFinished,
+    GeneralError {
+        title: Cow<'static, str>,
+        msg: Cow<'static, str>,
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -109,6 +113,16 @@ enum CrawlPresetsStoppedPage {
 }
 
 impl Dialog {
+    fn general_error(
+        title: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self::GeneralError {
+            title: title.into(),
+            msg: msg.into(),
+        }
+    }
+
     fn crawl_presets_mouse() -> Self {
         Self::CrawlPresetsMouse {
             creation_time: Instant::now(),
@@ -261,13 +275,14 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     // Process keyboard
     let key_action = ctx.input_mut(|input| determine_key_action(input));
     if let Some(key_action) = key_action {
-        let ctx = KeyContext {
+        let key_input = KeyInput {
             auto_preview: state.auto_preview,
             os_window: state.os_window,
             load_preset_window_behavior: state.load_preset_window_behavior,
             pot_unit: state.pot_unit.clone(),
+            dialog: &mut state.dialog,
         };
-        execute_key_action(ctx, pot_unit, &mut toasts, key_action);
+        execute_key_action(ctx, key_input, pot_unit, &mut toasts, key_action);
     }
     let current_fx = pot_unit
         .resolve_destination()
@@ -307,7 +322,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             ui,
                             pot_unit,
                             TOOLBAR_HEIGHT_WITH_MARGIN,
-                            300.0,
+                            280.0,
                             // Left side of toolbar: Toolbar
                             |ui, pot_unit| {
                                 // Main options
@@ -374,8 +389,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
                             if ui.button("Preset crawler").clicked() {
                                 state.dialog = Some(Dialog::CrawlPresetsIntro);
+                                ui.close_menu();
                             }
-                            ui.close_menu();
                         });
                         // Options
                         let input = RightOptionsDropdownInput {
@@ -517,6 +532,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         auto_preview: state.auto_preview,
                         os_window: state.os_window,
                         load_preset_window_behavior: state.load_preset_window_behavior,
+                        dialog: &mut state.dialog,
                     };
                     add_preset_table(input, ui, &mut state.preset_cache);
                 });
@@ -545,6 +561,19 @@ struct ProcessDialogsInput<'a> {
 
 fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
     match input.dialog {
+        Dialog::GeneralError { title, msg } => show_dialog(
+            ctx,
+            title,
+            input.change_dialog,
+            |ui, _| {
+                ui.label(&**msg);
+            },
+            |ui, change_dialog| {
+                if ui.button("Ok").clicked() {
+                    *change_dialog = Some(None);
+                };
+            },
+        ),
         Dialog::CrawlPresetsIntro => show_dialog(
             ctx,
             CRAWL_PRESETS_TITLE,
@@ -857,6 +886,7 @@ struct PresetTableInput<'a> {
     auto_preview: bool,
     os_window: Window,
     load_preset_window_behavior: LoadPresetWindowBehavior,
+    dialog: &'a mut Option<Dialog>,
 }
 
 fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
@@ -944,11 +974,13 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         }
                         if button.double_clicked() {
                             load_preset_and_regain_focus(
+                                ui.ctx(),
                                 &data.preset,
                                 input.os_window,
                                 input.pot_unit,
                                 input.toasts,
                                 input.load_preset_window_behavior,
+                                input.dialog,
                             );
                         }
                     }
@@ -1405,15 +1437,17 @@ fn show_current_preset_panel(
     }
 }
 
-struct KeyContext {
+struct KeyInput<'a> {
     auto_preview: bool,
     os_window: Window,
     load_preset_window_behavior: LoadPresetWindowBehavior,
     pot_unit: SharedRuntimePotUnit,
+    dialog: &'a mut Option<Dialog>,
 }
 
 fn execute_key_action(
-    ctx: KeyContext,
+    ctx: &Context,
+    input: KeyInput,
     pot_unit: &mut MutexGuard<RuntimePotUnit>,
     mut toasts: &mut Toasts,
     key_action: KeyAction,
@@ -1423,7 +1457,7 @@ fn execute_key_action(
             if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount) {
                 if let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index) {
                     pot_unit.set_preset_id(Some(next_preset_id));
-                    if ctx.auto_preview {
+                    if input.auto_preview {
                         let _ = pot_unit.play_preview(next_preset_id);
                     }
                 }
@@ -1432,25 +1466,30 @@ fn execute_key_action(
         KeyAction::LoadPreset => {
             if let Some((_, preset)) = pot_unit.preset_and_id() {
                 load_preset_and_regain_focus(
+                    ctx,
                     &preset,
-                    ctx.os_window,
+                    input.os_window,
                     pot_unit,
                     &mut toasts,
-                    ctx.load_preset_window_behavior,
+                    input.load_preset_window_behavior,
+                    input.dialog,
                 );
             }
         }
         KeyAction::ClearLastSearchExpressionChar => {
             pot_unit.runtime_state.search_expression.pop();
-            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit
+                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
         }
         KeyAction::ClearSearchExpression => {
             pot_unit.runtime_state.search_expression.clear();
-            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit
+                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
         }
         KeyAction::ExtendSearchExpression(text) => {
             pot_unit.runtime_state.search_expression.push_str(&text);
-            pot_unit.rebuild_collections(ctx.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit
+                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
         }
     }
 }
@@ -1858,14 +1897,49 @@ fn add_filter_view_content_as_icons(
 }
 
 fn load_preset_and_regain_focus(
+    ctx: &Context,
     preset: &Preset,
     os_window: Window,
     pot_unit: &mut RuntimePotUnit,
     toasts: &mut Toasts,
     window_behavior: LoadPresetWindowBehavior,
+    dialog: &mut Option<Dialog>,
 ) {
     let options = LoadPresetOptions { window_behavior };
-    process_potential_error(&pot_unit.load_preset(preset, options), toasts);
+    if let Err(e) = pot_unit.load_preset(preset, options) {
+        match e {
+            LoadPresetError::UnsupportedPresetFormat {
+                file_extension,
+                is_shim_preset,
+            } => {
+                if is_shim_preset {
+                    let text = format!(
+                        "Found shim preset for unsupported original format but even the shim
+                        seems to have an unsupported format: {file_extension}",
+                    );
+                    show_error_toast(&text, toasts);
+                } else {
+                    let text = r#"
+Unfortunately, Pot can't automatically open presets for Native Instrument's own plug-ins. You have the following options:
+
+Approach A: Load the preset manually
+
+1. Load the plug-in, e.g. by right-clicking the preset and choosing "Load plug-in".
+2. Then find the preset within the plug-in. But if the plug-in supports drag'n'drop, e.g. Kontakt, you can alternatively reveal the preset file in the file explorer (available in right click menu as well) and drag it onto the plug-in.
+
+Approach B: Preset crawling
+
+Try to use Preset Crawler (menu "Tools") to crawl the presets of Native Instrument plug-ins. All presets that have been successfully crawled and imported should be loaded automatically in future. One issue is that crawling only seems to work with the VST2 versions of the NI plug-ins.
+
+In both cases, you will not be able to take advantage of the preset parameter banks. That's just how it is for now.
+If you don't want unsupported presets to show up in Pot browser, enable the ✔ filter in the toolbar.
+"#;
+                    *dialog = Some(Dialog::general_error("Can't open preset", text));
+                }
+            }
+            _ => process_error(&e, toasts),
+        }
+    }
     os_window.focus_first_child();
 }
 
@@ -1876,7 +1950,11 @@ fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toa
 }
 
 fn process_error(error: &dyn Error, toasts: &mut Toasts) {
-    toasts.error(error.to_string(), Duration::from_secs(1));
+    show_error_toast(&error.to_string(), toasts);
+}
+
+fn show_error_toast(text: &str, toasts: &mut Toasts) {
+    toasts.error(text, Duration::from_secs(1));
 }
 
 const TOOLBAR_HEIGHT: f32 = 15.0;
@@ -1972,7 +2050,7 @@ fn show_dialog<V>(
             ui.vertical_centered(|ui| {
                 ui.set_min_width(500.0);
                 // Top margin
-                ui.add_space(20.0);
+                ui.add_space(10.0);
                 // Content
                 content(ui, value);
                 // Space between content and buttons
@@ -1987,7 +2065,7 @@ fn show_dialog<V>(
                     });
                 });
                 // Bottom margin
-                ui.add_space(20.0);
+                ui.add_space(10.0);
             })
         });
 }
