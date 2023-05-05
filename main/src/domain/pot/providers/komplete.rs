@@ -2,7 +2,8 @@ use crate::base::blocking_lock;
 use crate::domain::pot::api::{OptFilter, PotFilterExcludes};
 use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_TRUE,
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
+    FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
@@ -121,10 +122,6 @@ impl Database for KompleteDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut preset_db = blocking_lock(
-            &self.primary_preset_db,
-            "Komplete DB query_filter_collections",
-        );
         let translated_filters = self.translate_filters(*input.filter_input.filters);
         let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
             if kind == PotFilterKind::Bank {
@@ -134,6 +131,10 @@ impl Database for KompleteDatabase {
                 None
             }
         };
+        let mut preset_db = blocking_lock(
+            &self.primary_preset_db,
+            "Komplete DB query_filter_collections",
+        );
         preset_db.query_filter_collections(
             &translated_filters,
             input.affected_kinds,
@@ -147,8 +148,8 @@ impl Database for KompleteDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
         let translated_filters = self.translate_filters(*input.filter_input.filters);
+        let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
         preset_db.query_presets(
             &translated_filters,
             &input.search_evaluator,
@@ -172,6 +173,38 @@ impl Database for KompleteDatabase {
             "Komplete DB find_preview_by_preset_id",
         );
         preset_db.find_preset_preview_file(preset_id)
+    }
+
+    fn find_unsupported_preset_matching(
+        &self,
+        product_id: ProductId,
+        preset_name: &str,
+    ) -> Option<Preset> {
+        // Look for corresponding Komplete bank
+        let bank_id = self.nks_bank_id_by_product_id.get(&product_id)?;
+        // Make sure we only get results from that bank
+        let mut filters = Filters::empty();
+        filters.set(
+            PotFilterKind::Bank,
+            Some(FilterItemId(Some(Fil::Komplete(*bank_id)))),
+        );
+        // Make sure we only get unsupported presets
+        filters.set(
+            PotFilterKind::IsSupported,
+            Some(FilterItemId(Some(FIL_IS_SUPPORTED_FALSE))),
+        );
+        // Look for exact preset name match
+        let search_evaluator = SearchEvaluator::new(preset_name, true);
+        let mut preset_db = blocking_lock(
+            &self.primary_preset_db,
+            "Komplete DB find_unsupported_preset_matching",
+        );
+        let preset_ids = preset_db
+            .query_presets(&filters, &search_evaluator, &Default::default())
+            .ok()?;
+        let first_preset_id = preset_ids.first()?;
+        let (common, kind) = preset_db.find_preset_by_id(first_preset_id.inner_preset_id)?;
+        Some(Preset::new(common, PresetKind::FileBased(kind)))
     }
 }
 

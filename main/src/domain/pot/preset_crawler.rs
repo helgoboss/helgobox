@@ -1,6 +1,9 @@
 use crate::base::{blocking_lock_arc, Global};
 use crate::domain::enigo::EnigoMouse;
-use crate::domain::pot::{spawn_in_pot_worker, EscapeCatcher};
+use crate::domain::pot::{
+    parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher, PluginId,
+    PresetKind,
+};
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
@@ -200,7 +203,9 @@ where
     F: Fn() + 'static,
 {
     let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
+    let shim_dir = Reaper::get().resource_path().join("Helgoboss/Pot/Shims");
     let fx_info = args.fx.info()?;
+    let plugin_id = get_plugin_id_from_fx_info(&fx_info);
     let mut mouse = EnigoMouse::default();
     let escape_catcher = EscapeCatcher::new();
     loop {
@@ -226,7 +231,13 @@ where
         file.flush()?;
         file.rewind()?;
         // Determine where on the disk the RfxChain file should end up
-        let destination = determine_preset_file_destination(&fx_chain_dir, &fx_info, &name);
+        let destination = determine_preset_file_destination(
+            &fx_chain_dir,
+            &shim_dir,
+            &fx_info,
+            &name,
+            plugin_id.as_ref(),
+        );
         if args.stop_if_destination_exists && destination.exists() {
             // Finished
             blocking_lock_arc(&args.state, "crawl_presets 2").mark_destination_file_exists();
@@ -259,12 +270,49 @@ where
 
 fn determine_preset_file_destination(
     fx_chain_dir: &Path,
+    shim_dir: &Path,
     fx_info: &FxInfo,
     preset_name: &str,
+    plugin_id: Option<&PluginId>,
 ) -> PathBuf {
-    let file_name = format!("{}.RfxChain", &preset_name);
-    let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
-    dest_dir_path.join(file_name)
+    if let Some(original_file_name) = find_shimmable_preset_file_name(plugin_id, preset_name) {
+        // Matched with existing unsupported preset. Create RfxChain file, a so called shim file,
+        // but not in the FX chain directory because we don't want it to show up in the FX chain
+        // database. Instead, we want the original preset (probably in the Komplete database)
+        // to become loadable. There's logic in our preset loading mechanism that looks for
+        // a shim file if it realizes that the preset can't be loaded. A kind of fallback!
+        let file_name = format!("{}.RfxChain", original_file_name);
+        shim_dir.join(&file_name)
+    } else {
+        // No match with existing unsupported preset
+        let file_name = format!("{}.RfxChain", &preset_name);
+        let dest_dir_path = fx_chain_dir.join(&fx_info.effect_name);
+        dest_dir_path.join(file_name)
+    }
+}
+
+/// Returns the file name of the original preset.
+fn find_shimmable_preset_file_name(
+    plugin_id: Option<&PluginId>,
+    preset_name: &str,
+) -> Option<String> {
+    let plugin_id = plugin_id?;
+    let existing_preset = pot_db().find_unsupported_preset_matching(plugin_id, preset_name)?;
+    let PresetKind::FileBased(kind) = existing_preset.kind else {
+        return None;
+    };
+    let original_file_name = kind.path.file_name()?;
+    Some(original_file_name.to_str()?.to_string())
+}
+
+fn get_plugin_id_from_fx_info(fx_info: &FxInfo) -> Option<PluginId> {
+    let plugin_id = match fx_info.sub_type_expression.as_str() {
+        "VST" | "VSTi" => PluginId::vst2(parse_vst2_magic_number(&fx_info.id).ok()?),
+        "VST3" | "VST3i" => PluginId::vst3(parse_vst3_uid(&fx_info.id).ok()?),
+        // Komplete doesn't support CLAP or JS anyway, so not important right now.
+        _ => return None,
+    };
+    Some(plugin_id)
 }
 
 pub fn import_crawled_presets(state: SharedPresetCrawlingState) -> Result<(), Box<dyn Error>> {

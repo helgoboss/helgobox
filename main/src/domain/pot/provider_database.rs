@@ -48,6 +48,21 @@ pub trait Database {
         context: &ProviderContext,
         preset_id: InnerPresetId,
     ) -> Option<PathBuf>;
+
+    /// Tries to find a preset that belongs to the given product and has the given name *and*
+    /// most importantly a preset file format that can't be loaded by Pot Browser.
+    ///
+    /// This is used by the preset crawler to identify whether a crawled preset can be used to
+    /// make a preset with an unsupported format actually loadable. Only makes sense for Komplete
+    /// at the moment because this is the only database which exposes unsupported presets.
+    fn find_unsupported_preset_matching(
+        &self,
+        product_id: ProductId,
+        preset_name: &str,
+    ) -> Option<Preset> {
+        let _ = (product_id, preset_name);
+        None
+    }
 }
 
 pub type InnerFilterItemCollections = GenericFilterItemCollections<InnerFilterItem>;

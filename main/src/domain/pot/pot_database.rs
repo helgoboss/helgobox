@@ -9,8 +9,8 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput, Preset,
-    PresetId, Stats,
+    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput, PluginId,
+    Preset, PresetId, Stats,
 };
 
 use crate::domain::pot::plugins::PluginDatabase;
@@ -326,6 +326,29 @@ impl PotDatabase {
         let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id 1");
         let db = db.as_ref().ok()?;
         db.find_preview_by_preset_id(&provider_context, preset_id.preset_id)
+    }
+
+    /// Ignores exclude lists.
+    pub fn find_unsupported_preset_matching(
+        &self,
+        plugin_id: &PluginId,
+        preset_name: &str,
+    ) -> Option<Preset> {
+        let product_id = {
+            let plugin_db = blocking_read_lock(
+                &self.plugin_db,
+                "plugin db find_unsupported_preset_matching",
+            );
+            let plugin = plugin_db.find_plugin_by_id(plugin_id)?;
+            plugin.common.core.product_id
+        };
+        self.databases.values().find_map(|db| {
+            // Acquire database access
+            let db = blocking_read_lock(db, "pot db find_unsupported_preset_matching");
+            let db = db.as_ref().ok()?;
+            // Find preset
+            db.find_unsupported_preset_matching(product_id, preset_name)
+        })
     }
 }
 
