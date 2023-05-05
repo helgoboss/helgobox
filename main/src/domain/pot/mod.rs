@@ -268,6 +268,7 @@ impl<'a> FilterInput<'a> {
     /// existing scanned REAPER plug-ins. The following kinds of filters is checked:
     ///
     /// - Availability
+    /// - Support (never matches if showing only unsupported presets)
     /// - Product kind
     /// - Product (also makes sure it's not excluded)
     /// - Favorite
@@ -283,6 +284,10 @@ impl<'a> FilterInput<'a> {
                 FIL_IS_AVAILABLE_FALSE
             };
             self.filters.matches(PotFilterKind::IsAvailable, fil)
+        };
+        let support_matches = || {
+            self.filters.get(PotFilterKind::IsAvailable)
+                != Some(FilterItemId(Some(FIL_IS_AVAILABLE_FALSE)))
         };
         let product_kind_matches = || {
             // If we don't have plug-in info, we also don't have product kind info.
@@ -303,6 +308,7 @@ impl<'a> FilterInput<'a> {
         let favorite_matches = || self.filters.favorite_matches(self.db_favorites, preset_id);
         // Combine
         availability_matches()
+            && support_matches()
             && product_kind_matches()
             && product_matches()
             && favorite_matches()
@@ -1037,10 +1043,12 @@ fn load_rfx_chain_preset(
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     load_preset_multi_fx(destination, options, true, || {
-        let preset_file_name = path.to_string_lossy().to_string();
+        let root_dir = Reaper::get().resource_path().join("FXChains");
+        let relative_path = path.strip_prefix(&root_dir)?;
+        let relative_path = relative_path.to_string_lossy().to_string();
         let fx = destination
             .chain
-            .add_fx_by_original_name(preset_file_name)
+            .add_fx_by_original_name(relative_path)
             .ok_or("couldn't load FX chain file")?;
         Ok(fx)
     })

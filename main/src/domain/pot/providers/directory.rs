@@ -27,7 +27,6 @@ pub struct DirectoryDatabase {
     valid_extensions: HashSet<&'static OsStr>,
     name: &'static str,
     description: &'static str,
-    publish_relative_path: bool,
     entries: Vec<PresetEntry>,
 }
 
@@ -36,7 +35,6 @@ pub struct DirectoryDbConfig {
     pub valid_extensions: &'static [&'static str],
     pub name: &'static str,
     pub description: &'static str,
-    pub publish_relative_path: bool,
 }
 
 impl DirectoryDatabase {
@@ -49,7 +47,6 @@ impl DirectoryDatabase {
             entries: Default::default(),
             root_dir: config.root_dir,
             valid_extensions: config.valid_extensions.iter().map(OsStr::new).collect(),
-            publish_relative_path: config.publish_relative_path,
             description: config.description,
         };
         Ok(db)
@@ -177,11 +174,7 @@ impl Database for DirectoryDatabase {
                     .unwrap()
                     .to_string_lossy()
                     .to_string(),
-                path: if self.publish_relative_path {
-                    relative_path
-                } else {
-                    self.root_dir.join(relative_path)
-                },
+                path: self.root_dir.join(relative_path),
             }),
         };
         Some(preset)

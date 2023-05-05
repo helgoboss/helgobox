@@ -573,14 +573,22 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
                         // Countdown finished
                         input.os_window.focus_first_child();
-                        if let Some(fx) = Reaper::get().focused_fx() {
-                            *change_dialog = Some(Some(Dialog::crawl_presets_ready(fx.fx, p)));
+                        let next_dialog = if let Some(fx) = Reaper::get().focused_fx() {
+                            if fx.fx.floating_window().is_some() {
+                                Dialog::crawl_presets_ready(fx.fx, p)
+                            } else {
+                                Dialog::crawl_presets_failure(
+                                    format!("Identified FX \"{}\" but it's not open in a floating window.", fx.fx.name()),
+                                    "Please use the floating window to point the mouse to the next-preset button!",
+                                )
+                            }
                         } else {
-                            *change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                            Dialog::crawl_presets_failure(
                                 "Couldn't identify the corresponding FX",
                                 "",
-                            )));
-                        }
+                            )
+                        };
+                        *change_dialog = Some(Some(next_dialog));
                     }
                 },
                 |ui, change_dialog| {
@@ -616,6 +624,9 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
                     *change_dialog = Some(None);
+                };
+                if ui.button("Try again").clicked() {
+                    *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
                 };
             },
         ),
@@ -871,7 +882,7 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                 ui.strong("Plug-in/product");
             });
             header.col(|ui| {
-                ui.strong("Ext");
+                ui.strong("Extension");
             });
         })
         .body(|body| {
@@ -904,6 +915,16 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                     let mut button = ui.add_sized(ui.available_size(), button);
                     if let PresetCacheEntry::Found(d) = cache_entry {
                         button = button.on_hover_text(d.preset.name());
+                        #[cfg(any(target_os = "windows", target_os = "macos"))]
+                        if let PresetKind::FileBased(k) = &d.preset.kind {
+                            button = button.context_menu(|ui| {
+                                if ui.button("Reveal in file manager").clicked() {
+                                    if let Err(e) = opener::reveal(&k.path) {
+                                        process_error(&e, input.toasts);
+                                    }
+                                }
+                            });
+                        }
                     }
                     if let PresetCacheEntry::Found(data) = cache_entry {
                         if button.clicked() {
@@ -1817,9 +1838,13 @@ fn load_preset_and_regain_focus(
 }
 
 fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toasts) {
-    if let Err(e) = result.as_ref() {
-        toasts.error(e.to_string(), Duration::from_secs(1));
+    if let Err(e) = result {
+        process_error(&**e, toasts);
     }
+}
+
+fn process_error(error: &dyn Error, toasts: &mut Toasts) {
+    toasts.error(error.to_string(), Duration::from_secs(1));
 }
 
 const TOOLBAR_HEIGHT: f32 = 15.0;

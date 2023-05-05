@@ -76,7 +76,6 @@ impl PotDatabase {
                 valid_extensions: &["RfxChain"],
                 name: "FX chains",
                 description: "All the RfxChain files in your FXChains directory",
-                publish_relative_path: true,
             };
             DirectoryDatabase::open(config)
         };
@@ -86,7 +85,6 @@ impl PotDatabase {
                 valid_extensions: &["RTrackTemplate"],
                 name: "Track templates",
                 description: "All the RTrackTemplate files in your TrackTemplates directory.\nDoesn't load the complete track, only its FX chain!",
-                publish_relative_path: false,
             };
             DirectoryDatabase::open(config)
         };

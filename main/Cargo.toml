@@ -200,6 +200,7 @@ raw-window-handle = "0.4.2"
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
 tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
+opener = { version = "0.6.1", features = ["reveal"] }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
