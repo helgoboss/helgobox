@@ -72,7 +72,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
         pot_unit
-            .load_preset_at(&preset, options, |_| {
+            .load_preset_at(&preset, options, &|_| {
                 let dest = Destination {
                     chain: self.fx.chain().clone(),
                     fx_index,

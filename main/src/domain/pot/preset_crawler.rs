@@ -2,12 +2,14 @@ use crate::base::{blocking_lock_arc, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
     parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher, PluginId,
-    PresetKind,
+    Preset,
 };
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
+use sha1::Digest;
+use sha1::Sha1;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -213,11 +215,8 @@ async fn crawl_presets_async<F>(args: CrawlPresetArgs<F>) -> Result<(), Box<dyn 
 where
     F: Fn() + 'static,
 {
-    let fx_chain_dir = Reaper::get().resource_path().join("FXChains");
-    let shim_dir = Reaper::get().resource_path().join("Helgoboss/Pot/Shims");
+    let reaper_resource_dir = Reaper::get().resource_path();
     let fx_info = args.fx.info()?;
-    let sanitized_effect_name = sanitize_filename::sanitize(&fx_info.effect_name);
-    let fx_chain_sub_dir = fx_chain_dir.join(sanitized_effect_name);
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
     let mut mouse = EnigoMouse::default();
     let escape_catcher = EscapeCatcher::new();
@@ -247,8 +246,8 @@ where
         chunks_file.flush()?;
         // Determine where on the disk the RfxChain file should end up
         let destination = determine_preset_file_destination(
-            &fx_chain_sub_dir,
-            &shim_dir,
+            &fx_info,
+            &reaper_resource_dir,
             &name,
             plugin_id.as_ref(),
         );
@@ -284,39 +283,34 @@ where
 }
 
 fn determine_preset_file_destination(
-    fx_chain_sub_dir: &Path,
-    shim_dir: &Path,
+    fx_info: &FxInfo,
+    reaper_resource_dir: &Path,
     preset_name: &str,
     plugin_id: Option<&PluginId>,
 ) -> PathBuf {
-    if let Some(original_file_name) = find_shimmable_preset_file_name(plugin_id, preset_name) {
+    if let Some(preset) = find_shimmable_preset(plugin_id, preset_name) {
         // Matched with existing unsupported preset. Create RfxChain file, a so called shim file,
         // but not in the FX chain directory because we don't want it to show up in the FX chain
         // database. Instead, we want the original preset (probably in the Komplete database)
         // to become loadable. There's logic in our preset loading mechanism that looks for
         // a shim file if it realizes that the preset can't be loaded. A kind of fallback!
-        let file_name = format!("{}.RfxChain", original_file_name);
-        shim_dir.join(&file_name)
+        get_shim_file_path(reaper_resource_dir, &preset)
     } else {
         // No match with existing unsupported preset
+        let sanitized_effect_name = sanitize_filename::sanitize(&fx_info.effect_name);
         let file_name = format!("{}.RfxChain", &preset_name);
         let sanitized_file_name = sanitize_filename::sanitize(file_name);
-        fx_chain_sub_dir.join(sanitized_file_name)
+        reaper_resource_dir
+            .join("FXChains")
+            .join(sanitized_effect_name)
+            .join(sanitized_file_name)
     }
 }
 
 /// Returns the file name of the original preset.
-fn find_shimmable_preset_file_name(
-    plugin_id: Option<&PluginId>,
-    preset_name: &str,
-) -> Option<String> {
+fn find_shimmable_preset(plugin_id: Option<&PluginId>, preset_name: &str) -> Option<Preset> {
     let plugin_id = plugin_id?;
-    let existing_preset = pot_db().find_unsupported_preset_matching(plugin_id, preset_name)?;
-    let PresetKind::FileBased(kind) = existing_preset.kind else {
-        return None;
-    };
-    let original_file_name = kind.path.file_name()?;
-    Some(original_file_name.to_str()?.to_string())
+    pot_db().find_unsupported_preset_matching(plugin_id, preset_name)
 }
 
 fn get_plugin_id_from_fx_info(fx_info: &FxInfo) -> Option<PluginId> {
@@ -365,3 +359,38 @@ async fn millis(amount: u64) {
 }
 
 const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
+
+pub fn get_shim_file_path(reaper_resource_dir: &Path, preset: &Preset) -> PathBuf {
+    let file_name = hash_to_dir_structure(&preset.common.favorite_id, ".RfxChain");
+    reaper_resource_dir
+        .join("Helgoboss/Pot/Shims")
+        .join(&file_name)
+}
+
+/// Converts something like "test" to something like
+/// "a9/4a/8fe5ccb19ba61c4c0873d391e987982fbbd3.RfxChain" for the purpose to not get too many
+/// files in one directory.
+fn hash_to_dir_structure(input: impl AsRef<[u8]>, suffix: &str) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(input);
+    let array = hasher.finalize();
+    format!(
+        "{:x}/{:x}/{}{suffix}",
+        array[0],
+        array[1],
+        hex::encode(&array[2..])
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::pot::preset_crawler::hash_to_dir_structure;
+
+    #[test]
+    fn hash_to_dir_structure_simple() {
+        assert_eq!(
+            hash_to_dir_structure("test", ".RfxChain"),
+            "a9/4a/8fe5ccb19ba61c4c0873d391e987982fbbd3.RfxChain".to_string()
+        );
+    }
+}

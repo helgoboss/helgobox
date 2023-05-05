@@ -46,6 +46,7 @@ mod worker;
 pub use worker::*;
 mod escape_catcher;
 pub mod preset_crawler;
+use crate::domain::pot::preset_crawler::get_shim_file_path;
 pub use escape_catcher::*;
 
 // - We have a global list of databases
@@ -556,7 +557,7 @@ impl RuntimePotUnit {
             };
             Ok(dest)
         };
-        let fx = self.load_preset_at(preset, options, build_destination)?;
+        let fx = self.load_preset_at(preset, options, &build_destination)?;
         if self.name_track_after_preset {
             if let Some(track) = fx.track() {
                 track.set_name(preset.name());
@@ -573,45 +574,57 @@ impl RuntimePotUnit {
         &mut self,
         preset: &Preset,
         options: LoadPresetOptions,
-        build_destination: impl FnOnce(&mut Self) -> Result<Destination, &'static str>,
+        build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, Box<dyn Error>> {
+        match self.load_preset_at_internal(preset, options, build_destination) {
+            Ok(fx) => Ok(fx),
+            Err(LoadPresetError::UnsupportedFormat(extension)) => {
+                // Unsupported format. But maybe we have a shim file?
+                let reaper_resource_dir = Reaper::get().resource_path();
+                let shim_file_path = get_shim_file_path(&reaper_resource_dir, preset);
+                if !shim_file_path.exists() {
+                    return Err(format!("Unsupported preset format {extension}").into());
+                }
+                let outcome =
+                    load_file_based_preset(self, &shim_file_path, build_destination, options)?;
+                Ok(self.process_preset_load_outcome(preset, outcome))
+            }
+            Err(LoadPresetError::Other(e)) => Err(e),
+        }
+    }
+
+    fn load_preset_at_internal(
+        &mut self,
+        preset: &Preset,
+        options: LoadPresetOptions,
+        build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
+    ) -> Result<Fx, LoadPresetError> {
         let outcome = match &preset.kind {
-            PresetKind::FileBased(k) => match k.file_ext.to_lowercase().as_str() {
-                "wav" | "aif" | "ogg" | "mp3" => {
-                    let dest = build_destination(self)?;
-                    load_audio_preset(&k.path, &dest, options)?
-                }
-                "nksf" | "nksfx" => {
-                    let dest = build_destination(self)?;
-                    load_nks_preset(&k.path, &dest, options)?
-                }
-                "rfxchain" => {
-                    let dest = build_destination(self)?;
-                    load_rfx_chain_preset(&k.path, &dest, options)?
-                }
-                "rtracktemplate" => {
-                    let dest = build_destination(self)?;
-                    load_track_template_preset(&k.path, &dest, options)?
-                }
-                _ => {
-                    return Err(
-                        format!("unsupported file-based preset format \"{}\"", &k.file_ext).into(),
-                    )
-                }
-            },
+            PresetKind::FileBased(k) => {
+                load_file_based_preset(self, &k.path, build_destination, options)?
+            }
             PresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
                     let dest = build_destination(self)?;
-                    load_internal_preset(plugin_id, preset.name(), &dest, options)?
+                    load_internal_preset(plugin_id, preset.name(), &dest, options)
+                        .map_err(LoadPresetError::Other)?
                 } else {
-                    return Err("plug-in for internal preset couldn't be found".into());
+                    return Err(LoadPresetError::Other(
+                        "plug-in for internal preset couldn't be found".into(),
+                    ));
                 }
             }
             PresetKind::DefaultFactory(plugin_id) => {
                 let dest = build_destination(self)?;
-                load_default_factory_preset(*plugin_id, &dest, options)?
+                load_default_factory_preset(*plugin_id, &dest, options)
+                    .map_err(LoadPresetError::Other)?
             }
         };
+        let fx = self.process_preset_load_outcome(preset, outcome);
+        Ok(fx)
+    }
+
+    fn process_preset_load_outcome(&self, preset: &Preset, outcome: LoadPresetOutcome) -> Fx {
         let current_preset = CurrentPreset {
             preset: preset.clone(),
             macro_param_banks: outcome.banks,
@@ -619,7 +632,7 @@ impl RuntimePotUnit {
         BackboneState::target_state()
             .borrow_mut()
             .set_current_fx_preset(outcome.fx.clone(), current_preset);
-        Ok(outcome.fx)
+        outcome.fx
     }
 
     pub fn state(&self) -> &RuntimeState {
@@ -1307,4 +1320,58 @@ impl LoadPresetWindowBehavior {
             }
         }
     }
+}
+
+#[derive(Debug, derive_more::Display)]
+pub enum LoadPresetError {
+    UnsupportedFormat(String),
+    Other(Box<dyn Error>),
+}
+
+impl From<&str> for LoadPresetError {
+    fn from(value: &str) -> Self {
+        Self::Other(value.into())
+    }
+}
+
+impl From<Box<dyn Error>> for LoadPresetError {
+    fn from(value: Box<dyn Error>) -> Self {
+        Self::Other(value)
+    }
+}
+
+impl Error for LoadPresetError {}
+
+fn load_file_based_preset(
+    pot_unit: &mut RuntimePotUnit,
+    preset_file: &Path,
+    build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, LoadPresetError> {
+    let ext = preset_file
+        .extension()
+        .and_then(|e| e.to_str())
+        .ok_or(LoadPresetError::UnsupportedFormat("".to_string()))?;
+    let outcome = match ext.to_lowercase().as_str() {
+        "wav" | "aif" | "ogg" | "mp3" => {
+            let dest = build_destination(pot_unit)?;
+            load_audio_preset(preset_file, &dest, options)?
+        }
+        "nksf" | "nksfx" => {
+            let dest = build_destination(pot_unit)?;
+            load_nks_preset(preset_file, &dest, options)?
+        }
+        "rfxchain" => {
+            let dest = build_destination(pot_unit)?;
+            load_rfx_chain_preset(preset_file, &dest, options)?
+        }
+        "rtracktemplate" => {
+            let dest = build_destination(pot_unit)?;
+            load_track_template_preset(preset_file, &dest, options)?
+        }
+        x => {
+            return Err(LoadPresetError::UnsupportedFormat(x.to_string()));
+        }
+    };
+    Ok(outcome)
 }

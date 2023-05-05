@@ -192,6 +192,8 @@ splitty = "1.0.1"
 lru = "0.10.0"
 # For Pot target
 sanitize-filename = "0.4.0"
+# For Pot target
+sha1 = "0.10.5"
 # For interfacing with egui
 raw-window-handle = "0.4.2"
 
