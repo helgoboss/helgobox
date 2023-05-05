@@ -133,7 +133,7 @@ pub struct RuntimePotUnit {
     pub wasted_duration: Duration,
     pub stats: Stats,
     sender: SenderToNormalThread<InstanceStateChanged>,
-    change_counter: u64,
+    revision: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
     pub destination_descriptor: DestinationDescriptor,
@@ -465,7 +465,7 @@ impl RuntimePotUnit {
             wasted_duration: Default::default(),
             stats: Default::default(),
             sender,
-            change_counter: 0,
+            revision: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
             destination_descriptor: Default::default(),
@@ -743,9 +743,9 @@ impl RuntimePotUnit {
             .filters
             .clear_excluded_ones(&build_input.filter_excludes);
         // Spawn new async task (don't block GUI thread, might take longer)
-        self.change_counter += 1;
+        self.revision += 1;
         self.background_task_start_time = Some(Instant::now());
-        let last_change_counter = self.change_counter;
+        let last_revision = self.revision;
         spawn_in_pot_worker(async move {
             if change_hint == Some(ChangeHint::TotalRefresh) {
                 pot_db().refresh();
@@ -757,7 +757,7 @@ impl RuntimePotUnit {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 let pot_unit =
                     blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
-                if pot_unit.change_counter != last_change_counter {
+                if pot_unit.revision != last_revision {
                     return Ok(());
                 }
             }
@@ -768,7 +768,7 @@ impl RuntimePotUnit {
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit =
                 blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
-            if pot_unit.change_counter != last_change_counter {
+            if pot_unit.revision != last_revision {
                 pot_unit.wasted_duration += build_output.stats.total_query_duration();
                 pot_unit.wasted_runs += 1;
                 return Ok(());
@@ -803,6 +803,11 @@ impl RuntimePotUnit {
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,
             ));
+    }
+
+    /// Returns a number that will be increased with each index rebuild (refresh).
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     pub fn count_filter_items(&self, kind: PotFilterKind) -> u32 {

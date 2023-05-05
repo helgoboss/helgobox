@@ -151,7 +151,11 @@ impl Dialog {
     }
 }
 
-type PresetCacheMessage = (PresetId, Option<PresetData>);
+struct PresetCacheMessage {
+    pot_unit_revision: u64,
+    preset_id: PresetId,
+    preset_data: Option<PresetData>,
+}
 
 #[derive(Debug)]
 enum PresetCacheEntry {
@@ -225,6 +229,9 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     // Query commonly used stuff
     let background_task_elapsed = pot_unit.background_task_elapsed();
     // Integrate cache worker results into local cache
+    state
+        .preset_cache
+        .set_pot_unit_revision(pot_unit.revision());
     while let Ok(message) = state.preset_cache.receiver.try_recv() {
         state.preset_cache.process_message(message);
     }
@@ -364,10 +371,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     ui.horizontal(|ui| {
                         ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
                         // Actions
-                        ui.menu_button(RichText::new("Actions").size(TOOLBAR_HEIGHT), |ui| {
-                            if ui.button("Crawl presets...").clicked() {
+                        ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
+                            if ui.button("Preset crawler").clicked() {
                                 state.dialog = Some(Dialog::CrawlPresetsIntro);
                             }
+                            ui.close_menu();
                         });
                         // Options
                         let input = RightOptionsDropdownInput {
@@ -922,6 +930,7 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                     if let Err(e) = opener::reveal(&k.path) {
                                         process_error(&e, input.toasts);
                                     }
+                                    ui.close_menu();
                                 }
                             });
                         }
@@ -1605,6 +1614,7 @@ struct PresetCache {
     lru_cache: LruCache<PresetId, PresetCacheEntry>,
     sender: SenderToNormalThread<PresetCacheMessage>,
     receiver: Receiver<PresetCacheMessage>,
+    pot_unit_revision: u64,
 }
 
 impl PresetCache {
@@ -1615,16 +1625,29 @@ impl PresetCache {
             lru_cache: LruCache::new(NonZeroUsize::new(500).unwrap()),
             sender,
             receiver,
+            pot_unit_revision: 0,
+        }
+    }
+
+    /// This can be called very often in order to keep the cache informed about the revision
+    /// of the current data that it's supposed to cache. This call only does something
+    /// substantial when the revision changes, i.e. it invalidates the cache.
+    pub fn set_pot_unit_revision(&mut self, revision: u64) {
+        if self.pot_unit_revision != revision {
+            self.pot_unit_revision = revision;
+            // Change of revision! We need to invalidate all results.
+            self.lru_cache.clear();
         }
     }
 
     pub fn find_preset(&mut self, preset_id: PresetId) -> &PresetCacheEntry {
         self.lru_cache.get_or_insert(preset_id, || {
             let sender = self.sender.clone();
+            let pot_unit_revision = self.pot_unit_revision;
             spawn_in_pot_worker(async move {
                 let pot_db = pot_db();
                 let preset = pot_db.try_find_preset_by_id(preset_id)?;
-                let entry = preset.map(|p| {
+                let preset_data = preset.map(|p| {
                     let preview_file = pot_db.find_preview_file_by_preset_id(preset_id);
                     let has_preview = preview_file.map(|f| f.exists()).unwrap_or(false);
                     PresetData {
@@ -1632,7 +1655,11 @@ impl PresetCache {
                         has_preview,
                     }
                 });
-                let message = (preset_id, entry);
+                let message = PresetCacheMessage {
+                    pot_unit_revision,
+                    preset_id,
+                    preset_data,
+                };
                 sender.send_complaining(message);
                 Ok(())
             });
@@ -1640,12 +1667,17 @@ impl PresetCache {
         })
     }
 
-    pub fn process_message(&mut self, (preset_id, preset_data): PresetCacheMessage) {
-        let entry = match preset_data {
+    pub fn process_message(&mut self, message: PresetCacheMessage) {
+        if message.pot_unit_revision != self.pot_unit_revision {
+            // This worker result is based on a previous revision of the pot unit.
+            // Not valid anymore.
+            return;
+        }
+        let data = match message.preset_data {
             None => PresetCacheEntry::NotFound,
             Some(e) => PresetCacheEntry::Found(e),
         };
-        self.lru_cache.put(preset_id, entry);
+        self.lru_cache.put(message.preset_id, data);
     }
 }
 
