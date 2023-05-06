@@ -10,8 +10,9 @@ use crate::domain::pot::preset_crawler::{
 use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
-    DestinationTrackDescriptor, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
-    MacroParam, Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
+    DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
+    LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetKind, RuntimePotUnit,
+    SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -69,6 +70,7 @@ pub struct MainState {
     show_stats: bool,
     paint_continuously: bool,
     last_preset_id: Option<PresetId>,
+    last_filters: Filters,
     bank_index: u32,
     load_preset_window_behavior: LoadPresetWindowBehavior,
     preset_cache: PresetCache,
@@ -377,7 +379,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         );
                     });
                     // Filter panels
-                    add_filter_panels(&state.pot_unit, pot_unit, state.auto_hide_sub_filters, ui);
+                    add_filter_panels(&state.pot_unit, pot_unit, state.auto_hide_sub_filters, ui,
+                                      &state.last_filters);
                 });
             // Right pane
             CentralPanel::default()
@@ -554,6 +557,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
+    state.last_filters = pot_unit.filters().clone();
 }
 
 struct ProcessDialogsInput<'a> {
@@ -1228,16 +1232,31 @@ fn add_filter_panels(
     pot_unit: &mut RuntimePotUnit,
     auto_hide_sub_filters: bool,
     ui: &mut Ui,
+    last_filters: &Filters,
 ) {
     let heading_height = ui.text_style_height(&TextStyle::Heading);
     // Database
     ui.separator();
     ui.label(RichText::new("Database").heading().size(heading_height));
-    add_filter_view_content(shared_unit, pot_unit, PotFilterKind::Database, ui, false);
+    add_filter_view_content(
+        shared_unit,
+        pot_unit,
+        PotFilterKind::Database,
+        ui,
+        false,
+        None,
+    );
     // Product type
     ui.separator();
     ui.label(RichText::new("Product type").heading().size(heading_height));
-    add_filter_view_content(shared_unit, pot_unit, PotFilterKind::ProductKind, ui, true);
+    add_filter_view_content(
+        shared_unit,
+        pot_unit,
+        PotFilterKind::ProductKind,
+        ui,
+        false,
+        None,
+    );
     // Add dependent filter views
     ui.separator();
     let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);
@@ -1284,6 +1303,7 @@ fn add_filter_panels(
                 PotFilterKind::Bank,
                 false,
                 false,
+                last_filters.get(PotFilterKind::Bank),
             );
         }
         if show_sub_banks {
@@ -1295,6 +1315,7 @@ fn add_filter_panels(
                 PotFilterKind::SubBank,
                 true,
                 true,
+                last_filters.get(PotFilterKind::SubBank),
             );
         }
         if show_categories {
@@ -1306,6 +1327,7 @@ fn add_filter_panels(
                 PotFilterKind::Category,
                 true,
                 false,
+                last_filters.get(PotFilterKind::Category),
             );
         }
         if show_sub_categories {
@@ -1317,6 +1339,7 @@ fn add_filter_panels(
                 PotFilterKind::SubCategory,
                 true,
                 true,
+                last_filters.get(PotFilterKind::SubCategory),
             );
         }
         if show_modes {
@@ -1328,6 +1351,7 @@ fn add_filter_panels(
                 PotFilterKind::Mode,
                 true,
                 false,
+                last_filters.get(PotFilterKind::Mode),
             );
         }
     }
@@ -1661,6 +1685,7 @@ impl MainState {
             paint_continuously: true,
             os_window,
             last_preset_id: None,
+            last_filters: Default::default(),
             bank_index: 0,
             load_preset_window_behavior: Default::default(),
             preset_cache: PresetCache::new(),
@@ -1750,6 +1775,7 @@ fn add_filter_view(
     kind: PotFilterKind,
     add_separator: bool,
     indent: bool,
+    last_filter: OptFilter,
 ) {
     let separator_height = if add_separator {
         if indent {
@@ -1787,7 +1813,7 @@ fn add_filter_view(
             .max_height(max_height - heading_height - separator_height)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                add_filter_view_content(shared_pot_unit, pot_unit, kind, ui, true);
+                add_filter_view_content(shared_pot_unit, pot_unit, kind, ui, true, last_filter);
             });
         // });
     };
@@ -1810,6 +1836,7 @@ fn add_filter_view_content(
     kind: PotFilterKind,
     ui: &mut Ui,
     wrapped: bool,
+    last_filter: OptFilter,
 ) {
     enum UiAction {
         InOrExcludeFilter(PotFilterKind, FilterItemId, bool),
@@ -1826,6 +1853,17 @@ fn add_filter_view_content(
                 text = text.weak();
             };
             let mut resp = ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
+            // Scroll to current if wrapped and changed from outside
+            if wrapped {
+                let is_currently_selected_item = || new_filter_item_id == Some(filter_item.id);
+                let changed_from_outside = || {
+                    old_filter_item_id == new_filter_item_id && Some(filter_item.id) != last_filter
+                };
+                if is_currently_selected_item() && changed_from_outside() {
+                    resp.scroll_to_me(None);
+                }
+            }
+            // Hover text
             if let Some(more_info) = filter_item.more_info.as_ref() {
                 resp = resp.on_hover_text(more_info);
             } else if let Some(parent_kind) = kind.parent() {

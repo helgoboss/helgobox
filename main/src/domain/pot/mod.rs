@@ -766,7 +766,7 @@ impl RuntimePotUnit {
             // If we don't do this, the wasted runs will dramatically increase when quickly changing
             // filters while last query still running.
             {
-                tokio::time::sleep(Duration::from_millis(10)).await;
+                tokio::time::sleep(Duration::from_millis(50)).await;
                 let pot_unit =
                     blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
                 if pot_unit.build_counter != last_build_number {
