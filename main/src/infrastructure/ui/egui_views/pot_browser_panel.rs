@@ -9,7 +9,7 @@ use crate::domain::pot::preset_crawler::{
 };
 use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
-    pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
+    pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset, Debounce,
     DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
     LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetKind, RuntimePotUnit,
     SharedRuntimePotUnit,
@@ -1175,6 +1175,7 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             input.pot_unit.rebuild_collections(
                 input.shared_pot_unit.clone(),
                 Some(ChangeHint::SearchExpression),
+                Debounce::No,
             );
         }
         // Stats
@@ -1524,18 +1525,27 @@ fn execute_key_action(
         }
         KeyAction::ClearLastSearchExpressionChar => {
             pot_unit.runtime_state.search_expression.pop();
-            pot_unit
-                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit.rebuild_collections(
+                input.pot_unit.clone(),
+                Some(ChangeHint::SearchExpression),
+                Debounce::No,
+            );
         }
         KeyAction::ClearSearchExpression => {
             pot_unit.runtime_state.search_expression.clear();
-            pot_unit
-                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit.rebuild_collections(
+                input.pot_unit.clone(),
+                Some(ChangeHint::SearchExpression),
+                Debounce::No,
+            );
         }
         KeyAction::ExtendSearchExpression(text) => {
             pot_unit.runtime_state.search_expression.push_str(&text);
-            pot_unit
-                .rebuild_collections(input.pot_unit.clone(), Some(ChangeHint::SearchExpression));
+            pot_unit.rebuild_collections(
+                input.pot_unit.clone(),
+                Some(ChangeHint::SearchExpression),
+                Debounce::Yes,
+            );
         }
     }
 }
@@ -1907,7 +1917,12 @@ fn add_filter_view_content(
     }
     // Execute actions
     if new_filter_item_id != old_filter_item_id {
-        pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
+        pot_unit.set_filter(
+            kind,
+            new_filter_item_id,
+            shared_pot_unit.clone(),
+            Debounce::No,
+        );
     }
     if let Some(act) = action {
         match act {
@@ -1952,7 +1967,12 @@ fn add_filter_view_content_as_icons(
         };
     }
     if new_filter_item_id != old_filter_item_id {
-        pot_unit.set_filter(kind, new_filter_item_id, shared_pot_unit.clone());
+        pot_unit.set_filter(
+            kind,
+            new_filter_item_id,
+            shared_pot_unit.clone(),
+            Debounce::No,
+        );
     }
 }
 

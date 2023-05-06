@@ -1,5 +1,5 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::FilterItemId;
+use crate::domain::pot::{Debounce, FilterItemId};
 use crate::domain::pot::{FilterItem, RuntimePotUnit};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
@@ -118,7 +118,12 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
                 Some(id)
             }
         };
-        pot_unit.set_filter(self.settings.kind, item_id, shared_pot_unit.clone());
+        pot_unit.set_filter(
+            self.settings.kind,
+            item_id,
+            shared_pot_unit.clone(),
+            Debounce::Yes,
+        );
         Ok(HitResponse::processed_with_effect())
     }
 

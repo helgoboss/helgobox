@@ -475,8 +475,11 @@ impl RuntimePotUnit {
             background_task_start_time: None,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
-        blocking_lock_arc(&shared_unit, "PotUnit from load")
-            .rebuild_collections(shared_unit.clone(), None);
+        blocking_lock_arc(&shared_unit, "PotUnit from load").rebuild_collections(
+            shared_unit.clone(),
+            None,
+            Debounce::No,
+        );
         Ok(shared_unit)
     }
 
@@ -690,7 +693,7 @@ impl RuntimePotUnit {
         shared_self: SharedRuntimePotUnit,
     ) {
         self.show_excluded_filter_items = show;
-        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude));
+        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude), Debounce::No);
     }
 
     pub fn include_filter_item(
@@ -708,7 +711,7 @@ impl RuntimePotUnit {
                 list.exclude(kind, id);
             }
         }
-        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude));
+        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude), Debounce::No);
     }
 
     pub fn set_filter(
@@ -716,23 +719,25 @@ impl RuntimePotUnit {
         kind: PotFilterKind,
         id: OptFilter,
         shared_self: SharedRuntimePotUnit,
+        debounce: Debounce,
     ) {
         self.runtime_state.filters.set(kind, id);
         self.sender
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             ));
-        self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)));
+        self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)), debounce);
     }
 
     pub fn refresh_pot(&mut self, shared_self: SharedRuntimePotUnit) {
-        self.rebuild_collections(shared_self, Some(ChangeHint::TotalRefresh));
+        self.rebuild_collections(shared_self, Some(ChangeHint::TotalRefresh), Debounce::No);
     }
 
     pub fn rebuild_collections(
         &mut self,
         shared_self: SharedRuntimePotUnit,
         change_hint: Option<ChangeHint>,
+        debounce: Debounce,
     ) {
         // Acquire exclude list in main thread
         let affected_kinds = affected_kinds(change_hint);
@@ -756,8 +761,7 @@ impl RuntimePotUnit {
             .clear_excluded_ones(&build_input.filter_excludes);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.build_counter += 1;
-        self.background_task_start_time = Some(Instant::now());
-        let last_build_number = self.build_counter;
+        let build_number = self.build_counter;
         spawn_in_pot_worker(async move {
             if change_hint == Some(ChangeHint::TotalRefresh) {
                 pot_db().refresh();
@@ -766,10 +770,17 @@ impl RuntimePotUnit {
             // If we don't do this, the wasted runs will dramatically increase when quickly changing
             // filters while last query still running.
             {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                let pot_unit =
+                if debounce == Debounce::Yes {
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+                let mut pot_unit =
                     blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
-                if pot_unit.build_counter != last_build_number {
+                if pot_unit.build_counter == build_number {
+                    // Okay, no new build was requested in the meantime. Start spinner.
+                    pot_unit.background_task_start_time = Some(Instant::now());
+                } else {
+                    // Oh, another build was requested already. Not worth to continue, the result
+                    // will be discarded anyway.
                     return Ok(());
                 }
             }
@@ -780,7 +791,7 @@ impl RuntimePotUnit {
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit =
                 blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
-            if pot_unit.build_counter != last_build_number {
+            if pot_unit.build_counter != build_number {
                 pot_unit.wasted_duration += build_output.stats.total_query_duration();
                 pot_unit.wasted_runs += 1;
                 return Ok(());
@@ -1406,4 +1417,10 @@ fn load_file_based_preset(
         }
     };
     Ok(outcome)
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Debounce {
+    No,
+    Yes,
 }
