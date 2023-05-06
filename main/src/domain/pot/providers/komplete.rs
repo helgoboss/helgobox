@@ -55,7 +55,7 @@ impl KompleteDatabase {
     /// Translates any neutral (NKS-independent) product filter (representing one of the
     /// installed plug-ins) into an NKS bank filter. That enables magic of merging NKS and own
     /// banks.
-    fn translate_filters(&self, mut filters: Filters) -> Filters {
+    fn translate_neutral_filters_to_nks_filters(&self, mut filters: Filters) -> Filters {
         if let Some(FilterItemId(Some(Fil::Product(pid)))) = filters.get(PotFilterKind::Bank) {
             if let Some(bank_id) = self.nks_bank_id_by_product_id.get(&pid) {
                 filters.set(
@@ -122,7 +122,10 @@ impl Database for KompleteDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let translated_filters = self.translate_filters(*input.filter_input.filters);
+        // Translate possibly incoming "neutral" product filters to "NKS bank" product filters
+        let translated_filters =
+            self.translate_neutral_filters_to_nks_filters(*input.filter_input.filters);
+        // Function to translate outgoing "NKS bank" filter items to "neutral" product filter items
         let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
             if kind == PotFilterKind::Bank {
                 let product_id = self.nks_product_id_by_bank_id.get(&id)?;
@@ -148,7 +151,8 @@ impl Database for KompleteDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        let translated_filters = self.translate_filters(*input.filter_input.filters);
+        let translated_filters =
+            self.translate_neutral_filters_to_nks_filters(*input.filter_input.filters);
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
         preset_db.query_presets(
             &translated_filters,
@@ -798,11 +802,13 @@ impl PresetDb {
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
                 let parent_bank_filter = settings.get(PotFilterKind::Bank);
-                if matches!(
-                    parent_bank_filter,
-                    Some(FilterItemId(Some(Fil::Komplete(_))))
-                ) {
-                    sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
+                if let Some(FilterItemId(Some(fil))) = parent_bank_filter {
+                    if let Fil::Komplete(_) = fil {
+                        sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
+                    } else {
+                        // Foreign filter item
+                        return vec![];
+                    }
                 }
                 sql += " ORDER BY entry2";
                 self.select_nks_filter_items(&sql, parent_bank_filter, false)

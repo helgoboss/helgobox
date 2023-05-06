@@ -134,6 +134,9 @@ pub struct RuntimePotUnit {
     pub wasted_duration: Duration,
     pub stats: Stats,
     sender: SenderToNormalThread<InstanceStateChanged>,
+    // TODO-high Actually, it's too pessimistic to clear the panel cache whenever this changes.
+    //  We should change it back to change_counter or build_counter and introduce a separate
+    //  revision attribute that's only increased on refreshes!
     revision: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,

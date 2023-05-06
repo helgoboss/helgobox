@@ -216,13 +216,13 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                 };
                 ui.vertical_centered(|ui| {
                     ui.label(
-                        "Pot browser is in an early stage of development. \
-                    None of its settings will be saved yet.",
+                        "At the moment, Pot Browser is in an experimental stage and will not save \
+                        any of your settings!",
                     );
                     ui.add_space(20.0);
                     ui.label(
                         RichText::new(
-                            "Don't invest much time into marking favorites, excluding \
+                            "So better don't invest much time into marking favorites, excluding \
                          filter items or adjusting other configuration!",
                         )
                         .strong(),
@@ -439,19 +439,19 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             PresetCacheEntry::NotFound => None,
                             PresetCacheEntry::Found(data) => Some((id, data)),
                         });
-                    if let Some((preset_id, preset_data)) = current_preset_id_and_data {
-                        ui.separator();
-                        let widget_id = ui.make_persistent_id("selected-preset");
-                        CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
-                            .show_header(ui, |ui| {
-                                left_right(
-                                    ui,
-                                    pot_unit,
-                                    ui.available_height(),
-                                    50.0,
-                                    // Left side of preset info
-                                    |ui, _| {
-                                        ui.strong("Selected preset:");
+                    ui.separator();
+                    let widget_id = ui.make_persistent_id("selected-preset");
+                    CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
+                        .show_header(ui, |ui| {
+                            left_right(
+                                ui,
+                                pot_unit,
+                                ui.available_height(),
+                                50.0,
+                                // Left side of preset info
+                                |ui, _| {
+                                    ui.strong("Selected preset:");
+                                    if let Some((preset_id, preset_data)) = current_preset_id_and_data {
                                         ui.label(preset_data.preset.name());
                                         let _ = pot_db().try_with_db(preset_id.database_id, |db| {
                                             ui.strong("from");
@@ -463,40 +463,44 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                             ui.strong("for");
                                             ui.label(product_name);
                                         }
-                                    },
-                                    // Right side of preset info
-                                    |ui, pot_unit| {
-                                        // Favorite button
-                                        let favorites =
-                                            &AnyThreadBackboneState::get().pot_favorites;
-                                        let toggle = if let Ok(favorites) = favorites.try_read() {
-                                            let mut is_favorite = favorites.is_favorite(preset_id);
-                                            let icon = if is_favorite { "★" } else { "☆" };
-                                            ui.toggle_value(&mut is_favorite, icon).changed()
-                                        } else {
-                                            false
-                                        };
-                                        if toggle {
-                                            blocking_write_lock(favorites, "favorite toggle")
-                                                .toggle_favorite(preset_id);
-                                        }
-                                        // Preview button
-                                        let preview_button = Button::new("🔊");
-                                        let preview_button_response =
-                                            ui.add_enabled(preset_data.has_preview, preview_button);
-                                        if preview_button_response
-                                            .on_hover_text("Play preset preview")
-                                            .on_disabled_hover_text("Preset preview not available")
-                                            .clicked()
-                                        {
-                                            let result = pot_unit.play_preview(preset_id);
-                                            process_potential_error(&result, &mut toasts);
-                                        }
-                                    },
-                                );
-                            })
-                            .body(|ui| ui.label("..."));
-                    }
+                                    } else {
+                                        ui.label("-");
+                                    }
+                                },
+                                // Right side of preset info
+                                |ui, pot_unit| {
+                                    let Some((preset_id, preset_data)) = current_preset_id_and_data else {
+                                        return;
+                                    };
+                                    // Favorite button
+                                    let favorites = &AnyThreadBackboneState::get().pot_favorites;
+                                    let toggle = if let Ok(favorites) = favorites.try_read() {
+                                        let mut is_favorite = favorites.is_favorite(preset_id);
+                                        let icon = if is_favorite { "★" } else { "☆" };
+                                        ui.toggle_value(&mut is_favorite, icon).changed()
+                                    } else {
+                                        false
+                                    };
+                                    if toggle {
+                                        blocking_write_lock(favorites, "favorite toggle")
+                                            .toggle_favorite(preset_id);
+                                    }
+                                    // Preview button
+                                    let preview_button = Button::new("🔊");
+                                    let preview_button_response =
+                                        ui.add_enabled(preset_data.has_preview, preview_button);
+                                    if preview_button_response
+                                        .on_hover_text("Play preset preview")
+                                        .on_disabled_hover_text("Preset preview not available")
+                                        .clicked()
+                                    {
+                                        let result = pot_unit.play_preview(preset_id);
+                                        process_potential_error(&result, &mut toasts);
+                                    }
+                                },
+                            );
+                        })
+                        .body(|ui| ui.label("..."));
                     // Destination info
                     ui.separator();
                     ui.horizontal(|ui| {
@@ -1178,9 +1182,10 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             .on_hover_text("Show query statistics");
         // Preview
         ui.horizontal(|ui| {
-            ui.checkbox(input.auto_preview, "Preview").on_hover_text(
-                "Automatically previews a sound when it's selected via mouse or keyboard",
-            );
+            ui.checkbox(input.auto_preview, "Auto-preview")
+                .on_hover_text(
+                    "Automatically previews a sound when it's selected via mouse or keyboard",
+                );
             // Preview volume
             let old_volume = input.pot_unit.preview_volume();
             let mut new_volume_raw = old_volume.get();
