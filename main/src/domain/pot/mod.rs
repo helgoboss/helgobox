@@ -11,8 +11,11 @@ use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, S
 use enumset::EnumSet;
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::{Chunk, Fx, FxChain, Project, Reaper, Track};
-use reaper_medium::{FxPresetRef, InsertMediaMode, MasterTrackBehavior, ReaperVolumeValue};
+use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
+use reaper_medium::{
+    FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior,
+    ReaperVolumeValue, RecordingInput,
+};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::error::Error;
@@ -556,6 +559,20 @@ impl RuntimePotUnit {
                 DestinationInstruction::Existing(d) => d,
                 DestinationInstruction::AddTrack => {
                     let track = Reaper::get().current_project().add_track()?;
+                    track.set_recording_input(Some(RecordingInput::Midi {
+                        device_id: None,
+                        channel: None,
+                    }));
+                    track.arm(
+                        false,
+                        GangBehavior::DenyGang,
+                        GroupingBehavior::PreventGrouping,
+                    );
+                    track.set_input_monitoring_mode(
+                        InputMonitoringMode::Normal,
+                        GangBehavior::DenyGang,
+                        GroupingBehavior::PreventGrouping,
+                    );
                     // Reset FX back to first one for UI and next preset load.
                     pot_unit.destination_descriptor.fx_index = 0;
                     track.select_exclusively();

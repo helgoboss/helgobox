@@ -217,8 +217,8 @@ impl ProductKind {
     pub fn komplete_id(&self) -> &'static u32 {
         const INSTRUMENT: u32 = 1;
         const EFFECT: u32 = 2;
-        const LOOP: u32 = 4;
-        const ONE_SHOT: u32 = 8;
+        const ONE_SHOT: u32 = 4;
+        const LOOP: u32 = 8;
         use ProductKind::*;
         match self {
             Effect => &EFFECT,
