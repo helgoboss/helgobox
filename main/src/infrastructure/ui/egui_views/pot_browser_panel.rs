@@ -551,10 +551,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     // Other stuff
     toasts.show(ctx);
     if state.paint_continuously {
-        // Necessary in order to not just repaint on clicks or so but also when controller changes
-        // pot stuff.
-        // TODO-medium-performance This is probably a performance hog. We could do better by reacting
-        //  to notifications.
+        // Necessary e.g. in order to not just repaint on clicks or so but also when controller
+        // changes pot stuff. But also for other things!
         ctx.request_repaint();
     }
     state.last_preset_id = pot_unit.preset_id();
@@ -1386,11 +1384,6 @@ struct LeftOptionsDropdownInput<'a> {
 
 fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
     ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
-        ui.checkbox(&mut input.paint_continuously, "Paint continuously")
-            .on_hover_text(
-                "Necessary, for example, to automatically display changes made by external \
-                controllers (via ReaLearn pot targets)",
-            );
         ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
             .on_hover_text(
                 "Makes sure you are not confronted with dozens of child filters if \
@@ -1410,6 +1403,11 @@ fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
                     .set_show_excluded_filter_items(new, input.shared_pot_unit.clone());
             }
         }
+        ui.checkbox(
+            &mut input.paint_continuously,
+            "Paint continuously (devs only)",
+        )
+        .on_hover_text("Leave this enabled. This option is only intended for developers.");
     });
 }
 
