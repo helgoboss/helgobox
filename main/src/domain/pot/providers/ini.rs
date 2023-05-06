@@ -215,7 +215,7 @@ impl Database for IniDatabase {
             .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.id));
         let preset = Preset {
             common: PresetCommon {
-                favorite_id: "".to_string(),
+                persistent_id: "".to_string(),
                 name: preset_entry.preset_name.clone(),
                 product_name: {
                     let name = match plugin {

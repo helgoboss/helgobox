@@ -100,7 +100,7 @@ impl Database for DefaultsDatabase {
         let plugin = self.plugins.get(preset_id.0 as usize)?;
         let preset = Preset {
             common: PresetCommon {
-                favorite_id: "".to_string(),
+                persistent_id: "".to_string(),
                 name: PRESET_NAME.to_string(),
                 product_name: Some(plugin.to_string()),
             },

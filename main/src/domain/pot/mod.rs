@@ -46,6 +46,7 @@ mod worker;
 pub use worker::*;
 mod escape_catcher;
 pub mod preset_crawler;
+pub mod preview_recorder;
 use crate::domain::pot::preset_crawler::get_shim_file_path;
 pub use escape_catcher::*;
 
@@ -992,7 +993,7 @@ impl Preset {
 
 #[derive(Clone, Debug)]
 pub struct PresetCommon {
-    pub favorite_id: String,
+    pub persistent_id: String,
     pub name: String,
     /// Meaning depends on the database.
     ///
@@ -1283,7 +1284,7 @@ fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Destination {
     pub chain: FxChain,
     pub fx_index: u32,

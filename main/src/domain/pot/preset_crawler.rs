@@ -1,4 +1,4 @@
-use crate::base::{blocking_lock_arc, Global};
+use crate::base::{blocking_lock_arc, file_util, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
     parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher, PluginId,
@@ -8,8 +8,6 @@ use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
-use sha1::Digest;
-use sha1::Sha1;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -361,36 +359,8 @@ async fn millis(amount: u64) {
 const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
 
 pub fn get_shim_file_path(reaper_resource_dir: &Path, preset: &Preset) -> PathBuf {
-    let file_name = hash_to_dir_structure(&preset.common.favorite_id, ".RfxChain");
+    let file_name = file_util::hash_to_dir_structure(&preset.common.persistent_id, ".RfxChain");
     reaper_resource_dir
-        .join("Helgoboss/Pot/Shims")
+        .join("Helgoboss/Pot/shims")
         .join(&file_name)
-}
-
-/// Converts something like "test" to something like
-/// "a9/4a/8fe5ccb19ba61c4c0873d391e987982fbbd3.RfxChain" for the purpose to not get too many
-/// files in one directory.
-fn hash_to_dir_structure(input: impl AsRef<[u8]>, suffix: &str) -> String {
-    let mut hasher = Sha1::new();
-    hasher.update(input);
-    let array = hasher.finalize();
-    format!(
-        "{:x}/{:x}/{}{suffix}",
-        array[0],
-        array[1],
-        hex::encode(&array[2..])
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::domain::pot::preset_crawler::hash_to_dir_structure;
-
-    #[test]
-    fn hash_to_dir_structure_simple() {
-        assert_eq!(
-            hash_to_dir_structure("test", ".RfxChain"),
-            "a9/4a/8fe5ccb19ba61c4c0873d391e987982fbbd3.RfxChain".to_string()
-        );
-    }
 }

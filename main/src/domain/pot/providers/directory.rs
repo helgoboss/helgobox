@@ -156,7 +156,7 @@ impl Database for DirectoryDatabase {
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
             common: PresetCommon {
-                favorite_id: preset_entry.relative_path.clone(),
+                persistent_id: preset_entry.relative_path.clone(),
                 name: preset_entry.preset_name.clone(),
                 product_name: if preset_entry.plugin_cores.len() > 1 {
                     Some("<Multiple>".to_string())

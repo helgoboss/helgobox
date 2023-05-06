@@ -7,6 +7,7 @@ use crate::domain::pot::preset_crawler::{
     import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
     SharedPresetCrawlingState,
 };
+use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
     DestinationTrackDescriptor, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
@@ -104,6 +105,7 @@ enum Dialog {
         title: Cow<'static, str>,
         msg: Cow<'static, str>,
     },
+    PreviewRecorderIntro,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -235,8 +237,9 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
     });
 }
 
-const CRAWL_PRESETS_TITLE: &str = "Crawl presets";
-const CRAWL_PRESETS_COUNTDOWN_SECS: u64 = 10;
+const PRESET_CRAWLER_TITLE: &str = "Preset crawler";
+const PREVIEW_RECORDER_TITLE: &str = "Preview recorder";
+const PRESET_CRAWLER_COUNTDOWN_DURATION: Duration = Duration::from_secs(10);
 
 fn run_main_ui(ctx: &Context, state: &mut MainState) {
     let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
@@ -282,7 +285,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
             pot_unit: state.pot_unit.clone(),
             dialog: &mut state.dialog,
         };
-        execute_key_action(ctx, key_input, pot_unit, &mut toasts, key_action);
+        execute_key_action(key_input, pot_unit, &mut toasts, key_action);
     }
     let current_fx = pot_unit
         .resolve_destination()
@@ -389,6 +392,10 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
                             if ui.button("Preset crawler").clicked() {
                                 state.dialog = Some(Dialog::CrawlPresetsIntro);
+                                ui.close_menu();
+                            }
+                            if ui.button("Preview recorder").clicked() {
+                                state.dialog = Some(Dialog::PreviewRecorderIntro);
                                 ui.close_menu();
                             }
                         });
@@ -576,7 +583,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         ),
         Dialog::CrawlPresetsIntro => show_dialog(
             ctx,
-            CRAWL_PRESETS_TITLE,
+            PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
                 ui.label("Welcome to the preset crawler!");
@@ -594,20 +601,20 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             // Capturing current cursor position successful
             Ok(p) => show_dialog(
                 ctx,
-                CRAWL_PRESETS_TITLE,
+                PRESET_CRAWLER_TITLE,
                 input.change_dialog,
                 |ui, change_dialog| {
-                    let elapsed_secs = creation_time.elapsed().as_secs();
+                    let elapsed = creation_time.elapsed();
                     ui.horizontal(|ui| {
                         ui.strong("Current mouse cursor position:");
                         ui.label(fmt_mouse_cursor_pos(p));
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Countdown:");
-                        let countdown = CRAWL_PRESETS_COUNTDOWN_SECS.saturating_sub(elapsed_secs);
-                        ui.label(format!("{countdown}s"));
+                        let countdown = PRESET_CRAWLER_COUNTDOWN_DURATION.saturating_sub(elapsed);
+                        ui.label(format!("{}s", countdown.as_secs()));
                     });
-                    if elapsed_secs >= CRAWL_PRESETS_COUNTDOWN_SECS {
+                    if elapsed >= PRESET_CRAWLER_COUNTDOWN_DURATION {
                         // Countdown finished
                         input.os_window.focus_first_child();
                         let next_dialog = if let Some(fx) = Reaper::get().focused_fx() {
@@ -650,7 +657,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             detail_msg,
         } => show_dialog(
             ctx,
-            CRAWL_PRESETS_TITLE,
+            PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
                 ui.label(&**short_msg);
@@ -673,7 +680,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             stop_if_destination_exists,
         } => show_dialog(
             ctx,
-            CRAWL_PRESETS_TITLE,
+            PRESET_CRAWLER_TITLE,
             &mut (input.change_dialog, stop_if_destination_exists),
             |ui, (_, stop_if_destination_exists)| {
                 ui.horizontal(|ui| {
@@ -709,7 +716,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         ),
         Dialog::CrawlPresetsOngoing { crawling_state } => show_dialog(
             ctx,
-            CRAWL_PRESETS_TITLE,
+            PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, change_dialog| {
                 ui.strong("Crawling in process...");
@@ -773,7 +780,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             } else {
                 show_dialog(
                     ctx,
-                    CRAWL_PRESETS_TITLE,
+                    PRESET_CRAWLER_TITLE,
                     input.change_dialog,
                     |ui, _| {
                         add_crawl_presets_stopped_dialog_contents(
@@ -806,7 +813,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         }
         Dialog::CrawlImportFinished => show_dialog(
             ctx,
-            CRAWL_PRESETS_TITLE,
+            PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
                 ui.strong("Import done!");
@@ -814,6 +821,23 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             |ui, change_dialog| {
                 if ui.button("Close").clicked() {
                     *change_dialog = Some(None);
+                }
+            },
+        ),
+        Dialog::PreviewRecorderIntro => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.label("Welcome to the preview recorder!");
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    let preset_ids = input.pot_unit.preset_collection.iter().copied().collect();
+                    record_previews(input.shared_pot_unit.clone(), preset_ids);
                 }
             },
         ),
@@ -974,7 +998,6 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         }
                         if button.double_clicked() {
                             load_preset_and_regain_focus(
-                                ui.ctx(),
                                 &data.preset,
                                 input.os_window,
                                 input.pot_unit,
@@ -1446,7 +1469,6 @@ struct KeyInput<'a> {
 }
 
 fn execute_key_action(
-    ctx: &Context,
     input: KeyInput,
     pot_unit: &mut MutexGuard<RuntimePotUnit>,
     mut toasts: &mut Toasts,
@@ -1466,7 +1488,6 @@ fn execute_key_action(
         KeyAction::LoadPreset => {
             if let Some((_, preset)) = pot_unit.preset_and_id() {
                 load_preset_and_regain_focus(
-                    ctx,
                     &preset,
                     input.os_window,
                     pot_unit,
@@ -1897,7 +1918,6 @@ fn add_filter_view_content_as_icons(
 }
 
 fn load_preset_and_regain_focus(
-    ctx: &Context,
     preset: &Preset,
     os_window: Window,
     pot_unit: &mut RuntimePotUnit,

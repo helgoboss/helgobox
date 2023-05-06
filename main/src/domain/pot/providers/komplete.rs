@@ -390,7 +390,7 @@ impl PresetDb {
                 [id.0],
                 |row| {
                     let common = PresetCommon {
-                        favorite_id: row.get(3)?,
+                        persistent_id: row.get(3)?,
                         name: row.get(0)?,
                         product_name: row.get(4)?,
                     };
