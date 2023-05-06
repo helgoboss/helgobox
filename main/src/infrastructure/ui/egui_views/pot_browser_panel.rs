@@ -237,8 +237,8 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
     });
 }
 
-const PRESET_CRAWLER_TITLE: &str = "Preset crawler";
-const PREVIEW_RECORDER_TITLE: &str = "Preview recorder";
+const PRESET_CRAWLER_TITLE: &str = "Preset Crawler";
+const PREVIEW_RECORDER_TITLE: &str = "Preview Recorder";
 const PRESET_CRAWLER_COUNTDOWN_DURATION: Duration = Duration::from_secs(10);
 
 fn run_main_ui(ctx: &Context, state: &mut MainState) {
@@ -388,11 +388,11 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                         ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
                         // Actions
                         ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
-                            if ui.button("Preset crawler").clicked() {
+                            if ui.button(PRESET_CRAWLER_TITLE).clicked() {
                                 state.dialog = Some(Dialog::CrawlPresetsIntro);
                                 ui.close_menu();
                             }
-                            if ui.button("Preview recorder").clicked() {
+                            if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
                                 state.dialog = Some(Dialog::PreviewRecorderIntro);
                                 ui.close_menu();
                             }
@@ -586,7 +586,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.label("Welcome to the preset crawler!");
+                ui.label("Welcome to the Pot Preset Crawler!");
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -829,7 +829,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.label("Welcome to the preview recorder!");
+                ui.label("Welcome to the Pot Preview Recorder!");
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1203,7 +1203,7 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
         ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
             .on_hover_text(
-                "When enabled, pot browser will always open the FX window when adding a \
+                "When enabled, Pot Browser will always open the FX window when adding a \
             new FX.",
             );
         *input.load_preset_window_behavior = if show_if_newly_added {
@@ -1217,7 +1217,7 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             "Name track after preset",
         )
         .on_hover_text(
-            "When enabled, pot browser will rename the track to reflect the name of \
+            "When enabled, Pot Browser will rename the track to reflect the name of \
             the preset.",
         );
     });
@@ -1953,7 +1953,7 @@ Approach B: Preset crawling
 Try to use Preset Crawler (menu "Tools") to crawl the presets of Native Instrument plug-ins. All presets that have been successfully crawled and imported should be loaded automatically in future. One issue is that crawling only seems to work with the VST2 versions of the NI plug-ins.
 
 In both cases, you will not be able to take advantage of the preset parameter banks. That's just how it is for now.
-If you don't want unsupported presets to show up in Pot browser, enable the ✔ filter in the toolbar.
+If you don't want unsupported presets to show up in Pot Browser, enable the ✔ filter in the toolbar.
 "#;
                     *dialog = Some(Dialog::general_error("Can't open preset", text));
                 }

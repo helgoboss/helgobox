@@ -574,7 +574,7 @@ impl HeaderPanel {
                 item("Reload all presets from disk", || {
                     MainMenuAction::ReloadAllPresets
                 }),
-                item("Open pot browser", || MainMenuAction::OpenPotBrowser),
+                item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
                 separator(),
                 menu(
                     "Logging",

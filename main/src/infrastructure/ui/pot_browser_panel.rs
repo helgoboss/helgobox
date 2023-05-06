@@ -41,7 +41,7 @@ impl View for PotBrowserPanel {
         ));
         egui_views::open(
             window,
-            "Pot browser",
+            "Pot Browser",
             State::new(self.pot_unit.clone(), window),
             run_ui,
         );

@@ -87,6 +87,7 @@ fn open_preview_project_in_new_tab() -> Project {
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
     // TODO-high CONTINUE Change
+
     let preview_rpp = Path::new("/Users/helgoboss/Documents/projects/dev/realearn/resources/template-projects/pot-preview/pot-preview.RPP");
     let mut behavior = OpenProjectBehavior::default();
     behavior.prompt = false;
