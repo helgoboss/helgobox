@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
@@ -52,6 +53,7 @@ type DatabaseOpeningResult = Result<BoxedDatabase, PotDatabaseError>;
 pub struct PotDatabase {
     plugin_db: RwLock<PluginDatabase>,
     databases: BTreeMap<DatabaseId, RwLock<DatabaseOpeningResult>>,
+    revision: AtomicU8,
 }
 
 #[derive(Clone, Debug, derive_more::Display)]
@@ -105,9 +107,15 @@ impl PotDatabase {
         let pot_database = Self {
             plugin_db: Default::default(),
             databases,
+            revision: Default::default(),
         };
         pot_database.refresh();
         pot_database
+    }
+
+    /// Returns a number that will be increased with each database refresh.
+    pub fn revision(&self) -> u8 {
+        self.revision.load(Ordering::Relaxed)
     }
 
     pub fn refresh(&self) {
@@ -125,6 +133,8 @@ impl PotDatabase {
         }
         // Memorize plug-ins
         *blocking_write_lock(&self.plugin_db, "pot db refresh plugin db") = plugin_db;
+        // Increment revision
+        self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn build_collections(&self, mut input: BuildInput) -> BuildOutput {

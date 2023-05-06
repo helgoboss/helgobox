@@ -168,7 +168,7 @@ impl Dialog {
 }
 
 struct PresetCacheMessage {
-    pot_unit_revision: u64,
+    pot_db_revision: u8,
     preset_id: PresetId,
     preset_data: Option<PresetData>,
 }
@@ -246,9 +246,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     // Query commonly used stuff
     let background_task_elapsed = pot_unit.background_task_elapsed();
     // Integrate cache worker results into local cache
-    state
-        .preset_cache
-        .set_pot_unit_revision(pot_unit.revision());
+    state.preset_cache.set_pot_db_revision(pot_db().revision());
     while let Ok(message) = state.preset_cache.receiver.try_recv() {
         state.preset_cache.process_message(message);
     }
@@ -1677,7 +1675,7 @@ struct PresetCache {
     lru_cache: LruCache<PresetId, PresetCacheEntry>,
     sender: SenderToNormalThread<PresetCacheMessage>,
     receiver: Receiver<PresetCacheMessage>,
-    pot_unit_revision: u64,
+    pot_db_revision: u8,
 }
 
 impl PresetCache {
@@ -1688,16 +1686,16 @@ impl PresetCache {
             lru_cache: LruCache::new(NonZeroUsize::new(500).unwrap()),
             sender,
             receiver,
-            pot_unit_revision: 0,
+            pot_db_revision: 0,
         }
     }
 
     /// This can be called very often in order to keep the cache informed about the revision
     /// of the current data that it's supposed to cache. This call only does something
     /// substantial when the revision changes, i.e. it invalidates the cache.
-    pub fn set_pot_unit_revision(&mut self, revision: u64) {
-        if self.pot_unit_revision != revision {
-            self.pot_unit_revision = revision;
+    pub fn set_pot_db_revision(&mut self, revision: u8) {
+        if self.pot_db_revision != revision {
+            self.pot_db_revision = revision;
             // Change of revision! We need to invalidate all results.
             self.lru_cache.clear();
         }
@@ -1706,7 +1704,7 @@ impl PresetCache {
     pub fn find_preset(&mut self, preset_id: PresetId) -> &PresetCacheEntry {
         self.lru_cache.get_or_insert(preset_id, || {
             let sender = self.sender.clone();
-            let pot_unit_revision = self.pot_unit_revision;
+            let pot_db_revision = self.pot_db_revision;
             spawn_in_pot_worker(async move {
                 let pot_db = pot_db();
                 let preset = pot_db.try_find_preset_by_id(preset_id)?;
@@ -1719,7 +1717,7 @@ impl PresetCache {
                     }
                 });
                 let message = PresetCacheMessage {
-                    pot_unit_revision,
+                    pot_db_revision,
                     preset_id,
                     preset_data,
                 };
@@ -1731,7 +1729,7 @@ impl PresetCache {
     }
 
     pub fn process_message(&mut self, message: PresetCacheMessage) {
-        if message.pot_unit_revision != self.pot_unit_revision {
+        if message.pot_db_revision != self.pot_db_revision {
             // This worker result is based on a previous revision of the pot unit.
             // Not valid anymore.
             return;

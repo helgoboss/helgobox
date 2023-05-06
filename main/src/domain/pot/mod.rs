@@ -134,10 +134,7 @@ pub struct RuntimePotUnit {
     pub wasted_duration: Duration,
     pub stats: Stats,
     sender: SenderToNormalThread<InstanceStateChanged>,
-    // TODO-high Actually, it's too pessimistic to clear the panel cache whenever this changes.
-    //  We should change it back to change_counter or build_counter and introduce a separate
-    //  revision attribute that's only increased on refreshes!
-    revision: u64,
+    build_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
     pub destination_descriptor: DestinationDescriptor,
@@ -469,7 +466,7 @@ impl RuntimePotUnit {
             wasted_duration: Default::default(),
             stats: Default::default(),
             sender,
-            revision: 0,
+            build_counter: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
             destination_descriptor: Default::default(),
@@ -727,6 +724,7 @@ impl RuntimePotUnit {
             ));
         self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)));
     }
+
     pub fn refresh_pot(&mut self, shared_self: SharedRuntimePotUnit) {
         self.rebuild_collections(shared_self, Some(ChangeHint::TotalRefresh));
     }
@@ -757,9 +755,9 @@ impl RuntimePotUnit {
             .filters
             .clear_excluded_ones(&build_input.filter_excludes);
         // Spawn new async task (don't block GUI thread, might take longer)
-        self.revision += 1;
+        self.build_counter += 1;
         self.background_task_start_time = Some(Instant::now());
-        let last_revision = self.revision;
+        let last_build_number = self.build_counter;
         spawn_in_pot_worker(async move {
             if change_hint == Some(ChangeHint::TotalRefresh) {
                 pot_db().refresh();
@@ -771,7 +769,7 @@ impl RuntimePotUnit {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 let pot_unit =
                     blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
-                if pot_unit.revision != last_revision {
+                if pot_unit.build_counter != last_build_number {
                     return Ok(());
                 }
             }
@@ -782,7 +780,7 @@ impl RuntimePotUnit {
             // Prevents flickering and increment/decrement issues.
             let mut pot_unit =
                 blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 2");
-            if pot_unit.revision != last_revision {
+            if pot_unit.build_counter != last_build_number {
                 pot_unit.wasted_duration += build_output.stats.total_query_duration();
                 pot_unit.wasted_runs += 1;
                 return Ok(());
@@ -817,11 +815,6 @@ impl RuntimePotUnit {
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,
             ));
-    }
-
-    /// Returns a number that will be increased with each index rebuild (refresh).
-    pub fn revision(&self) -> u64 {
-        self.revision
     }
 
     pub fn count_filter_items(&self, kind: PotFilterKind) -> u32 {
