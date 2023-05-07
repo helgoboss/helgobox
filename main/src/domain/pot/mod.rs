@@ -4,9 +4,13 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
+use crate::base::{
+    blocking_lock, blocking_lock_arc, blocking_write_lock, NamedChannelSender, SenderToNormalThread,
+};
 
-use crate::domain::{BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer};
+use crate::domain::{
+    AnyThreadBackboneState, BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer,
+};
 
 use enumset::EnumSet;
 use indexmap::IndexSet;
@@ -528,6 +532,16 @@ impl RuntimePotUnit {
         //     preset_id,
         // }
         PersistentState::default()
+    }
+
+    pub fn toggle_favorite(&mut self, preset_id: PresetId, shared_self: SharedRuntimePotUnit) {
+        let favorites = &AnyThreadBackboneState::get().pot_favorites;
+        blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
+        self.rebuild_collections(
+            shared_self,
+            Some(ChangeHint::Filter(PotFilterKind::IsFavorite)),
+            Debounce::No,
+        );
     }
 
     pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), Box<dyn Error>> {

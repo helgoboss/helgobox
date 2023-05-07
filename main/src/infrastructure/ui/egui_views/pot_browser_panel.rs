@@ -1,7 +1,5 @@
 use crate::application::get_track_label;
-use crate::base::{
-    blocking_lock, blocking_lock_arc, blocking_write_lock, NamedChannelSender, SenderToNormalThread,
-};
+use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
     import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
@@ -483,8 +481,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                         false
                                     };
                                     if toggle {
-                                        blocking_write_lock(favorites, "favorite toggle")
-                                            .toggle_favorite(preset_id);
+                                        pot_unit.toggle_favorite(preset_id, state.pot_unit.clone());
                                     }
                                     // Preview button
                                     let preview_button = Button::new("🔊");
