@@ -2,6 +2,7 @@ use crate::base::file_util;
 use crate::domain::pot::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use ini::Ini;
 use regex::Match;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -16,33 +17,40 @@ pub struct PluginDatabase {
     products: Vec<Product>,
 }
 
+/// Responsible for grouping similar plug-ins into products.
 #[derive(Default)]
 struct ProductAccumulator {
     products: Vec<Product>,
 }
 
 impl ProductAccumulator {
-    pub fn add_js_product(&mut self, name: String, kind: Option<ProductKind>) -> ProductId {
+    /// Adds a product with the given characteristics.
+    pub fn add_other_product(&mut self, name: String, kind: Option<ProductKind>) -> ProductId {
         let product = Product { name, kind };
         self.products.push(product);
         ProductId(self.products.len() as u32 - 1)
     }
 
-    pub fn get_or_add_shared_library_product(
+    /// Tries to find an already added product matching the product name within the given plug-in
+    /// expression (and product kind) or creates a new product.
+    pub fn get_or_add_plugin_product(
         &mut self,
         name_expression: &str,
         kind: Option<ProductKind>,
     ) -> ProductId {
+        // Extract product name
         let name = if let Some(name) = ProductName::parse(name_expression) {
-            name.main
+            normalize_product_main_name(name.main)
         } else {
             name_expression
         };
+        // Find existing product
         let existing_product = self
             .products
             .iter()
             .enumerate()
             .find(|(_, product)| product.name == name && product.kind == kind);
+        // Return existing or create new product
         let i = match existing_product {
             None => {
                 let new_product = Product {
@@ -251,7 +259,7 @@ fn crawl_js_plugins(
                     core: PluginCore {
                         id: PluginId::js(relative_path).ok()?,
                         product_kind,
-                        product_id: product_accumulator.add_js_product(js_desc, product_kind),
+                        product_id: product_accumulator.add_other_product(js_desc, product_kind),
                     },
                 },
                 kind: PluginKind::Js(JsPlugin {
@@ -325,7 +333,7 @@ fn crawl_clap_plugins_in_ini_file(
                                 id: PluginId::clap(key).ok()?,
                                 product_kind,
                                 product_id: product_accumulator
-                                    .get_or_add_shared_library_product(plugin_name, product_kind),
+                                    .get_or_add_plugin_product(plugin_name, product_kind),
                             },
                             name: plugin_name.to_string(),
                         },
@@ -393,7 +401,7 @@ fn crawl_vst_plugins_in_ini_file(
                     core: PluginCore {
                         id: vst_kind.plugin_id().ok()?,
                         product_id: product_accumulator
-                            .get_or_add_shared_library_product(name.as_str(), product_kind),
+                            .get_or_add_plugin_product(name.as_str(), product_kind),
                         product_kind,
                     },
                     name,
@@ -483,6 +491,40 @@ fn read_js_desc_from_file(path: &Path) -> Option<String> {
         }
     }
     None
+}
+
+/// Further normalizes the already extracted main name so it conforms to the way "Komplete"
+/// displays the products.
+///
+/// # Maybe crop version number
+///
+/// Example: So we have successfully extracted "Kontakt 5" as main name from an expression
+/// "VSTi: Kontakt 5 (x86_64) (Native Instruments GmbH) (64 out). So far a very neutral extraction.
+/// But Komplete's product filter section doesn't distinguish between multiple versions of Kontakt.
+/// So we want to normalize this to just "Kontakt".
+///
+/// There are other NKS-ready products such as Pianoteq that distinguish between version numbers,
+/// so as a general rule we distinguish between version numbers and just add a few exceptions here.
+fn normalize_product_main_name(main_name: &str) -> &str {
+    maybe_crop_version_number(main_name)
+}
+
+fn maybe_crop_version_number(main_name: &str) -> &str {
+    const PRODUCT_NAMES_WITHOUT_VERSION_NUMBER: &[&str] =
+        &["Kontakt", "Absynth", "Guitar Rig", "Reaktor", "Battery"];
+    let Some((left, right)) = main_name.rsplit_once(' ') else {
+        // No right part
+        return main_name;
+    };
+    if PRODUCT_NAMES_WITHOUT_VERSION_NUMBER.contains(&left)
+        && right.chars().all(|c| c.is_ascii_digit())
+    {
+        // Conforms to pattern, e.g. "Kontakt 7"
+        left
+    } else {
+        // Doesn't conform to pattern
+        main_name
+    }
 }
 
 #[cfg(test)]
