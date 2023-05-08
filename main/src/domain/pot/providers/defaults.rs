@@ -102,6 +102,7 @@ impl Database for DefaultsDatabase {
             common: PresetCommon {
                 persistent_id: "".to_string(),
                 name: PRESET_NAME.to_string(),
+                product_ids: vec![plugin.core.product_id],
                 product_name: Some(plugin.to_string()),
             },
             kind: PresetKind::DefaultFactory(plugin.core.id),

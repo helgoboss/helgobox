@@ -158,6 +158,11 @@ impl Database for DirectoryDatabase {
             common: PresetCommon {
                 persistent_id: preset_entry.relative_path.clone(),
                 name: preset_entry.preset_name.clone(),
+                product_ids: preset_entry
+                    .plugin_cores
+                    .values()
+                    .map(|c| c.product_id)
+                    .collect(),
                 product_name: if preset_entry.plugin_cores.len() > 1 {
                     Some("<Multiple>".to_string())
                 } else if let Some(first) = preset_entry.plugin_cores.values().next() {

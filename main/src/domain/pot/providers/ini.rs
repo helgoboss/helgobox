@@ -217,6 +217,12 @@ impl Database for IniDatabase {
             common: PresetCommon {
                 persistent_id: "".to_string(),
                 name: preset_entry.preset_name.clone(),
+                product_ids: preset_entry
+                    .plugin
+                    .as_ref()
+                    .map(|p| p.product_id)
+                    .into_iter()
+                    .collect(),
                 product_name: {
                     let name = match plugin {
                         None => preset_entry.plugin_identifier.to_string(),

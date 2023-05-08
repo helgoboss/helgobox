@@ -66,6 +66,16 @@ impl KompleteDatabase {
         }
         filters
     }
+
+    fn find_preset_by_id_internal(
+        &self,
+        preset_db: &PresetDb,
+        id: InnerPresetId,
+    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+        preset_db.find_preset_by_id(id, |bank_id| {
+            self.nks_product_id_by_bank_id.get(&bank_id).copied()
+        })
+    }
 }
 
 impl Database for KompleteDatabase {
@@ -163,7 +173,7 @@ impl Database for KompleteDatabase {
 
     fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_db = blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
-        let (common, kind) = preset_db.find_preset_by_id(preset_id)?;
+        let (common, kind) = self.find_preset_by_id_internal(&preset_db, preset_id)?;
         Some(Preset::new(common, PresetKind::FileBased(kind)))
     }
 
@@ -207,7 +217,8 @@ impl Database for KompleteDatabase {
             .query_presets(&filters, &search_evaluator, &Default::default())
             .ok()?;
         let first_preset_id = preset_ids.first()?;
-        let (common, kind) = preset_db.find_preset_by_id(first_preset_id.inner_preset_id)?;
+        let (common, kind) =
+            self.find_preset_by_id_internal(&preset_db, first_preset_id.inner_preset_id)?;
         Some(Preset::new(common, PresetKind::FileBased(kind)))
     }
 }
@@ -357,7 +368,7 @@ impl PresetDb {
     }
 
     pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
-        let (_, kind) = self.find_preset_by_id(id)?;
+        let (_, kind) = self.find_preset_by_id(id, |_| None)?;
         match kind.file_ext.as_str() {
             "wav" | "aif" => Some(kind.path),
             _ => {
@@ -383,19 +394,30 @@ impl PresetDb {
     pub fn find_preset_by_id(
         &self,
         id: InnerPresetId,
+        translate_bank_to_product_id: impl FnOnce(u32) -> Option<ProductId>,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         self.connection
             .query_row(
                 r#"
-                SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1
+                SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, bc.id
                 FROM k_sound_info i LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
                 WHERE i.id = ?
                 "#,
                 [id.0],
                 |row| {
+                    let bank_id: Option<u32> = row.get(5)?;
                     let common = PresetCommon {
                         persistent_id: row.get(3)?,
                         name: row.get(0)?,
+                        // In Komplete, "product" refers either to a top-level "plug-in product"
+                        // (such as Zebra or Massive) or to a "product within a plug-in product"
+                        // (e.g. "Abbey Road 60s Drums" within "Kontakt"). Only in the first case,
+                        // the bank-to-product-ID translation will find something, because our
+                        // plug-in database of course only knows products that represent plug-ins.
+                        product_ids: bank_id
+                            .and_then(translate_bank_to_product_id)
+                            .into_iter()
+                            .collect(),
                         product_name: row.get(4)?,
                     };
                     let kind = FiledBasedPresetKind {

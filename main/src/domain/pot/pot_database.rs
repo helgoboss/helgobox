@@ -292,6 +292,18 @@ impl PotDatabase {
         db.find_preset_by_id(&provider_context, preset_id.preset_id)
     }
 
+    pub fn try_with_plugin_db<R>(
+        &self,
+        f: impl FnOnce(&PluginDatabase) -> R,
+    ) -> Result<R, &'static str> {
+        let plugin_db = self
+            .plugin_db
+            .try_read()
+            .map_err(|_| "couldn't acquire plugin db lock")?;
+        let r = f(&plugin_db);
+        Ok(r)
+    }
+
     pub fn try_with_db<R>(
         &self,
         db_id: DatabaseId,

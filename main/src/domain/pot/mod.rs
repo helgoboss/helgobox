@@ -1029,10 +1029,11 @@ impl Preset {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PresetCommon {
     pub persistent_id: String,
     pub name: String,
+    pub product_ids: Vec<ProductId>,
     /// Meaning depends on the database.
     ///
     /// - In case of Komplete, this sometimes corresponds to the name of a plug-in (albeit not

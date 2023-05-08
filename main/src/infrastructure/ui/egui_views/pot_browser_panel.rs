@@ -9,8 +9,8 @@ use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
     pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset, Debounce,
     DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
-    LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetKind, RuntimePotUnit,
-    SharedRuntimePotUnit,
+    LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetCommon, PresetKind,
+    RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -915,7 +915,7 @@ struct PresetTableInput<'a> {
     dialog: &'a mut Option<Dialog>,
 }
 
-fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
+fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
     let text_height = get_text_height(ui);
     let preset_count = input.pot_unit.preset_count();
     let mut table = TableBuilder::new(ui)
@@ -958,6 +958,7 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                 let cache_entry = preset_cache.find_preset(preset_id);
                 // Name
                 row.col(|ui| {
+                    // Decide about text to display
                     const MAX_PRESET_NAME_LENGTH: usize = 40;
                     let text: Cow<str> = match cache_entry {
                         PresetCacheEntry::Requested => "⏳".into(),
@@ -972,32 +973,50 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                             button = button.shortcut_text("🔊");
                         }
                     };
+                    // Highlight currently selected preset
                     if Some(preset_id) == input.pot_unit.preset_id() {
-                        // Preset is selected
                         button = button.fill(ui.style().visuals.selection.bg_fill);
                     }
                     let mut button = ui.add_sized(ui.available_size(), button);
-                    if let PresetCacheEntry::Found(d) = cache_entry {
-                        button = button.on_hover_text(d.preset.name());
-                        #[cfg(any(target_os = "windows", target_os = "macos"))]
-                        if let PresetKind::FileBased(k) = &d.preset.kind {
-                            button = button.context_menu(|ui| {
+                    // Only if preset found in cache
+                    if let PresetCacheEntry::Found(data) = cache_entry {
+                        // Hover text
+                        button = button.on_hover_text(data.preset.name());
+                        // Context menu
+                        button = button.context_menu(|ui| {
+                            let mut entry_count = 0;
+                            // Open plug-in
+                            if !data.preset.common.product_ids.is_empty() {
+                                entry_count += 1;
+                                ui.menu_button("Associated products", |ui| {
+                                    create_product_plugin_menu(&mut input, &data, ui);
+                                });
+                            }
+                            // Reveal in file manager
+                            #[cfg(any(
+                                all(target_os = "windows", target_arch = "x86_64"),
+                                target_os = "macos"
+                            ))]
+                            if let PresetKind::FileBased(k) = &data.preset.kind {
+                                if entry_count > 0 {
+                                    ui.separator();
+                                }
                                 if ui.button("Reveal in file manager").clicked() {
                                     if let Err(e) = opener::reveal(&k.path) {
                                         process_error(&e, input.toasts);
                                     }
                                     ui.close_menu();
                                 }
-                            });
-                        }
-                    }
-                    if let PresetCacheEntry::Found(data) = cache_entry {
+                            }
+                        });
+                        // What to do when clicked
                         if button.clicked() {
                             if input.auto_preview {
                                 let _ = input.pot_unit.play_preview(preset_id);
                             }
                             input.pot_unit.set_preset_id(Some(preset_id));
                         }
+                        // What to do when double-clicked
                         if button.double_clicked() {
                             load_preset_and_regain_focus(
                                 &data.preset,
@@ -1034,6 +1053,39 @@ fn add_preset_table<'a>(input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                 });
             });
         });
+}
+
+fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, ui: &mut Ui) {
+    let _ = pot_db().try_with_plugin_db(|db| {
+        for product_id in &data.preset.common.product_ids {
+            let Some(product) = db.find_product_by_id(product_id) else {
+                continue;
+            };
+            ui.menu_button(&product.name, |ui| {
+                let product_plugins = db
+                    .plugins()
+                    .filter(|p| p.common.core.product_id == *product_id);
+                for plugin in product_plugins {
+                    if ui.button(&plugin.common.to_string()).clicked() {
+                        let factory_preset = Preset {
+                            common: PresetCommon {
+                                name: data.preset.common.name.clone(),
+                                ..Default::default()
+                            },
+                            kind: PresetKind::DefaultFactory(plugin.common.core.id),
+                        };
+                        let options = LoadPresetOptions {
+                            window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+                        };
+                        if let Err(e) = input.pot_unit.load_preset(&factory_preset, options) {
+                            process_error(&e, input.toasts);
+                        }
+                        ui.close_menu();
+                    }
+                }
+            });
+        }
+    });
 }
 
 fn add_destination_info_panel(ui: &mut Ui, pot_unit: &mut RuntimePotUnit) {
