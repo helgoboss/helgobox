@@ -222,7 +222,7 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                     ui.add_space(20.0);
                     ui.label(
                         RichText::new(
-                            "So better don't invest much time into marking favorites, excluding \
+                            "So better don't invest much time into excluding \
                          filter items or adjusting other configuration!",
                         )
                         .strong(),
@@ -481,7 +481,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                         false
                                     };
                                     if toggle {
-                                        pot_unit.toggle_favorite(preset_id, state.pot_unit.clone());
+                                        show_info_toast("This feature is not available.", &mut toasts);
+                                        // pot_unit.toggle_favorite(preset_id, state.pot_unit.clone());
                                     }
                                     // Preview button
                                     let preview_button = Button::new("🔊");
@@ -2031,6 +2032,10 @@ fn process_error(error: &dyn Error, toasts: &mut Toasts) {
 
 fn show_error_toast(text: &str, toasts: &mut Toasts) {
     toasts.error(text, Duration::from_secs(1));
+}
+
+fn show_info_toast(text: &str, toasts: &mut Toasts) {
+    toasts.info(text, Duration::from_secs(1));
 }
 
 const TOOLBAR_HEIGHT: f32 = 15.0;
