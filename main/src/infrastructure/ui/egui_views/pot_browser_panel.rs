@@ -2048,8 +2048,8 @@ Unfortunately, Pot can't automatically open presets for Native Instrument's own 
 
 Approach A: Load the preset manually
 
-1. Load the plug-in, e.g. by right-clicking the preset and choosing "Load plug-in".
-2. Then find the preset within the plug-in. But if the plug-in supports drag'n'drop, e.g. Kontakt, you can alternatively reveal the preset file in the file explorer (available in right click menu as well) and drag it onto the plug-in.
+1. Load the plug-in, e.g. by right-clicking the preset and choosing "Associated products".
+2. Then find the preset within the plug-in. If the plug-in supports drag'n'drop, e.g. Kontakt, you can alternatively reveal the preset file in the file explorer (available in right click menu as well) and drag it onto the plug-in.
 
 Approach B: Preset crawling
 

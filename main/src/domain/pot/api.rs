@@ -68,7 +68,7 @@ pub enum Fil {
 }
 
 /// Id for a [`Product`].
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, derive_more::Display)]
 pub struct ProductId(pub u32);
 
 pub type FilterItemCollections = GenericFilterItemCollections<FilterItem>;

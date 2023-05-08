@@ -2,7 +2,6 @@ use crate::base::file_util;
 use crate::domain::pot::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use ini::Ini;
 use regex::Match;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};

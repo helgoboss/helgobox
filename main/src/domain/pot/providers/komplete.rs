@@ -55,7 +55,7 @@ impl KompleteDatabase {
     }
 
     /// Translates any neutral (NKS-independent) product filter (representing one of the
-    /// installed plug-ins) into an NKS bank filter. That enables magic of merging NKS and own
+    /// installed plug-ins) into an NKS bank filter. That enables the magic of merging NKS and own
     /// banks.
     fn translate_neutral_filters_to_nks_filters(&self, mut filters: Filters) -> Filters {
         if let Some(FilterItemId(Some(Fil::Product(pid)))) = filters.get(PotFilterKind::Bank) {
@@ -80,7 +80,10 @@ impl KompleteDatabase {
             // translating the bank ID can work (if we have that plug-in installed).
             if let Some(bank_id) = bank_id {
                 if let Some(product_id) = self.nks_product_id_by_bank_id.get(&bank_id).copied() {
+                    tracing_debug!("Looked up product {product_id} for bank {bank_id}.");
                     return Some(product_id);
+                } else {
+                    tracing_debug!("Looking up product for bank {bank_id} not successful.");
                 }
             }
             // If that didn't work because we don't have a bank ID, we have sub produt or the
@@ -119,15 +122,20 @@ impl Database for KompleteDatabase {
         self.nks_bank_id_by_product_id = preset_db
             .select_nks_banks()?
             .into_iter()
-            .filter_map(|(id, name)| {
-                let product_id = ctx.plugin_db.products().find_map(|(i, p)| {
-                    if name == p.name {
-                        Some(i)
+            .filter_map(|(bank_id, bank_name)| {
+                let product_id = ctx.plugin_db.products().find_map(|(product_id, product)| {
+                    if bank_name == product.name {
+                        tracing_debug!(
+                            "Associated bank {bank_id} {bank_name} with product {} {}",
+                            product_id.0,
+                            &product.name,
+                        );
+                        Some(product_id)
                     } else {
                         None
                     }
                 })?;
-                Some((product_id, id))
+                Some((product_id, bank_id))
             })
             .collect();
         // Make fast reverse lookup possible as well
@@ -422,39 +430,40 @@ impl PresetDb {
         id: InnerPresetId,
         translate_bank_or_ext_to_product_id: impl FnOnce(Option<u32>, &str) -> Option<ProductId>,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+        let sql = format!(
+            r#"
+                    SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id
+                    FROM k_sound_info i 
+                        LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
+                        JOIN ({BANK_SQL_QUERY}) AS parent_bc ON bc.entry1 = parent_bc.entry1
+                    WHERE i.id = ?
+                    "#
+        );
         self.connection
-            .query_row(
-                r#"
-                SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, bc.id
-                FROM k_sound_info i LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
-                WHERE i.id = ?
-                "#,
-                [id.0],
-                |row| {
-                    let bank_id: Option<u32> = row.get(5)?;
-                    let file_ext: String = row.get(2)?;
-                    let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
-                    let common = PresetCommon {
-                        persistent_id: row.get(3)?,
-                        name: row.get(0)?,
-                        // In Komplete, "product" refers either to a top-level "plug-in product"
-                        // (such as Zebra or Massive) or to a "product within a plug-in product"
-                        // (e.g. "Abbey Road 60s Drums" within "Kontakt"). Only in the first case,
-                        // the bank-to-product-ID translation will find something, because our
-                        // plug-in database of course only knows products that represent plug-ins.
-                        product_ids: product_id.into_iter().collect(),
-                        product_name: row.get(4)?,
-                    };
-                    let kind = FiledBasedPresetKind {
-                        path: {
-                            let s: String = row.get(1)?;
-                            s.into()
-                        },
-                        file_ext,
-                    };
-                    Ok((common, kind))
-                },
-            )
+            .query_row(&sql, [id.0], |row| {
+                let bank_id: Option<u32> = row.get(5)?;
+                let file_ext: String = row.get(2)?;
+                let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
+                let common = PresetCommon {
+                    persistent_id: row.get(3)?,
+                    name: row.get(0)?,
+                    // In Komplete, "product" refers either to a top-level "plug-in product"
+                    // (such as Zebra or Massive) or to a "product within a plug-in product"
+                    // (e.g. "Abbey Road 60s Drums" within "Kontakt"). Only in the first case,
+                    // the bank-to-product-ID translation will find something, because our
+                    // plug-in database of course only knows products that represent plug-ins.
+                    product_ids: product_id.into_iter().collect(),
+                    product_name: row.get(4)?,
+                };
+                let kind = FiledBasedPresetKind {
+                    path: {
+                        let s: String = row.get(1)?;
+                        s.into()
+                    },
+                    file_ext,
+                };
+                Ok((common, kind))
+            })
             .ok()
     }
 
@@ -841,11 +850,12 @@ impl PresetDb {
     ) -> Vec<InnerFilterItem> {
         use PotFilterKind::*;
         match kind {
-            Bank => self.select_nks_filter_items(
-                "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1",
-                None,
-                true,
-            ),
+            Bank => {
+                // This picks one of the bank entries to serve as parent bank. Which one is not
+                // really important as long as it's always the same in our queries. The result
+                // is deterministic.
+                self.select_nks_filter_items(BANK_SQL_QUERY, None, true)
+            }
             SubBank => {
                 let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
                 let parent_bank_filter = settings.get(PotFilterKind::Bank);
@@ -860,11 +870,16 @@ impl PresetDb {
                 sql += " ORDER BY entry2";
                 self.select_nks_filter_items(&sql, parent_bank_filter, false)
             }
-            Category => self.select_nks_filter_items(
-                "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
-                None,
-                true,
-            ),
+            Category => {
+                // This picks one of the category entries to serve as parent category. Which one is
+                // not really important as long as it's always the same in our queries. The result
+                // is deterministic.
+                self.select_nks_filter_items(
+                    "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
+                    None,
+                    true,
+                )
+            }
             SubCategory => {
                 let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
                 let parent_category_filter = settings.get(PotFilterKind::Category);
