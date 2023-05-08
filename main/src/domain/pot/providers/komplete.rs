@@ -30,6 +30,7 @@ pub struct KompleteDatabase {
     primary_preset_db: Mutex<PresetDb>,
     nks_bank_id_by_product_id: HashMap<ProductId, u32>,
     nks_product_id_by_bank_id: HashMap<u32, ProductId>,
+    nks_product_id_by_extension: HashMap<String, ProductId>,
     /// This returns a second connection to the preset database.
     ///
     /// At the moment, the UI thread continuously queries the database for the currently visible rows.
@@ -47,6 +48,7 @@ impl KompleteDatabase {
             primary_preset_db: PresetDb::open()?,
             nks_bank_id_by_product_id: Default::default(),
             nks_product_id_by_bank_id: Default::default(),
+            nks_product_id_by_extension: Default::default(),
             secondary_preset_db: PresetDb::open()?,
         };
         Ok(db)
@@ -72,8 +74,18 @@ impl KompleteDatabase {
         preset_db: &PresetDb,
         id: InnerPresetId,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
-        preset_db.find_preset_by_id(id, |bank_id| {
-            self.nks_product_id_by_bank_id.get(&bank_id).copied()
+        preset_db.find_preset_by_id(id, |bank_id, extension| {
+            // Try to translate bank ID - a number representing either a plug-in product like
+            // "Zebra2" or a sub product like "Vintage Organs". If it represents a plug-in product,
+            // translating the bank ID can work (if we have that plug-in installed).
+            if let Some(bank_id) = bank_id {
+                if let Some(product_id) = self.nks_product_id_by_bank_id.get(&bank_id).copied() {
+                    return Some(product_id);
+                }
+            }
+            // If that didn't work because we don't have a bank ID, we have sub produt or the
+            // plug-in product is simply not installed, try at least to translate the extension.
+            self.nks_product_id_by_extension.get(extension).copied()
         })
     }
 }
@@ -123,6 +135,20 @@ impl Database for KompleteDatabase {
             .nks_bank_id_by_product_id
             .iter()
             .map(|(k, v)| (*v, *k))
+            .collect();
+        // And associate special extensions with products as well
+        self.nks_product_id_by_extension = EXTENSION_TO_PRODUCT_NAME_MAPPING
+            .iter()
+            .filter_map(|(ext, product_name)| {
+                let product_id = ctx.plugin_db.products().find_map(|(i, p)| {
+                    if &p.name == product_name {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })?;
+                Some((ext.to_string(), product_id))
+            })
             .collect();
         Ok(())
     }
@@ -368,7 +394,7 @@ impl PresetDb {
     }
 
     pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
-        let (_, kind) = self.find_preset_by_id(id, |_| None)?;
+        let (_, kind) = self.find_preset_by_id(id, |_, _| None)?;
         match kind.file_ext.as_str() {
             "wav" | "aif" => Some(kind.path),
             _ => {
@@ -394,7 +420,7 @@ impl PresetDb {
     pub fn find_preset_by_id(
         &self,
         id: InnerPresetId,
-        translate_bank_to_product_id: impl FnOnce(u32) -> Option<ProductId>,
+        translate_bank_or_ext_to_product_id: impl FnOnce(Option<u32>, &str) -> Option<ProductId>,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         self.connection
             .query_row(
@@ -406,6 +432,8 @@ impl PresetDb {
                 [id.0],
                 |row| {
                     let bank_id: Option<u32> = row.get(5)?;
+                    let file_ext: String = row.get(2)?;
+                    let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
                     let common = PresetCommon {
                         persistent_id: row.get(3)?,
                         name: row.get(0)?,
@@ -414,10 +442,7 @@ impl PresetDb {
                         // (e.g. "Abbey Road 60s Drums" within "Kontakt"). Only in the first case,
                         // the bank-to-product-ID translation will find something, because our
                         // plug-in database of course only knows products that represent plug-ins.
-                        product_ids: bank_id
-                            .and_then(translate_bank_to_product_id)
-                            .into_iter()
-                            .collect(),
+                        product_ids: product_id.into_iter().collect(),
                         product_name: row.get(4)?,
                     };
                     let kind = FiledBasedPresetKind {
@@ -425,7 +450,7 @@ impl PresetDb {
                             let s: String = row.get(1)?;
                             s.into()
                         },
-                        file_ext: row.get(2)?,
+                        file_ext,
                     };
                     Ok((common, kind))
                 },
@@ -1018,3 +1043,27 @@ const TWO: u32 = 2;
 const FOUR: u32 = 4;
 
 const SUPPORTED_FILE_EXTENSIONS: &[&str] = &["wav", "aif", "ogg", "mp3", "nksf", "nksfx"];
+
+/// In Komplete, product (top-level bank) doesn't necessarily need be a plug-in product. It can be
+/// a sub product *for* a plug-in product (e.g. "Vintage Organs" is a product *for*
+/// plug-in product "Kontakt"). In the database, there's no association that indicates which sub
+/// product belongs to which plug-in product. So we need another way to draw that association.
+/// The most accurate way is to use the extension.
+///
+/// This info is *not* used for loading the preset (not implemented anyway for below plug-ins)
+/// but for presenting a list of associated plug-ins when right-clicking the preset.
+const EXTENSION_TO_PRODUCT_NAME_MAPPING: &[(&str, &str)] = &[
+    ("nki", "Kontakt"),
+    ("nksn", "Kontakt"),
+    ("ens", "Reaktor"),
+    ("nrkt", "Reaktor"),
+    ("nksr", "Reaktor"),
+    // Other associations are not necessary because above products seem to be the only ones which
+    // allow sub products. But for documentation purposes, we leave the other extensions here as
+    // well:
+    // ("nabs", "Absynth"),
+    // ("nbkt", "Battery"),
+    // ("nmsv", "Massive"),
+    // ("nfm8", "Fm8"),
+    // ("ngrr", "Guitar Rig"),
+];

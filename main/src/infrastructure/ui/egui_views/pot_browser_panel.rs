@@ -984,10 +984,8 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
                         button = button.on_hover_text(data.preset.name());
                         // Context menu
                         button = button.context_menu(|ui| {
-                            let mut entry_count = 0;
                             // Open plug-in
                             if !data.preset.common.product_ids.is_empty() {
-                                entry_count += 1;
                                 ui.menu_button("Associated products", |ui| {
                                     create_product_plugin_menu(&mut input, &data, ui);
                                 });
@@ -998,9 +996,6 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
                                 target_os = "macos"
                             ))]
                             if let PresetKind::FileBased(k) = &data.preset.kind {
-                                if entry_count > 0 {
-                                    ui.separator();
-                                }
                                 if ui.button("Reveal in file manager").clicked() {
                                     if let Err(e) = opener::reveal(&k.path) {
                                         process_error(&e, input.toasts);
