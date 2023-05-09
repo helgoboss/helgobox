@@ -1,5 +1,5 @@
 use crate::base::blocking_lock_arc;
-use crate::domain::pot::{pot_db, PresetId, RuntimePotUnit};
+use crate::domain::pot::{find_preview_file, pot_db, PresetId, RuntimePotUnit};
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, SoundPlayer, TargetCharacter, TargetTypeDef,
@@ -7,6 +7,7 @@ use crate::domain::{
 };
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+use reaper_high::Reaper;
 
 #[derive(Debug)]
 pub struct UnresolvedPreviewPotPresetTarget {}
@@ -52,9 +53,12 @@ impl RealearnTarget for PreviewPotPresetTarget {
             let preset_id = self
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
-            let preview_file = pot_db()
-                .find_preview_file_by_preset_id(preset_id)
-                .ok_or("couldn't find preset or build preset preview file")?;
+            let preset = pot_db()
+                .find_preset_by_id(preset_id)
+                .ok_or("couldn't find preset")?;
+            let reaper_resource_dir = Reaper::get().resource_path();
+            let preview_file = find_preview_file(&preset, &reaper_resource_dir)
+                .ok_or("couldn't find preset preview file")?;
             self.sound_player.load_file(&preview_file)?;
             self.sound_player.play()?;
             Ok(HitResponse::processed_with_effect())

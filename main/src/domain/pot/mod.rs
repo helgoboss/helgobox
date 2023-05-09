@@ -5,7 +5,8 @@
 //! state that has support for multiple database backends.
 
 use crate::base::{
-    blocking_lock, blocking_lock_arc, blocking_write_lock, NamedChannelSender, SenderToNormalThread,
+    blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util, NamedChannelSender,
+    SenderToNormalThread,
 };
 
 use crate::domain::{
@@ -54,7 +55,9 @@ pub use worker::*;
 mod escape_catcher;
 pub mod preset_crawler;
 pub mod preview_recorder;
+use crate::base::hash_util::PersistentHash;
 use crate::domain::pot::preset_crawler::get_shim_file_path;
+use crate::domain::pot::preview_recorder::get_preview_file_path_from_hash;
 pub use escape_catcher::*;
 
 // - We have a global list of databases
@@ -545,9 +548,12 @@ impl RuntimePotUnit {
     }
 
     pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), Box<dyn Error>> {
-        let preview_file = pot_db()
-            .find_preview_file_by_preset_id(preset_id)
-            .ok_or("couldn't find preset or build preset preview file")?;
+        let preset = pot_db()
+            .find_preset_by_id(preset_id)
+            .ok_or("couldn't find preset")?;
+        let reaper_resource_dir = Reaper::get().resource_path();
+        let preview_file =
+            find_preview_file(&preset, &reaper_resource_dir).ok_or("couldn't find preview file")?;
         self.sound_player.load_file(&preview_file)?;
         self.sound_player.play()?;
         Ok(())
@@ -1042,6 +1048,41 @@ pub struct PresetCommon {
     ///   of "Abbey Road 50s Drummer" being an instrument within Kontakt.
     /// - In case of other databases, this usually corresponds to the accurate plug-in name.
     pub product_name: Option<String>,
+    /// Optional xxh3 128-bit hash based on the contents of the preset.
+    ///
+    /// This will be used in the function that determines the Pot preview file location. If this is
+    /// `None`, the algorithm will take the persistent database and preset IDs, hash them via
+    /// xxh3 128-bit and turn this into a directory path. If `content_hash` is  `Some`, the
+    /// algorithm will take this value directly and turn it into a directory path
+    /// (without re-hashing).
+    ///
+    /// It's recommended to set this hash if it's not too slow. It should really be based on the
+    /// content of the preset. Changing the content would change the hash and therefore invalidate
+    /// the preview, which is what we want.
+    ///
+    /// It's okay for a provider to switch from not setting this hash to setting it. But not the
+    /// other way around! Switching from `None` to `Some` is okay because the preview lookup
+    /// mechanism will try to find the preview file based on the persistent IDs if it couldn't find
+    /// the file based on the contents.
+    ///
+    /// Once a provider starts setting this hash, it's a sort of commitment! The provider should
+    /// make sure that the hash is provided in future as well and that the same preset contents lead
+    /// to the same hash. Otherwise, preview files can't be found anymore and need to be recreated.
+    pub content_hash: Option<PersistentHash>,
+    /// If the database provides its own preview file, this field should contain its hypothetical
+    /// path. It's not necessary or encouraged to already check for its existence of this file. This
+    /// will be checked by the consumer.
+    pub db_specific_preview_file: Option<PathBuf>,
+}
+
+impl PresetCommon {
+    /// Returns the hash that should be used to identify the location of the custom preview file.
+    pub fn content_or_id_hash(&self) -> PersistentHash {
+        self.content_hash.unwrap_or_else(|| {
+            // If there's none, we take the persistent ID.
+            hash_util::calculate_persistent_non_crypto_hash_one_shot(self.persistent_id.as_bytes())
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1425,7 +1466,7 @@ fn load_file_based_preset(
         },
     )?;
     let outcome = match ext.to_lowercase().as_str() {
-        "wav" | "aif" | "ogg" | "mp3" => {
+        _ if is_audio_file_extension(ext) => {
             let dest = build_destination(pot_unit)?;
             load_audio_preset(preset_file, &dest, options)?
         }
@@ -1455,4 +1496,43 @@ fn load_file_based_preset(
 pub enum Debounce {
     No,
     Yes,
+}
+
+fn is_audio_file_extension(ext: &str) -> bool {
+    matches!(ext, "wav" | "aif" | "ogg" | "mp3")
+}
+
+/// This looks up the preview file for the given preset, actually checking for the file's
+/// existence.
+///
+/// It also exposes audio file presets as preview files.
+///
+/// It prefers custom previews over database-specific previews.
+pub fn find_preview_file<'a>(
+    preset: &'a Preset,
+    reaper_resource_dir: &Path,
+) -> Option<Cow<'a, Path>> {
+    // If the preset is an audio file and it exists, return that
+    if let PresetKind::FileBased(kind) = &preset.kind {
+        if is_audio_file_extension(&kind.file_ext) {
+            return if kind.path.exists() {
+                Some(kind.path.as_path().into())
+            } else {
+                None
+            };
+        }
+    }
+    // If a custom preview file exists, return that
+    let hash = preset.common.content_or_id_hash();
+    let preview_file_path = get_preview_file_path_from_hash(reaper_resource_dir, hash);
+    if preview_file_path.exists() {
+        return Some(preview_file_path.into());
+    }
+    // If a database-specific preview file exists, return that
+    let db_specific_preview_file = preset.common.db_specific_preview_file.as_ref()?;
+    if db_specific_preview_file.exists() {
+        Some(db_specific_preview_file.into())
+    } else {
+        None
+    }
 }

@@ -211,18 +211,6 @@ impl Database for KompleteDatabase {
         Some(Preset::new(common, PresetKind::FileBased(kind)))
     }
 
-    fn find_preview_by_preset_id(
-        &self,
-        _: &ProviderContext,
-        preset_id: InnerPresetId,
-    ) -> Option<PathBuf> {
-        let preset_db = blocking_lock(
-            &self.primary_preset_db,
-            "Komplete DB find_preview_by_preset_id",
-        );
-        preset_db.find_preset_preview_file(preset_id)
-    }
-
     fn find_unsupported_preset_matching(
         &self,
         product_id: ProductId,
@@ -401,19 +389,6 @@ impl PresetDb {
         Ok(())
     }
 
-    pub fn find_preset_preview_file(&self, id: InnerPresetId) -> Option<PathBuf> {
-        let (_, kind) = self.find_preset_by_id(id, |_, _| None)?;
-        match kind.file_ext.as_str() {
-            "wav" | "aif" => Some(kind.path),
-            _ => {
-                let preview_dir = kind.path.parent()?.join(".previews");
-                let pure_file_name = kind.path.file_name()?;
-                let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
-                Some(preview_dir.join(preview_file_name))
-            }
-        }
-    }
-
     #[allow(dead_code)]
     pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<InnerPresetId> {
         self.connection
@@ -441,27 +416,32 @@ impl PresetDb {
         );
         self.connection
             .query_row(&sql, [id.0], |row| {
-                let bank_id: Option<u32> = row.get(5)?;
+                let name: String = row.get(0)?;
+                let path: String = row.get(1)?;
+                let path: PathBuf = path.into();
                 let file_ext: String = row.get(2)?;
+                let persistent_id: String = row.get(3)?;
+                let product_name: Option<String> = row.get(4)?;
+                let bank_id: Option<u32> = row.get(5)?;
                 let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
+                let preview_file = determine_preview_file(&path);
                 let common = PresetCommon {
-                    persistent_id: row.get(3)?,
-                    name: row.get(0)?,
+                    persistent_id,
+                    name,
                     // In Komplete, "product" refers either to a top-level "plug-in product"
                     // (such as Zebra or Massive) or to a "product within a plug-in product"
                     // (e.g. "Abbey Road 60s Drums" within "Kontakt"). Only in the first case,
                     // the bank-to-product-ID translation will find something, because our
                     // plug-in database of course only knows products that represent plug-ins.
                     product_ids: product_id.into_iter().collect(),
-                    product_name: row.get(4)?,
+                    product_name,
+                    // We could make a hash of the file contents but since we would have to do that
+                    // each time we look up the preset (not at refresh time), we don't do that for
+                    // now. It probably would slow scrolling down quite a bit.
+                    content_hash: None,
+                    db_specific_preview_file: preview_file,
                 };
-                let kind = FiledBasedPresetKind {
-                    path: {
-                        let s: String = row.get(1)?;
-                        s.into()
-                    },
-                    file_ext,
-                };
+                let kind = FiledBasedPresetKind { path, file_ext };
                 Ok((common, kind))
             })
             .ok()
@@ -1099,4 +1079,11 @@ fn none_if_empty(value: Option<String>) -> Option<String> {
     } else {
         Some(value)
     }
+}
+
+fn determine_preview_file(preset_file: &PathBuf) -> Option<PathBuf> {
+    let preview_dir = preset_file.parent()?.join(".previews");
+    let pure_file_name = preset_file.file_name()?;
+    let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
+    Some(preview_dir.join(preview_file_name))
 }

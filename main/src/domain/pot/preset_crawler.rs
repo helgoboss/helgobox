@@ -1,4 +1,4 @@
-use crate::base::{blocking_lock_arc, file_util, Global};
+use crate::base::{blocking_lock_arc, file_util, hash_util, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
     parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher, PluginId,
@@ -359,7 +359,10 @@ async fn millis(amount: u64) {
 const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
 
 pub fn get_shim_file_path(reaper_resource_dir: &Path, preset: &Preset) -> PathBuf {
-    let file_name = file_util::hash_to_dir_structure(&preset.common.persistent_id, ".RfxChain");
+    let hash = hash_util::calculate_persistent_non_crypto_hash_one_shot(
+        preset.common.persistent_id.as_bytes(),
+    );
+    let file_name = file_util::convert_hash_to_dir_structure(hash, ".RfxChain");
     reaper_resource_dir
         .join("Helgoboss/Pot/shims")
         .join(&file_name)

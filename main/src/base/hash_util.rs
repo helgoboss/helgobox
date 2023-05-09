@@ -1,4 +1,39 @@
 use std::hash::{Hash, Hasher};
+use xxhash_rust::xxh3::Xxh3;
+
+/// This newtype should be used whenever it matters to keep a stable hash function, for example
+/// when the hashes are going to be persisted.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct PersistentHash(u128);
+
+impl PersistentHash {
+    pub fn get(&self) -> u128 {
+        self.0
+    }
+}
+
+pub struct PersistentHasher(Xxh3);
+
+impl PersistentHasher {
+    pub fn new() -> Self {
+        // Don't change the wrapped hasher! It's used e.g. for file names.
+        Self(Xxh3::new())
+    }
+
+    pub fn digest_128(&self) -> PersistentHash {
+        PersistentHash(self.0.digest128())
+    }
+}
+
+impl Hasher for PersistentHasher {
+    fn finish(&self) -> u64 {
+        self.0.finish()
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.write(bytes)
+    }
+}
 
 /// Calculates a 64-bit non-crypto hash directly from the given bytes.
 ///
@@ -10,9 +45,9 @@ pub fn calculate_non_crypto_hash_one_shot(payload: &[u8]) -> u64 {
 /// Calculates a 128-bit non-crypto hash directly from the given bytes suitable for persistence.
 ///
 /// This implementation must not change!
-pub fn calculate_persistent_non_crypto_hash_one_shot(payload: &[u8]) -> u128 {
-    // Don't change! It's used e.g. for file names.
-    xxhash_rust::xxh3::xxh3_128(payload)
+pub fn calculate_persistent_non_crypto_hash_one_shot(payload: &[u8]) -> PersistentHash {
+    // Don't change the hash function! It's used e.g. for file names.
+    PersistentHash(xxhash_rust::xxh3::xxh3_128(payload))
 }
 
 /// Calculates a 64-bit non-crypto hash from the given hashable type.

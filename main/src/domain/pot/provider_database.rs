@@ -7,7 +7,6 @@ use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 use std::error::Error;
-use std::path::PathBuf;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct DatabaseId(pub u32);
@@ -42,12 +41,6 @@ pub trait Database {
         context: &ProviderContext,
         preset_id: InnerPresetId,
     ) -> Option<Preset>;
-
-    fn find_preview_by_preset_id(
-        &self,
-        context: &ProviderContext,
-        preset_id: InnerPresetId,
-    ) -> Option<PathBuf>;
 
     /// Tries to find a preset that belongs to the given product and has the given name *and*
     /// most importantly a preset file format that can't be loaded by Pot Browser.

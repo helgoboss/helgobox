@@ -24,7 +24,6 @@ use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
@@ -336,16 +335,6 @@ impl PotDatabase {
             .map_err(|_| "couldn't acquire provider db lock")?;
         let db = db.as_ref().map_err(|_| "provider database not opened")?;
         Ok(db.find_preset_by_id(&provider_context, preset_id.preset_id))
-    }
-
-    pub fn find_preview_file_by_preset_id(&self, preset_id: PresetId) -> Option<PathBuf> {
-        let plugin_db =
-            blocking_read_lock(&self.plugin_db, "pot db find_preview_file_by_preset_id 0");
-        let provider_context = ProviderContext::new(&plugin_db);
-        let db = self.databases.get(&preset_id.database_id)?;
-        let db = blocking_read_lock(db, "pot db find_preview_file_by_preset_id 1");
-        let db = db.as_ref().ok()?;
-        db.find_preview_by_preset_id(&provider_context, preset_id.preset_id)
     }
 
     /// Ignores exclude lists.

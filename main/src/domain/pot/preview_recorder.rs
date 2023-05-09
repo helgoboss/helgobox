@@ -1,6 +1,7 @@
+use crate::base::hash_util::PersistentHash;
 use crate::base::{blocking_lock_arc, file_util, Global};
 use crate::domain::pot::{
-    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, Preset, PresetId,
+    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId,
     SharedRuntimePotUnit,
 };
 use reaper_high::{Project, Reaper};
@@ -43,7 +44,10 @@ async fn record_previews_async(
         let preset = pot_db()
             .find_preset_by_id(preset_id)
             .ok_or("preset not found")?;
-        let preview_file_path = get_preview_file_path(&reaper_resource_dir, &preset);
+        // Prefer creating preview file name based on preset content. That means whenever the
+        // content changes, we get a different preview file name. That is cool.
+        let hash = preset.common.content_or_id_hash();
+        let preview_file_path = get_preview_file_path_from_hash(&reaper_resource_dir, hash);
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
@@ -108,8 +112,11 @@ async fn millis(amount: u64) {
     futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
 
-pub fn get_preview_file_path(reaper_resource_dir: &Path, preset: &Preset) -> PathBuf {
-    let file_name = file_util::hash_to_dir_structure(&preset.common.persistent_id, ".ogg");
+pub fn get_preview_file_path_from_hash(
+    reaper_resource_dir: &Path,
+    hash: PersistentHash,
+) -> PathBuf {
+    let file_name = file_util::convert_hash_to_dir_structure(hash, ".ogg");
     reaper_resource_dir
         .join("Helgoboss/Pot/previews")
         .join(&file_name)

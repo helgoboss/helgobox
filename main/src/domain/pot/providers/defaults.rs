@@ -13,7 +13,6 @@ use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::iter;
-use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct DefaultsDatabase {
@@ -104,18 +103,12 @@ impl Database for DefaultsDatabase {
                 name: PRESET_NAME.to_string(),
                 product_ids: vec![plugin.core.product_id],
                 product_name: Some(plugin.to_string()),
+                content_hash: None,
+                db_specific_preview_file: None,
             },
             kind: PresetKind::DefaultFactory(plugin.core.id),
         };
         Some(preset)
-    }
-
-    fn find_preview_by_preset_id(
-        &self,
-        _: &ProviderContext,
-        _preset_id: InnerPresetId,
-    ) -> Option<PathBuf> {
-        None
     }
 }
 

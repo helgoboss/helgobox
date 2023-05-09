@@ -167,8 +167,9 @@ pub enum PluginKind {
 pub struct ClapPlugin {
     /// Real file name, no characters replaced.
     pub file_name: String,
-    /// Checksum looks different than in VST plug-in INI files.
-    pub checksum: String,
+    /// According to Justin, this is a Win32 FILETIME timestamp (last write time and creation time,
+    /// concatenated).
+    pub filetime: String,
     pub id: String,
 }
 
@@ -338,7 +339,7 @@ fn crawl_clap_plugins_in_ini_file(
                         },
                         kind: PluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
-                            checksum: checksum.to_string(),
+                            filetime: checksum.to_string(),
                             id: key.to_string(),
                         }),
                     };

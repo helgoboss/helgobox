@@ -7,6 +7,7 @@ use crate::domain::pot::{
 };
 use std::borrow::Cow;
 
+use crate::base::hash_util::{PersistentHash, PersistentHasher};
 use crate::domain::pot::plugins::{PluginCore, PluginKind};
 use either::Either;
 use enumset::{enum_set, EnumSet};
@@ -14,6 +15,7 @@ use ini::Ini;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
+use std::hash::Hasher;
 use std::iter;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -59,6 +61,7 @@ struct PresetEntry {
     plugin_identifier: String,
     /// If `None`, it means the corresponding plug-in is not installed/scanned.
     plugin: Option<PluginCore>,
+    content_hash: Option<PersistentHash>,
 }
 
 impl Database for IniDatabase {
@@ -162,10 +165,21 @@ impl Database for IniDatabase {
                     let section_name = format!("Preset{i}");
                     let section = ini_file.section(Some(section_name))?;
                     let name = section.get("Name")?;
+                    // Calculate hash out of data properties ("Data", "Data_1", "Data_2", ...)
+                    let data = section.get("Data")?;
+                    let mut hasher = PersistentHasher::new();
+                    hasher.write(data.as_bytes());
+                    let mut i = 1;
+                    while let Some(more_data) = section.get(format!("Data{i}")) {
+                        hasher.write(more_data.as_bytes());
+                        i += 1;
+                    }
+                    // Build entry
                     let preset_entry = PresetEntry {
                         preset_name: name.to_string(),
                         plugin_identifier: plugin_identifier.clone(),
                         plugin: plugin.map(|p| p.common.core.clone()),
+                        content_hash: Some(hasher.digest_128()),
                     };
                     Some(preset_entry)
                 });
@@ -230,19 +244,13 @@ impl Database for IniDatabase {
                     };
                     Some(name)
                 },
+                content_hash: preset_entry.content_hash,
+                db_specific_preview_file: None,
             },
             kind: PresetKind::Internal(InternalPresetKind {
                 plugin_id: preset_entry.plugin.as_ref().map(|p| p.id),
             }),
         };
         Some(preset)
-    }
-
-    fn find_preview_by_preset_id(
-        &self,
-        _: &ProviderContext,
-        _preset_id: InnerPresetId,
-    ) -> Option<PathBuf> {
-        None
     }
 }

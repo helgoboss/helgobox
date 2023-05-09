@@ -7,6 +7,7 @@ use crate::domain::pot::{
 };
 use std::borrow::Cow;
 
+use crate::base::hash_util::{PersistentHash, PersistentHasher};
 use crate::domain::pot::plugins::{Plugin, PluginCore, PluginDatabase};
 use either::Either;
 use enumset::{enum_set, EnumSet};
@@ -17,6 +18,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
+use std::hash::Hasher;
 use std::io::{BufRead, BufReader};
 use std::iter;
 use std::path::{Path, PathBuf};
@@ -77,6 +79,7 @@ struct PresetEntry {
     preset_name: String,
     relative_path: String,
     plugin_cores: IndexMap<PluginId, PluginCore>,
+    content_hash: Option<PersistentHash>,
 }
 
 impl Database for DirectoryDatabase {
@@ -108,11 +111,13 @@ impl Database for DirectoryDatabase {
                 let relative_path = entry.path().strip_prefix(&self.root_dir).ok()?;
                 // Immediately exclude relative paths that can't be represented as valid UTF-8.
                 // Otherwise we will potentially open a can of worms (regarding persistence etc.).
+                let processing_output =
+                    process_file(entry.path(), ctx.plugin_db).unwrap_or_default();
                 let preset_entry = PresetEntry {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
                     relative_path: relative_path.to_str()?.to_string(),
-                    plugin_cores: find_used_plugins(entry.path(), ctx.plugin_db)
-                        .unwrap_or_default(),
+                    plugin_cores: processing_output.used_plugins,
+                    content_hash: processing_output.content_hash,
                 };
                 Some(preset_entry)
             })
@@ -172,6 +177,8 @@ impl Database for DirectoryDatabase {
                 } else {
                     None
                 },
+                content_hash: preset_entry.content_hash,
+                db_specific_preview_file: None,
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
                 file_ext: relative_path
@@ -184,14 +191,12 @@ impl Database for DirectoryDatabase {
         };
         Some(preset)
     }
+}
 
-    fn find_preview_by_preset_id(
-        &self,
-        _: &ProviderContext,
-        _preset_id: InnerPresetId,
-    ) -> Option<PathBuf> {
-        None
-    }
+#[derive(Default)]
+struct FileProcessingOutput {
+    content_hash: Option<PersistentHash>,
+    used_plugins: IndexMap<PluginId, PluginCore>,
 }
 
 /// Finds used plug-ins in a REAPER-XML-like text file (e.g. RPP, RfxChain, RTrackTemplate).
@@ -201,26 +206,32 @@ impl Database for DirectoryDatabase {
 ///     <VST "VSTi: Zebra2 (u-he)" Zebra2.vst 0 Schmackes 1397572658<565354534D44327A6562726132000000> ""
 ///     <VST "VSTi: ReaSamplOmatic5000 (Cockos)"
 ///     <CLAP "CLAPi: Surge XT (Surge Synth Team)"
-fn find_used_plugins(
+fn process_file(
     path: &Path,
     plugin_db: &PluginDatabase,
-) -> Result<IndexMap<PluginId, PluginCore>, Box<dyn Error>> {
+) -> Result<FileProcessingOutput, Box<dyn Error>> {
     let file = File::open(path)?;
-    let mut map = IndexMap::new();
+    let mut used_plugins = IndexMap::new();
     let mut buffer = String::new();
     let mut reader = BufReader::new(&file);
+    let mut hasher = PersistentHasher::new();
     while let Ok(count) = reader.read_line(&mut buffer) {
         if count == 0 {
             // EOF
             break;
         }
+        hasher.write(buffer.as_bytes());
         let line = buffer.trim();
         if let Some(plugin) = detect_plugin_from_rxml_line(plugin_db, line) {
-            map.insert(plugin.common.core.id, plugin.common.core.clone());
+            used_plugins.insert(plugin.common.core.id, plugin.common.core.clone());
         }
         buffer.clear();
     }
-    Ok(map)
+    let output = FileProcessingOutput {
+        content_hash: Some(hasher.digest_128()),
+        used_plugins,
+    };
+    Ok(output)
 }
 
 fn detect_plugin_from_rxml_line<'a>(

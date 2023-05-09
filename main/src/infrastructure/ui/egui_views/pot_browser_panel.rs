@@ -7,8 +7,8 @@ use crate::domain::pot::preset_crawler::{
 };
 use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
-    pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset, Debounce,
-    DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
+    find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
+    Debounce, DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
     LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetCommon, PresetKind,
     RuntimePotUnit, SharedRuntimePotUnit,
 };
@@ -1800,14 +1800,14 @@ impl PresetCache {
 
     pub fn find_preset(&mut self, preset_id: PresetId) -> &PresetCacheEntry {
         self.lru_cache.get_or_insert(preset_id, || {
+            let reaper_resource_dir = Reaper::get().resource_path();
             let sender = self.sender.clone();
             let pot_db_revision = self.pot_db_revision;
             spawn_in_pot_worker(async move {
                 let pot_db = pot_db();
                 let preset = pot_db.try_find_preset_by_id(preset_id)?;
                 let preset_data = preset.map(|p| {
-                    let preview_file = pot_db.find_preview_file_by_preset_id(preset_id);
-                    let has_preview = preview_file.map(|f| f.exists()).unwrap_or(false);
+                    let has_preview = find_preview_file(&p, &reaper_resource_dir).is_some();
                     PresetData {
                         preset: p,
                         has_preview,
