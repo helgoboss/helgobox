@@ -838,34 +838,30 @@ impl App {
 
     pub fn realearn_high_click_sound_path() -> Option<&'static Path> {
         static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
-            // Copy original sound to fix Windows install error when attempting to install a
-            // new ReaLearn version via ReaPack while still having ReaLearn open.
+            // Before including the audio file in the binary, there was an actual file distributed
+            // via ReaPack. However, we had to copy it to a temporary directory anyway, otherwise
+            // we would risk an error on Windows when attempting to install a new ReaLearn version
+            // via ReaPack while still having ReaLearn open.
             // https://github.com/helgoboss/realearn/issues/780
-            let original_path = App::realearn_sound_dir_path().join("click-high.mp3");
-            if !Path::exists(&original_path) {
-                return None;
-            }
-            let copy_path = App::get_temp_dir()?.path().join(original_path.file_name()?);
-            fs::copy(&original_path, &copy_path).ok()?;
-            Some(copy_path)
+            // Encoding the file in the binary frees us from having to distribute it.
+            let bytes = include_bytes!("../../../../resources/sounds/click-high.mp3");
+            let dest_path = App::get_temp_dir()?.path().join("click-high.mp3");
+            fs::write(&dest_path, bytes).ok()?;
+            Some(dest_path)
         });
         PATH.as_ref().map(|p| p.as_path())
     }
 
     pub fn realearn_pot_preview_template_path() -> Option<&'static Path> {
         static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
-            let rpp_bytes = include_bytes!(
+            let bytes = include_bytes!(
                 "../../../../resources/template-projects/pot-preview/pot-preview.RPP"
             );
             let dest_path = App::get_temp_dir()?.path().join("pot-preview.RPP");
-            fs::write(&dest_path, rpp_bytes).ok()?;
+            fs::write(&dest_path, bytes).ok()?;
             Some(dest_path)
         });
         PATH.as_ref().map(|p| p.as_path())
-    }
-
-    fn realearn_sound_dir_path() -> PathBuf {
-        Self::realearn_data_dir_path().join("sounds")
     }
 
     pub fn realearn_preset_dir_path() -> PathBuf {
