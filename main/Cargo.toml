@@ -146,7 +146,7 @@ approx = "0.3.2"
 # For the API (ReaLearn Script) and MIDI scripts
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
-twox-hash = "1.6.1"
+xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
 # For convenient converting prop key to prop enum variant
 strum = "0.23"
 strum_macros = "0.23"

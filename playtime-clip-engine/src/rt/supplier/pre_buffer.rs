@@ -19,7 +19,6 @@ use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 use std::{iter, thread};
-use twox_hash::XxHash64;
 
 #[derive(Debug)]
 pub struct PreBuffer<S, F, C> {
@@ -593,7 +592,8 @@ impl<S: WithMaterialInfo, F, C> WithMaterialInfo for PreBuffer<S, F, C> {
 }
 
 struct PreBufferWorker<S, F, C> {
-    instances: HashMap<PreBufferInstanceId, Instance<S>, BuildHasherDefault<XxHash64>>,
+    instances:
+        HashMap<PreBufferInstanceId, Instance<S>, BuildHasherDefault<xxhash_rust::xxh3::Xxh3>>,
     spare_buffer_chunks: Vec<Vec<f64>>,
     command_processor: F,
     phantom: PhantomData<C>,

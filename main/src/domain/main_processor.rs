@@ -30,7 +30,7 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 
-use crate::base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use crate::base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
     format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
@@ -128,16 +128,15 @@ impl FeedbackChecksum {
             ParameterNumber(v) => FeedbackChecksum::MidiParameterNumber(*v),
             ControlChange14Bit(v) => FeedbackChecksum::MidiControlChange14Bit(*v),
             Raw { events, .. } => {
-                let mut hasher = twox_hash::XxHash64::default();
-                events.hash(&mut hasher);
-                FeedbackChecksum::Hashed(hasher.finish())
+                let hash = hash_util::calculate_non_crypto_hash(events);
+                FeedbackChecksum::Hashed(hash)
             }
             Tempo(_) | BorrowedSysEx(_) => unreachable!("never sent as feedback"),
         }
     }
 
     fn from_osc(v: &OscMessage) -> Self {
-        let mut hasher = twox_hash::XxHash64::default();
+        let mut hasher = hash_util::create_non_crypto_hasher();
         // OscMessage doesn't implement Hash, probably because it contains floating point numbers.
         // We don't care about floating point hash/equality issues because we just want a checksum
         // for comparing current feedback with last feedback.
@@ -149,13 +148,12 @@ impl FeedbackChecksum {
     }
 
     fn from_reaper(v: &ReaperSourceFeedbackValue) -> Self {
-        let mut hasher = twox_hash::XxHash64::default();
         match v {
             ReaperSourceFeedbackValue::Speech(s) => {
-                s.text.hash(&mut hasher);
+                let hash = hash_util::calculate_non_crypto_hash_one_shot(s.text.as_bytes());
+                FeedbackChecksum::Hashed(hash)
             }
         }
-        FeedbackChecksum::Hashed(hasher.finish())
     }
 }
 

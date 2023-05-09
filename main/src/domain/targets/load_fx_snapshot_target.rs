@@ -31,7 +31,9 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
                 ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
                     fx,
                     chunk: self.chunk.clone(),
-                    chunk_hash: hash_util::calculate_non_crypto_hash(&self.chunk),
+                    chunk_hash: hash_util::calculate_non_crypto_hash_one_shot(
+                        self.chunk.as_bytes(),
+                    ),
                 })
             })
             .collect();
