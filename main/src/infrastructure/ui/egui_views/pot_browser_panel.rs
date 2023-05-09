@@ -14,6 +14,7 @@ use crate::domain::pot::{
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
+use crate::infrastructure::plugin::App;
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
@@ -839,11 +840,27 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
                 if ui.button("Continue").clicked() {
                     let preset_ids = input.pot_unit.preset_collection.iter().copied().collect();
-                    record_previews(input.shared_pot_unit.clone(), preset_ids);
+                    let result =
+                        record_previews_with_default_template(&input.shared_pot_unit, preset_ids);
+                    process_potential_error(&result, input.toasts);
                 }
             },
         ),
     }
+}
+
+fn record_previews_with_default_template(
+    shared_pot_unit: &SharedRuntimePotUnit,
+    preset_ids: Vec<PresetId>,
+) -> Result<(), Box<dyn Error>> {
+    let preview_rpp =
+        App::realearn_pot_preview_template_path().ok_or("pot preview template doesn't exist")?;
+    record_previews(
+        shared_pot_unit.clone(),
+        preset_ids,
+        preview_rpp.to_path_buf(),
+    );
+    Ok(())
 }
 
 fn add_crawl_presets_stopped_dialog_contents(

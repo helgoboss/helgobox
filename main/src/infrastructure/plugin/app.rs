@@ -852,6 +852,18 @@ impl App {
         PATH.as_ref().map(|p| p.as_path())
     }
 
+    pub fn realearn_pot_preview_template_path() -> Option<&'static Path> {
+        static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
+            let rpp_bytes = include_bytes!(
+                "../../../../resources/template-projects/pot-preview/pot-preview.RPP"
+            );
+            let dest_path = App::get_temp_dir()?.path().join("pot-preview.RPP");
+            fs::write(&dest_path, rpp_bytes).ok()?;
+            Some(dest_path)
+        });
+        PATH.as_ref().map(|p| p.as_path())
+    }
+
     fn realearn_sound_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("sounds")
     }

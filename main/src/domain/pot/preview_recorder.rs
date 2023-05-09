@@ -9,9 +9,13 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub fn record_previews(shared_pot_unit: SharedRuntimePotUnit, preset_ids: Vec<PresetId>) {
+pub fn record_previews(
+    shared_pot_unit: SharedRuntimePotUnit,
+    preset_ids: Vec<PresetId>,
+    preview_rpp: PathBuf,
+) {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        record_previews_async(shared_pot_unit, preset_ids).await?;
+        record_previews_async(shared_pot_unit, preset_ids, &preview_rpp).await?;
         Ok(())
     });
 }
@@ -19,11 +23,12 @@ pub fn record_previews(shared_pot_unit: SharedRuntimePotUnit, preset_ids: Vec<Pr
 async fn record_previews_async(
     shared_pot_unit: SharedRuntimePotUnit,
     preset_ids: Vec<PresetId>,
+    preview_rpp: &Path,
 ) -> Result<(), Box<dyn Error>> {
     let reaper = Reaper::get();
     let reaper_resource_dir = reaper.resource_path();
     // Open preview project template in new tab
-    let project = open_preview_project_in_new_tab();
+    let project = open_preview_project_in_new_tab(preview_rpp);
     moment().await;
     // Prepare destination (first track, first FX)
     let first_track = project
@@ -83,12 +88,9 @@ fn render_to_file(project: Project, full_path: &Path) -> Result<(), Box<dyn Erro
     Ok(())
 }
 
-fn open_preview_project_in_new_tab() -> Project {
+fn open_preview_project_in_new_tab(preview_rpp: &Path) -> Project {
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
-    // TODO-high CONTINUE Change
-
-    let preview_rpp = Path::new("/Users/helgoboss/Documents/projects/dev/realearn/resources/template-projects/pot-preview/pot-preview.RPP");
     let mut behavior = OpenProjectBehavior::default();
     behavior.prompt = false;
     behavior.open_as_template = true;
