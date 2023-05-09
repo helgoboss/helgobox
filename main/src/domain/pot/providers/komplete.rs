@@ -410,7 +410,7 @@ impl PresetDb {
                     SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id
                     FROM k_sound_info i 
                         LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
-                        JOIN ({BANK_SQL_QUERY}) AS parent_bc ON bc.entry1 = parent_bc.entry1
+                        LEFT OUTER JOIN ({BANK_SQL_QUERY}) AS parent_bc ON bc.entry1 = parent_bc.entry1
                     WHERE i.id = ?
                     "#
         );
