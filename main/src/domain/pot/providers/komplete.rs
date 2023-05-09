@@ -857,7 +857,7 @@ impl PresetDb {
                 self.select_nks_filter_items(BANK_SQL_QUERY, None, true)
             }
             SubBank => {
-                let mut sql = "SELECT id, entry1, entry2 FROM k_bank_chain".to_string();
+                let mut sql = "SELECT id, entry1, entry2, entry3 FROM k_bank_chain".to_string();
                 let parent_bank_filter = settings.get(PotFilterKind::Bank);
                 if let Some(FilterItemId(Some(fil))) = parent_bank_filter {
                     if let Fil::Komplete(_) = fil {
@@ -875,13 +875,13 @@ impl PresetDb {
                 // not really important as long as it's always the same in our queries. The result
                 // is deterministic.
                 self.select_nks_filter_items(
-                    "SELECT id, '', category FROM k_category GROUP BY category ORDER BY category",
+                    "SELECT id, '', category, '' FROM k_category GROUP BY category ORDER BY category",
                     None,
                     true,
                 )
             }
             SubCategory => {
-                let mut sql = "SELECT id, category, subcategory FROM k_category".to_string();
+                let mut sql = "SELECT id, category, subcategory, '' FROM k_category".to_string();
                 let parent_category_filter = settings.get(PotFilterKind::Category);
                 if parent_category_filter.is_some() {
                     sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
@@ -890,7 +890,7 @@ impl PresetDb {
                 self.select_nks_filter_items(&sql, parent_category_filter, false)
             }
             Mode => self.select_nks_filter_items(
-                "SELECT id, '', name FROM k_mode ORDER BY name",
+                "SELECT id, '', name, '' FROM k_mode ORDER BY name",
                 None,
                 true,
             ),
@@ -933,12 +933,21 @@ impl PresetDb {
         };
         let existing_filter_items = rows.map(|row| {
             let id: u32 = row.get(0)?;
-            let name: Option<String> = row.get(2)?;
+            let parent_name: Option<String> = row.get(1)?;
+            let name_part_one: Option<String> = row.get(2)?;
+            let name_part_two: Option<String> = row.get(3)?;
+            let name = none_if_empty(name_part_one).map(|one| {
+                if let Some(two) = none_if_empty(name_part_two) {
+                    format!("{one} / {two}")
+                } else {
+                    one
+                }
+            });
             let item = FilterItem {
                 persistent_id: name.clone().unwrap_or_default(),
                 id: FilterItemId(Some(Fil::Komplete(id))),
                 name,
-                parent_name: row.get(1)?,
+                parent_name,
                 icon: None,
                 more_info: None,
             };
@@ -1048,7 +1057,7 @@ impl<'a> Display for Sql<'a> {
 }
 
 const BANK_SQL_QUERY: &str =
-    "SELECT id, '', entry1 FROM k_bank_chain GROUP BY entry1 ORDER BY entry1";
+    "SELECT id, '', entry1, '' FROM k_bank_chain GROUP BY entry1 ORDER BY entry1";
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
 const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
 const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
@@ -1082,3 +1091,12 @@ const EXTENSION_TO_PRODUCT_NAME_MAPPING: &[(&str, &str)] = &[
     // ("nfm8", "Fm8"),
     // ("ngrr", "Guitar Rig"),
 ];
+
+fn none_if_empty(value: Option<String>) -> Option<String> {
+    let value = value?;
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
