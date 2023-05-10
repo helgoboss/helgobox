@@ -123,7 +123,7 @@ pub struct Plugin {
     /// Contains data relevant for all kinds of plug-ins.
     pub common: PluginCommon,
     /// Contains data specific to certain kinds of plug-ins.
-    pub kind: PluginKind,
+    pub kind: SuperPluginKind,
 }
 
 #[derive(Clone, Debug)]
@@ -147,7 +147,7 @@ pub struct PluginCore {
 
 impl Display for PluginCommon {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(self.core.id.kind_name())?;
+        f.write_str(self.core.id.kind().name())?;
         if let Some(ProductKind::Instrument) = self.core.product_kind {
             f.write_str("i")?;
         }
@@ -157,7 +157,7 @@ impl Display for PluginCommon {
 }
 
 #[derive(Clone, Debug)]
-pub enum PluginKind {
+pub enum SuperPluginKind {
     Vst(VstPlugin),
     Clap(ClapPlugin),
     Js(JsPlugin),
@@ -262,7 +262,7 @@ fn crawl_js_plugins(
                         product_id: product_accumulator.add_other_product(js_desc, product_kind),
                     },
                 },
-                kind: PluginKind::Js(JsPlugin {
+                kind: SuperPluginKind::Js(JsPlugin {
                     path: relative_path.to_string(),
                 }),
             };
@@ -337,7 +337,7 @@ fn crawl_clap_plugins_in_ini_file(
                             },
                             name: plugin_name.to_string(),
                         },
-                        kind: PluginKind::Clap(ClapPlugin {
+                        kind: SuperPluginKind::Clap(ClapPlugin {
                             file_name: file_name.to_string(),
                             filetime: checksum.to_string(),
                             id: key.to_string(),
@@ -406,7 +406,7 @@ fn crawl_vst_plugins_in_ini_file(
                     },
                     name,
                 },
-                kind: PluginKind::Vst(VstPlugin {
+                kind: SuperPluginKind::Vst(VstPlugin {
                     safe_file_name,
                     shell_qualifier,
                     checksum,

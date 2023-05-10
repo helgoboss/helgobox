@@ -9,7 +9,13 @@ use enumset::EnumSet;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::fmt::{Display, Formatter, Write};
+use std::str::FromStr;
 
+/// An ID for uniquely identifying a preset along with its corresponding database.
+///
+/// This ID is stable only at runtime and only until the database is refreshed.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PresetId {
     pub database_id: DatabaseId,
@@ -25,6 +31,9 @@ impl PresetId {
     }
 }
 
+/// An ID for uniquely identifying a preset within a certain database.
+///
+/// This ID is stable only at runtime and only until the database is refreshed.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct InnerPresetId(pub u32);
 
@@ -435,5 +444,154 @@ impl CurrentPreset {
 
     pub fn has_params(&self) -> bool {
         !self.macro_param_banks.is_empty()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct PersistentDatabaseId(String);
+
+impl PersistentDatabaseId {
+    pub const fn new(raw_id: String) -> Self {
+        PersistentDatabaseId(raw_id)
+    }
+
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct PersistentInnerPresetId(String);
+
+impl PersistentInnerPresetId {
+    pub fn new(raw_id: String) -> Self {
+        Self(raw_id)
+    }
+
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}
+
+/// A preset ID that survives restarts and rescans.
+///
+/// It's more expensive to clone, hash etc. than [`PresetId`]. That's why we should only use it
+/// for purposes where persistence matters, e.g. when saving favorites, currently selected preset
+/// or for associating preview files.
+///
+/// The schema is `<DATABASE_ID>|<INNER_PRESET_ID>`. The pipe character `|` can also be used within
+/// the inner preset ID, so in order to extract the database ID, it's important to split at the
+/// first pipe character and ignore the other ones. In general, it should be avoided to use
+/// the pipe character in the database ID or inner preset ID, but it's still important to escape it.
+///
+/// # Examples
+///
+/// - `defaults|vst2|1967946098`
+/// - `track-templates|Synths/Lead.RTrackTemplate`
+/// - `fx-chains|Synths/Sun.RfxChain`
+/// - `fx-presets|vst3-Surge XT.ini|My Preset`
+/// - `komplete|77c5507f5d0b421ea93eeb4cee4b6f99`
+/// - `n98h1f9unp92|maojiao/2023-02-03-ben/2023-02-03-ben.RPP|0FF9F738-7CF6-8A49-9AEA-A9AF26DF9C46`
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct PersistentPresetId {
+    db_id: PersistentDatabaseId,
+    inner_preset_id: PersistentInnerPresetId,
+}
+
+impl PersistentPresetId {
+    pub fn new(db_id: PersistentDatabaseId, inner_preset_id: PersistentInnerPresetId) -> Self {
+        Self {
+            db_id,
+            inner_preset_id,
+        }
+    }
+}
+
+impl Display for PersistentPresetId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        // Database IDs ideally shouldn't contain pipe characters, but if they do, we escaped them.
+        let escaped_db_id = PipeEscaped(self.db_id.get());
+        write!(f, "{escaped_db_id}|{}", self.inner_preset_id.get())
+    }
+}
+
+impl FromStr for PersistentPresetId {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (escaped_db_id, inner_preset_id) = s
+            .split_once(unescaped_pipe_pattern())
+            .ok_or("no | separator found in persistent preset ID")?;
+        // Unescaped pipe character (in the unlikely case that there was any)
+        let db_id = unescape_pipes(escaped_db_id);
+        let id = Self {
+            db_id: PersistentDatabaseId(db_id),
+            inner_preset_id: PersistentInnerPresetId(inner_preset_id.to_string()),
+        };
+        Ok(id)
+    }
+}
+
+pub fn unescaped_pipe_pattern() -> impl FnMut(char) -> bool {
+    unescaped_char_pattern('|')
+}
+
+/// A Rust string matching pattern that matches the given character, but only if it's not preceded
+/// by a backslash.
+fn unescaped_char_pattern(needle: char) -> impl FnMut(char) -> bool {
+    let mut prev_char = None;
+    move |c: char| {
+        let matches = if c == needle {
+            prev_char != Some('\\')
+        } else {
+            false
+        };
+        prev_char = Some(c);
+        matches
+    }
+}
+
+/// Converts "hello\|fellow" to "hello|fellow"
+pub fn unescape_pipes(escaped: &str) -> String {
+    escaped.replace(r#"\|"#, "|")
+}
+
+pub struct PipeEscaped<'a>(pub &'a str);
+
+impl<'a> Display for PipeEscaped<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for c in self.0.chars() {
+            if c == '|' {
+                f.write_str(r#"\|"#)?;
+            } else {
+                f.write_char(c)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::pot::{PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId};
+
+    #[test]
+    fn format_persistent_preset_id() {
+        let id = PersistentPresetId::new(
+            PersistentDatabaseId::new("test|hello".into()),
+            PersistentInnerPresetId::new("vst2|124135".into()),
+        );
+        assert_eq!(id.to_string(), r#"test\|hello|vst2|124135"#);
+    }
+
+    #[test]
+    fn parse_persistent_preset_id() {
+        let expression = r#"test\|hello|vst2|124135"#;
+        let parsed_id: PersistentPresetId = expression.parse().unwrap();
+        let expected_id = PersistentPresetId::new(
+            PersistentDatabaseId::new("test|hello".into()),
+            PersistentInnerPresetId::new("vst2|124135".into()),
+        );
+        assert_eq!(parsed_id, expected_id);
     }
 }

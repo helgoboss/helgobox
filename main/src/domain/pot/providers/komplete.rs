@@ -7,7 +7,8 @@ use crate::domain::pot::provider_database::{
 };
 use crate::domain::pot::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
-    Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, Preset, PresetCommon,
+    PresetKind, ProductId, SearchEvaluator,
 };
 use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
@@ -27,6 +28,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub struct KompleteDatabase {
+    persistent_id: PersistentDatabaseId,
     primary_preset_db: Mutex<PresetDb>,
     nks_bank_id_by_product_id: HashMap<ProductId, u32>,
     nks_product_id_by_bank_id: HashMap<u32, ProductId>,
@@ -45,6 +47,7 @@ pub struct KompleteDatabase {
 impl KompleteDatabase {
     pub fn open() -> Result<Self, Box<dyn Error>> {
         let db = Self {
+            persistent_id: PersistentDatabaseId::new("komplete".to_string()),
             primary_preset_db: PresetDb::open()?,
             nks_bank_id_by_product_id: Default::default(),
             nks_product_id_by_bank_id: Default::default(),
@@ -74,7 +77,7 @@ impl KompleteDatabase {
         preset_db: &PresetDb,
         id: InnerPresetId,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
-        preset_db.find_preset_by_id(id, |bank_id, extension| {
+        preset_db.find_preset_by_id(&self.persistent_id, id, |bank_id, extension| {
             // Try to translate bank ID - a number representing either a plug-in product like
             // "Zebra2" or a sub product like "Vintage Organs". If it represents a plug-in product,
             // translating the bank ID can work (if we have that plug-in installed).
@@ -94,6 +97,10 @@ impl KompleteDatabase {
 }
 
 impl Database for KompleteDatabase {
+    fn persistent_id(&self) -> &PersistentDatabaseId {
+        &self.persistent_id
+    }
+
     fn name(&self) -> Cow<str> {
         "Komplete".into()
     }
@@ -402,6 +409,7 @@ impl PresetDb {
 
     pub fn find_preset_by_id(
         &self,
+        persistent_db_id: &PersistentDatabaseId,
         id: InnerPresetId,
         translate_bank_or_ext_to_product_id: impl FnOnce(Option<u32>, &str) -> Option<ProductId>,
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
@@ -420,13 +428,16 @@ impl PresetDb {
                 let path: String = row.get(1)?;
                 let path: PathBuf = path.into();
                 let file_ext: String = row.get(2)?;
-                let persistent_id: String = row.get(3)?;
+                let favorite_id: String = row.get(3)?;
                 let product_name: Option<String> = row.get(4)?;
                 let bank_id: Option<u32> = row.get(5)?;
                 let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
                 let preview_file = determine_preview_file(&path);
                 let common = PresetCommon {
-                    persistent_id,
+                    persistent_id: PersistentPresetId::new(
+                        persistent_db_id.clone(),
+                        PersistentInnerPresetId::new(favorite_id),
+                    ),
                     name,
                     // In Komplete, "product" refers either to a top-level "plug-in product"
                     // (such as Zebra or Massive) or to a "product within a plug-in product"

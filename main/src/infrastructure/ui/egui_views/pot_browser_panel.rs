@@ -7,9 +7,9 @@ use crate::domain::pot::preset_crawler::{
 };
 use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
-    find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker, ChangeHint, CurrentPreset,
-    Debounce, DestinationTrackDescriptor, Filters, LoadPresetError, LoadPresetOptions,
-    LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetCommon, PresetKind,
+    create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
+    ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetKind,
     RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
@@ -1079,13 +1079,11 @@ fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, u
                     .filter(|p| p.common.core.product_id == *product_id);
                 for plugin in product_plugins {
                     if ui.button(&plugin.common.to_string()).clicked() {
-                        let factory_preset = Preset {
-                            common: PresetCommon {
-                                name: data.preset.common.name.clone(),
-                                ..Default::default()
-                            },
-                            kind: PresetKind::DefaultFactory(plugin.common.core.id),
-                        };
+                        let factory_preset = create_plugin_factory_preset(
+                            &plugin.common,
+                            data.preset.common.persistent_id.clone(),
+                            data.preset.common.name.clone(),
+                        );
                         let options = LoadPresetOptions {
                             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
                         };

@@ -1,8 +1,8 @@
 use crate::base::{blocking_lock_arc, file_util, hash_util, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
-    parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher, PluginId,
-    Preset,
+    parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher,
+    PersistentPresetId, PluginId,
 };
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
@@ -286,13 +286,13 @@ fn determine_preset_file_destination(
     preset_name: &str,
     plugin_id: Option<&PluginId>,
 ) -> PathBuf {
-    if let Some(preset) = find_shimmable_preset(plugin_id, preset_name) {
+    if let Some(persistent_preset_id) = find_shimmable_preset(plugin_id, preset_name) {
         // Matched with existing unsupported preset. Create RfxChain file, a so called shim file,
         // but not in the FX chain directory because we don't want it to show up in the FX chain
         // database. Instead, we want the original preset (probably in the Komplete database)
         // to become loadable. There's logic in our preset loading mechanism that looks for
         // a shim file if it realizes that the preset can't be loaded. A kind of fallback!
-        get_shim_file_path(reaper_resource_dir, &preset)
+        get_shim_file_path(reaper_resource_dir, &persistent_preset_id)
     } else {
         // No match with existing unsupported preset
         let sanitized_effect_name = sanitize_filename::sanitize(&fx_info.effect_name);
@@ -306,7 +306,10 @@ fn determine_preset_file_destination(
 }
 
 /// Returns the file name of the original preset.
-fn find_shimmable_preset(plugin_id: Option<&PluginId>, preset_name: &str) -> Option<Preset> {
+fn find_shimmable_preset(
+    plugin_id: Option<&PluginId>,
+    preset_name: &str,
+) -> Option<PersistentPresetId> {
     let plugin_id = plugin_id?;
     pot_db().find_unsupported_preset_matching(plugin_id, preset_name)
 }
@@ -358,10 +361,10 @@ async fn millis(amount: u64) {
 
 const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
 
-pub fn get_shim_file_path(reaper_resource_dir: &Path, preset: &Preset) -> PathBuf {
-    let hash = hash_util::calculate_persistent_non_crypto_hash_one_shot(
-        preset.common.persistent_id.as_bytes(),
-    );
+pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPresetId) -> PathBuf {
+    // We don't need to
+    let hash =
+        hash_util::calculate_persistent_non_crypto_hash_one_shot(preset_id.to_string().as_bytes());
     let file_name = file_util::convert_hash_to_dir_structure(hash, ".RfxChain");
     reaper_resource_dir
         .join("Helgoboss/Pot/shims")

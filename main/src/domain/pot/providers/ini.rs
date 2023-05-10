@@ -2,13 +2,14 @@ use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    FilterInput, InnerBuildInput, InnerPresetId, InternalPresetKind, Preset, PresetCommon,
-    PresetKind, SimplePluginKind,
+    FilterInput, InnerBuildInput, InnerPresetId, InternalPresetKind, PersistentDatabaseId,
+    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginKind, Preset, PresetCommon,
+    PresetKind,
 };
 use std::borrow::Cow;
 
 use crate::base::hash_util::{PersistentHash, PersistentHasher};
-use crate::domain::pot::plugins::{PluginCore, PluginKind};
+use crate::domain::pot::plugins::{PluginCore, SuperPluginKind};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use ini::Ini;
@@ -18,19 +19,25 @@ use std::error::Error;
 use std::hash::Hasher;
 use std::iter;
 use std::path::PathBuf;
+use std::str::FromStr;
 use walkdir::WalkDir;
 
 pub struct IniDatabase {
+    persistent_id: PersistentDatabaseId,
     root_dir: PathBuf,
     entries: Vec<PresetEntry>,
 }
 
 impl IniDatabase {
-    pub fn open(root_dir: PathBuf) -> Result<Self, Box<dyn Error>> {
+    pub fn open(
+        persistent_id: PersistentDatabaseId,
+        root_dir: PathBuf,
+    ) -> Result<Self, Box<dyn Error>> {
         if !root_dir.try_exists()? {
             return Err("path to presets root directory doesn't exist".into());
         }
         let db = Self {
+            persistent_id,
             entries: Default::default(),
             root_dir,
         };
@@ -58,6 +65,8 @@ impl IniDatabase {
 
 struct PresetEntry {
     preset_name: String,
+    plugin_kind: PluginKind,
+    /// Example: "Massive"
     plugin_identifier: String,
     /// If `None`, it means the corresponding plug-in is not installed/scanned.
     plugin: Option<PluginCore>,
@@ -65,6 +74,10 @@ struct PresetEntry {
 }
 
 impl Database for IniDatabase {
+    fn persistent_id(&self) -> &PersistentDatabaseId {
+        &self.persistent_id
+    }
+
     fn name(&self) -> Cow<str> {
         "FX presets".into()
     }
@@ -98,13 +111,7 @@ impl Database for IniDatabase {
                 // - clap-org_surge-synth-team_surge-xt.ini
                 // - js-analysis_hund.ini
                 let captures = file_name_regex.captures(file_name)?;
-                let simple_plugin_kind = match captures.get(1)?.as_str() {
-                    "vst" => SimplePluginKind::Vst2,
-                    "vst3" => SimplePluginKind::Vst3,
-                    "clap" => SimplePluginKind::Clap,
-                    "js" => SimplePluginKind::Js,
-                    _ => return None,
-                };
+                let plugin_kind = PluginKind::from_str(captures.get(1)?.as_str()).ok()?;
                 let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;
@@ -122,11 +129,11 @@ impl Database for IniDatabase {
                         _ => (plugin_identifier, None),
                     };
                 let plugin = ctx.plugin_db.plugins().find(|p| {
-                    if p.common.core.id.simple_kind() != simple_plugin_kind {
+                    if p.common.core.id.kind() != plugin_kind {
                         return false;
                     }
                     match &p.kind {
-                        PluginKind::Vst(k) => {
+                        SuperPluginKind::Vst(k) => {
                             let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
                             let safe_main_plugin_identifier =
                                 unsafe_char_regex.replace(main_plugin_identifier, "_");
@@ -140,14 +147,14 @@ impl Database for IniDatabase {
                             }
                             true
                         }
-                        PluginKind::Clap(k) => {
+                        SuperPluginKind::Clap(k) => {
                             let safe_plugin_id = k.id.replace('.', "_");
                             if plugin_identifier != safe_plugin_id {
                                 return false;
                             }
                             true
                         }
-                        PluginKind::Js(k) => {
+                        SuperPluginKind::Js(k) => {
                             let safe_path = k.path.replace('/', "_");
                             if plugin_identifier != safe_path {
                                 return false;
@@ -165,9 +172,14 @@ impl Database for IniDatabase {
                     let section_name = format!("Preset{i}");
                     let section = ini_file.section(Some(section_name))?;
                     let name = section.get("Name")?;
+                    // Calculate hash. At first add info about the plug-in. Without that info,
+                    // the content could be ambiguous.
+                    let mut hasher = PersistentHasher::new();
+                    let plugin_kind_str = plugin_kind.as_ref();
+                    let plugin_info = format!("{plugin_kind_str}-{plugin_identifier}");
+                    hasher.write(plugin_info.as_bytes());
                     // Calculate hash out of data properties ("Data", "Data_1", "Data_2", ...)
                     let data = section.get("Data")?;
-                    let mut hasher = PersistentHasher::new();
                     hasher.write(data.as_bytes());
                     let mut i = 1;
                     while let Some(more_data) = section.get(format!("Data{i}")) {
@@ -177,6 +189,7 @@ impl Database for IniDatabase {
                     // Build entry
                     let preset_entry = PresetEntry {
                         preset_name: name.to_string(),
+                        plugin_kind,
                         plugin_identifier: plugin_identifier.clone(),
                         plugin: plugin.map(|p| p.common.core.clone()),
                         content_hash: Some(hasher.digest_128()),
@@ -229,7 +242,10 @@ impl Database for IniDatabase {
             .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.id));
         let preset = Preset {
             common: PresetCommon {
-                persistent_id: "".to_string(),
+                persistent_id: PersistentPresetId::new(
+                    self.persistent_id().clone(),
+                    create_persistent_inner_id(&preset_entry),
+                ),
                 name: preset_entry.preset_name.clone(),
                 product_ids: preset_entry
                     .plugin
@@ -253,4 +269,13 @@ impl Database for IniDatabase {
         };
         Some(preset)
     }
+}
+
+/// Example: `vst3-Surge XT.ini|My Preset`
+fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPresetId {
+    let plugin_kind = preset_entry.plugin_kind.as_ref();
+    let plugin_identifier = &preset_entry.plugin_identifier;
+    let escaped_preset_name = PipeEscaped(&preset_entry.preset_name);
+    let id = format!("{plugin_kind}-{plugin_identifier}.ini|{escaped_preset_name}");
+    PersistentInnerPresetId::new(id)
 }

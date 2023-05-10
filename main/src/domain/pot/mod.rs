@@ -42,7 +42,7 @@ pub use pot_database::*;
 
 mod plugin_id;
 mod plugins;
-use crate::domain::pot::plugins::PluginCore;
+use crate::domain::pot::plugins::{PluginCommon, PluginCore};
 use crate::domain::pot::provider_database::{
     DatabaseId, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
 };
@@ -628,7 +628,8 @@ impl RuntimePotUnit {
             Err(LoadPresetError::UnsupportedPresetFormat { file_extension, .. }) => {
                 // Unsupported format. But maybe we have a shim file?
                 let reaper_resource_dir = Reaper::get().resource_path();
-                let shim_file_path = get_shim_file_path(&reaper_resource_dir, preset);
+                let shim_file_path =
+                    get_shim_file_path(&reaper_resource_dir, &preset.common.persistent_id);
                 if !shim_file_path.exists() {
                     // Give up
                     return Err(LoadPresetError::UnsupportedPresetFormat {
@@ -1019,6 +1020,11 @@ impl FilterItem {
     }
 }
 
+/// Contains meta-data about a preset.
+///
+/// Although the preset usually doesn't contain the preset chunk (the content to actually load the
+/// preset), it's still a bit heavy-weight, containing much meta-data and stuff. So we should
+/// not have a list of all presets in memory, for example.
 #[derive(Clone, Debug)]
 pub struct Preset {
     pub common: PresetCommon,
@@ -1035,9 +1041,13 @@ impl Preset {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct PresetCommon {
-    pub persistent_id: String,
+    /// ID of the preset that survives restarts and even rescans.
+    ///
+    /// It might be tempting to let the persistent ID be based on the contents of the preset
+    /// but that would be wrong. It also needs to survive modifications of the preset!
+    pub persistent_id: PersistentPresetId,
     pub name: String,
     pub product_ids: Vec<ProductId>,
     /// Meaning depends on the database.
@@ -1080,7 +1090,9 @@ impl PresetCommon {
     pub fn content_or_id_hash(&self) -> PersistentHash {
         self.content_hash.unwrap_or_else(|| {
             // If there's none, we take the persistent ID.
-            hash_util::calculate_persistent_non_crypto_hash_one_shot(self.persistent_id.as_bytes())
+            hash_util::calculate_persistent_non_crypto_hash_one_shot(
+                self.persistent_id.to_string().as_bytes(),
+            )
         })
     }
 }
@@ -1312,7 +1324,7 @@ fn ensure_fx_has_correct_type(
         }
         Some(fx) => {
             let fx_info = fx.info()?;
-            if fx_info.id == plugin_id.formatted_for_reaper() {
+            if fx_info.id == plugin_id.content_formatted_for_reaper() {
                 FxEnsureOutput {
                     fx,
                     op: FxEnsureOp::Same,
@@ -1335,11 +1347,12 @@ fn insert_fx_by_plugin_id(
     plugin_id: PluginId,
     destination: &Destination,
 ) -> Result<Fx, Box<dyn Error>> {
+    let kind = plugin_id.kind();
     let name = format!(
         "{}{}{}",
-        plugin_id.add_by_name_prefix_fix(),
-        plugin_id.reaper_prefix(),
-        plugin_id.formatted_for_reaper()
+        kind.reaper_add_by_name_prefix_fix(),
+        kind.formatted_for_reaper(),
+        PluginIdContentInReaperFormat(&plugin_id)
     );
     let fx = destination
         .chain
@@ -1534,5 +1547,23 @@ pub fn find_preview_file<'a>(
         Some(db_specific_preview_file.into())
     } else {
         None
+    }
+}
+
+pub fn create_plugin_factory_preset(
+    plugin: &PluginCommon,
+    persistent_id: PersistentPresetId,
+    preset_name: String,
+) -> Preset {
+    Preset {
+        common: PresetCommon {
+            persistent_id,
+            name: preset_name,
+            product_ids: vec![plugin.core.product_id],
+            product_name: Some(plugin.to_string()),
+            content_hash: None,
+            db_specific_preview_file: None,
+        },
+        kind: PresetKind::DefaultFactory(plugin.core.id),
     }
 }

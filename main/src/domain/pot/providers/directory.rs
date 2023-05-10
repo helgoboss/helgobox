@@ -2,8 +2,9 @@ use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PluginId, Preset,
-    PresetCommon, PresetKind,
+    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
+    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
+    PresetKind,
 };
 use std::borrow::Cow;
 
@@ -25,6 +26,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 pub struct DirectoryDatabase {
+    persistent_id: PersistentDatabaseId,
     root_dir: PathBuf,
     valid_extensions: HashSet<&'static OsStr>,
     name: &'static str,
@@ -33,6 +35,7 @@ pub struct DirectoryDatabase {
 }
 
 pub struct DirectoryDbConfig {
+    pub persistent_id: PersistentDatabaseId,
     pub root_dir: PathBuf,
     pub valid_extensions: &'static [&'static str],
     pub name: &'static str,
@@ -45,6 +48,7 @@ impl DirectoryDatabase {
             return Err("path to root directory doesn't exist".into());
         }
         let db = Self {
+            persistent_id: config.persistent_id,
             name: config.name,
             entries: Default::default(),
             root_dir: config.root_dir,
@@ -83,6 +87,10 @@ struct PresetEntry {
 }
 
 impl Database for DirectoryDatabase {
+    fn persistent_id(&self) -> &PersistentDatabaseId {
+        &self.persistent_id
+    }
+
     fn name(&self) -> Cow<str> {
         self.name.into()
     }
@@ -161,7 +169,10 @@ impl Database for DirectoryDatabase {
         let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
             common: PresetCommon {
-                persistent_id: preset_entry.relative_path.clone(),
+                persistent_id: PersistentPresetId::new(
+                    self.persistent_id().clone(),
+                    create_persistent_inner_id(preset_entry),
+                ),
                 name: preset_entry.preset_name.clone(),
                 product_ids: preset_entry
                     .plugin_cores
@@ -246,4 +257,10 @@ fn detect_plugin_from_rxml_line<'a>(
     }
     let plugin_id = PluginId::parse_from_rxml_line(line).ok()?;
     plugin_db.find_plugin_by_id(&plugin_id)
+}
+
+/// Example: `Synths/Lead.RTrackTemplate`
+fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPresetId {
+    let escaped_path = PipeEscaped(preset_entry.relative_path.as_str());
+    PersistentInnerPresetId::new(escaped_path.to_string())
 }

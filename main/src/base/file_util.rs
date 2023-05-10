@@ -24,7 +24,7 @@ pub fn convert_hash_to_dir_structure(hash: PersistentHash, suffix: &str) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::AsBytes;
+    use crate::base::hash_util;
 
     #[test]
     fn hash_to_dir_structure_simple() {

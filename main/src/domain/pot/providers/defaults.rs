@@ -2,7 +2,8 @@ use crate::domain::pot::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::domain::pot::{
-    FilterInput, InnerBuildInput, InnerPresetId, Preset, PresetCommon, PresetKind,
+    create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId, Preset,
 };
 use std::borrow::Cow;
 
@@ -14,9 +15,18 @@ use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::iter;
 
-#[derive(Default)]
 pub struct DefaultsDatabase {
+    persistent_id: PersistentDatabaseId,
     plugins: Vec<PluginCommon>,
+}
+
+impl Default for DefaultsDatabase {
+    fn default() -> Self {
+        Self {
+            persistent_id: PersistentDatabaseId::new("fx-defaults".to_string()),
+            plugins: vec![],
+        }
+    }
 }
 
 impl DefaultsDatabase {
@@ -44,6 +54,10 @@ impl DefaultsDatabase {
 }
 
 impl Database for DefaultsDatabase {
+    fn persistent_id(&self) -> &PersistentDatabaseId {
+        &self.persistent_id
+    }
+
     fn name(&self) -> Cow<str> {
         "FX defaults".into()
     }
@@ -97,19 +111,19 @@ impl Database for DefaultsDatabase {
 
     fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let plugin = self.plugins.get(preset_id.0 as usize)?;
-        let preset = Preset {
-            common: PresetCommon {
-                persistent_id: "".to_string(),
-                name: PRESET_NAME.to_string(),
-                product_ids: vec![plugin.core.product_id],
-                product_name: Some(plugin.to_string()),
-                content_hash: None,
-                db_specific_preview_file: None,
-            },
-            kind: PresetKind::DefaultFactory(plugin.core.id),
-        };
+        let persistent_id = PersistentPresetId::new(
+            self.persistent_id.clone(),
+            create_persistent_inner_id(&plugin.core.id),
+        );
+        let preset = create_plugin_factory_preset(plugin, persistent_id, PRESET_NAME.to_string());
         Some(preset)
     }
 }
 
 const PRESET_NAME: &str = "<Default>";
+
+/// Example: `vst2|1967946098`
+fn create_persistent_inner_id(plugin_id: &PluginId) -> PersistentInnerPresetId {
+    let id = plugin_id.to_string();
+    PersistentInnerPresetId::new(id)
+}

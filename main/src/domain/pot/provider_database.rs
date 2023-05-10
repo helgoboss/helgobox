@@ -1,17 +1,20 @@
 use crate::domain::pot::plugins::{PluginDatabase, ProductKind};
 use crate::domain::pot::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, Preset, ProductId,
+    InnerPresetId, PersistentDatabaseId, Preset, ProductId,
 };
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 use std::error::Error;
 
+/// A database ID that's only stable during the runtime of ReaLearn.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct DatabaseId(pub u32);
 
 pub trait Database {
+    fn persistent_id(&self) -> &PersistentDatabaseId;
+
     fn name(&self) -> Cow<str>;
 
     fn description(&self) -> Cow<str>;

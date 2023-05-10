@@ -1,4 +1,6 @@
 use crate::domain::LimitedAsciiString;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum PluginId {
@@ -76,63 +78,91 @@ impl PluginId {
         }
     }
 
-    pub fn kind_name(&self) -> &'static str {
+    pub fn kind(&self) -> PluginKind {
         match self {
-            PluginId::Vst2 { .. } => "VST",
-            PluginId::Vst3 { .. } => "VST3",
-            PluginId::Clap { .. } => "CLAP",
-            PluginId::Js { .. } => "JS",
+            PluginId::Vst2 { .. } => PluginKind::Vst2,
+            PluginId::Vst3 { .. } => PluginKind::Vst3,
+            PluginId::Clap { .. } => PluginKind::Clap,
+            PluginId::Js { .. } => PluginKind::Js,
         }
     }
 
-    /// Need to put some random string in front of "<" due to bug in REAPER < 6.69,
-    /// otherwise loading by VST2 magic number doesn't work.
-    pub fn add_by_name_prefix_fix(&self) -> &'static str {
-        match self {
-            PluginId::Vst2 { .. } | PluginId::Vst3 { .. } => "i7zh34z",
-            PluginId::Clap { .. } | PluginId::Js { .. } => "",
-        }
+    pub fn content_formatted_for_reaper(&self) -> String {
+        PluginIdContentInReaperFormat(self).to_string()
     }
+}
 
-    pub fn reaper_prefix(&self) -> &'static str {
-        match self {
-            PluginId::Vst2 { .. } => "<",
-            PluginId::Vst3 { .. } => "{",
-            PluginId::Clap { .. } | PluginId::Js { .. } => "",
-        }
-    }
+pub struct PluginIdContentInReaperFormat<'a>(pub &'a PluginId);
 
-    pub fn formatted_for_reaper(&self) -> String {
-        match self {
-            PluginId::Clap { clap_id } => clap_id.to_string(),
-            PluginId::Js { js_id } => js_id.to_string(),
-            PluginId::Vst2 { vst_magic_number } => vst_magic_number.to_string(),
+impl<'a> Display for PluginIdContentInReaperFormat<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.0 {
+            PluginId::Clap { clap_id } => clap_id.fmt(f),
+            PluginId::Js { js_id } => js_id.fmt(f),
+            PluginId::Vst2 { vst_magic_number } => vst_magic_number.fmt(f),
             PluginId::Vst3 { vst_uid } => {
                 // D39D5B69 D6AF42FA 12345678 534D4433
-                format!(
+                write!(
+                    f,
                     "{:X}{:X}{:X}{:X}",
                     vst_uid[0], vst_uid[1], vst_uid[2], vst_uid[3],
                 )
             }
         }
     }
+}
 
-    pub fn simple_kind(&self) -> SimplePluginKind {
-        match self {
-            PluginId::Vst2 { .. } => SimplePluginKind::Vst2,
-            PluginId::Vst3 { .. } => SimplePluginKind::Vst3,
-            PluginId::Clap { .. } => SimplePluginKind::Clap,
-            PluginId::Js { .. } => SimplePluginKind::Js,
-        }
+/// Example: `vst2|1967946098`
+impl Display for PluginId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let kind = self.kind();
+        let kind = kind.as_ref();
+        let content = PluginIdContentInReaperFormat(self);
+        write!(f, "{kind}|{content}")
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum SimplePluginKind {
+// TODO-high CONTINUE Replace enum-iterator with strum everywhere
+/// When adding a new variant, the serialization should correspond to the string which is used
+/// as prefix for the ini file names in "REAPER_RESOURCE_PATH/presets".
+#[derive(Copy, Clone, Eq, PartialEq, Debug, strum_macros::AsRefStr, strum_macros::EnumString)]
+pub enum PluginKind {
+    #[strum(serialize = "vst2")]
     Vst2,
+    #[strum(serialize = "vst3")]
     Vst3,
+    #[strum(serialize = "clap")]
     Clap,
+    #[strum(serialize = "js")]
     Js,
+}
+
+impl PluginKind {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Vst2 => "VST",
+            Self::Vst3 => "VST3",
+            Self::Clap => "CLAP",
+            Self::Js => "JS",
+        }
+    }
+
+    /// Need to put some random string in front of "<" due to bug in REAPER < 6.69,
+    /// otherwise loading by VST2 magic number doesn't work.
+    pub fn reaper_add_by_name_prefix_fix(&self) -> &'static str {
+        match self {
+            Self::Vst2 | Self::Vst3 => "i7zh34z",
+            Self::Clap | Self::Js => "",
+        }
+    }
+
+    pub fn formatted_for_reaper(&self) -> &'static str {
+        match self {
+            Self::Vst2 => "<",
+            Self::Vst3 => "{",
+            Self::Clap | Self::Js => "",
+        }
+    }
 }
 
 /// "1397572658" => 1397572658

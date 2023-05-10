@@ -9,8 +9,8 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput, PluginId,
-    Preset, PresetId, Stats,
+    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput,
+    PersistentDatabaseId, PersistentPresetId, PluginId, Preset, PresetId, Stats,
 };
 
 use crate::domain::pot::plugins::PluginDatabase;
@@ -73,6 +73,7 @@ impl PotDatabase {
         let komplete_db = KompleteDatabase::open();
         let rfx_chain_db = {
             let config = DirectoryDbConfig {
+                persistent_id: PersistentDatabaseId::new("fx-chains".to_string()),
                 root_dir: resource_path.join("FXChains"),
                 valid_extensions: &["RfxChain"],
                 name: "FX chains",
@@ -82,14 +83,19 @@ impl PotDatabase {
         };
         let track_template_db = {
             let config = DirectoryDbConfig {
+                persistent_id: PersistentDatabaseId::new("track-templates".to_string()),
                 root_dir: resource_path.join("TrackTemplates"),
                 valid_extensions: &["RTrackTemplate"],
                 name: "Track templates",
-                description: "All the RTrackTemplate files in your TrackTemplates directory.\nDoesn't load the complete track, only its FX chain!",
+                description: "All the RTrackTemplate files in your TrackTemplates directory.\n\
+                Doesn't load the complete track, only its FX chain!",
             };
             DirectoryDatabase::open(config)
         };
-        let ini_db = IniDatabase::open(resource_path.join("presets"));
+        let ini_db = IniDatabase::open(
+            PersistentDatabaseId::new("fx-presets".to_string()),
+            resource_path.join("presets"),
+        );
         let defaults_db = DefaultsDatabase::open();
         let databases = [
             box_db(komplete_db),
@@ -303,6 +309,18 @@ impl PotDatabase {
         Ok(r)
     }
 
+    pub fn with_db<R>(
+        &self,
+        db_id: DatabaseId,
+        f: impl FnOnce(&dyn Database) -> R,
+    ) -> Result<R, &'static str> {
+        let db = self.databases.get(&db_id).ok_or("database not found")?;
+        let db = blocking_read_lock(&db, "PotDatabase with_db");
+        let db = db.as_ref().map_err(|_| "provider database not opened")?;
+        let r = f(&**db);
+        Ok(r)
+    }
+
     pub fn try_with_db<R>(
         &self,
         db_id: DatabaseId,
@@ -342,7 +360,7 @@ impl PotDatabase {
         &self,
         plugin_id: &PluginId,
         preset_name: &str,
-    ) -> Option<Preset> {
+    ) -> Option<PersistentPresetId> {
         let product_id = {
             let plugin_db = blocking_read_lock(
                 &self.plugin_db,
@@ -356,7 +374,8 @@ impl PotDatabase {
             let db = blocking_read_lock(db, "pot db find_unsupported_preset_matching");
             let db = db.as_ref().ok()?;
             // Find preset
-            db.find_unsupported_preset_matching(product_id, preset_name)
+            let preset = db.find_unsupported_preset_matching(product_id, preset_name)?;
+            Some(preset.common.persistent_id.clone())
         })
     }
 }
@@ -409,14 +428,27 @@ fn add_constant_filter_items(
 fn create_filter_items_is_available() -> Vec<FilterItem> {
     vec![
         FilterItem::simple(FIL_IS_AVAILABLE_FALSE, "Not available", '❌', ""),
-        FilterItem::simple(FIL_IS_AVAILABLE_TRUE, "Available", '✔', "Usually means that the corresponding plug-in has been scanned before by REAPER.\nFor Komplete, it means that the preset file itself is available."),
+        FilterItem::simple(
+            FIL_IS_AVAILABLE_TRUE,
+            "Available",
+            '✔',
+            "Usually means that the \
+        corresponding plug-in has been scanned before by REAPER.\n\
+        For Komplete, it means that the preset file itself is available.",
+        ),
     ]
 }
 
 fn create_filter_items_is_supported() -> Vec<FilterItem> {
     vec![
         FilterItem::simple(FIL_IS_SUPPORTED_FALSE, "Not supported", '☹', ""),
-        FilterItem::simple(FIL_IS_SUPPORTED_TRUE, "Supported", '☺', "Means that Pot Browser can automatically load the preset into the corresponding plug-in."),
+        FilterItem::simple(
+            FIL_IS_SUPPORTED_TRUE,
+            "Supported",
+            '☺',
+            "Means that Pot Browser \
+        can automatically load the preset into the corresponding plug-in.",
+        ),
     ]
 }
 
