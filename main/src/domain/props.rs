@@ -8,7 +8,6 @@ use helgoboss_learn::{PropValue, Target};
 use realearn_api::persistence::TrackScope;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
-use strum_macros::EnumString;
 
 /// `None` means that no polling is necessary for feedback because we are notified via events.
 pub fn prop_feedback_resolution(
@@ -167,14 +166,14 @@ impl FromStr for Props {
 }
 
 #[enum_dispatch]
-#[derive(EnumString)]
+#[derive(strum::EnumString)]
 enum MappingProps {
     #[strum(serialize = "mapping.name")]
     Name(MappingNameProp),
 }
 
 #[enum_dispatch]
-#[derive(EnumString)]
+#[derive(strum::EnumString)]
 enum TargetProps {
     #[strum(serialize = "target.type.name")]
     TargetTypeName(TargetTypeNameProp),

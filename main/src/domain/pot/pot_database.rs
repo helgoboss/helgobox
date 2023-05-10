@@ -309,18 +309,6 @@ impl PotDatabase {
         Ok(r)
     }
 
-    pub fn with_db<R>(
-        &self,
-        db_id: DatabaseId,
-        f: impl FnOnce(&dyn Database) -> R,
-    ) -> Result<R, &'static str> {
-        let db = self.databases.get(&db_id).ok_or("database not found")?;
-        let db = blocking_read_lock(&db, "PotDatabase with_db");
-        let db = db.as_ref().map_err(|_| "provider database not opened")?;
-        let r = f(&**db);
-        Ok(r)
-    }
-
     pub fn try_with_db<R>(
         &self,
         db_id: DatabaseId,

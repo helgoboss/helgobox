@@ -148,8 +148,7 @@ mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
 xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
 # For convenient converting prop key to prop enum variant
-strum = "0.23"
-strum_macros = "0.23"
+strum = { version = "0.24", features = ["derive"] }
 metrics = "0.18.0"
 metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 # For parsing OSC argument value ranges
