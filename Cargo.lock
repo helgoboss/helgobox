@@ -2088,7 +2088,7 @@ dependencies = [
  "serde_repr",
  "serde_with",
  "strum",
- "strum_macros 0.23.0",
+ "strum_macros 0.23.1",
 ]
 
 [[package]]
@@ -4140,7 +4140,6 @@ version = "0.1.0"
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d9918db016ffa2615d8c3acb2f5657eeba45f864"
 dependencies = [
  "backtrace",
  "base64",
@@ -4170,7 +4169,6 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d9918db016ffa2615d8c3acb2f5657eeba45f864"
 dependencies = [
  "c_str_macro",
  "cc 1.0.79",
@@ -4184,7 +4182,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d9918db016ffa2615d8c3acb2f5657eeba45f864"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.21",
@@ -4194,7 +4191,6 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d9918db016ffa2615d8c3acb2f5657eeba45f864"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -4212,7 +4208,6 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d9918db016ffa2615d8c3acb2f5657eeba45f864"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -4947,9 +4942,9 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00ad150e9d51e33e8142984f577662c1324d49f3be45ed37bac8645fdcbe0fe5"
+checksum = "5bb0dc7ee9c15cea6199cde9a127fa16a4c5819af85395457ad72d68edc85a38"
 dependencies = [
  "heck 0.3.3",
  "proc-macro2 1.0.43",

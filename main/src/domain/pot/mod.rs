@@ -1145,7 +1145,16 @@ fn load_nks_preset(
     })
 }
 
-fn load_rfx_chain_preset(
+/// Loads an RfxChain file using the "add fx" API.
+///
+/// Pros:
+/// - Easy API, no dealing with chunks
+///
+/// Cons:
+/// - Much more disruptive than it needs to be if the plug-in types stay the same
+/// - RfxChain file needs to be in the "FXChains" folder
+#[allow(dead_code)]
+fn load_rfx_chain_preset_using_add_fx(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
@@ -1162,17 +1171,47 @@ fn load_rfx_chain_preset(
     })
 }
 
+/// Loads an RfxChain file using chunk replacement.
+///
+/// Pros:
+/// - No need to remove existing FX (very fast and non-disruptive)
+/// - RfxChain file can be at any location
+///
+/// Cons:
+/// - Needs to replace the complete track chunk. Modern REAPER API provides a way to make this
+///   safe via dynamically resized buffers but we haven't incorporated this yet.
+fn load_rfx_chain_preset_using_chunks(
+    path: &Path,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    load_preset_multi_fx(destination, options, false, || {
+        let rppxml =
+            fs::read_to_string(path).map_err(|_| "couldn't read FX chain template as string")?;
+        // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
+        let rppxml: String = rppxml.lines().map(|l| l.trim()).join("\n");
+        let fx_chain_content_chunk = Chunk::new(rppxml);
+        let fx_chain_chunk = format!("<FXCHAIN\n{fx_chain_content_chunk}\n>");
+        destination.chain.set_chunk(&fx_chain_chunk)?;
+        let first_fx = destination
+            .chain
+            .first_fx()
+            .ok_or("couldn't get hold of first FX on chain")?;
+        Ok(first_fx)
+    })
+}
+
 fn load_track_template_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     load_preset_multi_fx(destination, options, false, || {
-        let rxml =
+        let rppxml =
             fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
-        let rxml: String = rxml.lines().map(|l| l.trim()).join("\n");
-        let track_chunk = Chunk::new(rxml);
+        let rppxml: String = rppxml.lines().map(|l| l.trim()).join("\n");
+        let track_chunk = Chunk::new(rppxml);
         let fx_chain_region = track_chunk
             .region()
             .find_first_tag_named(0, "FXCHAIN")
@@ -1489,7 +1528,7 @@ fn load_file_based_preset(
         }
         "rfxchain" => {
             let dest = build_destination(pot_unit)?;
-            load_rfx_chain_preset(preset_file, &dest, options)?
+            load_rfx_chain_preset_using_chunks(preset_file, &dest, options)?
         }
         "rtracktemplate" => {
             let dest = build_destination(pot_unit)?;

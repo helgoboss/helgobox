@@ -122,7 +122,6 @@ impl Display for PluginId {
     }
 }
 
-// TODO-high CONTINUE Replace enum-iterator with strum everywhere
 /// When adding a new variant, the serialization should correspond to the string which is used
 /// as prefix for the ini file names in "REAPER_RESOURCE_PATH/presets".
 #[derive(Copy, Clone, Eq, PartialEq, Debug, strum::AsRefStr, strum::EnumString)]
