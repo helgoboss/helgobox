@@ -69,8 +69,8 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::target_filter_panel;
 use crate::infrastructure::ui::util::{
-    close_child_window_if_open, compartment_parameter_dropdown_contents, parse_tags_from_csv,
-    symbols, MAPPING_PANEL_SCALING,
+    close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
+    parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
@@ -1195,16 +1195,11 @@ impl MappingPanel {
     }
 
     fn open_extra_panel(&self, panel: impl View + 'static) {
-        let panel = SharedView::new(panel);
-        let panel_clone = panel.clone();
-        if let Some(existing_panel) = self.extra_panel.replace(Some(panel)) {
-            existing_panel.close();
-        };
-        panel_clone.open(self.view.require_window());
+        open_child_panel_dyn(&self.extra_panel, panel, self.view.require_window());
     }
 
     fn close_open_child_windows(&self) {
-        close_child_window_if_open(&self.extra_panel);
+        close_child_panel_if_open(&self.extra_panel);
     }
 
     fn edit_yaml(

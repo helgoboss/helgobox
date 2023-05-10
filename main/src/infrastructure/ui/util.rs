@@ -287,7 +287,33 @@ const HEADER_PANEL_SCALING: DialogScaling = DialogScaling {
     height_scale: root::HEADER_PANEL_HEIGHT_SCALE,
 };
 
-pub fn close_child_window_if_open(panel: &RefCell<Option<SharedView<impl View + ?Sized>>>) {
+pub fn open_child_panel_dyn<T: View + 'static>(
+    panel_slot: &RefCell<Option<SharedView<dyn View>>>,
+    panel: T,
+    parent_window: Window,
+) {
+    let panel = SharedView::new(panel);
+    let panel_clone = panel.clone();
+    if let Some(existing_panel) = panel_slot.replace(Some(panel)) {
+        existing_panel.close();
+    };
+    panel_clone.open(parent_window);
+}
+
+pub fn open_child_panel<T: View + 'static>(
+    panel_slot: &RefCell<Option<SharedView<T>>>,
+    panel: T,
+    parent_window: Window,
+) {
+    let panel = SharedView::new(panel);
+    let panel_clone = panel.clone();
+    if let Some(existing_panel) = panel_slot.replace(Some(panel)) {
+        existing_panel.close();
+    };
+    panel_clone.open(parent_window);
+}
+
+pub fn close_child_panel_if_open(panel: &RefCell<Option<SharedView<impl View + ?Sized>>>) {
     if let Some(existing_panel) = panel.take() {
         existing_panel.close();
     }

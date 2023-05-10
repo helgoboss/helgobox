@@ -42,7 +42,8 @@ use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{
-    close_child_window_if_open, open_in_browser, open_in_file_manager,
+    close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
+    open_in_file_manager,
 };
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
@@ -77,6 +78,7 @@ pub struct HeaderPanel {
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
+    pot_browser_panel: RefCell<Option<SharedView<dyn View>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -96,6 +98,7 @@ impl HeaderPanel {
             panel_manager,
             group_panel: Default::default(),
             extra_panel: Default::default(),
+            pot_browser_panel: Default::default(),
             is_invoked_programmatically: false.into(),
         }
     }
@@ -124,16 +127,17 @@ impl HeaderPanel {
             },
         };
         let editor = SimpleScriptEditorPanel::new(input);
-        self.open_extra_panel(editor, self.view.require_window());
+        self.open_extra_panel(editor);
     }
 
-    fn open_extra_panel(&self, panel: impl View + 'static, parent_window: Window) {
-        let panel = SharedView::new(panel);
-        let panel_clone = panel.clone();
-        if let Some(existing_panel) = self.extra_panel.replace(Some(panel)) {
-            existing_panel.close();
-        };
-        panel_clone.open(parent_window);
+    fn open_extra_panel(&self, panel: impl View + 'static) {
+        open_child_panel_dyn(&self.extra_panel, panel, self.view.require_window());
+    }
+
+    fn close_open_child_panels(&self) {
+        close_child_panel_if_open(&self.group_panel);
+        close_child_panel_if_open(&self.extra_panel);
+        close_child_panel_if_open(&self.pot_browser_panel);
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -1828,13 +1832,7 @@ impl HeaderPanel {
             _ => return,
         };
         let panel = GroupPanel::new(self.session.clone(), weak_group);
-        let shared_panel = Rc::new(panel);
-        if let Some(already_open_panel) =
-            self.group_panel.borrow_mut().replace(shared_panel.clone())
-        {
-            already_open_panel.close();
-        }
-        shared_panel.open(self.view.require_window());
+        open_child_panel(&self.group_panel, panel, self.view.require_window());
     }
 
     fn update_group(&self) {
@@ -2244,7 +2242,11 @@ impl HeaderPanel {
         let session = self.session();
         let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
         let panel = PotBrowserPanel::new(pot_unit);
-        self.open_extra_panel(panel, Window::from_non_null(Reaper::get().main_window()));
+        open_child_panel_dyn(
+            &self.pot_browser_panel,
+            panel,
+            Window::from_non_null(Reaper::get().main_window()),
+        );
         Ok(())
     }
 
@@ -2355,13 +2357,8 @@ impl HeaderPanel {
         self.main_state
             .borrow_mut()
             .set_displayed_group_for_active_compartment(Some(GroupFilter(GroupId::default())));
-        self.close_open_child_windows();
+        self.close_open_child_panels();
         self.invalidate_all_controls();
-    }
-
-    fn close_open_child_windows(&self) {
-        close_child_window_if_open(&self.group_panel);
-        close_child_window_if_open(&self.extra_panel);
     }
 
     fn log_debug_info(&self) {
@@ -2698,7 +2695,7 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatu
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
-        self.close_open_child_windows();
+        self.close_open_child_panels();
     }
 }
 
