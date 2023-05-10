@@ -261,7 +261,9 @@ where
             size_in_bytes: fx_chunk_bytes.len(),
         };
         current_file_offset += fx_chunk_bytes.len() as u64;
-        match blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset) {
+        let next_step =
+            blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset);
+        match next_step {
             NextCrawlStep::Stop(reason) => {
                 stop(chunks_file, reason);
                 break;
