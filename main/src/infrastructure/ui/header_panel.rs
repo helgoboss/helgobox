@@ -41,7 +41,9 @@ use crate::infrastructure::ui::bindings::root;
 use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{open_in_browser, open_in_file_manager};
+use crate::infrastructure::ui::util::{
+    close_child_window_if_open, open_in_browser, open_in_file_manager,
+};
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
@@ -2353,11 +2355,13 @@ impl HeaderPanel {
         self.main_state
             .borrow_mut()
             .set_displayed_group_for_active_compartment(Some(GroupFilter(GroupId::default())));
-        if let Some(already_open_panel) = self.group_panel.borrow().as_ref() {
-            already_open_panel.close();
-        }
-        self.group_panel.replace(None);
+        self.close_open_child_windows();
         self.invalidate_all_controls();
+    }
+
+    fn close_open_child_windows(&self) {
+        close_child_window_if_open(&self.group_panel);
+        close_child_window_if_open(&self.extra_panel);
     }
 
     fn log_debug_info(&self) {
@@ -2694,6 +2698,7 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatu
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
+        self.close_open_child_windows();
     }
 }
 

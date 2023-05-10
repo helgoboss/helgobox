@@ -3,9 +3,10 @@ use crate::domain::{compartment_param_index_iter, Compartment, Tag};
 use crate::infrastructure::ui::bindings::root;
 use realearn_dialogs::constants;
 use reaper_high::Reaper;
+use std::cell::RefCell;
 use std::path::Path;
 use std::str::FromStr;
-use swell_ui::{DialogScaling, DialogUnits, Dimensions, Window};
+use swell_ui::{DialogScaling, DialogUnits, Dimensions, SharedView, View, Window};
 
 /// The optimal size of the main panel in dialog units.
 pub fn main_panel_dimensions() -> Dimensions<DialogUnits> {
@@ -285,3 +286,9 @@ const HEADER_PANEL_SCALING: DialogScaling = DialogScaling {
     width_scale: root::HEADER_PANEL_WIDTH_SCALE,
     height_scale: root::HEADER_PANEL_HEIGHT_SCALE,
 };
+
+pub fn close_child_window_if_open(panel: &RefCell<Option<SharedView<impl View + ?Sized>>>) {
+    if let Some(existing_panel) = panel.take() {
+        existing_panel.close();
+    }
+}

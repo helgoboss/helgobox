@@ -69,7 +69,8 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::target_filter_panel;
 use crate::infrastructure::ui::util::{
-    compartment_parameter_dropdown_contents, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    close_child_window_if_open, compartment_parameter_dropdown_contents, parse_tags_from_csv,
+    symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
@@ -1202,6 +1203,10 @@ impl MappingPanel {
         panel_clone.open(self.view.require_window());
     }
 
+    fn close_open_child_windows(&self) {
+        close_child_window_if_open(&self.extra_panel);
+    }
+
     fn edit_yaml(
         &self,
         get_initial_value: impl Fn(&MappingModel) -> Option<serde_yaml::Mapping>,
@@ -1356,9 +1361,7 @@ impl MappingPanel {
         self.stop_party();
         self.view.require_window().hide();
         self.mapping.replace(None);
-        if let Some(p) = self.extra_panel.replace(None) {
-            p.close();
-        }
+        self.close_open_child_windows();
         self.mapping_header_panel.clear_item();
     }
 
@@ -1567,6 +1570,12 @@ impl MappingPanel {
             _ => return Some(self),
         };
         None
+    }
+}
+
+impl Drop for MappingPanel {
+    fn drop(&mut self) {
+        self.close_open_child_windows();
     }
 }
 
