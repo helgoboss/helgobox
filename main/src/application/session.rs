@@ -1137,7 +1137,13 @@ impl Session {
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
                 // Internal reaction
-                let session = weak_session.upgrade().expect("session gone");
+                let Some(session) = weak_session.upgrade() else {
+                    // We panicked here before and that was sometimes popping up as an error. But
+                    // if the session doesn't exist anymore, then this is always a sign that the
+                    // ReaLearn FX instance has been removed, which is fine. And whatever we
+                    // want to do here then wouldn't matter anyway. So don't panic!
+                    return;
+                };
                 {
                     use Affected::*;
                     use CompartmentProp::*;
