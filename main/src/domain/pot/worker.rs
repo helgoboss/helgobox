@@ -1,5 +1,7 @@
 use futures::channel::oneshot;
 use once_cell::sync::Lazy;
+use std::any::Any;
+use std::collections::VecDeque;
 use std::error::Error;
 use std::future::Future;
 use tokio::runtime::Runtime;
@@ -7,13 +9,15 @@ use tokio::runtime::Runtime;
 type PotWorkerResult<R> = Result<R, Box<dyn Error>>;
 
 #[derive(Debug)]
-pub struct PotWorkerDispatcher<C, R> {
-    task: Option<Task<C, R>>,
+pub struct PotWorkerDispatcher<C> {
+    tasks: VecDeque<Task<C, Box<dyn Any + Send + 'static>>>,
 }
 
-impl<C, R> Default for PotWorkerDispatcher<C, R> {
+impl<C> Default for PotWorkerDispatcher<C> {
     fn default() -> Self {
-        Self { task: None }
+        Self {
+            tasks: VecDeque::new(),
+        }
     }
 }
 
@@ -25,16 +29,13 @@ struct Task<C, R> {
     handler: Box<dyn FnOnce(&mut C, R) + Send>,
 }
 
-impl<C, R> PotWorkerDispatcher<C, R>
-where
-    R: Send + 'static,
-{
+impl<C> PotWorkerDispatcher<C> {
     pub fn poll(&mut self, state: &mut C) {
-        let Some(mut task) = self.task.take() else {
+        let Some(mut task) = self.tasks.pop_front() else {
             // No task. Don't do anything.
             return;
         };
-        self.task = match task.receiver.try_recv() {
+        let next_task = match task.receiver.try_recv() {
             // Output available. Handle it.
             Ok(Some(output)) => {
                 (task.handler)(state, output);
@@ -45,22 +46,32 @@ where
             // Sender dropped. Discard task.
             Err(_) => None,
         };
+        // Push task back on queue
+        if let Some(t) = next_task {
+            self.tasks.push_back(t);
+        }
     }
 
-    pub fn do_in_background_and_then(
+    pub fn do_in_background_and_then<R>(
         &mut self,
         f: impl Future<Output = R> + Send + 'static,
         handler: impl FnOnce(&mut C, R) + Send + 'static,
-    ) {
-        let (sender, receiver) = oneshot::channel::<R>();
+    ) where
+        R: Send + 'static,
+    {
+        let (sender, receiver) = oneshot::channel::<Box<dyn Any + Send + 'static>>();
         let task = Task {
             receiver,
-            handler: Box::new(handler),
+            handler: Box::new(|context: &mut C, output: Box<dyn Any + Send + 'static>| {
+                if let Ok(output) = output.downcast::<R>() {
+                    handler(context, *output);
+                }
+            }),
         };
-        self.task = Some(task);
+        self.tasks.push_back(task);
         spawn_in_pot_worker(async move {
             let output = f.await;
-            let _ = sender.send(output);
+            let _ = sender.send(Box::new(output));
             Ok(())
         });
     }

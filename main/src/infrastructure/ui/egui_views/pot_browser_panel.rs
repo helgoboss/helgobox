@@ -79,7 +79,7 @@ pub struct MainState {
     preview_dispatcher: PreviewDispatcher,
 }
 
-type PreviewDispatcher = PotWorkerDispatcher<Option<Dialog>, i32>;
+type PreviewDispatcher = PotWorkerDispatcher<Option<Dialog>>;
 
 #[derive(Debug)]
 enum Dialog {
