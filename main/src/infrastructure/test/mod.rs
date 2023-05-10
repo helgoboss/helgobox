@@ -1,3 +1,4 @@
+use crate::base::future_util::millis;
 use crate::base::{Global, SenderToNormalThread};
 use crate::domain::{with_fx_name, FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
@@ -9,7 +10,6 @@ use reaper_high::{ActionKind, Fx, FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
-use tokio::time::Duration;
 use FinalSourceFeedbackValue::Midi;
 use MidiSourceValue::{ParameterNumber, Plain};
 
@@ -114,10 +114,6 @@ fn log(msg: impl AsRef<str>) {
 
 async fn moment() {
     millis(200).await;
-}
-
-async fn millis(amount: u64) {
-    futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
 
 async fn setup() -> RealearnTestInstance {

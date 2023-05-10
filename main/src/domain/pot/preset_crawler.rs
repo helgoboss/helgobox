@@ -1,3 +1,4 @@
+use crate::base::future_util::millis;
 use crate::base::{blocking_lock_arc, file_util, hash_util, Global};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
@@ -14,7 +15,6 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 
@@ -355,10 +355,6 @@ async fn a_bit_longer() {
 
 async fn moment() {
     millis(50).await;
-}
-
-async fn millis(amount: u64) {
-    futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
 
 const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;

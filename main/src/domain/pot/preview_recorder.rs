@@ -1,3 +1,4 @@
+use crate::base::future_util::millis;
 use crate::base::hash_util::PersistentHash;
 use crate::base::{blocking_lock_arc, file_util, Global};
 use crate::domain::pot::{
@@ -8,7 +9,6 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{CommandId, OpenProjectBehavior, ProjectContext, ProjectInfoAttributeKey};
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 pub fn record_previews(
     shared_pot_unit: SharedRuntimePotUnit,
@@ -106,10 +106,6 @@ fn open_preview_project_in_new_tab(preview_rpp: &Path) -> Project {
 
 async fn moment() {
     millis(200).await;
-}
-
-async fn millis(amount: u64) {
-    futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
 
 pub fn get_preview_file_path_from_hash(

@@ -1,4 +1,5 @@
 use crate::application::get_track_label;
+use crate::base::future_util::millis;
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
@@ -9,8 +10,8 @@ use crate::domain::pot::preview_recorder::record_previews;
 use crate::domain::pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
     ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, OptFilter, Preset, PresetKind,
-    RuntimePotUnit, SharedRuntimePotUnit,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, OptFilter, PotWorkerDispatcher,
+    Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -75,7 +76,10 @@ pub struct MainState {
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
+    preview_dispatcher: PreviewDispatcher,
 }
+
+type PreviewDispatcher = PotWorkerDispatcher<Option<Dialog>, i32>;
 
 #[derive(Debug)]
 enum Dialog {
@@ -107,6 +111,10 @@ enum Dialog {
         msg: Cow<'static, str>,
     },
     PreviewRecorderIntro,
+    PreviewRecorderPreparing,
+    PreviewRecorderReadyToRecord {
+        output: i32,
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -165,6 +173,14 @@ impl Dialog {
             page: CrawlPresetsStoppedPage::Presets,
             chunks_file: Some(chunks_file),
         }
+    }
+
+    fn preview_recorder_preparing() -> Self {
+        Self::PreviewRecorderPreparing
+    }
+
+    fn preview_recorder_ready_to_record(output: i32) -> Self {
+        Self::PreviewRecorderReadyToRecord { output }
     }
 }
 
@@ -251,6 +267,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
     while let Ok(message) = state.preset_cache.receiver.try_recv() {
         state.preset_cache.process_message(message);
     }
+    // Poll background task results
+    state.preview_dispatcher.poll(&mut state.dialog);
     // Prepare toasts
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
@@ -268,6 +286,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
             mouse: &state.mouse,
             os_window: state.os_window,
             change_dialog: &mut change_dialog,
+            preview_dispatcher: &mut state.preview_dispatcher,
         };
         process_dialogs(input, ctx);
     }
@@ -567,6 +586,7 @@ struct ProcessDialogsInput<'a> {
     mouse: &'a EnigoMouse,
     os_window: Window,
     change_dialog: &'a mut Option<Option<Dialog>>,
+    preview_dispatcher: &'a mut PreviewDispatcher,
 }
 
 fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
@@ -830,9 +850,48 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::PreviewRecorderIntro => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
-            input.change_dialog,
+            &mut (input.change_dialog, input.preview_dispatcher),
             |ui, _| {
                 ui.label("Welcome to the Pot Preview Recorder!");
+            },
+            |ui, (change_dialog, preview_dispatcher)| {
+                if ui.button("Cancel").clicked() {
+                    **change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    preview_dispatcher.do_in_background_and_then(
+                        async {
+                            millis(4000).await;
+                            50
+                        },
+                        |dialog, output| {
+                            *dialog = Some(Dialog::preview_recorder_ready_to_record(output));
+                        },
+                    );
+                    **change_dialog = Some(Some(Dialog::preview_recorder_preparing()));
+                }
+            },
+        ),
+        Dialog::PreviewRecorderPreparing => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.label("Aggregating presets to be recorded...");
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+            },
+        ),
+        Dialog::PreviewRecorderReadyToRecord { output } => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                ui.label("Ready to record");
+                ui.label(output.to_string());
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1761,6 +1820,7 @@ impl MainState {
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
             mouse: Default::default(),
+            preview_dispatcher: Default::default(),
         }
     }
 }
