@@ -166,8 +166,14 @@ impl Filters {
         self.wants_only(PotFilterKind::IsFavorite, FIL_IS_FAVORITE_TRUE)
     }
 
-    pub fn any_filter_below_is_set_to_concrete_value(&self, kind: PotFilterKind) -> bool {
-        kind.dependent_kinds()
+    pub fn any_unsupported_filter_is_set_to_concrete_value(
+        &self,
+        supported_advanced_kinds: EnumSet<PotFilterKind>,
+    ) -> bool {
+        let supported_kinds = supported_advanced_kinds.union(PotFilterKind::core_kinds());
+        supported_kinds
+            .complement()
+            .iter()
             .any(|k| self.is_set_to_concrete_value(k))
     }
 

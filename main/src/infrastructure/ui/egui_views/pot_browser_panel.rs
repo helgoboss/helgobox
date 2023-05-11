@@ -344,7 +344,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             pot_unit,
                             TOOLBAR_HEIGHT_WITH_MARGIN,
                             280.0,
-                            // Left side of toolbar: Toolbar
+                            // Left side: Toolbar
                             |ui, pot_unit| {
                                 // Main options
                                 let input = LeftOptionsDropdownInput {
@@ -386,7 +386,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                     ui.spinner();
                                 }
                             },
-                            // Right side of toolbar: Mini filters
+                            // Right side: Mini filters
                             |ui, pot_unit| {
                                 if pot_unit.filter_item_collections.are_filled_already() {
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -406,42 +406,54 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 .show_inside(ui, |ui| {
                     // Toolbar
                     ui.horizontal(|ui| {
-                        ui.set_min_height(TOOLBAR_HEIGHT_WITH_MARGIN);
-                        // Actions
-                        ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
-                            if ui.button(PRESET_CRAWLER_TITLE).clicked() {
-                                state.dialog = Some(Dialog::CrawlPresetsIntro);
-                                ui.close_menu();
-                            }
-                            if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
-                                state.dialog = Some(Dialog::PreviewRecorderIntro);
-                                ui.close_menu();
-                            }
-                        });
-                        // Options
-                        let input = RightOptionsDropdownInput {
+                        left_right(
+                            ui,
                             pot_unit,
-                            shared_pot_unit: &state.pot_unit,
-                            show_stats: &mut state.show_stats,
-                            auto_preview: &mut state.auto_preview,
-                            load_preset_window_behavior: &mut state.load_preset_window_behavior,
-                        };
-                        add_right_options_dropdown(input, ui);
-                        // Search field
-                        let text_edit =
-                            TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
-                                // .min_size(vec2(0.0, TOOLBAR_SIZE))
-                                .desired_width(140.0)
-                                .clip_text(false)
-                                .hint_text("Enter search text!")
-                                .font(TextStyle::Monospace);
-                        ui.add_enabled(false, text_edit).on_disabled_hover_text(
-                            "Type anywhere to search!\nUse backspace to clear \
+                            TOOLBAR_HEIGHT_WITH_MARGIN,
+                            100.0,
+                            // Left side: Toolbar
+                            |ui, pot_unit| {
+                                // Actions
+                                ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
+                                    if ui.button(PRESET_CRAWLER_TITLE).clicked() {
+                                        state.dialog = Some(Dialog::CrawlPresetsIntro);
+                                        ui.close_menu();
+                                    }
+                                    if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
+                                        state.dialog = Some(Dialog::PreviewRecorderIntro);
+                                        ui.close_menu();
+                                    }
+                                });
+                                // Options
+                                let input = RightOptionsDropdownInput {
+                                    pot_unit,
+                                    shared_pot_unit: &state.pot_unit,
+                                    show_stats: &mut state.show_stats,
+                                    auto_preview: &mut state.auto_preview,
+                                    load_preset_window_behavior: &mut state.load_preset_window_behavior,
+                                };
+                                add_right_options_dropdown(input, ui);
+                                // Search field
+                                let text_edit =
+                                    TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
+                                        // .min_size(vec2(0.0, TOOLBAR_SIZE))
+                                        .desired_width(140.0)
+                                        .clip_text(false)
+                                        .hint_text("Enter search text!")
+                                        .font(TextStyle::Monospace);
+                                ui.add_enabled(false, text_edit).on_disabled_hover_text(
+                                    "Type anywhere to search!\nUse backspace to clear \
                         the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.",
+                                );
+                                // Preset count
+                                let preset_count = pot_unit.preset_count();
+                                ui.label(format!("➡ {preset_count} presets"));
+                            },
+                            // Right side: Mini filters
+                            |ui, pot_unit| {
+                                add_filter_view_content_as_icons(&state.pot_unit, pot_unit, PotFilterKind::HasPreview, ui);
+                            }
                         );
-                        // Preset count
-                        let preset_count = pot_unit.preset_count();
-                        ui.label(format!("➡ {preset_count} presets"));
                     });
                     // Stats
                     if state.show_stats {

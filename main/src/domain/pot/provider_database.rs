@@ -19,8 +19,6 @@ pub trait Database {
 
     fn description(&self) -> Cow<str>;
 
-    /// Advanced filter kinds are those except the constant ones (database, is-favorite, is-user
-    /// and product type).
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
         enum_set!()
     }
@@ -125,3 +123,5 @@ pub const FIL_PRODUCT_KIND_EFFECT: Fil = Fil::ProductKind(ProductKind::Effect);
 pub const FIL_PRODUCT_KIND_LOOP: Fil = Fil::ProductKind(ProductKind::Loop);
 /// Komplete product type ID = 8
 pub const FIL_PRODUCT_KIND_ONE_SHOT: Fil = Fil::ProductKind(ProductKind::OneShot);
+pub const FIL_HAS_PREVIEW_TRUE: Fil = Fil::Boolean(true);
+pub const FIL_HAS_PREVIEW_FALSE: Fil = Fil::Boolean(false);

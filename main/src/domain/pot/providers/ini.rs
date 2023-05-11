@@ -48,10 +48,7 @@ impl IniDatabase {
         &'a self,
         filter_input: &'a FilterInput,
     ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
-        let matches = !filter_input.filters.wants_factory_presets_only()
-            && !filter_input
-                .filters
-                .any_filter_below_is_set_to_concrete_value(PotFilterKind::Bank);
+        let matches = !filter_input.filters.wants_factory_presets_only();
         if !matches {
             return Either::Left(iter::empty());
         }

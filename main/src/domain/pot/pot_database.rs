@@ -1,10 +1,10 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_IS_AVAILABLE_FALSE,
-    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE,
-    FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
-    FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP,
-    FIL_PRODUCT_KIND_ONE_SHOT,
+    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_HAS_PREVIEW_FALSE,
+    FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_FALSE,
+    FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_FALSE,
+    FIL_IS_USER_PRESET_TRUE, FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT,
+    FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
 };
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
@@ -256,6 +256,16 @@ impl PotDatabase {
                         // Acquire database access
                         let db = blocking_read_lock(db, "pot db build_collections 2");
                         let db = db.as_ref().ok()?;
+                        // Don't even try to get presets if one filter is set which is not
+                        // supported by database.
+                        if input
+                            .filters
+                            .any_unsupported_filter_is_set_to_concrete_value(
+                                db.supported_advanced_filter_kinds(),
+                            )
+                        {
+                            return None;
+                        }
                         // Let database build presets
                         let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
                         let preset_ids = db.query_presets(&provider_context, inner_input).ok()?;
@@ -405,6 +415,9 @@ fn add_constant_filter_items(
     if input.affected_kinds.contains(PotFilterKind::IsUser) {
         filter_item_collections.set(PotFilterKind::IsUser, create_filter_items_is_user());
     }
+    if input.affected_kinds.contains(PotFilterKind::HasPreview) {
+        filter_item_collections.set(PotFilterKind::HasPreview, create_filter_items_has_preview());
+    }
     if input.affected_kinds.contains(PotFilterKind::ProductKind) {
         filter_item_collections.set(
             PotFilterKind::ProductKind,
@@ -461,5 +474,12 @@ fn create_filter_items_is_user() -> Vec<FilterItem> {
     vec![
         FilterItem::simple(FIL_IS_USER_PRESET_FALSE, "Factory preset", '🏭', ""),
         FilterItem::simple(FIL_IS_USER_PRESET_TRUE, "User preset", '🕵', ""),
+    ]
+}
+
+fn create_filter_items_has_preview() -> Vec<FilterItem> {
+    vec![
+        FilterItem::simple(FIL_HAS_PREVIEW_FALSE, "No preview", '🔇', ""),
+        FilterItem::simple(FIL_HAS_PREVIEW_TRUE, "Has preview", '🔊', ""),
     ]
 }

@@ -3,6 +3,7 @@ use crate::persistence::{
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
+use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use schemars::JsonSchema;
@@ -1208,6 +1209,8 @@ pub enum PotFilterKind {
     #[display(fmt = "Character")]
     #[serde(alias = "NksMode")]
     Mode,
+    #[display(fmt = "Preview")]
+    HasPreview,
 }
 
 impl PotFilterKind {
@@ -1243,16 +1246,39 @@ impl PotFilterKind {
         Self::into_enum_iter().filter(move |k| k.dependency_position() > dep_pos)
     }
 
+    pub fn core_kinds() -> EnumSet<PotFilterKind> {
+        Self::into_enum_iter()
+            .filter(|k| k.is_core_kind())
+            .collect()
+    }
+
+    /// Those kinds are always supported, no matter the database.
+    ///
+    /// The other ones are called "advanced" kinds.
+    pub fn is_core_kind(&self) -> bool {
+        use PotFilterKind::*;
+        matches!(
+            self,
+            Database | IsAvailable | IsSupported | IsUser | ProductKind | IsFavorite | HasPreview
+        )
+    }
+
+    /// Filter kinds with lower dependency positions affect filter kinds with higher dependency
+    /// positions.
+    ///
+    /// This position is used by code in order to determine whether filter items need to be
+    /// recalculated. E.g. when changing the category, it means the set of possible sub categories
+    /// might be affected (higher position) but the set of possible banks not (lower position).
     pub fn dependency_position(&self) -> u32 {
         use PotFilterKind::*;
         match self {
-            Database => 0,
-            IsAvailable | IsSupported | IsUser | ProductKind | IsFavorite => 1,
-            Bank => 2,
-            SubBank => 3,
-            Category => 4,
-            SubCategory => 5,
-            Mode => 6,
+            Database | IsAvailable | IsSupported | IsUser | ProductKind | IsFavorite => 0,
+            Bank => 1,
+            SubBank => 2,
+            Category => 3,
+            SubCategory => 4,
+            Mode => 5,
+            HasPreview => 6,
         }
     }
 }
