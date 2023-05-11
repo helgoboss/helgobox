@@ -410,7 +410,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             ui,
                             pot_unit,
                             TOOLBAR_HEIGHT_WITH_MARGIN,
-                            100.0,
+                            80.0,
                             // Left side: Toolbar
                             |ui, pot_unit| {
                                 // Actions
@@ -1265,14 +1265,28 @@ fn add_stats_panel(
     let total_duration = background_task_elapsed.unwrap_or(pot_unit.stats.total_query_duration());
     ui.label(format!("{}ms", total_duration.as_millis()));
     if background_task_elapsed.is_none() {
-        let text = format!(
-            "(= {} + {} + {} + {})",
-            pot_unit.stats.filter_query_duration.as_millis(),
-            pot_unit.stats.preset_query_duration.as_millis(),
-            pot_unit.stats.sort_duration.as_millis(),
-            pot_unit.stats.index_duration.as_millis(),
-        );
-        ui.label(text);
+        ui.label("(= ");
+        ui.label(pot_unit.stats.filter_query_duration.as_millis().to_string())
+            .on_hover_text("Building filters");
+        ui.label(" + ");
+        ui.label(pot_unit.stats.preset_query_duration.as_millis().to_string())
+            .on_hover_text("Building presets");
+        ui.label(" + ");
+        ui.label(
+            pot_unit
+                .stats
+                .preview_filter_duration
+                .as_millis()
+                .to_string(),
+        )
+        .on_hover_text("Checking previews");
+        ui.label(" + ");
+        ui.label(pot_unit.stats.sort_duration.as_millis().to_string())
+            .on_hover_text("Sorting filters and presets");
+        ui.label(" + ");
+        ui.label(pot_unit.stats.sort_duration.as_millis().to_string())
+            .on_hover_text("Indexing presets");
+        ui.label(")");
     }
     ui.strong("Wasted runs/time: ");
     ui.label(format!(

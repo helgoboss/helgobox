@@ -9,8 +9,8 @@ use crate::domain::pot::provider_database::{
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, InnerBuildInput,
-    PersistentDatabaseId, PersistentPresetId, PluginId, Preset, PresetId, Stats,
+    find_preview_file, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId,
+    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, Preset, PresetId, Stats,
 };
 
 use crate::domain::pot::plugins::PluginDatabase;
@@ -274,6 +274,24 @@ impl PotDatabase {
                     .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
                     .collect()
             });
+        // Apply "has preview" filter if necessary (expensive!)
+        measure_duration(&mut total_output.stats.preview_filter_duration, || {
+            if let Some(FilterItemId(Some(fil))) = input.filters.get(PotFilterKind::HasPreview) {
+                let reaper_resource_dir = Reaper::get().resource_path();
+                let needs_preview = fil == FIL_HAS_PREVIEW_TRUE;
+                sortable_preset_ids.retain(|(db_id, sortable_preset_id)| {
+                    let preset_id = PresetId::new(*db_id, sortable_preset_id.inner_preset_id);
+                    if let Some(preset) = self.find_preset_by_id(preset_id) {
+                        let preview_exists =
+                            find_preview_file(&preset, &reaper_resource_dir).is_some();
+                        preview_exists == needs_preview
+                    } else {
+                        // Preset doesn't exist? Shouldn't happen, but treat it like a missing preview.
+                        !needs_preview
+                    }
+                });
+            }
+        });
         // Sort filter items and presets
         measure_duration(&mut total_output.stats.sort_duration, || {
             for (kind, collection) in total_output.filter_item_collections.iter_mut() {
@@ -479,7 +497,7 @@ fn create_filter_items_is_user() -> Vec<FilterItem> {
 
 fn create_filter_items_has_preview() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_HAS_PREVIEW_FALSE, "No preview", '🔇', ""),
-        FilterItem::simple(FIL_HAS_PREVIEW_TRUE, "Has preview", '🔊', ""),
+        FilterItem::simple(FIL_HAS_PREVIEW_FALSE, "No preview", '🔇', "Display only presets that have no preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!"),
+        FilterItem::simple(FIL_HAS_PREVIEW_TRUE, "Has preview", '🔊', "Display only presets that have a preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!"),
     ]
 }
