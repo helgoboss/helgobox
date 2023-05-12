@@ -351,7 +351,7 @@ impl PotFilterExcludes {
     }
 
     pub fn is_empty(&self, kind: PotFilterKind) -> bool {
-        !self.exluded_items[kind].is_empty()
+        self.exluded_items[kind].is_empty()
     }
 
     pub fn contains_database(&self, db_id: DatabaseId) -> bool {

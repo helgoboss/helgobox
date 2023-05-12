@@ -1,34 +1,36 @@
 use crate::base::future_util::millis;
 use crate::base::hash_util::PersistentHash;
-use crate::base::{blocking_lock_arc, file_util, Global};
+use crate::base::{blocking_lock_arc, blocking_write_lock, file_util, Global};
 use crate::domain::pot::provider_database::{
     FIL_IS_AVAILABLE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_PRODUCT_KIND_INSTRUMENT,
 };
 use crate::domain::pot::{
     pot_db, preview_exists, BuildInput, Destination, FilterItemId, LoadPresetOptions,
-    LoadPresetWindowBehavior, PluginId, PresetId, PresetKind, PresetWithId, ProductId,
-    SharedRuntimePotUnit,
+    LoadPresetWindowBehavior, PluginId, PresetKind, PresetWithId, ProductId, SharedRuntimePotUnit,
 };
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{CommandId, OpenProjectBehavior, ProjectContext, ProjectInfoAttributeKey};
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+
+pub type SharedPreviewRecorderState = Arc<RwLock<Vec<PresetWithId>>>;
 
 pub fn record_previews(
     shared_pot_unit: SharedRuntimePotUnit,
-    preset_ids: Vec<PresetId>,
+    state: SharedPreviewRecorderState,
     preview_rpp: PathBuf,
 ) {
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        record_previews_async(shared_pot_unit, preset_ids, &preview_rpp).await?;
+        record_previews_async(shared_pot_unit, state, &preview_rpp).await?;
         Ok(())
     });
 }
 
 async fn record_previews_async(
     shared_pot_unit: SharedRuntimePotUnit,
-    preset_ids: Vec<PresetId>,
+    state: SharedPreviewRecorderState,
     preview_rpp: &Path,
 ) -> Result<(), Box<dyn Error>> {
     let reaper = Reaper::get();
@@ -45,10 +47,11 @@ async fn record_previews_async(
         fx_index: 0,
     };
     // Loop over the preset list
-    for preset_id in preset_ids {
-        let preset = pot_db()
-            .find_preset_by_id(preset_id)
-            .ok_or("preset not found")?;
+    loop {
+        let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state").pop() else {
+            break;
+        };
+        let preset = preset_with_id.preset;
         // Prefer creating preview file name based on preset content. That means whenever the
         // content changes, we get a different preview file name. That is cool.
         let hash = preset.common.content_or_id_hash();

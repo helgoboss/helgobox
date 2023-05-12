@@ -840,11 +840,41 @@ impl PresetDb {
             for exclude in exclude_list.normal_excludes_by_kind(kind) {
                 if let Fil::Komplete(id) = exclude {
                     sql.where_and_with_param(format!("{selector} <> ?"), id);
+                    // For parent filter excludes such as banks and categories, we also need to
+                    // exclude the child filters.
+                    match kind {
+                        Bank => {
+                            sql.where_and_with_param(
+                                r#"
+                                i.bank_chain_id NOT IN (
+                                    SELECT child.id FROM k_bank_chain child WHERE child.entry1 = (
+                                        SELECT parent.entry1 FROM k_bank_chain parent WHERE parent.id = ?
+                                    ) 
+                                )
+                                "#,
+                                id,
+                            );
+                        }
+                        Category => {
+                            sql.where_and_with_param(
+                                r#"
+                                ic.category_id NOT IN (
+                                    SELECT child.id FROM k_category child WHERE child.category = (
+                                        SELECT parent.category FROM k_category parent WHERE parent.id = ?
+                                    )
+                                )
+                                "#,
+                                id,
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
         // Put it all together
-        let mut statement = self.connection.prepare_cached(&sql.to_string())?;
+        let sql_query = sql.to_string();
+        let mut statement = self.connection.prepare_cached(&sql_query)?;
         let collection: Result<C, _> = statement
             .query(sql.params.as_slice())?
             .mapped(|row| row_mapper(row))

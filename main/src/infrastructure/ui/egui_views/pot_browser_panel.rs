@@ -1,11 +1,15 @@
 use crate::application::get_track_label;
-use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
+use crate::base::{
+    blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
+};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
     import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
     SharedPresetCrawlingState,
 };
-use crate::domain::pot::preview_recorder::{prepare_preview_recording, record_previews};
+use crate::domain::pot::preview_recorder::{
+    prepare_preview_recording, record_previews, SharedPreviewRecorderState,
+};
 use crate::domain::pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
     ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
@@ -34,7 +38,7 @@ use std::error::Error;
 use std::fs::File;
 use std::mem;
 use std::num::NonZeroUsize;
-use std::sync::MutexGuard;
+use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use swell_ui::Window;
 
@@ -114,6 +118,9 @@ enum Dialog {
     PreviewRecorderReadyToRecord {
         presets: Vec<PresetWithId>,
     },
+    PreviewRecorderRecording {
+        state: SharedPreviewRecorderState,
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -180,6 +187,10 @@ impl Dialog {
 
     fn preview_recorder_ready_to_record(presets: Vec<PresetWithId>) -> Self {
         Self::PreviewRecorderReadyToRecord { presets }
+    }
+
+    fn preview_recorder_recording(state: SharedPreviewRecorderState) -> Self {
+        Self::PreviewRecorderRecording { state }
     }
 }
 
@@ -897,21 +908,39 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::PreviewRecorderReadyToRecord { presets } => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
-            input.change_dialog,
-            |ui, _| {
+            &mut (input.change_dialog, presets),
+            |ui, (_, presets)| {
                 ui.label(format!("Ready to record {} presets:", presets.len()));
                 add_simple_preset_table(ui, presets);
+            },
+            |ui, (change_dialog, presets)| {
+                if ui.button("Cancel").clicked() {
+                    **change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    let state = Arc::new(RwLock::new(mem::replace(*presets, vec![])));
+                    let result = record_previews_with_default_template(
+                        &input.shared_pot_unit,
+                        state.clone(),
+                    );
+                    process_potential_error(&result, input.toasts);
+                    **change_dialog = Some(Some(Dialog::preview_recorder_recording(state)));
+                }
+            },
+        ),
+        Dialog::PreviewRecorderRecording { state } => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                let presets = blocking_read_lock(state, "preview recorder UI");
+                ui.label(format!("{} presets left to be recorded:", presets.len()));
+                add_simple_preset_table(ui, &presets);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
                     *change_dialog = Some(None);
                 };
-                if ui.button("Continue").clicked() {
-                    let preset_ids = input.pot_unit.preset_collection.iter().copied().collect();
-                    let result =
-                        record_previews_with_default_template(&input.shared_pot_unit, preset_ids);
-                    process_potential_error(&result, input.toasts);
-                }
             },
         ),
     }
@@ -919,15 +948,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
 
 fn record_previews_with_default_template(
     shared_pot_unit: &SharedRuntimePotUnit,
-    preset_ids: Vec<PresetId>,
+    state: SharedPreviewRecorderState,
 ) -> Result<(), Box<dyn Error>> {
     let preview_rpp =
         App::realearn_pot_preview_template_path().ok_or("pot preview template doesn't exist")?;
-    record_previews(
-        shared_pot_unit.clone(),
-        preset_ids,
-        preview_rpp.to_path_buf(),
-    );
+    record_previews(shared_pot_unit.clone(), state, preview_rpp.to_path_buf());
     Ok(())
 }
 
