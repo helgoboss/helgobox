@@ -2,7 +2,7 @@ use crate::base::future_util::millis;
 use crate::base::hash_util::PersistentHash;
 use crate::base::{blocking_lock_arc, file_util, Global};
 use crate::domain::pot::{
-    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId,
+    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, Preset, PresetId,
     SharedRuntimePotUnit,
 };
 use reaper_high::{Project, Reaper};
@@ -116,4 +116,8 @@ pub fn get_preview_file_path_from_hash(
     reaper_resource_dir
         .join("Helgoboss/Pot/previews")
         .join(&file_name)
+}
+
+pub async fn plan_preview_recording() -> Vec<Preset> {
+    todo!()
 }

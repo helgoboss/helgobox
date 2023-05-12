@@ -1319,7 +1319,7 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
         if input.pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
             input.pot_unit.rebuild_collections(
                 input.shared_pot_unit.clone(),
-                Some(ChangeHint::SearchExpression),
+                ChangeHint::SearchExpression,
                 Debounce::No,
             );
         }
@@ -1672,7 +1672,7 @@ fn execute_key_action(
             pot_unit.runtime_state.search_expression.pop();
             pot_unit.rebuild_collections(
                 input.pot_unit.clone(),
-                Some(ChangeHint::SearchExpression),
+                ChangeHint::SearchExpression,
                 Debounce::No,
             );
         }
@@ -1680,7 +1680,7 @@ fn execute_key_action(
             pot_unit.runtime_state.search_expression.clear();
             pot_unit.rebuild_collections(
                 input.pot_unit.clone(),
-                Some(ChangeHint::SearchExpression),
+                ChangeHint::SearchExpression,
                 Debounce::No,
             );
         }
@@ -1688,7 +1688,7 @@ fn execute_key_action(
             pot_unit.runtime_state.search_expression.push_str(&text);
             pot_unit.rebuild_collections(
                 input.pot_unit.clone(),
-                Some(ChangeHint::SearchExpression),
+                ChangeHint::SearchExpression,
                 Debounce::Yes,
             );
         }

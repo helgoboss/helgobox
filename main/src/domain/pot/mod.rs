@@ -376,20 +376,24 @@ impl SearchEvaluator {
     }
 }
 
-fn affected_kinds(change_hint: Option<ChangeHint>) -> EnumSet<PotFilterKind> {
-    match change_hint {
-        None | Some(ChangeHint::TotalRefresh | ChangeHint::FilterExclude) => EnumSet::all(),
-        Some(ChangeHint::SearchExpression) => EnumSet::empty(),
-        Some(ChangeHint::Filter(changed_kind)) => changed_kind.dependent_kinds().collect(),
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ChangeHint {
+    /// Will refresh databases. Potentially expensive operation!
     TotalRefresh,
+    Normal,
     Filter(PotFilterKind),
     SearchExpression,
-    FilterExclude,
+}
+
+impl ChangeHint {
+    pub fn affected_kinds(&self) -> EnumSet<PotFilterKind> {
+        use ChangeHint::*;
+        match self {
+            Normal | TotalRefresh => EnumSet::all(),
+            SearchExpression => EnumSet::empty(),
+            Filter(changed_kind) => changed_kind.dependent_kinds().collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -489,7 +493,7 @@ impl RuntimePotUnit {
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit, "PotUnit from load").rebuild_collections(
             shared_unit.clone(),
-            None,
+            ChangeHint::Normal,
             Debounce::No,
         );
         Ok(shared_unit)
@@ -544,7 +548,7 @@ impl RuntimePotUnit {
         blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
         self.rebuild_collections(
             shared_self,
-            Some(ChangeHint::Filter(PotFilterKind::IsFavorite)),
+            ChangeHint::Filter(PotFilterKind::IsFavorite),
             Debounce::No,
         );
     }
@@ -733,7 +737,8 @@ impl RuntimePotUnit {
         shared_self: SharedRuntimePotUnit,
     ) {
         self.show_excluded_filter_items = show;
-        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude), Debounce::No);
+        self.clear_invalid_filters();
+        self.rebuild_collections(shared_self, ChangeHint::Normal, Debounce::No);
     }
 
     pub fn include_filter_item(
@@ -751,7 +756,15 @@ impl RuntimePotUnit {
                 list.exclude(kind, id);
             }
         }
-        self.rebuild_collections(shared_self, Some(ChangeHint::FilterExclude), Debounce::No);
+        self.clear_invalid_filters();
+        self.rebuild_collections(shared_self, ChangeHint::Normal, Debounce::No);
+    }
+
+    fn clear_invalid_filters(&mut self) {
+        if !self.show_excluded_filter_items {
+            let excludes = BackboneState::get().pot_filter_exclude_list();
+            self.runtime_state.filters.clear_excluded_ones(&excludes);
+        }
     }
 
     pub fn set_filter(
@@ -766,21 +779,21 @@ impl RuntimePotUnit {
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             ));
-        self.rebuild_collections(shared_self, Some(ChangeHint::Filter(kind)), debounce);
+        self.rebuild_collections(shared_self, ChangeHint::Filter(kind), debounce);
     }
 
     pub fn refresh_pot(&mut self, shared_self: SharedRuntimePotUnit) {
-        self.rebuild_collections(shared_self, Some(ChangeHint::TotalRefresh), Debounce::No);
+        self.rebuild_collections(shared_self, ChangeHint::TotalRefresh, Debounce::No);
     }
 
     pub fn rebuild_collections(
         &mut self,
         shared_self: SharedRuntimePotUnit,
-        change_hint: Option<ChangeHint>,
+        change_hint: ChangeHint,
         debounce: Debounce,
     ) {
         // Acquire exclude list in main thread
-        let affected_kinds = affected_kinds(change_hint);
+        let affected_kinds = change_hint.affected_kinds();
         let build_input = BuildInput {
             affected_kinds,
             filters: self.runtime_state.filters,
@@ -794,16 +807,11 @@ impl RuntimePotUnit {
                 BackboneState::get().pot_filter_exclude_list().clone()
             },
         };
-        let mut runtime_state = self.runtime_state.clone();
-        // Here we already have enough knowledge to fix some filter settings.
-        runtime_state
-            .filters
-            .clear_excluded_ones(&build_input.filter_excludes);
         // Spawn new async task (don't block GUI thread, might take longer)
         self.build_counter += 1;
         let build_number = self.build_counter;
         spawn_in_pot_worker(async move {
-            if change_hint == Some(ChangeHint::TotalRefresh) {
+            if change_hint == ChangeHint::TotalRefresh {
                 pot_db().refresh();
             }
             // Debounce (cheap)
