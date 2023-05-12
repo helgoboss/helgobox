@@ -2,7 +2,7 @@ use crate::domain::LimitedAsciiString;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum PluginId {
     Vst2 { vst_magic_number: u32 },
     Vst3 { vst_uid: [u32; 4] },

@@ -134,6 +134,7 @@ impl Database for DirectoryDatabase {
         &self,
         _: &ProviderContext,
         input: InnerBuildInput,
+        _: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut new_filters = *input.filter_input.filters;
         new_filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
@@ -171,6 +172,7 @@ impl Database for DirectoryDatabase {
                     create_persistent_inner_id(preset_entry),
                 ),
                 name: preset_entry.preset_name.clone(),
+                plugin_ids: preset_entry.plugin_cores.values().map(|c| c.id).collect(),
                 product_ids: preset_entry
                     .plugin_cores
                     .values()

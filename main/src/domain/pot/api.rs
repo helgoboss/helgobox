@@ -1,6 +1,7 @@
 use crate::domain::pot::plugins::ProductKind;
 use crate::domain::pot::provider_database::{
-    DatabaseId, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+    DatabaseId, FIL_HAS_PREVIEW_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
+    FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
@@ -148,6 +149,14 @@ pub struct Filters(EnumMap<PotFilterKind, OptFilter>);
 impl Filters {
     pub fn empty() -> Self {
         Self::default()
+    }
+
+    pub fn wants_preview(&self) -> Option<bool> {
+        if let Some(FilterItemId(Some(fil))) = self.get(PotFilterKind::HasPreview) {
+            Some(fil == FIL_HAS_PREVIEW_TRUE)
+        } else {
+            None
+        }
     }
 
     pub fn database_matches(&self, db_id: DatabaseId) -> bool {

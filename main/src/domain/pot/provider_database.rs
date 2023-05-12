@@ -29,6 +29,7 @@ pub trait Database {
         &self,
         context: &ProviderContext,
         input: InnerBuildInput,
+        affected_kinds: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>>;
 
     fn query_presets(

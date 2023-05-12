@@ -1,16 +1,17 @@
 use crate::base::{blocking_read_lock, blocking_write_lock};
 use crate::domain::pot::provider_database::{
-    Database, DatabaseId, InnerFilterItem, ProviderContext, FIL_HAS_PREVIEW_FALSE,
-    FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_FALSE,
-    FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_FALSE,
-    FIL_IS_USER_PRESET_TRUE, FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT,
-    FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
+    Database, DatabaseId, InnerFilterItem, ProviderContext, SortablePresetId,
+    FIL_HAS_PREVIEW_FALSE, FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
+    FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
+    FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE, FIL_PRODUCT_KIND_EFFECT,
+    FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
 };
 use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::domain::pot::providers::komplete::KompleteDatabase;
 use crate::domain::pot::{
-    find_preview_file, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId,
-    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, Preset, PresetId, Stats,
+    preview_exists, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Filters,
+    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, Preset,
+    PresetId, PresetWithId, Stats,
 };
 
 use crate::domain::pot::plugins::PluginDatabase;
@@ -142,11 +143,14 @@ impl PotDatabase {
         self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub fn build_collections(&self, mut input: BuildInput) -> BuildOutput {
+    pub fn build_collections(
+        &self,
+        mut input: BuildInput,
+        affected_kinds: EnumSet<PotFilterKind>,
+    ) -> BuildOutput {
         // Preparation
-        let any_thread_backbone_state = AnyThreadBackboneState::get();
         let favorites = blocking_read_lock(
-            &any_thread_backbone_state.pot_favorites,
+            &AnyThreadBackboneState::get().pot_favorites,
             "favorites build collections",
         );
         let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
@@ -162,7 +166,7 @@ impl PotDatabase {
             ..Default::default()
         };
         measure_duration(&mut total_output.stats.filter_query_duration, || {
-            add_constant_filter_items(&mut input, &mut total_output.filter_item_collections);
+            add_constant_filter_items(affected_kinds, &mut total_output.filter_item_collections);
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
             let mut used_product_ids = HashSet::new();
@@ -196,7 +200,7 @@ impl PotDatabase {
                 total_output.supported_filter_kinds |= db.supported_advanced_filter_kinds();
                 // Build and accumulate filters collections
                 let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
-                let Ok(filter_collections) = db.query_filter_collections(&provider_context, inner_input) else {
+                let Ok(filter_collections) = db.query_filter_collections(&provider_context, inner_input, affected_kinds) else {
                     continue;
                 };
                 // Add unique filter items directly to the list of filters. Gather shared filter
@@ -231,7 +235,7 @@ impl PotDatabase {
                 .filter_item_collections
                 .extend(PotFilterKind::Bank, product_filter_items);
             // Add database filter items
-            if input.affected_kinds.contains(PotFilterKind::Database) {
+            if affected_kinds.contains(PotFilterKind::Database) {
                 total_output
                     .filter_item_collections
                     .set(PotFilterKind::Database, database_filter_items);
@@ -239,58 +243,18 @@ impl PotDatabase {
             // Important: At this point, some previously selected filters might not exist anymore.
             // So we should reset them and not let them influence the preset query anymore!
             input.filters.clear_if_not_available_anymore(
-                input.affected_kinds,
+                affected_kinds,
                 &total_output.filter_item_collections,
             );
         });
-        // Finally build and accumulate presets
+        // Finally build
         let mut sortable_preset_ids: Vec<_> =
             measure_duration(&mut total_output.stats.preset_query_duration, || {
-                self.databases
-                    .iter()
-                    .filter(|(db_id, _)| {
-                        input.filters.database_matches(**db_id)
-                            && !input.filter_excludes.contains_database(**db_id)
-                    })
-                    .filter_map(|(db_id, db)| {
-                        // Acquire database access
-                        let db = blocking_read_lock(db, "pot db build_collections 2");
-                        let db = db.as_ref().ok()?;
-                        // Don't even try to get presets if one filter is set which is not
-                        // supported by database.
-                        if input
-                            .filters
-                            .any_unsupported_filter_is_set_to_concrete_value(
-                                db.supported_advanced_filter_kinds(),
-                            )
-                        {
-                            return None;
-                        }
-                        // Let database build presets
-                        let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
-                        let preset_ids = db.query_presets(&provider_context, inner_input).ok()?;
-                        Some((*db_id, preset_ids))
-                    })
-                    .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
-                    .collect()
+                self.gather_preset_ids_internal(&input, &provider_context, &favorites)
             });
         // Apply "has preview" filter if necessary (expensive!)
         measure_duration(&mut total_output.stats.preview_filter_duration, || {
-            if let Some(FilterItemId(Some(fil))) = input.filters.get(PotFilterKind::HasPreview) {
-                let reaper_resource_dir = Reaper::get().resource_path();
-                let needs_preview = fil == FIL_HAS_PREVIEW_TRUE;
-                sortable_preset_ids.retain(|(db_id, sortable_preset_id)| {
-                    let preset_id = PresetId::new(*db_id, sortable_preset_id.inner_preset_id);
-                    if let Some(preset) = self.find_preset_by_id(preset_id) {
-                        let preview_exists =
-                            find_preview_file(&preset, &reaper_resource_dir).is_some();
-                        preview_exists == needs_preview
-                    } else {
-                        // Preset doesn't exist? Shouldn't happen, but treat it like a missing preview.
-                        !needs_preview
-                    }
-                });
-            }
+            self.apply_has_preview_filter(&input.filters, &mut sortable_preset_ids);
         });
         // Sort filter items and presets
         measure_duration(&mut total_output.stats.sort_duration, || {
@@ -314,6 +278,78 @@ impl PotDatabase {
                 .collect();
         });
         total_output
+    }
+
+    fn apply_has_preview_filter(
+        &self,
+        filters: &Filters,
+        sortable_preset_ids: &mut Vec<(DatabaseId, SortablePresetId)>,
+    ) {
+        if let Some(wants_preview) = filters.wants_preview() {
+            let reaper_resource_dir = Reaper::get().resource_path();
+            sortable_preset_ids.retain(|(db_id, sortable_preset_id)| {
+                let preset_id = PresetId::new(*db_id, sortable_preset_id.inner_preset_id);
+                if let Some(preset) = self.find_preset_by_id(preset_id) {
+                    preview_exists(&preset, &reaper_resource_dir) == wants_preview
+                } else {
+                    // Preset doesn't exist? Shouldn't happen, but treat it like a missing preview.
+                    !wants_preview
+                }
+            });
+        }
+    }
+
+    /// Gathers an unsorted list of preset respecting all pre-filters.
+    pub fn gather_presets(&self, input: BuildInput) -> Vec<PresetWithId> {
+        let favorites = blocking_read_lock(
+            &AnyThreadBackboneState::get().pot_favorites,
+            "gather_preset_ids favorites",
+        );
+        let plugin_db = blocking_read_lock(&self.plugin_db, "gather_preset_ids plugin_db");
+        let provider_context = ProviderContext::new(&plugin_db);
+        self.gather_preset_ids_internal(&input, &provider_context, &favorites)
+            .into_iter()
+            .filter_map(|(db_id, sortable_preset_id)| {
+                let preset_id = PresetId::new(db_id, sortable_preset_id.inner_preset_id);
+                let preset = self.find_preset_by_id(preset_id)?;
+                Some(PresetWithId::new(preset_id, preset))
+            })
+            .collect()
+    }
+
+    fn gather_preset_ids_internal(
+        &self,
+        input: &BuildInput,
+        provider_context: &ProviderContext,
+        favorites: &PotFavorites,
+    ) -> Vec<(DatabaseId, SortablePresetId)> {
+        self.databases
+            .iter()
+            .filter(|(db_id, _)| {
+                input.filters.database_matches(**db_id)
+                    && !input.filter_excludes.contains_database(**db_id)
+            })
+            .filter_map(|(db_id, db)| {
+                // Acquire database access
+                let db = blocking_read_lock(db, "pot db build_collections 2");
+                let db = db.as_ref().ok()?;
+                // Don't even try to get presets if one filter is set which is not
+                // supported by database.
+                if input
+                    .filters
+                    .any_unsupported_filter_is_set_to_concrete_value(
+                        db.supported_advanced_filter_kinds(),
+                    )
+                {
+                    return None;
+                }
+                // Let database build presets
+                let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
+                let preset_ids = db.query_presets(&provider_context, inner_input).ok()?;
+                Some((*db_id, preset_ids))
+            })
+            .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
+            .collect()
     }
 
     pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
@@ -412,31 +448,31 @@ fn measure_duration<R>(duration: &mut Duration, f: impl FnOnce() -> R) -> R {
 }
 
 fn add_constant_filter_items(
-    input: &mut BuildInput,
+    affected_kinds: EnumSet<PotFilterKind>,
     filter_item_collections: &mut FilterItemCollections,
 ) {
-    if input.affected_kinds.contains(PotFilterKind::IsAvailable) {
+    if affected_kinds.contains(PotFilterKind::IsAvailable) {
         filter_item_collections.set(
             PotFilterKind::IsAvailable,
             create_filter_items_is_available(),
         );
     }
-    if input.affected_kinds.contains(PotFilterKind::IsSupported) {
+    if affected_kinds.contains(PotFilterKind::IsSupported) {
         filter_item_collections.set(
             PotFilterKind::IsSupported,
             create_filter_items_is_supported(),
         );
     }
-    if input.affected_kinds.contains(PotFilterKind::IsFavorite) {
+    if affected_kinds.contains(PotFilterKind::IsFavorite) {
         filter_item_collections.set(PotFilterKind::IsFavorite, create_filter_items_is_favorite());
     }
-    if input.affected_kinds.contains(PotFilterKind::IsUser) {
+    if affected_kinds.contains(PotFilterKind::IsUser) {
         filter_item_collections.set(PotFilterKind::IsUser, create_filter_items_is_user());
     }
-    if input.affected_kinds.contains(PotFilterKind::HasPreview) {
+    if affected_kinds.contains(PotFilterKind::HasPreview) {
         filter_item_collections.set(PotFilterKind::HasPreview, create_filter_items_has_preview());
     }
-    if input.affected_kinds.contains(PotFilterKind::ProductKind) {
+    if affected_kinds.contains(PotFilterKind::ProductKind) {
         filter_item_collections.set(
             PotFilterKind::ProductKind,
             create_filter_items_product_kind(),

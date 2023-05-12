@@ -1,17 +1,16 @@
 use crate::application::get_track_label;
-use crate::base::future_util::millis;
 use crate::base::{blocking_lock, blocking_lock_arc, NamedChannelSender, SenderToNormalThread};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
     import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
     SharedPresetCrawlingState,
 };
-use crate::domain::pot::preview_recorder::record_previews;
+use crate::domain::pot::preview_recorder::{prepare_preview_recording, record_previews};
 use crate::domain::pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
     ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
     LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, OptFilter, PotWorkerDispatcher,
-    Preset, PresetKind, RuntimePotUnit, SharedRuntimePotUnit,
+    Preset, PresetKind, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -113,7 +112,7 @@ enum Dialog {
     PreviewRecorderIntro,
     PreviewRecorderPreparing,
     PreviewRecorderReadyToRecord {
-        output: i32,
+        presets: Vec<PresetWithId>,
     },
 }
 
@@ -179,8 +178,8 @@ impl Dialog {
         Self::PreviewRecorderPreparing
     }
 
-    fn preview_recorder_ready_to_record(output: i32) -> Self {
-        Self::PreviewRecorderReadyToRecord { output }
+    fn preview_recorder_ready_to_record(presets: Vec<PresetWithId>) -> Self {
+        Self::PreviewRecorderReadyToRecord { presets }
     }
 }
 
@@ -871,11 +870,9 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
+                    let build_input = input.pot_unit.create_build_input();
                     preview_dispatcher.do_in_background_and_then(
-                        async {
-                            millis(4000).await;
-                            50
-                        },
+                        async move { prepare_preview_recording(build_input) },
                         |dialog, output| {
                             *dialog = Some(Dialog::preview_recorder_ready_to_record(output));
                         },
@@ -897,13 +894,13 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
-        Dialog::PreviewRecorderReadyToRecord { output } => show_dialog(
+        Dialog::PreviewRecorderReadyToRecord { presets } => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.label("Ready to record");
-                ui.label(output.to_string());
+                ui.label(format!("Ready to record {} presets:", presets.len()));
+                add_simple_preset_table(ui, presets);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -959,8 +956,8 @@ fn add_crawl_presets_stopped_dialog_contents(
             TableBuilder::new(ui)
                 .striped(true)
                 .resizable(true)
-                .max_scroll_height(table_height)
                 .min_scrolled_height(table_height)
+                .max_scroll_height(table_height)
                 .cell_layout(Layout::left_to_right(Align::Center))
                 .column(Column::auto())
                 .column(Column::remainder())
@@ -1006,18 +1003,7 @@ struct PresetTableInput<'a> {
 fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
     let text_height = get_text_height(ui);
     let preset_count = input.pot_unit.preset_count();
-    let mut table = TableBuilder::new(ui)
-        .striped(true)
-        .resizable(true)
-        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        // Preset name
-        .column(Column::auto())
-        // Plug-in or product
-        .column(Column::initial(200.0).clip(true).at_least(100.0))
-        // Extension
-        .column(Column::remainder())
-        .min_scrolled_height(0.0);
-
+    let mut table = create_basic_preset_table_builder(ui);
     if input.pot_unit.preset_id() != input.last_preset_id {
         let scroll_index = match input.pot_unit.preset_id() {
             None => 0,
@@ -1047,13 +1033,10 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
                 // Name
                 row.col(|ui| {
                     // Decide about text to display
-                    const MAX_PRESET_NAME_LENGTH: usize = 40;
                     let text: Cow<str> = match cache_entry {
                         PresetCacheEntry::Requested => "⏳".into(),
                         PresetCacheEntry::NotFound => "<Preset not found>".into(),
-                        PresetCacheEntry::Found(d) => {
-                            shorten(d.preset.name().into(), MAX_PRESET_NAME_LENGTH)
-                        }
+                        PresetCacheEntry::Found(d) => shorten_preset_name(d.preset.name()),
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
                     if let PresetCacheEntry::Found(data) = cache_entry {
@@ -1127,11 +1110,64 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
                 });
                 // Extension
                 row.col(|ui| {
-                    let text = match &preset.kind {
-                        PresetKind::FileBased(k) => &k.file_ext,
-                        PresetKind::Internal(_) => "",
-                        PresetKind::DefaultFactory(_) => "",
-                    };
+                    let text = preset.kind.file_extension().unwrap_or("");
+                    ui.label(text);
+                });
+            });
+        });
+}
+
+fn create_basic_preset_table_builder(ui: &mut Ui) -> TableBuilder {
+    TableBuilder::new(ui)
+        .striped(true)
+        .resizable(true)
+        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+        // Preset name
+        .column(Column::auto())
+        // Plug-in or product
+        .column(Column::initial(200.0).clip(true).at_least(100.0))
+        // Extension
+        .column(Column::remainder())
+        .min_scrolled_height(0.0)
+}
+
+fn add_simple_preset_table<'a>(ui: &mut Ui, presets: &[PresetWithId]) {
+    let text_height = get_text_height(ui);
+    let preset_count = presets.len();
+    let table_height = 400.0;
+    let table = create_basic_preset_table_builder(ui)
+        .min_scrolled_height(table_height)
+        .max_scroll_height(table_height);
+    table
+        .header(20.0, |mut header| {
+            header.col(|ui| {
+                ui.strong("Name");
+            });
+            header.col(|ui| {
+                ui.strong("Plug-in/product");
+            });
+            header.col(|ui| {
+                ui.strong("Extension");
+            });
+        })
+        .body(|body| {
+            body.rows(text_height, preset_count as usize, |row_index, mut row| {
+                let preset = &presets.get(row_index).unwrap().preset;
+                // Name
+                row.col(|ui| {
+                    // Decide about text to display
+                    let text = shorten_preset_name(preset.name());
+                    ui.label(text);
+                });
+                // Product
+                row.col(|ui| {
+                    if let Some(n) = preset.common.product_name.as_ref() {
+                        ui.label(n);
+                    }
+                });
+                // Extension
+                row.col(|ui| {
+                    let text = preset.kind.file_extension().unwrap_or("");
                     ui.label(text);
                 });
             });
@@ -2322,4 +2358,9 @@ fn show_as_list(ui: &mut Ui, entries: &[impl AsRef<str>], height: f32) {
                 });
             });
         });
+}
+
+fn shorten_preset_name(name: &str) -> Cow<str> {
+    const MAX_PRESET_NAME_LEN: usize = 40;
+    shorten(name.into(), MAX_PRESET_NAME_LEN)
 }

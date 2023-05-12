@@ -6,9 +6,9 @@ use crate::domain::pot::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
-    Fil, FiledBasedPresetKind, FilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, MacroParamBank, PersistentDatabaseId, PersistentInnerPresetId,
-    PersistentPresetId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, Preset, PresetCommon,
+    PresetKind, ProductId, SearchEvaluator,
 };
 use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
@@ -224,6 +224,7 @@ impl Database for KompleteDatabase {
         &self,
         _: &ProviderContext,
         input: InnerBuildInput,
+        affected_kinds: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         // Translate possibly incoming "neutral" product filters to "NKS bank" product filters
         let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
@@ -236,7 +237,7 @@ impl Database for KompleteDatabase {
         );
         let mut filter_item_collections = preset_db.query_filter_collections(
             &translated_filters,
-            input.affected_kinds,
+            affected_kinds,
             &translated_excludes,
         )?;
         // Translate some Komplete-specific filter items to shared filter items. It's important that
@@ -494,6 +495,7 @@ impl PresetDb {
                     // the bank-to-product-ID translation will find something, because our
                     // plug-in database of course only knows products that represent plug-ins.
                     product_ids: product_id.into_iter().collect(),
+                    plugin_ids: vec![],
                     product_name,
                     // We could make a hash of the file contents but since we would have to do that
                     // each time we look up the preset (not at refresh time), we don't do that for

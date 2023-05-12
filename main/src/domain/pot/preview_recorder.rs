@@ -1,10 +1,15 @@
 use crate::base::future_util::millis;
 use crate::base::hash_util::PersistentHash;
 use crate::base::{blocking_lock_arc, file_util, Global};
+use crate::domain::pot::provider_database::{
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_PRODUCT_KIND_INSTRUMENT,
+};
 use crate::domain::pot::{
-    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, Preset, PresetId,
+    pot_db, preview_exists, BuildInput, Destination, FilterItemId, LoadPresetOptions,
+    LoadPresetWindowBehavior, PluginId, PresetId, PresetKind, PresetWithId, ProductId,
     SharedRuntimePotUnit,
 };
+use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{CommandId, OpenProjectBehavior, ProjectContext, ProjectInfoAttributeKey};
 use std::error::Error;
@@ -118,6 +123,54 @@ pub fn get_preview_file_path_from_hash(
         .join(&file_name)
 }
 
-pub async fn plan_preview_recording() -> Vec<Preset> {
-    todo!()
+/// Can take long.
+pub fn prepare_preview_recording(mut build_input: BuildInput) -> Vec<PresetWithId> {
+    // We want only available and supported instruments
+    build_input.filters.set(
+        PotFilterKind::ProductKind,
+        Some(FilterItemId(Some(FIL_PRODUCT_KIND_INSTRUMENT))),
+    );
+    build_input.filters.set(
+        PotFilterKind::IsAvailable,
+        Some(FilterItemId(Some(FIL_IS_AVAILABLE_TRUE))),
+    );
+    build_input.filters.set(
+        PotFilterKind::IsSupported,
+        Some(FilterItemId(Some(FIL_IS_SUPPORTED_TRUE))),
+    );
+    // Gather
+    let mut presets = pot_db().gather_presets(build_input);
+    // Take only those that don't have a preview yet
+    let reaper_resource_dir = Reaper::get().resource_path();
+    presets.retain(|p| !preview_exists(&p.preset, &reaper_resource_dir));
+    // Sort by plug-in
+    presets.sort_by(|left, right| bucket(left).cmp(&bucket(right)));
+    presets
+}
+
+fn bucket(preset_with_id: &PresetWithId) -> BucketId {
+    let preset = &preset_with_id.preset;
+    if !preset.common.plugin_ids.is_empty() {
+        return BucketId::Plugin(&preset.common.plugin_ids);
+    }
+    if !preset.common.product_ids.is_empty() {
+        return BucketId::ProductId(&preset.common.product_ids);
+    }
+    if let PresetKind::FileBased(kind) = &preset.kind {
+        return BucketId::FileExtension(&kind.file_ext);
+    }
+    BucketId::Remaining
+}
+
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+enum BucketId<'a> {
+    /// The plug-in ID is certainly the best criteria here! We have that for all databases except
+    /// Komplete. For FX chains and track templates, we might have multiple plug-ins. The order of
+    /// these plug-ins is important because different orders will reload the plug-ins.
+    Plugin(&'a [PluginId]),
+    /// The next best bet is
+    ProductId(&'a [ProductId]),
+    /// And finally: File extension.
+    FileExtension(&'a str),
+    Remaining,
 }

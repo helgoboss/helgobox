@@ -135,7 +135,7 @@ pub struct PluginCommon {
     pub core: PluginCore,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct PluginCore {
     /// Uniquely identifies the plug-in in a rather cheap way (copyable).
     pub id: PluginId,

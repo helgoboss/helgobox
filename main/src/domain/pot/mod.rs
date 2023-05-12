@@ -238,7 +238,6 @@ impl Stats {
 
 #[derive(Clone)]
 pub struct BuildInput {
-    pub affected_kinds: EnumSet<PotFilterKind>,
     pub filters: Filters,
     pub filter_excludes: PotFilterExcludes,
     pub search_evaluator: SearchEvaluator,
@@ -246,7 +245,6 @@ pub struct BuildInput {
 
 #[derive(Copy, Clone)]
 pub struct InnerBuildInput<'a> {
-    pub affected_kinds: EnumSet<PotFilterKind>,
     pub filter_input: FilterInput<'a>,
     pub search_evaluator: &'a SearchEvaluator,
 }
@@ -258,7 +256,6 @@ impl<'a> InnerBuildInput<'a> {
         db_id: DatabaseId,
     ) -> InnerBuildInput<'a> {
         InnerBuildInput {
-            affected_kinds: input.affected_kinds,
             filter_input: FilterInput {
                 filters: &input.filters,
                 excludes: &input.filter_excludes,
@@ -786,16 +783,8 @@ impl RuntimePotUnit {
         self.rebuild_collections(shared_self, ChangeHint::TotalRefresh, Debounce::No);
     }
 
-    pub fn rebuild_collections(
-        &mut self,
-        shared_self: SharedRuntimePotUnit,
-        change_hint: ChangeHint,
-        debounce: Debounce,
-    ) {
-        // Acquire exclude list in main thread
-        let affected_kinds = change_hint.affected_kinds();
-        let build_input = BuildInput {
-            affected_kinds,
+    pub fn create_build_input(&self) -> BuildInput {
+        BuildInput {
             filters: self.runtime_state.filters,
             search_evaluator: SearchEvaluator::new(
                 &self.runtime_state.search_expression,
@@ -806,10 +795,20 @@ impl RuntimePotUnit {
             } else {
                 BackboneState::get().pot_filter_exclude_list().clone()
             },
-        };
-        // Spawn new async task (don't block GUI thread, might take longer)
+        }
+    }
+
+    pub fn rebuild_collections(
+        &mut self,
+        shared_self: SharedRuntimePotUnit,
+        change_hint: ChangeHint,
+        debounce: Debounce,
+    ) {
+        let build_input = self.create_build_input();
         self.build_counter += 1;
         let build_number = self.build_counter;
+        let affected_kinds = change_hint.affected_kinds();
+        // Spawn new async task (don't block GUI thread, might take longer)
         spawn_in_pot_worker(async move {
             if change_hint == ChangeHint::TotalRefresh {
                 pot_db().refresh();
@@ -833,7 +832,7 @@ impl RuntimePotUnit {
                 }
             }
             // Build (expensive)
-            let build_output = pot_db().build_collections(build_input);
+            let build_output = pot_db().build_collections(build_input, affected_kinds);
             // Set result (cheap)
             // Only set result if no new build has been requested in the meantime.
             // Prevents flickering and increment/decrement issues.
@@ -1030,6 +1029,18 @@ impl FilterItem {
     }
 }
 
+#[derive(Debug)]
+pub struct PresetWithId {
+    pub id: PresetId,
+    pub preset: Preset,
+}
+
+impl PresetWithId {
+    pub fn new(id: PresetId, preset: Preset) -> Self {
+        Self { id, preset }
+    }
+}
+
 /// Contains meta-data about a preset.
 ///
 /// Although the preset usually doesn't contain the preset chunk (the content to actually load the
@@ -1059,6 +1070,7 @@ pub struct PresetCommon {
     /// but that would be wrong. It also needs to survive modifications of the preset!
     pub persistent_id: PersistentPresetId,
     pub name: String,
+    pub plugin_ids: Vec<PluginId>,
     pub product_ids: Vec<ProductId>,
     /// Meaning depends on the database.
     ///
@@ -1112,6 +1124,16 @@ pub enum PresetKind {
     FileBased(FiledBasedPresetKind),
     Internal(InternalPresetKind),
     DefaultFactory(PluginId),
+}
+
+impl PresetKind {
+    pub fn file_extension(&self) -> Option<&str> {
+        match self {
+            PresetKind::FileBased(k) => Some(&k.file_ext),
+            PresetKind::Internal(_) => None,
+            PresetKind::DefaultFactory(_) => None,
+        }
+    }
 }
 
 /// The kind of preset that's saved in a separate file.
@@ -1564,6 +1586,10 @@ fn is_audio_file_extension(ext: &str) -> bool {
     matches!(ext, "wav" | "aif" | "ogg" | "mp3")
 }
 
+pub fn preview_exists(preset: &Preset, reaper_resource_dir: &Path) -> bool {
+    find_preview_file(preset, reaper_resource_dir).is_some()
+}
+
 /// This looks up the preview file for the given preset, actually checking for the file's
 /// existence.
 ///
@@ -1608,6 +1634,7 @@ pub fn create_plugin_factory_preset(
         common: PresetCommon {
             persistent_id,
             name: preset_name,
+            plugin_ids: vec![plugin.core.id],
             product_ids: vec![plugin.core.product_id],
             product_name: Some(plugin.to_string()),
             content_hash: None,

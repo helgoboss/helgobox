@@ -204,6 +204,7 @@ impl Database for IniDatabase {
         &self,
         _: &ProviderContext,
         input: InnerBuildInput,
+        _: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut new_filters = *input.filter_input.filters;
         new_filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
@@ -244,6 +245,12 @@ impl Database for IniDatabase {
                     create_persistent_inner_id(&preset_entry),
                 ),
                 name: preset_entry.preset_name.clone(),
+                plugin_ids: preset_entry
+                    .plugin
+                    .as_ref()
+                    .map(|p| p.id)
+                    .into_iter()
+                    .collect(),
                 product_ids: preset_entry
                     .plugin
                     .as_ref()
