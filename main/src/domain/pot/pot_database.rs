@@ -169,7 +169,7 @@ impl PotDatabase {
             for (db_id, db) in &self.databases {
                 // If the database is on the exclude list, we don't even want it to appear in the
                 // database list.
-                if input.filter_excludes.excludes_database(*db_id) {
+                if input.filter_excludes.contains_database(*db_id) {
                     continue;
                 }
                 // Acquire database access
@@ -250,7 +250,7 @@ impl PotDatabase {
                     .iter()
                     .filter(|(db_id, _)| {
                         input.filters.database_matches(**db_id)
-                            && !input.filter_excludes.excludes_database(**db_id)
+                            && !input.filter_excludes.contains_database(**db_id)
                     })
                     .filter_map(|(db_id, db)| {
                         // Acquire database access

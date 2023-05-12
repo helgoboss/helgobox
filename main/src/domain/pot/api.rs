@@ -333,26 +333,26 @@ impl PotFilterExcludes {
         self.exluded_items[kind].contains(&id)
     }
 
-    pub fn include(&mut self, kind: PotFilterKind, id: FilterItemId) {
+    pub fn remove(&mut self, kind: PotFilterKind, id: FilterItemId) {
         self.exluded_items[kind].remove(&id);
     }
 
-    pub fn exclude(&mut self, kind: PotFilterKind, id: FilterItemId) {
+    pub fn add(&mut self, kind: PotFilterKind, id: FilterItemId) {
         self.exluded_items[kind].insert(id);
     }
 
-    pub fn has_excludes(&self, kind: PotFilterKind) -> bool {
+    pub fn is_empty(&self, kind: PotFilterKind) -> bool {
         !self.exluded_items[kind].is_empty()
     }
 
-    pub fn excludes_database(&self, db_id: DatabaseId) -> bool {
+    pub fn contains_database(&self, db_id: DatabaseId) -> bool {
         self.contains(
             PotFilterKind::Database,
             FilterItemId(Some(Fil::Database(db_id))),
         )
     }
 
-    pub fn excludes_product(&self, product_id: Option<ProductId>) -> bool {
+    pub fn contains_product(&self, product_id: Option<ProductId>) -> bool {
         self.contains(
             PotFilterKind::Bank,
             FilterItemId(product_id.map(Fil::Product)),

@@ -78,9 +78,8 @@ impl KompleteDatabase {
         let mut translated_excludes = excludes.clone();
         for fil in excludes.normal_excludes_by_kind(PotFilterKind::Bank) {
             if let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
-                translated_excludes.include(PotFilterKind::Bank, FilterItemId(Some(*fil)));
-                translated_excludes
-                    .exclude(PotFilterKind::Bank, FilterItemId(Some(translated_fil)));
+                translated_excludes.remove(PotFilterKind::Bank, FilterItemId(Some(*fil)));
+                translated_excludes.add(PotFilterKind::Bank, FilterItemId(Some(translated_fil)));
             }
         }
         translated_excludes
@@ -817,7 +816,7 @@ impl PresetDb {
         }
         // Exclude filters
         for kind in PotFilterKind::into_enum_iter() {
-            if !exclude_list.has_excludes(kind) {
+            if exclude_list.is_empty(kind) {
                 continue;
             }
             use PotFilterKind::*;

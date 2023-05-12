@@ -316,7 +316,7 @@ impl<'a> FilterInput<'a> {
         let product_is_included = || {
             // If we don't have plug-in, we *can* be excluded via product ... if <None> is excluded.
             let product_id = plugin.map(|p| p.product_id);
-            !self.excludes.excludes_product(product_id)
+            !self.excludes.contains_product(product_id)
         };
         let favorite_matches = || self.filters.favorite_matches(self.db_favorites, preset_id);
         // Combine
@@ -751,9 +751,9 @@ impl RuntimePotUnit {
         {
             let mut list = BackboneState::get().pot_filter_exclude_list_mut();
             if include {
-                list.include(kind, id);
+                list.remove(kind, id);
             } else {
-                list.exclude(kind, id);
+                list.add(kind, id);
             }
         }
         self.clear_invalid_filters();
