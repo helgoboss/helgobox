@@ -6,9 +6,9 @@ use crate::domain::pot::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::domain::pot::{
-    Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, Preset, PresetCommon,
-    PresetKind, ProductId, SearchEvaluator,
+    Fil, FiledBasedPresetKind, FilterItemCollections, HasFilterItemId, InnerBuildInput,
+    InnerPresetId, MacroParamBank, PersistentDatabaseId, PersistentInnerPresetId,
+    PersistentPresetId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::domain::pot::{
     FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
@@ -57,19 +57,72 @@ impl KompleteDatabase {
         Ok(db)
     }
 
-    /// Translates any neutral (NKS-independent) product filter (representing one of the
-    /// installed plug-ins) into an NKS bank filter. That enables the magic of merging NKS and own
-    /// banks.
-    fn translate_neutral_filters_to_nks_filters(&self, mut filters: Filters) -> Filters {
-        if let Some(FilterItemId(Some(Fil::Product(pid)))) = filters.get(PotFilterKind::Bank) {
-            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(&pid) {
+    /// Translates all neutral (NKS-independent) filters into NKS filters.
+    ///
+    /// At the moment, this only affects the product filter. That means it translates any neutral
+    /// product filter (representing one of the installed plug-ins) into an NKS bank filter.
+    fn translate_neutral_filters_to_nks(&self, mut filters: Filters) -> Filters {
+        if let Some(FilterItemId(Some(fil))) = filters.get_ref(PotFilterKind::Bank) {
+            if let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
                 filters.set(
                     PotFilterKind::Bank,
-                    Some(FilterItemId(Some(Fil::Komplete(*bank_id)))),
+                    Some(FilterItemId(Some(translated_fil))),
                 );
             }
         }
         filters
+    }
+
+    /// Translates all neutral (NKS-independent) excludes into NKS excludes.
+    fn translate_neutral_excludes_to_nks(&self, excludes: &PotFilterExcludes) -> PotFilterExcludes {
+        let mut translated_excludes = excludes.clone();
+        for fil in excludes.normal_excludes_by_kind(PotFilterKind::Bank) {
+            if let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
+                translated_excludes.include(PotFilterKind::Bank, FilterItemId(Some(*fil)));
+                translated_excludes
+                    .exclude(PotFilterKind::Bank, FilterItemId(Some(translated_fil)));
+            }
+        }
+        translated_excludes
+    }
+
+    /// Translates all NKS filter items into neutral ones.
+    fn translate_nks_filter_items_to_neutral(&self, collections: &mut InnerFilterItemCollections) {
+        for (kind, filter_items) in collections.iter_mut() {
+            for filter_item in filter_items {
+                if let InnerFilterItem::Unique(it) = filter_item {
+                    if let FilterItemId(Some(Fil::Komplete(id))) = it.id {
+                        if let Some(translated) =
+                            self.translate_nks_filter_item_to_neutral(kind, id)
+                        {
+                            *filter_item = translated;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn translate_neutral_product_filter_to_nks(&self, fil: &Fil) -> Option<Fil> {
+        if let Fil::Product(pid) = fil {
+            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(&pid) {
+                return Some(Fil::Komplete(*bank_id));
+            }
+        }
+        None
+    }
+
+    fn translate_nks_filter_item_to_neutral(
+        &self,
+        kind: PotFilterKind,
+        id: u32,
+    ) -> Option<InnerFilterItem> {
+        if kind == PotFilterKind::Bank {
+            let product_id = self.nks_product_id_by_bank_id.get(&id)?;
+            Some(InnerFilterItem::Product(*product_id))
+        } else {
+            None
+        }
     }
 
     fn find_preset_by_id_internal(
@@ -174,27 +227,23 @@ impl Database for KompleteDatabase {
         input: InnerBuildInput,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         // Translate possibly incoming "neutral" product filters to "NKS bank" product filters
-        let translated_filters =
-            self.translate_neutral_filters_to_nks_filters(*input.filter_input.filters);
+        let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
+        let translated_excludes =
+            self.translate_neutral_excludes_to_nks(&input.filter_input.excludes);
         // Function to translate outgoing "NKS bank" filter items to "neutral" product filter items
-        let translate = |kind: PotFilterKind, id: u32| -> Option<InnerFilterItem> {
-            if kind == PotFilterKind::Bank {
-                let product_id = self.nks_product_id_by_bank_id.get(&id)?;
-                Some(InnerFilterItem::Product(*product_id))
-            } else {
-                None
-            }
-        };
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB query_filter_collections",
         );
-        preset_db.query_filter_collections(
+        let mut filter_item_collections = preset_db.query_filter_collections(
             &translated_filters,
             input.affected_kinds,
-            &input.filter_input.excludes,
-            translate,
-        )
+            &translated_excludes,
+        )?;
+        // Translate some Komplete-specific filter items to shared filter items. It's important that
+        // we do this at the end, otherwise the narrow-down logic doesn't work correctly.
+        self.translate_nks_filter_items_to_neutral(&mut filter_item_collections);
+        Ok(filter_item_collections)
     }
 
     fn query_presets(
@@ -202,13 +251,14 @@ impl Database for KompleteDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        let translated_filters =
-            self.translate_neutral_filters_to_nks_filters(*input.filter_input.filters);
+        let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
+        let translated_excludes =
+            self.translate_neutral_excludes_to_nks(&input.filter_input.excludes);
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
         preset_db.query_presets(
             &translated_filters,
             &input.search_evaluator,
-            &input.filter_input.excludes,
+            &translated_excludes,
         )
     }
 
@@ -463,7 +513,6 @@ impl PresetDb {
         filters: &Filters,
         affected_kinds: EnumSet<PotFilterKind>,
         filter_exclude_list: &PotFilterExcludes,
-        translate: impl Fn(PotFilterKind, u32) -> Option<InnerFilterItem>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
         let mut filter_items =
             self.build_filter_items(filters, affected_kinds.into_iter(), filter_exclude_list);
@@ -493,19 +542,6 @@ impl PresetDb {
         if affected_kinds.contains(PotFilterKind::Mode) {
             let non_empty_modes = self.find_non_empty_modes(*filters, filter_exclude_list)?;
             filter_items.narrow_down(PotFilterKind::Mode, &non_empty_modes);
-        }
-        // Translate some Komplete-specific filter items to shared filter items. It's important that
-        // we do this at the end, otherwise above narrow-down logic doesn't work correctly.
-        for (kind, filter_items) in filter_items.iter_mut() {
-            for filter_item in filter_items {
-                if let InnerFilterItem::Unique(it) = filter_item {
-                    if let FilterItemId(Some(Fil::Komplete(id))) = it.id {
-                        if let Some(translated) = translate(kind, id) {
-                            *filter_item = translated;
-                        }
-                    }
-                }
-            }
         }
         Ok(filter_items)
     }
