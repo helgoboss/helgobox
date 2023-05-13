@@ -184,6 +184,8 @@ pub fn prepare_preview_recording(mut build_input: BuildInput) -> Vec<PresetWithI
     // Take only those that don't have a preview yet
     let reaper_resource_dir = Reaper::get().resource_path();
     presets.retain(|p| !preview_exists(&p.preset, &reaper_resource_dir));
+    // Reverse, so we can efficiently pop from the front later on
+    presets.reverse();
     // Sort by plug-in
     presets.sort_by(|left, right| bucket(left).cmp(&bucket(right)));
     presets

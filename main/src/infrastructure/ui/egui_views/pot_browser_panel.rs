@@ -90,33 +90,34 @@ type MainThreadDispatcher = WorkerDispatcher<Option<Dialog>, MainThreadSpawner>;
 
 #[derive(Debug)]
 enum Dialog {
-    CrawlPresetsIntro,
-    CrawlPresetsMouse {
+    GeneralError {
+        title: Cow<'static, str>,
+        msg: Cow<'static, str>,
+    },
+    PresetCrawlerIntro,
+    PresetCrawlerBasics,
+    PresetCrawlerMouse {
         creation_time: Instant,
     },
-    CrawlPresetsReady {
+    PresetCrawlerReady {
         fx: Fx,
         cursor_pos: MouseCursorPosition,
         stop_if_destination_exists: bool,
     },
-    CrawlPresetsFailure {
+    PresetCrawlerFailure {
         short_msg: Cow<'static, str>,
         detail_msg: Cow<'static, str>,
     },
-    CrawlPresetsOngoing {
+    PresetCrawlerCrawling {
         crawling_state: SharedPresetCrawlingState,
     },
-    CrawlPresetsStopped {
+    PresetCrawlerStopped {
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
         page: CrawlPresetsStoppedPage,
         chunks_file: Option<File>,
     },
-    CrawlImportFinished,
-    GeneralError {
-        title: Cow<'static, str>,
-        msg: Cow<'static, str>,
-    },
+    PresetCrawlerFinished,
     PreviewRecorderIntro,
     PreviewRecorderPreparing,
     PreviewRecorderReadyToRecord {
@@ -154,40 +155,44 @@ impl Dialog {
         }
     }
 
-    fn crawl_presets_mouse() -> Self {
-        Self::CrawlPresetsMouse {
+    fn preset_crawler_basics() -> Self {
+        Self::PresetCrawlerBasics
+    }
+
+    fn preset_crawler_mouse() -> Self {
+        Self::PresetCrawlerMouse {
             creation_time: Instant::now(),
         }
     }
 
-    fn crawl_presets_ready(fx: Fx, cursor_pos: MouseCursorPosition) -> Self {
-        Self::CrawlPresetsReady {
+    fn preset_crawler_ready(fx: Fx, cursor_pos: MouseCursorPosition) -> Self {
+        Self::PresetCrawlerReady {
             fx,
             cursor_pos,
             stop_if_destination_exists: false,
         }
     }
 
-    fn crawl_presets_failure(
+    fn preset_crawler_failure(
         short_msg: impl Into<Cow<'static, str>>,
         detail_msg: impl Into<Cow<'static, str>>,
     ) -> Self {
-        Self::CrawlPresetsFailure {
+        Self::PresetCrawlerFailure {
             short_msg: short_msg.into(),
             detail_msg: detail_msg.into(),
         }
     }
 
-    fn crawl_presets_ongoing(crawling_state: SharedPresetCrawlingState) -> Self {
-        Self::CrawlPresetsOngoing { crawling_state }
+    fn preset_crawler_crawling(crawling_state: SharedPresetCrawlingState) -> Self {
+        Self::PresetCrawlerCrawling { crawling_state }
     }
 
-    fn crawl_presets_stopped(
+    fn preset_crawler_stopped(
         crawling_state: SharedPresetCrawlingState,
         stop_reason: String,
         chunks_file: File,
     ) -> Self {
-        Self::CrawlPresetsStopped {
+        Self::PresetCrawlerStopped {
             crawling_state,
             stop_reason,
             page: CrawlPresetsStoppedPage::Presets,
@@ -449,7 +454,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 // Actions
                                 ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
                                     if ui.button(PRESET_CRAWLER_TITLE).clicked() {
-                                        state.dialog = Some(Dialog::CrawlPresetsIntro);
+                                        state.dialog = Some(Dialog::PresetCrawlerIntro);
                                         ui.close_menu();
                                     }
                                     if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
@@ -650,29 +655,46 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
-        Dialog::CrawlPresetsIntro => show_dialog(
+        Dialog::PresetCrawlerIntro => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                Label::new(PRESET_CRAWLER_INTRO_TEXT).wrap(true).ui(ui);
+                add_markdown(ui, PRESET_CRAWLER_INTRO_TEXT);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
                     *change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
-                    *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                    *change_dialog = Some(Some(Dialog::preset_crawler_basics()));
                 }
             },
         ),
-        Dialog::CrawlPresetsMouse { creation_time } => match input.mouse.cursor_position() {
+        Dialog::PresetCrawlerBasics => show_dialog(
+            ctx,
+            PRESET_CRAWLER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                add_markdown(ui, PRESET_CRAWLER_BASICS_TEXT);
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    *change_dialog = Some(Some(Dialog::preset_crawler_mouse()));
+                }
+            },
+        ),
+        Dialog::PresetCrawlerMouse { creation_time } => match input.mouse.cursor_position() {
             // Capturing current cursor position successful
             Ok(p) => show_dialog(
                 ctx,
                 PRESET_CRAWLER_TITLE,
                 input.change_dialog,
                 |ui, change_dialog| {
+                    ui.add(Label::new(PRESET_CRAWLER_MOUSE_TEXT).wrap(true));
                     let elapsed = creation_time.elapsed();
                     ui.horizontal(|ui| {
                         ui.strong("Current mouse cursor position:");
@@ -688,18 +710,15 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         input.os_window.focus_first_child();
                         let next_dialog = if let Some(fx) = Reaper::get().focused_fx() {
                             if fx.fx.floating_window().is_some() {
-                                Dialog::crawl_presets_ready(fx.fx, p)
+                                Dialog::preset_crawler_ready(fx.fx, p)
                             } else {
-                                Dialog::crawl_presets_failure(
+                                Dialog::preset_crawler_failure(
                                     format!("Identified FX \"{}\" but it's not open in a floating window.", fx.fx.name()),
                                     "Please use the floating window to point the mouse to the next-preset button!",
                                 )
                             }
                         } else {
-                            Dialog::crawl_presets_failure(
-                                "Couldn't identify the corresponding FX",
-                                "",
-                            )
+                            Dialog::preset_crawler_failure(PRESET_CRAWLER_MOUSE_FAILURE_TEXT, "")
                         };
                         *change_dialog = Some(Some(next_dialog));
                     }
@@ -709,19 +728,19 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         *change_dialog = Some(None);
                     };
                     if ui.button("Try again").clicked() {
-                        *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                        *change_dialog = Some(Some(Dialog::preset_crawler_mouse()));
                     };
                 },
             ),
             // Capturing current cursor position failed
             Err(e) => {
-                *input.change_dialog = Some(Some(Dialog::crawl_presets_failure(
+                *input.change_dialog = Some(Some(Dialog::preset_crawler_failure(
                     "Sorry, capturing the mouse position failed.",
                     e,
                 )));
             }
         },
-        Dialog::CrawlPresetsFailure {
+        Dialog::PresetCrawlerFailure {
             short_msg,
             detail_msg,
         } => show_dialog(
@@ -739,11 +758,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     *change_dialog = Some(None);
                 };
                 if ui.button("Try again").clicked() {
-                    *change_dialog = Some(Some(Dialog::crawl_presets_mouse()));
+                    *change_dialog = Some(Some(Dialog::preset_crawler_mouse()));
                 };
             },
         ),
-        Dialog::CrawlPresetsReady {
+        Dialog::PresetCrawlerReady {
             fx,
             cursor_pos,
             stop_if_destination_exists,
@@ -779,11 +798,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         },
                     };
                     preset_crawler::crawl_presets(args);
-                    **change_dialog = Some(Some(Dialog::crawl_presets_ongoing(crawling_state)));
+                    **change_dialog = Some(Some(Dialog::preset_crawler_crawling(crawling_state)));
                 }
             },
         ),
-        Dialog::CrawlPresetsOngoing { crawling_state } => show_dialog(
+        Dialog::PresetCrawlerCrawling { crawling_state } => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
@@ -814,13 +833,13 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 } = state.status()
                 {
                     let next_dialog = if let Some(chunks_file) = chunks_file.take() {
-                        Dialog::crawl_presets_stopped(
+                        Dialog::preset_crawler_stopped(
                             crawling_state.clone(),
                             reason.clone(),
                             chunks_file,
                         )
                     } else {
-                        Dialog::CrawlPresetsFailure {
+                        Dialog::PresetCrawlerFailure {
                             short_msg: "Failure while crawling".into(),
                             detail_msg: reason.clone().into(),
                         }
@@ -834,7 +853,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
-        Dialog::CrawlPresetsStopped {
+        Dialog::PresetCrawlerStopped {
             crawling_state,
             stop_reason,
             page,
@@ -845,7 +864,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             if preset_count == 0 {
                 // When the preset count is 0, there's no preset left for import anymore.
                 input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
-                *input.change_dialog = Some(Some(Dialog::CrawlImportFinished));
+                *input.change_dialog = Some(Some(Dialog::PresetCrawlerFinished));
             } else {
                 show_dialog(
                     ctx,
@@ -880,7 +899,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 )
             }
         }
-        Dialog::CrawlImportFinished => show_dialog(
+        Dialog::PresetCrawlerFinished => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
@@ -1028,7 +1047,7 @@ fn add_crawl_presets_stopped_dialog_contents(
         ui.selectable_value(page, CrawlPresetsStoppedPage::Presets, "Presets");
         ui.selectable_value(page, CrawlPresetsStoppedPage::Duplicates, "Duplicates");
     });
-    let table_height = 400.0;
+    let table_height = DIALOG_CONTENT_MAX_HEIGHT;
     match *page {
         CrawlPresetsStoppedPage::Presets => {
             let text_height = get_text_height(ui);
@@ -1111,7 +1130,17 @@ struct PresetTableInput<'a> {
 fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
     let text_height = get_text_height(ui);
     let preset_count = input.pot_unit.preset_count();
-    let mut table = create_basic_preset_table_builder(ui);
+    let mut table = TableBuilder::new(ui)
+        .striped(true)
+        .resizable(true)
+        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+        // Preset name
+        .column(Column::auto())
+        // Plug-in or product
+        .column(Column::initial(200.0).clip(true).at_least(100.0))
+        // Extension
+        .column(Column::remainder())
+        .min_scrolled_height(0.0);
     if input.pot_unit.preset_id() != input.last_preset_id {
         let scroll_index = match input.pot_unit.preset_id() {
             None => 0,
@@ -1225,20 +1254,6 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
         });
 }
 
-fn create_basic_preset_table_builder(ui: &mut Ui) -> TableBuilder {
-    TableBuilder::new(ui)
-        .striped(true)
-        .resizable(true)
-        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        // Preset name
-        .column(Column::auto())
-        // Plug-in or product
-        .column(Column::initial(200.0).clip(true).at_least(100.0))
-        // Extension
-        .column(Column::remainder())
-        .min_scrolled_height(0.0)
-}
-
 trait DisplayItem {
     fn prop_count() -> u32;
     fn prop_label(prop_index: u32) -> &'static str;
@@ -1294,7 +1309,7 @@ impl DisplayItem for PresetWithId {
 fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
     let text_height = get_text_height(ui);
     let item_count = items.len();
-    let table_height = 400.0;
+    let table_height = DIALOG_CONTENT_MAX_HEIGHT;
     let mut table = TableBuilder::new(ui)
         .striped(true)
         .resizable(false)
@@ -1320,7 +1335,7 @@ fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
         })
         .body(|body| {
             body.rows(text_height, item_count as usize, |row_index, mut row| {
-                let item = items.get(row_index).unwrap();
+                let item = items.get(item_count - (row_index + 1)).unwrap();
                 for i in 0..T::prop_count() {
                     row.col(|ui| {
                         if let Some(val) = item.prop_value(i) {
@@ -1331,6 +1346,8 @@ fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
             });
         });
 }
+
+const DIALOG_CONTENT_MAX_HEIGHT: f32 = 400.0;
 
 fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, ui: &mut Ui) {
     let _ = pot_db().try_with_plugin_db(|db| {
@@ -2473,12 +2490,10 @@ fn show_dialog<V>(
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.set_min_width(500.0);
-                // Top margin
-                ui.add_space(10.0);
                 // Content
                 content(ui, value);
                 // Space between content and buttons
-                ui.add_space(20.0);
+                ui.add_space(10.0);
                 // Buttons
                 ui.horizontal(|ui| {
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -2524,34 +2539,128 @@ fn shorten_preset_name(name: &str) -> Cow<str> {
     shorten(name.into(), MAX_PRESET_NAME_LEN)
 }
 
-const PRESET_CRAWLER_INTRO_TEXT: &str = r#"
-== Welcome to Pot Preset Crawler! ==
+fn add_markdown(ui: &mut Ui, markdown: &str) {
+    use pulldown_cmark::*;
+    let parser = Parser::new(markdown);
+    let mut strong = false;
+    let mut heading_level: Option<HeadingLevel> = None;
+    let mut list_item_index: Option<u64> = None;
+    let mut spans: Vec<RichText> = vec![];
+    let insert_paragraph = |ui: &mut Ui, spans: &mut Vec<RichText>| {
+        ui.horizontal_wrapped(|ui| {
+            for span in spans.drain(..) {
+                ui.label(span);
+            }
+        });
+        ui.add_space(3.0);
+    };
+    ScrollArea::vertical()
+        .max_height(DIALOG_CONTENT_MAX_HEIGHT)
+        .show(ui, |ui| {
+            for event in parser {
+                match event {
+                    Event::Start(Tag::Strong) => {
+                        strong = true;
+                    }
+                    Event::End(Tag::Strong) => {
+                        strong = false;
+                    }
+                    Event::Start(Tag::Heading(level, ..)) => {
+                        heading_level = Some(level);
+                    }
+                    Event::End(Tag::Heading(..)) => {
+                        heading_level = None;
+                        ui.add_space(3.0);
+                        insert_paragraph(ui, &mut spans);
+                    }
+                    Event::Start(Tag::List(start_index)) => {
+                        list_item_index = start_index;
+                    }
+                    Event::Start(Tag::Item) => {
+                        let decoration = if let Some(i) = list_item_index {
+                            format!("{i}.")
+                        } else {
+                            "•".to_string()
+                        };
+                        spans.push(RichText::new(decoration).strong());
+                    }
+                    Event::End(Tag::Item) => {
+                        if let Some(i) = &mut list_item_index {
+                            *i += 1;
+                        }
+                        insert_paragraph(ui, &mut spans);
+                    }
+                    Event::End(Tag::Paragraph) => {
+                        insert_paragraph(ui, &mut spans);
+                    }
+                    Event::Text(text) => {
+                        use HeadingLevel::*;
+                        let (size, always_strong) = match heading_level {
+                            Some(H1) => (20.0, true),
+                            Some(H2) => (16.0, true),
+                            _ => (14.0, false),
+                        };
+                        let mut span = RichText::new(text.as_ref()).size(size);
+                        if strong || always_strong {
+                            span = span.strong();
+                        }
+                        spans.push(span);
+                    }
+                    _ => {}
+                }
+            }
+        });
+}
 
-You might have plug-in presets that don't show up in the browser because they are only accessible from within the plug-in itself. Wouldn't it be nice if you could browse those, too?
+const PRESET_CRAWLER_INTRO_TEXT: &str = r#"
+## Welcome to Pot Preset Crawler!
+
+You might have plug-in presets that don't show up in the browser because they are only accessible from within the plug-in itself. Wouldn't it be nice if you could browse them, too?
 
 One thing you could do is to manually load each preset from within the plug-in and save it, for example as a REAPER FX chain or REAPER FX preset. Then it will show up. But imagine doing that for hundreds of presets! What a tedious work! That's where Preset Crawler comes in. It tries to automate this process as far as possible.
 
-== Preconditions ==
+## Preconditions
 
-The plug-in must have a button to navigate to the next preset. It must be accessible with just one click (not be buried in menus).
+- The plug-in must have a button to navigate to the next preset. It must be accessible with just one click, not be buried in menus.
+- The plug-in must correctly expose the name of the currently loaded internal preset. In my experience, this works with most VST2 plug-ins but unfortunately not with most VST3 plug-ins. Just check if REAPER's FX dropdown always shows the same preset name as the plug-in user interface.
 
-and
+## How it works 
 
-The plug-in must correctly expose the name of the currently loaded internal preset. (In my experience, this works with most VST2 plug-ins but unfortunately not with most VST3 plug-ins. Just check if REAPER's FX dropdown always shows the same preset name as the plug-in user interface.)
+**Step 1:** You show preset crawler where's the "Next preset" button.
 
-== How it works ==
+**Step 2:** Preset crawler repeatedly clicks that button for you and memorizes the presets.
 
-Step 1:
-You show preset crawler where's the "Next preset" button.
+**Step 3:** At the end, it shows you the list of memorized presets. If you then click "Import", it will save a REAPER FX chain for each of them.
 
-Step 2:
-Preset crawler repeatedly clicks that button for you and memorizes the presets.
+**Step 4:** That's it! Your newly crawled presets will show up in Pot Browser and even in REAPER's own FX browser. 
 
-Step 3:
-At the end, it shows you the list of memorized presets. If you then click "Import", it will save a REAPER FX chain for each of those presets.
+## Want to try it?
 
-Step 4:
-That's it! Your newly crawled presets will show up in the browser.
+Then press continue and follow the instructions!
+"#;
 
-Want to try it? Then press continue and follow the instructions!
+const PRESET_CRAWLER_BASICS_TEXT: &str = r#"
+## Okay, let's do this!
+
+1. At first, close all open projects.
+2. Then open the plug-in whose presets you want to crawl - simply by adding it as FX to a track.
+3. If you don't want to start crawling from the first preset, load the preset from which you want to start.
+4. Make sure the plug-in window is visible, in particular its "Next preset" button. This is the button which makes the plug-in navigate to the next preset. 
+
+After pressing "Continue", you will have to place the mouse cursor on top of the "Next preset" button of your plug-in.
+
+## Ready?
+
+Then press "Continue"! 
+"#;
+
+const PRESET_CRAWLER_MOUSE_TEXT: &str = r#"
+Now you have 10 seconds to place the mouse cursor on top of the "Next preset" button.
+When it's there, simply wait, don't move the mouse.
+"#;
+
+const PRESET_CRAWLER_MOUSE_FAILURE_TEXT: &str = r#"
+Preset Crawler doesn't know which plug-in you want to crawl!
+
+Please make sure to give the plug-in focus before placing the mouse cursor."
 "#;
