@@ -25,8 +25,8 @@ use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
     popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
-    FontFamily, FontId, Frame, InputState, Key, Layout, RichText, ScrollArea, TextEdit, TextStyle,
-    TopBottomPanel, Ui, Visuals, Widget,
+    FontFamily, FontId, Frame, InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit,
+    TextStyle, TopBottomPanel, Ui, Visuals, Widget,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -655,7 +655,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.label("Welcome to the Pot Preset Crawler!");
+                Label::new(PRESET_CRAWLER_INTRO_TEXT).wrap(true).ui(ui);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -2523,3 +2523,35 @@ fn shorten_preset_name(name: &str) -> Cow<str> {
     const MAX_PRESET_NAME_LEN: usize = 40;
     shorten(name.into(), MAX_PRESET_NAME_LEN)
 }
+
+const PRESET_CRAWLER_INTRO_TEXT: &str = r#"
+== Welcome to Pot Preset Crawler! ==
+
+You might have plug-in presets that don't show up in the browser because they are only accessible from within the plug-in itself. Wouldn't it be nice if you could browse those, too?
+
+One thing you could do is to manually load each preset from within the plug-in and save it, for example as a REAPER FX chain or REAPER FX preset. Then it will show up. But imagine doing that for hundreds of presets! What a tedious work! That's where Preset Crawler comes in. It tries to automate this process as far as possible.
+
+== Preconditions ==
+
+The plug-in must have a button to navigate to the next preset. It must be accessible with just one click (not be buried in menus).
+
+and
+
+The plug-in must correctly expose the name of the currently loaded internal preset. (In my experience, this works with most VST2 plug-ins but unfortunately not with most VST3 plug-ins. Just check if REAPER's FX dropdown always shows the same preset name as the plug-in user interface.)
+
+== How it works ==
+
+Step 1:
+You show preset crawler where's the "Next preset" button.
+
+Step 2:
+Preset crawler repeatedly clicks that button for you and memorizes the presets.
+
+Step 3:
+At the end, it shows you the list of memorized presets. If you then click "Import", it will save a REAPER FX chain for each of those presets.
+
+Step 4:
+That's it! Your newly crawled presets will show up in the browser.
+
+Want to try it? Then press continue and follow the instructions!
+"#;
