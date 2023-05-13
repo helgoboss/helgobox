@@ -8,13 +8,14 @@ use crate::domain::pot::preset_crawler::{
     SharedPresetCrawlingState,
 };
 use crate::domain::pot::preview_recorder::{
-    prepare_preview_recording, record_previews, SharedPreviewRecorderState,
+    prepare_preview_recording, record_previews, PreviewRecorderState, SharedPreviewRecorderState,
 };
 use crate::domain::pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
     ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, OptFilter, PotWorkerDispatcher,
-    Preset, PresetKind, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadSpawner, OptFilter,
+    PotWorkerSpawner, Preset, PresetKind, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit,
+    WorkerDispatcher,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -79,10 +80,12 @@ pub struct MainState {
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
-    preview_dispatcher: PreviewDispatcher,
+    pot_worker_dispatcher: PotWorkerDispatcher,
+    main_thread_dispatcher: MainThreadDispatcher,
 }
 
-type PreviewDispatcher = PotWorkerDispatcher<Option<Dialog>>;
+type PotWorkerDispatcher = WorkerDispatcher<Option<Dialog>, PotWorkerSpawner>;
+type MainThreadDispatcher = WorkerDispatcher<Option<Dialog>, MainThreadSpawner>;
 
 #[derive(Debug)]
 enum Dialog {
@@ -121,12 +124,22 @@ enum Dialog {
     PreviewRecorderRecording {
         state: SharedPreviewRecorderState,
     },
+    PreviewRecorderDone {
+        state: SharedPreviewRecorderState,
+        page: PreviewRecorderDonePage,
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum CrawlPresetsStoppedPage {
     Presets,
     Duplicates,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum PreviewRecorderDonePage {
+    Todos,
+    Failures,
 }
 
 impl Dialog {
@@ -191,6 +204,13 @@ impl Dialog {
 
     fn preview_recorder_recording(state: SharedPreviewRecorderState) -> Self {
         Self::PreviewRecorderRecording { state }
+    }
+
+    fn preview_recorder_done(state: SharedPreviewRecorderState) -> Self {
+        Self::PreviewRecorderDone {
+            state,
+            page: PreviewRecorderDonePage::Todos,
+        }
     }
 }
 
@@ -278,7 +298,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         state.preset_cache.process_message(message);
     }
     // Poll background task results
-    state.preview_dispatcher.poll(&mut state.dialog);
+    state.pot_worker_dispatcher.poll(&mut state.dialog);
+    state.main_thread_dispatcher.poll(&mut state.dialog);
     // Prepare toasts
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
@@ -296,7 +317,8 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
             mouse: &state.mouse,
             os_window: state.os_window,
             change_dialog: &mut change_dialog,
-            preview_dispatcher: &mut state.preview_dispatcher,
+            pot_worker_dispatcher: &mut state.pot_worker_dispatcher,
+            main_thread_dispatcher: &mut state.main_thread_dispatcher,
         };
         process_dialogs(input, ctx);
     }
@@ -608,7 +630,8 @@ struct ProcessDialogsInput<'a> {
     mouse: &'a EnigoMouse,
     os_window: Window,
     change_dialog: &'a mut Option<Option<Dialog>>,
-    preview_dispatcher: &'a mut PreviewDispatcher,
+    pot_worker_dispatcher: &'a mut PotWorkerDispatcher,
+    main_thread_dispatcher: &'a mut MainThreadDispatcher,
 }
 
 fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
@@ -872,7 +895,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::PreviewRecorderIntro => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
-            &mut (input.change_dialog, input.preview_dispatcher),
+            &mut (input.change_dialog, input.pot_worker_dispatcher),
             |ui, _| {
                 ui.label("Welcome to the Pot Preview Recorder!");
             },
@@ -908,23 +931,30 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::PreviewRecorderReadyToRecord { presets } => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
-            &mut (input.change_dialog, presets),
-            |ui, (_, presets)| {
+            &mut (input.change_dialog, presets, input.main_thread_dispatcher),
+            |ui, (_, presets, _)| {
                 ui.label(format!("Ready to record {} presets:", presets.len()));
                 add_simple_preset_table(ui, presets);
             },
-            |ui, (change_dialog, presets)| {
+            |ui, (change_dialog, presets, main_thread_dispatcher)| {
                 if ui.button("Cancel").clicked() {
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
-                    let state = Arc::new(RwLock::new(mem::replace(*presets, vec![])));
-                    let result = record_previews_with_default_template(
-                        &input.shared_pot_unit,
-                        state.clone(),
+                    let presets = mem::replace(*presets, vec![]);
+                    let state = PreviewRecorderState::new(presets);
+                    let state = Arc::new(RwLock::new(state));
+                    **change_dialog = Some(Some(Dialog::preview_recorder_recording(state.clone())));
+                    let cloned_state = state.clone();
+                    let shared_pot_unit = input.shared_pot_unit.clone();
+                    main_thread_dispatcher.do_in_background_and_then(
+                        async move {
+                            record_previews_with_default_template(shared_pot_unit, state).await
+                        },
+                        |dialog, _| {
+                            *dialog = Some(Dialog::preview_recorder_done(cloned_state));
+                        },
                     );
-                    process_potential_error(&result, input.toasts);
-                    **change_dialog = Some(Some(Dialog::preview_recorder_recording(state)));
                 }
             },
         ),
@@ -933,9 +963,16 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             input.change_dialog,
             |ui, _| {
-                let presets = blocking_read_lock(state, "preview recorder UI");
-                ui.label(format!("{} presets left to be recorded:", presets.len()));
-                add_simple_preset_table(ui, &presets);
+                let state = blocking_read_lock(state, "preview recorder UI");
+                ui.horizontal(|ui| {
+                    ui.strong("Presets left to be recorded:");
+                    ui.label(state.todos.len().to_string());
+                });
+                ui.horizontal(|ui| {
+                    ui.strong("Presets failed to be recorded:");
+                    ui.label(state.failures.len().to_string());
+                });
+                add_simple_preset_table(ui, &state.todos);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -943,16 +980,32 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
+        Dialog::PreviewRecorderDone { state, page } => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                let state = blocking_read_lock(state, "preview recorder UI");
+                add_preview_recorder_done_dialog_contents(&state, page, ui);
+            },
+            |ui, change_dialog| {
+                if ui.button("Okay").clicked() {
+                    *change_dialog = Some(None);
+                };
+            },
+        ),
     }
 }
 
-fn record_previews_with_default_template(
-    shared_pot_unit: &SharedRuntimePotUnit,
+async fn record_previews_with_default_template(
+    shared_pot_unit: SharedRuntimePotUnit,
     state: SharedPreviewRecorderState,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), String> {
     let preview_rpp =
         App::realearn_pot_preview_template_path().ok_or("pot preview template doesn't exist")?;
-    record_previews(shared_pot_unit.clone(), state, preview_rpp.to_path_buf());
+    record_previews(shared_pot_unit, state, preview_rpp)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1011,6 +1064,35 @@ fn add_crawl_presets_stopped_dialog_contents(
         }
         CrawlPresetsStoppedPage::Duplicates => {
             show_as_list(ui, cs.duplicate_preset_names(), table_height);
+        }
+    }
+}
+
+fn add_preview_recorder_done_dialog_contents(
+    state: &PreviewRecorderState,
+    page: &mut PreviewRecorderDonePage,
+    ui: &mut Ui,
+) {
+    ui.strong("Preview recording stopped!");
+    ui.horizontal(|ui| {
+        ui.strong("Number of previews not recorded yet:");
+        ui.label(state.todos.len().to_string());
+    });
+    ui.horizontal(|ui| {
+        ui.strong("Number of failures:");
+        ui.label(state.failures.len().to_string());
+    });
+    ui.horizontal(|ui| {
+        ui.strong("Show:");
+        ui.selectable_value(page, PreviewRecorderDonePage::Todos, "Remaining");
+        ui.selectable_value(page, PreviewRecorderDonePage::Failures, "Failures");
+    });
+    match *page {
+        PreviewRecorderDonePage::Todos => {
+            add_simple_preset_table(ui, &state.todos);
+        }
+        PreviewRecorderDonePage::Failures => {
+            add_simple_preset_table(ui, &state.failures);
         }
     }
 }
@@ -1156,7 +1238,7 @@ fn create_basic_preset_table_builder(ui: &mut Ui) -> TableBuilder {
         .min_scrolled_height(0.0)
 }
 
-fn add_simple_preset_table<'a>(ui: &mut Ui, presets: &[PresetWithId]) {
+fn add_simple_preset_table<'a, T: AsRef<Preset>>(ui: &mut Ui, presets: &[T]) {
     let text_height = get_text_height(ui);
     let preset_count = presets.len();
     let table_height = 400.0;
@@ -1177,7 +1259,7 @@ fn add_simple_preset_table<'a>(ui: &mut Ui, presets: &[PresetWithId]) {
         })
         .body(|body| {
             body.rows(text_height, preset_count as usize, |row_index, mut row| {
-                let preset = &presets.get(row_index).unwrap().preset;
+                let preset = presets.get(row_index).unwrap().as_ref();
                 // Name
                 row.col(|ui| {
                     // Decide about text to display
@@ -1907,7 +1989,8 @@ impl MainState {
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
             mouse: Default::default(),
-            preview_dispatcher: Default::default(),
+            pot_worker_dispatcher: WorkerDispatcher::new(PotWorkerSpawner),
+            main_thread_dispatcher: WorkerDispatcher::new(MainThreadSpawner),
         }
     }
 }

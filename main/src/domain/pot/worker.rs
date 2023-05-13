@@ -1,3 +1,4 @@
+use crate::base::Global;
 use futures::channel::oneshot;
 use once_cell::sync::Lazy;
 use std::any::Any;
@@ -11,11 +12,22 @@ type PotWorkerResult<R> = Result<R, Box<dyn Error>>;
 /// Helper for easily dispatching background work from a non-asynchronous context and executing
 /// code as soon as the result of the background work is available.
 #[derive(Debug)]
-pub struct PotWorkerDispatcher<C> {
+pub struct WorkerDispatcher<C, S> {
     tasks: VecDeque<Task<C, Box<dyn Any + Send + 'static>>>,
+    spawner: S,
 }
 
-impl<C> PotWorkerDispatcher<C> {
+impl<C, S> WorkerDispatcher<C, S>
+where
+    S: Spawner,
+{
+    pub fn new(spawner: S) -> Self {
+        Self {
+            tasks: Default::default(),
+            spawner,
+        }
+    }
+
     /// Checks for each background task if a result is available and if yes, executes the
     /// corresponding result handler.
     ///
@@ -64,7 +76,7 @@ impl<C> PotWorkerDispatcher<C> {
         // Enqueue that task for repeated polling.
         self.tasks.push_back(task);
         // Schedule work to be done in background.
-        spawn_in_pot_worker(async move {
+        self.spawner.spawn(async move {
             // Start executing work
             let result = work.await;
             // Work done. Send result.
@@ -74,18 +86,31 @@ impl<C> PotWorkerDispatcher<C> {
     }
 }
 
-/// Spawns the given future on the Pot worker.
 pub fn spawn_in_pot_worker(f: impl Future<Output = PotWorkerResult<()>> + Send + 'static) {
     POT_WORKER_RUNTIME.as_ref().unwrap().spawn(async {
         f.await.unwrap();
     });
 }
 
-impl<C> Default for PotWorkerDispatcher<C> {
-    fn default() -> Self {
-        Self {
-            tasks: VecDeque::new(),
-        }
+pub trait Spawner {
+    fn spawn(&self, f: impl Future<Output = PotWorkerResult<()>> + Send + 'static);
+}
+
+#[derive(Debug)]
+pub struct PotWorkerSpawner;
+
+impl Spawner for PotWorkerSpawner {
+    fn spawn(&self, f: impl Future<Output = PotWorkerResult<()>> + Send + 'static) {
+        spawn_in_pot_worker(f);
+    }
+}
+
+#[derive(Debug)]
+pub struct MainThreadSpawner;
+
+impl Spawner for MainThreadSpawner {
+    fn spawn(&self, f: impl Future<Output = PotWorkerResult<()>> + Send + 'static) {
+        Global::future_support().spawn_in_main_thread_from_main_thread(f);
     }
 }
 

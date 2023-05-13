@@ -1041,6 +1041,12 @@ impl PresetWithId {
     }
 }
 
+impl AsRef<Preset> for PresetWithId {
+    fn as_ref(&self) -> &Preset {
+        &self.preset
+    }
+}
+
 /// Contains meta-data about a preset.
 ///
 /// Although the preset usually doesn't contain the preset chunk (the content to actually load the

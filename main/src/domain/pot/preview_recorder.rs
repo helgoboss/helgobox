@@ -1,12 +1,13 @@
 use crate::base::future_util::millis;
 use crate::base::hash_util::PersistentHash;
-use crate::base::{blocking_lock_arc, blocking_write_lock, file_util, Global};
+use crate::base::{blocking_lock_arc, blocking_write_lock, file_util};
 use crate::domain::pot::provider_database::{
     FIL_IS_AVAILABLE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_PRODUCT_KIND_INSTRUMENT,
 };
 use crate::domain::pot::{
     pot_db, preview_exists, BuildInput, Destination, FilterItemId, LoadPresetOptions,
-    LoadPresetWindowBehavior, PluginId, PresetKind, PresetWithId, ProductId, SharedRuntimePotUnit,
+    LoadPresetWindowBehavior, PluginId, Preset, PresetKind, PresetWithId, ProductId,
+    SharedRuntimePotUnit,
 };
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
@@ -15,20 +16,36 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-pub type SharedPreviewRecorderState = Arc<RwLock<Vec<PresetWithId>>>;
+pub type SharedPreviewRecorderState = Arc<RwLock<PreviewRecorderState>>;
 
-pub fn record_previews(
-    shared_pot_unit: SharedRuntimePotUnit,
-    state: SharedPreviewRecorderState,
-    preview_rpp: PathBuf,
-) {
-    Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        record_previews_async(shared_pot_unit, state, &preview_rpp).await?;
-        Ok(())
-    });
+#[derive(Debug)]
+pub struct PreviewRecorderState {
+    pub todos: Vec<PresetWithId>,
+    pub failures: Vec<PreviewRecorderFailure>,
 }
 
-async fn record_previews_async(
+impl PreviewRecorderState {
+    pub fn new(todos: Vec<PresetWithId>) -> Self {
+        Self {
+            todos,
+            failures: vec![],
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PreviewRecorderFailure {
+    pub preset: PresetWithId,
+    pub reason: String,
+}
+
+impl AsRef<Preset> for PreviewRecorderFailure {
+    fn as_ref(&self) -> &Preset {
+        &self.preset.preset
+    }
+}
+
+pub async fn record_previews(
     shared_pot_unit: SharedRuntimePotUnit,
     state: SharedPreviewRecorderState,
     preview_rpp: &Path,
@@ -46,12 +63,20 @@ async fn record_previews_async(
         chain: first_track.normal_fx_chain(),
         fx_index: 0,
     };
+    let cloned_state = state.clone();
+    let report_failure = move |preset: PresetWithId, reason: String| {
+        let mut state = blocking_write_lock(&cloned_state, "record_previews state 2");
+        let failure = PreviewRecorderFailure { preset, reason };
+        state.failures.push(failure);
+    };
     // Loop over the preset list
     loop {
-        let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state").pop() else {
+        moment().await;
+        let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state").todos.pop() else {
+            // Done!
             break;
         };
-        let preset = preset_with_id.preset;
+        let preset = &preset_with_id.preset;
         // Prefer creating preview file name based on preset content. That means whenever the
         // content changes, we get a different preview file name. That is cool.
         let hash = preset.common.content_or_id_hash();
@@ -59,14 +84,19 @@ async fn record_previews_async(
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
-        blocking_lock_arc(&shared_pot_unit, "record_previews pot unit").load_preset_at(
-            &preset,
-            options,
-            &|_| Ok(destination.clone()),
-        )?;
+        {
+            let load_result = blocking_lock_arc(&shared_pot_unit, "record_previews pot unit")
+                .load_preset_at(preset, options, &|_| Ok(destination.clone()));
+            if let Err(e) = load_result {
+                report_failure(preset_with_id, e.to_string());
+                continue;
+            }
+        }
         moment().await;
-        render_to_file(project, &preview_file_path)?;
-        moment().await;
+        // Record preview
+        if let Err(e) = render_to_file(project, &preview_file_path) {
+            report_failure(preset_with_id, e.to_string());
+        }
     }
     Ok(())
 }
