@@ -5,9 +5,9 @@ use crate::domain::pot::provider_database::{
     FIL_IS_AVAILABLE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_PRODUCT_KIND_INSTRUMENT,
 };
 use crate::domain::pot::{
-    pot_db, preview_exists, BuildInput, Destination, FilterItemId, LoadPresetOptions,
-    LoadPresetWindowBehavior, PluginId, Preset, PresetKind, PresetWithId, ProductId,
-    SharedRuntimePotUnit,
+    pot_db, preview_exists, BuildInput, Destination, EscapeCatcher, FilterItemId,
+    LoadPresetOptions, LoadPresetWindowBehavior, PluginId, Preset, PresetKind, PresetWithId,
+    ProductId, SharedRuntimePotUnit,
 };
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
@@ -69,18 +69,26 @@ pub async fn record_previews(
         let failure = PreviewRecorderFailure { preset, reason };
         state.failures.push(failure);
     };
+    let escape_catcher = EscapeCatcher::new();
     // Loop over the preset list
     loop {
+        // Check if escape has been pressed
+        if escape_catcher.escape_was_pressed() {
+            break;
+        }
+        // Take new preset to be recorded
         moment().await;
         let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state").todos.pop() else {
             // Done!
             break;
         };
+        // Determine destination file
         let preset = &preset_with_id.preset;
         // Prefer creating preview file name based on preset content. That means whenever the
         // content changes, we get a different preview file name. That is cool.
         let hash = preset.common.content_or_id_hash();
         let preview_file_path = get_preview_file_path_from_hash(&reaper_resource_dir, hash);
+        // Load preset
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
         };
