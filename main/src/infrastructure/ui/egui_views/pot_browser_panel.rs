@@ -8,7 +8,8 @@ use crate::domain::pot::preset_crawler::{
     SharedPresetCrawlingState,
 };
 use crate::domain::pot::preview_recorder::{
-    prepare_preview_recording, record_previews, PreviewRecorderState, SharedPreviewRecorderState,
+    prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
+    SharedPreviewRecorderState,
 };
 use crate::domain::pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
@@ -934,7 +935,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             &mut (input.change_dialog, presets, input.main_thread_dispatcher),
             |ui, (_, presets, _)| {
                 ui.label(format!("Ready to record {} presets:", presets.len()));
-                add_simple_preset_table(ui, presets);
+                add_item_table(ui, presets);
             },
             |ui, (change_dialog, presets, main_thread_dispatcher)| {
                 if ui.button("Cancel").clicked() {
@@ -972,7 +973,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     ui.strong("Presets failed to be recorded:");
                     ui.label(state.failures.len().to_string());
                 });
-                add_simple_preset_table(ui, &state.todos);
+                add_item_table(ui, &state.todos);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1089,10 +1090,10 @@ fn add_preview_recorder_done_dialog_contents(
     });
     match *page {
         PreviewRecorderDonePage::Todos => {
-            add_simple_preset_table(ui, &state.todos);
+            add_item_table(ui, &state.todos);
         }
         PreviewRecorderDonePage::Failures => {
-            add_simple_preset_table(ui, &state.failures);
+            add_item_table(ui, &state.failures);
         }
     }
 }
@@ -1238,45 +1239,95 @@ fn create_basic_preset_table_builder(ui: &mut Ui) -> TableBuilder {
         .min_scrolled_height(0.0)
 }
 
-fn add_simple_preset_table<'a, T: AsRef<Preset>>(ui: &mut Ui, presets: &[T]) {
+trait DisplayItem {
+    fn prop_count() -> u32;
+    fn prop_label(prop_index: u32) -> &'static str;
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>>;
+}
+
+impl DisplayItem for PreviewRecorderFailure {
+    fn prop_count() -> u32 {
+        PresetWithId::prop_count() + 1
+    }
+
+    fn prop_label(prop_index: u32) -> &'static str {
+        match prop_index {
+            i if i < PresetWithId::prop_count() => PresetWithId::prop_label(i),
+            4 => "Reason",
+            _ => "",
+        }
+    }
+
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>> {
+        match prop_index {
+            i if i < PresetWithId::prop_count() => self.preset.prop_value(i),
+            3 => Some(self.reason.as_str().into()),
+            _ => None,
+        }
+    }
+}
+
+impl DisplayItem for PresetWithId {
+    fn prop_count() -> u32 {
+        3
+    }
+
+    fn prop_label(prop_index: u32) -> &'static str {
+        match prop_index {
+            0 => "Name",
+            1 => "Plug-in/product",
+            2 => "Extension",
+            _ => "",
+        }
+    }
+
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>> {
+        match prop_index {
+            0 => Some(shorten_preset_name(self.preset.name())),
+            1 => self.preset.common.product_name.as_ref().map(|s| s.into()),
+            2 => self.preset.kind.file_extension().map(|s| s.into()),
+            _ => None,
+        }
+    }
+}
+
+fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
     let text_height = get_text_height(ui);
-    let preset_count = presets.len();
+    let item_count = items.len();
     let table_height = 400.0;
-    let table = create_basic_preset_table_builder(ui)
+    let mut table = TableBuilder::new(ui)
+        .striped(true)
+        .resizable(false)
+        .cell_layout(Layout::left_to_right(Align::Center))
+        .min_scrolled_height(0.0)
         .min_scrolled_height(table_height)
         .max_scroll_height(table_height);
+    for i in 0..T::prop_count() {
+        let col = if i == 0 {
+            Column::auto()
+        } else {
+            Column::remainder()
+        };
+        table = table.column(col);
+    }
     table
         .header(20.0, |mut header| {
-            header.col(|ui| {
-                ui.strong("Name");
-            });
-            header.col(|ui| {
-                ui.strong("Plug-in/product");
-            });
-            header.col(|ui| {
-                ui.strong("Extension");
-            });
+            for i in 0..T::prop_count() {
+                header.col(|ui| {
+                    ui.strong(T::prop_label(i));
+                });
+            }
         })
         .body(|body| {
-            body.rows(text_height, preset_count as usize, |row_index, mut row| {
-                let preset = presets.get(row_index).unwrap().as_ref();
-                // Name
-                row.col(|ui| {
-                    // Decide about text to display
-                    let text = shorten_preset_name(preset.name());
-                    ui.label(text);
-                });
-                // Product
-                row.col(|ui| {
-                    if let Some(n) = preset.common.product_name.as_ref() {
-                        ui.label(n);
-                    }
-                });
-                // Extension
-                row.col(|ui| {
-                    let text = preset.kind.file_extension().unwrap_or("");
-                    ui.label(text);
-                });
+            body.rows(text_height, item_count as usize, |row_index, mut row| {
+                let item = items.get(row_index).unwrap();
+                for i in 0..T::prop_count() {
+                    row.col(|ui| {
+                        if let Some(val) = item.prop_value(i) {
+                            ui.label(val);
+                        }
+                    });
+                }
             });
         });
 }
