@@ -2,8 +2,7 @@ use crate::base::future_util::millis;
 use crate::base::{blocking_lock_arc, file_util, hash_util};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
-    parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher,
-    PersistentPresetId, PluginId,
+    parse_vst2_magic_number, parse_vst3_uid, pot_db, EscapeCatcher, PersistentPresetId, PluginId,
 };
 use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
@@ -341,26 +340,23 @@ fn get_plugin_id_from_fx_info(fx_info: &FxInfo) -> Option<PluginId> {
     Some(plugin_id)
 }
 
-pub fn import_crawled_presets(
+pub async fn import_crawled_presets(
     state: SharedPresetCrawlingState,
     mut chunks_file: File,
-) -> Result<(), Box<dyn Error>> {
-    spawn_in_pot_worker(async move {
-        loop {
-            let p = blocking_lock_arc(&state, "import_crawled_presets").pop_crawled_preset();
-            let Some(p) = p else {
-                break;
-            };
-            let dest_file_path = &p.destination;
-            let dest_dir_path = p.destination.parent().ok_or("destination without parent")?;
-            fs::create_dir_all(dest_dir_path)?;
-            chunks_file.seek(SeekFrom::Start(p.offset))?;
-            let mut buf = vec![0; p.size_in_bytes];
-            chunks_file.read_exact(&mut buf)?;
-            fs::write(dest_file_path, buf)?;
-        }
-        Ok(())
-    });
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    loop {
+        let p = blocking_lock_arc(&state, "import_crawled_presets").pop_crawled_preset();
+        let Some(p) = p else {
+            break;
+        };
+        let dest_file_path = &p.destination;
+        let dest_dir_path = p.destination.parent().ok_or("destination without parent")?;
+        fs::create_dir_all(dest_dir_path)?;
+        chunks_file.seek(SeekFrom::Start(p.offset))?;
+        let mut buf = vec![0; p.size_in_bytes];
+        chunks_file.read_exact(&mut buf)?;
+        fs::write(dest_file_path, buf)?;
+    }
     Ok(())
 }
 
@@ -385,7 +381,7 @@ pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPres
         .join(&file_name)
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum PresetCrawlerStopReason {
     Interrupted,
     DestinationFileExists,

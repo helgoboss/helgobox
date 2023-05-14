@@ -88,6 +88,11 @@ pub struct MainState {
 type CustomPotWorkerDispatcher = PotWorkerDispatcher<Option<Dialog>>;
 type CustomMainThreadDispatcher = MainThreadDispatcher<Option<Dialog>>;
 
+struct DispatcherContext<'a> {
+    pot_unit: &'a mut RuntimePotUnit,
+    state: &'a mut MainState,
+}
+
 #[derive(Debug)]
 enum Dialog {
     GeneralError {
@@ -336,7 +341,6 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         let input = ProcessDialogsInput {
             shared_pot_unit: &state.pot_unit,
             pot_unit,
-            toasts: &mut toasts,
             dialog,
             mouse: &state.mouse,
             os_window: state.os_window,
@@ -649,7 +653,6 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
 struct ProcessDialogsInput<'a> {
     shared_pot_unit: &'a SharedRuntimePotUnit,
     pot_unit: &'a mut RuntimePotUnit,
-    toasts: &'a mut Toasts,
     dialog: &'a mut Dialog,
     mouse: &'a EnigoMouse,
     os_window: Window,
@@ -845,12 +848,19 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                                         "crawling finished state",
                                     )
                                     .preset_count();
-                                    Dialog::preset_crawler_stopped(
-                                        crawling_state,
-                                        o.reason,
-                                        o.chunks_file,
-                                        crawled_preset_count,
-                                    )
+                                    if crawled_preset_count == 0 {
+                                        Dialog::preset_crawler_finished(
+                                            crawled_preset_count,
+                                            o.reason,
+                                        )
+                                    } else {
+                                        Dialog::preset_crawler_stopped(
+                                            crawling_state,
+                                            o.reason,
+                                            o.chunks_file,
+                                            crawled_preset_count,
+                                        )
+                                    }
                                 }
                                 Err(e) => Dialog::preset_crawler_failure(
                                     "Failure while crawling",
@@ -900,51 +910,60 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             page,
             chunks_file,
             crawled_preset_count,
-        } => {
-            let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
-            if cs.preset_count() == 0 {
-                // When the preset count is 0, there's no preset left for import (anymore).
-                if *crawled_preset_count > 0 {
-                    input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
-                }
-                *input.change_dialog = Some(Some(Dialog::preset_crawler_finished(
-                    *crawled_preset_count,
+        } => show_dialog(
+            ctx,
+            PRESET_CRAWLER_TITLE,
+            &mut (input.change_dialog, input.pot_worker_dispatcher),
+            |ui, _| {
+                let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
+                add_crawl_presets_stopped_dialog_contents(
                     stop_reason.clone(),
-                )));
-            } else {
-                show_dialog(
-                    ctx,
-                    PRESET_CRAWLER_TITLE,
-                    input.change_dialog,
-                    |ui, _| {
-                        add_crawl_presets_stopped_dialog_contents(
-                            stop_reason.clone(),
-                            &cs,
-                            page,
-                            *crawled_preset_count,
-                            ui,
+                    &cs,
+                    page,
+                    *crawled_preset_count,
+                    ui,
+                );
+            },
+            |ui, (change_dialog, pot_worker_dispatcher)| {
+                if ui.button("Discard crawl results").clicked() {
+                    **change_dialog = Some(None);
+                }
+                *chunks_file = if let Some(chunks_file) = chunks_file.take() {
+                    if ui.button("Import").clicked() {
+                        let cloned_crawling_state = crawling_state.clone();
+                        let crawled_preset_count = *crawled_preset_count;
+                        let stop_reason = *stop_reason;
+                        pot_worker_dispatcher.do_in_background_and_then(
+                            async move {
+                                import_crawled_presets(cloned_crawling_state, chunks_file).await
+                            },
+                            move |dialog, output| {
+                                let next_dialog = match output {
+                                    Ok(_) => {
+                                        // TODO-high CONTINUE
+                                        // pot_unit.refresh_pot(input.shared_pot_unit.clone());
+                                        Dialog::preset_crawler_finished(
+                                            crawled_preset_count,
+                                            stop_reason,
+                                        )
+                                    }
+                                    Err(e) => Dialog::preset_crawler_failure(
+                                        "Sorry, preset import failed.",
+                                        e.to_string(),
+                                    ),
+                                };
+                                *dialog = Some(next_dialog);
+                            },
                         );
-                    },
-                    |ui, change_dialog| {
-                        if ui.button("Discard crawl results").clicked() {
-                            *change_dialog = Some(None);
-                        }
-                        *chunks_file = if let Some(chunks_file) = chunks_file.take() {
-                            if ui.button("Import").clicked() {
-                                let result =
-                                    import_crawled_presets(crawling_state.clone(), chunks_file);
-                                process_potential_error(&result, input.toasts);
-                                None
-                            } else {
-                                Some(chunks_file)
-                            }
-                        } else {
-                            None
-                        };
-                    },
-                )
-            }
-        }
+                        None
+                    } else {
+                        Some(chunks_file)
+                    }
+                } else {
+                    None
+                };
+            },
+        ),
         Dialog::PresetCrawlerFinished {
             crawled_preset_count,
             stop_reason,
@@ -978,13 +997,13 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             |ui, _| {
                 ui.label("Welcome to the Pot Preview Recorder!");
             },
-            |ui, (change_dialog, preview_dispatcher)| {
+            |ui, (change_dialog, pot_worker_dispatcher)| {
                 if ui.button("Cancel").clicked() {
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
                     let build_input = input.pot_unit.create_build_input();
-                    preview_dispatcher.do_in_background_and_then(
+                    pot_worker_dispatcher.do_in_background_and_then(
                         async move { prepare_preview_recording(build_input) },
                         |dialog, output| {
                             *dialog = Some(Dialog::preview_recorder_ready_to_record(output));
@@ -1099,9 +1118,7 @@ fn add_crawl_presets_stopped_dialog_contents(
     let markdown = get_preset_crawler_stopped_markdown(&stop_reason, crawled_preset_count);
     add_markdown(ui, markdown);
     ui.separator();
-    if crawled_preset_count > 0 {
-        ui.strong(PRESET_CRAWLER_IMPORT_OR_DISCARD);
-    }
+    ui.strong(PRESET_CRAWLER_IMPORT_OR_DISCARD);
     ui.horizontal(|ui| {
         ui.strong("Crawled presets ready for import:");
         ui.label(format_preset_count(&cs));
