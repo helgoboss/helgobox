@@ -1165,7 +1165,7 @@ fn get_preset_crawler_stopped_markdown(
                 PRESET_CRAWLER_PRESET_NAME_NOT_CHANGING
             }
         }
-        PresetCrawlerStopReason::PresetNameLikeFirst => PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST,
+        PresetCrawlerStopReason::PresetNameLikeBeginning => PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST,
         PresetCrawlerStopReason::Failure(_) => {
             unreachable!("failure should be handled in other dialog")
         }
@@ -2805,9 +2805,9 @@ If this happened, please tick the "Never stop crawling" checkbox next time.
 const PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST: &str = r#"
 ## Crawling stopped
 
-Preset Crawler detected that the preset names of the recently crawled presets are the same as the ones crawled at the beginning. That's usually a sign that the end of the preset list has been reached and it has started from the beginning. 
+Preset Crawler detected that the preset names of the recently crawled presets are the same as the ones crawled at the beginning. That's usually a sign that the end of the preset list has been reached and we are back at its beginning. 
 
-It can also mean that the plug-in navigates through its presets in a non-linear way. If this happened, please tick the "Never stop crawling" checkbox next time.
+It can also mean that the plug-in navigates through its presets in a very non-linear fashion. If this happened, please tick the "Never stop crawling" checkbox next time.
 
 "#;
 

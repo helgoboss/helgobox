@@ -9,6 +9,7 @@ use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -23,8 +24,10 @@ pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
     status: PresetCrawlingStatus,
     duplicate_preset_names: Vec<String>,
-    same_preset_name: Option<String>,
-    same_preset_name_attempts: u32,
+    same_preset_name_in_a_row: Option<String>,
+    same_preset_name_in_a_row_attempts: u32,
+    same_preset_names_like_beginning: Vec<String>,
+    same_preset_name_like_beginning_attempts: u32,
     total_bytes_crawled: usize,
 }
 
@@ -47,8 +50,10 @@ impl PresetCrawlingState {
             crawled_presets: Default::default(),
             status: PresetCrawlingStatus::Ongoing,
             duplicate_preset_names: Default::default(),
-            same_preset_name: None,
-            same_preset_name_attempts: 0,
+            same_preset_name_in_a_row: None,
+            same_preset_name_in_a_row_attempts: 0,
+            same_preset_names_like_beginning: Default::default(),
+            same_preset_name_like_beginning_attempts: 0,
             total_bytes_crawled: 0,
         };
         Arc::new(Mutex::new(state))
@@ -105,48 +110,21 @@ impl PresetCrawlingState {
     fn add_preset(&mut self, preset: CrawledPreset, never_stop_crawling: bool) -> NextCrawlStep {
         // Give stop signal if we reached the end of the list or are at its beginning again.
         if !never_stop_crawling {
-            if let Some((_, last_preset)) = self.crawled_presets.last() {
-                // I also tried to take the chunk into account but it's not deterministic. Getting the
-                // chunk for one preset multiple times can yield different results!
-                if preset.name == last_preset.name {
-                    // Same name like last crawled preset
-                    if self.same_preset_name_attempts <= MAX_SAME_PRESET_NAME_ATTEMPTS {
-                        // Let's tolerate that right now and still continue crawling.
-                        // It's possible that the plug-in crops the preset name and therefore
-                        // presets that seemingly have the same name, in fact have different ones
-                        // but have the same prefix. This happened with Zebra2 VSTi, for example.
-                        self.same_preset_name_attempts += 1;
-                        // Don't add it to the list of duplicates right away because it might just be
-                        // the end of the preset list! If it turns out it isn't, we still add it to
-                        // the list of duplicates a bit further down.
-                        self.same_preset_name = Some(preset.name);
-                        return NextCrawlStep::Continue;
-                    } else {
-                        // More than max same preset names in a row! That either means the
-                        // "Next preset" button doesn't work at all or we have reached the end of the
-                        // preset list.
-                        return NextCrawlStep::Stop(
-                            PresetCrawlerStopReason::PresetNameNotChangingAnymore,
-                        );
-                    }
-                }
-                if self.crawled_presets.len() > 1 {
-                    let (_, first_preset) = self.crawled_presets.first().expect("must exist");
-                    if preset.name == first_preset.name {
-                        // Same name like first crawled preset. We are back at the first preset again,
-                        // no need to crawl anymore.
-                        return NextCrawlStep::Stop(PresetCrawlerStopReason::PresetNameLikeFirst);
-                    }
-                }
+            if let Some(step) = self.make_stop_check(&preset) {
+                return step;
             }
         }
         // Reset "same preset name attempts" logic
-        self.same_preset_name_attempts = 0;
-        if let Some(last_same_preset_name) = self.same_preset_name.take() {
+        self.same_preset_name_in_a_row_attempts = 0;
+        if let Some(last_same_preset_name) = self.same_preset_name_in_a_row.take() {
             // Turns out that the last discovered same preset name was actually not the end
             // of the preset list but just an intermediate duplicate. Treat it as such!
             self.duplicate_preset_names.push(last_same_preset_name);
         }
+        // Reset "same preset name like beginning" logic
+        self.same_preset_name_like_beginning_attempts = 0;
+        self.duplicate_preset_names
+            .extend(self.same_preset_names_like_beginning.drain(..));
         // Add or skip
         if self.crawled_presets.contains_key(&preset.name) {
             // Duplicate name. Skip preset!
@@ -157,6 +135,73 @@ impl PresetCrawlingState {
             self.crawled_presets.insert(preset.name.clone(), preset);
         }
         NextCrawlStep::Continue
+    }
+
+    /// This executes a heuristic to check whether the end of the preset list has been reached and
+    /// crawling should therefore stop.
+    ///
+    /// It looks at the preset names only. I also tried to take the chunk into account but it's not
+    /// deterministic. Getting the chunk for one preset multiple times can yield different results!
+    fn make_stop_check(&mut self, preset: &CrawledPreset) -> Option<NextCrawlStep> {
+        // If we haven't crawled anything yet, there's nothing to check.
+        let Some((_, last_preset)) = self.crawled_presets.last() else {
+            return None;
+        };
+        // Check if we get multiple equally named presets in a row.
+        if preset.name == last_preset.name {
+            // Same name like last crawled preset
+            if self.same_preset_name_in_a_row_attempts <= MAX_SAME_PRESET_NAME_IN_A_ROW_ATTEMPTS {
+                // Let's tolerate that right now and still continue crawling.
+                // It's possible that the plug-in crops the preset name and therefore
+                // presets that seemingly have the same name, in fact have different ones
+                // but have the same prefix. This happened with Zebra2 VSTi, for example.
+                self.same_preset_name_in_a_row_attempts += 1;
+                // Don't add it to the list of duplicates right away because it *might* really
+                // turn out to be the end of the preset list! If it turns out it isn't, we still add
+                // it to the list of duplicates later.
+                self.same_preset_name_in_a_row = Some(preset.name.clone());
+                return Some(NextCrawlStep::Continue);
+            } else {
+                // More than max same preset names in a row! That either means the
+                // "Next preset" button doesn't work at all or we have reached the end of the
+                // preset list.
+                return Some(NextCrawlStep::Stop(
+                    PresetCrawlerStopReason::PresetNameNotChangingAnymore,
+                ));
+            }
+        }
+        // Now check if the presets that we crawl are the same ones that we crawled in the beginning.
+        if let Some((_, reference_preset)) = self
+            .crawled_presets
+            .get_index(self.same_preset_name_like_beginning_attempts as usize)
+        {
+            if preset.name == reference_preset.name {
+                // This preset has the same name as the reference preset, which is one of the
+                // presets crawled right at the beginning.
+                if self.same_preset_name_like_beginning_attempts
+                    <= MAX_SAME_PRESET_NAME_LIKE_BEGINNING_ATTEMPTS
+                {
+                    // Let's tolerate that right now and still continue crawling.
+                    // It's possible that the plug-in doesn't navigate through the preset list in
+                    // a linear way.
+                    self.same_preset_name_like_beginning_attempts += 1;
+                    // Don't add it to the list of duplicates right away because it *might* really
+                    // turn out to be the beginning of the preset list! If it turns out it isn't,
+                    // we still add it to the list of duplicates later.
+                    self.same_preset_names_like_beginning
+                        .push(preset.name.clone());
+                    return Some(NextCrawlStep::Continue);
+                } else {
+                    // More than max matches with the beginning! That either means the plug-in
+                    // navigates in a *very* non-linear fashion through the preset list or we have
+                    // reached the end of the preset list and restarted at its beginning.
+                    return Some(NextCrawlStep::Stop(
+                        PresetCrawlerStopReason::PresetNameLikeBeginning,
+                    ));
+                }
+            }
+        }
+        None
     }
 }
 
@@ -354,7 +399,8 @@ async fn moment() {
     millis(50).await;
 }
 
-const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 10;
+const MAX_SAME_PRESET_NAME_IN_A_ROW_ATTEMPTS: u32 = 10;
+const MAX_SAME_PRESET_NAME_LIKE_BEGINNING_ATTEMPTS: u32 = 10;
 
 pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPresetId) -> PathBuf {
     // We don't need to
@@ -371,7 +417,7 @@ pub enum PresetCrawlerStopReason {
     Interrupted,
     DestinationFileExists,
     PresetNameNotChangingAnymore,
-    PresetNameLikeFirst,
+    PresetNameLikeBeginning,
     Failure(String),
 }
 
