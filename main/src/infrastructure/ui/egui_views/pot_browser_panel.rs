@@ -4,8 +4,8 @@ use crate::base::{
 };
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
-    import_crawled_presets, CrawlPresetArgs, PresetCrawlingState, PresetCrawlingStatus,
-    SharedPresetCrawlingState,
+    import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason, PresetCrawlingState,
+    PresetCrawlingStatus, SharedPresetCrawlingState,
 };
 use crate::domain::pot::preview_recorder::{
     prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
@@ -103,6 +103,7 @@ enum Dialog {
         fx: Fx,
         cursor_pos: MouseCursorPosition,
         stop_if_destination_exists: bool,
+        never_stop_crawling: bool,
     },
     PresetCrawlerFailure {
         short_msg: Cow<'static, str>,
@@ -113,11 +114,15 @@ enum Dialog {
     },
     PresetCrawlerStopped {
         crawling_state: SharedPresetCrawlingState,
-        stop_reason: String,
+        stop_reason: PresetCrawlerStopReason,
         page: CrawlPresetsStoppedPage,
         chunks_file: Option<File>,
+        crawled_preset_count: u32,
     },
-    PresetCrawlerFinished,
+    PresetCrawlerFinished {
+        stop_reason: PresetCrawlerStopReason,
+        crawled_preset_count: u32,
+    },
     PreviewRecorderIntro,
     PreviewRecorderPreparing,
     PreviewRecorderReadyToRecord {
@@ -170,6 +175,7 @@ impl Dialog {
             fx,
             cursor_pos,
             stop_if_destination_exists: false,
+            never_stop_crawling: false,
         }
     }
 
@@ -189,14 +195,26 @@ impl Dialog {
 
     fn preset_crawler_stopped(
         crawling_state: SharedPresetCrawlingState,
-        stop_reason: String,
+        stop_reason: PresetCrawlerStopReason,
         chunks_file: File,
+        crawled_preset_count: u32,
     ) -> Self {
         Self::PresetCrawlerStopped {
             crawling_state,
             stop_reason,
             page: CrawlPresetsStoppedPage::Presets,
             chunks_file: Some(chunks_file),
+            crawled_preset_count,
+        }
+    }
+
+    fn preset_crawler_finished(
+        crawled_preset_count: u32,
+        stop_reason: PresetCrawlerStopReason,
+    ) -> Self {
+        Self::PresetCrawlerFinished {
+            crawled_preset_count,
+            stop_reason,
         }
     }
 
@@ -766,26 +784,42 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             fx,
             cursor_pos,
             stop_if_destination_exists,
+            never_stop_crawling,
         } => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
-            &mut (input.change_dialog, stop_if_destination_exists),
-            |ui, (_, stop_if_destination_exists)| {
+            &mut (
+                input.change_dialog,
+                stop_if_destination_exists,
+                never_stop_crawling,
+            ),
+            |ui, (_, stop_if_destination_exists, never_stop_crawling)| {
+                add_markdown(ui, PRESET_CRAWLER_READY_TEXT);
+                ui.separator();
                 ui.horizontal(|ui| {
-                    ui.strong("FX:");
+                    ui.strong("Plug-in to be crawled:");
                     ui.label(fx.name().to_str());
                 });
                 ui.horizontal(|ui| {
-                    ui.strong("Final cursor position:");
+                    ui.strong("Mouse cursor position to be repeatedly clicked:");
                     ui.label(fmt_mouse_cursor_pos(*cursor_pos));
                 });
-                ui.checkbox(stop_if_destination_exists, "Stop if destination exists");
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.checkbox(stop_if_destination_exists, "Stop if destination exists")
+                        .on_hover_text("By default, Preset Crawler crawls presets even if they already exist in your \"FXChains\" folder.\nIf you tick this checkbox, it will stop crawling as soon as it sees that a preset already exists.");
+                    ui.checkbox(never_stop_crawling, "Never stop crawling")
+                        .on_hover_text("By default, Preset Crawler stops when it guesses that the last preset has been crawled.\nSometimes, this guess is incorrect. By ticking this checkbox, you can make the crawling infinite.\nYou need to press \"Escape\" as soon as you think that all presets have been crawled.")
+                });
             },
-            |ui, (change_dialog, stop_if_destination_exists)| {
+            |ui, (change_dialog, stop_if_destination_exists, never_stop_crawling)| {
                 if ui.button("Cancel").clicked() {
                     **change_dialog = Some(None);
                 };
-                if ui.button("Start crawling!").clicked() {
+                if ui.button("Try again").clicked() {
+                    **change_dialog = Some(Some(Dialog::preset_crawler_mouse()));
+                };
+                if ui.button("Start crawling").clicked() {
                     let crawling_state = PresetCrawlingState::new();
                     let os_window = input.os_window;
                     let args = CrawlPresetArgs {
@@ -793,6 +827,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         next_preset_cursor_pos: *cursor_pos,
                         state: crawling_state.clone(),
                         stop_if_destination_exists: **stop_if_destination_exists,
+                        never_stop_crawling: **never_stop_crawling,
                         bring_focus_back_to_crawler: move || {
                             os_window.focus_first_child();
                         },
@@ -807,15 +842,14 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, change_dialog| {
-                ui.strong("Crawling in process...");
+                ui.heading("Crawling in process...");
                 let mut state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
                 ui.horizontal(|ui| {
                     ui.strong("Presets crawled so far:");
-                    let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
-                    ui.label(format!("{} ({fmt_size})", state.preset_count()));
+                    ui.label(fmt_preset_count(&state));
                 });
                 ui.horizontal(|ui| {
-                    ui.strong("Skipped so far (because duplicate name):");
+                    ui.strong("Presets skipped so far (because duplicate name):");
                     ui.label(state.duplicate_preset_name_count().to_string());
                 });
                 ui.horizontal(|ui| {
@@ -837,12 +871,13 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                             crawling_state.clone(),
                             reason.clone(),
                             chunks_file,
+                            state.preset_count(),
                         )
                     } else {
-                        Dialog::PresetCrawlerFailure {
-                            short_msg: "Failure while crawling".into(),
-                            detail_msg: reason.clone().into(),
-                        }
+                        Dialog::preset_crawler_failure(
+                            "Failure while crawling",
+                            reason.details().to_string(),
+                        )
                     };
                     *change_dialog = Some(Some(next_dialog));
                 }
@@ -858,13 +893,18 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             stop_reason,
             page,
             chunks_file,
+            crawled_preset_count,
         } => {
             let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
-            let preset_count = cs.preset_count();
-            if preset_count == 0 {
-                // When the preset count is 0, there's no preset left for import anymore.
-                input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
-                *input.change_dialog = Some(Some(Dialog::PresetCrawlerFinished));
+            if cs.preset_count() == 0 {
+                // When the preset count is 0, there's no preset left for import (anymore).
+                if *crawled_preset_count > 0 {
+                    input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
+                }
+                *input.change_dialog = Some(Some(Dialog::preset_crawler_finished(
+                    *crawled_preset_count,
+                    stop_reason.clone(),
+                )));
             } else {
                 show_dialog(
                     ctx,
@@ -872,16 +912,19 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     input.change_dialog,
                     |ui, _| {
                         add_crawl_presets_stopped_dialog_contents(
-                            stop_reason.as_str(),
+                            stop_reason.clone(),
                             &cs,
-                            preset_count,
                             page,
+                            *crawled_preset_count,
                             ui,
                         );
                     },
                     |ui, change_dialog| {
+                        if ui.button("Discard crawl results").clicked() {
+                            *change_dialog = Some(None);
+                        }
                         *chunks_file = if let Some(chunks_file) = chunks_file.take() {
-                            if ui.button("Import!").clicked() {
+                            if ui.button("Import").clicked() {
                                 let result =
                                     import_crawled_presets(crawling_state.clone(), chunks_file);
                                 process_potential_error(&result, input.toasts);
@@ -892,19 +935,29 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         } else {
                             None
                         };
-                        if ui.button("Discard crawl results").clicked() {
-                            *change_dialog = Some(None);
-                        }
                     },
                 )
             }
         }
-        Dialog::PresetCrawlerFinished => show_dialog(
+        Dialog::PresetCrawlerFinished {
+            crawled_preset_count,
+            stop_reason,
+        } => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.strong("Import done!");
+                if *crawled_preset_count == 0 {
+                    let markdown =
+                        get_preset_crawler_stopped_markdown(stop_reason, *crawled_preset_count);
+                    add_markdown(ui, markdown);
+                    ui.heading("Nothing to import!");
+                } else {
+                    ui.strong(format!(
+                        "Successfully imported {} presets!",
+                        *crawled_preset_count
+                    ));
+                }
             },
             |ui, change_dialog| {
                 if ui.button("Close").clicked() {
@@ -1030,18 +1083,28 @@ async fn record_previews_with_default_template(
 }
 
 fn add_crawl_presets_stopped_dialog_contents(
-    stop_reason: &str,
+    stop_reason: PresetCrawlerStopReason,
     cs: &PresetCrawlingState,
-    preset_count: u32,
     page: &mut CrawlPresetsStoppedPage,
+    crawled_preset_count: u32,
     ui: &mut Ui,
 ) {
-    ui.strong("Crawling stopped! Reason:");
-    ui.label(stop_reason);
+    let preset_count = cs.preset_count();
+    let markdown = get_preset_crawler_stopped_markdown(&stop_reason, crawled_preset_count);
+    add_markdown(ui, markdown);
+    ui.separator();
+    if crawled_preset_count > 0 {
+        ui.strong(PRESET_CRAWLER_IMPORT_OR_DISCARD);
+    }
     ui.horizontal(|ui| {
         ui.strong("Crawled presets ready for import:");
-        ui.label(preset_count.to_string());
+        ui.label(fmt_preset_count(&cs));
     });
+    ui.horizontal(|ui| {
+        ui.strong("Skipped presets (because duplicate name):");
+        ui.label(cs.duplicate_preset_name_count().to_string());
+    });
+    ui.separator();
     ui.horizontal(|ui| {
         ui.strong("Show:");
         ui.selectable_value(page, CrawlPresetsStoppedPage::Presets, "Presets");
@@ -1058,7 +1121,7 @@ fn add_crawl_presets_stopped_dialog_contents(
                 .max_scroll_height(table_height)
                 .cell_layout(Layout::left_to_right(Align::Center))
                 .column(Column::auto())
-                .column(Column::remainder())
+                .column(Column::initial(200.0).clip(true))
                 .header(text_height, |mut header| {
                     header.col(|ui| {
                         ui.strong("Name");
@@ -1084,6 +1147,27 @@ fn add_crawl_presets_stopped_dialog_contents(
         }
         CrawlPresetsStoppedPage::Duplicates => {
             show_as_list(ui, cs.duplicate_preset_names(), table_height);
+        }
+    }
+}
+
+fn get_preset_crawler_stopped_markdown(
+    stop_reason: &PresetCrawlerStopReason,
+    crawled_preset_count: u32,
+) -> &'static str {
+    match stop_reason {
+        PresetCrawlerStopReason::Interrupted => PRESET_CRAWLER_INTERRUPTED,
+        PresetCrawlerStopReason::DestinationFileExists => PRESET_CRAWLER_DESTINATION_FILE_EXISTS,
+        PresetCrawlerStopReason::PresetNameNotChangingAnymore => {
+            if crawled_preset_count < 2 {
+                PRESET_CRAWLER_INCOMPATIBLE_PLUGIN_TEXT
+            } else {
+                PRESET_CRAWLER_PRESET_NAME_NOT_CHANGING
+            }
+        }
+        PresetCrawlerStopReason::PresetNameLikeFirst => PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST,
+        PresetCrawlerStopReason::Failure(_) => {
+            unreachable!("failure should be handled in other dialog")
         }
     }
 }
@@ -1335,7 +1419,7 @@ fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
         })
         .body(|body| {
             body.rows(text_height, item_count as usize, |row_index, mut row| {
-                let item = items.get(item_count - (row_index + 1)).unwrap();
+                let item = items.get(row_index).unwrap();
                 for i in 0..T::prop_count() {
                     row.col(|ui| {
                         if let Some(val) = item.prop_value(i) {
@@ -1347,7 +1431,7 @@ fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
         });
 }
 
-const DIALOG_CONTENT_MAX_HEIGHT: f32 = 400.0;
+const DIALOG_CONTENT_MAX_HEIGHT: f32 = 300.0;
 
 fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, ui: &mut Ui) {
     let _ = pot_db().try_with_plugin_db(|db| {
@@ -2555,6 +2639,7 @@ fn add_markdown(ui: &mut Ui, markdown: &str) {
         ui.add_space(3.0);
     };
     ScrollArea::vertical()
+        .id_source("markdown")
         .max_height(DIALOG_CONTENT_MAX_HEIGHT)
         .show(ui, |ui| {
             for event in parser {
@@ -2612,6 +2697,11 @@ fn add_markdown(ui: &mut Ui, markdown: &str) {
         });
 }
 
+fn fmt_preset_count(state: &PresetCrawlingState) -> String {
+    let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
+    format!("{} ({fmt_size})", state.preset_count())
+}
+
 const PRESET_CRAWLER_INTRO_TEXT: &str = r#"
 ## Welcome to Pot Preset Crawler!
 
@@ -2642,7 +2732,9 @@ Then press continue and follow the instructions!
 const PRESET_CRAWLER_BASICS_TEXT: &str = r#"
 ## Okay, let's do this!
 
-1. At first, close all open projects.
+Do the following things while leaving the Pot Browser window open. You can move it to the side if it's getting in the way.
+
+1. At first, it's a good idea to save and close all open projects. Just in case.
 2. Then open the plug-in whose presets you want to crawl - simply by adding it as FX to a track.
 3. If you don't want to start crawling from the first preset, load the preset from which you want to start.
 4. Make sure the plug-in window is visible, in particular its "Next preset" button. This is the button which makes the plug-in navigate to the next preset. 
@@ -2656,11 +2748,82 @@ Then press "Continue"!
 
 const PRESET_CRAWLER_MOUSE_TEXT: &str = r#"
 Now you have 10 seconds to place the mouse cursor on top of the "Next preset" button.
+
 When it's there, simply wait, don't move the mouse.
 "#;
 
 const PRESET_CRAWLER_MOUSE_FAILURE_TEXT: &str = r#"
-Preset Crawler doesn't know which plug-in you want to crawl!
+Preset Crawler couldn't figure out which plug-in you want to crawl!
 
-Please make sure to give the plug-in focus before placing the mouse cursor."
+Press "Try again" and make sure to give the plug-in focus before placing the mouse cursor, e.g. by clicking somewhere onto its surface.
 "#;
+
+const PRESET_CRAWLER_READY_TEXT: &str = r#"
+## Congratulations!
+
+Now, Preset Crawler knows which plug-in you want to crawl and where's the
+"Next preset" button.
+
+## Next step
+
+Check if the plug-in and the mouse cursor position displayed below are correct. Make sure not to move the plug-in window anymore. You can still move the Pot Browser window, no problem. It's best to move it to the side so you can see this dialog.
+
+When you are ready, press "Start crawling". No worries, at this point, Preset Crawler will not yet save FX chains into your "FXChains" folder. As soon as the preset crawling is finished, you can choose to import or discard the results. 
+
+## Important
+
+As soon as you press "Start crawling", Preset Crawler will take over your mouse! That means you can't easily press "Cancel". Instead, just press the "Escape" key of your keyboard (the top-left key)!
+"#;
+
+const PRESET_CRAWLER_INCOMPATIBLE_PLUGIN_TEXT: &str = r#"
+## Bad news
+
+Preset Crawler detected that it's not possible to crawl your plug-in because it doesn't correctly update the current preset name in REAPER's preset menu.
+
+## Troubleshooting
+
+- Or maybe you didn't place the mouse cursor directly over the "Next preset" button? 
+- Did you try to crawl a VST3 plug-in? It seems that many VST3 plug-ins don't correctly expose the current preset name, in general. You might have more success with crawling the VST2 version of your plug-in.
+"#;
+
+const PRESET_CRAWLER_PRESET_NAME_NOT_CHANGING: &str = r#"
+## Crawling stopped
+
+Preset Crawler detected that the preset name wasn't changing anymore. That's usually a sign that the end of the preset list has been reached.
+
+## Troubleshooting
+
+It's possible that Preset Crawler stopped prematurely. This happens in the following cases:
+
+1. Multiple presets in a row had the same name (which made Preset Crawler guess that it's the last preset).
+2. Multiple presets in a row had very similar names and only the ending was different, but the plug-in cropped the ending.
+
+If this happened, please tick the "Never stop crawling" checkbox next time.
+
+"#;
+
+const PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST: &str = r#"
+## Crawling stopped
+
+Preset Crawler detected that the preset names of the recently crawled presets are the same as the ones crawled at the beginning. That's usually a sign that the end of the preset list has been reached and it has started from the beginning. 
+
+It can also mean that the plug-in navigates through its presets in a non-linear way. If this happened, please tick the "Never stop crawling" checkbox next time.
+
+"#;
+
+const PRESET_CRAWLER_INTERRUPTED: &str = r#"
+## Crawling interrupted
+
+It seems you have pressed the "Escape" key, so we have interrupted crawling.
+
+"#;
+
+const PRESET_CRAWLER_DESTINATION_FILE_EXISTS: &str = r#"
+## Crawling stopped
+
+Preset Crawler detected that the destination file of the last-crawled preset already exists. You have chosen to stop crawling in that case, so here we are. 
+
+"#;
+
+const PRESET_CRAWLER_IMPORT_OR_DISCARD: &str =
+    r#"You can now choose to import the crawled presets or discard them!"#;

@@ -37,7 +37,7 @@ pub enum PresetCrawlingStatus {
         /// If not set when stopped, this means at first it's a failure. Later we take the
         /// file out of here for processing, in that case it's also `None`.
         chunks_file: Option<File>,
-        reason: String,
+        reason: PresetCrawlerStopReason,
     },
 }
 
@@ -88,60 +88,55 @@ impl PresetCrawlingState {
         &self.duplicate_preset_names
     }
 
-    pub fn stop(&mut self, chunks_file: File, reason: String) {
+    pub fn stop(&mut self, chunks_file: File, reason: PresetCrawlerStopReason) {
         self.status = PresetCrawlingStatus::Stopped {
             chunks_file: Some(chunks_file),
-            reason: reason.to_string(),
+            reason,
         };
     }
 
-    pub fn fail(&mut self, reason: String) {
+    pub fn fail(&mut self, reason: PresetCrawlerStopReason) {
         self.status = PresetCrawlingStatus::Stopped {
             chunks_file: None,
-            reason: reason.to_string(),
+            reason,
         };
     }
 
-    fn add_preset(&mut self, preset: CrawledPreset) -> NextCrawlStep {
+    fn add_preset(&mut self, preset: CrawledPreset, never_stop_crawling: bool) -> NextCrawlStep {
         // Give stop signal if we reached the end of the list or are at its beginning again.
-        if let Some((_, last_preset)) = self.crawled_presets.last() {
-            // I also tried to take the chunk into account but it's not deterministic. Getting the
-            // chunk for one preset multiple times can yield different results!
-            if preset.name == last_preset.name {
-                // Same name like last crawled preset
-                if self.same_preset_name_attempts <= MAX_SAME_PRESET_NAME_ATTEMPTS {
-                    // Let's tolerate that right now and still continue crawling.
-                    // It's possible that the plug-in crops the preset name and therefore
-                    // presets that seemingly have the same name, in fact have different ones
-                    // but have the same prefix. This happened with Zebra2 VSTi, for example.
-                    self.same_preset_name_attempts += 1;
-                    // Don't add it to the list of duplicates right away because it might just be
-                    // the end of the preset list! If it turns out it isn't, we still add it to
-                    // the list of duplicates a bit further down.
-                    self.same_preset_name = Some(preset.name);
-                    return NextCrawlStep::Continue;
-                } else {
-                    // More than max same preset names in a row! That either means we the
-                    // "Next preset" button doesn't work at all or we have reached the end of the
-                    // preset list.
-                    return NextCrawlStep::Stop(format!(
-                        "Preset name doesn't seem to change anymore. Maybe reached end of the \
-                        preset list? Last reported preset name: \"{}\" ",
-                        &preset.name
-                    ));
+        if !never_stop_crawling {
+            if let Some((_, last_preset)) = self.crawled_presets.last() {
+                // I also tried to take the chunk into account but it's not deterministic. Getting the
+                // chunk for one preset multiple times can yield different results!
+                if preset.name == last_preset.name {
+                    // Same name like last crawled preset
+                    if self.same_preset_name_attempts <= MAX_SAME_PRESET_NAME_ATTEMPTS {
+                        // Let's tolerate that right now and still continue crawling.
+                        // It's possible that the plug-in crops the preset name and therefore
+                        // presets that seemingly have the same name, in fact have different ones
+                        // but have the same prefix. This happened with Zebra2 VSTi, for example.
+                        self.same_preset_name_attempts += 1;
+                        // Don't add it to the list of duplicates right away because it might just be
+                        // the end of the preset list! If it turns out it isn't, we still add it to
+                        // the list of duplicates a bit further down.
+                        self.same_preset_name = Some(preset.name);
+                        return NextCrawlStep::Continue;
+                    } else {
+                        // More than max same preset names in a row! That either means the
+                        // "Next preset" button doesn't work at all or we have reached the end of the
+                        // preset list.
+                        return NextCrawlStep::Stop(
+                            PresetCrawlerStopReason::PresetNameNotChangingAnymore,
+                        );
+                    }
                 }
-            }
-            if self.crawled_presets.len() > 1 {
-                let (_, first_preset) = self.crawled_presets.first().expect("must exist");
-                if preset.name == first_preset.name {
-                    // Same name like first crawled preset. We are back at the first preset again,
-                    // no need to crawl anymore.
-                    return NextCrawlStep::Stop(format!(
-                        "Current preset seems to have the same name as the first crawled \
-                            preset. This usually indicates that we have crawled all presets. \
-                            Last reported preset name: \"{}\" ",
-                        &preset.name
-                    ));
+                if self.crawled_presets.len() > 1 {
+                    let (_, first_preset) = self.crawled_presets.first().expect("must exist");
+                    if preset.name == first_preset.name {
+                        // Same name like first crawled preset. We are back at the first preset again,
+                        // no need to crawl anymore.
+                        return NextCrawlStep::Stop(PresetCrawlerStopReason::PresetNameLikeFirst);
+                    }
                 }
             }
         }
@@ -167,7 +162,7 @@ impl PresetCrawlingState {
 
 enum NextCrawlStep {
     Continue,
-    Stop(String),
+    Stop(PresetCrawlerStopReason),
 }
 
 #[derive(Debug)]
@@ -193,6 +188,7 @@ pub struct CrawlPresetArgs<F> {
     pub next_preset_cursor_pos: MouseCursorPosition,
     pub state: SharedPresetCrawlingState,
     pub stop_if_destination_exists: bool,
+    pub never_stop_crawling: bool,
     pub bring_focus_back_to_crawler: F,
 }
 
@@ -203,7 +199,8 @@ where
     Global::future_support().spawn_in_main_thread_from_main_thread(async move {
         let state = args.state.clone();
         if let Err(e) = crawl_presets_async(args).await {
-            blocking_lock_arc(&state, "crawl_presets 0").fail(e.to_string());
+            blocking_lock_arc(&state, "crawl_presets 0")
+                .fail(PresetCrawlerStopReason::Failure(e.to_string()));
         }
         Ok(())
     });
@@ -220,14 +217,14 @@ where
     let escape_catcher = EscapeCatcher::new();
     let mut chunks_file = tempfile::tempfile()?;
     let mut current_file_offset = 0u64;
-    let stop = |chunks_file: File, reason: String| {
+    let stop = |chunks_file: File, reason: PresetCrawlerStopReason| {
         blocking_lock_arc(&args.state, "crawl_presets stop").stop(chunks_file, reason);
         (args.bring_focus_back_to_crawler)();
     };
     loop {
         // Check if escape has been pressed
         if escape_catcher.escape_was_pressed() {
-            stop(chunks_file, "Interrupted".to_string());
+            stop(chunks_file, PresetCrawlerStopReason::Interrupted);
             break;
         }
         // Get preset name
@@ -250,7 +247,7 @@ where
             plugin_id.as_ref(),
         );
         if args.stop_if_destination_exists && destination.exists() {
-            stop(chunks_file, "Destination file exists".to_string());
+            stop(chunks_file, PresetCrawlerStopReason::DestinationFileExists);
             break;
         }
         // Build crawled preset
@@ -261,8 +258,8 @@ where
             size_in_bytes: fx_chunk_bytes.len(),
         };
         current_file_offset += fx_chunk_bytes.len() as u64;
-        let next_step =
-            blocking_lock_arc(&args.state, "crawl_presets 3").add_preset(crawled_preset);
+        let next_step = blocking_lock_arc(&args.state, "crawl_presets 3")
+            .add_preset(crawled_preset, args.never_stop_crawling);
         match next_step {
             NextCrawlStep::Stop(reason) => {
                 stop(chunks_file, reason);
@@ -357,7 +354,7 @@ async fn moment() {
     millis(50).await;
 }
 
-const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 3;
+const MAX_SAME_PRESET_NAME_ATTEMPTS: u32 = 10;
 
 pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPresetId) -> PathBuf {
     // We don't need to
@@ -367,4 +364,23 @@ pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPres
     reaper_resource_dir
         .join("Helgoboss/Pot/shims")
         .join(&file_name)
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum PresetCrawlerStopReason {
+    Interrupted,
+    DestinationFileExists,
+    PresetNameNotChangingAnymore,
+    PresetNameLikeFirst,
+    Failure(String),
+}
+
+impl PresetCrawlerStopReason {
+    pub fn details(&self) -> &str {
+        if let Self::Failure(s) = self {
+            s
+        } else {
+            ""
+        }
+    }
 }
