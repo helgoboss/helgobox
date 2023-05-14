@@ -7,6 +7,9 @@ use std::error::Error;
 use std::future::Future;
 use tokio::runtime::Runtime;
 
+pub type PotWorkerDispatcher<C> = WorkerDispatcher<C, PotWorkerSpawner>;
+pub type MainThreadDispatcher<C> = WorkerDispatcher<C, MainThreadSpawner>;
+
 type PotWorkerResult<R> = Result<R, Box<dyn Error>>;
 
 /// Helper for easily dispatching background work from a non-asynchronous context and executing

@@ -4,19 +4,19 @@ use crate::base::{
 };
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::preset_crawler::{
-    import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason, PresetCrawlingState,
-    PresetCrawlingStatus, SharedPresetCrawlingState,
+    crawl_presets, import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason,
+    PresetCrawlingState, SharedPresetCrawlingState,
 };
 use crate::domain::pot::preview_recorder::{
     prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
     SharedPreviewRecorderState,
 };
 use crate::domain::pot::{
-    create_plugin_factory_preset, find_preview_file, pot_db, preset_crawler, spawn_in_pot_worker,
-    ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadSpawner, OptFilter,
-    PotWorkerSpawner, Preset, PresetKind, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit,
-    WorkerDispatcher,
+    create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
+    CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
+    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind,
+    PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use crate::domain::pot::{FilterItemId, PresetId};
 use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
@@ -81,12 +81,12 @@ pub struct MainState {
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
-    pot_worker_dispatcher: PotWorkerDispatcher,
-    main_thread_dispatcher: MainThreadDispatcher,
+    pot_worker_dispatcher: CustomPotWorkerDispatcher,
+    main_thread_dispatcher: CustomMainThreadDispatcher,
 }
 
-type PotWorkerDispatcher = WorkerDispatcher<Option<Dialog>, PotWorkerSpawner>;
-type MainThreadDispatcher = WorkerDispatcher<Option<Dialog>, MainThreadSpawner>;
+type CustomPotWorkerDispatcher = PotWorkerDispatcher<Option<Dialog>>;
+type CustomMainThreadDispatcher = MainThreadDispatcher<Option<Dialog>>;
 
 #[derive(Debug)]
 enum Dialog {
@@ -654,8 +654,8 @@ struct ProcessDialogsInput<'a> {
     mouse: &'a EnigoMouse,
     os_window: Window,
     change_dialog: &'a mut Option<Option<Dialog>>,
-    pot_worker_dispatcher: &'a mut PotWorkerDispatcher,
-    main_thread_dispatcher: &'a mut MainThreadDispatcher,
+    pot_worker_dispatcher: &'a mut CustomPotWorkerDispatcher,
+    main_thread_dispatcher: &'a mut CustomMainThreadDispatcher,
 }
 
 fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
@@ -716,7 +716,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     let elapsed = creation_time.elapsed();
                     ui.horizontal(|ui| {
                         ui.strong("Current mouse cursor position:");
-                        ui.label(fmt_mouse_cursor_pos(p));
+                        ui.label(format_mouse_cursor_pos(p));
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Countdown:");
@@ -802,7 +802,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 });
                 ui.horizontal(|ui| {
                     ui.strong("Mouse cursor position to be repeatedly clicked:");
-                    ui.label(fmt_mouse_cursor_pos(*cursor_pos));
+                    ui.label(format_mouse_cursor_pos(*cursor_pos));
                 });
                 ui.separator();
                 ui.horizontal(|ui| {
@@ -832,8 +832,34 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                             os_window.focus_first_child();
                         },
                     };
-                    preset_crawler::crawl_presets(args);
-                    **change_dialog = Some(Some(Dialog::preset_crawler_crawling(crawling_state)));
+                    **change_dialog = Some(Some(Dialog::preset_crawler_crawling(
+                        crawling_state.clone(),
+                    )));
+                    input.main_thread_dispatcher.do_in_background_and_then(
+                        async move { crawl_presets(args).await },
+                        |dialog, result| {
+                            let next_dialog = match result {
+                                Ok(o) => {
+                                    let crawled_preset_count = blocking_lock_arc(
+                                        &crawling_state,
+                                        "crawling finished state",
+                                    )
+                                    .preset_count();
+                                    Dialog::preset_crawler_stopped(
+                                        crawling_state,
+                                        o.reason,
+                                        o.chunks_file,
+                                        crawled_preset_count,
+                                    )
+                                }
+                                Err(e) => Dialog::preset_crawler_failure(
+                                    "Failure while crawling",
+                                    e.to_string(),
+                                ),
+                            };
+                            *dialog = Some(next_dialog);
+                        },
+                    );
                 }
             },
         ),
@@ -841,12 +867,12 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             ctx,
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
-            |ui, change_dialog| {
+            |ui, _| {
                 ui.heading("Crawling in process...");
-                let mut state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
+                let state = blocking_lock_arc(crawling_state, "run_main_ui crawling state");
                 ui.horizontal(|ui| {
                     ui.strong("Presets crawled so far:");
-                    ui.label(fmt_preset_count(&state));
+                    ui.label(format_preset_count(&state));
                 });
                 ui.horizontal(|ui| {
                     ui.strong("Presets skipped so far (because duplicate name):");
@@ -861,26 +887,6 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     };
                     ui.label(text);
                 });
-                if let PresetCrawlingStatus::Stopped {
-                    chunks_file,
-                    reason,
-                } = state.status()
-                {
-                    let next_dialog = if let Some(chunks_file) = chunks_file.take() {
-                        Dialog::preset_crawler_stopped(
-                            crawling_state.clone(),
-                            reason.clone(),
-                            chunks_file,
-                            state.preset_count(),
-                        )
-                    } else {
-                        Dialog::preset_crawler_failure(
-                            "Failure while crawling",
-                            reason.details().to_string(),
-                        )
-                    };
-                    *change_dialog = Some(Some(next_dialog));
-                }
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1098,7 +1104,7 @@ fn add_crawl_presets_stopped_dialog_contents(
     }
     ui.horizontal(|ui| {
         ui.strong("Crawled presets ready for import:");
-        ui.label(fmt_preset_count(&cs));
+        ui.label(format_preset_count(&cs));
     });
     ui.horizontal(|ui| {
         ui.strong("Skipped presets (because duplicate name):");
@@ -1166,9 +1172,6 @@ fn get_preset_crawler_stopped_markdown(
             }
         }
         PresetCrawlerStopReason::PresetNameLikeBeginning => PRESET_CRAWLER_PRESET_NAME_LIKE_FIRST,
-        PresetCrawlerStopReason::Failure(_) => {
-            unreachable!("failure should be handled in other dialog")
-        }
     }
 }
 
@@ -2593,7 +2596,7 @@ fn show_dialog<V>(
         });
 }
 
-fn fmt_mouse_cursor_pos(pos: MouseCursorPosition) -> String {
+fn format_mouse_cursor_pos(pos: MouseCursorPosition) -> String {
     format!("{}, {}", pos.x, pos.y)
 }
 
@@ -2697,7 +2700,7 @@ fn add_markdown(ui: &mut Ui, markdown: &str) {
         });
 }
 
-fn fmt_preset_count(state: &PresetCrawlingState) -> String {
+fn format_preset_count(state: &PresetCrawlingState) -> String {
     let fmt_size = bytesize::ByteSize(state.bytes_crawled() as u64);
     format!("{} ({fmt_size})", state.preset_count())
 }

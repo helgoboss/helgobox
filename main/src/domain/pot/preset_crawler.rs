@@ -1,5 +1,5 @@
 use crate::base::future_util::millis;
-use crate::base::{blocking_lock_arc, file_util, hash_util, Global};
+use crate::base::{blocking_lock_arc, file_util, hash_util};
 use crate::domain::enigo::EnigoMouse;
 use crate::domain::pot::{
     parse_vst2_magic_number, parse_vst3_uid, pot_db, spawn_in_pot_worker, EscapeCatcher,
@@ -9,7 +9,6 @@ use crate::domain::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
-use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -22,7 +21,6 @@ pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 #[derive(Debug)]
 pub struct PresetCrawlingState {
     crawled_presets: IndexMap<String, CrawledPreset>,
-    status: PresetCrawlingStatus,
     duplicate_preset_names: Vec<String>,
     same_preset_name_in_a_row: Option<String>,
     same_preset_name_in_a_row_attempts: u32,
@@ -32,23 +30,28 @@ pub struct PresetCrawlingState {
 }
 
 #[derive(Debug)]
-pub enum PresetCrawlingStatus {
-    Ongoing,
-    Stopped {
-        /// One temporary file that holds the chunks of all FXs when crawling finished.
-        /// Will be copied to separate destination files at a later stage.
-        /// If not set when stopped, this means at first it's a failure. Later we take the
-        /// file out of here for processing, in that case it's also `None`.
-        chunks_file: Option<File>,
-        reason: PresetCrawlerStopReason,
-    },
+pub struct PresetCrawlingOutcome {
+    /// One temporary file that holds the chunks of all FXs when crawling finished.
+    /// Will be copied to separate destination files at a later stage.
+    /// If not set when stopped, this means at first it's a failure. Later we take the
+    /// file out of here for processing, in that case it's also `None`.
+    pub chunks_file: File,
+    pub reason: PresetCrawlerStopReason,
+}
+
+impl PresetCrawlingOutcome {
+    pub fn new(chunks_file: File, reason: PresetCrawlerStopReason) -> Self {
+        Self {
+            chunks_file,
+            reason,
+        }
+    }
 }
 
 impl PresetCrawlingState {
     pub fn new() -> SharedPresetCrawlingState {
         let state = Self {
             crawled_presets: Default::default(),
-            status: PresetCrawlingStatus::Ongoing,
             duplicate_preset_names: Default::default(),
             same_preset_name_in_a_row: None,
             same_preset_name_in_a_row_attempts: 0,
@@ -69,10 +72,6 @@ impl PresetCrawlingState {
         Some(last.1)
     }
 
-    pub fn status(&mut self) -> &mut PresetCrawlingStatus {
-        &mut self.status
-    }
-
     pub fn bytes_crawled(&self) -> usize {
         self.total_bytes_crawled
     }
@@ -91,20 +90,6 @@ impl PresetCrawlingState {
 
     pub fn duplicate_preset_names(&self) -> &[String] {
         &self.duplicate_preset_names
-    }
-
-    pub fn stop(&mut self, chunks_file: File, reason: PresetCrawlerStopReason) {
-        self.status = PresetCrawlingStatus::Stopped {
-            chunks_file: Some(chunks_file),
-            reason,
-        };
-    }
-
-    pub fn fail(&mut self, reason: PresetCrawlerStopReason) {
-        self.status = PresetCrawlingStatus::Stopped {
-            chunks_file: None,
-            reason,
-        };
     }
 
     fn add_preset(&mut self, preset: CrawledPreset, never_stop_crawling: bool) -> NextCrawlStep {
@@ -237,21 +222,9 @@ pub struct CrawlPresetArgs<F> {
     pub bring_focus_back_to_crawler: F,
 }
 
-pub fn crawl_presets<F>(args: CrawlPresetArgs<F>)
-where
-    F: Fn() + 'static,
-{
-    Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-        let state = args.state.clone();
-        if let Err(e) = crawl_presets_async(args).await {
-            blocking_lock_arc(&state, "crawl_presets 0")
-                .fail(PresetCrawlerStopReason::Failure(e.to_string()));
-        }
-        Ok(())
-    });
-}
-
-async fn crawl_presets_async<F>(args: CrawlPresetArgs<F>) -> Result<(), Box<dyn Error>>
+pub async fn crawl_presets<F>(
+    args: CrawlPresetArgs<F>,
+) -> Result<PresetCrawlingOutcome, Box<dyn Error + Send + Sync>>
 where
     F: Fn() + 'static,
 {
@@ -262,15 +235,13 @@ where
     let escape_catcher = EscapeCatcher::new();
     let mut chunks_file = tempfile::tempfile()?;
     let mut current_file_offset = 0u64;
-    let stop = |chunks_file: File, reason: PresetCrawlerStopReason| {
-        blocking_lock_arc(&args.state, "crawl_presets stop").stop(chunks_file, reason);
-        (args.bring_focus_back_to_crawler)();
-    };
     loop {
         // Check if escape has been pressed
         if escape_catcher.escape_was_pressed() {
-            stop(chunks_file, PresetCrawlerStopReason::Interrupted);
-            break;
+            return Ok(PresetCrawlingOutcome::new(
+                chunks_file,
+                PresetCrawlerStopReason::Interrupted,
+            ));
         }
         // Get preset name
         let name = args
@@ -278,39 +249,42 @@ where
             .preset_name()
             .ok_or("couldn't get preset name")?
             .into_string();
-        // Query chunk and save it in temporary file
-        let fx_chunk = args.fx.chunk()?;
-        let fx_chunk_content = fx_chunk.content();
-        let fx_chunk_bytes = fx_chunk_content.as_bytes();
-        chunks_file.write_all(fx_chunk_bytes)?;
-        chunks_file.flush()?;
-        // Determine where on the disk the RfxChain file should end up
-        let destination = determine_preset_file_destination(
-            &fx_info,
-            &reaper_resource_dir,
-            &name,
-            plugin_id.as_ref(),
-        );
-        if args.stop_if_destination_exists && destination.exists() {
-            stop(chunks_file, PresetCrawlerStopReason::DestinationFileExists);
-            break;
-        }
-        // Build crawled preset
-        let crawled_preset = CrawledPreset {
-            destination,
-            name,
-            offset: current_file_offset,
-            size_in_bytes: fx_chunk_bytes.len(),
-        };
-        current_file_offset += fx_chunk_bytes.len() as u64;
-        let next_step = blocking_lock_arc(&args.state, "crawl_presets 3")
-            .add_preset(crawled_preset, args.never_stop_crawling);
-        match next_step {
-            NextCrawlStep::Stop(reason) => {
-                stop(chunks_file, reason);
-                break;
+        {
+            // Query chunk and save it in temporary file
+            let fx_chunk = args.fx.chunk()?;
+            let fx_chunk_content = fx_chunk.content();
+            let fx_chunk_bytes = fx_chunk_content.as_bytes();
+            chunks_file.write_all(fx_chunk_bytes)?;
+            chunks_file.flush()?;
+            // Determine where on the disk the RfxChain file should end up
+            let destination = determine_preset_file_destination(
+                &fx_info,
+                &reaper_resource_dir,
+                &name,
+                plugin_id.as_ref(),
+            );
+            if args.stop_if_destination_exists && destination.exists() {
+                return Ok(PresetCrawlingOutcome::new(
+                    chunks_file,
+                    PresetCrawlerStopReason::DestinationFileExists,
+                ));
             }
-            NextCrawlStep::Continue => {}
+            // Build crawled preset
+            let crawled_preset = CrawledPreset {
+                destination,
+                name,
+                offset: current_file_offset,
+                size_in_bytes: fx_chunk_bytes.len(),
+            };
+            current_file_offset += fx_chunk_bytes.len() as u64;
+            let next_step = blocking_lock_arc(&args.state, "crawl_presets 3")
+                .add_preset(crawled_preset, args.never_stop_crawling);
+            match next_step {
+                NextCrawlStep::Stop(reason) => {
+                    return Ok(PresetCrawlingOutcome::new(chunks_file, reason));
+                }
+                NextCrawlStep::Continue => {}
+            }
         }
         // Click "Next preset" button
         args.fx.show_in_floating_window();
@@ -321,7 +295,6 @@ where
         mouse.release(MouseButton::Left)?;
         a_bit_longer().await;
     }
-    Ok(())
 }
 
 fn determine_preset_file_destination(
@@ -418,15 +391,4 @@ pub enum PresetCrawlerStopReason {
     DestinationFileExists,
     PresetNameNotChangingAnymore,
     PresetNameLikeBeginning,
-    Failure(String),
-}
-
-impl PresetCrawlerStopReason {
-    pub fn details(&self) -> &str {
-        if let Self::Failure(s) = self {
-            s
-        } else {
-            ""
-        }
-    }
 }
