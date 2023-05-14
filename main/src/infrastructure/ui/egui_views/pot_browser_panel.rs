@@ -47,14 +47,14 @@ use swell_ui::Window;
 #[derive(Debug)]
 pub struct State {
     page: Page,
-    main_state: MainState,
+    main_state: TopLevelMainState,
 }
 
 impl State {
     pub fn new(pot_unit: SharedRuntimePotUnit, os_window: Window) -> Self {
         Self {
             page: Default::default(),
-            main_state: MainState::new(pot_unit, os_window),
+            main_state: TopLevelMainState::new(pot_unit, os_window),
         }
     }
 }
@@ -64,6 +64,23 @@ enum Page {
     #[default]
     Warning,
     Main,
+}
+
+#[derive(Debug)]
+pub struct TopLevelMainState {
+    pot_worker_dispatcher: CustomPotWorkerDispatcher,
+    main_thread_dispatcher: CustomMainThreadDispatcher,
+    main_state: MainState,
+}
+
+impl TopLevelMainState {
+    pub fn new(pot_unit: SharedRuntimePotUnit, os_window: Window) -> Self {
+        Self {
+            pot_worker_dispatcher: WorkerDispatcher::new(PotWorkerSpawner),
+            main_thread_dispatcher: WorkerDispatcher::new(MainThreadSpawner),
+            main_state: MainState::new(pot_unit, os_window),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -81,17 +98,10 @@ pub struct MainState {
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
-    pot_worker_dispatcher: CustomPotWorkerDispatcher,
-    main_thread_dispatcher: CustomMainThreadDispatcher,
 }
 
-type CustomPotWorkerDispatcher = PotWorkerDispatcher<Option<Dialog>>;
-type CustomMainThreadDispatcher = MainThreadDispatcher<Option<Dialog>>;
-
-struct DispatcherContext<'a> {
-    pot_unit: &'a mut RuntimePotUnit,
-    state: &'a mut MainState,
-}
+type CustomPotWorkerDispatcher = PotWorkerDispatcher<MainState>;
+type CustomMainThreadDispatcher = MainThreadDispatcher<MainState>;
 
 #[derive(Debug)]
 enum Dialog {
@@ -317,18 +327,25 @@ const PRESET_CRAWLER_TITLE: &str = "Preset Crawler";
 const PREVIEW_RECORDER_TITLE: &str = "Preview Recorder";
 const PRESET_CRAWLER_COUNTDOWN_DURATION: Duration = Duration::from_secs(10);
 
-fn run_main_ui(ctx: &Context, state: &mut MainState) {
-    let pot_unit = &mut blocking_lock(&*state.pot_unit, "PotUnit from PotBrowserPanel run_ui 1");
+fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
+    // Poll background task results
+    state.pot_worker_dispatcher.poll(&mut state.main_state);
+    state.main_thread_dispatcher.poll(&mut state.main_state);
+    // We need the pot unit throughout the complete UI building process
+    let pot_unit = &mut blocking_lock(
+        &*state.main_state.pot_unit,
+        "PotUnit from PotBrowserPanel run_ui 1",
+    );
     // Query commonly used stuff
     let background_task_elapsed = pot_unit.background_task_elapsed();
     // Integrate cache worker results into local cache
-    state.preset_cache.set_pot_db_revision(pot_db().revision());
-    while let Ok(message) = state.preset_cache.receiver.try_recv() {
-        state.preset_cache.process_message(message);
+    state
+        .main_state
+        .preset_cache
+        .set_pot_db_revision(pot_db().revision());
+    while let Ok(message) = state.main_state.preset_cache.receiver.try_recv() {
+        state.main_state.preset_cache.process_message(message);
     }
-    // Poll background task results
-    state.pot_worker_dispatcher.poll(&mut state.dialog);
-    state.main_thread_dispatcher.poll(&mut state.dialog);
     // Prepare toasts
     let toast_margin = 10.0;
     let mut toasts = Toasts::new()
@@ -337,13 +354,13 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         .align_to_end(true);
     // Process dialogs
     let mut change_dialog = None;
-    if let Some(dialog) = state.dialog.as_mut() {
+    if let Some(dialog) = state.main_state.dialog.as_mut() {
         let input = ProcessDialogsInput {
-            shared_pot_unit: &state.pot_unit,
+            shared_pot_unit: &state.main_state.pot_unit,
             pot_unit,
             dialog,
-            mouse: &state.mouse,
-            os_window: state.os_window,
+            mouse: &state.main_state.mouse,
+            os_window: state.main_state.os_window,
             change_dialog: &mut change_dialog,
             pot_worker_dispatcher: &mut state.pot_worker_dispatcher,
             main_thread_dispatcher: &mut state.main_thread_dispatcher,
@@ -351,17 +368,17 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
         process_dialogs(input, ctx);
     }
     if let Some(d) = change_dialog {
-        state.dialog = d;
+        state.main_state.dialog = d;
     }
     // Process keyboard
     let key_action = ctx.input_mut(|input| determine_key_action(input));
     if let Some(key_action) = key_action {
         let key_input = KeyInput {
-            auto_preview: state.auto_preview,
-            os_window: state.os_window,
-            load_preset_window_behavior: state.load_preset_window_behavior,
-            pot_unit: state.pot_unit.clone(),
-            dialog: &mut state.dialog,
+            auto_preview: state.main_state.auto_preview,
+            os_window: state.main_state.os_window,
+            load_preset_window_behavior: state.main_state.load_preset_window_behavior,
+            pot_unit: state.main_state.pot_unit.clone(),
+            dialog: &mut state.main_state.dialog,
         };
         execute_key_action(key_input, pot_unit, &mut toasts, key_action);
     }
@@ -380,7 +397,12 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                 .frame(panel_frame)
                 .min_height(50.0)
                 .show(ctx, |ui| {
-                    show_current_preset_panel(&mut state.bank_index, fx, current_preset, ui);
+                    show_current_preset_panel(
+                        &mut state.main_state.bank_index,
+                        fx,
+                        current_preset,
+                        ui,
+                    );
                 });
         }
     }
@@ -409,9 +431,9 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 // Main options
                                 let input = LeftOptionsDropdownInput {
                                     pot_unit,
-                                    auto_hide_sub_filters: &mut state.auto_hide_sub_filters,
-                                    paint_continuously: &mut state.paint_continuously,
-                                    shared_pot_unit: &state.pot_unit,
+                                    auto_hide_sub_filters: &mut state.main_state.auto_hide_sub_filters,
+                                    paint_continuously: &mut state.main_state.paint_continuously,
+                                    shared_pot_unit: &state.main_state.pot_unit,
                                 };
                                 add_left_options_dropdown(input, ui);
                                 // Refresh button
@@ -423,7 +445,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                     )
                                     .clicked()
                                 {
-                                    pot_unit.refresh_pot(state.pot_unit.clone());
+                                    pot_unit.refresh_pot(state.main_state.pot_unit.clone());
                                 }
                                 // Theme button
                                 if ui
@@ -450,15 +472,15 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             |ui, pot_unit| {
                                 if pot_unit.filter_item_collections.are_filled_already() {
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                        add_mini_filters(&state.pot_unit, pot_unit, ui);
+                                        add_mini_filters(&state.main_state.pot_unit, pot_unit, ui);
                                     });
                                 }
                             },
                         );
                     });
                     // Filter panels
-                    add_filter_panels(&state.pot_unit, pot_unit, state.auto_hide_sub_filters, ui,
-                                      &state.last_filters);
+                    add_filter_panels(&state.main_state.pot_unit, pot_unit, state.main_state.auto_hide_sub_filters, ui,
+                                      &state.main_state.last_filters);
                 });
             // Right pane
             CentralPanel::default()
@@ -476,21 +498,21 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                 // Actions
                                 ui.menu_button(RichText::new("Tools").size(TOOLBAR_HEIGHT), |ui| {
                                     if ui.button(PRESET_CRAWLER_TITLE).clicked() {
-                                        state.dialog = Some(Dialog::PresetCrawlerIntro);
+                                        state.main_state.dialog = Some(Dialog::PresetCrawlerIntro);
                                         ui.close_menu();
                                     }
                                     if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
-                                        state.dialog = Some(Dialog::PreviewRecorderIntro);
+                                        state.main_state.dialog = Some(Dialog::PreviewRecorderIntro);
                                         ui.close_menu();
                                     }
                                 });
                                 // Options
                                 let input = RightOptionsDropdownInput {
                                     pot_unit,
-                                    shared_pot_unit: &state.pot_unit,
-                                    show_stats: &mut state.show_stats,
-                                    auto_preview: &mut state.auto_preview,
-                                    load_preset_window_behavior: &mut state.load_preset_window_behavior,
+                                    shared_pot_unit: &state.main_state.pot_unit,
+                                    show_stats: &mut state.main_state.show_stats,
+                                    auto_preview: &mut state.main_state.auto_preview,
+                                    load_preset_window_behavior: &mut state.main_state.load_preset_window_behavior,
                                 };
                                 add_right_options_dropdown(input, ui);
                                 // Search field
@@ -511,12 +533,12 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                             },
                             // Right side: Mini filters
                             |ui, pot_unit| {
-                                add_filter_view_content_as_icons(&state.pot_unit, pot_unit, PotFilterKind::HasPreview, ui);
+                                add_filter_view_content_as_icons(&state.main_state.pot_unit, pot_unit, PotFilterKind::HasPreview, ui);
                             }
                         );
                     });
                     // Stats
-                    if state.show_stats {
+                    if state.main_state.show_stats {
                         ui.separator();
                         ui.horizontal(|ui| {
                             add_stats_panel(pot_unit, background_task_elapsed, ui);
@@ -525,7 +547,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     // Info about selected preset
                     let current_preset_id = pot_unit.preset_id();
                     let current_preset_id_and_data =
-                        current_preset_id.and_then(|id| match state.preset_cache.find_preset(id) {
+                        current_preset_id.and_then(|id| match state.main_state.preset_cache.find_preset(id) {
                             PresetCacheEntry::Requested => None,
                             PresetCacheEntry::NotFound => None,
                             PresetCacheEntry::Found(data) => Some((id, data)),
@@ -574,7 +596,7 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                                     };
                                     if toggle {
                                         show_info_toast("This feature is not available.", &mut toasts);
-                                        // pot_unit.toggle_favorite(preset_id, state.pot_unit.clone());
+                                        // pot_unit.toggle_favorite(preset_id, state.main_state.pot_unit.clone());
                                     }
                                     // Preview button
                                     let preview_button = Button::new("🔊");
@@ -630,24 +652,24 @@ fn run_main_ui(ctx: &Context, state: &mut MainState) {
                     let input = PresetTableInput {
                         pot_unit,
                         toasts: &mut toasts,
-                        last_preset_id: state.last_preset_id,
-                        auto_preview: state.auto_preview,
-                        os_window: state.os_window,
-                        load_preset_window_behavior: state.load_preset_window_behavior,
-                        dialog: &mut state.dialog,
+                        last_preset_id: state.main_state.last_preset_id,
+                        auto_preview: state.main_state.auto_preview,
+                        os_window: state.main_state.os_window,
+                        load_preset_window_behavior: state.main_state.load_preset_window_behavior,
+                        dialog: &mut state.main_state.dialog,
                     };
-                    add_preset_table(input, ui, &mut state.preset_cache);
+                    add_preset_table(input, ui, &mut state.main_state.preset_cache);
                 });
         });
     // Other stuff
     toasts.show(ctx);
-    if state.paint_continuously {
+    if state.main_state.paint_continuously {
         // Necessary e.g. in order to not just repaint on clicks or so but also when controller
         // changes pot stuff. But also for other things!
         ctx.request_repaint();
     }
-    state.last_preset_id = pot_unit.preset_id();
-    state.last_filters = pot_unit.filters().clone();
+    state.main_state.last_preset_id = pot_unit.preset_id();
+    state.main_state.last_filters = pot_unit.filters().clone();
 }
 
 struct ProcessDialogsInput<'a> {
@@ -840,7 +862,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     )));
                     input.main_thread_dispatcher.do_in_background_and_then(
                         async move { crawl_presets(args).await },
-                        |dialog, result| {
+                        |context, result| {
                             let next_dialog = match result {
                                 Ok(o) => {
                                     let crawled_preset_count = blocking_lock_arc(
@@ -867,7 +889,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                                     e.to_string(),
                                 ),
                             };
-                            *dialog = Some(next_dialog);
+                            context.dialog = Some(next_dialog);
                         },
                     );
                 }
@@ -937,11 +959,15 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                             async move {
                                 import_crawled_presets(cloned_crawling_state, chunks_file).await
                             },
-                            move |dialog, output| {
+                            move |context, output| {
                                 let next_dialog = match output {
                                     Ok(_) => {
-                                        // TODO-high CONTINUE
-                                        // pot_unit.refresh_pot(input.shared_pot_unit.clone());
+                                        let cloned_pot_unit = context.pot_unit.clone();
+                                        let mut pot_unit = blocking_lock(
+                                            &*context.pot_unit,
+                                            "PotUnit from background result handler",
+                                        );
+                                        pot_unit.refresh_pot(cloned_pot_unit);
                                         Dialog::preset_crawler_finished(
                                             crawled_preset_count,
                                             stop_reason,
@@ -952,7 +978,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                                         e.to_string(),
                                     ),
                                 };
-                                *dialog = Some(next_dialog);
+                                context.dialog = Some(next_dialog);
                             },
                         );
                         None
@@ -1005,8 +1031,8 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     let build_input = input.pot_unit.create_build_input();
                     pot_worker_dispatcher.do_in_background_and_then(
                         async move { prepare_preview_recording(build_input) },
-                        |dialog, output| {
-                            *dialog = Some(Dialog::preview_recorder_ready_to_record(output));
+                        |context, output| {
+                            context.dialog = Some(Dialog::preview_recorder_ready_to_record(output));
                         },
                     );
                     **change_dialog = Some(Some(Dialog::preview_recorder_preparing()));
@@ -1049,8 +1075,8 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                         async move {
                             record_previews_with_default_template(shared_pot_unit, state).await
                         },
-                        |dialog, _| {
-                            *dialog = Some(Dialog::preview_recorder_done(cloned_state));
+                        |context, _| {
+                            context.dialog = Some(Dialog::preview_recorder_done(cloned_state));
                         },
                     );
                 }
@@ -2161,8 +2187,6 @@ impl MainState {
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
             mouse: Default::default(),
-            pot_worker_dispatcher: WorkerDispatcher::new(PotWorkerSpawner),
-            main_thread_dispatcher: WorkerDispatcher::new(MainThreadSpawner),
         }
     }
 }
