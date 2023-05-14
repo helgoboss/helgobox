@@ -24,7 +24,7 @@ use crate::infrastructure::plugin::App;
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
-    popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
+    popup_below_widget, pos2, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
     FontFamily, FontId, Frame, InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit,
     TextStyle, TopBottomPanel, Ui, Visuals, Widget,
 };
@@ -2614,7 +2614,8 @@ fn show_dialog<V>(
     egui::Window::new(title)
         .resizable(false)
         .collapsible(false)
-        .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+        .pivot(Align2::CENTER_CENTER)
+        .default_pos(ctx.screen_rect().center())
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.set_min_width(500.0);
