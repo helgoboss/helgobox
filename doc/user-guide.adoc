@@ -11,7 +11,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2023-04-08 (v2.15.0-pre.2)`
+|Last update of text: |`2023-05-15 (v2.15.0-pre.3)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -667,7 +667,7 @@ https://vital.audio/[Vital]. The procedure for other plug-ins is the same.
 ==== Step 1: Activate the correct controller preset
 
 Before you start, I strongly recommend downloading a ReaLearn controller preset for your specific controller from ReaPack and activate it in the _controller compartment_. You will need to right-click the header panel and choose
-_Reload all presets from disk_ to make a a newly downloaded controller preset appear in the preset list. If there's no
+<<reload-all-presets>> to make a newly downloaded controller preset appear in the preset list. If there's no
 suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial[list of unofficial controller presets], build your own.
 
 This step is completely optional, but it gives you many advantages, both in the short and long run. Please see
@@ -1012,6 +1012,7 @@ displays instructions how to do it.
 
 Opens the ReaLearn preset folder in a file manager.
 
+[#reload-all-presets]
 ====== Reload all presets from disk
 
 If you made direct changes to preset files or have downloaded presets via ReaPack, you should press this to reflect these changes in the preset lists of all open ReaLearn instances (reloads all preset files).
@@ -1020,6 +1021,19 @@ If you made direct changes to preset files or have downloaded presets via ReaPac
 ====
 This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
 ====
+
+[#pot-browser]
+====== Open Pot Browser
+
+This will open Pot Browser, a modern preset browser. It's recommended to use this from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each ReaLearn instance has its own so-called _Pot Unit_. Each Pot Unit has its own filter and preset state. When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
 
 [#osc-devices]
 ====== OSC devices
@@ -3375,15 +3389,8 @@ Name of the resolved FX parameter.
 
 This target can be used to filter the potentially very large collection of presets in  <<pot-browse-presets>>. The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available filter items, e.g. instruments or banks.
 
-TIP: This target only exposes NKS filter items that already have been scanned via link:https://www.native-instruments.com/en/products/komplete/bundles/komplete-kontrol/[Komplete Kontrol] software!
 
-* *Kind:* Choose the kind of filter items that you want to browse.
-** *Database:* Browse databases. At the moment, only one database is available (NKS).
-** *NKS instrument:* Browse NKS instruments.
-** *NKS bank:* Browse NKS instrument banks. If an NKS instrument is selected, the browsable list will be reduced to banks belonging to that instrument.
-** *NKS type:* Browse NKS types (categories).
-** *NKS sub type:* Browse NKS sub types (sub categories). If an NKS type is selected, the browsable list will be reduced to sub types belonging to that type.
-** *NKS character:* Browse NKS characters.
+* *Kind:* Choose the kind of filter items that you want to browse. They correspond to the filters available in <<pot-browser>>.
 
 This target supports the following additional placeholders in textual feedback expressions:
 
@@ -3403,11 +3410,9 @@ Name of the parent filter item if there's any. E.g. the instrument to which a ba
 [#pot-browse-presets]
 ====== Pot: Browse presets
 
-Use this target to browse a collection of presets. By default, this is the complete collection of presets available in all supported databases (at the moment NKS only), so potentially thousands of presets. If you want to browse just a subset, see <<pot-browse-filter-items>>.
+Use this target to browse a collection of presets. By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets. If you want to browse just a subset, see <<pot-browse-filter-items>>.
 
 The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available presets. Once you have selected a preset, you can audition it via <<pot-preview-preset>> (if it's a sound preset) and load it via <<pot-load-preset>>.
-
-TIP: ReaLearn only considers NKS presets that already have been scanned via link:https://www.native-instruments.com/en/products/komplete/bundles/komplete-kontrol/[Komplete Kontrol]!
 
 [#pot-preview-preset]
 ====== Pot: Preview preset
@@ -3419,11 +3424,6 @@ Auditions a preset selected via <<pot-browse-presets>>. Only works if it's a sou
 
 Loads a preset selected via <<pot-browse-presets>>.
 
-Preset loading is limited at the moment and a work-in-progress. Here's the current state of support for the various types of presets:
-
-- *NKS instrument/effect presets for Native Instruments plug-ins:* Loading not supported
-- *NKS instrument/effect presets for 3rd-party plug-ins:* Loading supported (but not exhaustively tested)
-+
 NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
 - *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
 

@@ -1137,7 +1137,7 @@ impl App {
         );
         Reaper::get().register_action(
             "REALEARN_OPEN_FIRST_POT_BROWSER",
-            "ReaLearn: Open first pot browser",
+            "ReaLearn: Open first Pot Browser",
             move || {
                 let Some(session) = App::get().find_first_relevant_session_monitoring_first() else {
                     return;
