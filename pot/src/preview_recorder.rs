@@ -161,7 +161,7 @@ pub fn get_preview_file_path_from_hash(
     let file_name = file_util::convert_hash_to_dir_structure(hash, ".ogg");
     reaper_resource_dir
         .join("Helgoboss/Pot/previews")
-        .join(&file_name)
+        .join(file_name)
 }
 
 /// Can take long.

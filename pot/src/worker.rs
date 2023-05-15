@@ -122,8 +122,10 @@ impl Spawner for MainThreadSpawner {
 struct Task<C, R> {
     result_receiver: oneshot::Receiver<R>,
     #[derivative(Debug = "ignore")]
-    result_handler: Box<dyn FnOnce(&mut C, R) + Send>,
+    result_handler: ResultHandler<C, R>,
 }
+
+type ResultHandler<C, R> = Box<dyn FnOnce(&mut C, R) + Send>;
 
 static POT_WORKER_RUNTIME: Lazy<std::io::Result<Runtime>> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()

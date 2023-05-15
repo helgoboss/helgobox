@@ -264,7 +264,7 @@ struct PresetCacheMessage {
 enum PresetCacheEntry {
     Requested,
     NotFound,
-    Found(PresetData),
+    Found(Box<PresetData>),
 }
 
 #[derive(Debug)]
@@ -372,7 +372,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
         state.main_state.dialog = d;
     }
     // Process keyboard
-    let key_action = ctx.input_mut(|input| determine_key_action(input));
+    let key_action = ctx.input_mut(determine_key_action);
     if let Some(key_action) = key_action {
         let key_input = KeyInput {
             auto_preview: state.main_state.auto_preview,
@@ -670,7 +670,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
         ctx.request_repaint();
     }
     state.main_state.last_preset_id = pot_unit.preset_id();
-    state.main_state.last_filters = pot_unit.filters().clone();
+    state.main_state.last_filters = *pot_unit.filters();
 }
 
 struct ProcessDialogsInput<'a> {
@@ -940,7 +940,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             |ui, _| {
                 let cs = blocking_lock_arc(crawling_state, "run_main_ui crawling state 2");
                 add_crawl_presets_stopped_dialog_contents(
-                    stop_reason.clone(),
+                    *stop_reason,
                     &cs,
                     page,
                     *crawled_preset_count,
@@ -1066,7 +1066,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
-                    let presets = mem::replace(*presets, vec![]);
+                    let presets = mem::take(*presets);
                     let state = PreviewRecorderState::new(presets);
                     let state = Arc::new(RwLock::new(state));
                     **change_dialog = Some(Some(Dialog::preview_recorder_recording(state.clone())));
@@ -1148,7 +1148,7 @@ fn add_crawl_presets_stopped_dialog_contents(
     ui.strong(PRESET_CRAWLER_IMPORT_OR_DISCARD);
     ui.horizontal(|ui| {
         ui.strong("Crawled presets ready for import:");
-        ui.label(format_preset_count(&cs));
+        ui.label(format_preset_count(cs));
     });
     ui.horizontal(|ui| {
         ui.strong("Skipped presets (because duplicate name):");
@@ -1258,7 +1258,7 @@ struct PresetTableInput<'a> {
     dialog: &'a mut Option<Dialog>,
 }
 
-fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
+fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut PresetCache) {
     let text_height = get_text_height(ui);
     let preset_count = input.pot_unit.preset_count();
     let mut table = TableBuilder::new(ui)
@@ -1326,7 +1326,7 @@ fn add_preset_table<'a>(mut input: PresetTableInput, ui: &mut Ui, preset_cache: 
                             // Open plug-in
                             if !data.preset.common.product_ids.is_empty() {
                                 ui.menu_button("Associated products", |ui| {
-                                    create_product_plugin_menu(&mut input, &data, ui);
+                                    create_product_plugin_menu(&mut input, data, ui);
                                 });
                             }
                             // Reveal in file manager
@@ -1437,7 +1437,7 @@ impl DisplayItem for PresetWithId {
     }
 }
 
-fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
+fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T]) {
     let text_height = get_text_height(ui);
     let item_count = items.len();
     let table_height = DIALOG_CONTENT_MAX_HEIGHT;
@@ -1465,7 +1465,7 @@ fn add_item_table<'a, T: DisplayItem>(ui: &mut Ui, items: &[T]) {
             }
         })
         .body(|body| {
-            body.rows(text_height, item_count as usize, |row_index, mut row| {
+            body.rows(text_height, item_count, |row_index, mut row| {
                 let item = items.get(row_index).unwrap();
                 for i in 0..T::prop_count() {
                     row.col(|ui| {
@@ -1892,9 +1892,9 @@ struct LeftOptionsDropdownInput<'a> {
     shared_pot_unit: &'a SharedRuntimePotUnit,
 }
 
-fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
+fn add_left_options_dropdown(input: LeftOptionsDropdownInput, ui: &mut Ui) {
     ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
-        ui.checkbox(&mut input.auto_hide_sub_filters, "Auto-hide sub filters")
+        ui.checkbox(input.auto_hide_sub_filters, "Auto-hide sub filters")
             .on_hover_text(
                 "Makes sure you are not confronted with dozens of child filters if \
                 the corresponding top-level filter is set to <Any>",
@@ -1913,11 +1913,8 @@ fn add_left_options_dropdown(mut input: LeftOptionsDropdownInput, ui: &mut Ui) {
                     .set_show_excluded_filter_items(new, input.shared_pot_unit.clone());
             }
         }
-        ui.checkbox(
-            &mut input.paint_continuously,
-            "Paint continuously (devs only)",
-        )
-        .on_hover_text("Leave this enabled. This option is only intended for developers.");
+        ui.checkbox(input.paint_continuously, "Paint continuously (devs only)")
+            .on_hover_text("Leave this enabled. This option is only intended for developers.");
     });
 }
 
@@ -1984,7 +1981,7 @@ struct KeyInput<'a> {
 fn execute_key_action(
     input: KeyInput,
     pot_unit: &mut MutexGuard<RuntimePotUnit>,
-    mut toasts: &mut Toasts,
+    toasts: &mut Toasts,
     key_action: KeyAction,
 ) {
     match key_action {
@@ -2004,7 +2001,7 @@ fn execute_key_action(
                     &preset,
                     input.os_window,
                     pot_unit,
-                    &mut toasts,
+                    toasts,
                     input.load_preset_window_behavior,
                     input.dialog,
                 );
@@ -2013,7 +2010,7 @@ fn execute_key_action(
         KeyAction::ClearLastSearchExpressionChar => {
             pot_unit.runtime_state.search_expression.pop();
             pot_unit.rebuild_collections(
-                input.pot_unit.clone(),
+                input.pot_unit,
                 ChangeHint::SearchExpression,
                 Debounce::No,
             );
@@ -2021,7 +2018,7 @@ fn execute_key_action(
         KeyAction::ClearSearchExpression => {
             pot_unit.runtime_state.search_expression.clear();
             pot_unit.rebuild_collections(
-                input.pot_unit.clone(),
+                input.pot_unit,
                 ChangeHint::SearchExpression,
                 Debounce::No,
             );
@@ -2029,7 +2026,7 @@ fn execute_key_action(
         KeyAction::ExtendSearchExpression(text) => {
             pot_unit.runtime_state.search_expression.push_str(&text);
             pot_unit.rebuild_collections(
-                input.pot_unit.clone(),
+                input.pot_unit,
                 ChangeHint::SearchExpression,
                 Debounce::Yes,
             );
@@ -2258,12 +2255,13 @@ impl PresetCache {
         }
         let data = match message.preset_data {
             None => PresetCacheEntry::NotFound,
-            Some(e) => PresetCacheEntry::Found(e),
+            Some(data) => PresetCacheEntry::Found(Box::new(data)),
         };
         self.lru_cache.put(message.preset_id, data);
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_filter_view(
     ui: &mut Ui,
     max_height: f32,

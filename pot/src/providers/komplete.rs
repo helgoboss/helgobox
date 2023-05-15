@@ -102,7 +102,7 @@ impl KompleteDatabase {
 
     fn translate_neutral_product_filter_to_nks(&self, fil: &Fil) -> Option<Fil> {
         if let Fil::Product(pid) = fil {
-            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(&pid) {
+            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(pid) {
                 return Some(Fil::Komplete(*bank_id));
             }
         }
@@ -227,7 +227,7 @@ impl Database for KompleteDatabase {
         // Translate possibly incoming "neutral" product filters to "NKS bank" product filters
         let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
         let translated_excludes =
-            self.translate_neutral_excludes_to_nks(&input.filter_input.excludes);
+            self.translate_neutral_excludes_to_nks(input.filter_input.excludes);
         // Function to translate outgoing "NKS bank" filter items to "neutral" product filter items
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
@@ -251,11 +251,11 @@ impl Database for KompleteDatabase {
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
         let translated_excludes =
-            self.translate_neutral_excludes_to_nks(&input.filter_input.excludes);
+            self.translate_neutral_excludes_to_nks(input.filter_input.excludes);
         let mut preset_db = blocking_lock(&self.primary_preset_db, "Komplete DB query_presets");
         preset_db.query_presets(
             &translated_filters,
-            &input.search_evaluator,
+            input.search_evaluator,
             &translated_excludes,
         )
     }
@@ -1157,7 +1157,7 @@ fn none_if_empty(value: Option<String>) -> Option<String> {
     }
 }
 
-fn determine_preview_file(preset_file: &PathBuf) -> Option<PathBuf> {
+fn determine_preview_file(preset_file: &Path) -> Option<PathBuf> {
     let preview_dir = preset_file.parent()?.join(".previews");
     let pure_file_name = preset_file.file_name()?;
     let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());

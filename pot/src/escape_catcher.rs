@@ -28,6 +28,12 @@ struct EscapeCatcherAccel {
     escape_was_pressed: Arc<AtomicBool>,
 }
 
+impl Default for EscapeCatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EscapeCatcher {
     pub fn new() -> Self {
         let escape_was_pressed = Arc::new(AtomicBool::new(false));

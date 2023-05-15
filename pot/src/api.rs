@@ -115,10 +115,6 @@ impl<T> GenericFilterItemCollections<T> {
         self.0.iter_mut()
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (PotFilterKind, Vec<T>)> {
-        self.0.into_iter()
-    }
-
     pub fn set(&mut self, kind: PotFilterKind, items: Vec<T>) {
         self.0[kind] = items;
     }
@@ -130,6 +126,15 @@ impl<T> GenericFilterItemCollections<T> {
     pub fn are_filled_already(&self) -> bool {
         // Just take any of of the constant filters that should be filled.
         !self.get(PotFilterKind::IsFavorite).is_empty()
+    }
+}
+
+impl<T> IntoIterator for GenericFilterItemCollections<T> {
+    type Item = (PotFilterKind, Vec<T>);
+    type IntoIter = <EnumMap<PotFilterKind, Vec<T>> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

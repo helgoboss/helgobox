@@ -233,7 +233,7 @@ fn process_file(
         hasher.write(buffer.as_bytes());
         let line = buffer.trim();
         if let Some(plugin) = detect_plugin_from_rxml_line(plugin_db, line) {
-            used_plugins.insert(plugin.common.core.id, plugin.common.core.clone());
+            used_plugins.insert(plugin.common.core.id, plugin.common.core);
         }
         buffer.clear();
     }

@@ -188,7 +188,7 @@ impl Database for IniDatabase {
                         preset_name: name.to_string(),
                         plugin_kind,
                         plugin_identifier: plugin_identifier.clone(),
-                        plugin: plugin.map(|p| p.common.core.clone()),
+                        plugin: plugin.map(|p| p.common.core),
                         content_hash: Some(hasher.digest_128()),
                     };
                     Some(preset_entry)
@@ -242,7 +242,7 @@ impl Database for IniDatabase {
             common: PresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
-                    create_persistent_inner_id(&preset_entry),
+                    create_persistent_inner_id(preset_entry),
                 ),
                 name: preset_entry.preset_name.clone(),
                 plugin_ids: preset_entry

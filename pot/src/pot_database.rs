@@ -339,8 +339,8 @@ impl PotDatabase {
                     return None;
                 }
                 // Let database build presets
-                let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
-                let preset_ids = db.query_presets(&provider_context, inner_input).ok()?;
+                let inner_input = InnerBuildInput::new(input, favorites, *db_id);
+                let preset_ids = db.query_presets(provider_context, inner_input).ok()?;
                 Some((*db_id, preset_ids))
             })
             .flat_map(|(db_id, preset_ids)| preset_ids.into_iter().map(move |p| (db_id, p)))
@@ -422,7 +422,7 @@ impl PotDatabase {
             let db = db.as_ref().ok()?;
             // Find preset
             let preset = db.find_unsupported_preset_matching(product_id, preset_name)?;
-            Some(preset.common.persistent_id.clone())
+            Some(preset.common.persistent_id)
         })
     }
 }

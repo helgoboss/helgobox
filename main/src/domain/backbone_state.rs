@@ -55,8 +55,7 @@ pub struct AnyThreadBackboneState {
 
 impl AnyThreadBackboneState {
     pub fn get() -> &'static AnyThreadBackboneState {
-        static INSTANCE: Lazy<AnyThreadBackboneState> =
-            Lazy::new(|| AnyThreadBackboneState::default());
+        static INSTANCE: Lazy<AnyThreadBackboneState> = Lazy::new(AnyThreadBackboneState::default);
         &INSTANCE
     }
 }

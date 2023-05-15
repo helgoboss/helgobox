@@ -12,12 +12,13 @@ impl PersistentHash {
     }
 }
 
+#[derive(Default)]
 pub struct PersistentHasher(Xxh3);
 
 impl PersistentHasher {
     pub fn new() -> Self {
         // Don't change the wrapped hasher! It's used e.g. for file names.
-        Self(Xxh3::new())
+        Self::default()
     }
 
     pub fn digest_128(&self) -> PersistentHash {

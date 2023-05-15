@@ -108,7 +108,7 @@ impl PresetCrawlingState {
         // Reset "same preset name like beginning" logic
         self.same_preset_name_like_beginning_attempts = 0;
         self.duplicate_preset_names
-            .extend(self.same_preset_names_like_beginning.drain(..));
+            .append(&mut self.same_preset_names_like_beginning);
         // Add or skip
         if self.crawled_presets.contains_key(&preset.name) {
             // Duplicate name. Skip preset!
@@ -378,7 +378,7 @@ pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPres
     let file_name = file_util::convert_hash_to_dir_structure(hash, ".RfxChain");
     reaper_resource_dir
         .join("Helgoboss/Pot/shims")
-        .join(&file_name)
+        .join(file_name)
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
