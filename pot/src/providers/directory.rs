@@ -213,9 +213,11 @@ struct FileProcessingOutput {
 ///
 /// Examples entries:
 ///
+/// ```text
 ///     <VST "VSTi: Zebra2 (u-he)" Zebra2.vst 0 Schmackes 1397572658<565354534D44327A6562726132000000> ""
 ///     <VST "VSTi: ReaSamplOmatic5000 (Cockos)"
 ///     <CLAP "CLAPi: Surge XT (Surge Synth Team)"
+/// ```
 fn process_file(
     path: &Path,
     plugin_db: &PluginDatabase,
