@@ -29,8 +29,8 @@ use pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
     CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
     LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
-    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind,
-    PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetWithId,
+    RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -1022,7 +1022,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, input.pot_worker_dispatcher),
             |ui, _| {
-                ui.label("Welcome to the Pot Preview Recorder!");
+                ui.label("Welcome to Pot Preview Recorder!");
             },
             |ui, (change_dialog, pot_worker_dispatcher)| {
                 if ui.button("Cancel").clicked() {
@@ -1334,7 +1334,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 all(target_os = "windows", target_arch = "x86_64"),
                                 target_os = "macos"
                             ))]
-                            if let PresetKind::FileBased(k) = &data.preset.kind {
+                            if let pot::PresetKind::FileBased(k) = &data.preset.kind {
                                 if ui.button("Reveal in file manager").clicked() {
                                     if let Err(e) = opener::reveal(&k.path) {
                                         process_error(&e, input.toasts);
@@ -2767,6 +2767,34 @@ One thing you could do is to manually load each preset from within the plug-in a
 **Step 3:** At the end, it shows you the list of memorized presets. If you then click "Import", it will save a REAPER FX chain for each of them.
 
 **Step 4:** That's it! Your newly crawled presets will show up in Pot Browser and even in REAPER's own FX browser. 
+
+## Want to try it?
+
+Then press continue and follow the instructions!
+"#;
+
+const PREVIEW_RECORDER_INTRO_TEXT: &str = r#"
+## Welcome to Pot Preview Recorder!
+
+Wouldn't it be nice if you could quickly get an impression of the sound of your instrument presets without actually loading them?
+
+Well, Preview Recorder has a feature for that: Previews. You know a preset has a preview when it has the small loudspeaker symbol right next to it.
+
+Some preset databases such as Komplete ship with pre-recorded preview sounds. But even if you own Komplete, you will find that many presets don't have previews, especially your own user presets.
+
+Preview Recorder to the rescue! It can batch-record previews of your instrument presets, very conveniently. It doesn't care where your preset comes from.
+
+## Preconditions
+
+- The preset must be loadable by Pot Browser (Preview Recorder will simply skip presets that can't be loaded automatically).  
+
+## How it works
+
+**Step 1:** You use Pot Browser's filter and search features in order to define the set of presets for which you need previews.
+ 
+**Step 2:** Preview Recorder filters out unsuitable presets and makes a plan 
+
+**Step 3:** Preview Recorder will further narrow down the set of presets by
 
 ## Want to try it?
 
