@@ -1,5 +1,5 @@
-use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::Compartment;
+use base::default_util::{deserialize_null_default, is_default};
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::UnitValue;

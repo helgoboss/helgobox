@@ -1,30 +1,15 @@
 use crate::application::get_track_label;
-use crate::base::{
+use crate::domain::{AnyThreadBackboneState, BackboneState};
+use crate::infrastructure::plugin::App;
+use base::enigo::EnigoMouse;
+use base::{
     blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
 };
-use crate::domain::enigo::EnigoMouse;
-use crate::domain::pot::preset_crawler::{
-    crawl_presets, import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason,
-    PresetCrawlingState, SharedPresetCrawlingState,
-};
-use crate::domain::pot::preview_recorder::{
-    prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
-    SharedPreviewRecorderState,
-};
-use crate::domain::pot::{
-    create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
-    CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
-    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind,
-    PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
-};
-use crate::domain::pot::{FilterItemId, PresetId};
-use crate::domain::{AnyThreadBackboneState, BackboneState, Mouse, MouseCursorPosition};
-use crate::infrastructure::plugin::App;
+use base::{Mouse, MouseCursorPosition};
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
-    popup_below_widget, pos2, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
+    popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
     FontFamily, FontId, Frame, InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit,
     TextStyle, TopBottomPanel, Ui, Visuals, Widget,
 };
@@ -32,6 +17,22 @@ use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
 use lru::LruCache;
+use pot::preset_crawler::{
+    crawl_presets, import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason,
+    PresetCrawlingState, SharedPresetCrawlingState,
+};
+use pot::preview_recorder::{
+    prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
+    SharedPreviewRecorderState,
+};
+use pot::{
+    create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
+    CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
+    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind,
+    PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+};
+use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};

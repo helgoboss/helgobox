@@ -1,10 +1,10 @@
 use crate::application::{Change, GroupCommand, GroupModel};
-use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{Compartment, GroupId, GroupKey, Tag};
 use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData,
     ModelToDataConversionContext,
 };
+use base::default_util::{deserialize_null_default, is_default};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

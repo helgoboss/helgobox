@@ -1,4 +1,3 @@
-use crate::base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
     DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
@@ -10,6 +9,7 @@ use crate::domain::{
     ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TargetTouchEvent,
     TouchedTrackParameterType,
 };
+use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
 use reaper_high::{
@@ -20,7 +20,7 @@ use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
-use crate::base::metrics_util::measure_time;
+use base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
 use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{

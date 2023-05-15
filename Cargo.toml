@@ -5,13 +5,56 @@ members = [
     "macros",
     "playtime-clip-engine",
     "playtime-api",
+    "pot",
     "csi",
     "main",
     "rx-util",
     "swell-ui",
-    # Will probably excluded from the workspace in future
+    "base",
+    # Will probably be excluded from the workspace in future
     "main/lib/helgoboss-learn"
 ]
+
+[workspace.dependencies]
+# Own
+base = { path = "base" }
+pot = { path = "pot" }
+reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+swell-ui = { path = "swell-ui" }
+rx-util = { path = "rx-util" }
+playtime-clip-engine = { path = "playtime-clip-engine" }
+realearn-api = { path = "api" }
+playtime-api = { path = "playtime-api" }
+realearn-csi = { path = "csi" }
+helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
+
+# 3rd-party
+indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
+itertools = "0.10.5"
+wildmatch = "2.1.0"
+serde = { version = "1.0", features = ["derive", "rc"] }
+derive_more = "0.99.5"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+enum-iterator = "0.6.0"
+enum-map = { version = "2.4.1", features = ["serde"] }
+once_cell = "1.4.0"
+strum = { version = "0.24", features = ["derive"] }
+regex = "1"
+walkdir = "2"
+either = "1.8.0"
+tracing = "0.1.29"
+futures = { version = "0.3", default-features = false }
+derivative = "2.2.0"
+tempfile = "3.1.0"
+xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
+crossbeam-channel = "0.5"
+futures-timer = "3.0.2"
+metrics = "0.18.0"
+assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
+ascii = "1.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

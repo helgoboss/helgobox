@@ -34,7 +34,7 @@ where
         {
             let mut subject = subject.clone();
             let value = value.clone();
-            crate::base::Global::task_support()
+            base::Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || {
                     subject.next(value);
                 })

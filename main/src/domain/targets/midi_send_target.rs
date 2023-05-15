@@ -1,10 +1,10 @@
-use crate::base::NamedChannelSender;
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::NamedChannelSender;
 use helgoboss_learn::{
     create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
     MidiSourceValue, RawMidiPattern, Target, UnitValue,

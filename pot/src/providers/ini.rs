@@ -1,15 +1,15 @@
-use crate::domain::pot::provider_database::{
+use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
-use crate::domain::pot::{
+use crate::{
     FilterInput, InnerBuildInput, InnerPresetId, InternalPresetKind, PersistentDatabaseId,
     PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginKind, Preset, PresetCommon,
     PresetKind,
 };
 use std::borrow::Cow;
 
-use crate::base::hash_util::{PersistentHash, PersistentHasher};
-use crate::domain::pot::plugins::{PluginCore, SuperPluginKind};
+use crate::plugins::{PluginCore, SuperPluginKind};
+use base::hash_util::{PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use ini::Ini;
@@ -88,7 +88,7 @@ impl Database for IniDatabase {
     }
 
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
-        let file_name_regex = regex!(r#"(?i)(.*?)-(.*).ini"#);
+        let file_name_regex = base::regex!(r#"(?i)(.*?)-(.*).ini"#);
         self.entries = WalkDir::new(&self.root_dir)
             .max_depth(1)
             .follow_links(true)
@@ -131,7 +131,7 @@ impl Database for IniDatabase {
                     }
                     match &p.kind {
                         SuperPluginKind::Vst(k) => {
-                            let unsafe_char_regex = regex!(r#"[^a-zA-Z0-9_]"#);
+                            let unsafe_char_regex = base::regex!(r#"[^a-zA-Z0-9_]"#);
                             let safe_main_plugin_identifier =
                                 unsafe_char_regex.replace(main_plugin_identifier, "_");
                             let file_name_prefix = format!("{safe_main_plugin_identifier}.");

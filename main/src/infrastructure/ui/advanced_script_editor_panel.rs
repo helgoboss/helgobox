@@ -1,10 +1,10 @@
-use crate::base::{blocking_lock, SenderToNormalThread};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views::advanced_script_editor;
 use crate::infrastructure::ui::egui_views::advanced_script_editor::{
     SharedValue, State, Toolbox, Value,
 };
 use crate::infrastructure::ui::{egui_views, ScriptEditorInput};
+use base::{blocking_lock, SenderToNormalThread};
 use crossbeam_channel::Receiver;
 use derivative::Derivative;
 use reaper_low::raw;

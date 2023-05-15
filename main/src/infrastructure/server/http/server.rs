@@ -10,11 +10,11 @@ use std::io;
 use std::net::SocketAddr;
 use tower_http::cors::{any, CorsLayer};
 
-use crate::base::Global;
 use crate::infrastructure::server::data::WebSocketRequest;
 pub use crate::infrastructure::server::http::handlers::*;
 use crate::infrastructure::server::layers::MainThreadLayer;
 use crate::infrastructure::server::MetricsReporter;
+use base::Global;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn start_http_server(

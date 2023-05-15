@@ -1,15 +1,15 @@
-use crate::domain::pot::provider_database::{
+use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
-use crate::domain::pot::{
+use crate::{
     FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
     PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
     PresetKind,
 };
 use std::borrow::Cow;
 
-use crate::base::hash_util::{PersistentHash, PersistentHasher};
-use crate::domain::pot::plugins::{Plugin, PluginCore, PluginDatabase};
+use crate::plugins::{Plugin, PluginCore, PluginDatabase};
+use base::hash_util::{PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexMap;

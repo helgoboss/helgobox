@@ -1,9 +1,9 @@
-use crate::domain::pot::plugins::ProductKind;
-use crate::domain::pot::provider_database::{
+use crate::plugins::ProductKind;
+use crate::provider_database::{
     DatabaseId, FIL_HAS_PREVIEW_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
     FIL_IS_USER_PRESET_TRUE,
 };
-use crate::domain::pot::{FilterItem, Preset};
+use crate::{FilterItem, Preset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
@@ -588,7 +588,7 @@ impl<'a> Display for PipeEscaped<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::pot::{PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId};
+    use crate::{PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId};
 
     #[test]
     fn format_persistent_preset_id() {

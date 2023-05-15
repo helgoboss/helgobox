@@ -1,4 +1,4 @@
-use crate::base::hash_util::PersistentHash;
+use crate::hash_util::PersistentHash;
 use walkdir::DirEntry;
 
 pub fn is_hidden(entry: &DirEntry) -> bool {
@@ -24,7 +24,7 @@ pub fn convert_hash_to_dir_structure(hash: PersistentHash, suffix: &str) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::hash_util;
+    use crate::hash_util;
 
     #[test]
     fn hash_to_dir_structure_simple() {

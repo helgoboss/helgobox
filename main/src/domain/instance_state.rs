@@ -1,24 +1,26 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
+use std::sync::RwLock;
 
 use enum_map::EnumMap;
-use reaper_high::Track;
+use reaper_high::{Fx, Track};
 use rxrust::prelude::*;
 
-use crate::base::{NamedChannelSender, Prop, SenderToNormalThread, SenderToRealTimeThread};
-use crate::domain::pot::OptFilter;
-use crate::domain::pot::{PotUnit, PresetId, SharedRuntimePotUnit};
+use crate::base::Prop;
 use crate::domain::{
-    pot, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
+    AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
     MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
     TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
+use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::{
     ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
+use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
+use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
@@ -285,7 +287,8 @@ impl InstanceState {
     ///
     /// Returns an error if the necessary pot database is not available.
     pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
-        self.pot_unit.loaded(&self.instance_feedback_event_sender)
+        let integration = RealearnPotIntegration::new(self.instance_feedback_event_sender.clone());
+        self.pot_unit.loaded(Box::new(integration))
     }
 
     /// Restores a pot unit state from persistent data.
@@ -727,4 +730,55 @@ pub enum ClipMatrixRelevance<'a> {
     Owns(&'a RealearnClipMatrix),
     /// This instance borrows the clip matrix with the given ID.
     Borrows,
+}
+
+struct RealearnPotIntegration {
+    sender: SenderToNormalThread<InstanceStateChanged>,
+}
+
+impl RealearnPotIntegration {
+    fn new(sender: SenderToNormalThread<InstanceStateChanged>) -> Self {
+        Self { sender }
+    }
+}
+
+impl PotIntegration for RealearnPotIntegration {
+    fn favorites(&self) -> &RwLock<PotFavorites> {
+        &AnyThreadBackboneState::get().pot_favorites
+    }
+
+    fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset) {
+        BackboneState::target_state()
+            .borrow_mut()
+            .set_current_fx_preset(fx, preset);
+    }
+
+    fn exclude_list(&self) -> Ref<PotFilterExcludes> {
+        BackboneState::get().pot_filter_exclude_list()
+    }
+
+    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
+        BackboneState::get().pot_filter_exclude_list_mut()
+    }
+
+    fn notify_preset_changed(&self, id: Option<PresetId>) {
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetChanged { id },
+            ));
+    }
+
+    fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter) {
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::FilterItemChanged { kind, filter },
+            ));
+    }
+
+    fn notify_indexes_rebuilt(&self) {
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::IndexesRebuilt,
+            ));
+    }
 }

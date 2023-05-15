@@ -520,6 +520,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "base"
+version = "0.1.0"
+dependencies = [
+ "ascii",
+ "crossbeam-channel",
+ "device_query",
+ "enigo",
+ "futures-timer",
+ "helgoboss-learn",
+ "metrics",
+ "once_cell",
+ "realearn-api",
+ "reaper-high",
+ "reaper-low",
+ "reaper-medium",
+ "reaper-rx",
+ "serde",
+ "tracing",
+ "walkdir",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3568,6 +3591,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "pot"
+version = "0.1.0"
+dependencies = [
+ "assert_no_alloc",
+ "base",
+ "derivative",
+ "derive_more",
+ "dirs",
+ "either",
+ "enum-iterator",
+ "enum-map",
+ "enumset",
+ "fallible-iterator",
+ "futures",
+ "indexmap 1.7.0",
+ "itertools",
+ "lexical-sort",
+ "once_cell",
+ "realearn-api",
+ "reaper-high",
+ "reaper-medium",
+ "regex",
+ "riff-io",
+ "rmp-serde",
+ "rusqlite",
+ "rust-ini",
+ "sanitize-filename",
+ "serde",
+ "splitty",
+ "strum",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "walkdir",
+ "wildmatch",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4005,6 +4066,7 @@ dependencies = [
  "axum 0.3.4",
  "axum-server",
  "backtrace",
+ "base",
  "baseview",
  "bindgen",
  "built",
@@ -4015,8 +4077,6 @@ dependencies = [
  "crossbeam-channel",
  "derivative",
  "derive_more",
- "device_query",
- "dirs",
  "dns-lookup",
  "edit",
  "egui",
@@ -4025,17 +4085,13 @@ dependencies = [
  "egui_extras",
  "either",
  "embed-resource",
- "enigo",
  "enum-iterator",
  "enum-map",
  "enum_dispatch",
  "enumflags2",
- "enumset",
  "env_logger 0.8.4",
- "fallible-iterator",
  "fasteval",
  "futures",
- "futures-timer",
  "helgoboss-learn",
  "helgoboss-midi",
  "hex",
@@ -4044,7 +4100,6 @@ dependencies = [
  "indexmap 1.7.0",
  "itertools",
  "lazycell",
- "lexical-sort",
  "lru",
  "maplit",
  "metrics",
@@ -4059,6 +4114,7 @@ dependencies = [
  "percent-encoding",
  "playtime-api",
  "playtime-clip-engine",
+ "pot",
  "prost",
  "pulldown-cmark",
  "qrcode",
@@ -4072,15 +4128,10 @@ dependencies = [
  "reaper-medium",
  "reaper-rx",
  "regex",
- "riff-io",
- "rmp-serde",
  "rosc",
  "runas",
- "rusqlite",
- "rust-ini",
  "rx-util",
  "rxrust",
- "sanitize-filename",
  "scopeguard",
  "semver 0.9.0",
  "serde",
@@ -4094,7 +4145,6 @@ dependencies = [
  "slog-stdlog",
  "slug",
  "smallvec",
- "splitty",
  "strum",
  "swell-ui",
  "sys-info",

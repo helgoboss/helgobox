@@ -1,10 +1,10 @@
-use crate::base::future_util::millis;
-use crate::base::{blocking_lock_arc, file_util, hash_util};
-use crate::domain::enigo::EnigoMouse;
-use crate::domain::pot::{
+use crate::{
     parse_vst2_magic_number, parse_vst3_uid, pot_db, EscapeCatcher, PersistentPresetId, PluginId,
 };
-use crate::domain::{Mouse, MouseCursorPosition};
+use base::enigo::EnigoMouse;
+use base::future_util::millis;
+use base::{blocking_lock_arc, file_util, hash_util};
+use base::{Mouse, MouseCursorPosition};
 use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};

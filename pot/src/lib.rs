@@ -4,14 +4,7 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use crate::base::{
-    blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util, NamedChannelSender,
-    SenderToNormalThread,
-};
-
-use crate::domain::{
-    AnyThreadBackboneState, BackboneState, InstanceStateChanged, PotStateChangedEvent, SoundPlayer,
-};
+use base::{blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util, SoundPlayer};
 
 use enumset::EnumSet;
 use indexmap::IndexSet;
@@ -22,6 +15,7 @@ use reaper_medium::{
     ReaperVolumeValue, RecordingInput,
 };
 use std::borrow::Cow;
+use std::cell::{Ref, RefMut};
 use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::CString;
@@ -29,7 +23,7 @@ use std::fs;
 
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use wildmatch::WildMatch;
 
@@ -37,15 +31,13 @@ mod api;
 pub use api::*;
 mod nks;
 mod pot_database;
-use crate::domain::pot::providers::komplete::NksFile;
+use crate::providers::komplete::NksFile;
 pub use pot_database::*;
 
 mod plugin_id;
 mod plugins;
-use crate::domain::pot::plugins::{PluginCommon, PluginCore};
-use crate::domain::pot::provider_database::{
-    DatabaseId, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
-};
+use crate::plugins::{PluginCommon, PluginCore};
+use crate::provider_database::{DatabaseId, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE};
 pub use plugin_id::*;
 
 mod provider_database;
@@ -55,9 +47,9 @@ pub use worker::*;
 mod escape_catcher;
 pub mod preset_crawler;
 pub mod preview_recorder;
-use crate::base::hash_util::PersistentHash;
-use crate::domain::pot::preset_crawler::get_shim_file_path;
-use crate::domain::pot::preview_recorder::get_preview_file_path_from_hash;
+use crate::preset_crawler::get_shim_file_path;
+use crate::preview_recorder::get_preview_file_path_from_hash;
+use base::hash_util::PersistentHash;
 pub use escape_catcher::*;
 
 // - We have a global list of databases
@@ -99,7 +91,7 @@ impl PotUnit {
 
     pub fn loaded(
         &mut self,
-        sender: &SenderToNormalThread<InstanceStateChanged>,
+        integration: BoxedPotIntegration,
     ) -> Result<SharedRuntimePotUnit, &'static str> {
         match self {
             PotUnit::Unloaded {
@@ -109,7 +101,7 @@ impl PotUnit {
                 if !previous_load_error.is_empty() {
                     return Err(previous_load_error);
                 }
-                match RuntimePotUnit::load(state, sender.clone()) {
+                match RuntimePotUnit::load(state, integration) {
                     Ok(u) => {
                         *self = Self::Loaded(u.clone());
                         Ok(u)
@@ -134,7 +126,21 @@ impl PotUnit {
     }
 }
 
-#[derive(Debug)]
+/// This trait is not very good in terms of signatures. It's just a minimum-effort solution to get
+/// inversion of control (in order to not let Pot depend on ReaLearn's main code).
+pub trait PotIntegration {
+    // TODO-high-pot This will probably look different as soon as we seriously implement favorites.
+    fn favorites(&self) -> &RwLock<PotFavorites>;
+    fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset);
+    fn exclude_list(&self) -> Ref<PotFilterExcludes>;
+    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes>;
+    fn notify_preset_changed(&self, id: Option<PresetId>);
+    fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter);
+    fn notify_indexes_rebuilt(&self);
+}
+
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
 pub struct RuntimePotUnit {
     pub runtime_state: RuntimeState,
     pub filter_item_collections: FilterItemCollections,
@@ -143,7 +149,6 @@ pub struct RuntimePotUnit {
     pub wasted_runs: u32,
     pub wasted_duration: Duration,
     pub stats: Stats,
-    sender: SenderToNormalThread<InstanceStateChanged>,
     build_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
@@ -151,7 +156,11 @@ pub struct RuntimePotUnit {
     pub name_track_after_preset: bool,
     show_excluded_filter_items: bool,
     background_task_start_time: Option<Instant>,
+    #[derivative(Debug = "ignore")]
+    integration: BoxedPotIntegration,
 }
+
+pub type BoxedPotIntegration = Box<dyn PotIntegration + Send>;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct DestinationDescriptor {
@@ -467,7 +476,7 @@ pub struct PersistentFilterSettings {
 impl RuntimePotUnit {
     pub fn load(
         state: &PersistentState,
-        sender: SenderToNormalThread<InstanceStateChanged>,
+        integration: BoxedPotIntegration,
     ) -> Result<SharedRuntimePotUnit, &'static str> {
         let sound_player = SoundPlayer::new();
         let unit = Self {
@@ -478,7 +487,6 @@ impl RuntimePotUnit {
             wasted_runs: 0,
             wasted_duration: Default::default(),
             stats: Default::default(),
-            sender,
             build_counter: 0,
             preview_volume: sound_player.volume().unwrap_or_default(),
             sound_player,
@@ -486,6 +494,7 @@ impl RuntimePotUnit {
             name_track_after_preset: true,
             show_excluded_filter_items: false,
             background_task_start_time: None,
+            integration,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit, "PotUnit from load").rebuild_collections(
@@ -541,7 +550,7 @@ impl RuntimePotUnit {
     }
 
     pub fn toggle_favorite(&mut self, preset_id: PresetId, shared_self: SharedRuntimePotUnit) {
-        let favorites = &AnyThreadBackboneState::get().pot_favorites;
+        let favorites = self.integration.favorites();
         blocking_write_lock(favorites, "favorite toggle").toggle_favorite(preset_id);
         self.rebuild_collections(
             shared_self,
@@ -690,8 +699,7 @@ impl RuntimePotUnit {
             preset: preset.clone(),
             macro_param_banks: outcome.banks,
         };
-        BackboneState::target_state()
-            .borrow_mut()
+        self.integration
             .set_current_fx_preset(outcome.fx.clone(), current_preset);
         outcome.fx
     }
@@ -706,10 +714,7 @@ impl RuntimePotUnit {
 
     pub fn set_preset_id(&mut self, id: Option<PresetId>) {
         self.runtime_state.preset_id = id;
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::PresetChanged { id },
-            ));
+        self.integration.notify_preset_changed(id);
     }
 
     pub fn filters(&self) -> &Filters {
@@ -746,7 +751,7 @@ impl RuntimePotUnit {
         shared_self: SharedRuntimePotUnit,
     ) {
         {
-            let mut list = BackboneState::get().pot_filter_exclude_list_mut();
+            let mut list = self.integration.exclude_list_mut();
             if include {
                 list.remove(kind, id);
             } else {
@@ -759,7 +764,7 @@ impl RuntimePotUnit {
 
     fn clear_invalid_filters(&mut self) {
         if !self.show_excluded_filter_items {
-            let excludes = BackboneState::get().pot_filter_exclude_list();
+            let excludes = self.integration.exclude_list();
             self.runtime_state.filters.clear_excluded_ones(&excludes);
         }
     }
@@ -772,10 +777,7 @@ impl RuntimePotUnit {
         debounce: Debounce,
     ) {
         self.runtime_state.filters.set(kind, id);
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::FilterItemChanged { kind, filter: id },
-            ));
+        self.integration.notify_filter_changed(kind, id);
         self.rebuild_collections(shared_self, ChangeHint::Filter(kind), debounce);
     }
 
@@ -793,7 +795,7 @@ impl RuntimePotUnit {
             filter_excludes: if self.show_excluded_filter_items {
                 PotFilterExcludes::default()
             } else {
-                BackboneState::get().pot_filter_exclude_list().clone()
+                self.integration.exclude_list().clone()
             },
         }
     }
@@ -869,10 +871,7 @@ impl RuntimePotUnit {
             .filters
             .clear_if_not_available_anymore(affected_kinds, &self.filter_item_collections);
         self.stats = build_output.stats;
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::IndexesRebuilt,
-            ));
+        self.integration.notify_indexes_rebuilt();
     }
 
     pub fn count_filter_items(&self, kind: PotFilterKind) -> u32 {

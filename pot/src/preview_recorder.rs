@@ -1,14 +1,14 @@
-use crate::base::future_util::millis;
-use crate::base::hash_util::PersistentHash;
-use crate::base::{blocking_lock_arc, blocking_write_lock, file_util};
-use crate::domain::pot::provider_database::{
+use crate::provider_database::{
     FIL_IS_AVAILABLE_TRUE, FIL_IS_SUPPORTED_TRUE, FIL_PRODUCT_KIND_INSTRUMENT,
 };
-use crate::domain::pot::{
+use crate::{
     pot_db, preview_exists, BuildInput, Destination, EscapeCatcher, FilterItemId,
     LoadPresetOptions, LoadPresetWindowBehavior, PluginId, Preset, PresetKind, PresetWithId,
     ProductId, SharedRuntimePotUnit,
 };
+use base::future_util::millis;
+use base::hash_util::PersistentHash;
+use base::{blocking_lock_arc, blocking_write_lock, file_util};
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{CommandId, OpenProjectBehavior, ProjectContext, ProjectInfoAttributeKey};

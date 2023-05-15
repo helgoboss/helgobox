@@ -1,5 +1,5 @@
-use crate::base::file_util;
-use crate::domain::pot::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
+use crate::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
+use base::file_util;
 use ini::Ini;
 use regex::Match;
 use std::collections::HashMap;
@@ -428,9 +428,9 @@ struct ProductName<'a> {
 
 impl<'a> ProductName<'a> {
     pub fn parse(name_expression: &'a str) -> Option<Self> {
-        let four_part_regex = regex!(r#"(.*) \((.*)\) \((.*)\) \((.*)\)"#);
-        let three_part_regex = regex!(r#"(.*) \((.*)\) \((.*)\)"#);
-        let two_part_regex = regex!(r#"(.*) \((.*)\)"#);
+        let four_part_regex = base::regex!(r#"(.*) \((.*)\) \((.*)\) \((.*)\)"#);
+        let three_part_regex = base::regex!(r#"(.*) \((.*)\) \((.*)\)"#);
+        let two_part_regex = base::regex!(r#"(.*) \((.*)\)"#);
 
         if let Some(captures) = four_part_regex.captures(name_expression) {
             return Some(ProductName {
@@ -529,7 +529,7 @@ fn maybe_crop_version_number(main_name: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::pot::plugins::ProductName;
+    use crate::plugins::ProductName;
 
     #[test]
     pub fn product_name_parsing_2() {

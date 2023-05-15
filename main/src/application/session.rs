@@ -6,10 +6,7 @@ use crate::application::{
     ProcessingRelevance, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
     TargetProp, VirtualControlElementType, MASTER_TRACK_LABEL,
 };
-use crate::base::{
-    prop, when, AsyncNotifier, Global, NamedChannelSender, Prop, SenderToNormalThread,
-    SenderToRealTimeThread,
-};
+use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     convert_plugin_param_index_range_to_iter, BackboneState, BasicSettings, Compartment,
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
@@ -24,6 +21,7 @@ use crate::domain::{
     TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId,
     VirtualFx, VirtualSource, VirtualSourceValue,
 };
+use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
 use enum_map::EnumMap;
 
@@ -2823,8 +2821,10 @@ pub struct MappingChangeContext<'a> {
     pub extended_context: ExtendedProcessorContext<'a>,
 }
 
-pub type RealearnControlSurfaceMainTaskSender =
-    SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>;
+#[derive(Debug)]
+pub struct RealearnControlSurfaceMainTaskSender(
+    pub SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>,
+);
 
 impl RealearnControlSurfaceMainTaskSender {
     pub fn capture_targets(
@@ -2832,17 +2832,19 @@ impl RealearnControlSurfaceMainTaskSender {
         instance_id: Option<InstanceId>,
     ) -> async_channel::Receiver<TargetTouchEvent> {
         let (sender, receiver) = async_channel::bounded(500);
-        self.send_complaining(RealearnControlSurfaceMainTask::StartCapturingTargets(
-            instance_id,
-            sender,
-        ));
+        self.0
+            .send_complaining(RealearnControlSurfaceMainTask::StartCapturingTargets(
+                instance_id,
+                sender,
+            ));
         receiver
     }
 
     pub fn stop_capturing_targets(&self, instance_id: Option<InstanceId>) {
-        self.send_complaining(RealearnControlSurfaceMainTask::StopCapturingTargets(
-            instance_id,
-        ));
+        self.0
+            .send_complaining(RealearnControlSurfaceMainTask::StopCapturingTargets(
+                instance_id,
+            ));
     }
 }
 

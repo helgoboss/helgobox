@@ -2,13 +2,11 @@ use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
     FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand,
 };
-use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
-    compartment_param_index_iter, pot, BackboneState, ClipMatrixRef, Compartment,
-    CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey,
-    InstanceId, InstanceState, MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId,
-    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParams,
-    StayActiveWhenProjectInBackground, Tag,
+    compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
+    CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceId, InstanceState,
+    MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput,
+    MidiDestination, OscDeviceId, Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -16,6 +14,7 @@ use crate::infrastructure::data::{
     MigrationDescriptor, ParameterData,
 };
 use crate::infrastructure::plugin::App;
+use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::data::clip_legacy::{

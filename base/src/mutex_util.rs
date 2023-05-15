@@ -1,4 +1,4 @@
-use crate::base::metrics_util::warn_if_takes_too_long;
+use crate::metrics_util::warn_if_takes_too_long;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 

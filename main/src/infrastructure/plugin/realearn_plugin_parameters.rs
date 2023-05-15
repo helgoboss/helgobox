@@ -1,8 +1,5 @@
-use crate::base::{
-    blocking_read_lock, blocking_write_lock, notification, NamedChannelSender, SendOrSyncWhatever,
-    SenderToNormalThread,
-};
-
+use crate::base::{notification, SendOrSyncWhatever};
+use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;

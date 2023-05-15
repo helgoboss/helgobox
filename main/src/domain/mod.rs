@@ -111,9 +111,6 @@ pub use reaper_config_change_detector::*;
 mod monitoring_fx_chain_change_detector;
 pub use monitoring_fx_chain_change_detector::*;
 
-mod small_ascii_string;
-pub use small_ascii_string::*;
-
 mod tag;
 pub use tag::*;
 
@@ -137,11 +134,3 @@ pub use control_event::*;
 
 mod lua_support;
 pub use lua_support::*;
-
-mod mouse;
-pub use mouse::*;
-
-pub mod pot;
-
-mod sound;
-pub use sound::*;

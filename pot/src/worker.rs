@@ -1,4 +1,4 @@
-use crate::base::Global;
+use base::Global;
 use futures::channel::oneshot;
 use once_cell::sync::Lazy;
 use std::any::Any;

@@ -1,5 +1,6 @@
 /// Use only where absolutely necessary because of static-only FFI stuff!
 // TODO-medium Make available in reaper-rs
+#[macro_export]
 macro_rules! make_available_globally_in_main_thread {
     ($instance_struct:path) => {
         impl $instance_struct {
@@ -19,6 +20,7 @@ macro_rules! make_available_globally_in_main_thread {
 }
 
 /// Use only where absolutely necessary because of static-only FFI stuff!
+#[macro_export]
 macro_rules! make_available_globally_in_main_thread_on_demand {
     ($instance_struct:path) => {
         // This is safe (see https://doc.rust-lang.org/std/sync/struct.Once.html#examples-1).
@@ -52,6 +54,7 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
 ///
 /// The given struct must be thread-safe. If not, all of its public methods should first check if
 /// the thread is correct.
+#[macro_export]
 macro_rules! make_available_globally_in_any_thread {
     ($instance_struct:path) => {
         impl $instance_struct {

@@ -1,13 +1,13 @@
-use crate::domain::pot::provider_database::{
+use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
-use crate::domain::pot::{
+use crate::{
     create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId, Preset,
 };
 use std::borrow::Cow;
 
-use crate::domain::pot::plugins::PluginCommon;
+use crate::plugins::PluginCommon;
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use itertools::Itertools;

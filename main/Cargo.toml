@@ -14,59 +14,64 @@ default = []
 generate = []
 
 [dependencies]
-reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-swell-ui = { path = "../swell-ui" }
-rx-util = { path = "../rx-util" }
-playtime-clip-engine = { path = "../playtime-clip-engine" }
-realearn-api = { path = "../api" }
-playtime-api = { path = "../playtime-api" }
-realearn-csi = { path = "../csi" }
-helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
+# Own
+base.workspace = true
+reaper-rx.workspace = true
+reaper-high.workspace = true
+reaper-medium.workspace = true
+reaper-low.workspace = true
+swell-ui.workspace = true
+rx-util.workspace = true
+playtime-clip-engine.workspace = true
+pot.workspace = true
+realearn-api.workspace = true
+playtime-api.workspace = true
+realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
-helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
+helgoboss-learn.workspace = true
+helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
+
+# 3rd-party
 # For being able to (de)serialize using FromStr and Display
 serde_with = "2.0.1"
 c_str_macro = "1.0.2"
 vst = "0.3.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
-serde = { version = "1.0", features = ["derive", "rc"] }
+serde.workspace = true
 serde_json = "1.0"
 serde_repr = "0.1.5"
 validator = "0.10.0"
 validator_derive = "0.10"
-derive_more = "0.99.5"
+derive_more.workspace = true
 lazycell = "1.2"
-enum-iterator = "0.6.0"
+enum-iterator.workspace = true
 num_enum = "0.5.0"
-crossbeam-channel = "0.5"
+crossbeam-channel.workspace = true
 scopeguard = "1.1.0"
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 # Old logging
 slog = "2.5.2"
 slog-async = "2.5.2"
 # New logging (for clip matrix)
-tracing = "0.1.29"
+tracing.workspace = true
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 # For interacting with the OS clipboard
 arboard = "2.0.0"
-once_cell = "1.4.0"
+once_cell.workspace = true
 # For being able to exclude fields from the derived Debug implementation
-derivative = "2.2.0"
+derivative.workspace = true
 chrono = "0.4.11"
 smallvec = "1.7.0"
 backtrace = "0.3"
-regex = "1"
-enum-map = { version = "2.4.1", features = ["serde"] }
+regex.workspace = true
+enum-map.workspace = true
 # For generating controller file names from controller names
 slug = "0.1.4"
 # For generating random session IDs
 nanoid = "0.3.0"
 # For ReaLearn's servers
-futures = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+futures.workspace = true
+tokio.workspace = true
 tokio-stream = { version = "0.1.8", features = ["sync"] }
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
@@ -92,19 +97,17 @@ serde_ini = "0.2.0"
 # For opening projection setup page and companion app in local browser
 webbrowser = "0.5.5"
 # For writing generated projection setup page to disk
-tempfile = "3.1.0"
+tempfile.workspace = true
 # For adding firewall rules
 runas = "0.2.1"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
-itertools = "0.10.5"
+itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
 env_logger = "0.8.2"
 # We want to forward slog logging to standard logging
 slog-stdlog = "4.1.0"
-# To be able to yield to main thread in async functions
-futures-timer = "3.0.2"
 # To open user guide in local PDF app
 open = "1"
 # In projection server, we must be able to handle controller IDs with special characters
@@ -126,43 +129,39 @@ hex = "0.4.2"
 # For evaluation of <Dynamic> formulas
 fasteval = { version = "0.2.4", default-features = false }
 # For wildcard support when using "By name" selector
-wildmatch = "2.1.0"
+wildmatch.workspace = true
 # For creating HashSet literals for projection feedback and in unit tests
 maplit = "1.0.2"
 # For easier support of named virtual control elements
-ascii = "1.0"
+ascii.workspace = true
 # For using bit flags in the reaper-rs API.
 enumflags2 = "0.7.4"
 # For detecting undesired (de)allocation in real-time threads.
-assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
+assert_no_alloc.workspace = true
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
 enum_dispatch = "0.3.6"
 # For processing mappings in user-defined order
-indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
+indexmap = { workspace = true }
 # For comparing floating point numbers in tests
 approx = "0.3.2"
 # For the API (ReaLearn Script) and MIDI scripts
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
-xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
+xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
-strum = { version = "0.24", features = ["derive"] }
-metrics = "0.18.0"
+strum.workspace = true
+metrics.workspace = true
 metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 # For parsing OSC argument value ranges
 nom = "7.0.0"
 # For obtaining dialog constants from dialog crate
 realearn-dialogs = { path = "../dialogs" }
 # For being able to return iterators of different types
-either = "1.8.0"
+either.workspace = true
 # For reading preset directories recursively
-walkdir = "2"
-# For the mouse target (to simulate mouse)
-enigo = "0.0.14"
-# For the mouse target (to query mouse state)
-device_query = "1.1.1"
+walkdir.workspace = true
 # For egui graphics
 egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn" }
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
@@ -170,27 +169,7 @@ egui = "0.21.0"
 egui_extras = "0.21.0"
 egui-toast = "0.6.0"
 # For Pot target
-rusqlite = { version = "0.28.0", features = ["bundled"] }
-# For Pot target
-fallible-iterator = "0.2"
-# For Pot target
-riff-io = "0.1.2"
-# For Pot target
-rmp-serde = "1.1.1"
-# For Pot target
-dirs = "4.0.0"
-# For Pot target
-enumset = "1.0.12"
-# For Pot target
-rust-ini = "0.18.0"
-# For Pot target
-lexical-sort = "0.3.1"
-# For Pot target
-splitty = "1.0.1"
-# For Pot target
 lru = "0.10.0"
-# For Pot target
-sanitize-filename = "0.4.0"
 # For Pot target
 pulldown-cmark = "0.9.2"
 # For interfacing with egui

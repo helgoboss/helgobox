@@ -1,5 +1,4 @@
 use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, Session};
-use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::{
     Compartment, CompartmentParamIndex, GroupId, GroupKey, InstanceId, MappingId, MappingKey,
     ParamSetting,
@@ -9,6 +8,7 @@ use crate::infrastructure::data::{
     SimpleDataToModelConversionContext,
 };
 use crate::infrastructure::plugin::App;
+use base::default_util::{deserialize_null_default, is_default};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};

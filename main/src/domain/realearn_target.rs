@@ -1,5 +1,4 @@
 use crate::application::SharedSession;
-use crate::base::{SenderToNormalThread, SenderToRealTimeThread};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_raw_midi, log_output,
     parse_unit_value_from_percentage, OutputReason,
@@ -29,6 +28,7 @@ use crate::domain::{
     TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
     TRANSPORT_TARGET,
 };
+use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{

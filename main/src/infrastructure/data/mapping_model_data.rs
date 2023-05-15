@@ -1,5 +1,4 @@
 use crate::application::{Change, MappingCommand, MappingModel};
-use crate::base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use crate::domain::{
     Compartment, ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingId,
     MappingKey, Tag,
@@ -8,6 +7,7 @@ use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData, MigrationDescriptor,
     ModeModelData, ModelToDataConversionContext, SourceModelData, TargetModelData,
 };
+use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use realearn_api::persistence::SuccessAudioFeedback;
 use semver::Version;
 use serde::{Deserialize, Serialize};

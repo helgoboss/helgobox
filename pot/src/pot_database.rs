@@ -1,23 +1,22 @@
-use crate::base::{blocking_read_lock, blocking_write_lock};
-use crate::domain::pot::provider_database::{
+use crate::provider_database::{
     Database, DatabaseId, InnerFilterItem, ProviderContext, SortablePresetId,
     FIL_HAS_PREVIEW_FALSE, FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
     FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
     FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE, FIL_PRODUCT_KIND_EFFECT,
     FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
 };
-use crate::domain::pot::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
-use crate::domain::pot::providers::komplete::KompleteDatabase;
-use crate::domain::pot::{
+use crate::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
+use crate::providers::komplete::KompleteDatabase;
+use crate::{
     preview_exists, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Filters,
     InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, Preset,
     PresetId, PresetWithId, Stats,
 };
+use base::{blocking_read_lock, blocking_write_lock};
 
-use crate::domain::pot::plugins::PluginDatabase;
-use crate::domain::pot::providers::defaults::DefaultsDatabase;
-use crate::domain::pot::providers::ini::IniDatabase;
-use crate::domain::AnyThreadBackboneState;
+use crate::plugins::PluginDatabase;
+use crate::providers::defaults::DefaultsDatabase;
+use crate::providers::ini::IniDatabase;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
@@ -149,10 +148,8 @@ impl PotDatabase {
         affected_kinds: EnumSet<PotFilterKind>,
     ) -> BuildOutput {
         // Preparation
-        let favorites = blocking_read_lock(
-            &AnyThreadBackboneState::get().pot_favorites,
-            "favorites build collections",
-        );
+        // TODO-high-pot Implement correctly as soon as favorites writable
+        let favorites = PotFavorites::default();
         let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
         let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
@@ -301,10 +298,8 @@ impl PotDatabase {
 
     /// Gathers an unsorted list of preset respecting all pre-filters.
     pub fn gather_presets(&self, input: BuildInput) -> Vec<PresetWithId> {
-        let favorites = blocking_read_lock(
-            &AnyThreadBackboneState::get().pot_favorites,
-            "gather_preset_ids favorites",
-        );
+        // TODO-high-pot Implement correctly as soon as favorites writable
+        let favorites = PotFavorites::default();
         let plugin_db = blocking_read_lock(&self.plugin_db, "gather_preset_ids plugin_db");
         let provider_context = ProviderContext::new(&plugin_db);
         self.gather_preset_ids_internal(&input, &provider_context, &favorites)

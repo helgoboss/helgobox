@@ -1,10 +1,10 @@
-use crate::base::NamedChannelSender;
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, FeedbackOutput, HitResponse,
     MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::NamedChannelSender;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, NumericFeedbackValue,
     OscArgDescriptor, OscTypeTag, Target,

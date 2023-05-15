@@ -25,8 +25,6 @@ use playtime_api::runtime::ClipPlayState;
 use playtime_clip_engine::rt::InternalClipPlayState;
 use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackScope};
 
-use crate::base::default_util::is_default;
-use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
@@ -52,6 +50,8 @@ use crate::domain::{
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
     TrackToolTarget,
 };
+use base::default_util::is_default;
+use base::Global;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.

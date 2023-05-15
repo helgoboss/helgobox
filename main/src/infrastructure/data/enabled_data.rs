@@ -1,4 +1,4 @@
-use crate::base::default_util::{bool_true, is_bool_true};
+use base::default_util::{bool_true, is_bool_true};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

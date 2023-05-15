@@ -1,8 +1,8 @@
-use crate::domain::pot::SharedRuntimePotUnit;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
 use crate::infrastructure::ui::egui_views::pot_browser_panel::{run_ui, State};
 use derivative::Derivative;
+use pot::SharedRuntimePotUnit;
 use reaper_low::raw;
 use swell_ui::{Dimensions, Point, SharedView, View, ViewContext, Window};
 

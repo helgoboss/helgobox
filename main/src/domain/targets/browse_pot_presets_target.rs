@@ -1,5 +1,3 @@
-use crate::base::{blocking_lock, blocking_lock_arc};
-use crate::domain::pot::{pot_db, PresetId, RuntimePotUnit};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
     convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
@@ -7,9 +5,11 @@ use crate::domain::{
     PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::{blocking_lock, blocking_lock_arc};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
+use pot::{pot_db, PresetId, RuntimePotUnit};
 use std::borrow::Cow;
 
 #[derive(Debug)]

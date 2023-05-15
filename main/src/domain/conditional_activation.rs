@@ -3,6 +3,7 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
     RawParamValue, COMPARTMENT_PARAMETER_COUNT, EXPRESSION_NONE_VALUE,
 };
+use base::regex;
 use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
 use std::error::Error;

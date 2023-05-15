@@ -1,4 +1,4 @@
-use crate::domain::{Mouse, MouseCursorPosition};
+use crate::{Mouse, MouseCursorPosition};
 use device_query::DeviceState;
 use enigo::{Enigo, MouseControllable};
 use realearn_api::persistence::{Axis, MouseButton};

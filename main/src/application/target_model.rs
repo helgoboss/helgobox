@@ -1,4 +1,4 @@
-use crate::base::default_util::is_default;
+use base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{

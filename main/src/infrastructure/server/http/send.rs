@@ -1,6 +1,6 @@
 //! Contains functions for sending data to WebSocket clients.
 use crate::application::{Session, SharedSession};
-use crate::base::{when, Global};
+use crate::base::when;
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::data::{
@@ -9,6 +9,7 @@ use crate::infrastructure::server::data::{
     SessionResponseData, Topic,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
+use base::Global;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;

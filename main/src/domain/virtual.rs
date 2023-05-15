@@ -1,6 +1,7 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
-use crate::domain::{ExtendedSourceCharacter, SmallAsciiString, TargetCharacter};
+use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use ascii::{AsciiString, ToAsciiChar};
+use base::SmallAsciiString;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };

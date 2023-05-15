@@ -2,11 +2,7 @@ use crate::application::{
     RealearnControlSurfaceMainTaskSender, Session, SessionCommand, SharedMapping, SharedSession,
     VirtualControlElementType, WeakSession,
 };
-use crate::base::default_util::is_default;
-use crate::base::{
-    metrics_util, notification, Global, NamedChannelSender, SenderToNormalThread,
-    SenderToRealTimeThread,
-};
+use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
@@ -30,6 +26,11 @@ use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
 use crate::infrastructure::ui::MessagePanel;
+use base::default_util::is_default;
+use base::{
+    make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
+    SenderToNormalThread, SenderToRealTimeThread,
+};
 use enum_iterator::IntoEnumIterator;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
@@ -293,7 +294,7 @@ impl App {
             changed_subject: Default::default(),
             recently_focused_fx_container: Default::default(),
             party_is_over_subject: Default::default(),
-            control_surface_main_task_sender: main_sender,
+            control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender(main_sender),
             clip_matrix_event_sender,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
@@ -533,7 +534,7 @@ impl App {
                 instance_id,
                 real_time_processor,
             ));
-        self.control_surface_main_task_sender.send_complaining(
+        self.control_surface_main_task_sender.0.send_complaining(
             RealearnControlSurfaceMainTask::AddMainProcessor(main_processor),
         );
     }
@@ -808,6 +809,7 @@ impl App {
         self.server.borrow().log_debug_info(session_id);
         self.controller_preset_manager.borrow().log_debug_info();
         self.control_surface_main_task_sender
+            .0
             .send_complaining(RealearnControlSurfaceMainTask::LogDebugInfo);
     }
 
@@ -1157,7 +1159,7 @@ impl App {
             },
             ActionKind::NotToggleable,
         );
-        let control_surface_sender = self.control_surface_main_task_sender.clone();
+        let control_surface_sender = self.control_surface_main_task_sender.0.clone();
         Reaper::get().register_action(
             "REALEARN_SEND_ALL_FEEDBACK",
             "ReaLearn: Send feedback for all instances",
@@ -1360,6 +1362,7 @@ impl App {
             .send_complaining(NormalAudioHookTask::StopCapturingMidi);
         App::get()
             .control_surface_main_task_sender
+            .0
             .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
     }
 
@@ -1373,6 +1376,7 @@ impl App {
     fn request_next_osc_messages(&self) -> async_channel::Receiver<OscScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
+            .0
             .send_complaining(RealearnControlSurfaceMainTask::StartCapturingOsc(sender));
         receiver
     }

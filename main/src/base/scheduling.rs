@@ -1,7 +1,7 @@
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 
-use crate::base::Global;
+use base::Global;
 use slog::debug;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};

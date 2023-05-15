@@ -17,8 +17,7 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, PanExt, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnClipMatrix, SoundPlayer, TargetControlEvent,
-    TargetValueChangedEvent,
+    QualifiedMappingId, RealearnClipMatrix, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
@@ -30,6 +29,7 @@ use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
+use base::SoundPlayer;
 use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{

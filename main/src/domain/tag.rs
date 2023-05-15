@@ -1,4 +1,4 @@
-use crate::domain::{convert_to_identifier, SmallAsciiString};
+use base::{convert_to_identifier, SmallAsciiString};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::str::FromStr;
 

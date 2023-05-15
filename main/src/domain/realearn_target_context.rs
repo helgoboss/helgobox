@@ -1,8 +1,8 @@
-use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::{
-    pot, AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
+    AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedTrackParameterType,
 };
+use base::{NamedChannelSender, SenderToNormalThread};
 use reaper_high::{Fx, GroupingBehavior, Track};
 use reaper_medium::{GangBehavior, MediaTrack};
 use std::collections::{HashMap, HashSet};

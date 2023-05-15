@@ -1,4 +1,4 @@
-use crate::domain::LimitedAsciiString;
+use base::LimitedAsciiString;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -191,7 +191,7 @@ pub fn parse_vst3_uid(expression: &str) -> Result<[u32; 4], &'static str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::pot::PluginId;
+    use crate::PluginId;
 
     #[test]
     pub fn vst2() {

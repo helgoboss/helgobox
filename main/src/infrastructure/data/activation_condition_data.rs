@@ -2,9 +2,9 @@ use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationType, BankConditionModel,
     Change, ModifierConditionModel,
 };
-use crate::base::default_util::{deserialize_null_default, is_default};
 use crate::domain::MappingKey;
 use crate::infrastructure::data::{DataToModelConversionContext, ModelToDataConversionContext};
+use base::default_util::{deserialize_null_default, is_default};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]

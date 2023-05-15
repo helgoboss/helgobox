@@ -1,0 +1,42 @@
+[package]
+name = "pot"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2021"
+
+[dependencies]
+# Own
+base.workspace = true
+reaper-high.workspace = true
+reaper-medium.workspace = true
+realearn-api.workspace = true
+
+# 3rd-party
+enumset = "1.0.12"
+indexmap.workspace = true
+itertools.workspace = true
+wildmatch.workspace = true
+serde.workspace = true
+derive_more.workspace = true
+tokio.workspace = true
+enum-iterator.workspace = true
+enum-map.workspace = true
+once_cell.workspace = true
+lexical-sort = "0.3.1"
+strum.workspace = true
+splitty = "1.0.1"
+rust-ini = "0.18.0"
+walkdir.workspace = true
+either.workspace = true
+fallible-iterator = "0.2"
+riff-io = "0.1.2"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
+rmp-serde = "1.1.1"
+dirs = "4.0.0"
+futures.workspace = true
+derivative.workspace = true
+tempfile.workspace = true
+sanitize-filename = "0.4.0"
+tracing.workspace = true
+regex.workspace = true
+assert_no_alloc.workspace = true

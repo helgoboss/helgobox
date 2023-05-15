@@ -1,9 +1,7 @@
 use crate::application::{Change, ModeCommand, ModeModel};
-use crate::base::default_util::{
-    deserialize_null_default, is_default, is_unit_value_one, unit_value_one,
-};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
+use base::default_util::{deserialize_null_default, is_default, is_unit_value_one, unit_value_one};
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,

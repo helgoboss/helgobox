@@ -1,4 +1,3 @@
-use crate::base::hash_util;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, Compartment,
@@ -6,6 +5,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::hash_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;

@@ -47,7 +47,6 @@ use crate::application::{
     TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
 };
-use crate::base::Global;
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
@@ -79,6 +78,7 @@ use crate::infrastructure::ui::{
     ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TargetFilterPanel,
     TextualFeedbackExpressionEngine, YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
 };
+use base::Global;
 
 #[derive(Debug)]
 pub struct MappingPanel {

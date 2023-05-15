@@ -1,5 +1,5 @@
-use crate::base::{NamedChannelSender, SenderToNormalThread};
 use crate::domain::ReaperTargetType;
+use base::{NamedChannelSender, SenderToNormalThread};
 use derivative::Derivative;
 use egui::CentralPanel;
 use egui::Context;

@@ -1,4 +1,4 @@
-use crate::base::default_util::{deserialize_null_default, is_default};
+use base::default_util::{deserialize_null_default, is_default};
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistentNksFilterSettings {

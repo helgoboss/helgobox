@@ -1,7 +1,5 @@
-use crate::domain::{
-    convert_to_identifier, MappingId, SmallAsciiString, Tag, TagScope,
-    VirtualMappingSnapshotIdForLoad,
-};
+use crate::domain::{MappingId, Tag, TagScope, VirtualMappingSnapshotIdForLoad};
+use base::{convert_to_identifier, SmallAsciiString};
 use helgoboss_learn::AbsoluteValue;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;

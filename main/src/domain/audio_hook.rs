@@ -1,10 +1,10 @@
-use crate::base::non_blocking_lock;
 use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp, Garbage,
     GarbageBin, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
     MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
+use base::{non_blocking_lock, tracing_debug};
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::base::{

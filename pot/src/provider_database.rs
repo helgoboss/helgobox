@@ -1,5 +1,5 @@
-use crate::domain::pot::plugins::{PluginDatabase, ProductKind};
-use crate::domain::pot::{
+use crate::plugins::{PluginDatabase, ProductKind};
+use crate::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
     InnerPresetId, PersistentDatabaseId, Preset, ProductId,
 };

@@ -1,10 +1,11 @@
-use crate::domain::enigo::EnigoMouse;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     convert_count_to_step_size, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, Mouse, MouseCursorPosition, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::enigo::EnigoMouse;
+use base::{Mouse, MouseCursorPosition};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
 use realearn_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;

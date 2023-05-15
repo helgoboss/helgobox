@@ -1,6 +1,3 @@
-use crate::base::blocking_lock_arc;
-use crate::domain::pot::{Debounce, FilterItemId};
-use crate::domain::pot::{FilterItem, RuntimePotUnit};
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
     convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
@@ -8,9 +5,12 @@ use crate::domain::{
     PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::blocking_lock_arc;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, PropValue, Target, UnitValue,
 };
+use pot::{Debounce, FilterItemId};
+use pot::{FilterItem, RuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 

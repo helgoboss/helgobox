@@ -1,18 +1,16 @@
-use crate::base::blocking_lock;
-use crate::domain::pot::api::{OptFilter, PotFilterExcludes};
-use crate::domain::pot::provider_database::{
+use crate::api::{OptFilter, PotFilterExcludes};
+use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
     FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
     FIL_IS_USER_PRESET_TRUE,
 };
-use crate::domain::pot::{
+use crate::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, Preset, PresetCommon,
     PresetKind, ProductId, SearchEvaluator,
 };
-use crate::domain::pot::{
-    FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId,
-};
+use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
+use base::blocking_lock;
 use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
@@ -135,10 +133,10 @@ impl KompleteDatabase {
             // translating the bank ID can work (if we have that plug-in installed).
             if let Some(bank_id) = bank_id {
                 if let Some(product_id) = self.nks_product_id_by_bank_id.get(&bank_id).copied() {
-                    tracing_debug!("Looked up product {product_id} for bank {bank_id}.");
+                    base::tracing_debug!("Looked up product {product_id} for bank {bank_id}.");
                     return Some(product_id);
                 } else {
-                    tracing_debug!("Looking up product for bank {bank_id} not successful.");
+                    base::tracing_debug!("Looking up product for bank {bank_id} not successful.");
                 }
             }
             // If that didn't work because we don't have a bank ID, we have sub produt or the
@@ -184,7 +182,7 @@ impl Database for KompleteDatabase {
             .filter_map(|(bank_id, bank_name)| {
                 let product_id = ctx.plugin_db.products().find_map(|(product_id, product)| {
                     if bank_name == product.name {
-                        tracing_debug!(
+                        base::tracing_debug!(
                             "Associated bank {bank_id} {bank_name} with product {} {}",
                             product_id.0,
                             &product.name,
