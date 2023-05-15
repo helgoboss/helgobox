@@ -140,6 +140,7 @@ enum Dialog {
         crawled_preset_count: u32,
     },
     PreviewRecorderIntro,
+    PreviewRecorderBasics,
     PreviewRecorderPreparing,
     PreviewRecorderReadyToRecord {
         presets: Vec<PresetWithId>,
@@ -304,13 +305,15 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                 ui.vertical_centered(|ui| {
                     ui.label(
                         "At the moment, Pot Browser is in an experimental stage and will not save \
-                        any of your settings!",
+                        any of your settings! Also be aware that previews generated with this \
+                        version might get disassociated from their corresponding presets when \
+                        upgrading to a newer version.",
                     );
                     ui.add_space(20.0);
                     ui.label(
                         RichText::new(
-                            "So better don't invest much time into excluding \
-                         filter items or adjusting other configuration!",
+                            "Therefore, better don't spend much time yet creating the perfect \
+                            configuration or recording thousands of previews!",
                         )
                         .strong(),
                     );
@@ -758,7 +761,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                             } else {
                                 Dialog::preset_crawler_failure(
                                     format!("Identified FX \"{}\" but it's not open in a floating window.", fx.fx.name()),
-                                    "Please use the floating window to point the mouse to the next-preset button!",
+                                    "Please use the floating window to point the mouse to the \"Next preset\" button!",
                                 )
                             }
                         } else {
@@ -794,6 +797,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             |ui, _| {
                 ui.label(&**short_msg);
                 if !detail_msg.is_empty() {
+                    ui.add_space(3.0);
                     ui.label(&**detail_msg);
                 }
             },
@@ -1020,9 +1024,25 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
         Dialog::PreviewRecorderIntro => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
+            input.change_dialog,
+            |ui, _| {
+                add_markdown(ui, PREVIEW_RECORDER_INTRO_TEXT);
+            },
+            |ui, change_dialog| {
+                if ui.button("Cancel").clicked() {
+                    *change_dialog = Some(None);
+                };
+                if ui.button("Continue").clicked() {
+                    *change_dialog = Some(Some(Dialog::PreviewRecorderBasics));
+                }
+            },
+        ),
+        Dialog::PreviewRecorderBasics => show_dialog(
+            ctx,
+            PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, input.pot_worker_dispatcher),
             |ui, _| {
-                ui.label("Welcome to Pot Preview Recorder!");
+                add_markdown(ui, PREVIEW_RECORDER_BASICS_TEXT);
             },
             |ui, (change_dialog, pot_worker_dispatcher)| {
                 if ui.button("Cancel").clicked() {
@@ -1033,7 +1053,10 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     pot_worker_dispatcher.do_in_background_and_then(
                         async move { prepare_preview_recording(build_input) },
                         |context, output| {
-                            context.dialog = Some(Dialog::preview_recorder_ready_to_record(output));
+                            if matches!(context.dialog, Some(Dialog::PreviewRecorderPreparing)) {
+                                context.dialog =
+                                    Some(Dialog::preview_recorder_ready_to_record(output));
+                            }
                         },
                     );
                     **change_dialog = Some(Some(Dialog::preview_recorder_preparing()));
@@ -1045,7 +1068,8 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             input.change_dialog,
             |ui, _| {
-                ui.label("Aggregating presets to be recorded...");
+                ui.label("Aggregating presets to be recorded (this may take a while)...");
+                ui.spinner();
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1058,6 +1082,8 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, presets, input.main_thread_dispatcher),
             |ui, (_, presets, _)| {
+                add_markdown(ui, PREVIEW_RECORDER_READY_TEXT);
+                ui.separator();
                 ui.label(format!("Ready to record {} presets:", presets.len()));
                 add_item_table(ui, presets);
             },
@@ -1077,6 +1103,12 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                             record_previews_with_default_template(shared_pot_unit, state).await
                         },
                         |context, _| {
+                            let cloned_pot_unit = context.pot_unit.clone();
+                            let mut pot_unit = blocking_lock(
+                                &*context.pot_unit,
+                                "PotUnit from preview background result handler",
+                            );
+                            pot_unit.refresh_pot(cloned_pot_unit);
                             context.dialog = Some(Dialog::preview_recorder_done(cloned_state));
                         },
                     );
@@ -1089,21 +1121,18 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             input.change_dialog,
             |ui, _| {
                 let state = blocking_read_lock(state, "preview recorder UI");
+                ui.heading("Preview recording in process...");
                 ui.horizontal(|ui| {
-                    ui.strong("Presets left to be recorded:");
+                    ui.strong("Presets still left to be recorded:");
                     ui.label(state.todos.len().to_string());
                 });
                 ui.horizontal(|ui| {
-                    ui.strong("Presets failed to be recorded:");
+                    ui.strong("Presets failed:");
                     ui.label(state.failures.len().to_string());
                 });
                 add_item_table(ui, &state.todos);
             },
-            |ui, change_dialog| {
-                if ui.button("Cancel").clicked() {
-                    *change_dialog = Some(None);
-                };
-            },
+            |_, _| {},
         ),
         Dialog::PreviewRecorderDone { state, page } => show_dialog(
             ctx,
@@ -1114,7 +1143,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 add_preview_recorder_done_dialog_contents(&state, page, ui);
             },
             |ui, change_dialog| {
-                if ui.button("Okay").clicked() {
+                if ui.button("Close").clicked() {
                     *change_dialog = Some(None);
                 };
             },
@@ -1224,9 +1253,18 @@ fn add_preview_recorder_done_dialog_contents(
     page: &mut PreviewRecorderDonePage,
     ui: &mut Ui,
 ) {
-    ui.strong("Preview recording stopped!");
+    let markdown = if state.todos.is_empty() {
+        PREVIEW_RECORDER_DONE_COMPLETE_TEXT
+    } else {
+        PREVIEW_RECORDER_DONE_INCOMPLETE_TEXT
+    };
+    add_markdown(ui, markdown);
+    if !state.failures.is_empty() {
+        ui.label("Some previews couldn't be recorded. See the list of failures below.");
+    }
+    ui.separator();
     ui.horizontal(|ui| {
-        ui.strong("Number of previews not recorded yet:");
+        ui.strong("Number of previews not yet recorded:");
         ui.label(state.todos.len().to_string());
     });
     ui.horizontal(|ui| {
@@ -1466,7 +1504,7 @@ fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T]) {
         })
         .body(|body| {
             body.rows(text_height, item_count, |row_index, mut row| {
-                let item = items.get(row_index).unwrap();
+                let item = items.get(item_count - row_index - 1).unwrap();
                 for i in 0..T::prop_count() {
                     row.col(|ui| {
                         if let Some(val) = item.prop_value(i) {
@@ -2770,19 +2808,19 @@ One thing you could do is to manually load each preset from within the plug-in a
 
 ## Want to try it?
 
-Then press continue and follow the instructions!
+Then press "Continue" and follow the instructions!
 "#;
 
 const PREVIEW_RECORDER_INTRO_TEXT: &str = r#"
 ## Welcome to Pot Preview Recorder!
 
-Wouldn't it be nice if you could quickly get an impression of the sound of your instrument presets without actually loading them?
+Wouldn't it be nice if you could get a quick impression of how your instrument preset sounds without actually loading it?
 
-Well, Preview Recorder has a feature for that: Previews. You know a preset has a preview when it has the small loudspeaker symbol right next to it.
+Preview Recorder has a feature for that: Previews. You know that a preset has a preview when it has the small 🔊 symbol right next to it.
 
-Some preset databases such as Komplete ship with pre-recorded preview sounds. But even if you own Komplete, you will find that many presets don't have previews, especially your own user presets.
+Some preset databases such as Komplete ship with pre-recorded previews and Pot Browser supports them! But even if you own Komplete, you will find that many previews are missing, especially those for your own user presets.
 
-Preview Recorder to the rescue! It can batch-record previews of your instrument presets, very conveniently. It doesn't care where your preset comes from.
+Preview Recorder to the rescue! It can batch-record previews of your instrument presets, very conveniently, no matter where they come from.
 
 ## Preconditions
 
@@ -2790,15 +2828,38 @@ Preview Recorder to the rescue! It can batch-record previews of your instrument 
 
 ## How it works
 
-**Step 1:** You use Pot Browser's filter and search features in order to define the set of presets for which you need previews.
+**Step 1:** You use Pot Browser's filter and search features in order to define the set of presets to be recorded.
  
-**Step 2:** Preview Recorder filters out unsuitable presets and makes a plan 
+**Step 2:** Preview Recorder filters out unsuitable presets and creates an optimized recording plan, with as few plug-in reloads as possible.
 
-**Step 3:** Preview Recorder will further narrow down the set of presets by
+**Step 3:** You review the plan and if you like it, you start the recording process.
+
+**Step 4:** Preview Recorder opens a new project tab and renders the previews.
+
+**Step 5:** All newly recorded previews are automatically available!
 
 ## Want to try it?
 
-Then press continue and follow the instructions!
+Then press "Continue" and follow the instructions!
+"#;
+
+const PREVIEW_RECORDER_BASICS_TEXT: &str = r#"
+## Okay, let's do this!
+
+Have you used Pot Browser's filter and search features already to narrow down the set of presets? This step is optional but if you want to do it, now's the time. Simply press "Cancel" and reopen Preview Recorder when you are done filtering/searching.
+
+Creating previews for hundreds of presets can take long. But no worries, you can stop anytime without losing your already recorded previews. Next time, Preview Recorder will automatically continue where you left off.
+
+When you press "Continue", Preview Browser will narrow down your set of presets further and only include those that ...
+
+- ... don't have previews yet
+- ... are instrument presets
+- ... are available
+- ... and are automatically loadable.
+
+## Ready?
+
+Then press "Continue"! 
 "#;
 
 const PRESET_CRAWLER_BASICS_TEXT: &str = r#"
@@ -2816,6 +2877,23 @@ After pressing "Continue", you will have to place the mouse cursor on top of the
 ## Ready?
 
 Then press "Continue"! 
+"#;
+
+const PREVIEW_RECORDER_DONE_COMPLETE_TEXT: &str = r#"
+## Preview recording done!
+
+Preview Recorder has recorded all previews. They will be automatically available in Preset Browser.
+
+You may close the preview recording project tab (no need to save).
+"#;
+
+const PREVIEW_RECORDER_DONE_INCOMPLETE_TEXT: &str = r#"
+## Preview recording stopped!
+
+Preview Recorder has stopped recording previews. All the previews generated so far will be
+automatically available in Preset Browser.
+
+You may close the preview recording project tab (no need to save).
 "#;
 
 const PRESET_CRAWLER_MOUSE_TEXT: &str = r#"
@@ -2844,7 +2922,28 @@ When you are ready, press "Start crawling". No worries, at this point, Preset Cr
 
 ## Important
 
-As soon as you press "Start crawling", Preset Crawler will take over your mouse! That means you can't easily press "Cancel". Instead, just press the "Escape" key of your keyboard (the top-left key)!
+- As soon as you press "Start crawling", Preset Crawler will take over your mouse! That means you can't easily press "Cancel". Instead, just press the "Escape" key of your keyboard (the top-left key)!
+- Try not to move the mouse during crawling!
+"#;
+
+const PREVIEW_RECORDER_READY_TEXT: &str = r#"
+## Ready!
+
+Preview Recorder is ready to record presets in the following order.
+
+## Next step
+
+- You might want to move the Pot Browser window to the side so you can see the progress, which would otherwise be covered by plug-in windows or REAPER's rendering dialog.
+- When you are ready, press "Continue".
+
+## Possible issues
+
+- Some plug-ins have the bad habit to block the user interface by opening a dialog window. If this happens, it will pause the complete recording process. You will need to close the window in order to resume the recording process.
+
+## Important
+
+- If you want to cancel preview recording, press the "Escape" key of your keyboard (the top-left key)!
+- It's best to not use the computer while previews are being generated.
 "#;
 
 const PRESET_CRAWLER_INCOMPATIBLE_PLUGIN_TEXT: &str = r#"
