@@ -12,7 +12,7 @@ reaper-medium.workspace = true
 realearn-api.workspace = true
 
 # 3rd-party
-enumset = "1.0.12"
+enumset.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
 wildmatch.workspace = true

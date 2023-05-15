@@ -27,16 +27,21 @@ swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 playtime-clip-engine = { path = "playtime-clip-engine" }
 realearn-api = { path = "api" }
+realearn-macros = { path = "macros" }
 playtime-api = { path = "playtime-api" }
 realearn-csi = { path = "csi" }
 helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
+helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
 
 # 3rd-party
+scopeguard = "1.1.0"
+rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
 itertools = "0.10.5"
 wildmatch = "2.1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
-derive_more = "0.99.5"
+serde_json = "1.0"
+derive_more = "0.99.16"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 enum-iterator = "0.6.0"
 enum-map = { version = "2.4.1", features = ["serde"] }
@@ -45,7 +50,7 @@ strum = { version = "0.24", features = ["derive"] }
 regex = "1"
 walkdir = "2"
 either = "1.8.0"
-tracing = "0.1.29"
+tracing = "0.1.31"
 futures = { version = "0.3", default-features = false }
 derivative = "2.2.0"
 tempfile = "3.1.0"
@@ -55,6 +60,20 @@ futures-timer = "3.0.2"
 metrics = "0.18.0"
 assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
 ascii = "1.0"
+raw-window-handle = "0.4.2"
+winapi = { version = "0.3", features = ["winuser", "uxtheme"] }
+bindgen = "0.60.1"
+enumflags2 = "0.7.4"
+nanoid = "0.3.0"
+slug = "0.1.4"
+num_enum = "0.5.0"
+tonic = "0.8.3"
+prost = "0.11.5"
+schemars = "0.8.10"
+nom = "7.0.0"
+semver = { version = "0.9.0", features = ["serde"] }
+enumset = "1.0.12"
+mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
 
 [profile.release]
 # This is important for having line numbers in bug reports.
@@ -96,11 +115,11 @@ webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround
 vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
 
 # This is for temporary development with local reaper-rs.
-[patch.'https://github.com/helgoboss/reaper-rs.git']
-reaper-high = { path = "../reaper-rs/main/high" }
-reaper-medium = { path = "../reaper-rs/main/medium" }
-reaper-low = { path = "../reaper-rs/main/low" }
-reaper-rx = { path = "../reaper-rs/main/rx" }
+#[patch.'https://github.com/helgoboss/reaper-rs.git']
+#reaper-high = { path = "../reaper-rs/main/high" }
+#reaper-medium = { path = "../reaper-rs/main/medium" }
+#reaper-low = { path = "../reaper-rs/main/low" }
+#reaper-rx = { path = "../reaper-rs/main/rx" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

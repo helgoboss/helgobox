@@ -5,8 +5,8 @@ authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 # TODO-medium Actually not necessary anymore because we generate Dart directly now.
-schemars = "0.8.10"
+schemars.workspace = true
 # For being able to use various attributes that can help in Rust-to-Dart code generation
-realearn-macros = { path = "../macros" }
+realearn-macros.workspace = true

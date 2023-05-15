@@ -29,25 +29,25 @@ playtime-api.workspace = true
 realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
-helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
+helgoboss-midi.workspace = true
 
 # 3rd-party
 # For being able to (de)serialize using FromStr and Display
 serde_with = "2.0.1"
 c_str_macro = "1.0.2"
 vst = "0.3.0"
-rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
+rxrust.workspace = true
 serde.workspace = true
-serde_json = "1.0"
+serde_json.workspace = true
 serde_repr = "0.1.5"
 validator = "0.10.0"
 validator_derive = "0.10"
 derive_more.workspace = true
 lazycell = "1.2"
 enum-iterator.workspace = true
-num_enum = "0.5.0"
+num_enum.workspace = true
 crossbeam-channel.workspace = true
-scopeguard = "1.1.0"
+scopeguard.workspace = true
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 # Old logging
 slog = "2.5.2"
@@ -66,9 +66,9 @@ backtrace = "0.3"
 regex.workspace = true
 enum-map.workspace = true
 # For generating controller file names from controller names
-slug = "0.1.4"
+slug.workspace = true
 # For generating random session IDs
-nanoid = "0.3.0"
+nanoid.workspace = true
 # For ReaLearn's servers
 futures.workspace = true
 tokio.workspace = true
@@ -79,8 +79,8 @@ axum = { version = "0.3", features = ["ws", "headers"] }
 axum-server = { version = "0.3", features = ["tls-rustls"] }
 tower-http = { version = "0.1", features = ["cors"] }
 # For ReaLearn's gRPC server
-tonic = "0.8.3"
-prost = "0.11.5"
+tonic.workspace = true
+prost.workspace = true
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG
@@ -113,7 +113,7 @@ open = "1"
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
-semver = { version = "0.9.0", features = ["serde"] }
+semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
 async-channel = "1.5.1"
 # For displaying snapshot sizes
@@ -135,7 +135,7 @@ maplit = "1.0.2"
 # For easier support of named virtual control elements
 ascii.workspace = true
 # For using bit flags in the reaper-rs API.
-enumflags2 = "0.7.4"
+enumflags2.workspace = true
 # For detecting undesired (de)allocation in real-time threads.
 assert_no_alloc.workspace = true
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
@@ -147,7 +147,7 @@ indexmap = { workspace = true }
 # For comparing floating point numbers in tests
 approx = "0.3.2"
 # For the API (ReaLearn Script) and MIDI scripts
-mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
+mlua.workspace = true
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
 xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
@@ -155,7 +155,7 @@ strum.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 # For parsing OSC argument value ranges
-nom = "7.0.0"
+nom.workspace = true
 # For obtaining dialog constants from dialog crate
 realearn-dialogs = { path = "../dialogs" }
 # For being able to return iterators of different types
@@ -173,7 +173,7 @@ lru = "0.10.0"
 # For Pot target
 pulldown-cmark = "0.9.2"
 # For interfacing with egui
-raw-window-handle = "0.4.2"
+raw-window-handle.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
@@ -186,14 +186,14 @@ opener = { version = "0.6.1", features = ["reveal"] }
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
-winapi = { version = "0.3", features = ["winuser"] }
+winapi.workspace = true
 
 
 [build-dependencies]
 # For making Git commit hash available to code
 built = { version = "0.5.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
-bindgen = "0.60.1"
+bindgen.workspace = true
 # For compiling EEL and SWELL dialog resources
 # We use a special version because of "link_lib_modifiers", which allows us to add "+whole-archive"
 # in a convenient way. TODO-low-wait https://github.com/rust-lang/cc-rs/pull/671
