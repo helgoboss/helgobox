@@ -1194,6 +1194,9 @@ pub enum PotFilterKind {
     #[display(fmt = "Favorite")]
     #[serde(alias = "NksFavorite")]
     IsFavorite,
+    #[display(fmt = "Project")]
+    #[serde(alias = "Project")]
+    Project,
     #[display(fmt = "Product")]
     #[serde(alias = "NksBank")]
     Bank,
@@ -1229,7 +1232,7 @@ impl PotFilterKind {
         use PotFilterKind::*;
         matches!(
             self,
-            Database | Bank | SubBank | Category | SubCategory | Mode
+            Database | Project | Bank | SubBank | Category | SubCategory | Mode
         )
     }
 
@@ -1273,12 +1276,13 @@ impl PotFilterKind {
         use PotFilterKind::*;
         match self {
             Database | IsAvailable | IsSupported | IsUser | ProductKind | IsFavorite => 0,
-            Bank => 1,
-            SubBank => 2,
-            Category => 3,
-            SubCategory => 4,
-            Mode => 5,
-            HasPreview => 6,
+            Project => 1,
+            Bank => 2,
+            SubBank => 3,
+            Category => 4,
+            SubCategory => 5,
+            Mode => 6,
+            HasPreview => 7,
         }
     }
 }

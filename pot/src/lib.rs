@@ -287,7 +287,7 @@ pub struct FilterInput<'a> {
 
 impl<'a> FilterInput<'a> {
     /// This is a useful method for databases that filter in-memory and map their presets to
-    /// existing scanned REAPER plug-ins. The following kinds of filters is checked:
+    /// existing scanned REAPER plug-ins. The following kinds of filters are checked:
     ///
     /// - Availability
     /// - Support (never matches if showing only unsupported presets)

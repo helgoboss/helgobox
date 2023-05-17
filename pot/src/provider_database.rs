@@ -1,7 +1,7 @@
 use crate::plugins::{PluginDatabase, ProductKind};
 use crate::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, PersistentDatabaseId, Preset, ProductId,
+    InnerPresetId, PersistentDatabaseId, Preset, ProductId, ProjectId,
 };
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
@@ -69,6 +69,7 @@ pub enum InnerFilterItem {
     /// context of a specific pot filter item kind. Not deduplicated.
     Unique(FilterItem),
     /// A filter item representing a particular product (product for which the preset is made).
+    ///
     /// Will be deduplicated by the pot database!
     Product(ProductId),
 }

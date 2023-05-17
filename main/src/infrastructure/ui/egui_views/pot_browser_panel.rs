@@ -1776,16 +1776,18 @@ fn add_filter_panels(
         last_filters.get(PotFilterKind::Database),
     );
     // Product type
-    ui.separator();
-    ui.label(RichText::new("Product type").heading().size(heading_height));
-    add_filter_view_content(
-        shared_unit,
-        pot_unit,
-        PotFilterKind::ProductKind,
-        ui,
-        false,
-        None,
-    );
+    if pot_unit.supports_filter_kind(PotFilterKind::Project) {
+        ui.separator();
+        ui.label(RichText::new("Project").heading().size(heading_height));
+        add_filter_view_content(
+            shared_unit,
+            pot_unit,
+            PotFilterKind::Project,
+            ui,
+            true,
+            last_filters.get(PotFilterKind::Project),
+        );
+    }
     // Add dependent filter views
     ui.separator();
     let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);

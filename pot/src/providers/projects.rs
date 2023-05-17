@@ -2,9 +2,9 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
-    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
-    PresetKind, ProjectBasedPresetKind,
+    Fil, FiledBasedPresetKind, FilterInput, FilterItem, FilterItemId, InnerBuildInput,
+    InnerPresetId, PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped,
+    PluginId, Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId,
 };
 use std::borrow::Cow;
 
@@ -33,7 +33,8 @@ pub struct ProjectDatabase {
     root_dir: PathBuf,
     name: String,
     description: String,
-    entries: Vec<PresetEntry>,
+    projects: Vec<Proj>,
+    preset_entries: Vec<PresetEntry>,
 }
 
 pub struct ProjectDbConfig {
@@ -50,9 +51,10 @@ impl ProjectDatabase {
         let db = Self {
             persistent_id: config.persistent_id,
             name: config.name,
-            entries: Default::default(),
+            preset_entries: Default::default(),
             description: format!("Projects in {}", config.root_dir.to_string_lossy()),
             root_dir: config.root_dir,
+            projects: vec![],
         };
         Ok(db)
     }
@@ -65,7 +67,14 @@ impl ProjectDatabase {
         if !matches {
             return Either::Left(iter::empty());
         }
-        let iter = self.entries.iter().enumerate().filter(|(id, e)| {
+        let iter = self.preset_entries.iter().enumerate().filter(|(id, e)| {
+            if let Some(FilterItemId(Some(Fil::Project(id)))) =
+                filter_input.filters.get(PotFilterKind::Project)
+            {
+                if e.project_id != id {
+                    return false;
+                }
+            }
             let id = InnerPresetId(*id as _);
             e.track_preset
                 .used_plugins
@@ -77,8 +86,13 @@ impl ProjectDatabase {
 }
 
 struct PresetEntry {
-    relative_path_to_rpp: String,
+    project_id: ProjectId,
     track_preset: TrackPreset,
+}
+
+struct Proj {
+    name: String,
+    relative_path_to_rpp: String,
 }
 
 impl Database for ProjectDatabase {
@@ -95,11 +109,11 @@ impl Database for ProjectDatabase {
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
-        enum_set!(PotFilterKind::Bank)
+        enum_set!(PotFilterKind::Bank | PotFilterKind::Project)
     }
 
     fn refresh(&mut self, ctx: &ProviderContext) -> Result<(), Box<dyn Error>> {
-        self.entries = WalkDir::new(&self.root_dir)
+        self.preset_entries = WalkDir::new(&self.root_dir)
             .follow_links(true)
             .into_iter()
             .filter_map(|entry| {
@@ -112,10 +126,16 @@ impl Database for ProjectDatabase {
                     return None;
                 }
                 let relative_path = entry.path().strip_prefix(&self.root_dir).ok()?;
+                let stem = entry.path().file_stem()?;
                 // Immediately exclude relative paths that can't be represented as valid UTF-8.
                 // Otherwise we will potentially open a can of worms (regarding persistence etc.).
-                let relative_path = relative_path.to_str()?;
-                process_file(entry.path(), ctx.plugin_db, relative_path).ok()
+                let project = Proj {
+                    name: stem.to_str()?.to_string(),
+                    relative_path_to_rpp: relative_path.to_str()?.to_string(),
+                };
+                self.projects.push(project);
+                let project_id = ProjectId(self.projects.len() as u32 - 1);
+                process_file(entry.path(), ctx.plugin_db, project_id).ok()
             })
             .flatten()
             .collect();
@@ -126,24 +146,48 @@ impl Database for ProjectDatabase {
         &self,
         _: &ProviderContext,
         input: InnerBuildInput,
-        _: EnumSet<PotFilterKind>,
+        affected_kinds: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut new_filters = *input.filter_input.filters;
-        new_filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
-        let product_items = self
-            .query_presets_internal(&input.filter_input.with_filters(&new_filters))
-            .flat_map(|(_, entry)| {
-                entry
-                    .track_preset
-                    .used_plugins
-                    .values()
-                    .map(|core| core.product_id)
-            })
-            .unique()
-            .map(InnerFilterItem::Product)
-            .collect();
         let mut collections = InnerFilterItemCollections::empty();
-        collections.set(PotFilterKind::Bank, product_items);
+        if affected_kinds.contains(PotFilterKind::Project) {
+            let mut new_filters = *input.filter_input.filters;
+            new_filters.clear_this_and_dependent_filters(PotFilterKind::Project);
+            let project_items = self
+                .query_presets_internal(&input.filter_input.with_filters(&new_filters))
+                .map(|(_, entry)| entry.project_id)
+                .unique()
+                .filter_map(|project_id| {
+                    let project = self.projects.get(project_id.0 as usize)?;
+                    let item = FilterItem {
+                        persistent_id: "".to_string(),
+                        id: FilterItemId(Some(Fil::Project(project_id))),
+                        parent_name: None,
+                        name: Some(project.name.clone()),
+                        icon: None,
+                        more_info: Some(project.relative_path_to_rpp.to_string()),
+                    };
+                    Some(InnerFilterItem::Unique(item))
+                })
+                .collect();
+            collections.set(PotFilterKind::Project, project_items);
+        }
+        if affected_kinds.contains(PotFilterKind::Bank) {
+            let mut new_filters = *input.filter_input.filters;
+            new_filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
+            let product_items = self
+                .query_presets_internal(&input.filter_input.with_filters(&new_filters))
+                .flat_map(|(_, entry)| {
+                    entry
+                        .track_preset
+                        .used_plugins
+                        .values()
+                        .map(|core| core.product_id)
+                })
+                .unique()
+                .map(InnerFilterItem::Product)
+                .collect();
+            collections.set(PotFilterKind::Bank, product_items);
+        }
         Ok(collections)
     }
 
@@ -165,13 +209,14 @@ impl Database for ProjectDatabase {
     }
 
     fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
-        let preset_entry = self.entries.get(preset_id.0 as usize)?;
-        let relative_path = PathBuf::from(&preset_entry.relative_path_to_rpp);
+        let preset_entry = self.preset_entries.get(preset_id.0 as usize)?;
+        let project = self.projects.get(preset_entry.project_id.0 as usize)?;
+        let relative_path = PathBuf::from(&project.relative_path_to_rpp);
         let preset = Preset {
             common: PresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
-                    create_persistent_inner_id(preset_entry),
+                    create_persistent_inner_id(project, preset_entry),
                 ),
                 name: preset_entry.track_preset.preset_name.clone(),
                 plugin_ids: preset_entry
@@ -218,15 +263,18 @@ struct TrackPreset {
 fn process_file(
     path: &Path,
     plugin_db: &PluginDatabase,
-    relative_path: &str,
+    project_id: ProjectId,
 ) -> Result<Vec<PresetEntry>, Box<dyn Error>> {
     let rppxml = fs::read_to_string(path)?;
-    Ok(extract_presets(&rppxml, plugin_db, relative_path))
+    Ok(extract_presets(&rppxml, plugin_db, project_id))
 }
 
 /// Example: `maojiao/2023-02-03-ben/2023-02-03-ben.RPP|0FF9F738-7CF6-8A49-9AEA-A9AF26DF9C46`
-fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPresetId {
-    let escaped_path = PipeEscaped(preset_entry.relative_path_to_rpp.as_str());
+fn create_persistent_inner_id(
+    project: &Proj,
+    preset_entry: &PresetEntry,
+) -> PersistentInnerPresetId {
+    let escaped_path = PipeEscaped(project.relative_path_to_rpp.as_str());
     let id = format!("{escaped_path}|{}", preset_entry.track_preset.track_id);
     PersistentInnerPresetId::new(id)
 }
@@ -234,7 +282,7 @@ fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPres
 fn extract_presets(
     rppxml: &str,
     plugin_db: &PluginDatabase,
-    relative_path: &str,
+    project_id: ProjectId,
 ) -> Vec<PresetEntry> {
     use rppxml_parser::*;
     let parser = OneShotParser::new(rppxml);
@@ -343,7 +391,7 @@ fn extract_presets(
                 content_hash,
             };
             let preset_entry = PresetEntry {
-                relative_path_to_rpp: relative_path.to_string(),
+                project_id,
                 track_preset,
             };
             Some(preset_entry)

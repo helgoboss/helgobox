@@ -55,6 +55,8 @@ impl FilterItemId {
 pub enum Fil {
     /// A typical integer filter value to refer to a filter item in a specific Komplete database.
     ///
+    /// Makes sense for all filter kinds supported by Komplete.
+    ///
     /// This needs a pot filter item kind and a specific Komplete database to make full sense.
     /// The integers are not suited for being persisted because different Komplete scans can yield
     /// different integers! So they should only be used at runtime and translated to something
@@ -62,24 +64,42 @@ pub enum Fil {
     Komplete(u32),
     /// Refers to a specific pot database.
     ///
+    /// Only makes sense for the pot filter kind "Database".
+    ///
     /// Only valid at runtime, not suitable for persistence.
     Database(DatabaseId),
     /// Refers to something that can be true of false, e.g. "favorite" or "not favorite"
     /// or "available" or "not available".
     ///
+    /// Makes sense for all boolean filter kinds.
+    ///
     /// Suitable for persistence.
     Boolean(bool),
     /// Refers to a kind of product.
+    ///
+    /// Only makes sense for the pot filter kind "Product kind".
     ProductKind(ProductKind),
     /// Refers to a product.
     ///
-    /// Not suitable for persistence because the product IDs are created at runtime.
+    /// Only makes sense for the pot filter kind "Product".
+    ///
+    /// Not suitable for persistence because product IDs are created at runtime.
     Product(ProductId),
+    /// Refers to a project.
+    ///
+    /// Only makes sense for the pot filter kind "Project".
+    ///
+    /// Not suitable for persistence because project IDs are created at runtime.
+    Project(ProjectId),
 }
 
-/// Id for a [`Product`].
+/// Runtime ID for a [`Product`].
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, derive_more::Display)]
 pub struct ProductId(pub u32);
+
+/// Runtime ID for a REAPER project.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, derive_more::Display)]
+pub struct ProjectId(pub u32);
 
 pub type FilterItemCollections = GenericFilterItemCollections<FilterItem>;
 
