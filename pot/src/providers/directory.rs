@@ -80,7 +80,7 @@ struct PresetEntry {
     preset_name: String,
     relative_path: String,
     plugin_cores: IndexMap<PluginId, PluginCore>,
-    content_hash: Option<PersistentHash>,
+    content_hash: PersistentHash,
 }
 
 impl Database for DirectoryDatabase {
@@ -116,8 +116,7 @@ impl Database for DirectoryDatabase {
                 let relative_path = entry.path().strip_prefix(&self.root_dir).ok()?;
                 // Immediately exclude relative paths that can't be represented as valid UTF-8.
                 // Otherwise we will potentially open a can of worms (regarding persistence etc.).
-                let processing_output =
-                    process_file(entry.path(), ctx.plugin_db).unwrap_or_default();
+                let processing_output = process_file(entry.path(), ctx.plugin_db).ok()?;
                 let preset_entry = PresetEntry {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
                     relative_path: relative_path.to_str()?.to_string(),
@@ -187,7 +186,7 @@ impl Database for DirectoryDatabase {
                 } else {
                     None
                 },
-                content_hash: preset_entry.content_hash,
+                content_hash: Some(preset_entry.content_hash),
                 db_specific_preview_file: None,
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
@@ -203,9 +202,8 @@ impl Database for DirectoryDatabase {
     }
 }
 
-#[derive(Default)]
 struct FileProcessingOutput {
-    content_hash: Option<PersistentHash>,
+    content_hash: PersistentHash,
     used_plugins: IndexMap<PluginId, PluginCore>,
 }
 
@@ -234,30 +232,16 @@ fn process_file(
         }
         hasher.write(buffer.as_bytes());
         let line = buffer.trim();
-        if let Some(plugin) = detect_plugin_from_rxml_line(plugin_db, line) {
+        if let Some(plugin) = plugin_db.detect_plugin_from_rxml_line(line) {
             used_plugins.insert(plugin.common.core.id, plugin.common.core);
         }
         buffer.clear();
     }
     let output = FileProcessingOutput {
-        content_hash: Some(hasher.digest_128()),
+        content_hash: hasher.digest_128(),
         used_plugins,
     };
     Ok(output)
-}
-
-fn detect_plugin_from_rxml_line<'a>(
-    plugin_db: &'a PluginDatabase,
-    line: &str,
-) -> Option<&'a Plugin> {
-    let is_fx_line = ["<VST ", "<CLAP ", "<JS "]
-        .into_iter()
-        .any(|suffix| line.starts_with(suffix));
-    if !is_fx_line {
-        return None;
-    }
-    let plugin_id = PluginId::parse_from_rxml_line(line).ok()?;
-    plugin_db.find_plugin_by_id(&plugin_id)
 }
 
 /// Example: `Synths/Lead.RTrackTemplate`

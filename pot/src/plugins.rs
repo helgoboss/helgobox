@@ -105,6 +105,17 @@ impl PluginDatabase {
     pub fn find_product_by_id(&self, product_id: &ProductId) -> Option<&Product> {
         self.products.get(product_id.0 as usize)
     }
+
+    pub fn detect_plugin_from_rxml_line(&self, line: &str) -> Option<&Plugin> {
+        let is_fx_line = ["<VST ", "<CLAP ", "<JS "]
+            .into_iter()
+            .any(|suffix| line.starts_with(suffix));
+        if !is_fx_line {
+            return None;
+        }
+        let plugin_id = PluginId::parse_from_rxml_line(line).ok()?;
+        self.find_plugin_by_id(&plugin_id)
+    }
 }
 
 /// A product - an abstraction over related plug-ins.

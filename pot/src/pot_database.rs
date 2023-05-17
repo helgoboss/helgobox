@@ -17,6 +17,7 @@ use base::{blocking_read_lock, blocking_write_lock};
 use crate::plugins::PluginDatabase;
 use crate::providers::defaults::DefaultsDatabase;
 use crate::providers::ini::IniDatabase;
+use crate::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
@@ -24,6 +25,7 @@ use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
@@ -92,6 +94,14 @@ impl PotDatabase {
             };
             DirectoryDatabase::open(config)
         };
+        let project_db = {
+            let config = ProjectDbConfig {
+                persistent_id: PersistentDatabaseId::new("helgoboss-projects".to_string()),
+                root_dir: PathBuf::from("/Users/helgoboss/Documents/projects/music/"),
+                name: "Project presets".to_string(),
+            };
+            ProjectDatabase::open(config)
+        };
         let ini_db = IniDatabase::open(
             PersistentDatabaseId::new("fx-presets".to_string()),
             resource_path.join("presets"),
@@ -101,6 +111,7 @@ impl PotDatabase {
             box_db(komplete_db),
             box_db(rfx_chain_db),
             box_db(track_template_db),
+            box_db(project_db),
             box_db(ini_db),
             box_db(Ok(defaults_db)),
         ];

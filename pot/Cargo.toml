@@ -10,6 +10,7 @@ base.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
 realearn-api.workspace = true
+rppxml-parser.workspace = true
 
 # 3rd-party
 enumset.workspace = true

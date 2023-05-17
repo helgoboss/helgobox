@@ -1646,6 +1646,9 @@ fn add_stats_panel(
     ui.label(format!("{}ms", total_duration.as_millis()));
     if background_task_elapsed.is_none() {
         ui.label("(= ");
+        ui.label(pot_unit.stats.refresh_duration.as_millis().to_string())
+            .on_hover_text("Refresh databases");
+        ui.label(" + ");
         ui.label(pot_unit.stats.filter_query_duration.as_millis().to_string())
             .on_hover_text("Building filters");
         ui.label(" + ");
@@ -1769,8 +1772,8 @@ fn add_filter_panels(
         pot_unit,
         PotFilterKind::Database,
         ui,
-        false,
-        None,
+        true,
+        last_filters.get(PotFilterKind::Database),
     );
     // Product type
     ui.separator();

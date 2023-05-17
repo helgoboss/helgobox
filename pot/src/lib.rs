@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::CString;
 use std::fs;
+use std::ops::Range;
 
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
@@ -228,6 +229,7 @@ impl DestinationDescriptor {
 
 #[derive(Debug, Default)]
 pub struct Stats {
+    pub refresh_duration: Duration,
     pub filter_query_duration: Duration,
     pub preset_query_duration: Duration,
     pub preview_filter_duration: Duration,
@@ -237,7 +239,8 @@ pub struct Stats {
 
 impl Stats {
     pub fn total_query_duration(&self) -> Duration {
-        self.filter_query_duration
+        self.refresh_duration
+            + self.filter_query_duration
             + self.preset_query_duration
             + self.preview_filter_duration
             + self.sort_duration
@@ -673,6 +676,13 @@ impl RuntimePotUnit {
             PresetKind::FileBased(k) => {
                 load_file_based_preset(self, &k.path, build_destination, options, false)?
             }
+            PresetKind::ProjectBased(k) => load_project_based_rfx_chain_preset(
+                self,
+                build_destination,
+                &k.path_to_rpp,
+                k.fx_chain_range.clone(),
+                options,
+            )?,
             PresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
                     let dest = build_destination(self)?;
@@ -812,9 +822,12 @@ impl RuntimePotUnit {
         let affected_kinds = change_hint.affected_kinds();
         // Spawn new async task (don't block GUI thread, might take longer)
         spawn_in_pot_worker(async move {
+            // Refresh if desired
+            let refresh_start = Instant::now();
             if change_hint == ChangeHint::TotalRefresh {
                 pot_db().refresh();
             }
+            let refresh_duration = refresh_start.elapsed();
             // Debounce (cheap)
             // If we don't do this, the wasted runs will dramatically increase when quickly changing
             // filters while last query still running.
@@ -845,7 +858,7 @@ impl RuntimePotUnit {
                 pot_unit.wasted_runs += 1;
                 return Ok(());
             }
-            pot_unit.notify_build_outcome_ready(build_output, affected_kinds);
+            pot_unit.notify_build_outcome_ready(build_output, affected_kinds, refresh_duration);
             Ok(())
         });
     }
@@ -858,6 +871,7 @@ impl RuntimePotUnit {
         &mut self,
         build_output: BuildOutput,
         affected_kinds: EnumSet<PotFilterKind>,
+        refresh_duration: Duration,
     ) {
         self.background_task_start_time = None;
         self.supported_filter_kinds = build_output.supported_filter_kinds;
@@ -871,6 +885,7 @@ impl RuntimePotUnit {
             .filters
             .clear_if_not_available_anymore(affected_kinds, &self.filter_item_collections);
         self.stats = build_output.stats;
+        self.stats.refresh_duration = refresh_duration;
         self.integration.notify_indexes_rebuilt();
     }
 
@@ -1127,6 +1142,7 @@ impl PresetCommon {
 #[derive(Clone, Debug)]
 pub enum PresetKind {
     FileBased(FiledBasedPresetKind),
+    ProjectBased(ProjectBasedPresetKind),
     Internal(InternalPresetKind),
     DefaultFactory(PluginId),
 }
@@ -1137,6 +1153,7 @@ impl PresetKind {
             PresetKind::FileBased(k) => Some(&k.file_ext),
             PresetKind::Internal(_) => None,
             PresetKind::DefaultFactory(_) => None,
+            PresetKind::ProjectBased(_) => None,
         }
     }
 }
@@ -1146,6 +1163,13 @@ impl PresetKind {
 pub struct FiledBasedPresetKind {
     pub path: PathBuf,
     pub file_ext: String,
+}
+
+/// The kind of preset that's buried in a project file.
+#[derive(Clone, Debug)]
+pub struct ProjectBasedPresetKind {
+    pub path_to_rpp: PathBuf,
+    pub fx_chain_range: Range<usize>,
 }
 
 /// The kind of preset that's saved together with the plug-in in REAPER's plug-in GUI, not exported
@@ -1222,9 +1246,17 @@ fn load_rfx_chain_preset_using_chunks(
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    let rppxml =
+        fs::read_to_string(path).map_err(|_| "couldn't read FX chain template as string")?;
+    load_rfx_chain_preset_using_chunks_from_string(&rppxml, destination, options)
+}
+
+fn load_rfx_chain_preset_using_chunks_from_string(
+    rppxml: &str,
+    destination: &Destination,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     load_preset_multi_fx(destination, options, false, || {
-        let rppxml =
-            fs::read_to_string(path).map_err(|_| "couldn't read FX chain template as string")?;
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
         let rppxml: String = rppxml.lines().map(|l| l.trim()).join("\n");
         let fx_chain_content_chunk = Chunk::new(rppxml);
@@ -1236,6 +1268,20 @@ fn load_rfx_chain_preset_using_chunks(
             .ok_or("couldn't get hold of first FX on chain")?;
         Ok(first_fx)
     })
+}
+
+fn load_project_based_rfx_chain_preset(
+    pot_unit: &mut RuntimePotUnit,
+    build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
+    path_to_rpp: &Path,
+    fx_chain_range: Range<usize>,
+    options: LoadPresetOptions,
+) -> Result<LoadPresetOutcome, Box<dyn Error>> {
+    let project_rppxml =
+        fs::read_to_string(path_to_rpp).map_err(|_| "couldn't read project as string")?;
+    let fx_chain_rppxml = &project_rppxml[fx_chain_range];
+    let destination = &build_destination(pot_unit)?;
+    load_rfx_chain_preset_using_chunks_from_string(fx_chain_rppxml, destination, options)
 }
 
 fn load_track_template_preset(

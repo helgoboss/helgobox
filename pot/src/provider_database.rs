@@ -15,8 +15,10 @@ pub struct DatabaseId(pub u32);
 pub trait Database {
     fn persistent_id(&self) -> &PersistentDatabaseId;
 
+    // TODO-medium-performace Maybe we should require this to be a reference.
     fn name(&self) -> Cow<str>;
 
+    // TODO-medium-performace Maybe we should require this to be a reference.
     fn description(&self) -> Cow<str>;
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
