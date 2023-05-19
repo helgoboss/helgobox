@@ -1420,11 +1420,13 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         // Context menu
                         button = button.context_menu(|ui| {
                             // Open plug-in
-                            if !data.preset.common.product_ids.is_empty() {
+                            let has_associated_products =
+                                !data.preset.common.product_ids.is_empty();
+                            ui.add_enabled_ui(has_associated_products, |ui| {
                                 ui.menu_button("Associated products", |ui| {
                                     create_product_plugin_menu(&mut input, data, ui);
                                 });
-                            }
+                            });
                             // Reveal in file manager
                             #[cfg(any(
                                 all(target_os = "windows", target_arch = "x86_64"),
@@ -1577,7 +1579,7 @@ fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T]) {
 const DIALOG_CONTENT_MAX_HEIGHT: f32 = 300.0;
 
 fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, ui: &mut Ui) {
-    let _ = pot_db().try_with_plugin_db(|db| {
+    pot_db().with_plugin_db(|db| {
         for product_id in &data.preset.common.product_ids {
             let Some(product) = db.find_product_by_id(product_id) else {
                 continue;

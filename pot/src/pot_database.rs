@@ -156,6 +156,10 @@ impl PotDatabase {
         blocking_read_lock(&self.databases, "read-lock pot-db databases")
     }
 
+    fn read_lock_plugin_db(&self) -> RwLockReadGuard<PluginDatabase> {
+        blocking_read_lock(&self.plugin_db, "read-lock plug-in database")
+    }
+
     pub fn add_database(&self, db: impl Database + Send + Sync + 'static) -> DatabaseId {
         let mut databases = blocking_write_lock(&self.databases, "add_database");
         let new_db_id = DatabaseId(databases.len() as u32);
@@ -171,7 +175,7 @@ impl PotDatabase {
         // Preparation
         // TODO-high-pot Implement correctly as soon as favorites writable
         let favorites = PotFavorites::default();
-        let plugin_db = blocking_read_lock(&self.plugin_db, "pot db build collections 0");
+        let plugin_db = self.read_lock_plugin_db();
         let provider_context = ProviderContext::new(&plugin_db);
         // Build constant filter collections
         let mut total_output = BuildOutput {
@@ -318,7 +322,7 @@ impl PotDatabase {
     pub fn gather_presets(&self, input: BuildInput) -> Vec<PresetWithId> {
         // TODO-high-pot Implement correctly as soon as favorites writable
         let favorites = PotFavorites::default();
-        let plugin_db = blocking_read_lock(&self.plugin_db, "gather_preset_ids plugin_db");
+        let plugin_db = self.read_lock_plugin_db();
         let provider_context = ProviderContext::new(&plugin_db);
         self.gather_preset_ids_internal(&input, &provider_context, &favorites)
             .into_iter()
@@ -366,7 +370,7 @@ impl PotDatabase {
     }
 
     pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
-        let plugin_db = blocking_read_lock(&self.plugin_db, "pot db find_preset_by_id 0");
+        let plugin_db = self.read_lock_plugin_db();
         let provider_context = ProviderContext::new(&plugin_db);
         let databases = self.read_lock_databases();
         let db = databases.get(&preset_id.database_id)?;
@@ -374,16 +378,8 @@ impl PotDatabase {
         db.find_preset_by_id(&provider_context, preset_id.preset_id)
     }
 
-    pub fn try_with_plugin_db<R>(
-        &self,
-        f: impl FnOnce(&PluginDatabase) -> R,
-    ) -> Result<R, &'static str> {
-        let plugin_db = self
-            .plugin_db
-            .try_read()
-            .map_err(|_| "couldn't acquire plugin db lock")?;
-        let r = f(&plugin_db);
-        Ok(r)
+    pub fn with_plugin_db<R>(&self, f: impl FnOnce(&PluginDatabase) -> R) -> R {
+        f(&self.read_lock_plugin_db())
     }
 
     pub fn try_with_db<R>(
@@ -426,10 +422,7 @@ impl PotDatabase {
         preset_name: &str,
     ) -> Option<PersistentPresetId> {
         let product_id = {
-            let plugin_db = blocking_read_lock(
-                &self.plugin_db,
-                "plugin db find_unsupported_preset_matching",
-            );
+            let plugin_db = self.read_lock_plugin_db();
             let plugin = plugin_db.find_plugin_by_id(plugin_id)?;
             plugin.common.core.product_id
         };
