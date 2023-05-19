@@ -712,7 +712,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             title,
             input.change_dialog,
             |ui, _| {
-                ui.label(&**msg);
+                add_markdown(ui, &**msg);
             },
             |ui, change_dialog| {
                 if ui.button("Ok").clicked() {
@@ -1836,9 +1836,7 @@ fn add_filter_panels(
                     *dialog = Some(Dialog::add_project_database(folder));
                 }
             }
-        })
-        .response
-        .on_hover_text("Add a database");
+        });
     });
     add_filter_view_content(
         shared_unit,
@@ -2603,21 +2601,7 @@ fn load_preset_and_regain_focus(
                     );
                     show_error_toast(&text, toasts);
                 } else {
-                    let text = r#"
-Unfortunately, Pot can't automatically open presets for Native Instrument's own plug-ins. You have the following options:
-
-Approach A: Load the preset manually
-
-1. Load the plug-in, e.g. by right-clicking the preset and choosing "Associated products".
-2. Then find the preset within the plug-in. If the plug-in supports drag'n'drop, e.g. Kontakt, you can alternatively reveal the preset file in the file explorer (available in right click menu as well) and drag it onto the plug-in.
-
-Approach B: Preset crawling
-
-Try to use Preset Crawler (menu "Tools") to crawl the presets of Native Instrument plug-ins. All presets that have been successfully crawled and imported should be loaded automatically in future. One issue is that crawling only seems to work with the VST2 versions of the NI plug-ins.
-
-In both cases, you will not be able to take advantage of the preset parameter banks. That's just how it is for now.
-If you don't want unsupported presets to show up in Pot Browser, enable the ✔ filter in the toolbar.
-"#;
+                    let text = UNSUPPORTED_PRESET_FORMAT_TEXT;
                     *dialog = Some(Dialog::general_error("Can't open preset", text));
                 }
             }
@@ -2788,6 +2772,9 @@ fn shorten_preset_name(name: &str) -> Cow<str> {
 }
 
 fn add_markdown(ui: &mut Ui, markdown: &str) {
+    if markdown.trim().is_empty() {
+        return;
+    }
     use pulldown_cmark::*;
     let parser = Parser::new(markdown);
     let mut strong = false;
@@ -3076,6 +3063,25 @@ const PRESET_CRAWLER_DESTINATION_FILE_EXISTS: &str = r#"
 
 Preset Crawler detected that the destination file of the last-crawled preset already exists. You have chosen to stop crawling in that case, so here we are. 
 
+"#;
+
+const UNSUPPORTED_PRESET_FORMAT_TEXT: &str = r#"
+Unfortunately, Pot can't automatically open preset formats of Native Instrument's own plug-ins.
+
+**If you don't want such unsupported presets to show up in Pot Browser, enable the ✔ filter in the toolbar.**
+
+You have the following options to load the preset anyway.
+
+## Option A: Load the preset manually
+
+1. Load the plug-in, e.g. by right-clicking the preset and choosing "Associated products".
+2. Then find the preset within the plug-in's user interface. If the plug-in supports drag'n'drop, e.g. Kontakt, you can alternatively reveal the preset file in the file explorer (available in right click menu as well) and drag it onto the plug-in.
+
+## Option B: Preset crawling
+
+Try to use Preset Crawler (menu "Tools") to crawl the presets of Native Instrument plug-ins. All presets that have been successfully crawled and imported should be loaded automatically in future. One issue is that crawling only seems to work with the VST2 versions of the NI plug-ins.
+
+In both cases, you will not be able to take advantage of the preset parameter banks. That's just how it is for now.
 "#;
 
 const PRESET_CRAWLER_IMPORT_OR_DISCARD: &str =
