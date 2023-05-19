@@ -450,7 +450,19 @@ impl MacroParamBank {
 pub struct MacroParam {
     pub name: String,
     pub section_name: String,
-    pub param_index: Option<u32>,
+    pub param_id: Option<PotParamId>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum PotParamId {
+    /// Positional/index ID.
+    ///
+    /// Some plug-in standards such as VST2 only support positional IDs.
+    Index(u32),
+    /// Real ID, independent of the position.
+    ///
+    /// Supported by VST3 plug-ins.
+    Id(u32),
 }
 
 impl CurrentPreset {

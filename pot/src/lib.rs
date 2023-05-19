@@ -11,7 +11,7 @@ use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
 use reaper_medium::{
-    FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior,
+    FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior, ParamId,
     ReaperVolumeValue, RecordingInput,
 };
 use std::borrow::Cow;
@@ -1692,5 +1692,15 @@ pub fn create_plugin_factory_preset(
             db_specific_preview_file: None,
         },
         kind: PresetKind::DefaultFactory(plugin.core.id),
+    }
+}
+
+pub fn resolve_pot_param_id_to_index(param_id: PotParamId, fx: &Fx) -> Option<u32> {
+    match param_id {
+        PotParamId::Index(i) => Some(i),
+        PotParamId::Id(id) => {
+            let param = fx.parameter_by_id(ParamId::custom(format!(":{id}")))?;
+            Some(param.index())
+        }
     }
 }

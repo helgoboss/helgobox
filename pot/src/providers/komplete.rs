@@ -6,8 +6,8 @@ use crate::provider_database::{
 };
 use crate::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, Preset, PresetCommon,
-    PresetKind, ProductId, SearchEvaluator,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotParamId,
+    Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -346,26 +346,28 @@ impl NksFile {
         let plid_chunk = plid_chunk.ok_or("couldn't find PLID chunk")?;
         let pchk_chunk = pchk_chunk.ok_or("couldn't find PCHK chunk")?;
         // Build content from relevant chunks
-        let content = NksFileContent {
-            plugin_id: {
-                let bytes = self.relevant_bytes_of_chunk(&plid_chunk);
-                let value: PlidChunkContent =
-                    rmp_serde::from_slice(bytes).map_err(|_| "couldn't find VST magic number")?;
-                if let Some(vst3_uid) = value.vst3_uid {
-                    PluginId::Vst3 { vst_uid: vst3_uid }
-                } else {
-                    PluginId::Vst2 {
-                        vst_magic_number: value.vst_magic,
-                    }
+        let plugin_id = {
+            let bytes = self.relevant_bytes_of_chunk(&plid_chunk);
+            let value: PlidChunkContent =
+                rmp_serde::from_slice(bytes).map_err(|_| "couldn't find VST magic number")?;
+            if let Some(vst3_uid) = value.vst3_uid {
+                PluginId::Vst3 { vst_uid: vst3_uid }
+            } else {
+                PluginId::Vst2 {
+                    vst_magic_number: value.vst_magic,
                 }
-            },
+            }
+        };
+        let plugin_kind = plugin_id.kind();
+        let content = NksFileContent {
+            plugin_id,
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
             macro_param_banks: {
                 nica_chunk
                     .and_then(|nica_chunk| {
                         let bytes = self.relevant_bytes_of_chunk(&nica_chunk);
                         let value: NicaChunkContent = rmp_serde::from_slice(bytes).ok()?;
-                        Some(value.extract_macro_param_banks())
+                        Some(value.extract_macro_param_banks(plugin_kind))
                     })
                     .unwrap_or_default()
             },
@@ -397,7 +399,7 @@ struct NicaChunkContent {
 }
 
 impl NicaChunkContent {
-    pub fn extract_macro_param_banks(self) -> Vec<MacroParamBank> {
+    pub fn extract_macro_param_banks(self, plugin_kind: PluginKind) -> Vec<MacroParamBank> {
         self.ni8
             .into_iter()
             .map(|params| {
@@ -406,7 +408,11 @@ impl NicaChunkContent {
                     .map(move |param| MacroParam {
                         name: param.name,
                         section_name: param.section.unwrap_or_default(),
-                        param_index: param.id,
+                        param_id: param.id.map(|id| match plugin_kind {
+                            PluginKind::Vst2 => PotParamId::Index(id),
+                            PluginKind::Vst3 => PotParamId::Id(id),
+                            _ => unreachable!("NKS only supports VST2 and VST3"),
+                        }),
                     })
                     .collect();
                 MacroParamBank::new(params)

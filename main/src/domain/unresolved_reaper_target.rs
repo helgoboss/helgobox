@@ -32,6 +32,7 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::base::ClipSlotAddress;
+use pot::{resolve_pot_param_id_to_index, PotParamId};
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     TrackDescriptorCommons, TrackScope,
@@ -40,7 +41,7 @@ use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
-use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackArea};
+use reaper_medium::{BookmarkId, MasterTrackBehavior, ParamId, TrackArea};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
@@ -1021,7 +1022,8 @@ impl VirtualFxParameter {
                     let preset = target_state.current_fx_preset(fx);
                     let index = preset
                         .and_then(|p| p.find_macro_param_at(slot_index))
-                        .and_then(|p| p.param_index)
+                        .and_then(|p| p.param_id)
+                        .and_then(|param_id| resolve_pot_param_id_to_index(param_id, fx))
                         .map(|i| i as f64)
                         .unwrap_or(EXPRESSION_NONE_VALUE);
                     Some(index)
