@@ -8,7 +8,7 @@ use crate::{
 };
 use std::borrow::Cow;
 
-use crate::plugins::{Plugin, PluginCore, PluginDatabase};
+use crate::plugins::{PluginCore, PluginDatabase};
 use base::hash_util::{PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};

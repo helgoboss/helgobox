@@ -120,7 +120,7 @@ impl<'a> Display for PluginIdInPipeFormat<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let kind = self.0.kind();
         let kind = kind.as_ref();
-        let content = PluginIdContentInReaperFormat(&self.0);
+        let content = PluginIdContentInReaperFormat(self.0);
         write!(f, "{kind}|{content}")
     }
 }

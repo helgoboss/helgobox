@@ -2,27 +2,23 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    Fil, FiledBasedPresetKind, FilterInput, FilterItem, FilterItemId, InnerBuildInput,
-    InnerPresetId, PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped,
-    PluginId, Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId,
+    Fil, FilterInput, FilterItem, FilterItemId, InnerBuildInput, InnerPresetId,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId,
+    Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId,
 };
 use std::borrow::Cow;
 
-use crate::plugins::{Plugin, PluginCore, PluginDatabase};
-use base::hash_util::{
-    calculate_persistent_non_crypto_hash_one_shot, PersistentHash, PersistentHasher,
-};
+use crate::plugins::{PluginCore, PluginDatabase};
+use base::hash_util::{calculate_persistent_non_crypto_hash_one_shot, PersistentHash};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::HashSet;
+
 use std::error::Error;
 use std::ffi::OsStr;
-use std::fs::File;
-use std::hash::Hasher;
-use std::io::{BufRead, BufReader};
+
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{fs, iter};
@@ -279,6 +275,7 @@ fn create_persistent_inner_id(
     PersistentInnerPresetId::new(id)
 }
 
+#[allow(clippy::single_match)]
 fn extract_presets(
     rppxml: &str,
     plugin_db: &PluginDatabase,
@@ -313,12 +310,12 @@ fn extract_presets(
         match e.item {
             Item::StartTag(el) => {
                 stack.push(el.name());
-                match stack.as_slice() {
-                    &["REAPER_PROJECT", "TRACK"] => {
+                match *stack.as_slice() {
+                    ["REAPER_PROJECT", "TRACK"] => {
                         let track_id = el.into_values().next().unwrap_or_default();
                         preset = Some(P::new(track_id));
                     }
-                    &["REAPER_PROJECT", "TRACK", "FXCHAIN", _] => {
+                    ["REAPER_PROJECT", "TRACK", "FXCHAIN", _] => {
                         if let Some(p) = &mut preset {
                             if let Some(plugin) =
                                 plugin_db.detect_plugin_from_rxml_line(line.trim())
@@ -332,11 +329,11 @@ fn extract_presets(
                 }
             }
             Item::EndTag => {
-                match stack.as_slice() {
-                    &["REAPER_PROJECT", "TRACK"] => {
+                match *stack.as_slice() {
+                    ["REAPER_PROJECT", "TRACK"] => {
                         presets.extend(preset.take());
                     }
-                    &["REAPER_PROJECT", "TRACK", "FXCHAIN"] => {
+                    ["REAPER_PROJECT", "TRACK", "FXCHAIN"] => {
                         if let Some(p) = &mut preset {
                             p.rfx_chain_end = Some(e.start);
                         }
@@ -345,8 +342,8 @@ fn extract_presets(
                 }
                 stack.pop();
             }
-            Item::Attribute(el) => match stack.as_slice() {
-                &["REAPER_PROJECT", "TRACK"] => match el.name() {
+            Item::Attribute(el) => match *stack.as_slice() {
+                ["REAPER_PROJECT", "TRACK"] => match el.name() {
                     "NAME" => {
                         if let Some(p) = &mut preset {
                             let name = el.into_values().next().unwrap_or_default();
@@ -355,7 +352,7 @@ fn extract_presets(
                     }
                     _ => {}
                 },
-                &["REAPER_PROJECT", "TRACK", "FXCHAIN"] => match el.name() {
+                ["REAPER_PROJECT", "TRACK", "FXCHAIN"] => match el.name() {
                     "BYPASS" => {
                         if let Some(p) = &mut preset {
                             if p.rfx_chain_start.is_none() {

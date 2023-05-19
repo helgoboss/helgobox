@@ -15,7 +15,7 @@ use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::Fx;
+
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;

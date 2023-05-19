@@ -17,7 +17,7 @@ use base::{blocking_read_lock, blocking_write_lock};
 use crate::plugins::PluginDatabase;
 use crate::providers::defaults::DefaultsDatabase;
 use crate::providers::ini::IniDatabase;
-use crate::providers::projects::{ProjectDatabase, ProjectDbConfig};
+
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::path::PathBuf;
+
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};

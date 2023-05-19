@@ -712,7 +712,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             title,
             input.change_dialog,
             |ui, _| {
-                add_markdown(ui, &**msg);
+                add_markdown(ui, msg);
             },
             |ui, change_dialog| {
                 if ui.button("Ok").clicked() {

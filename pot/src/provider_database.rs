@@ -1,7 +1,7 @@
 use crate::plugins::{PluginDatabase, ProductKind};
 use crate::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, PersistentDatabaseId, Preset, ProductId, ProjectId,
+    InnerPresetId, PersistentDatabaseId, Preset, ProductId,
 };
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;

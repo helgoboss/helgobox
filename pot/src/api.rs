@@ -9,7 +9,7 @@ use enum_map::EnumMap;
 use enumset::EnumSet;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::FxParameter;
+
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};

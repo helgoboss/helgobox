@@ -32,7 +32,7 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::base::ClipSlotAddress;
-use pot::PotFxParamId;
+
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     TrackDescriptorCommons, TrackScope,
@@ -41,7 +41,7 @@ use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
-use reaper_medium::{BookmarkId, MasterTrackBehavior, ParamId, TrackArea};
+use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackArea};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
