@@ -108,7 +108,8 @@ impl Database for IniDatabase {
                 // - clap-org_surge-synth-team_surge-xt.ini
                 // - js-analysis_hund.ini
                 let captures = file_name_regex.captures(file_name)?;
-                let plugin_kind = PluginKind::from_str(captures.get(1)?.as_str()).ok()?;
+                let plugin_kind_str = captures.get(1)?.as_str();
+                let plugin_kind = PluginKind::from_str(plugin_kind_str).ok()?;
                 let plugin_identifier = captures.get(2)?.as_str();
                 if plugin_identifier.ends_with("-builtin") {
                     return None;

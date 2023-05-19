@@ -92,6 +92,7 @@ impl PluginId {
     }
 }
 
+/// Example: `1967946098` for a VST2 plug-in ID.
 pub struct PluginIdContentInReaperFormat<'a>(pub &'a PluginId);
 
 impl<'a> Display for PluginIdContentInReaperFormat<'a> {
@@ -112,12 +113,14 @@ impl<'a> Display for PluginIdContentInReaperFormat<'a> {
     }
 }
 
-/// Example: `vst2|1967946098`
-impl Display for PluginId {
+/// Example: `vst|1967946098` for a VST2 plug-in ID.
+pub struct PluginIdInPipeFormat<'a>(pub &'a PluginId);
+
+impl<'a> Display for PluginIdInPipeFormat<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let kind = self.kind();
+        let kind = self.0.kind();
         let kind = kind.as_ref();
-        let content = PluginIdContentInReaperFormat(self);
+        let content = PluginIdContentInReaperFormat(&self.0);
         write!(f, "{kind}|{content}")
     }
 }
@@ -126,7 +129,7 @@ impl Display for PluginId {
 /// as prefix for the ini file names in "REAPER_RESOURCE_PATH/presets".
 #[derive(Copy, Clone, Eq, PartialEq, Debug, strum::AsRefStr, strum::EnumString)]
 pub enum PluginKind {
-    #[strum(serialize = "vst2")]
+    #[strum(serialize = "vst")]
     Vst2,
     #[strum(serialize = "vst3")]
     Vst3,

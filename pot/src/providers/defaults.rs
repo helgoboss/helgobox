@@ -3,7 +3,8 @@ use crate::provider_database::{
 };
 use crate::{
     create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId, Preset,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId,
+    PluginIdInPipeFormat, Preset,
 };
 use std::borrow::Cow;
 
@@ -122,6 +123,6 @@ const PRESET_NAME: &str = "<Default>";
 
 /// Example: `vst2|1967946098`
 fn create_persistent_inner_id(plugin_id: &PluginId) -> PersistentInnerPresetId {
-    let id = plugin_id.to_string();
+    let id = PluginIdInPipeFormat(plugin_id).to_string();
     PersistentInnerPresetId::new(id)
 }
