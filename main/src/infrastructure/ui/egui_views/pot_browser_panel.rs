@@ -2638,11 +2638,11 @@ fn process_error(error: &dyn Error, toasts: &mut Toasts) {
 }
 
 fn show_error_toast(text: &str, toasts: &mut Toasts) {
-    toasts.error(text, Duration::from_secs(1));
+    toasts.error(text, Duration::from_secs(3));
 }
 
 fn show_info_toast(text: &str, toasts: &mut Toasts) {
-    toasts.info(text, Duration::from_secs(1));
+    toasts.info(text, Duration::from_secs(3));
 }
 
 const TOOLBAR_HEIGHT: f32 = 15.0;
