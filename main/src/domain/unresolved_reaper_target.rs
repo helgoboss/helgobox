@@ -32,7 +32,7 @@ use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::base::ClipSlotAddress;
-use pot::{resolve_pot_param_id_to_index, PotParamId};
+use pot::PotFxParamId;
 use realearn_api::persistence::{
     ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     TrackDescriptorCommons, TrackScope,
@@ -1021,9 +1021,11 @@ impl VirtualFxParameter {
                     let target_state = BackboneState::target_state().borrow();
                     let preset = target_state.current_fx_preset(fx);
                     let index = preset
-                        .and_then(|p| p.find_macro_param_at(slot_index))
-                        .and_then(|p| p.param_id)
-                        .and_then(|param_id| resolve_pot_param_id_to_index(param_id, fx))
+                        .and_then(|p| {
+                            p.find_macro_param_at(slot_index)?
+                                .fx_param?
+                                .resolved_param_index
+                        })
                         .map(|i| i as f64)
                         .unwrap_or(EXPRESSION_NONE_VALUE);
                     Some(index)

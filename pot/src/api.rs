@@ -9,6 +9,7 @@ use enum_map::EnumMap;
 use enumset::EnumSet;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
+use reaper_high::FxParameter;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
@@ -433,12 +434,42 @@ impl MacroParamBank {
         name
     }
 
+    pub fn resolve_param_section_name(&self, slot_index: u32) -> &str {
+        (0..=slot_index)
+            .rev()
+            .find_map(|i| {
+                let param = self.params.get(i as usize)?;
+                if param.section_name.is_empty() {
+                    None
+                } else {
+                    Some(param.section_name.as_str())
+                }
+            })
+            .unwrap_or_default()
+    }
+
     pub fn params(&self) -> &[MacroParam] {
         &self.params
     }
 
+    pub fn params_mut(&mut self) -> &mut [MacroParam] {
+        &mut self.params
+    }
+
     pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
         self.params.get(slot_index as usize)
+    }
+
+    /// Returns slot index and param.
+    pub fn find_first_param_with_fx_param_index(&self, index: u32) -> Option<(u32, &MacroParam)> {
+        self.params.iter().enumerate().find_map(|(i, p)| {
+            let resolved_index = p.fx_param?.resolved_param_index?;
+            if index == resolved_index {
+                Some((i as u32, p))
+            } else {
+                None
+            }
+        })
     }
 
     pub fn param_count(&self) -> u32 {
@@ -450,11 +481,18 @@ impl MacroParamBank {
 pub struct MacroParam {
     pub name: String,
     pub section_name: String,
-    pub param_id: Option<PotParamId>,
+    pub fx_param: Option<PotFxParam>,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum PotParamId {
+pub struct PotFxParam {
+    pub param_id: PotFxParamId,
+    /// Only resolved on demand (when the FX is available).
+    pub resolved_param_index: Option<u32>,
+}
+
+#[derive(Copy, Clone, Debug, derive_more::Display)]
+pub enum PotFxParamId {
     /// Positional/index ID.
     ///
     /// Some plug-in standards such as VST2 only support positional IDs.
@@ -474,6 +512,7 @@ impl CurrentPreset {
         self.macro_param_banks.get(bank_index as usize)
     }
 
+    /// Finds macro parameters across all banks, assuming a bank size of exactly 8.
     pub fn find_macro_param_at(&self, slot_index: u32) -> Option<&MacroParam> {
         let bank_index = slot_index / 8;
         let bank_slot_index = slot_index % 8;
@@ -488,6 +527,17 @@ impl CurrentPreset {
         self.macro_param_banks
             .get(bank_index as usize)?
             .find_macro_param_at(bank_slot_index)
+    }
+
+    /// Returns bank, slot index and param.
+    pub fn find_first_macro_param_with_fx_param_index(
+        &self,
+        index: u32,
+    ) -> Option<(&MacroParamBank, u32, &MacroParam)> {
+        self.macro_param_banks.iter().find_map(|b| {
+            let (i, p) = b.find_first_param_with_fx_param_index(index)?;
+            Some((b, i, p))
+        })
     }
 
     pub fn macro_param_bank_count(&self) -> u32 {

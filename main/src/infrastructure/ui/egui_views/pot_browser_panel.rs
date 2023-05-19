@@ -27,11 +27,11 @@ use pot::preview_recorder::{
 };
 use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
-    create_plugin_factory_preset, find_preview_file, pot_db, resolve_pot_param_id_to_index,
-    spawn_in_pot_worker, ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, Filters,
-    LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
-    MainThreadSpawner, OptFilter, PersistentDatabaseId, PotWorkerDispatcher, PotWorkerSpawner,
-    Preset, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+    create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
+    CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
+    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
+    MainThreadSpawner, OptFilter, PersistentDatabaseId, PotFxParamId, PotWorkerDispatcher,
+    PotWorkerSpawner, Preset, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -2200,24 +2200,27 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
             struct CombinedParam<'a> {
                 macro_param: &'a MacroParam,
                 fx_param: Option<FxParameter>,
-                param_index: u32,
+                param_id: PotFxParamId,
             }
             let slots: Vec<_> = bank
                 .params()
                 .iter()
                 .map(|macro_param| {
-                    let param_index = resolve_pot_param_id_to_index(macro_param.param_id?, fx)?;
+                    let fx_param = macro_param.fx_param?;
+                    let param_index = fx_param.resolved_param_index;
                     let combined_param = CombinedParam {
                         fx_param: {
-                            let fx_param = fx.parameter_by_index(param_index);
-                            if fx_param.is_available() {
-                                Some(fx_param)
-                            } else {
-                                None
-                            }
+                            param_index.and_then(|i| {
+                                let fx_param = fx.parameter_by_index(i);
+                                if fx_param.is_available() {
+                                    Some(fx_param)
+                                } else {
+                                    None
+                                }
+                            })
                         },
                         macro_param,
-                        param_index,
+                        param_id: fx_param.param_id,
                     };
                     Some(combined_param)
                 })
@@ -2239,7 +2242,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                                     } else {
                                         format!(
                                             "Mapped parameter {} doesn't exist in actual plug-in",
-                                            param.param_index + 1
+                                            param.param_id
                                         )
                                     };
                                     ui.label(hover_text);

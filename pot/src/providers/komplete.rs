@@ -6,8 +6,8 @@ use crate::provider_database::{
 };
 use crate::{
     Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotParamId,
-    Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
+    PotFxParamId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -15,6 +15,7 @@ use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterKind;
+use reaper_high::Fx;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
@@ -408,10 +409,14 @@ impl NicaChunkContent {
                     .map(move |param| MacroParam {
                         name: param.name,
                         section_name: param.section.unwrap_or_default(),
-                        param_id: param.id.map(|id| match plugin_kind {
-                            PluginKind::Vst2 => PotParamId::Index(id),
-                            PluginKind::Vst3 => PotParamId::Id(id),
-                            _ => unreachable!("NKS only supports VST2 and VST3"),
+                        fx_param: param.id.map(|id| PotFxParam {
+                            param_id: match plugin_kind {
+                                PluginKind::Vst2 => PotFxParamId::Index(id),
+                                PluginKind::Vst3 => PotFxParamId::Id(id),
+                                _ => unreachable!("NKS only supports VST2 and VST3"),
+                            },
+                            // Can be resolved later on demand.
+                            resolved_param_index: None,
                         }),
                     })
                     .collect();

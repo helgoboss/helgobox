@@ -1199,11 +1199,33 @@ fn load_nks_preset(
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let nks_file = NksFile::load(path)?;
-    let nks_content = nks_file.content()?;
+    let mut nks_content = nks_file.content()?;
     load_preset_single_fx(nks_content.plugin_id, destination, options, |fx| {
         fx.set_vst_chunk(nks_content.vst_chunk)?;
+        resolve_macro_param_ids(&mut nks_content.macro_param_banks, fx);
         Ok(nks_content.macro_param_banks)
     })
+}
+
+fn resolve_macro_param_ids(banks: &mut [MacroParamBank], fx: &Fx) {
+    for bank in banks {
+        for param in bank.params_mut() {
+            if let Some(fx_param) = &mut param.fx_param {
+                fx_param.resolved_param_index =
+                    resolve_macro_param_id_to_index(fx_param.param_id, fx);
+            }
+        }
+    }
+}
+
+pub fn resolve_macro_param_id_to_index(param_id: PotFxParamId, fx: &Fx) -> Option<u32> {
+    match param_id {
+        PotFxParamId::Index(i) => Some(i),
+        PotFxParamId::Id(id) => {
+            let param = fx.parameter_by_id(ParamId::custom(format!(":{id}")))?;
+            Some(param.index())
+        }
+    }
 }
 
 /// Loads an RfxChain file using the "add fx" API.
@@ -1692,15 +1714,5 @@ pub fn create_plugin_factory_preset(
             db_specific_preview_file: None,
         },
         kind: PresetKind::DefaultFactory(plugin.core.id),
-    }
-}
-
-pub fn resolve_pot_param_id_to_index(param_id: PotParamId, fx: &Fx) -> Option<u32> {
-    match param_id {
-        PotParamId::Index(i) => Some(i),
-        PotParamId::Id(id) => {
-            let param = fx.parameter_by_id(ParamId::custom(format!(":{id}")))?;
-            Some(param.index())
-        }
     }
 }

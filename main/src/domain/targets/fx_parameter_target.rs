@@ -1,12 +1,13 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_params, AdditionalFeedbackEvent, Caller, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
-    HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_fx_params, AdditionalFeedbackEvent, BackboneState, Caller, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+    FxParameterDescriptor, HitResponse, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
+use pot::{MacroParam, MacroParamBank};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
 use reaper_medium::{
     GetParamExResult, GetParameterStepSizesResult, MediaTrack, ReaperNormalizedFxParamValue,
@@ -65,6 +66,25 @@ pub struct FxParameterTarget {
     pub param: FxParameter,
     pub poll_for_feedback: bool,
     pub retrigger: bool,
+}
+
+impl FxParameterTarget {
+    fn with_macro_param<R>(
+        &self,
+        f: impl FnOnce(&MacroParamBank, u32, &MacroParam) -> R,
+    ) -> Option<R> {
+        let target_state = BackboneState::target_state().borrow();
+        let current_preset = target_state.current_fx_preset(self.param.fx())?;
+        // Our target doesn't have the concept of a macro param. It's always resolved using an FX
+        // parameter ID. So we have to do a reverse lookup here.
+        // TODO-low We could improve that by adding a <Dynamic Macro> where the result of the
+        //  dynamic expression is interpreted as macro param index. But not urgent. Reverse lookup
+        //  should be okay performance-wise (because not many macro params) and logically (because
+        //  usually no duplicate parameters in macro param definitions).
+        let (bank, slot_index, param) =
+            current_preset.find_first_macro_param_with_fx_param_index(self.param.index())?;
+        Some(f(bank, slot_index, param))
+    }
 }
 
 impl RealearnTarget for FxParameterTarget {
@@ -204,6 +224,13 @@ impl RealearnTarget for FxParameterTarget {
         match key {
             "fx_parameter.index" => Some(PropValue::Index(self.param.index())),
             "fx_parameter.name" => Some(PropValue::Text(self.param.name().into_string().into())),
+            "fx_parameter.macro.name" => {
+                self.with_macro_param(|_, _, p| PropValue::Text(p.name.clone().into()))
+            }
+            "fx_parameter.macro.section.name" => self.with_macro_param(|b, i, _| {
+                let section_name = b.resolve_param_section_name(i);
+                PropValue::Text(section_name.to_string().into())
+            }),
             _ => None,
         }
     }
