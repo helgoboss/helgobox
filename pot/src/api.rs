@@ -491,6 +491,10 @@ impl CurrentPreset {
 pub struct PersistentDatabaseId(String);
 
 impl PersistentDatabaseId {
+    pub fn random() -> Self {
+        Self(nanoid::nanoid!())
+    }
+
     pub const fn new(raw_id: String) -> Self {
         PersistentDatabaseId(raw_id)
     }

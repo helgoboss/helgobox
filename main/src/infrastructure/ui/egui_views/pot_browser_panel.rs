@@ -25,12 +25,13 @@ use pot::preview_recorder::{
     prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
     SharedPreviewRecorderState,
 };
+use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
     CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
     LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
-    MainThreadSpawner, OptFilter, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetWithId,
-    RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+    MainThreadSpawner, OptFilter, PersistentDatabaseId, PotWorkerDispatcher, PotWorkerSpawner,
+    Preset, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -41,6 +42,7 @@ use std::error::Error;
 use std::fs::File;
 use std::mem;
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use swell_ui::Window;
@@ -110,6 +112,10 @@ enum Dialog {
         title: Cow<'static, str>,
         msg: Cow<'static, str>,
     },
+    AddProjectDatabase {
+        folder: PathBuf,
+        name: String,
+    },
     PresetCrawlerIntro,
     PresetCrawlerBasics,
     PresetCrawlerMouse {
@@ -174,6 +180,17 @@ impl Dialog {
         Self::GeneralError {
             title: title.into(),
             msg: msg.into(),
+        }
+    }
+
+    fn add_project_database(folder: PathBuf) -> Self {
+        let suggested_name = folder
+            .file_name()
+            .and_then(|n| Some(n.to_str()?.to_string()))
+            .unwrap_or_default();
+        Self::AddProjectDatabase {
+            folder,
+            name: suggested_name,
         }
     }
 
@@ -375,7 +392,8 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
         state.main_state.dialog = d;
     }
     // Process keyboard
-    let key_action = ctx.input_mut(determine_key_action);
+    let key_action =
+        ctx.input_mut(|input| determine_key_action(input, &mut state.main_state.dialog));
     if let Some(key_action) = key_action {
         let key_input = KeyInput {
             auto_preview: state.main_state.auto_preview,
@@ -484,7 +502,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                     });
                     // Filter panels
                     add_filter_panels(&state.main_state.pot_unit, pot_unit, state.main_state.auto_hide_sub_filters, ui,
-                                      &state.main_state.last_filters);
+                                      &state.main_state.last_filters, &mut state.main_state.dialog);
                 });
             // Right pane
             CentralPanel::default()
@@ -702,6 +720,46 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 };
             },
         ),
+        Dialog::AddProjectDatabase { folder, name } => {
+            show_dialog(
+                ctx,
+                "Add project database",
+                &mut (input.change_dialog, name),
+                |ui, (_, name)| {
+                    ui.horizontal(|ui| {
+                        ui.strong("Folder:");
+                        ui.label(folder.to_string_lossy());
+                    });
+                    ui.horizontal(|ui| {
+                        ui.strong("Name:");
+                        ui.text_edit_singleline(*name);
+                    });
+                },
+                |ui, (change_dialog, name)| {
+                    if ui.button("Cancel").clicked() {
+                        **change_dialog = Some(None);
+                    };
+                    if ui.button("Add").clicked() {
+                        let config = ProjectDbConfig {
+                            persistent_id: PersistentDatabaseId::random(),
+                            root_dir: folder.clone(),
+                            name: name.clone(),
+                        };
+                        match ProjectDatabase::open(config) {
+                            Ok(db) => {
+                                **change_dialog = Some(None);
+                                pot_db().add_database(db);
+                                input.pot_unit.refresh_pot(input.shared_pot_unit.clone());
+                            }
+                            Err(e) => {
+                                let error_dialog = Dialog::general_error(e.to_string(), "");
+                                **change_dialog = Some(Some(error_dialog));
+                            }
+                        }
+                    }
+                },
+            );
+        }
         Dialog::PresetCrawlerIntro => show_dialog(
             ctx,
             PRESET_CRAWLER_TITLE,
@@ -1762,11 +1820,24 @@ fn add_filter_panels(
     auto_hide_sub_filters: bool,
     ui: &mut Ui,
     last_filters: &Filters,
+    dialog: &mut Option<Dialog>,
 ) {
     let heading_height = ui.text_style_height(&TextStyle::Heading);
     // Database
     ui.separator();
-    ui.label(RichText::new("Database").heading().size(heading_height));
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("Database").heading().size(heading_height));
+        ui.menu_button("➕", |ui| {
+            if ui.button("Project database...").clicked() {
+                ui.close_menu();
+                if let Some(folder) = rfd::FileDialog::new().pick_folder() {
+                    *dialog = Some(Dialog::add_project_database(folder));
+                }
+            }
+        })
+        .response
+        .on_hover_text("Add a database");
+    });
     add_filter_view_content(
         shared_unit,
         pot_unit,
@@ -2077,7 +2148,7 @@ fn execute_key_action(
     }
 }
 
-fn determine_key_action(input: &mut InputState) -> Option<KeyAction> {
+fn determine_key_action(input: &mut InputState, dialog: &mut Option<Dialog>) -> Option<KeyAction> {
     let mut action = None;
     input.events.retain_mut(|event| match event {
         Event::Key {
@@ -2103,8 +2174,12 @@ fn determine_key_action(input: &mut InputState) -> Option<KeyAction> {
             false
         }
         Event::Text(text) => {
-            action = Some(KeyAction::ExtendSearchExpression(mem::take(text)));
-            false
+            if dialog.is_some() {
+                true
+            } else {
+                action = Some(KeyAction::ExtendSearchExpression(mem::take(text)));
+                false
+            }
         }
         _ => true,
     });

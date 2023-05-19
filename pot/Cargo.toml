@@ -41,3 +41,4 @@ sanitize-filename = "0.4.0"
 tracing.workspace = true
 regex.workspace = true
 assert_no_alloc.workspace = true
+nanoid.workspace = true

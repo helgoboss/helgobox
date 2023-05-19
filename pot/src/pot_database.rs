@@ -25,9 +25,10 @@ use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error;
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
 
 pub fn pot_db() -> &'static PotDatabase {
@@ -39,30 +40,39 @@ pub fn pot_db() -> &'static PotDatabase {
 type BoxedDatabase = Box<dyn Database + Send + Sync>;
 type DatabaseOpeningResult = Result<BoxedDatabase, PotDatabaseError>;
 
-// By having the RwLocks around the provider databases and not around the pot database, we
+// The pot database is thread-safe! We achieve this by using internal read-write locks. Making it
+// thread-safe greatly simplifies usage of PotDatabase from a consumer perspective, because we can
+// easily obtain a static reference to it and let the pot database internals decide how to deal with
+// concurrency.
+//
+// But not just that, we can also improve performance. If the pot database wouldn't be thread-safe,
+// we would have to expose it wrapped by a mutex or read-write lock - which means less fine-granular
+// locking. Either the whole thing is locked or not at all.
+//
+// By having the RwLocks around the provider databases and not around the database collection, we
 // can have "more" concurrent access. E.g. find_preset_by_id, a function which can be called very
 // often by the GUI, only read-locks one particular database, not all. So if another database
-// is currently written to, it doesn't matter. It's just more flexible and also simplifies
-// usage of PotDatabase from a consumer perspective, because we can easily obtain a static reference
-// to it. Also, in future we might want to use some fork-join approach to refresh/search
-// concurrently multiple databases. This would require having a RwLock around the database itself
+// is currently written to, it doesn't matter. It's just more flexible. Also, in future we might
+// want to use some fork-join approach to refresh/search concurrently multiple databases.
+// This would require having a RwLock around the database itself
 // because we would need to pass the database reference to the async code with an Arc, but an Arc
 // alone doesn't allow mutation of its contents. That's true even if the async database access would
 // be read-only. The synchronous refresh would still need mutable access but we wouldn't be able to
 // get one directly within an Arc.
-
 pub struct PotDatabase {
     plugin_db: RwLock<PluginDatabase>,
-    databases: BTreeMap<DatabaseId, RwLock<DatabaseOpeningResult>>,
+    databases: RwLock<Databases>,
     revision: AtomicU8,
 }
+
+type Databases = BTreeMap<DatabaseId, RwLock<BoxedDatabase>>;
 
 #[derive(Clone, Debug, derive_more::Display)]
 pub struct PotDatabaseError(String);
 
 impl Error for PotDatabaseError {}
 
-fn box_db<D: Database + Send + Sync + 'static>(
+fn box_db_result<D: Database + Send + Sync + 'static>(
     opening_result: Result<D, Box<dyn Error>>,
 ) -> DatabaseOpeningResult {
     let db = opening_result.map_err(|e| PotDatabaseError(e.to_string()))?;
@@ -94,35 +104,27 @@ impl PotDatabase {
             };
             DirectoryDatabase::open(config)
         };
-        let project_db = {
-            let config = ProjectDbConfig {
-                persistent_id: PersistentDatabaseId::new("helgoboss-projects".to_string()),
-                root_dir: PathBuf::from("/Users/helgoboss/Documents/projects/music/"),
-                name: "Project presets".to_string(),
-            };
-            ProjectDatabase::open(config)
-        };
         let ini_db = IniDatabase::open(
             PersistentDatabaseId::new("fx-presets".to_string()),
             resource_path.join("presets"),
         );
         let defaults_db = DefaultsDatabase::open();
         let databases = [
-            box_db(komplete_db),
-            box_db(rfx_chain_db),
-            box_db(track_template_db),
-            box_db(project_db),
-            box_db(ini_db),
-            box_db(Ok(defaults_db)),
+            box_db_result(komplete_db),
+            box_db_result(rfx_chain_db),
+            box_db_result(track_template_db),
+            box_db_result(ini_db),
+            box_db_result(Ok(defaults_db)),
         ];
         let databases = databases
             .into_iter()
+            .flatten()
             .enumerate()
             .map(|(i, db)| (DatabaseId(i as _), RwLock::new(db)))
             .collect();
         let pot_database = Self {
             plugin_db: Default::default(),
-            databases,
+            databases: RwLock::new(databases),
             revision: Default::default(),
         };
         pot_database.refresh();
@@ -140,17 +142,25 @@ impl PotDatabase {
         let plugin_db = PluginDatabase::crawl(&resource_path);
         let provider_context = ProviderContext::new(&plugin_db);
         // Refresh databases
-        for db in self.databases.values() {
+        for db in self.read_lock_databases().values() {
             let mut db = blocking_write_lock(db, "pot db refresh provider db");
-            let Some(db) = db.as_mut().ok() else {
-                continue;
-            };
             let _ = db.refresh(&provider_context);
         }
         // Memorize plug-ins
         *blocking_write_lock(&self.plugin_db, "pot db refresh plugin db") = plugin_db;
         // Increment revision
         self.revision.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn read_lock_databases(&self) -> RwLockReadGuard<Databases> {
+        blocking_read_lock(&self.databases, "read-lock pot-db databases")
+    }
+
+    pub fn add_database(&self, db: impl Database + Send + Sync + 'static) -> DatabaseId {
+        let mut databases = blocking_write_lock(&self.databases, "add_database");
+        let new_db_id = DatabaseId(databases.len() as u32);
+        databases.insert(new_db_id, RwLock::new(Box::new(db)));
+        new_db_id
     }
 
     pub fn build_collections(
@@ -178,7 +188,7 @@ impl PotDatabase {
             // Let all databases build filter collections and accumulate them
             let mut database_filter_items = Vec::new();
             let mut used_product_ids = HashSet::new();
-            for (db_id, db) in &self.databases {
+            for (db_id, db) in self.read_lock_databases().deref() {
                 // If the database is on the exclude list, we don't even want it to appear in the
                 // database list.
                 if input.filter_excludes.contains_database(*db_id) {
@@ -186,9 +196,6 @@ impl PotDatabase {
                 }
                 // Acquire database access
                 let db = blocking_read_lock(db, "pot db build_collections 1");
-                let Ok(db) = db.as_ref() else {
-                    continue
-                };
                 // Create database filter item
                 let filter_item = FilterItem {
                     persistent_id: "".to_string(),
@@ -329,7 +336,8 @@ impl PotDatabase {
         provider_context: &ProviderContext,
         favorites: &PotFavorites,
     ) -> Vec<(DatabaseId, SortablePresetId)> {
-        self.databases
+        self.read_lock_databases()
+            .deref()
             .iter()
             .filter(|(db_id, _)| {
                 input.filters.database_matches(**db_id)
@@ -338,7 +346,6 @@ impl PotDatabase {
             .filter_map(|(db_id, db)| {
                 // Acquire database access
                 let db = blocking_read_lock(db, "pot db build_collections 2");
-                let db = db.as_ref().ok()?;
                 // Don't even try to get presets if one filter is set which is not
                 // supported by database.
                 if input
@@ -361,9 +368,9 @@ impl PotDatabase {
     pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
         let plugin_db = blocking_read_lock(&self.plugin_db, "pot db find_preset_by_id 0");
         let provider_context = ProviderContext::new(&plugin_db);
-        let db = self.databases.get(&preset_id.database_id)?;
+        let databases = self.read_lock_databases();
+        let db = databases.get(&preset_id.database_id)?;
         let db = blocking_read_lock(db, "pot db find_preset_by_id 1");
-        let db = db.as_ref().ok()?;
         db.find_preset_by_id(&provider_context, preset_id.preset_id)
     }
 
@@ -384,11 +391,11 @@ impl PotDatabase {
         db_id: DatabaseId,
         f: impl FnOnce(&dyn Database) -> R,
     ) -> Result<R, &'static str> {
-        let db = self.databases.get(&db_id).ok_or("database not found")?;
+        let databases = self.read_lock_databases();
+        let db = databases.get(&db_id).ok_or("database not found")?;
         let db = db
             .try_read()
             .map_err(|_| "couldn't acquire provider db lock")?;
-        let db = db.as_ref().map_err(|_| "provider database not opened")?;
         let r = f(&**db);
         Ok(r)
     }
@@ -402,14 +409,13 @@ impl PotDatabase {
             .try_read()
             .map_err(|_| "couldn't acquire plugin db lock")?;
         let provider_context = ProviderContext::new(&plugin_db);
-        let db = self
-            .databases
+        let databases = self.read_lock_databases();
+        let db = databases
             .get(&preset_id.database_id)
             .ok_or("database not found")?;
         let db = db
             .try_read()
             .map_err(|_| "couldn't acquire provider db lock")?;
-        let db = db.as_ref().map_err(|_| "provider database not opened")?;
         Ok(db.find_preset_by_id(&provider_context, preset_id.preset_id))
     }
 
@@ -427,10 +433,9 @@ impl PotDatabase {
             let plugin = plugin_db.find_plugin_by_id(plugin_id)?;
             plugin.common.core.product_id
         };
-        self.databases.values().find_map(|db| {
+        self.read_lock_databases().values().find_map(|db| {
             // Acquire database access
             let db = blocking_read_lock(db, "pot db find_unsupported_preset_matching");
-            let db = db.as_ref().ok()?;
             // Find preset
             let preset = db.find_unsupported_preset_matching(product_id, preset_name)?;
             Some(preset.common.persistent_id)

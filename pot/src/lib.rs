@@ -42,7 +42,7 @@ use crate::provider_database::{DatabaseId, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILA
 pub use plugin_id::*;
 
 mod provider_database;
-mod providers;
+pub mod providers;
 mod worker;
 pub use worker::*;
 mod escape_catcher;
