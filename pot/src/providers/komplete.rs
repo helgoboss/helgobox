@@ -321,7 +321,7 @@ pub struct NksFileContent<'a> {
 impl NksFile {
     pub fn load(path: &Path) -> Result<Self, &'static str> {
         let file = RiffFile::open(&path.to_string_lossy())
-            .map_err(|_| "couldn't open file as RIFF file")?;
+            .map_err(|_| "Couldn't fine preset file or doesn't have RIFF format")?;
         Ok(Self { file })
     }
 

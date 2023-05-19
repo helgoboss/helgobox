@@ -1434,8 +1434,12 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                             ))]
                             if let pot::PresetKind::FileBased(k) = &data.preset.kind {
                                 if ui.button("Reveal in file manager").clicked() {
-                                    if let Err(e) = opener::reveal(&k.path) {
-                                        process_error(&e, input.toasts);
+                                    if k.path.exists() {
+                                        if let Err(e) = opener::reveal(&k.path) {
+                                            process_error(&e, input.toasts);
+                                        }
+                                    } else {
+                                        show_error_toast("Preset file doesn't exist", input.toasts);
                                     }
                                     ui.close_menu();
                                 }
