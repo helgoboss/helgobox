@@ -5,9 +5,10 @@ use crate::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::{
-    Fil, FiledBasedPresetKind, HasFilterItemId, InnerBuildInput, InnerPresetId, MacroParamBank,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
-    PotFxParamId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    Fil, FiledBasedPresetKind, FilterItemCollections, HasFilterItemId, InnerBuildInput,
+    InnerPresetId, MacroParamBank, PersistentDatabaseId, PersistentInnerPresetId,
+    PersistentPresetId, PluginKind, PotFxParam, PotFxParamId, Preset, PresetCommon, PresetKind,
+    ProductId, SearchEvaluator,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -16,6 +17,7 @@ use enumset::{enum_set, EnumSet};
 use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterKind;
 
+use either::Either;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
@@ -29,6 +31,7 @@ use std::sync::Mutex;
 pub struct KompleteDatabase {
     persistent_id: PersistentDatabaseId,
     primary_preset_db: Mutex<PresetDb>,
+    nks_filter_item_collections: NksFilterItemCollections,
     nks_bank_id_by_product_id: HashMap<ProductId, u32>,
     nks_product_id_by_bank_id: HashMap<u32, ProductId>,
     nks_product_id_by_extension: HashMap<String, ProductId>,
@@ -48,6 +51,7 @@ impl KompleteDatabase {
         let db = Self {
             persistent_id: PersistentDatabaseId::new("komplete".to_string()),
             primary_preset_db: PresetDb::open()?,
+            nks_filter_item_collections: Default::default(),
             nks_bank_id_by_product_id: Default::default(),
             nks_product_id_by_bank_id: Default::default(),
             nks_product_id_by_extension: Default::default(),
@@ -145,6 +149,167 @@ impl KompleteDatabase {
             self.nks_product_id_by_extension.get(extension).copied()
         })
     }
+
+    fn build_filter_item_collections(
+        &self,
+        affected_kinds: EnumSet<PotFilterKind>,
+        non_empty_filters: &NonEmptyNksFilters,
+        excludes: &PotFilterExcludes,
+        filters: &Filters,
+    ) -> InnerFilterItemCollections {
+        let mut api_collections = InnerFilterItemCollections::empty();
+        use PotFilterKind::*;
+        for kind in affected_kinds {
+            let items = match kind {
+                Bank => self.build_parent_filter_items(
+                    &self
+                        .nks_filter_item_collections
+                        .bank_collections
+                        .parent_items,
+                    &non_empty_filters.banks_and_sub_banks,
+                    excludes,
+                    kind,
+                ),
+                SubBank => self.build_child_filter_items(
+                    &self
+                        .nks_filter_item_collections
+                        .bank_collections
+                        .child_items,
+                    &non_empty_filters.banks_and_sub_banks,
+                    excludes,
+                    filters.get(Bank),
+                    kind,
+                ),
+                Category => self.build_parent_filter_items(
+                    &self
+                        .nks_filter_item_collections
+                        .category_collections
+                        .parent_items,
+                    &non_empty_filters.categories_and_sub_categories,
+                    excludes,
+                    kind,
+                ),
+                SubCategory => self.build_child_filter_items(
+                    &self
+                        .nks_filter_item_collections
+                        .category_collections
+                        .child_items,
+                    &non_empty_filters.categories_and_sub_categories,
+                    excludes,
+                    filters.get(Category),
+                    kind,
+                ),
+                Mode => self.build_simple_filter_items(
+                    &self.nks_filter_item_collections.modes,
+                    &non_empty_filters.modes,
+                ),
+                _ => continue,
+            };
+            api_collections.set(kind, items)
+        }
+        api_collections
+    }
+    fn build_parent_filter_items(
+        &self,
+        nks_items: &[ParentNksFilterItem],
+        non_empty_filter: &NonEmptyNksFilter,
+        excludes: &PotFilterExcludes,
+        kind: PotFilterKind,
+    ) -> Vec<InnerFilterItem> {
+        let existing_filter_items = nks_items
+            .iter()
+            // Respect exclude list
+            .filter(|b| !excludes.contains(kind, FilterItemId(Some(Fil::Komplete(b.id)))))
+            // Narrow down to non-empty items
+            .filter(|b| {
+                non_empty_filter.non_empty_ids.contains(&b.id)
+                    || b.child_ids
+                        .intersection(&non_empty_filter.non_empty_ids)
+                        .next()
+                        .is_some()
+            })
+            // Create actual filter item
+            .map(|item| FilterItem {
+                persistent_id: item.name.clone(),
+                id: FilterItemId(Some(Fil::Komplete(item.id))),
+                parent_name: None,
+                name: Some(item.name.clone()),
+                icon: None,
+                more_info: None,
+            })
+            .map(InnerFilterItem::Unique);
+        if non_empty_filter.has_non_associated_presets {
+            iter::once(InnerFilterItem::Unique(FilterItem::none()))
+                .chain(existing_filter_items)
+                .collect()
+        } else {
+            existing_filter_items.collect()
+        }
+    }
+
+    fn build_child_filter_items(
+        &self,
+        nks_items: &[ChildNksFilterItem],
+        non_empty_filter: &NonEmptyNksFilter,
+        excludes: &PotFilterExcludes,
+        parent_filter: OptFilter,
+        kind: PotFilterKind,
+    ) -> Vec<InnerFilterItem> {
+        nks_items
+            .iter()
+            // Respect parent filter
+            .filter(|b| {
+                if let Some(filter_item_id) = parent_filter {
+                    // Filter set
+                    if let Some(Fil::Komplete(parent_id)) = filter_item_id.0 {
+                        b.parent_id == parent_id
+                    } else {
+                        // Filter set to <None> or non-Komplete ID
+                        false
+                    }
+                } else {
+                    // Filter not set (= <Any>)
+                    true
+                }
+            })
+            // Respect exclude list
+            .filter(|b| !excludes.contains(kind, FilterItemId(Some(Fil::Komplete(b.id)))))
+            // Narrow down to non-empty items
+            .filter(|b| non_empty_filter.non_empty_ids.contains(&b.id))
+            // Create actual filter item
+            .map(|item| FilterItem {
+                persistent_id: "".to_string(),
+                id: FilterItemId(Some(Fil::Komplete(item.id))),
+                parent_name: Some(item.parent_name.clone()),
+                name: item.name.clone(),
+                icon: None,
+                more_info: None,
+            })
+            .map(InnerFilterItem::Unique)
+            .collect()
+    }
+
+    fn build_simple_filter_items(
+        &self,
+        nks_items: &[SimpleNksFilterItem],
+        non_empty_filter: &NonEmptyNksFilter,
+    ) -> Vec<InnerFilterItem> {
+        nks_items
+            .iter()
+            // Narrow down to non-empty items
+            .filter(|b| non_empty_filter.non_empty_ids.contains(&b.id))
+            // Create actual filter item
+            .map(|item| FilterItem {
+                persistent_id: "".to_string(),
+                id: FilterItemId(Some(Fil::Komplete(item.id))),
+                parent_name: None,
+                name: Some(item.name.clone()),
+                icon: None,
+                more_info: None,
+            })
+            .map(InnerFilterItem::Unique)
+            .collect()
+    }
 }
 
 impl Database for KompleteDatabase {
@@ -175,16 +340,21 @@ impl Database for KompleteDatabase {
             &self.primary_preset_db,
             "Komplete DB query_filter_collections",
         );
+        self.nks_filter_item_collections = preset_db.build_nks_filter_item_collections()?;
         // Obtain all NKS banks and find installed products (= groups of similar plug-ins) that
         // match the bank name. They will be treated as the same in terms of filtering.
-        self.nks_bank_id_by_product_id = preset_db
-            .select_nks_banks()?
-            .into_iter()
-            .filter_map(|(bank_id, bank_name)| {
+        self.nks_bank_id_by_product_id = self
+            .nks_filter_item_collections
+            .bank_collections
+            .parent_items
+            .iter()
+            .filter_map(|bank| {
                 let product_id = ctx.plugin_db.products().find_map(|(product_id, product)| {
-                    if bank_name == product.name {
+                    if bank.name == product.name {
                         base::tracing_debug!(
-                            "Associated bank {bank_id} {bank_name} with product {} {}",
+                            "Associated bank {} {} with product {} {}",
+                            bank.id,
+                            bank.name,
                             product_id.0,
                             &product.name,
                         );
@@ -193,7 +363,7 @@ impl Database for KompleteDatabase {
                         None
                     }
                 })?;
-                Some((product_id, bank_id))
+                Some((product_id, bank.id))
             })
             .collect();
         // Make fast reverse lookup possible as well
@@ -229,16 +399,46 @@ impl Database for KompleteDatabase {
         let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
         let translated_excludes =
             self.translate_neutral_excludes_to_nks(input.filter_input.excludes);
-        // Function to translate outgoing "NKS bank" filter items to "neutral" product filter items
+        let banks_are_affected = affected_kinds.contains(PotFilterKind::Bank);
+        let sub_banks_are_affected = affected_kinds.contains(PotFilterKind::SubBank);
+        let categories_are_affected = affected_kinds.contains(PotFilterKind::Category);
+        let sub_categories_are_affected = affected_kinds.contains(PotFilterKind::SubCategory);
+        let modes_are_affected = affected_kinds.contains(PotFilterKind::Mode);
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB query_filter_collections",
         );
-        let mut filter_item_collections = preset_db.query_filter_collections(
-            &translated_filters,
+        let non_empty_filters = NonEmptyNksFilters {
+            banks_and_sub_banks: if banks_are_affected || sub_banks_are_affected {
+                NonEmptyNksFilter::from_vec(
+                    preset_db.find_non_empty_banks(translated_filters, &translated_excludes)?,
+                )
+            } else {
+                Default::default()
+            },
+            categories_and_sub_categories: if categories_are_affected || sub_categories_are_affected
+            {
+                NonEmptyNksFilter::from_vec(
+                    preset_db
+                        .find_non_empty_categories(translated_filters, &translated_excludes)?,
+                )
+            } else {
+                Default::default()
+            },
+            modes: if modes_are_affected {
+                NonEmptyNksFilter::from_vec(
+                    preset_db.find_non_empty_modes(translated_filters, &translated_excludes)?,
+                )
+            } else {
+                Default::default()
+            },
+        };
+        let mut filter_item_collections = self.build_filter_item_collections(
             affected_kinds,
+            &non_empty_filters,
             &translated_excludes,
-        )?;
+            &translated_filters,
+        );
         // Translate some Komplete-specific filter items to shared filter items. It's important that
         // we do this at the end, otherwise the narrow-down logic doesn't work correctly.
         self.translate_nks_filter_items_to_neutral(&mut filter_item_collections);
@@ -455,6 +655,53 @@ impl PresetDb {
         Ok(())
     }
 
+    fn build_nks_filter_item_collections(&self) -> rusqlite::Result<NksFilterItemCollections> {
+        let collections = NksFilterItemCollections {
+            bank_collections: {
+                let rows = self.read_hierarchy_rows(
+                    "SELECT id, entry1, entry2, entry3 FROM k_bank_chain ORDER BY entry1",
+                )?;
+                NksParentChildCollections::from_sorted_rows(rows)
+            },
+            category_collections: {
+                let rows = self.read_hierarchy_rows(
+                    "SELECT id, category, subcategory, subsubcategory FROM k_category ORDER BY category"
+                )?;
+                NksParentChildCollections::from_sorted_rows(rows)
+            },
+            modes: {
+                let mut statement = self
+                    .connection
+                    .prepare_cached("SELECT id, name FROM k_mode ORDER BY name")?;
+                let rows = statement.query([])?;
+                let result: Result<Vec<_>, _> = rows
+                    .mapped(|row| {
+                        Ok(SimpleNksFilterItem {
+                            id: row.get(0)?,
+                            name: row.get(1)?,
+                        })
+                    })
+                    .collect();
+                result?
+            },
+        };
+        Ok(collections)
+    }
+
+    fn read_hierarchy_rows(&self, sql_query: &str) -> rusqlite::Result<Vec<HierarchyRow>> {
+        let mut statement = self.connection.prepare_cached(sql_query)?;
+        let rows = statement.query([])?;
+        rows.mapped(|row| {
+            Ok(HierarchyRow {
+                id: row.get(0)?,
+                level1: row.get(1)?,
+                level2: row.get(2)?,
+                level3: row.get(3)?,
+            })
+        })
+        .collect()
+    }
+
     #[allow(dead_code)]
     pub fn find_preset_id_by_favorite_id(&self, favorite_id: &str) -> Option<InnerPresetId> {
         self.connection
@@ -518,44 +765,6 @@ impl PresetDb {
             .ok()
     }
 
-    pub fn query_filter_collections(
-        &mut self,
-        filters: &Filters,
-        affected_kinds: EnumSet<PotFilterKind>,
-        filter_exclude_list: &PotFilterExcludes,
-    ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
-        let mut filter_items =
-            self.build_filter_items(filters, affected_kinds.into_iter(), filter_exclude_list);
-        let banks_are_affected = affected_kinds.contains(PotFilterKind::Bank);
-        let sub_banks_are_affected = affected_kinds.contains(PotFilterKind::SubBank);
-        if banks_are_affected || sub_banks_are_affected {
-            let non_empty_banks = self.find_non_empty_banks(*filters, filter_exclude_list)?;
-            if banks_are_affected {
-                filter_items.narrow_down(PotFilterKind::Bank, &non_empty_banks);
-            }
-            if sub_banks_are_affected {
-                filter_items.narrow_down(PotFilterKind::SubBank, &non_empty_banks);
-            }
-        }
-        let categories_are_affected = affected_kinds.contains(PotFilterKind::Category);
-        let sub_categories_are_affected = affected_kinds.contains(PotFilterKind::SubCategory);
-        if categories_are_affected || sub_categories_are_affected {
-            let non_empty_categories =
-                self.find_non_empty_categories(*filters, filter_exclude_list)?;
-            if categories_are_affected {
-                filter_items.narrow_down(PotFilterKind::Category, &non_empty_categories);
-            }
-            if sub_categories_are_affected {
-                filter_items.narrow_down(PotFilterKind::SubCategory, &non_empty_categories);
-            }
-        }
-        if affected_kinds.contains(PotFilterKind::Mode) {
-            let non_empty_modes = self.find_non_empty_modes(*filters, filter_exclude_list)?;
-            filter_items.narrow_down(PotFilterKind::Mode, &non_empty_modes);
-        }
-        Ok(filter_items)
-    }
-
     pub fn query_presets(
         &mut self,
         filters: &Filters,
@@ -577,6 +786,7 @@ impl PresetDb {
         search_criteria: SearchCriteria,
         exclude_list: &PotFilterExcludes,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
+        tracing::trace!("build_preset_collection...");
         self.execute_preset_query(
             filter_settings,
             search_criteria,
@@ -592,8 +802,9 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludes,
-    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<Vec<Option<u32>>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Bank);
+        tracing::trace!("find_non_empty_banks...");
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -601,7 +812,7 @@ impl PresetDb {
             None,
             exclude_list,
             None,
-            optional_filter_item_id,
+            map_to_komplete_filter_id,
         )
     }
 
@@ -609,8 +820,9 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludes,
-    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<Vec<Option<u32>>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Category);
+        tracing::trace!("find_non_empty_categories...");
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -618,7 +830,7 @@ impl PresetDb {
             Some(CATEGORY_JOIN),
             exclude_list,
             None,
-            optional_filter_item_id,
+            map_to_komplete_filter_id,
         )
     }
 
@@ -626,8 +838,9 @@ impl PresetDb {
         &mut self,
         mut filters: Filters,
         exclude_list: &PotFilterExcludes,
-    ) -> Result<HashSet<FilterItemId>, Box<dyn Error>> {
+    ) -> Result<Vec<Option<u32>>, Box<dyn Error>> {
         filters.clear_this_and_dependent_filters(PotFilterKind::Mode);
+        tracing::trace!("find_non_empty_modes...");
         self.execute_preset_query(
             &filters,
             SearchCriteria::empty(),
@@ -635,7 +848,7 @@ impl PresetDb {
             Some(MODE_JOIN),
             exclude_list,
             None,
-            optional_filter_item_id,
+            map_to_komplete_filter_id,
         )
     }
 
@@ -883,150 +1096,13 @@ impl PresetDb {
         }
         // Put it all together
         let sql_query = sql.to_string();
+        tracing::trace!("{sql_query}");
         let mut statement = self.connection.prepare_cached(&sql_query)?;
         let collection: Result<C, _> = statement
             .query(sql.params.as_slice())?
             .mapped(|row| row_mapper(row))
             .collect();
         Ok(collection?)
-    }
-
-    /// Creates filter collections. Narrows down sub filter items as far as possible (based on
-    /// the currently selected parent filter item). Doesn't yet narrow down according to whether
-    /// presets actually exists which satisfy that filter item! This must be narrowed down at a
-    /// later stage!
-    pub fn build_filter_items(
-        &self,
-        settings: &Filters,
-        kinds: impl Iterator<Item = PotFilterKind>,
-        exclude_list: &PotFilterExcludes,
-    ) -> InnerFilterItemCollections {
-        let mut collections = InnerFilterItemCollections::empty();
-        for kind in kinds {
-            let mut filter_items = self.build_filter_items_of_kind(kind, settings);
-            filter_items.retain(|i| !exclude_list.contains(kind, i.id()));
-            collections.set(kind, filter_items);
-        }
-        collections
-    }
-
-    fn build_filter_items_of_kind(
-        &self,
-        kind: PotFilterKind,
-        settings: &Filters,
-    ) -> Vec<InnerFilterItem> {
-        use PotFilterKind::*;
-        match kind {
-            Bank => {
-                // This picks one of the bank entries to serve as parent bank. Which one is not
-                // really important as long as it's always the same in our queries. The result
-                // is deterministic.
-                self.select_nks_filter_items(BANK_SQL_QUERY, None, true)
-            }
-            SubBank => {
-                let mut sql = "SELECT id, entry1, entry2, entry3 FROM k_bank_chain".to_string();
-                let parent_bank_filter = settings.get(PotFilterKind::Bank);
-                if let Some(FilterItemId(Some(fil))) = parent_bank_filter {
-                    if let Fil::Komplete(_) = fil {
-                        sql += " WHERE entry1 = (SELECT entry1 FROM k_bank_chain WHERE id = ?)";
-                    } else {
-                        // Foreign filter item
-                        return vec![];
-                    }
-                }
-                sql += " ORDER BY entry2";
-                self.select_nks_filter_items(&sql, parent_bank_filter, false)
-            }
-            Category => {
-                // This picks one of the category entries to serve as parent category. Which one is
-                // not really important as long as it's always the same in our queries. The result
-                // is deterministic.
-                self.select_nks_filter_items(
-                    "SELECT id, '', category, '' FROM k_category GROUP BY category ORDER BY category",
-                    None,
-                    true,
-                )
-            }
-            SubCategory => {
-                let mut sql = "SELECT id, category, subcategory, '' FROM k_category".to_string();
-                let parent_category_filter = settings.get(PotFilterKind::Category);
-                if parent_category_filter.is_some() {
-                    sql += " WHERE category = (SELECT category FROM k_category WHERE id = ?)";
-                }
-                sql += " ORDER BY subcategory";
-                self.select_nks_filter_items(&sql, parent_category_filter, false)
-            }
-            Mode => self.select_nks_filter_items(
-                "SELECT id, '', name, '' FROM k_mode ORDER BY name",
-                None,
-                true,
-            ),
-            _ => vec![],
-        }
-    }
-
-    fn select_nks_filter_items(
-        &self,
-        query: &str,
-        parent_filter: OptFilter,
-        include_none_filter: bool,
-    ) -> Vec<InnerFilterItem> {
-        match self.select_nks_filter_items_internal(query, parent_filter, include_none_filter) {
-            Ok(items) => items,
-            Err(e) => {
-                tracing::error!("Error when selecting NKS filter items: {}", e);
-                vec![]
-            }
-        }
-    }
-
-    fn select_nks_banks(&self) -> rusqlite::Result<Vec<(u32, String)>> {
-        let mut statement = self.connection.prepare_cached(BANK_SQL_QUERY)?;
-        let rows = statement.query([])?;
-        rows.map(|row| Ok((row.get(0)?, row.get(2)?))).collect()
-    }
-
-    fn select_nks_filter_items_internal(
-        &self,
-        query: &str,
-        parent_filter: OptFilter,
-        include_none_filter: bool,
-    ) -> rusqlite::Result<Vec<InnerFilterItem>> {
-        let mut statement = self.connection.prepare_cached(query)?;
-        let rows = if let Some(FilterItemId(Some(Fil::Komplete(parent_filter)))) = parent_filter {
-            statement.query([parent_filter])?
-        } else {
-            statement.query([])?
-        };
-        let existing_filter_items = rows.map(|row| {
-            let id: u32 = row.get(0)?;
-            let parent_name: Option<String> = row.get(1)?;
-            let name_part_one: Option<String> = row.get(2)?;
-            let name_part_two: Option<String> = row.get(3)?;
-            let name = none_if_empty(name_part_one).map(|one| {
-                if let Some(two) = none_if_empty(name_part_two) {
-                    format!("{one} / {two}")
-                } else {
-                    one
-                }
-            });
-            let item = FilterItem {
-                persistent_id: name.clone().unwrap_or_default(),
-                id: FilterItemId(Some(Fil::Komplete(id))),
-                name,
-                parent_name,
-                icon: None,
-                more_info: None,
-            };
-            Ok(InnerFilterItem::Unique(item))
-        });
-        if include_none_filter {
-            iter::once(Ok(InnerFilterItem::Unique(FilterItem::none())))
-                .chain(existing_filter_items.iterator())
-                .collect()
-        } else {
-            existing_filter_items.collect()
-        }
     }
 }
 
@@ -1037,10 +1113,8 @@ fn path_to_main_and_favorites_db() -> Result<(PathBuf, PathBuf), &'static str> {
     Ok((main_db_path, favorites_db_path))
 }
 
-fn optional_filter_item_id(row: &Row) -> Result<FilterItemId, rusqlite::Error> {
-    let id: Option<u32> = row.get(0)?;
-    let fil = id.map(Fil::Komplete);
-    Ok(FilterItemId(fil))
+fn map_to_komplete_filter_id(row: &Row) -> Result<Option<u32>, rusqlite::Error> {
+    row.get(0)
 }
 
 #[derive(Default)]
@@ -1123,6 +1197,13 @@ impl<'a> Display for Sql<'a> {
     }
 }
 
+/// This picks one of the bank entries to serve as "canonical" parent bank. Which one is not
+/// really important as long as the result is the same in all of our queries. It must be
+/// deterministic! In our case, SQLite will always choose the one with the lowest ID.
+///
+/// Note: If there would always be a row whose entry2/entry3 entries are NULL, we would pick
+/// this one. But often, there's no such row (because no preset is mapped to the parent directly).
+/// So at the end, it still doesn't matter which one we pick as "canonical" parent.
 const BANK_SQL_QUERY: &str =
     "SELECT id, '', entry1, '' FROM k_bank_chain GROUP BY entry1 ORDER BY entry1";
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
@@ -1159,18 +1240,240 @@ const EXTENSION_TO_PRODUCT_NAME_MAPPING: &[(&str, &str)] = &[
     // ("ngrr", "Guitar Rig"),
 ];
 
-fn none_if_empty(value: Option<String>) -> Option<String> {
-    let value = value?;
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
 fn determine_preview_file(preset_file: &Path) -> Option<PathBuf> {
     let preview_dir = preset_file.parent()?.join(".previews");
     let pure_file_name = preset_file.file_name()?;
     let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
     Some(preview_dir.join(preview_file_name))
+}
+
+#[derive(Default)]
+struct NksFilterItemCollections {
+    bank_collections: NksParentChildCollections,
+    category_collections: NksParentChildCollections,
+    modes: Vec<SimpleNksFilterItem>,
+}
+
+#[derive(Default)]
+struct NksParentChildCollections {
+    parent_items: Vec<ParentNksFilterItem>,
+    child_items: Vec<ChildNksFilterItem>,
+}
+
+impl NksParentChildCollections {
+    /// Rows must be sorted by `entry1`, otherwise it won't work.
+    pub fn from_sorted_rows(rows: impl IntoIterator<Item = HierarchyRow>) -> Self {
+        let mut banks: Vec<ParentNksFilterItem> = Vec::new();
+        let sub_banks = rows
+            .into_iter()
+            .map(|row| {
+                let parent_id = if let Some(last_bank) = banks.last_mut() {
+                    let parent_id = last_bank.id;
+                    if row.level1 == last_bank.name {
+                        // We are still in the same bank. Add child ID to that bank.
+                        last_bank.child_ids.insert(row.id);
+                    } else {
+                        // New bank
+                        banks.push(ParentNksFilterItem::from_hierarchy_row(&row));
+                    }
+                    parent_id
+                } else {
+                    // No bank yet. Add first one.
+                    banks.push(ParentNksFilterItem::from_hierarchy_row(&row));
+                    row.id
+                };
+                ChildNksFilterItem {
+                    id: row.id,
+                    name: if let Some(entry2) = row.level2 {
+                        if let Some(entry3) = row.level3 {
+                            Some(format!("{entry2} / {entry3}"))
+                        } else {
+                            Some(entry2)
+                        }
+                    } else {
+                        None
+                    },
+                    parent_id,
+                    parent_name: row.level1,
+                }
+            })
+            .collect();
+        Self {
+            parent_items: banks,
+            child_items: sub_banks,
+        }
+    }
+}
+
+struct NonEmptyNksFilters {
+    banks_and_sub_banks: NonEmptyNksFilter,
+    categories_and_sub_categories: NonEmptyNksFilter,
+    modes: NonEmptyNksFilter,
+}
+
+#[derive(Default)]
+struct NonEmptyNksFilter {
+    /// The IDs of all filter items of this kind that have presets.
+    non_empty_ids: HashSet<u32>,
+    /// Whether there are presets not associated to any filter item of this kind.
+    has_non_associated_presets: bool,
+}
+
+impl NonEmptyNksFilter {
+    pub fn from_vec(vec: Vec<Option<u32>>) -> Self {
+        let mut has_non_associated_presets = false;
+        let non_empty_ids = vec
+            .into_iter()
+            .filter_map(|id| {
+                if id.is_none() {
+                    has_non_associated_presets = true;
+                }
+                id
+            })
+            .collect();
+        Self {
+            non_empty_ids,
+            has_non_associated_presets,
+        }
+    }
+}
+
+/// For each parent filter item, there's also one child filter item with the same ID! The one that
+/// represents direct association to the parent.
+#[derive(Eq, PartialEq, Debug)]
+struct ParentNksFilterItem {
+    id: u32,
+    name: String,
+    child_ids: HashSet<u32>,
+}
+
+impl ParentNksFilterItem {
+    pub fn from_hierarchy_row(r: &HierarchyRow) -> Self {
+        Self {
+            id: r.id,
+            name: r.level1.clone(),
+            child_ids: HashSet::from([r.id]),
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
+struct ChildNksFilterItem {
+    id: u32,
+    name: Option<String>,
+    parent_id: u32,
+    parent_name: String,
+}
+
+struct SimpleNksFilterItem {
+    id: u32,
+    name: String,
+}
+
+struct HierarchyRow {
+    id: u32,
+    level1: String,
+    level2: Option<String>,
+    level3: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl ParentNksFilterItem {
+        pub fn new(id: u32, name: String, child_ids: HashSet<u32>) -> Self {
+            Self {
+                id,
+                name,
+                child_ids,
+            }
+        }
+    }
+    impl ChildNksFilterItem {
+        pub fn new(id: u32, name: Option<String>, parent_id: u32, parent_name: String) -> Self {
+            Self {
+                id,
+                name,
+                parent_id,
+                parent_name,
+            }
+        }
+    }
+
+    impl HierarchyRow {
+        pub fn new(
+            id: u32,
+            entry1: String,
+            entry2: Option<String>,
+            entry3: Option<String>,
+        ) -> Self {
+            Self {
+                id,
+                level1: entry1,
+                level2: entry2,
+                level3: entry3,
+            }
+        }
+    }
+
+    #[test]
+    fn nks_bank_collections() {
+        // Give
+        let rows = vec![
+            HierarchyRow::new(1, "a".to_string(), None, None),
+            HierarchyRow::new(2, "a".to_string(), Some("aa".to_string()), None),
+            HierarchyRow::new(3, "a".to_string(), Some("ab".to_string()), None),
+            HierarchyRow::new(4, "b".to_string(), Some("ba".to_string()), None),
+            HierarchyRow::new(5, "b".to_string(), Some("bb".to_string()), None),
+            HierarchyRow::new(6, "b".to_string(), Some("bc".to_string()), None),
+            HierarchyRow::new(7, "c".to_string(), Some("ca".to_string()), None),
+            HierarchyRow::new(8, "c".to_string(), None, None),
+            HierarchyRow::new(9, "d".to_string(), None, None),
+            HierarchyRow::new(10, "e".to_string(), Some("ea".to_string()), None),
+            HierarchyRow::new(
+                11,
+                "f".to_string(),
+                Some("fa".to_string()),
+                Some("faa".to_string()),
+            ),
+            HierarchyRow::new(
+                12,
+                "f".to_string(),
+                Some("fa".to_string()),
+                Some("fab".to_string()),
+            ),
+        ];
+        // When
+        let bank_collections = NksParentChildCollections::from_sorted_rows(rows.into_iter());
+        // Then
+        assert_eq!(
+            bank_collections.parent_items,
+            vec![
+                ParentNksFilterItem::new(1, "a".to_string(), HashSet::from([1, 2, 3])),
+                ParentNksFilterItem::new(4, "b".to_string(), HashSet::from([4, 5, 6])),
+                ParentNksFilterItem::new(7, "c".to_string(), HashSet::from([7, 8])),
+                ParentNksFilterItem::new(9, "d".to_string(), HashSet::from([9])),
+                ParentNksFilterItem::new(10, "e".to_string(), HashSet::from([10])),
+                ParentNksFilterItem::new(11, "f".to_string(), HashSet::from([11, 12])),
+            ]
+        );
+        assert_eq!(
+            bank_collections.child_items,
+            vec![
+                ChildNksFilterItem::new(1, None, 1, "a".to_string()),
+                ChildNksFilterItem::new(2, Some("aa".to_string()), 1, "a".to_string()),
+                ChildNksFilterItem::new(3, Some("ab".to_string()), 1, "a".to_string()),
+                ChildNksFilterItem::new(4, Some("ba".to_string()), 4, "b".to_string()),
+                ChildNksFilterItem::new(5, Some("bb".to_string()), 4, "b".to_string()),
+                ChildNksFilterItem::new(6, Some("bc".to_string()), 4, "b".to_string()),
+                ChildNksFilterItem::new(7, Some("ca".to_string()), 7, "c".to_string()),
+                ChildNksFilterItem::new(8, None, 7, "c".to_string()),
+                ChildNksFilterItem::new(9, None, 9, "d".to_string()),
+                ChildNksFilterItem::new(10, Some("ea".to_string()), 10, "e".to_string()),
+                ChildNksFilterItem::new(11, Some("fa / faa".to_string()), 11, "f".to_string()),
+                ChildNksFilterItem::new(12, Some("fa / fab".to_string()), 11, "f".to_string()),
+            ]
+        );
+    }
 }
