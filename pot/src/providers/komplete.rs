@@ -1270,23 +1270,23 @@ struct NksParentChildCollections {
 impl NksParentChildCollections {
     /// Rows must be sorted by `entry1`, otherwise it won't work.
     pub fn from_sorted_rows(rows: impl IntoIterator<Item = HierarchyRow>) -> Self {
-        let mut banks: Vec<ParentNksFilterItem> = Vec::new();
-        let sub_banks = rows
+        let mut parent_items: Vec<ParentNksFilterItem> = Vec::new();
+        let child_items = rows
             .into_iter()
             .map(|row| {
-                let parent_id = if let Some(last_bank) = banks.last_mut() {
-                    let parent_id = last_bank.id;
-                    if row.level1 == last_bank.name {
+                let parent_id = if let Some(last_parent_item) = parent_items.last_mut() {
+                    if row.level1 == last_parent_item.name {
                         // We are still in the same bank. Add child ID to that bank.
-                        last_bank.child_ids.insert(row.id);
+                        last_parent_item.child_ids.insert(row.id);
+                        last_parent_item.id
                     } else {
                         // New bank
-                        banks.push(ParentNksFilterItem::from_hierarchy_row(&row));
+                        parent_items.push(ParentNksFilterItem::from_hierarchy_row(&row));
+                        row.id
                     }
-                    parent_id
                 } else {
                     // No bank yet. Add first one.
-                    banks.push(ParentNksFilterItem::from_hierarchy_row(&row));
+                    parent_items.push(ParentNksFilterItem::from_hierarchy_row(&row));
                     row.id
                 };
                 ChildNksFilterItem {
@@ -1306,8 +1306,8 @@ impl NksParentChildCollections {
             })
             .collect();
         Self {
-            parent_items: banks,
-            child_items: sub_banks,
+            parent_items,
+            child_items,
         }
     }
 }
