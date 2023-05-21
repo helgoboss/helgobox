@@ -562,7 +562,7 @@ impl NksFile {
                 PluginId::Vst3 { vst_uid: vst3_uid }
             } else {
                 PluginId::Vst2 {
-                    vst_magic_number: value.vst_magic,
+                    vst_magic_number: value.vst_magic as i32,
                 }
             }
         };

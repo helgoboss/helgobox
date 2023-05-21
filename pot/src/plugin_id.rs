@@ -4,14 +4,14 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum PluginId {
-    Vst2 { vst_magic_number: u32 },
+    Vst2 { vst_magic_number: i32 },
     Vst3 { vst_uid: [u32; 4] },
     Clap { clap_id: LimitedAsciiString<64> },
     Js { js_id: LimitedAsciiString<64> },
 }
 
 impl PluginId {
-    pub fn vst2(vst_magic_number: u32) -> Self {
+    pub fn vst2(vst_magic_number: i32) -> Self {
         Self::Vst2 { vst_magic_number }
     }
 
@@ -168,7 +168,7 @@ impl PluginKind {
 }
 
 /// "1397572658" => 1397572658
-pub fn parse_vst2_magic_number(expression: &str) -> Result<u32, &'static str> {
+pub fn parse_vst2_magic_number(expression: &str) -> Result<i32, &'static str> {
     expression
         .parse()
         .map_err(|_| "couldn't parse VST2 magic number")

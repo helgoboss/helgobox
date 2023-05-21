@@ -1358,7 +1358,7 @@ fn load_audio_preset(
     destination: &Destination,
     options: LoadPresetOptions,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    const RS5K_VST_ID: u32 = 1920167789;
+    const RS5K_VST_ID: i32 = 1920167789;
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
     };
