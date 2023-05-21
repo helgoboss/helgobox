@@ -822,12 +822,6 @@ impl RuntimePotUnit {
         let affected_kinds = change_hint.affected_kinds();
         // Spawn new async task (don't block GUI thread, might take longer)
         spawn_in_pot_worker(async move {
-            // Refresh if desired
-            let refresh_start = Instant::now();
-            if change_hint == ChangeHint::TotalRefresh {
-                pot_db().refresh();
-            }
-            let refresh_duration = refresh_start.elapsed();
             // Debounce (cheap)
             // If we don't do this, the wasted runs will dramatically increase when quickly changing
             // filters while last query still running.
@@ -846,6 +840,12 @@ impl RuntimePotUnit {
                     return Ok(());
                 }
             }
+            // Refresh if desired
+            let refresh_start = Instant::now();
+            if change_hint == ChangeHint::TotalRefresh {
+                pot_db().refresh();
+            }
+            let refresh_duration = refresh_start.elapsed();
             // Build (expensive)
             let build_output = pot_db().build_collections(build_input, affected_kinds);
             // Set result (cheap)

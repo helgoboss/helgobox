@@ -5,19 +5,16 @@ use crate::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::{
-    Fil, FiledBasedPresetKind, FilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, MacroParamBank, PersistentDatabaseId, PersistentInnerPresetId,
-    PersistentPresetId, PluginKind, PotFxParam, PotFxParamId, Preset, PresetCommon, PresetKind,
-    ProductId, SearchEvaluator,
+    Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
+    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
+    PotFxParamId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
 use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
-use fallible_iterator::FallibleIterator;
 use realearn_api::persistence::PotFilterKind;
 
-use either::Either;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
