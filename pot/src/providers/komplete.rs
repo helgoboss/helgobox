@@ -392,6 +392,16 @@ impl Database for KompleteDatabase {
         input: InnerBuildInput,
         affected_kinds: EnumSet<PotFilterKind>,
     ) -> Result<InnerFilterItemCollections, Box<dyn Error>> {
+        // When a project filter is set, we know that Komplete filters don't matter. This
+        // could probably be generalized into Pot database somehow but at the moment, "Project"
+        // is the only unsupported foreign filter
+        if input
+            .filter_input
+            .filters
+            .is_set_to_concrete_value(PotFilterKind::Project)
+        {
+            return Ok(InnerFilterItemCollections::empty());
+        }
         // Translate possibly incoming "neutral" product filters to "NKS bank" product filters
         let translated_filters = self.translate_neutral_filters_to_nks(*input.filter_input.filters);
         let translated_excludes =

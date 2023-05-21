@@ -1850,21 +1850,9 @@ fn add_filter_panels(
         true,
         last_filters.get(PotFilterKind::Database),
     );
-    // Product type
-    if pot_unit.supports_filter_kind(PotFilterKind::Project) {
-        ui.separator();
-        ui.label(RichText::new("Project").heading().size(heading_height));
-        add_filter_view_content(
-            shared_unit,
-            pot_unit,
-            PotFilterKind::Project,
-            ui,
-            true,
-            last_filters.get(PotFilterKind::Project),
-        );
-    }
     // Add dependent filter views
     ui.separator();
+    let show_projects = pot_unit.supports_filter_kind(PotFilterKind::Project);
     let show_banks = pot_unit.supports_filter_kind(PotFilterKind::Bank);
     let show_sub_banks = show_banks
         && pot_unit.supports_filter_kind(PotFilterKind::SubBank)
@@ -1882,7 +1870,10 @@ fn add_filter_panels(
                 .is_set_to_concrete_value(PotFilterKind::Category)
                 || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()));
     let show_modes = pot_unit.supports_filter_kind(PotFilterKind::Mode);
-    let mut remaining_kind_count = 5;
+    let mut remaining_kind_count = 6;
+    if !show_projects {
+        remaining_kind_count -= 1;
+    }
     if !show_banks {
         remaining_kind_count -= 1;
     }
@@ -1898,8 +1889,29 @@ fn add_filter_panels(
     if !show_modes {
         remaining_kind_count -= 1;
     }
+    let mut added_one_view_already = false;
+    let mut needs_separator = || {
+        if added_one_view_already {
+            true
+        } else {
+            added_one_view_already = true;
+            false
+        }
+    };
     if remaining_kind_count > 0 {
         let filter_view_height = ui.available_height() / remaining_kind_count as f32;
+        if show_projects {
+            add_filter_view(
+                ui,
+                filter_view_height,
+                shared_unit,
+                pot_unit,
+                PotFilterKind::Project,
+                needs_separator(),
+                false,
+                last_filters.get(PotFilterKind::Project),
+            );
+        }
         if show_banks {
             add_filter_view(
                 ui,
@@ -1907,7 +1919,7 @@ fn add_filter_panels(
                 shared_unit,
                 pot_unit,
                 PotFilterKind::Bank,
-                false,
+                needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Bank),
             );
@@ -1919,7 +1931,7 @@ fn add_filter_panels(
                 shared_unit,
                 pot_unit,
                 PotFilterKind::SubBank,
-                true,
+                needs_separator(),
                 true,
                 last_filters.get(PotFilterKind::SubBank),
             );
@@ -1931,7 +1943,7 @@ fn add_filter_panels(
                 shared_unit,
                 pot_unit,
                 PotFilterKind::Category,
-                true,
+                needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Category),
             );
@@ -1943,7 +1955,7 @@ fn add_filter_panels(
                 shared_unit,
                 pot_unit,
                 PotFilterKind::SubCategory,
-                true,
+                needs_separator(),
                 true,
                 last_filters.get(PotFilterKind::SubCategory),
             );
@@ -1955,7 +1967,7 @@ fn add_filter_panels(
                 shared_unit,
                 pot_unit,
                 PotFilterKind::Mode,
-                true,
+                needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Mode),
             );
