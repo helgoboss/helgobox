@@ -690,7 +690,7 @@ impl RuntimePotUnit {
                         .map_err(LoadPresetError::Other)?
                 } else {
                     return Err(LoadPresetError::Other(
-                        "Plug-in for internal preset couldn't be found".into(),
+                        "Plug-in for internal preset not found".into(),
                     ));
                 }
             }

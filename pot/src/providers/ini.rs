@@ -153,7 +153,7 @@ impl Database for IniDatabase {
                             true
                         }
                         SuperPluginKind::Js(k) => {
-                            let safe_path = k.path.replace('/', "_");
+                            let safe_path = k.path.replace(&['/', '.'], "_");
                             if plugin_identifier != safe_path {
                                 return false;
                             }
