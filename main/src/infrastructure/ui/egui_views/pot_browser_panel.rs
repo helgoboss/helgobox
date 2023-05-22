@@ -288,7 +288,7 @@ enum PresetCacheEntry {
 #[derive(Debug)]
 struct PresetData {
     preset: Preset,
-    has_preview: bool,
+    preview_file: Option<PathBuf>,
 }
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
@@ -623,7 +623,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                     // Preview button
                                     let preview_button = Button::new("🔊");
                                     let preview_button_response =
-                                        ui.add_enabled(preset_data.has_preview, preview_button);
+                                        ui.add_enabled(preset_data.preview_file.is_some(), preview_button);
                                     if preview_button_response
                                         .on_hover_text("Play preset preview")
                                         .on_disabled_hover_text("Preset preview not available")
@@ -1404,7 +1404,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
                     if let PresetCacheEntry::Found(data) = cache_entry {
-                        if data.has_preview {
+                        if data.preview_file.is_some() {
                             button = button.shortcut_text("🔊");
                         }
                     };
@@ -1427,21 +1427,34 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                     create_product_plugin_menu(&mut input, data, ui);
                                 });
                             });
-                            // Reveal in file manager
+                            // Reveal preset in file manager
                             #[cfg(any(
                                 all(target_os = "windows", target_arch = "x86_64"),
                                 target_os = "macos"
                             ))]
-                            if let pot::PresetKind::FileBased(k) = &data.preset.kind {
-                                if ui.button("Reveal in file manager").clicked() {
-                                    if k.path.exists() {
-                                        if let Err(e) = opener::reveal(&k.path) {
+                            {
+                                if let pot::PresetKind::FileBased(k) = &data.preset.kind {
+                                    if ui.button("Reveal preset in file manager").clicked() {
+                                        if k.path.exists() {
+                                            if let Err(e) = opener::reveal(&k.path) {
+                                                process_error(&e, input.toasts);
+                                            }
+                                        } else {
+                                            show_error_toast(
+                                                "Preset file doesn't exist",
+                                                input.toasts,
+                                            );
+                                        }
+                                        ui.close_menu();
+                                    }
+                                }
+                                if let Some(preview_file) = &data.preview_file {
+                                    if ui.button("Reveal preview in file manager").clicked() {
+                                        if let Err(e) = opener::reveal(preview_file) {
                                             process_error(&e, input.toasts);
                                         }
-                                    } else {
-                                        show_error_toast("Preset file doesn't exist", input.toasts);
+                                        ui.close_menu();
                                     }
-                                    ui.close_menu();
                                 }
                             }
                         });
@@ -2366,10 +2379,11 @@ impl PresetCache {
                 let pot_db = pot_db();
                 let preset = pot_db.try_find_preset_by_id(preset_id)?;
                 let preset_data = preset.map(|p| {
-                    let has_preview = find_preview_file(&p, &reaper_resource_dir).is_some();
+                    let preview_file =
+                        find_preview_file(&p, &reaper_resource_dir).map(|p| p.into_owned());
                     PresetData {
                         preset: p,
-                        has_preview,
+                        preview_file,
                     }
                 });
                 let message = PresetCacheMessage {
