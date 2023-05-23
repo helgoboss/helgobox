@@ -6,9 +6,9 @@ use base::{
 use crate::domain::{
     AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
-    NormalRealTimeTask, QualifiedClipMatrixEvent, RealearnClipMatrix, RealearnSourceState,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstanceState,
-    WeakInstanceState,
+    NormalRealTimeTask, ProcessorContext, QualifiedClipMatrixEvent, RealearnClipMatrix,
+    RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua,
+    SharedInstanceState, WeakInstanceState,
 };
 use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
@@ -16,7 +16,7 @@ use pot::{PotFavorites, PotFilterExcludes};
 use once_cell::sync::Lazy;
 use playtime_clip_engine::rt::WeakMatrix;
 use realearn_api::persistence::TargetTouchCause;
-use reaper_high::{Reaper, Track};
+use reaper_high::Reaper;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -243,19 +243,19 @@ impl BackboneState {
     pub fn create_instance(
         &self,
         id: InstanceId,
+        processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
         clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
         audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
         real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-        this_track: Option<Track>,
     ) -> SharedInstanceState {
         let instance_state = InstanceState::new(
             id,
+            processor_context,
             instance_feedback_event_sender,
             clip_matrix_event_sender,
             audio_hook_task_sender,
             real_time_processor_sender,
-            this_track,
         );
         let shared_instance_state = Rc::new(RefCell::new(instance_state));
         self.instance_states

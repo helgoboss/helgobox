@@ -416,11 +416,11 @@ impl RealearnPlugin {
                     SenderToNormalThread::new_unbounded_channel("instance state change events");
                 let instance_state = BackboneState::get().create_instance(
                     instance_id,
+                    processor_context.clone(),
                     instance_feedback_event_sender,
                     App::get().clip_matrix_event_sender().clone(),
                     App::get().normal_audio_hook_task_sender().clone(),
                     normal_real_time_task_sender.clone(),
-                    processor_context.track().cloned(),
                 );
                 // Session (application - shared)
                 let session = Session::new(

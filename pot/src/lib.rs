@@ -139,6 +139,10 @@ pub trait PotIntegration {
     fn notify_preset_changed(&self, id: Option<PresetId>);
     fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter);
     fn notify_indexes_rebuilt(&self);
+    /// Returns an FX instance which must not be removed (e.g. in the process of loading a preset).
+    ///
+    /// This should be the FX holding the ReaLearn instance which controls the pot.
+    fn protected_fx(&self) -> &Fx;
 }
 
 #[derive(derivative::Derivative)]
@@ -513,6 +517,10 @@ impl RuntimePotUnit {
         self.preview_volume
     }
 
+    pub fn protected_fx(&self) -> &Fx {
+        self.integration.protected_fx()
+    }
+
     pub fn set_preview_volume(&mut self, volume: ReaperVolumeValue) {
         self.preview_volume = volume;
         self.sound_player
@@ -653,17 +661,59 @@ impl RuntimePotUnit {
                         is_shim_preset: false,
                     });
                 }
-                let outcome = load_file_based_preset(
-                    self,
+                let protected_fx = self.protected_fx().clone();
+                let outcome = self.load_file_based_preset(
                     &shim_file_path,
                     build_destination,
                     options,
                     true,
+                    &protected_fx,
                 )?;
                 Ok(self.process_preset_load_outcome(preset, outcome))
             }
             e => e,
         }
+    }
+
+    fn load_file_based_preset(
+        &mut self,
+        preset_file: &Path,
+        build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
+        options: LoadPresetOptions,
+        is_shim_preset: bool,
+        protected_fx: &Fx,
+    ) -> Result<LoadPresetOutcome, LoadPresetError> {
+        let ext = preset_file.extension().and_then(|e| e.to_str()).ok_or(
+            LoadPresetError::UnsupportedPresetFormat {
+                file_extension: "".to_string(),
+                is_shim_preset,
+            },
+        )?;
+        let outcome = match ext.to_lowercase().as_str() {
+            _ if is_audio_file_extension(ext) => {
+                let dest = build_destination(self)?;
+                load_audio_preset(preset_file, &dest, options, protected_fx)?
+            }
+            "nksf" | "nksfx" => {
+                let dest = build_destination(self)?;
+                load_nks_preset(preset_file, &dest, options, protected_fx)?
+            }
+            "rfxchain" => {
+                let dest = build_destination(self)?;
+                load_rfx_chain_preset_using_chunks(preset_file, &dest, options, protected_fx)?
+            }
+            "rtracktemplate" => {
+                let dest = build_destination(self)?;
+                load_track_template_preset(preset_file, &dest, options, protected_fx)?
+            }
+            x => {
+                return Err(LoadPresetError::UnsupportedPresetFormat {
+                    file_extension: x.to_string(),
+                    is_shim_preset,
+                });
+            }
+        };
+        Ok(outcome)
     }
 
     /// Doesn't try to load a shim preset yet.
@@ -673,21 +723,27 @@ impl RuntimePotUnit {
         options: LoadPresetOptions,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, LoadPresetError> {
+        let protected_fx = self.protected_fx().clone();
         let outcome = match &preset.kind {
-            PresetKind::FileBased(k) => {
-                load_file_based_preset(self, &k.path, build_destination, options, false)?
-            }
+            PresetKind::FileBased(k) => self.load_file_based_preset(
+                &k.path,
+                build_destination,
+                options,
+                false,
+                &protected_fx,
+            )?,
             PresetKind::ProjectBased(k) => load_project_based_rfx_chain_preset(
                 self,
                 build_destination,
                 &k.path_to_rpp,
                 k.fx_chain_range.clone(),
                 options,
+                &protected_fx,
             )?,
             PresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
                     let dest = build_destination(self)?;
-                    load_internal_preset(plugin_id, preset.name(), &dest, options)
+                    load_internal_preset(plugin_id, preset.name(), &dest, options, &protected_fx)
                         .map_err(LoadPresetError::Other)?
                 } else {
                     return Err(LoadPresetError::Other(
@@ -697,7 +753,7 @@ impl RuntimePotUnit {
             }
             PresetKind::DefaultFactory(plugin_id) => {
                 let dest = build_destination(self)?;
-                load_default_factory_preset(*plugin_id, &dest, options)
+                load_default_factory_preset(*plugin_id, &dest, options, &protected_fx)
                     .map_err(LoadPresetError::Other)?
             }
         };
@@ -1208,17 +1264,24 @@ fn load_nks_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let nks_file = NksFile::load(path)?;
     let mut nks_content = nks_file.content()?;
-    load_preset_single_fx(nks_content.plugin_id, destination, options, |fx| {
-        fx.set_vst_chunk(nks_content.vst_chunk)?;
-        resolve_macro_param_ids(&mut nks_content.macro_param_banks, fx);
-        let outcome = InternalLoadPresetOutcome {
-            banks: nks_content.macro_param_banks,
-        };
-        Ok(outcome)
-    })
+    load_preset_single_fx(
+        nks_content.plugin_id,
+        destination,
+        options,
+        protected_fx,
+        |fx| {
+            fx.set_vst_chunk(nks_content.vst_chunk)?;
+            resolve_macro_param_ids(&mut nks_content.macro_param_banks, fx);
+            let outcome = InternalLoadPresetOutcome {
+                banks: nks_content.macro_param_banks,
+            };
+            Ok(outcome)
+        },
+    )
 }
 
 fn resolve_macro_param_ids(banks: &mut [MacroParamBank], fx: &Fx) {
@@ -1255,8 +1318,9 @@ fn load_rfx_chain_preset_using_add_fx(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, true, || {
+    load_preset_multi_fx(destination, options, true, protected_fx, || {
         let root_dir = Reaper::get().resource_path().join("FXChains");
         let relative_path = path.strip_prefix(&root_dir)?;
         let relative_path = relative_path.to_string_lossy().to_string();
@@ -1281,18 +1345,20 @@ fn load_rfx_chain_preset_using_chunks(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let rppxml =
         fs::read_to_string(path).map_err(|_| "couldn't read FX chain template as string")?;
-    load_rfx_chain_preset_using_chunks_from_string(&rppxml, destination, options)
+    load_rfx_chain_preset_using_chunks_from_string(&rppxml, destination, options, protected_fx)
 }
 
 fn load_rfx_chain_preset_using_chunks_from_string(
     rppxml: &str,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, false, || {
+    load_preset_multi_fx(destination, options, false, protected_fx, || {
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
         let rppxml: String = rppxml.lines().map(|l| l.trim()).join("\n");
         let fx_chain_content_chunk = Chunk::new(rppxml);
@@ -1312,20 +1378,27 @@ fn load_project_based_rfx_chain_preset(
     path_to_rpp: &Path,
     fx_chain_range: Range<usize>,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let project_rppxml =
         fs::read_to_string(path_to_rpp).map_err(|_| "couldn't read project as string")?;
     let fx_chain_rppxml = &project_rppxml[fx_chain_range];
     let destination = &build_destination(pot_unit)?;
-    load_rfx_chain_preset_using_chunks_from_string(fx_chain_rppxml, destination, options)
+    load_rfx_chain_preset_using_chunks_from_string(
+        fx_chain_rppxml,
+        destination,
+        options,
+        protected_fx,
+    )
 }
 
 fn load_track_template_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, false, || {
+    load_preset_multi_fx(destination, options, false, protected_fx, || {
         let rppxml =
             fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
@@ -1349,8 +1422,9 @@ fn load_internal_preset(
     preset_name: &str,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_single_fx(plugin_id, destination, options, |fx| {
+    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
         fx.activate_preset_by_name(preset_name)?;
         Ok(Default::default())
     })
@@ -1360,8 +1434,9 @@ fn load_default_factory_preset(
     plugin_id: PluginId,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_single_fx(plugin_id, destination, options, |fx| {
+    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
         fx.activate_preset(FxPresetRef::FactoryPreset)?;
         Ok(Default::default())
     })
@@ -1371,12 +1446,13 @@ fn load_audio_preset(
     path: &Path,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     const RS5K_VST_ID: i32 = 1920167789;
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
     };
-    load_preset_single_fx(plugin_id, destination, options, |fx| {
+    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
         // First try it the modern way ...
         if load_media_in_specific_rs5k_modern(fx, path).is_err() {
             // ... and if this didn't work, try it the old-school way.
@@ -1424,6 +1500,7 @@ fn load_preset_single_fx(
     plugin_id: PluginId,
     destination: &Destination,
     options: LoadPresetOptions,
+    protected_fx: &Fx,
     f: impl FnOnce(&Fx) -> Result<InternalLoadPresetOutcome, Box<dyn Error>>,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let existing_fx = destination.resolve();
@@ -1431,7 +1508,7 @@ fn load_preset_single_fx(
         .as_ref()
         .map(|fx| fx.window_is_open())
         .unwrap_or(false);
-    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
+    let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx, protected_fx)?;
     let outcome = f(&output.fx)?;
     options
         .window_behavior
@@ -1452,6 +1529,7 @@ fn load_preset_multi_fx(
     destination: &Destination,
     options: LoadPresetOptions,
     remove_existing_fx_manually: bool,
+    protected_fx: &Fx,
     f: impl FnOnce() -> Result<Fx, Box<dyn Error>>,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let mut fx_was_open_before = false;
@@ -1463,6 +1541,9 @@ fn load_preset_multi_fx(
     {
         if fx.window_is_open() {
             fx_was_open_before = true;
+        }
+        if &fx == protected_fx {
+            return Err(CANT_REMOVE_PROTECTED_FX.into());
         }
         if remove_existing_fx_manually {
             destination.chain.remove_fx(&fx)?;
@@ -1499,6 +1580,7 @@ fn ensure_fx_has_correct_type(
     plugin_id: PluginId,
     destination: &Destination,
     existing_fx: Option<Fx>,
+    protected_fx: &Fx,
 ) -> Result<FxEnsureOutput, Box<dyn Error>> {
     let output = match existing_fx {
         None => {
@@ -1511,12 +1593,16 @@ fn ensure_fx_has_correct_type(
         Some(fx) => {
             let fx_info = fx.info()?;
             if fx_info.id == plugin_id.content_formatted_for_reaper() {
+                // This is the right plug-in type. Leave as is.
                 FxEnsureOutput {
                     fx,
                     op: FxEnsureOp::Same,
                 }
             } else {
                 // We don't have the right plug-in type. Remove FX and insert correct one.
+                if &fx == protected_fx {
+                    return Err(CANT_REMOVE_PROTECTED_FX.into());
+                }
                 destination.chain.remove_fx(&fx)?;
                 let fx = insert_fx_by_plugin_id(plugin_id, destination)?;
                 FxEnsureOutput {
@@ -1670,46 +1756,6 @@ impl From<Box<dyn Error>> for LoadPresetError {
 
 impl Error for LoadPresetError {}
 
-fn load_file_based_preset(
-    pot_unit: &mut RuntimePotUnit,
-    preset_file: &Path,
-    build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
-    options: LoadPresetOptions,
-    is_shim_preset: bool,
-) -> Result<LoadPresetOutcome, LoadPresetError> {
-    let ext = preset_file.extension().and_then(|e| e.to_str()).ok_or(
-        LoadPresetError::UnsupportedPresetFormat {
-            file_extension: "".to_string(),
-            is_shim_preset,
-        },
-    )?;
-    let outcome = match ext.to_lowercase().as_str() {
-        _ if is_audio_file_extension(ext) => {
-            let dest = build_destination(pot_unit)?;
-            load_audio_preset(preset_file, &dest, options)?
-        }
-        "nksf" | "nksfx" => {
-            let dest = build_destination(pot_unit)?;
-            load_nks_preset(preset_file, &dest, options)?
-        }
-        "rfxchain" => {
-            let dest = build_destination(pot_unit)?;
-            load_rfx_chain_preset_using_chunks(preset_file, &dest, options)?
-        }
-        "rtracktemplate" => {
-            let dest = build_destination(pot_unit)?;
-            load_track_template_preset(preset_file, &dest, options)?
-        }
-        x => {
-            return Err(LoadPresetError::UnsupportedPresetFormat {
-                file_extension: x.to_string(),
-                is_shim_preset,
-            });
-        }
-    };
-    Ok(outcome)
-}
-
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Debounce {
     No,
@@ -1778,3 +1824,5 @@ pub fn create_plugin_factory_preset(
         kind: PresetKind::DefaultFactory(plugin.core.id),
     }
 }
+
+const CANT_REMOVE_PROTECTED_FX: &str = "Can't replace ReaLearn itself. Either set \"Load into\" correctly or put ReaLearn on the monitoring FX chain!";

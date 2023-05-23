@@ -4,15 +4,15 @@ use std::rc::{Rc, Weak};
 use std::sync::RwLock;
 
 use enum_map::EnumMap;
-use reaper_high::{Fx, Track};
+use reaper_high::Fx;
 use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
     AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
     GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
-    MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, Tag,
-    TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
+    MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, ProcessorContext,
+    QualifiedMappingId, Tag, TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::{
@@ -41,6 +41,7 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 #[derive(Debug)]
 pub struct InstanceState {
     instance_id: InstanceId,
+    processor_context: ProcessorContext,
     /// Owned clip matrix or reference to a clip matrix owned by another instance.
     ///
     /// Persistent.
@@ -49,7 +50,6 @@ pub struct InstanceState {
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-    this_track: Option<Track>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
@@ -206,20 +206,20 @@ pub struct MappingInfo {
 impl InstanceState {
     pub(super) fn new(
         instance_id: InstanceId,
+        processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
         clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
         audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
         real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-        this_track: Option<Track>,
     ) -> Self {
         Self {
             instance_id,
+            processor_context,
             clip_matrix_ref: None,
             instance_feedback_event_sender,
             clip_matrix_event_sender,
             audio_hook_task_sender,
             real_time_processor_sender,
-            this_track,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
@@ -287,7 +287,10 @@ impl InstanceState {
     ///
     /// Returns an error if the necessary pot database is not available.
     pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
-        let integration = RealearnPotIntegration::new(self.instance_feedback_event_sender.clone());
+        let integration = RealearnPotIntegration::new(
+            self.processor_context.containing_fx().clone(),
+            self.instance_feedback_event_sender.clone(),
+        );
         self.pot_unit.loaded(Box::new(integration))
     }
 
@@ -434,7 +437,7 @@ impl InstanceState {
             self.real_time_processor_sender.clone(),
             self.clip_matrix_event_sender.clone(),
         );
-        Matrix::new(clip_matrix_handler, self.this_track.clone())
+        Matrix::new(clip_matrix_handler, self.processor_context.track().cloned())
     }
 
     pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
@@ -733,12 +736,16 @@ pub enum ClipMatrixRelevance<'a> {
 }
 
 struct RealearnPotIntegration {
+    containing_fx: Fx,
     sender: SenderToNormalThread<InstanceStateChanged>,
 }
 
 impl RealearnPotIntegration {
-    fn new(sender: SenderToNormalThread<InstanceStateChanged>) -> Self {
-        Self { sender }
+    fn new(containing_fx: Fx, sender: SenderToNormalThread<InstanceStateChanged>) -> Self {
+        Self {
+            containing_fx,
+            sender,
+        }
     }
 }
 
@@ -780,5 +787,9 @@ impl PotIntegration for RealearnPotIntegration {
             .send_complaining(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::IndexesRebuilt,
             ));
+    }
+
+    fn protected_fx(&self) -> &Fx {
+        &self.containing_fx
     }
 }
