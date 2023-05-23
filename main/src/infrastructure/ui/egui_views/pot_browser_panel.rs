@@ -46,6 +46,7 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
+use strum::IntoEnumIterator;
 use swell_ui::Window;
 
 #[derive(Debug)]
@@ -1800,6 +1801,18 @@ struct RightOptionsDropdownInput<'a> {
 
 fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
     ui.menu_button(RichText::new("Options").size(TOOLBAR_HEIGHT), |ui| {
+        // FX window behavior
+        ui.menu_button("FX window behavior", |ui| {
+            for behavior in LoadPresetWindowBehavior::iter() {
+                ui.selectable_value(
+                    input.load_preset_window_behavior,
+                    behavior,
+                    behavior.as_ref(),
+                );
+            }
+        })
+        .response
+        .on_hover_text("Under which conditions to show the FX window when loading a preset");
         // Wildcards
         let old_wildcard_setting = input.pot_unit.runtime_state.use_wildcard_search;
         ui.checkbox(
@@ -1842,19 +1855,6 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
                 input.pot_unit.set_preview_volume(new_volume);
             }
         });
-        // Always show newly added FX
-        let mut show_if_newly_added = *input.load_preset_window_behavior
-            == LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded;
-        ui.checkbox(&mut show_if_newly_added, "Show newly added FX")
-            .on_hover_text(
-                "When enabled, Pot Browser will always open the FX window when adding a \
-            new FX.",
-            );
-        *input.load_preset_window_behavior = if show_if_newly_added {
-            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded
-        } else {
-            LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown
-        };
         // Name track after preset
         ui.checkbox(
             &mut input.pot_unit.name_track_after_preset,

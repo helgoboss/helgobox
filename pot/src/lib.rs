@@ -22,7 +22,7 @@ use std::ffi::CString;
 use std::fs;
 use std::ops::Range;
 
-use chrono::{DateTime, NaiveDateTime};
+use chrono::NaiveDateTime;
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
@@ -1557,12 +1557,16 @@ pub struct LoadPresetOptions {
     pub window_behavior: LoadPresetWindowBehavior,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, strum::EnumIter, strum::AsRefStr)]
 pub enum LoadPresetWindowBehavior {
-    NeverShow,
     #[default]
+    #[strum(serialize = "Never show")]
+    NeverShow,
+    #[strum(serialize = "Show only if previously shown")]
     ShowOnlyIfPreviouslyShown,
+    #[strum(serialize = "Show only if previously shown or newly added")]
     ShowOnlyIfPreviouslyShownOrNewlyAdded,
+    #[strum(serialize = "Always show")]
     AlwaysShow,
 }
 
