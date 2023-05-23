@@ -80,7 +80,8 @@ impl Database for IniDatabase {
     }
 
     fn description(&self) -> Cow<str> {
-        "All FX presets that you saved via \"Save preset...\" in REAPER's FX window".into()
+        "All FX presets that you saved via \"Save preset...\" in REAPER's FX window.\n\".vstpreset\"-style presets are not yet supported!"
+            .into()
     }
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
