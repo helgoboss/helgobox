@@ -1930,6 +1930,17 @@ fn add_filter_panels(
         true,
         last_filters.get(PotFilterKind::Database),
     );
+    // Product type
+    ui.separator();
+    ui.label(RichText::new("Product type").heading().size(heading_height));
+    add_filter_view_content(
+        shared_unit,
+        pot_unit,
+        PotFilterKind::ProductKind,
+        ui,
+        false,
+        None,
+    );
     // Add dependent filter views
     ui.separator();
     let show_projects = pot_unit.supports_filter_kind(PotFilterKind::Project);
