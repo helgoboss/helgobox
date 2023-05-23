@@ -34,7 +34,7 @@ riff-io = "0.1.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 rmp-serde = "1.1.1"
 serde_json.workspace = true
-dirs = "4.0.0"
+dirs.workspace = true
 futures.workspace = true
 derivative.workspace = true
 tempfile.workspace = true

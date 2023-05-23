@@ -76,6 +76,7 @@ semver = { version = "0.9.0", features = ["serde"] }
 enumset = "1.0.12"
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
 chrono = "0.4.11"
+dirs = "5.0.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

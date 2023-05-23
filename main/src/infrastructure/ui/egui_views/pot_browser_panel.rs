@@ -44,7 +44,7 @@ use std::error::Error;
 use std::fs::File;
 use std::mem;
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use strum::IntoEnumIterator;
@@ -117,7 +117,7 @@ enum Dialog {
         msg: Cow<'static, str>,
     },
     AddProjectDatabase {
-        folder: PathBuf,
+        folder: String,
         name: String,
     },
     PresetCrawlerIntro,
@@ -187,8 +187,8 @@ impl Dialog {
         }
     }
 
-    fn add_project_database(folder: PathBuf) -> Self {
-        let suggested_name = folder
+    fn add_project_database(folder: String) -> Self {
+        let suggested_name = Path::new(&folder)
             .file_name()
             .and_then(|n| Some(n.to_str()?.to_string()))
             .unwrap_or_default();
@@ -767,25 +767,26 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             show_dialog(
                 ctx,
                 "Add project database",
-                &mut (input.change_dialog, name),
-                |ui, (_, name)| {
+                &mut (input.change_dialog, name, folder),
+                |ui, (_, name, folder)| {
                     ui.horizontal(|ui| {
-                        ui.strong("Folder:");
-                        ui.label(folder.to_string_lossy());
+                        ui.strong("Folder:")
+                            .on_hover_text("Choosing a folder with lots of subdirectories can lead to very long refresh times!");
+                        ui.text_edit_singleline(*folder);
                     });
                     ui.horizontal(|ui| {
                         ui.strong("Name:");
                         ui.text_edit_singleline(*name);
                     });
                 },
-                |ui, (change_dialog, name)| {
+                |ui, (change_dialog, name, folder)| {
                     if ui.button("Cancel").clicked() {
                         **change_dialog = Some(None);
                     };
                     if ui.button("Add").clicked() {
                         let config = ProjectDbConfig {
                             persistent_id: PersistentDatabaseId::random(),
-                            root_dir: folder.clone(),
+                            root_dir: Path::new(*folder).to_path_buf(),
                             name: name.clone(),
                         };
                         match ProjectDatabase::open(config) {
@@ -1927,8 +1928,25 @@ fn add_filter_panels(
         ui.menu_button("➕", |ui| {
             if ui.button("Project database...").clicked() {
                 ui.close_menu();
-                if let Some(folder) = rfd::FileDialog::new().pick_folder() {
-                    *dialog = Some(Dialog::add_project_database(folder));
+                let folder = {
+                    // On macOS, the blocking file dialog works nicely.
+                    #[cfg(target_os = "macos")]
+                    {
+                        rfd::FileDialog::new().pick_folder()
+                    }
+                    // On Windows, we run into the borrow_mut error because of RefCells combined
+                    // with reentrancy in baseview. Tried async dialog as well with main thread
+                    // dispatcher but that closes Pot Browser after choosing file. So we fall back to
+                    // manual entry of project path.
+                    #[cfg(target_os = "windows")]
+                    {
+                        Some(dirs::document_dir().unwrap_or_else(|| Reaper::get().resource_path()))
+                    }
+                };
+                if let Some(folder) = folder {
+                    if let Some(folder_str) = folder.to_str() {
+                        *dialog = Some(Dialog::add_project_database(folder_str.to_string()));
+                    }
                 }
             }
         });
