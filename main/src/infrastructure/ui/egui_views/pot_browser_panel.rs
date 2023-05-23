@@ -104,6 +104,7 @@ pub struct MainState {
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
+    has_shown_legacy_vst3_scan_warning: bool,
 }
 
 type CustomPotWorkerDispatcher = PotWorkerDispatcher<MainState>;
@@ -376,6 +377,12 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
         .anchor(ctx.screen_rect().max - vec2(toast_margin, toast_margin))
         .direction(egui::Direction::RightToLeft)
         .align_to_end(true);
+    // Warning dialog
+    if !state.main_state.has_shown_legacy_vst3_scan_warning && pot_db().detected_legacy_vst3_scan()
+    {
+        state.main_state.has_shown_legacy_vst3_scan_warning = true;
+        state.main_state.dialog = Some(Dialog::general_error("Warning", LEGACY_VST3_SCAN_WARNING));
+    }
     // Process dialogs
     let mut change_dialog = None;
     if let Some(dialog) = state.main_state.dialog.as_mut() {
@@ -2420,6 +2427,7 @@ impl MainState {
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
             mouse: Default::default(),
+            has_shown_legacy_vst3_scan_warning: false,
         }
     }
 }
@@ -3180,6 +3188,20 @@ const PRESET_CRAWLER_DESTINATION_FILE_EXISTS: &str = r#"
 
 Preset Crawler detected that the destination file of the last-crawled preset already exists. You have chosen to stop crawling in that case, so here we are. 
 
+"#;
+
+const LEGACY_VST3_SCAN_WARNING: &str = r#"
+## Attention
+
+Pot Browser has detected that some of your VST3 plug-ins were scanned by a very old version of REAPER. The scan misses parts of information that are important for Pot Browser to work correctly. Therefore, Pot Browser will ignore those plug-ins for now!
+
+## What can I do?
+
+**In order to fix the issue, let REAPER do a full re-scan of your VST plug-ins!**
+
+Options ➡ Preferences ➡ Plug-ins ➡ VST ➡ Re-scan... ➡ Clear cache and re-scan VST paths for all plug-ins
+
+After this, press 🔃 in Pot Browser. Next time you start Pot Browser, this warning should not show up anymore. 
 "#;
 
 const UNSUPPORTED_PRESET_FORMAT_TEXT: &str = r#"

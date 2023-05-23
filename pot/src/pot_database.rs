@@ -27,7 +27,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Deref;
 
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
 
@@ -63,6 +63,7 @@ pub struct PotDatabase {
     plugin_db: RwLock<PluginDatabase>,
     databases: RwLock<Databases>,
     revision: AtomicU8,
+    detected_legacy_vst3_scan: AtomicBool,
 }
 
 type Databases = BTreeMap<DatabaseId, RwLock<BoxedDatabase>>;
@@ -126,6 +127,7 @@ impl PotDatabase {
             plugin_db: Default::default(),
             databases: RwLock::new(databases),
             revision: Default::default(),
+            detected_legacy_vst3_scan: Default::default(),
         }
     }
 
@@ -137,7 +139,12 @@ impl PotDatabase {
     pub fn refresh(&self) {
         // Build provider context
         let resource_path = Reaper::get().resource_path();
+        // Crawl plug-ins
         let plugin_db = PluginDatabase::crawl(&resource_path);
+        // In order to be able to query the legacy-vst3-scan result without having to lock the
+        // plug-in DB (which could lead to unresponsive UI), we save it as atomic bool right here.
+        self.detected_legacy_vst3_scan
+            .store(plugin_db.detected_legacy_vst3_scan(), Ordering::Relaxed);
         let provider_context = ProviderContext::new(&plugin_db);
         // Refresh databases
         for db in self.read_lock_databases().values() {
@@ -148,6 +155,10 @@ impl PotDatabase {
         *blocking_write_lock(&self.plugin_db, "pot db refresh plugin db") = plugin_db;
         // Increment revision
         self.revision.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn detected_legacy_vst3_scan(&self) -> bool {
+        self.detected_legacy_vst3_scan.load(Ordering::Relaxed)
     }
 
     fn read_lock_databases(&self) -> RwLockReadGuard<Databases> {

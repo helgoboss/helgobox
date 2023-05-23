@@ -14,6 +14,7 @@ use walkdir::WalkDir;
 pub struct PluginDatabase {
     plugins: HashMap<PluginId, Plugin>,
     products: Vec<Product>,
+    detected_legacy_vst3_scan: bool,
 }
 
 /// Responsible for grouping similar plug-ins into products.
@@ -72,8 +73,12 @@ impl ProductAccumulator {
 impl PluginDatabase {
     pub fn crawl(reaper_resource_dir: &Path) -> Self {
         let mut product_accumulator = ProductAccumulator::default();
-        let shared_library_plugins =
-            crawl_shared_library_plugins(&mut product_accumulator, reaper_resource_dir);
+        let mut detected_legacy_vst3_scan = false;
+        let shared_library_plugins = crawl_shared_library_plugins(
+            &mut product_accumulator,
+            reaper_resource_dir,
+            &mut detected_legacy_vst3_scan,
+        );
         let js_root_dir = reaper_resource_dir.join("Effects");
         let js_plugins = crawl_js_plugins(&mut product_accumulator, &js_root_dir);
         let plugin_map = shared_library_plugins
@@ -84,7 +89,12 @@ impl PluginDatabase {
         Self {
             plugins: plugin_map,
             products: product_accumulator.into_products(),
+            detected_legacy_vst3_scan,
         }
+    }
+
+    pub fn detected_legacy_vst3_scan(&self) -> bool {
+        self.detected_legacy_vst3_scan
     }
 
     pub fn plugins(&self) -> impl Iterator<Item = &Plugin> {
@@ -285,6 +295,7 @@ fn crawl_js_plugins(
 fn crawl_shared_library_plugins(
     product_accumulator: &mut ProductAccumulator,
     reaper_resource_dir: &Path,
+    detected_legacy_vst3_scan: &mut bool,
 ) -> Vec<Plugin> {
     WalkDir::new(reaper_resource_dir)
         .max_depth(1)
@@ -296,6 +307,9 @@ fn crawl_shared_library_plugins(
                 return None;
             }
             let file_name = entry.file_name().to_str()?;
+            if !file_name.ends_with(".ini") {
+                return None;
+            }
             enum PlugType {
                 Vst,
                 Clap,
@@ -309,7 +323,11 @@ fn crawl_shared_library_plugins(
             };
             let ini = Ini::load_from_file(entry.path()).ok()?;
             let plugins = match plug_type {
-                PlugType::Vst => crawl_vst_plugins_in_ini_file(product_accumulator, ini),
+                PlugType::Vst => crawl_vst_plugins_in_ini_file(
+                    product_accumulator,
+                    ini,
+                    detected_legacy_vst3_scan,
+                ),
                 PlugType::Clap => crawl_clap_plugins_in_ini_file(product_accumulator, ini),
             };
             Some(plugins)
@@ -366,6 +384,7 @@ fn crawl_clap_plugins_in_ini_file(
 fn crawl_vst_plugins_in_ini_file(
     product_accumulator: &mut ProductAccumulator,
     ini: Ini,
+    detected_legacy_vst3_scan: &mut bool,
 ) -> Vec<Plugin> {
     let Some(section) = ini.section(Some("vstcache")) else {
         return vec![];
@@ -386,9 +405,18 @@ fn crawl_vst_plugins_in_ini_file(
             }
             let plugin_name_kind_expression = value_iter.next()?;
             let vst_kind = match plugin_id_expression.split_once('{') {
-                None => VstPluginKind::Vst2 {
-                    magic_number: plugin_id_expression.to_string(),
-                },
+                None => {
+                    if safe_file_name.ends_with(".vst3") {
+                        // We skip VST3 plug-ins that have been scanned with old versions of
+                        // REAPER (and therefore missing a UID) in order to avoid creating wrong
+                        // persistent plug-in IDs).
+                        *detected_legacy_vst3_scan = true;
+                        return None;
+                    }
+                    VstPluginKind::Vst2 {
+                        magic_number: plugin_id_expression.to_string(),
+                    }
+                }
                 Some((left, right)) => VstPluginKind::Vst3 {
                     uid_hash: left.to_string(),
                     uid: right.to_string(),
