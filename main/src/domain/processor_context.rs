@@ -125,7 +125,7 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
         return Err("ReaLearn as take FX is not supported yet");
     } else {
         find_realearn_fx_waiting_for_session(&reaper.monitoring_fx_chain())
-            .ok_or("couldn't find containing FX on monitoring FX chain")?
+            .ok_or("Couldn't find containing FX on monitoring FX chain. It's okay if this occurs during plug-in scanning.")?
     };
     Ok(fx)
 }
