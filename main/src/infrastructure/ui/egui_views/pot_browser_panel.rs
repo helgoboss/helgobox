@@ -1457,7 +1457,11 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         button = button.context_menu(|ui| {
                             // Open in
                             if let Some(preview_file) = &data.preview_file {
-                                if ui.button("Open preview in sampler").clicked() {
+                                if ui
+                                    .button("Pre-play")
+                                    .on_hover_text("Opens the preview file in RS5k sampler in a \"playable\" way")
+                                    .clicked()
+                                {
                                     let preset = Preset {
                                         common: data.preset.common.clone(),
                                         kind: PresetKind::FileBased(FiledBasedPresetKind {
