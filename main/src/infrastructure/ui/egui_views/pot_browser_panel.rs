@@ -1930,7 +1930,7 @@ fn add_filter_panels(
                 ui.close_menu();
                 let folder = {
                     // On macOS, the blocking file dialog works nicely.
-                    #[cfg(target_os = "macos")]
+                    #[cfg(target_family = "unix")]
                     {
                         rfd::FileDialog::new().pick_folder()
                     }
@@ -1938,7 +1938,7 @@ fn add_filter_panels(
                     // with reentrancy in baseview. Tried async dialog as well with main thread
                     // dispatcher but that closes Pot Browser after choosing file. So we fall back to
                     // manual entry of project path.
-                    #[cfg(target_os = "windows")]
+                    #[cfg(target_family = "windows")]
                     {
                         Some(dirs::document_dir().unwrap_or_else(|| Reaper::get().resource_path()))
                     }
