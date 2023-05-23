@@ -134,8 +134,12 @@ impl Database for IniDatabase {
                         SuperPluginKind::Vst(k) => {
                             let unsafe_char_regex = base::regex!(r#"[^a-zA-Z0-9_]"#);
                             let safe_main_plugin_identifier =
-                                unsafe_char_regex.replace(main_plugin_identifier, "_");
+                                unsafe_char_regex.replace_all(main_plugin_identifier, "_");
                             let file_name_prefix = format!("{safe_main_plugin_identifier}.");
+                            tracing::trace!(
+                                "Test VST '{}' should start with INI plug-in file name prefix '{file_name_prefix}'",
+                                k.safe_file_name
+                            );
                             if !k.safe_file_name.starts_with(&file_name_prefix) {
                                 return false;
                             }
