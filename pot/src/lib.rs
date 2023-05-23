@@ -11,8 +11,8 @@ use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
 use reaper_medium::{
-    FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior, ParamId,
-    ReaperNormalizedFxParamValue, ReaperVolumeValue, RecordingInput,
+    reaper_str, FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode,
+    MasterTrackBehavior, ParamId, ReaperNormalizedFxParamValue, ReaperVolumeValue, RecordingInput,
 };
 use std::borrow::Cow;
 use std::cell::{Ref, RefMut};
@@ -1398,12 +1398,15 @@ fn load_audio_preset(
             if let Some(root_pitch) = options.audio_sample_behavior.root_pitch {
                 // Value range -80 to 80, makes 161 discrete values.
                 let normalized_value = (root_pitch + 80).max(0) as f64 / 160.0;
-                ("2", ReaperNormalizedFxParamValue::new(normalized_value))
+                (
+                    reaper_str!("2"),
+                    ReaperNormalizedFxParamValue::new(normalized_value),
+                )
             } else {
-                ("1", ReaperNormalizedFxParamValue::default())
+                (reaper_str!("1"), ReaperNormalizedFxParamValue::default())
             };
         unsafe {
-            let _ = fx.set_named_config_param("MODE", mode.as_ptr() as _);
+            let _ = fx.set_named_config_param("MODE", mode.as_c_str().as_ptr() as _);
         }
         let _ = fx
             .parameter_by_index(5)
@@ -1594,12 +1597,12 @@ pub struct LoadAudioSampleBehavior {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, strum::EnumIter, strum::AsRefStr)]
 pub enum LoadPresetWindowBehavior {
-    #[default]
     #[strum(serialize = "Never show")]
     NeverShow,
     #[strum(serialize = "Show only if previously shown")]
     ShowOnlyIfPreviouslyShown,
     #[strum(serialize = "Show only if previously shown or newly added")]
+    #[default]
     ShowOnlyIfPreviouslyShownOrNewlyAdded,
     #[strum(serialize = "Always show")]
     AlwaysShow,

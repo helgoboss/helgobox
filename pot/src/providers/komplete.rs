@@ -817,7 +817,7 @@ impl PresetDb {
                         modification_date: {
                             let nanos: Option<u64> = row.get(10).ok();
                             nanos.and_then(|n| {
-                                NaiveDateTime::from_timestamp_opt(n as i64 / 1000_000_000, 0)
+                                NaiveDateTime::from_timestamp_opt(n as i64 / 1_000_000_000, 0)
                             })
                         },
                     },
