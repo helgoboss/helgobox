@@ -70,6 +70,7 @@ impl RealearnTarget for LoadPotPresetTarget {
         let fx_index = self.fx.index();
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+            ..Default::default()
         };
         pot_unit
             .load_preset_at(&preset, options, &|_| {

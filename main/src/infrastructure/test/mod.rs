@@ -1316,10 +1316,13 @@ async fn conditional_activation_eel() {
 
 fn load_realearn_preset(realearn: &RealearnTestInstance, json: &str) {
     let preset_c_string = CString::new(json).expect("couldn't convert preset into c string");
-    realearn
-        .fx
-        .set_named_config_param(SET_STATE_PARAM_NAME, &preset_c_string.into_bytes_with_nul())
-        .unwrap();
+    unsafe {
+        let bytes = preset_c_string.into_bytes_with_nul();
+        realearn
+            .fx
+            .set_named_config_param(SET_STATE_PARAM_NAME, bytes.as_ptr() as _)
+            .unwrap();
+    }
 }
 
 async fn send_midi(message: impl ShortMessage) {

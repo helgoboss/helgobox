@@ -91,6 +91,7 @@ pub async fn record_previews(
         // Load preset
         let options = LoadPresetOptions {
             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+            ..Default::default()
         };
         {
             let load_result = blocking_lock_arc(&shared_pot_unit, "record_previews pot unit")

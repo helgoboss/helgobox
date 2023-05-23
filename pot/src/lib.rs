@@ -12,7 +12,7 @@ use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
 use reaper_medium::{
     FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior, ParamId,
-    ReaperVolumeValue, RecordingInput,
+    ReaperNormalizedFxParamValue, ReaperVolumeValue, RecordingInput,
 };
 use std::borrow::Cow;
 use std::cell::{Ref, RefMut};
@@ -1393,6 +1393,26 @@ fn load_audio_preset(
             // Load into RS5k
             load_media_in_last_focused_rs5k(path)?;
         }
+        // Set RS5k options
+        let (mode, pitch_for_start_note) =
+            if let Some(root_pitch) = options.audio_sample_behavior.root_pitch {
+                // Value range -80 to 80, makes 161 discrete values.
+                let normalized_value = (root_pitch + 80).max(0) as f64 / 160.0;
+                ("2", ReaperNormalizedFxParamValue::new(normalized_value))
+            } else {
+                ("1", ReaperNormalizedFxParamValue::default())
+            };
+        unsafe {
+            let _ = fx.set_named_config_param("MODE", mode.as_ptr() as _);
+        }
+        let _ = fx
+            .parameter_by_index(5)
+            .set_reaper_normalized_value(pitch_for_start_note);
+        let obey_note_off_val =
+            ReaperNormalizedFxParamValue::new(options.audio_sample_behavior.obey_note_off.into());
+        let _ = fx
+            .parameter_by_index(11)
+            .set_reaper_normalized_value(obey_note_off_val);
         Ok(Default::default())
     })
 }
@@ -1527,7 +1547,9 @@ fn insert_fx_by_plugin_id(
 fn load_media_in_specific_rs5k_modern(fx: &Fx, path: &Path) -> Result<(), Box<dyn Error>> {
     let path_str = path.to_str().ok_or("path not UTF8-compatible")?;
     let path_c_string = CString::new(path_str)?;
-    fx.set_named_config_param("FILE", path_c_string.as_bytes_with_nul())?;
+    unsafe {
+        fx.set_named_config_param("FILE", path_c_string.as_bytes_with_nul().as_ptr() as _)?;
+    }
     Ok(())
 }
 
@@ -1555,6 +1577,19 @@ impl Destination {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct LoadPresetOptions {
     pub window_behavior: LoadPresetWindowBehavior,
+    pub audio_sample_behavior: LoadAudioSampleBehavior,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+pub struct LoadAudioSampleBehavior {
+    /// If `None`, MIDI notes will be ignored.
+    ///
+    /// If `Some`:
+    /// - Sets RS5k parameter "Mode" (named parameter "MODE") to "Note (Semitone shifted)" (2).
+    /// - Sets RS5k parameter "Pitch for start note" (index 5), which has range -80 to +80.
+    pub root_pitch: Option<i32>,
+    /// Sets RS5k parameter "Obey note-offs" (index 11), which is boolean.
+    pub obey_note_off: bool,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, strum::EnumIter, strum::AsRefStr)]

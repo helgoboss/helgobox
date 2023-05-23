@@ -29,10 +29,11 @@ use pot::preview_recorder::{
 use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
-    CurrentPreset, Debounce, DestinationTrackDescriptor, Filters, LoadPresetError,
-    LoadPresetOptions, LoadPresetWindowBehavior, MacroParam, MainThreadDispatcher,
-    MainThreadSpawner, OptFilter, PersistentDatabaseId, PotFxParamId, PotWorkerDispatcher,
-    PotWorkerSpawner, Preset, PresetWithId, RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+    CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPresetKind, Filters,
+    LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
+    MacroParam, MainThreadDispatcher, MainThreadSpawner, OptFilter, PersistentDatabaseId,
+    PotFxParamId, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind, PresetWithId,
+    RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -1454,6 +1455,34 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         button = button.on_hover_text(data.preset.name());
                         // Context menu
                         button = button.context_menu(|ui| {
+                            // Open in
+                            if let Some(preview_file) = &data.preview_file {
+                                if ui.button("Open preview in sampler").clicked() {
+                                    let preset = Preset {
+                                        common: data.preset.common.clone(),
+                                        kind: PresetKind::FileBased(FiledBasedPresetKind {
+                                            path: preview_file.clone(),
+                                            file_ext: "ogg".to_string(),
+                                        }),
+                                    };
+                                    load_preset_and_regain_focus(
+                                        &preset,
+                                        input.os_window,
+                                        input.pot_unit,
+                                        input.toasts,
+                                        LoadPresetOptions {
+                                            window_behavior: input.load_preset_window_behavior,
+                                            audio_sample_behavior: LoadAudioSampleBehavior {
+                                                // At the moment, previews are always C4.
+                                                root_pitch: Some(-60),
+                                                obey_note_off: true,
+                                            },
+                                        },
+                                        input.dialog,
+                                    );
+                                    ui.close_menu();
+                                }
+                            }
                             // Open plug-in
                             let has_associated_products =
                                 !data.preset.common.product_ids.is_empty();
@@ -1469,7 +1498,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                             ))]
                             {
                                 if let pot::PresetKind::FileBased(k) = &data.preset.kind {
-                                    if ui.button("Reveal preset in file manager").clicked() {
+                                    if ui.button("Show preset in file manager").clicked() {
                                         if k.path.exists() {
                                             if let Err(e) = opener::reveal(&k.path) {
                                                 process_error(&e, input.toasts);
@@ -1484,7 +1513,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                     }
                                 }
                                 if let Some(preview_file) = &data.preview_file {
-                                    if ui.button("Reveal preview in file manager").clicked() {
+                                    if ui.button("Show preview in file manager").clicked() {
                                         if let Err(e) = opener::reveal(preview_file) {
                                             process_error(&e, input.toasts);
                                         }
@@ -1507,7 +1536,10 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 input.os_window,
                                 input.pot_unit,
                                 input.toasts,
-                                input.load_preset_window_behavior,
+                                LoadPresetOptions {
+                                    window_behavior: input.load_preset_window_behavior,
+                                    ..Default::default()
+                                },
                                 input.dialog,
                             );
                         }
@@ -1649,6 +1681,7 @@ fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, u
                         );
                         let options = LoadPresetOptions {
                             window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+                            ..Default::default()
                         };
                         if let Err(e) = input.pot_unit.load_preset(&factory_preset, options) {
                             process_error(&e, input.toasts);
@@ -2179,7 +2212,10 @@ fn execute_key_action(
                     input.os_window,
                     pot_unit,
                     toasts,
-                    input.load_preset_window_behavior,
+                    LoadPresetOptions {
+                        window_behavior: input.load_preset_window_behavior,
+                        ..Default::default()
+                    },
                     input.dialog,
                 );
             }
@@ -2651,10 +2687,9 @@ fn load_preset_and_regain_focus(
     os_window: Window,
     pot_unit: &mut RuntimePotUnit,
     toasts: &mut Toasts,
-    window_behavior: LoadPresetWindowBehavior,
+    options: LoadPresetOptions,
     dialog: &mut Option<Dialog>,
 ) {
-    let options = LoadPresetOptions { window_behavior };
     if let Err(e) = pot_unit.load_preset(preset, options) {
         match e {
             LoadPresetError::UnsupportedPresetFormat {
