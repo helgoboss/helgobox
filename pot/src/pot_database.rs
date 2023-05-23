@@ -122,13 +122,11 @@ impl PotDatabase {
             .enumerate()
             .map(|(i, db)| (DatabaseId(i as _), RwLock::new(db)))
             .collect();
-        let pot_database = Self {
+        Self {
             plugin_db: Default::default(),
             databases: RwLock::new(databases),
             revision: Default::default(),
-        };
-        pot_database.refresh();
-        pot_database
+        }
     }
 
     /// Returns a number that will be increased with each database refresh.

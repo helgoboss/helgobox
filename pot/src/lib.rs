@@ -507,7 +507,7 @@ impl RuntimePotUnit {
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit, "PotUnit from load").rebuild_collections(
             shared_unit.clone(),
-            ChangeHint::Normal,
+            ChangeHint::TotalRefresh,
             Debounce::No,
         );
         Ok(shared_unit)
