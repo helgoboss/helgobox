@@ -188,6 +188,7 @@ impl Database for DirectoryDatabase {
                 },
                 content_hash: Some(preset_entry.content_hash),
                 db_specific_preview_file: None,
+                metadata: Default::default(),
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
                 file_ext: relative_path

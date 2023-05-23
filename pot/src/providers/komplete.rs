@@ -7,7 +7,7 @@ use crate::provider_database::{
 use crate::{
     Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
-    PotFxParamId, Preset, PresetCommon, PresetKind, ProductId, SearchEvaluator,
+    PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetadata, ProductId, SearchEvaluator,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -15,6 +15,7 @@ use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
+use chrono::NaiveDateTime;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
@@ -520,6 +521,7 @@ pub struct NksFile {
 
 #[derive(Debug)]
 pub struct NksFileContent<'a> {
+    pub metadata: NisiChunkContent,
     pub plugin_id: PluginId,
     pub vst_chunk: &'a [u8],
     pub macro_param_banks: Vec<MacroParamBank>,
@@ -541,12 +543,29 @@ impl NksFile {
         let mut plid_chunk = None;
         let mut pchk_chunk = None;
         let mut nica_chunk = None;
+        let mut nisi_chunk = None;
         for entry in entries {
             if let Entry::Chunk(chunk_meta) = entry {
+                // Log chunk contents if trace log level enabled
+                if tracing::enabled!(tracing::Level::TRACE) {
+                    let bytes = self.relevant_bytes_of_chunk(&chunk_meta);
+                    let value: Option<serde_json::Value> = rmp_serde::from_slice(bytes).ok();
+                    if let Some(value) = value {
+                        tracing::trace!(
+                            "# Chunk {}{}{}{}\n{}\n",
+                            chunk_meta.chunk_id[0] as char,
+                            chunk_meta.chunk_id[1] as char,
+                            chunk_meta.chunk_id[2] as char,
+                            chunk_meta.chunk_id[3] as char,
+                            serde_json::to_string_pretty(&value).unwrap_or_default()
+                        );
+                    }
+                }
                 match &chunk_meta.chunk_id {
                     b"PLID" => plid_chunk = Some(chunk_meta),
                     b"NICA" => nica_chunk = Some(chunk_meta),
                     b"PCHK" => pchk_chunk = Some(chunk_meta),
+                    b"NISI" => nisi_chunk = Some(chunk_meta),
                     _ => {}
                 }
             }
@@ -568,6 +587,12 @@ impl NksFile {
         };
         let plugin_kind = plugin_id.kind();
         let content = NksFileContent {
+            metadata: nisi_chunk
+                .and_then(|ch| {
+                    let bytes = self.relevant_bytes_of_chunk(&ch);
+                    rmp_serde::from_slice(bytes).ok()
+                })
+                .unwrap_or_default(),
             plugin_id,
             vst_chunk: self.relevant_bytes_of_chunk(&pchk_chunk),
             macro_param_banks: {
@@ -590,6 +615,25 @@ impl NksFile {
         let range = offset..(offset + size);
         self.file.read_bytes(range)
     }
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct NisiChunkContent {
+    #[serde(rename = "author")]
+    pub author: Option<String>,
+    #[serde(rename = "bankchain")]
+    pub bankchain: Vec<String>,
+    #[serde(rename = "deviceType")]
+    pub device_type: Option<String>,
+    #[serde(rename = "modes")]
+    pub modes: Vec<String>,
+    #[serde(rename = "name")]
+    pub name: Option<String>,
+    #[serde(rename = "types")]
+    pub types: Vec<String>,
+    #[serde(rename = "vendor")]
+    pub vendor: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -728,7 +772,7 @@ impl PresetDb {
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         let sql = format!(
             r#"
-                    SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id
+                    SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id, i.vendor, i.author, i.comment, i.file_size, i.mod_date
                     FROM k_sound_info i 
                         LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
                         LEFT OUTER JOIN ({BANK_SQL_QUERY}) AS parent_bc ON bc.entry1 = parent_bc.entry1
@@ -765,6 +809,18 @@ impl PresetDb {
                     // now. It probably would slow scrolling down quite a bit.
                     content_hash: None,
                     db_specific_preview_file: preview_file,
+                    metadata: PresetMetadata {
+                        author: row.get(6).ok(),
+                        vendor: row.get(7).ok(),
+                        comment: row.get(8).ok(),
+                        file_size_in_bytes: row.get(9)?,
+                        modification_date: {
+                            let nanos: Option<u64> = row.get(10).ok();
+                            nanos.and_then(|n| {
+                                NaiveDateTime::from_timestamp_opt(n as i64 / 1000_000_000, 0)
+                            })
+                        },
+                    },
                 };
                 let kind = FiledBasedPresetKind { path, file_ext };
                 Ok((common, kind))

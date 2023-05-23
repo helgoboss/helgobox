@@ -3727,6 +3727,7 @@ version = "0.1.0"
 dependencies = [
  "assert_no_alloc",
  "base",
+ "chrono",
  "derivative",
  "derive_more",
  "dirs",
@@ -3752,6 +3753,7 @@ dependencies = [
  "rust-ini",
  "sanitize-filename",
  "serde",
+ "serde_json",
  "splitty",
  "strum",
  "tempfile",

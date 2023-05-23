@@ -267,6 +267,7 @@ impl Database for IniDatabase {
                 },
                 content_hash: preset_entry.content_hash,
                 db_specific_preview_file: None,
+                metadata: Default::default(),
             },
             kind: PresetKind::Internal(InternalPresetKind {
                 plugin_id: preset_entry.plugin.as_ref().map(|p| p.id),

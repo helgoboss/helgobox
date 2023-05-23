@@ -238,6 +238,7 @@ impl Database for ProjectDatabase {
                 },
                 content_hash: Some(preset_entry.track_preset.content_hash),
                 db_specific_preview_file: None,
+                metadata: Default::default(),
             },
             kind: PresetKind::ProjectBased(ProjectBasedPresetKind {
                 path_to_rpp: self.root_dir.join(relative_path),

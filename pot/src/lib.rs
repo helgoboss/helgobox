@@ -22,6 +22,7 @@ use std::ffi::CString;
 use std::fs;
 use std::ops::Range;
 
+use chrono::{DateTime, NaiveDateTime};
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
@@ -1072,6 +1073,15 @@ pub struct Preset {
     pub kind: PresetKind,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct PresetMetadata {
+    pub author: Option<String>,
+    pub vendor: Option<String>,
+    pub comment: Option<String>,
+    pub file_size_in_bytes: Option<u64>,
+    pub modification_date: Option<NaiveDateTime>,
+}
+
 impl Preset {
     pub fn new(common: PresetCommon, kind: PresetKind) -> Self {
         Self { common, kind }
@@ -1125,6 +1135,7 @@ pub struct PresetCommon {
     /// path. It's not necessary or encouraged to already check for its existence of this file. This
     /// will be checked by the consumer.
     pub db_specific_preview_file: Option<PathBuf>,
+    pub metadata: PresetMetadata,
 }
 
 impl PresetCommon {
@@ -1203,7 +1214,10 @@ fn load_nks_preset(
     load_preset_single_fx(nks_content.plugin_id, destination, options, |fx| {
         fx.set_vst_chunk(nks_content.vst_chunk)?;
         resolve_macro_param_ids(&mut nks_content.macro_param_banks, fx);
-        Ok(nks_content.macro_param_banks)
+        let outcome = InternalLoadPresetOutcome {
+            banks: nks_content.macro_param_banks,
+        };
+        Ok(outcome)
     })
 }
 
@@ -1338,7 +1352,7 @@ fn load_internal_preset(
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     load_preset_single_fx(plugin_id, destination, options, |fx| {
         fx.activate_preset_by_name(preset_name)?;
-        Ok(vec![])
+        Ok(Default::default())
     })
 }
 
@@ -1349,7 +1363,7 @@ fn load_default_factory_preset(
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     load_preset_single_fx(plugin_id, destination, options, |fx| {
         fx.activate_preset(FxPresetRef::FactoryPreset)?;
-        Ok(vec![])
+        Ok(Default::default())
     })
 }
 
@@ -1379,7 +1393,7 @@ fn load_audio_preset(
             // Load into RS5k
             load_media_in_last_focused_rs5k(path)?;
         }
-        Ok(vec![])
+        Ok(Default::default())
     })
 }
 
@@ -1387,7 +1401,7 @@ fn load_preset_single_fx(
     plugin_id: PluginId,
     destination: &Destination,
     options: LoadPresetOptions,
-    f: impl FnOnce(&Fx) -> Result<Vec<MacroParamBank>, Box<dyn Error>>,
+    f: impl FnOnce(&Fx) -> Result<InternalLoadPresetOutcome, Box<dyn Error>>,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let existing_fx = destination.resolve();
     let fx_was_open_before = existing_fx
@@ -1395,15 +1409,20 @@ fn load_preset_single_fx(
         .map(|fx| fx.window_is_open())
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx)?;
-    let banks = f(&output.fx)?;
+    let outcome = f(&output.fx)?;
     options
         .window_behavior
         .open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
         fx: output.fx,
-        banks,
+        banks: outcome.banks,
     };
     Ok(outcome)
+}
+
+#[derive(Default)]
+struct InternalLoadPresetOutcome {
+    banks: Vec<MacroParamBank>,
 }
 
 fn load_preset_multi_fx(
@@ -1712,6 +1731,7 @@ pub fn create_plugin_factory_preset(
             product_name: Some(plugin.to_string()),
             content_hash: None,
             db_specific_preview_file: None,
+            metadata: Default::default(),
         },
         kind: PresetKind::DefaultFactory(plugin.core.id),
     }

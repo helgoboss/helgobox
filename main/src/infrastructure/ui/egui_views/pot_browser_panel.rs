@@ -6,6 +6,7 @@ use base::{
     blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
 };
 use base::{Mouse, MouseCursorPosition};
+use chrono::{DateTime, Local, Utc};
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
@@ -635,7 +636,40 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                 },
                             );
                         })
-                        .body(|ui| ui.label("..."));
+                        .body(|ui| {
+                            if let Some((_, preset_data)) = current_preset_id_and_data {
+                                let metadata = &preset_data.preset.common.metadata;
+                                ui.horizontal(|ui| {
+                                    ui.strong("Vendor:");
+                                    ui.label(optional_string(metadata.vendor.as_deref()));
+                                    ui.strong("Author:");
+                                    ui.label(optional_string(metadata.author.as_deref()));
+                                    ui.strong("Extension:");
+                                    ui.label(optional_string(preset_data.preset.kind.file_extension()));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.strong("File size:");
+                                    let fmt_size = metadata.file_size_in_bytes.map(|s| bytesize::ByteSize(s).to_string());
+                                    ui.label(optional_string(fmt_size.as_deref()));
+                                    ui.strong("Date modified:");
+                                    let fmt_date = metadata.modification_date.and_then(|s| {
+                                        let utc = s.and_local_timezone(Utc).single()?;
+                                        let local: DateTime<Local> = utc.into();
+                                        Some(local.format("%Y-%m-%d %H:%M:%S").to_string())
+                                    });
+                                    ui.label(optional_string(fmt_date.as_deref()));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.strong("Comment:");
+                                    // This is a fix of invalid usage of line breaks in some preset
+                                    // commons, e.g. in some u-he presets.
+                                    let text = metadata.comment
+                                        .as_ref()
+                                        .map(|c| c.replace("\\n", ""));
+                                    ui.label(optional_string(text.as_deref()));
+                                });
+                            }
+                        });
                     // Destination info
                     ui.separator();
                     ui.horizontal(|ui| {
@@ -3119,3 +3153,11 @@ In both cases, you will not be able to take advantage of the preset parameter ba
 
 const PRESET_CRAWLER_IMPORT_OR_DISCARD: &str =
     r#"You can now choose to import the crawled presets or discard them!"#;
+
+fn optional_string(text: Option<&str>) -> &str {
+    if let Some(t) = text {
+        t
+    } else {
+        "-"
+    }
+}
