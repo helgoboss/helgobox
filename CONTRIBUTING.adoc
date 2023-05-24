@@ -16,6 +16,10 @@ Another noteworthy dependency and byproduct of ReaLearn is https://github.com/he
 provides DAW-agnostic MIDI learn logic (basically the _source_ and _mode_ parts of ReaLearn). Like _reaper-rs_, it's
 designed as independent library and could be used to provide similar MIDI-learn functionality in other DAWs.
 
+== Code statistics
+
+Use https://github.com/XAMPPRocky/tokei[Tokei] or https://github.com/o2sh/onefetch:[Onefetch] to display some interesting statistics about the code, e.g. the lines of code and used languages. The file `.tokeignore` contains code to be ignored when counting the lines of code.
+
 == Architecture
 
 See link:ARCHITECTURE.adoc[here].
@@ -34,6 +38,7 @@ See link:ARCHITECTURE.adoc[here].
 |`/main` |Main crate (`realearn`)
 |`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
 |`/playtime-clip-engine` |Playtime clip engine for playing/recording clips
+|`/pot` |Core logic behind Pot Browser
 |`/rx-util` |Some reactive programming helpers
 |`/swell-ui` |Minimalistic UI framework based on https://www.cockos.com/wdl/[SWELL] (`swell-ui`)
 |`/resources` |REAPER projects for manual testing, controller preset files, etc.
