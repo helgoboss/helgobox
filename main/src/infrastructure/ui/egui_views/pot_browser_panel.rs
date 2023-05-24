@@ -769,9 +769,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 "Add project database",
                 &mut (input.change_dialog, name, folder),
                 |ui, (_, name, folder)| {
+                    ui.strong("Caution:");
+                    ui.label("Choosing a folder with lots of subdirectories can lead to *very* long refresh times!");
+                    ui.separator();
                     ui.horizontal(|ui| {
-                        ui.strong("Folder:")
-                            .on_hover_text("Choosing a folder with lots of subdirectories can lead to very long refresh times!");
+                        ui.strong("Folder:");
                         ui.text_edit_singleline(*folder);
                     });
                     ui.horizontal(|ui| {
