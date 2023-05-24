@@ -757,7 +757,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             title,
             input.change_dialog,
             |ui, _| {
-                add_markdown(ui, msg);
+                add_markdown(ui, msg, DIALOG_CONTENT_MAX_HEIGHT);
             },
             |ui, change_dialog| {
                 if ui.button("Ok").clicked() {
@@ -813,7 +813,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                add_markdown(ui, PRESET_CRAWLER_INTRO_TEXT);
+                add_markdown(ui, PRESET_CRAWLER_INTRO_TEXT, DIALOG_CONTENT_MAX_HEIGHT);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -829,7 +829,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PRESET_CRAWLER_TITLE,
             input.change_dialog,
             |ui, _| {
-                add_markdown(ui, PRESET_CRAWLER_BASICS_TEXT);
+                add_markdown(ui, PRESET_CRAWLER_BASICS_TEXT, DIALOG_CONTENT_MAX_HEIGHT);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -930,7 +930,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 never_stop_crawling,
             ),
             |ui, (_, stop_if_destination_exists, never_stop_crawling)| {
-                add_markdown(ui, PRESET_CRAWLER_READY_TEXT);
+                add_markdown(
+                    ui,
+                    PRESET_CRAWLER_READY_TEXT,
+                    DIALOG_CONTENT_MAX_HEIGHT - 100.0,
+                );
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.strong("Plug-in to be crawled:");
@@ -1112,7 +1116,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                 if *crawled_preset_count == 0 {
                     let markdown =
                         get_preset_crawler_stopped_markdown(stop_reason, *crawled_preset_count);
-                    add_markdown(ui, markdown);
+                    add_markdown(ui, markdown, DIALOG_CONTENT_MAX_HEIGHT - 30.0);
                     ui.heading("Nothing to import!");
                 } else {
                     ui.strong(format!(
@@ -1132,7 +1136,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             input.change_dialog,
             |ui, _| {
-                add_markdown(ui, PREVIEW_RECORDER_INTRO_TEXT);
+                add_markdown(ui, PREVIEW_RECORDER_INTRO_TEXT, DIALOG_CONTENT_MAX_HEIGHT);
             },
             |ui, change_dialog| {
                 if ui.button("Cancel").clicked() {
@@ -1148,7 +1152,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, input.pot_worker_dispatcher),
             |ui, _| {
-                add_markdown(ui, PREVIEW_RECORDER_BASICS_TEXT);
+                add_markdown(ui, PREVIEW_RECORDER_BASICS_TEXT, DIALOG_CONTENT_MAX_HEIGHT);
             },
             |ui, (change_dialog, pot_worker_dispatcher)| {
                 if ui.button("Cancel").clicked() {
@@ -1188,10 +1192,14 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, presets, input.main_thread_dispatcher),
             |ui, (_, presets, _)| {
-                add_markdown(ui, PREVIEW_RECORDER_READY_TEXT);
+                add_markdown(
+                    ui,
+                    PREVIEW_RECORDER_READY_TEXT,
+                    DIALOG_CONTENT_MAX_HEIGHT / 2.0,
+                );
                 ui.separator();
                 ui.label(format!("Ready to record {} presets:", presets.len()));
-                add_item_table(ui, presets);
+                add_item_table(ui, presets, DIALOG_CONTENT_MAX_HEIGHT / 2.0);
             },
             |ui, (change_dialog, presets, main_thread_dispatcher)| {
                 if ui.button("Cancel").clicked() {
@@ -1236,7 +1244,7 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     ui.strong("Presets failed:");
                     ui.label(state.failures.len().to_string());
                 });
-                add_item_table(ui, &state.todos);
+                add_item_table(ui, &state.todos, DIALOG_CONTENT_MAX_HEIGHT - 40.0);
             },
             |_, _| {},
         ),
@@ -1278,7 +1286,7 @@ fn add_crawl_presets_stopped_dialog_contents(
 ) {
     let preset_count = cs.preset_count();
     let markdown = get_preset_crawler_stopped_markdown(&stop_reason, crawled_preset_count);
-    add_markdown(ui, markdown);
+    add_markdown(ui, markdown, DIALOG_CONTENT_MAX_HEIGHT / 2.0 - 40.0);
     ui.separator();
     ui.strong(PRESET_CRAWLER_IMPORT_OR_DISCARD);
     ui.horizontal(|ui| {
@@ -1364,7 +1372,7 @@ fn add_preview_recorder_done_dialog_contents(
     } else {
         PREVIEW_RECORDER_DONE_INCOMPLETE_TEXT
     };
-    add_markdown(ui, markdown);
+    add_markdown(ui, markdown, DIALOG_CONTENT_MAX_HEIGHT / 2.0 - 80.0);
     if !state.failures.is_empty() {
         ui.label("Some previews couldn't be recorded. See the list of failures below.");
     }
@@ -1384,10 +1392,10 @@ fn add_preview_recorder_done_dialog_contents(
     });
     match *page {
         PreviewRecorderDonePage::Todos => {
-            add_item_table(ui, &state.todos);
+            add_item_table(ui, &state.todos, DIALOG_CONTENT_MAX_HEIGHT / 2.0);
         }
         PreviewRecorderDonePage::Failures => {
-            add_item_table(ui, &state.failures);
+            add_item_table(ui, &state.failures, DIALOG_CONTENT_MAX_HEIGHT / 2.0);
         }
     }
 }
@@ -1645,17 +1653,16 @@ impl DisplayItem for PresetWithId {
     }
 }
 
-fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T]) {
+fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T], max_height: f32) {
     let text_height = get_text_height(ui);
     let item_count = items.len();
-    let table_height = DIALOG_CONTENT_MAX_HEIGHT;
     let mut table = TableBuilder::new(ui)
         .striped(true)
         .resizable(false)
         .cell_layout(Layout::left_to_right(Align::Center))
         .min_scrolled_height(0.0)
-        .min_scrolled_height(table_height)
-        .max_scroll_height(table_height);
+        .min_scrolled_height(max_height)
+        .max_scroll_height(max_height);
     for i in 0..T::prop_count() {
         let col = if i == 0 {
             Column::auto()
@@ -2928,7 +2935,7 @@ fn shorten_preset_name(name: &str) -> Cow<str> {
     shorten(name.into(), MAX_PRESET_NAME_LEN)
 }
 
-fn add_markdown(ui: &mut Ui, markdown: &str) {
+fn add_markdown(ui: &mut Ui, markdown: &str, max_height: f32) {
     if markdown.trim().is_empty() {
         return;
     }
@@ -2948,7 +2955,7 @@ fn add_markdown(ui: &mut Ui, markdown: &str) {
     };
     ScrollArea::vertical()
         .id_source("markdown")
-        .max_height(DIALOG_CONTENT_MAX_HEIGHT)
+        .max_height(max_height)
         .show(ui, |ui| {
             for event in parser {
                 match event {
