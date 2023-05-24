@@ -469,16 +469,18 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                 };
                                 add_left_options_dropdown(input, ui);
                                 // Refresh button
-                                if ui
-                                    .button(RichText::new("🔃").size(TOOLBAR_HEIGHT))
-                                    .on_hover_text(
-                                        "Refreshes all databases (e.g. picks up new \
+                                ui.add_enabled_ui(!pot_unit.is_refreshing(), |ui| {
+                                    if ui
+                                        .button(RichText::new("🔃").size(TOOLBAR_HEIGHT))
+                                        .on_hover_text(
+                                            "Refreshes all databases (e.g. picks up new \
                                     files on disk)",
-                                    )
-                                    .clicked()
-                                {
-                                    pot_unit.refresh_pot(state.main_state.pot_unit.clone());
-                                }
+                                        )
+                                        .clicked()
+                                    {
+                                        pot_unit.refresh_pot(state.main_state.pot_unit.clone());
+                                    }
+                                });
                                 // Theme button
                                 if ui
                                     .button(RichText::new("🌙").size(TOOLBAR_HEIGHT))

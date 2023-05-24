@@ -161,9 +161,24 @@ pub struct RuntimePotUnit {
     pub destination_descriptor: DestinationDescriptor,
     pub name_track_after_preset: bool,
     show_excluded_filter_items: bool,
-    background_task_start_time: Option<Instant>,
+    running_background_task: Option<RunningBackgroundTask>,
     #[derivative(Debug = "ignore")]
     integration: BoxedPotIntegration,
+}
+
+#[derive(Debug)]
+struct RunningBackgroundTask {
+    start_time: Instant,
+    change_hint: ChangeHint,
+}
+
+impl RunningBackgroundTask {
+    pub fn new(change_hint: ChangeHint) -> Self {
+        Self {
+            start_time: Instant::now(),
+            change_hint,
+        }
+    }
 }
 
 pub type BoxedPotIntegration = Box<dyn PotIntegration + Send>;
@@ -390,7 +405,7 @@ impl SearchEvaluator {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ChangeHint {
     /// Will refresh databases. Potentially expensive operation!
     TotalRefresh,
@@ -501,7 +516,7 @@ impl RuntimePotUnit {
             destination_descriptor: Default::default(),
             name_track_after_preset: true,
             show_excluded_filter_items: false,
-            background_task_start_time: None,
+            running_background_task: None,
             integration,
         };
         let shared_unit = Arc::new(Mutex::new(unit));
@@ -873,6 +888,11 @@ impl RuntimePotUnit {
         change_hint: ChangeHint,
         debounce: Debounce,
     ) {
+        if self.is_refreshing() {
+            // If we are refreshing, we should let it finish first, otherwise the results will
+            // be wrong.
+            return;
+        }
         let build_input = self.create_build_input();
         self.build_counter += 1;
         let build_number = self.build_counter;
@@ -890,14 +910,15 @@ impl RuntimePotUnit {
                     blocking_lock_arc(&shared_self, "PotUnit from rebuild_collections 1");
                 if pot_unit.build_counter == build_number {
                     // Okay, no new build was requested in the meantime. Start spinner.
-                    pot_unit.background_task_start_time = Some(Instant::now());
+                    pot_unit.running_background_task =
+                        Some(RunningBackgroundTask::new(change_hint));
                 } else {
                     // Oh, another build was requested already. Not worth to continue, the result
                     // will be discarded anyway.
                     return Ok(());
                 }
             }
-            // Refresh if desired
+            // Refresh if desired (very expensive)
             let refresh_start = Instant::now();
             if change_hint == ChangeHint::TotalRefresh {
                 pot_db().refresh();
@@ -920,8 +941,15 @@ impl RuntimePotUnit {
         });
     }
 
+    pub fn is_refreshing(&self) -> bool {
+        self.running_background_task
+            .as_ref()
+            .map(|t| t.change_hint == ChangeHint::TotalRefresh)
+            .unwrap_or(false)
+    }
+
     pub fn background_task_elapsed(&self) -> Option<Duration> {
-        Some(self.background_task_start_time?.elapsed())
+        Some(self.running_background_task.as_ref()?.start_time.elapsed())
     }
 
     fn notify_build_outcome_ready(
@@ -930,7 +958,7 @@ impl RuntimePotUnit {
         affected_kinds: EnumSet<PotFilterKind>,
         refresh_duration: Duration,
     ) {
-        self.background_task_start_time = None;
+        self.running_background_task = None;
         self.supported_filter_kinds = build_output.supported_filter_kinds;
         self.preset_collection = build_output.preset_collection;
         for (kind, collection) in build_output.filter_item_collections.into_iter() {

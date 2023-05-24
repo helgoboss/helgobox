@@ -307,19 +307,14 @@ fn crawl_shared_library_plugins(
                 return None;
             }
             let file_name = entry.file_name().to_str()?;
-            if !file_name.ends_with(".ini") {
-                return None;
-            }
             enum PlugType {
                 Vst,
                 Clap,
             }
-            let plug_type = if file_name.starts_with("reaper-vstplugins") {
-                PlugType::Vst
-            } else if file_name.starts_with("reaper-clap-") {
-                PlugType::Clap
-            } else {
-                return None;
+            let plug_type = match file_name {
+                VST_CACHE_FILE => PlugType::Vst,
+                CLAP_CACHE_FILE => PlugType::Clap,
+                _ => return None,
             };
             let ini = Ini::load_from_file(entry.path()).ok()?;
             let plugins = match plug_type {
@@ -565,6 +560,94 @@ fn maybe_crop_version_number(main_name: &str) -> &str {
         main_name
     }
 }
+
+const VST_CACHE_FILE: &str = {
+    #[cfg(target_os = "windows")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-vstplugins64.ini"
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            "reaper-vstplugins.ini"
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-vstplugins64.ini"
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            "reaper-vstplugins.ini"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-vstplugins_arm64.ini"
+        }
+        #[cfg(target_arch = "arm")]
+        {
+            "reaper-vstplugins.ini"
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-vstplugins64.ini"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-vstplugins_arm64.ini"
+        }
+    }
+};
+
+const CLAP_CACHE_FILE: &str = {
+    #[cfg(target_os = "windows")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-clap-win64"
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            "reaper-clap-win32"
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-clap-linux-x86_64"
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            "reaper-clap-linux-i386"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-clap-linux-aarch64"
+        }
+        #[cfg(target_arch = "arm")]
+        {
+            "reaper-clap-linux-arm"
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "reaper-clap-macos-x86_64"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-clap-macos-aarch64.ini"
+        }
+    }
+};
 
 #[cfg(test)]
 mod tests {
