@@ -821,6 +821,7 @@ impl PresetDb {
                             })
                         },
                     },
+                    context_name: None,
                 };
                 let kind = FiledBasedPresetKind { path, file_ext };
                 Ok((common, kind))

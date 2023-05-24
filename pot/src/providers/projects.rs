@@ -215,6 +215,7 @@ impl Database for ProjectDatabase {
                     create_persistent_inner_id(project, preset_entry),
                 ),
                 name: preset_entry.track_preset.preset_name.clone(),
+                context_name: Some(project.name.clone()),
                 plugin_ids: preset_entry
                     .track_preset
                     .used_plugins

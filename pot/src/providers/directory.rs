@@ -171,6 +171,9 @@ impl Database for DirectoryDatabase {
                     create_persistent_inner_id(preset_entry),
                 ),
                 name: preset_entry.preset_name.clone(),
+                context_name: Path::new(&preset_entry.relative_path)
+                    .parent()
+                    .and_then(|p| Some(p.to_str()?.to_string())),
                 plugin_ids: preset_entry.plugin_cores.values().map(|c| c.id).collect(),
                 product_ids: preset_entry
                     .plugin_cores

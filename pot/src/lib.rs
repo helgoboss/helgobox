@@ -1184,6 +1184,8 @@ pub struct PresetCommon {
     /// but that would be wrong. It also needs to survive modifications of the preset!
     pub persistent_id: PersistentPresetId,
     pub name: String,
+    /// Used e.g. for Project database, will contain the project name.
+    pub context_name: Option<String>,
     pub plugin_ids: Vec<PluginId>,
     pub product_ids: Vec<ProductId>,
     /// Meaning depends on the database.
@@ -1842,6 +1844,7 @@ pub fn create_plugin_factory_preset(
         common: PresetCommon {
             persistent_id,
             name: preset_name,
+            context_name: None,
             plugin_ids: vec![plugin.core.id],
             product_ids: vec![plugin.core.product_id],
             product_name: Some(plugin.to_string()),

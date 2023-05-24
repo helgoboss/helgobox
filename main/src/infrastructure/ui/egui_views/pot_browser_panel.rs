@@ -1414,6 +1414,8 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
         // Plug-in or product
         .column(Column::initial(200.0).clip(true).at_least(100.0))
         // Extension
+        .column(Column::initial(50.0))
+        // Context
         .column(Column::remainder())
         .min_scrolled_height(0.0);
     if input.pot_unit.preset_id() != input.last_preset_id {
@@ -1433,6 +1435,9 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
             });
             header.col(|ui| {
                 ui.strong("Extension");
+            });
+            header.col(|ui| {
+                ui.strong("Context");
             });
         })
         .body(|body| {
@@ -1577,6 +1582,11 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                 // Extension
                 row.col(|ui| {
                     let text = preset.kind.file_extension().unwrap_or("");
+                    ui.label(text);
+                });
+                // Context
+                row.col(|ui| {
+                    let text = preset.common.context_name.as_deref().unwrap_or("");
                     ui.label(text);
                 });
             });

@@ -254,6 +254,7 @@ impl Database for IniDatabase {
                     create_persistent_inner_id(preset_entry),
                 ),
                 name: preset_entry.preset_name.clone(),
+                context_name: None,
                 plugin_ids: preset_entry
                     .plugin
                     .as_ref()
