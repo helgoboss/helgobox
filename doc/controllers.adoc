@@ -296,9 +296,10 @@ Works!
 
 This one provides many modes. The most important ones are:
 
-* _MC Std:_ This is the default mode, covers all buttons and works great with the "Mackie
-Control" preset. A potential downside is that the device itself controls the "Master" button so you can't use that
+* MC modes: The MC modes cover all buttons and work great with the "Mackie Control" preset. A potential downside is that the device itself controls the "Master" button, so you can't use that
 button in ReaLearn to customize its logic.
+** _MC Std:_ You should use this if you have a firmware < 1.10 installed.
+** _MC user:_ You should use this if you have firmware 1.10 installed.
 * _MidiRel:_ This has the advantage of having a freely assignable "Master" button. The downside is that the fader
 resolution is only 7 bit! Moreover, I've not yet created a controller preset for the MIDI mode.
 
