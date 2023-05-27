@@ -6,8 +6,8 @@ use std::fmt::{Display, Formatter};
 pub enum PluginId {
     Vst2 { vst_magic_number: i32 },
     Vst3 { vst_uid: [u32; 4] },
-    Clap { clap_id: LimitedAsciiString<64> },
-    Js { js_id: LimitedAsciiString<64> },
+    Clap { clap_id: LimitedAsciiString<100> },
+    Js { js_id: LimitedAsciiString<100> },
 }
 
 impl PluginId {
