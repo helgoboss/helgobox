@@ -523,6 +523,7 @@ fn read_js_desc_from_file(path: &Path) -> Option<String> {
                 return Some(right.trim().to_string());
             }
         }
+        buffer.clear();
     }
     None
 }
