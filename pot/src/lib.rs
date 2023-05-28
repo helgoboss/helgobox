@@ -388,10 +388,13 @@ impl Default for SearchOptions {
     }
 }
 
-#[derive(Debug, enumset::EnumSetType)]
+#[derive(Debug, enumset::EnumSetType, strum::AsRefStr, strum::EnumIter)]
 pub enum SearchField {
+    #[strum(serialize = "Name")]
     PresetName,
+    #[strum(serialize = "Plug-in/product")]
     ProductName,
+    #[strum(serialize = "Extension")]
     FileExtension,
 }
 

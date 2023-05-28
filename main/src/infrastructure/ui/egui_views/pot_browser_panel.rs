@@ -33,7 +33,7 @@ use pot::{
     LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
     MacroParam, MainThreadDispatcher, MainThreadSpawner, OptFilter, PersistentDatabaseId,
     PotFxParamId, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind, PresetWithId,
-    RuntimePotUnit, SharedRuntimePotUnit, WorkerDispatcher,
+    RuntimePotUnit, SearchField, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -1878,6 +1878,21 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
         })
         .response
         .on_hover_text("Under which conditions to show the FX window when loading a preset");
+        // Search fields
+        ui.menu_button("Search fields", |ui| {
+            let search_fields = &mut input.pot_unit.runtime_state.search_options.search_fields;
+            for search_field in SearchField::iter() {
+                let mut checked = search_fields.contains(search_field);
+                ui.checkbox(&mut checked, search_field.as_ref());
+                if checked {
+                    search_fields.insert(search_field);
+                } else {
+                    search_fields.remove(search_field);
+                }
+            }
+        })
+        .response
+        .on_hover_text("Which columns to search");
         // Wildcards
         let old_wildcard_setting = input.pot_unit.runtime_state.search_options.use_wildcards;
         ui.checkbox(
