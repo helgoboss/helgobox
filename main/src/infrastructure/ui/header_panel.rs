@@ -297,7 +297,7 @@ impl HeaderPanel {
                 .is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
-            let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
+            let last_focused_fx_id = BackboneState::get().previously_focused_fx().and_then(|fx| {
                 if fx.is_available() {
                     FxId::from_fx(&fx, true).ok()
                 } else {

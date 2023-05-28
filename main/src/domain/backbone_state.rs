@@ -16,7 +16,7 @@ use pot::{PotFavorites, PotFilterExcludes};
 use once_cell::sync::Lazy;
 use playtime_clip_engine::rt::WeakMatrix;
 use realearn_api::persistence::TargetTouchCause;
-use reaper_high::Reaper;
+use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -43,6 +43,7 @@ pub struct BackboneState {
     instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
+    recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
 }
 
 #[derive(Debug, Default)]
@@ -155,6 +156,7 @@ impl BackboneState {
             instance_states: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
+            recently_focused_fx_container: Default::default(),
         }
     }
 
@@ -473,6 +475,20 @@ impl BackboneState {
         weak_instance_state.upgrade()
     }
 
+    /// This should be called whenever the focused FX changes.
+    ///
+    /// We use this in order to be able to access the previously focused FX at all times.
+    pub fn notify_fx_focused(&self, new_fx: Option<Fx>) {
+        self.recently_focused_fx_container.borrow_mut().feed(new_fx);
+    }
+
+    /// The special thing about this is that this doesn't return the currently focused FX but the
+    /// last focused one. That's important because when queried from ReaLearn UI, the current one
+    /// is mostly ReaLearn itself - which is in most cases not what we want.
+    pub fn previously_focused_fx(&self) -> Option<Fx> {
+        self.recently_focused_fx_container.borrow().previous.clone()
+    }
+
     pub fn feedback_is_allowed(
         &self,
         instance_id: &InstanceId,
@@ -578,4 +594,28 @@ const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance al
 pub struct TargetTouchEvent {
     pub target: ReaperTarget,
     pub caused_by_realearn: bool,
+}
+
+#[derive(Debug, Default)]
+struct RecentlyFocusedFxContainer {
+    previous: Option<Fx>,
+    current: Option<Fx>,
+}
+
+impl RecentlyFocusedFxContainer {
+    fn feed(&mut self, new_fx: Option<Fx>) {
+        // Never clear any memorized FX.
+        let Some(new_fx) = new_fx else {
+            return;
+        };
+        // Don't rotate if current FX has not changed.
+        if let Some(current) = self.current.as_ref() {
+            if &new_fx == current {
+                return;
+            }
+        }
+        // Rotate
+        self.previous = self.current.take();
+        self.current = Some(new_fx);
+    }
 }

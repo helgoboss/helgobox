@@ -94,7 +94,6 @@ pub struct App {
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
-    recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
@@ -176,30 +175,6 @@ impl Default for App {
             Default::default()
         });
         App::new(config)
-    }
-}
-
-#[derive(Debug, Default)]
-struct RecentlyFocusedFxContainer {
-    previous: Option<Fx>,
-    current: Option<Fx>,
-}
-
-impl RecentlyFocusedFxContainer {
-    fn feed(&mut self, new_fx: Option<Fx>) {
-        // Never clear any memorized FX.
-        let Some(new_fx) = new_fx else {
-            return;
-        };
-        // Don't rotate if current FX has not changed.
-        if let Some(current) = self.current.as_ref() {
-            if &new_fx == current {
-                return;
-            }
-        }
-        // Rotate
-        self.previous = self.current.take();
-        self.current = Some(new_fx);
     }
 }
 
@@ -292,7 +267,6 @@ impl App {
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
-            recently_focused_fx_container: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender(main_sender),
             clip_matrix_event_sender,
@@ -360,17 +334,10 @@ impl App {
         server::http::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
-        let list_of_recently_focused_fx = self.recently_focused_fx_container.clone();
         self.osc_device_manager
             .borrow()
             .changed()
             .subscribe(|_| App::get().reconnect_osc_devices());
-        Global::control_surface_rx()
-            .fx_focused()
-            .take_until(self.party_is_over())
-            .subscribe(move |fx| {
-                list_of_recently_focused_fx.borrow_mut().feed(fx);
-            });
         let shared_main_processors = SharedMainProcessors::default();
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
@@ -719,13 +686,6 @@ impl App {
             accelerator_handle: awake_state.accelerator_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
-    }
-
-    /// The special thing about this is that this doesn't return the currently focused FX but the
-    /// last focused one. That's important because when queried from ReaLearn UI, the current one
-    /// is mostly ReaLearn itself - which is in most cases not what we want.
-    pub fn previously_focused_fx(&self) -> Option<Fx> {
-        self.recently_focused_fx_container.borrow().previous.clone()
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
@@ -1548,10 +1508,6 @@ impl App {
 
     fn notify_changed(&self) {
         self.changed_subject.borrow_mut().next(());
-    }
-
-    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.party_is_over_subject.clone()
     }
 
     fn do_with_initiator_session_or_sessions_matching_tags(

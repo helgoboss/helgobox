@@ -699,6 +699,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // We always need to forward to the change detection middleware even if we are in
         // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
+            // Notify backbone whenever focused FX changes
+            if let ChangeEvent::FxFocused(evt) = &e {
+                BackboneState::get().notify_fx_focused(evt.fx.clone());
+            }
             // We don't process change events immediately in order to be able to process
             // multiple events occurring in one main loop cycle as a natural batch. This
             // is important for performance reasons
