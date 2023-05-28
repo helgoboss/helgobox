@@ -434,10 +434,10 @@ impl SearchEvaluator {
         if self.processed_search_expression.is_empty() {
             return true;
         }
-        if self.options.search_fields.contains(SearchField::PresetName) {
-            if self.matches_normal(input.preset_name()) {
-                return true;
-            }
+        if self.options.search_fields.contains(SearchField::PresetName)
+            && self.matches_normal(input.preset_name())
+        {
+            return true;
         }
         if self
             .options

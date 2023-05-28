@@ -258,12 +258,12 @@ impl<'a> SearchInput for DirectorySearchInput<'a> {
     }
 
     fn product_name(&self) -> Option<Cow<str>> {
-        let product_name = build_product_name(self.ctx, &self.preset_entry)?;
+        let product_name = build_product_name(self.ctx, self.preset_entry)?;
         Some(product_name.into())
     }
 
     fn file_extension(&self) -> Option<&str> {
-        Some(get_file_extension(&self.preset_entry.relative_path).into())
+        Some(get_file_extension(&self.preset_entry.relative_path))
     }
 }
 

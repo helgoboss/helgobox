@@ -308,7 +308,7 @@ impl<'a> SearchInput for IniSearchInput<'a> {
             .plugin
             .as_ref()
             .and_then(|entry| self.ctx.plugin_db.find_plugin_by_id(&entry.id));
-        Some(build_product_name(&self.preset_entry, plugin))
+        Some(build_product_name(self.preset_entry, plugin))
     }
 
     fn file_extension(&self) -> Option<&str> {

@@ -228,7 +228,7 @@ impl RealearnTarget for FxParameterTarget {
                 self.with_macro_param(|_, _, p| PropValue::Text(p.name.clone().into()))
             }
             "fx_parameter.macro.bank.name" => {
-                self.with_macro_param(|b, _, _| PropValue::Text(b.name().to_string().into()))
+                self.with_macro_param(|b, _, _| PropValue::Text(b.name().into()))
             }
             "fx_parameter.macro.section.name" => self.with_macro_param(|b, i, _| {
                 let section_name = b.resolve_param_section_name(i);
