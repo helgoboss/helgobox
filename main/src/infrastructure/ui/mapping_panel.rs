@@ -27,8 +27,9 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
-    MidiScriptKind, MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind,
+    MappingModificationKind, MidiScriptKind, MonitoringMode, MouseButton, PotFilterKind,
+    SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -7828,7 +7829,15 @@ fn has_multiple_lines(text: &str) -> bool {
 }
 
 fn get_relevant_target_fx(mapping: &MappingModel, session: &Session) -> Option<Fx> {
-    if mapping.target_model.fx_type() == VirtualFxType::Focused {
+    let is_focused_fx_type = {
+        let fx_type = mapping.target_model.fx_type();
+        if fx_type == VirtualFxType::Instance {
+            session.instance_fx_descriptor() == &FxDescriptor::Focused
+        } else {
+            fx_type == VirtualFxType::Focused
+        }
+    };
+    if is_focused_fx_type {
         // This is a special case. Since ReaLearn 2.14.0-pre.10, an FX is not
         // considered as focused anymore when clicking somewhere else. So we would
         // never obtain an FX instance here because user clicks into the mapping
