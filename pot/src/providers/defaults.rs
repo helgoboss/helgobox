@@ -4,7 +4,7 @@ use crate::provider_database::{
 use crate::{
     create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId,
-    PluginIdInPipeFormat, Preset,
+    PluginIdInPipeFormat, Preset, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -98,11 +98,12 @@ impl Database for DefaultsDatabase {
         _: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        if !input.search_evaluator.matches(PRESET_NAME) {
-            return Ok(vec![]);
-        }
         let preset_ids = self
             .query_presets_internal(&input.filter_input)
+            .filter(|(_, entry)| {
+                let search_input = DefaultSearchInput { entry };
+                input.search_evaluator.matches(search_input)
+            })
             .map(|(i, _)| SortablePresetId::new(i as _, PRESET_NAME.to_string()))
             .collect();
         Ok(preset_ids)
@@ -125,4 +126,22 @@ const PRESET_NAME: &str = "<Default>";
 fn create_persistent_inner_id(plugin_id: &PluginId) -> PersistentInnerPresetId {
     let id = PluginIdInPipeFormat(plugin_id).to_string();
     PersistentInnerPresetId::new(id)
+}
+
+struct DefaultSearchInput<'a> {
+    entry: &'a PluginCommon,
+}
+
+impl<'a> SearchInput for DefaultSearchInput<'a> {
+    fn preset_name(&self) -> &str {
+        PRESET_NAME
+    }
+
+    fn product_name(&self) -> Option<Cow<str>> {
+        Some(self.entry.name.to_string().into())
+    }
+
+    fn file_extension(&self) -> Option<&str> {
+        None
+    }
 }

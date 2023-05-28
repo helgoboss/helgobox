@@ -97,6 +97,7 @@ impl SortablePresetId {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct ProviderContext<'a> {
     pub plugin_db: &'a PluginDatabase,
 }

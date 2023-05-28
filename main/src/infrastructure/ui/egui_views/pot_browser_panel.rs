@@ -325,16 +325,15 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                 };
                 ui.vertical_centered(|ui| {
                     ui.label(
-                        "At the moment, Pot Browser is in an experimental stage and will not save \
-                        any of your settings! Also be aware that previews generated with this \
-                        version might get disassociated from their corresponding presets when \
-                        upgrading to a newer version.",
+                        "Although being very useful already for daily preset browsing and preview \
+                        recording, Pot Browser is still in its infancy. It will not save any of \
+                        your settings!",
                     );
                     ui.add_space(20.0);
                     ui.label(
                         RichText::new(
                             "Therefore, better don't spend much time yet creating the perfect \
-                            configuration or recording thousands of previews!",
+                            configuration! It will be gone after REAPER restarts.",
                         )
                         .strong(),
                     );
@@ -1880,16 +1879,16 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
         .response
         .on_hover_text("Under which conditions to show the FX window when loading a preset");
         // Wildcards
-        let old_wildcard_setting = input.pot_unit.runtime_state.use_wildcard_search;
+        let old_wildcard_setting = input.pot_unit.runtime_state.search_options.use_wildcards;
         ui.checkbox(
-            &mut input.pot_unit.runtime_state.use_wildcard_search,
+            &mut input.pot_unit.runtime_state.search_options.use_wildcards,
             "Wildcards",
         )
         .on_hover_text(
             "Allows more accurate search by enabling wildcards: Use * to match any \
         string and ? to match any letter!",
         );
-        if input.pot_unit.runtime_state.use_wildcard_search != old_wildcard_setting {
+        if input.pot_unit.runtime_state.search_options.use_wildcards != old_wildcard_setting {
             input.pot_unit.rebuild_collections(
                 input.shared_pot_unit.clone(),
                 ChangeHint::SearchExpression,

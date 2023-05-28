@@ -4,11 +4,11 @@ use crate::provider_database::{
 use crate::{
     FilterInput, InnerBuildInput, InnerPresetId, InternalPresetKind, PersistentDatabaseId,
     PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginKind, Preset, PresetCommon,
-    PresetKind,
+    PresetKind, SearchInput,
 };
 use std::borrow::Cow;
 
-use crate::plugins::{PluginCore, SuperPluginKind};
+use crate::plugins::{Plugin, PluginCore, SuperPluginKind};
 use base::hash_util::{PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
@@ -230,12 +230,15 @@ impl Database for IniDatabase {
 
     fn query_presets(
         &self,
-        _: &ProviderContext,
+        ctx: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
             .query_presets_internal(&input.filter_input)
-            .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
+            .filter(|(_, preset_entry)| {
+                let search_input = IniSearchInput { ctx, preset_entry };
+                input.search_evaluator.matches(search_input)
+            })
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();
         Ok(preset_ids)
@@ -267,13 +270,7 @@ impl Database for IniDatabase {
                     .map(|p| p.product_id)
                     .into_iter()
                     .collect(),
-                product_name: {
-                    let name = match plugin {
-                        None => preset_entry.plugin_identifier.to_string(),
-                        Some(p) => p.common.to_string(),
-                    };
-                    Some(name)
-                },
+                product_name: Some(build_product_name(preset_entry, plugin).to_string()),
                 content_hash: preset_entry.content_hash,
                 db_specific_preview_file: None,
                 metadata: Default::default(),
@@ -293,4 +290,35 @@ fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPres
     let escaped_preset_name = PipeEscaped(&preset_entry.preset_name);
     let id = format!("{plugin_kind}-{plugin_identifier}.ini|{escaped_preset_name}");
     PersistentInnerPresetId::new(id)
+}
+
+struct IniSearchInput<'a> {
+    ctx: &'a ProviderContext<'a>,
+    preset_entry: &'a PresetEntry,
+}
+
+impl<'a> SearchInput for IniSearchInput<'a> {
+    fn preset_name(&self) -> &str {
+        &self.preset_entry.preset_name
+    }
+
+    fn product_name(&self) -> Option<Cow<str>> {
+        let plugin = self
+            .preset_entry
+            .plugin
+            .as_ref()
+            .and_then(|entry| self.ctx.plugin_db.find_plugin_by_id(&entry.id));
+        Some(build_product_name(&self.preset_entry, plugin))
+    }
+
+    fn file_extension(&self) -> Option<&str> {
+        None
+    }
+}
+
+fn build_product_name<'a>(preset_entry: &'a PresetEntry, plugin: Option<&Plugin>) -> Cow<'a, str> {
+    match plugin {
+        None => preset_entry.plugin_identifier.as_str().into(),
+        Some(p) => p.common.to_string().into(),
+    }
 }

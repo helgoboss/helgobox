@@ -8,6 +8,7 @@ use crate::{
     Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
     PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetadata, ProductId, SearchEvaluator,
+    SearchField, SearchOptions,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -494,7 +495,13 @@ impl Database for KompleteDatabase {
             Some(FilterItemId(Some(FIL_IS_SUPPORTED_FALSE))),
         );
         // Look for exact preset name match
-        let search_evaluator = SearchEvaluator::new(preset_name, true);
+        let search_evaluator = SearchEvaluator::new(
+            preset_name,
+            SearchOptions {
+                use_wildcards: true,
+                search_fields: enum_set!(SearchField::PresetName),
+            },
+        );
         let mut preset_db = blocking_lock(
             &self.primary_preset_db,
             "Komplete DB find_unsupported_preset_matching",
@@ -835,25 +842,21 @@ impl PresetDb {
         search_evaluator: &SearchEvaluator,
         exclude_list: &PotFilterExcludes,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
-        let search_criteria = SearchCriteria {
-            expression: search_evaluator.processed_search_expression(),
-            use_wildcards: search_evaluator.use_wildcards(),
-        };
         let preset_collection =
-            self.build_preset_collection(filters, search_criteria, exclude_list)?;
+            self.build_preset_collection(filters, search_evaluator, exclude_list)?;
         Ok(preset_collection)
     }
 
     fn build_preset_collection(
         &mut self,
         filter_settings: &Filters,
-        search_criteria: SearchCriteria,
+        search_evaluator: &SearchEvaluator,
         exclude_list: &PotFilterExcludes,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         tracing::trace!("build_preset_collection...");
         self.execute_preset_query(
             filter_settings,
-            search_criteria,
+            search_evaluator,
             "DISTINCT i.id, i.name",
             None,
             exclude_list,
@@ -871,7 +874,7 @@ impl PresetDb {
         tracing::trace!("find_non_empty_banks...");
         self.execute_preset_query(
             &filters,
-            SearchCriteria::empty(),
+            &SearchEvaluator::default(),
             "DISTINCT i.bank_chain_id",
             None,
             exclude_list,
@@ -889,7 +892,7 @@ impl PresetDb {
         tracing::trace!("find_non_empty_categories...");
         self.execute_preset_query(
             &filters,
-            SearchCriteria::empty(),
+            &SearchEvaluator::default(),
             "DISTINCT ic.category_id",
             Some(CATEGORY_JOIN),
             exclude_list,
@@ -907,7 +910,7 @@ impl PresetDb {
         tracing::trace!("find_non_empty_modes...");
         self.execute_preset_query(
             &filters,
-            SearchCriteria::empty(),
+            &SearchEvaluator::default(),
             "DISTINCT im.mode_id",
             Some(MODE_JOIN),
             exclude_list,
@@ -920,7 +923,7 @@ impl PresetDb {
     fn execute_preset_query<C, R>(
         &mut self,
         filter_settings: &Filters,
-        search_criteria: SearchCriteria,
+        search_evaluator: &SearchEvaluator,
         select_clause: &str,
         from_more: Option<&str>,
         exclude_list: &PotFilterExcludes,
@@ -1086,8 +1089,8 @@ impl PresetDb {
             }
         }
         // Search expression
-        let search_expression = search_criteria.expression;
-        let like_expression: String = if search_criteria.use_wildcards {
+        let search_expression = &search_evaluator.processed_search_expression;
+        let like_expression: String = if search_evaluator.options.use_wildcards {
             search_expression
                 .chars()
                 .map(|x| match x {
@@ -1099,8 +1102,31 @@ impl PresetDb {
         } else {
             format!("%{search_expression}%")
         };
-        if !search_expression.is_empty() {
-            sql.where_and_with_param("i.name LIKE ?", &like_expression);
+        if !search_evaluator.options.search_fields.is_empty() && !search_expression.is_empty() {
+            let mut conjunction = String::new();
+            conjunction += "(";
+            for (i, field) in search_evaluator.options.search_fields.iter().enumerate() {
+                if i > 0 {
+                    conjunction += " OR ";
+                }
+                match field {
+                    SearchField::PresetName => {
+                        conjunction += "i.name LIKE ?";
+                        sql.add_param(&like_expression);
+                    }
+                    SearchField::ProductName => {
+                        sql.more_from(BANK_CHAIN_JOIN);
+                        conjunction += "bc.entry1 LIKE ?";
+                        sql.add_param(&like_expression);
+                    }
+                    SearchField::FileExtension => {
+                        conjunction += "i.file_ext = ?";
+                        sql.add_param(search_expression);
+                    }
+                }
+            }
+            conjunction += ")";
+            sql.where_and(conjunction);
         }
         // Exclude filters
         for kind in PotFilterKind::into_enum_iter() {
@@ -1182,18 +1208,6 @@ fn map_to_komplete_filter_id(row: &Row) -> Result<Option<u32>, rusqlite::Error> 
 }
 
 #[derive(Default)]
-struct SearchCriteria<'a> {
-    expression: &'a str,
-    use_wildcards: bool,
-}
-
-impl<'a> SearchCriteria<'a> {
-    pub fn empty() -> Self {
-        Self::default()
-    }
-}
-
-#[derive(Default)]
 struct Sql<'a> {
     select_clause: Cow<'a, str>,
     from_main: Cow<'a, str>,
@@ -1218,6 +1232,10 @@ impl<'a> Sql<'a> {
 
     pub fn where_and_with_param(&mut self, value: impl Into<Cow<'a, str>>, param: &'a dyn ToSql) {
         self.where_and(value);
+        self.params.push(param);
+    }
+
+    pub fn add_param(&mut self, param: &'a dyn ToSql) {
         self.params.push(param);
     }
 
@@ -1273,6 +1291,7 @@ const BANK_SQL_QUERY: &str =
 const CONTENT_PATH_JOIN: &str = "JOIN k_content_path cp ON cp.id = i.content_path_id";
 const CATEGORY_JOIN: &str = "JOIN k_sound_info_category ic ON i.id = ic.sound_info_id";
 const MODE_JOIN: &str = "JOIN k_sound_info_mode im ON i.id = im.sound_info_id";
+const BANK_CHAIN_JOIN: &str = "JOIN k_bank_chain bc ON i.bank_chain_id = bc.id";
 const ZERO: u32 = 0;
 const ONE: u32 = 1;
 const TWO: u32 = 2;

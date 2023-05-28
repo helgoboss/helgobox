@@ -4,7 +4,7 @@ use crate::provider_database::{
 use crate::{
     Fil, FilterInput, FilterItem, FilterItemId, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId,
-    Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId,
+    Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -189,15 +189,14 @@ impl Database for ProjectDatabase {
 
     fn query_presets(
         &self,
-        _: &ProviderContext,
+        ctx: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
             .query_presets_internal(&input.filter_input)
-            .filter(|(_, entry)| {
-                input
-                    .search_evaluator
-                    .matches(&entry.track_preset.preset_name)
+            .filter(|(_, preset_entry)| {
+                let search_input = ProjectSearchInput { ctx, preset_entry };
+                input.search_evaluator.matches(search_input)
             })
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.track_preset.preset_name.clone()))
             .collect();
@@ -228,15 +227,7 @@ impl Database for ProjectDatabase {
                     .values()
                     .map(|c| c.product_id)
                     .collect(),
-                product_name: if preset_entry.track_preset.used_plugins.len() > 1 {
-                    Some("<Multiple>".to_string())
-                } else if let Some(first) = preset_entry.track_preset.used_plugins.values().next() {
-                    ctx.plugin_db
-                        .find_plugin_by_id(&first.id)
-                        .map(|p| p.common.to_string())
-                } else {
-                    None
-                },
+                product_name: build_product_name(ctx, preset_entry).map(|n| n.to_string()),
                 content_hash: Some(preset_entry.track_preset.content_hash),
                 db_specific_preview_file: None,
                 metadata: Default::default(),
@@ -396,4 +387,38 @@ fn extract_presets(
             Some(preset_entry)
         })
         .collect()
+}
+
+struct ProjectSearchInput<'a> {
+    ctx: &'a ProviderContext<'a>,
+    preset_entry: &'a PresetEntry,
+}
+
+impl<'a> SearchInput for ProjectSearchInput<'a> {
+    fn preset_name(&self) -> &str {
+        &self.preset_entry.track_preset.preset_name
+    }
+
+    fn product_name(&self) -> Option<Cow<str>> {
+        build_product_name(self.ctx, self.preset_entry)
+    }
+
+    fn file_extension(&self) -> Option<&str> {
+        None
+    }
+}
+
+fn build_product_name(
+    ctx: &ProviderContext,
+    preset_entry: &PresetEntry,
+) -> Option<Cow<'static, str>> {
+    if preset_entry.track_preset.used_plugins.len() > 1 {
+        Some("<Multiple>".into())
+    } else if let Some(first) = preset_entry.track_preset.used_plugins.values().next() {
+        ctx.plugin_db
+            .find_plugin_by_id(&first.id)
+            .map(|p| p.common.to_string().into())
+    } else {
+        None
+    }
 }

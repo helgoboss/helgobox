@@ -4,7 +4,7 @@ use crate::provider_database::{
 use crate::{
     FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
     PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
-    PresetKind,
+    PresetKind, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -150,12 +150,18 @@ impl Database for DirectoryDatabase {
 
     fn query_presets(
         &self,
-        _: &ProviderContext,
+        ctx: &ProviderContext,
         input: InnerBuildInput,
     ) -> Result<Vec<SortablePresetId>, Box<dyn Error>> {
         let preset_ids = self
             .query_presets_internal(&input.filter_input)
-            .filter(|(_, entry)| input.search_evaluator.matches(&entry.preset_name))
+            .filter(|(_, entry)| {
+                let search_input = DirectorySearchInput {
+                    ctx,
+                    preset_entry: entry,
+                };
+                input.search_evaluator.matches(search_input)
+            })
             .map(|(i, entry)| SortablePresetId::new(i as _, entry.preset_name.clone()))
             .collect();
         Ok(preset_ids)
@@ -163,7 +169,6 @@ impl Database for DirectoryDatabase {
 
     fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
-        let relative_path = PathBuf::from(&preset_entry.relative_path);
         let preset = Preset {
             common: PresetCommon {
                 persistent_id: PersistentPresetId::new(
@@ -180,26 +185,14 @@ impl Database for DirectoryDatabase {
                     .values()
                     .map(|c| c.product_id)
                     .collect(),
-                product_name: if preset_entry.plugin_cores.len() > 1 {
-                    Some("<Multiple>".to_string())
-                } else if let Some(first) = preset_entry.plugin_cores.values().next() {
-                    ctx.plugin_db
-                        .find_plugin_by_id(&first.id)
-                        .map(|p| p.common.to_string())
-                } else {
-                    None
-                },
+                product_name: build_product_name(ctx, preset_entry),
                 content_hash: Some(preset_entry.content_hash),
                 db_specific_preview_file: None,
                 metadata: Default::default(),
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {
-                file_ext: relative_path
-                    .extension()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string(),
-                path: self.root_dir.join(relative_path),
+                file_ext: get_file_extension(&preset_entry.relative_path).to_string(),
+                path: self.root_dir.join(&preset_entry.relative_path),
             }),
         };
         Some(preset)
@@ -252,4 +245,44 @@ fn process_file(
 fn create_persistent_inner_id(preset_entry: &PresetEntry) -> PersistentInnerPresetId {
     let escaped_path = PipeEscaped(preset_entry.relative_path.as_str());
     PersistentInnerPresetId::new(escaped_path.to_string())
+}
+
+struct DirectorySearchInput<'a> {
+    ctx: &'a ProviderContext<'a>,
+    preset_entry: &'a PresetEntry,
+}
+
+impl<'a> SearchInput for DirectorySearchInput<'a> {
+    fn preset_name(&self) -> &str {
+        &self.preset_entry.preset_name
+    }
+
+    fn product_name(&self) -> Option<Cow<str>> {
+        let product_name = build_product_name(self.ctx, &self.preset_entry)?;
+        Some(product_name.into())
+    }
+
+    fn file_extension(&self) -> Option<&str> {
+        Some(get_file_extension(&self.preset_entry.relative_path).into())
+    }
+}
+
+fn build_product_name(ctx: &ProviderContext, preset_entry: &PresetEntry) -> Option<String> {
+    if preset_entry.plugin_cores.len() > 1 {
+        Some("<Multiple>".to_string())
+    } else if let Some(first) = preset_entry.plugin_cores.values().next() {
+        ctx.plugin_db
+            .find_plugin_by_id(&first.id)
+            .map(|p| p.common.to_string())
+    } else {
+        None
+    }
+}
+
+fn get_file_extension(relative_path: &str) -> &str {
+    Path::new(relative_path)
+        .extension()
+        .unwrap()
+        .to_str()
+        .unwrap()
 }

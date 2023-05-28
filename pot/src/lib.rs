@@ -366,22 +366,52 @@ impl<'a> FilterInput<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SearchEvaluator {
     processed_search_expression: String,
+    options: SearchOptions,
     wild_match: Option<WildMatch>,
 }
 
+#[derive(Clone, Debug)]
+pub struct SearchOptions {
+    pub use_wildcards: bool,
+    pub search_fields: EnumSet<SearchField>,
+}
+
+impl Default for SearchOptions {
+    fn default() -> Self {
+        Self {
+            use_wildcards: false,
+            search_fields: EnumSet::all(),
+        }
+    }
+}
+
+#[derive(Debug, enumset::EnumSetType)]
+pub enum SearchField {
+    PresetName,
+    ProductName,
+    FileExtension,
+}
+
+pub trait SearchInput {
+    fn preset_name(&self) -> &str;
+    fn product_name(&self) -> Option<Cow<str>>;
+    fn file_extension(&self) -> Option<&str>;
+}
+
 impl SearchEvaluator {
-    pub fn new(raw_search_expression: &str, use_wildcards: bool) -> Self {
+    pub fn new(raw_search_expression: &str, options: SearchOptions) -> Self {
         let processed_search_expression = raw_search_expression.trim().to_lowercase();
         Self {
-            wild_match: if use_wildcards {
+            wild_match: if options.use_wildcards {
                 Some(WildMatch::new(&processed_search_expression))
             } else {
                 None
             },
             processed_search_expression,
+            options,
         }
     }
 
@@ -389,19 +419,58 @@ impl SearchEvaluator {
         &self.processed_search_expression
     }
 
+    pub fn options(&self) -> &SearchOptions {
+        &self.options
+    }
+
     pub fn use_wildcards(&self) -> bool {
         self.wild_match.is_some()
     }
 
-    pub fn matches(&self, text: &str) -> bool {
+    pub fn matches(&self, input: impl SearchInput) -> bool {
         if self.processed_search_expression.is_empty() {
             return true;
         }
+        if self.options.search_fields.contains(SearchField::PresetName) {
+            if self.matches_normal(input.preset_name()) {
+                return true;
+            }
+        }
+        if self
+            .options
+            .search_fields
+            .contains(SearchField::ProductName)
+        {
+            if let Some(product_name) = input.product_name() {
+                if self.matches_normal(&product_name) {
+                    return true;
+                }
+            }
+        }
+        if self
+            .options
+            .search_fields
+            .contains(SearchField::FileExtension)
+        {
+            if let Some(ext) = input.file_extension() {
+                if self.matches_exact(ext) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn matches_normal(&self, text: &str) -> bool {
         let lowercase_text = text.to_lowercase();
         match &self.wild_match {
             None => lowercase_text.contains(&self.processed_search_expression),
             Some(wild_match) => wild_match.matches(&lowercase_text),
         }
+    }
+
+    fn matches_exact(&self, text: &str) -> bool {
+        self.processed_search_expression == text.to_lowercase()
     }
 }
 
@@ -429,7 +498,7 @@ impl ChangeHint {
 pub struct RuntimeState {
     pub filters: Filters,
     pub search_expression: String,
-    pub use_wildcard_search: bool,
+    pub search_options: SearchOptions,
     preset_id: Option<PresetId>,
 }
 
@@ -476,7 +545,7 @@ impl RuntimeState {
         let state = Self {
             filters: Default::default(),
             search_expression: "".to_string(),
-            use_wildcard_search: false,
+            search_options: Default::default(),
             preset_id: None,
         };
         Ok(state)
@@ -872,7 +941,7 @@ impl RuntimePotUnit {
             filters: self.runtime_state.filters,
             search_evaluator: SearchEvaluator::new(
                 &self.runtime_state.search_expression,
-                self.runtime_state.use_wildcard_search,
+                self.runtime_state.search_options.clone(),
             ),
             filter_excludes: if self.show_excluded_filter_items {
                 PotFilterExcludes::default()
