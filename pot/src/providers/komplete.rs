@@ -1102,31 +1102,35 @@ impl PresetDb {
         } else {
             format!("%{search_expression}%")
         };
-        if !search_evaluator.options.search_fields.is_empty() && !search_expression.is_empty() {
-            let mut conjunction = String::new();
-            conjunction += "(";
-            for (i, field) in search_evaluator.options.search_fields.iter().enumerate() {
-                if i > 0 {
-                    conjunction += " OR ";
+        if !search_expression.is_empty() {
+            if search_evaluator.options.search_fields.is_empty() {
+                sql.where_and_false();
+            } else {
+                let mut conjunction = String::new();
+                conjunction += "(";
+                for (i, field) in search_evaluator.options.search_fields.iter().enumerate() {
+                    if i > 0 {
+                        conjunction += " OR ";
+                    }
+                    match field {
+                        SearchField::PresetName => {
+                            conjunction += "i.name LIKE ?";
+                            sql.add_param(&like_expression);
+                        }
+                        SearchField::ProductName => {
+                            sql.more_from(BANK_CHAIN_JOIN);
+                            conjunction += "bc.entry1 LIKE ?";
+                            sql.add_param(&like_expression);
+                        }
+                        SearchField::FileExtension => {
+                            conjunction += "i.file_ext = ?";
+                            sql.add_param(search_expression);
+                        }
+                    }
                 }
-                match field {
-                    SearchField::PresetName => {
-                        conjunction += "i.name LIKE ?";
-                        sql.add_param(&like_expression);
-                    }
-                    SearchField::ProductName => {
-                        sql.more_from(BANK_CHAIN_JOIN);
-                        conjunction += "bc.entry1 LIKE ?";
-                        sql.add_param(&like_expression);
-                    }
-                    SearchField::FileExtension => {
-                        conjunction += "i.file_ext = ?";
-                        sql.add_param(search_expression);
-                    }
-                }
+                conjunction += ")";
+                sql.where_and(conjunction);
             }
-            conjunction += ")";
-            sql.where_and(conjunction);
         }
         // Exclude filters
         for kind in PotFilterKind::into_enum_iter() {
