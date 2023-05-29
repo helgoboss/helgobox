@@ -1,7 +1,8 @@
 use crate::domain::RealearnClipMatrix;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
-use futures::{Stream, StreamExt};
+use base::future_util;
+use futures::{FutureExt, Stream, StreamExt};
 use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
@@ -22,14 +23,13 @@ use playtime_clip_engine::proto::{
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
-use reaper_medium::{
-    Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, TrackMuteState, UndoBehavior,
-};
+use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, UndoBehavior};
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::time::Duration;
 use std::{future, iter};
 use tokio_stream::wrappers::BroadcastStream;
-use tonic::{Request, Response, Status};
+use tonic::{Code, Request, Response, Status};
 
 #[derive(Debug, Default)]
 pub struct RealearnClipEngine {}
@@ -353,7 +353,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 let column = matrix.get_column(column_index)?;
                 let track = column.playback_track()?;
                 track.set_mute(
-                    track.is_muted(),
+                    !track.is_muted(),
                     GangBehavior::DenyGang,
                     GroupingBehavior::PreventGrouping,
                 );
@@ -374,7 +374,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 let column = matrix.get_column(column_index)?;
                 let track = column.playback_track()?;
                 track.set_armed(
-                    track.is_armed(false),
+                    !track.is_armed(false),
                     GangBehavior::DenyGang,
                     GroupingBehavior::PreventGrouping,
                 );
@@ -480,7 +480,17 @@ where
     F: Fn(T) -> R + Send + Sync + 'static,
     I: Iterator<Item = R> + Send + Sync + 'static,
 {
+    // Stream that waits 1 millisecond and emits nothing
+    // This is done to (hopefully) prevent the following client-side Dart error, which otherwise
+    // would occur sporadically when attempting to connect:
+    // [ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: gRPC Error (code: 2, codeName: UNKNOWN, message: HTTP/2 error: Connection error: Connection is being forcefully terminated. (errorCode: 1), details: null, rawResponse: null, trailers: {})
+    let wait_one_milli = future_util::millis(1)
+        .map(|_| Err(Status::unknown("skipped")))
+        .into_stream()
+        .skip(1);
+    // Stream for sending the initial state
     let initial_stream = futures::stream::iter(initial.map(|r| Ok(r)));
+    // Stream for sending occasional updates
     let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
         let res = match value {
             // Error
@@ -495,7 +505,7 @@ where
         future::ready(res)
     });
     Ok(Response::new(Box::pin(
-        initial_stream.chain(receiver_stream),
+        wait_one_milli.chain(initial_stream).chain(receiver_stream),
     )))
 }
 
